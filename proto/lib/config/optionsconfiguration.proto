@@ -44,7 +44,7 @@ message OptionsConfiguration {
     int32           temp_index_min_blocks                    = 35 [(ext.default) = "10"];
     repeated string unacked_notification_ids                 = 36 [(ext.goname) = "UnackedNotificationIDs", (ext.xml) = "unackedNotificationID", (ext.json) = "unackedNotificationIDs"];
     int32           traffic_class                            = 37;
-    string          default_folder_path                      = 38 [(ext.default) = "~"];
+    string          default_folder_path                      = 38 [deprecated = true];
     bool            set_low_priority                         = 39 [(ext.default) = "true"];
     int32           max_folder_concurrency                   = 40 [(ext.goname) = "RawMaxFolderConcurrency"];
     string          crash_reporting_url                      = 41 [(ext.goname) = "CRURL", (ext.xml) = "crashReportingURL", (ext.json) = "crURL", (ext.default) = "https://crash.syncthing.net/newcrash"];

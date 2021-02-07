@@ -40,12 +40,13 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
+	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
+
 	defaultFolderConfig = testFolderConfig("testdata")
 	defaultFs = defaultFolderConfig.Filesystem()
 
-	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
 	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
-		cfg.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
 		cfg.SetFolder(defaultFolderConfig)
 		cfg.Options.KeepTemporariesH = 1
 	})
@@ -68,8 +69,10 @@ func init() {
 				AutoAcceptFolders: true,
 			},
 		},
-		Options: config.OptionsConfiguration{
-			DefaultFolderPath: ".",
+		Defaults: config.Defaults{
+			Folder: config.FolderConfiguration{
+				Path: ".",
+			},
 		},
 	}
 }
@@ -104,14 +107,14 @@ func testFolderConfigTmp() config.FolderConfiguration {
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, path)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
 func testFolderConfigFake() config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
@@ -326,6 +329,13 @@ func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	})
 }
 
+func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.DeviceID, name string) config.DeviceConfiguration {
+	cfg := defaultCfg.Copy()
+	cfg.DeviceID = id
+	cfg.Name = name
+	return cfg
+}
+
 func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
 	t.Helper()
 	fset, err := db.NewFileSet(folder, fs, ldb)
@@ -394,7 +404,7 @@ func setDevice(t testing.TB, w config.Wrapper, device config.DeviceConfiguration
 
 func addDevice2(t testing.TB, w config.Wrapper, fcfg config.FolderConfiguration) {
 	waiter, err := w.Modify(func(cfg *config.Configuration) {
-		cfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
 		fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 		cfg.SetFolder(fcfg)
 	})

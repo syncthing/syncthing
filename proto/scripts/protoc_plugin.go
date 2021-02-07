@@ -292,6 +292,13 @@ func HandleCustomExtensions(file *descriptor.FileDescriptorProto) func(msg *desc
 				current += fmt.Sprintf(`default:"%s"`, defaultValue)
 			}
 
+			if nodefaultValue, ok := GetFieldBooleanExtension(field, ext.E_Nodefault); ok {
+				if len(current) > 0 {
+					current += " "
+				}
+				current += fmt.Sprintf(`nodefault:"%t"`, nodefaultValue)
+			}
+
 			if restartValue, ok := GetFieldBooleanExtension(field, ext.E_Restart); ok {
 				if len(current) > 0 {
 					current += " "

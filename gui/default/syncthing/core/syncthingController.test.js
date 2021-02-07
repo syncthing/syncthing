@@ -12,7 +12,7 @@ describe('SyncthingController', function() {
         $scope.system = { pathSeparator: '/' };
     }));
 
-    describe('editFolder', function() {
+    describe('editFolderExisting', function() {
         var ignoreTreeSpy, ignoresSpy;
 
         beforeEach(function () {
@@ -28,30 +28,30 @@ describe('SyncthingController', function() {
         });
 
         it('binds to IgnoresService', function () {
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
+            $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             expect($scope.ignores.text).toBe(IgnoresService.data.text);
         });
 
         it('fetches folder ignore patterns', function () {
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
+            $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             expect(ignoresSpy).toHaveBeenCalledWith('default');
         });
 
         it('enables basic ignore UI', async function () {
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
+            $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             await Promise.resolve();
             expect($scope.currentFolder._ignoreIsBasic).toBeTrue();
             expect($scope.currentFolder._ignoreIsEditingAdvanced).toBeFalse();
         });
 
         it('reloads basic UI', async function () {
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
+            $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             await Promise.resolve();
             expect(ignoreTreeSpy).toHaveBeenCalledWith('default');
         });
 
         it('sets ignore patterns on currentFolder', async function () {
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
+            $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             await Promise.resolve();
             // currentFolder.ignores is separate from IgnoresService data. It is
             // not updated when patterns are modified in the UI, then is used to

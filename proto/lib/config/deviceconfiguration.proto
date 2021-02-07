@@ -8,14 +8,14 @@ import "lib/config/observed.proto";
 import "ext.proto";
 
 message DeviceConfiguration {
-    bytes                   device_id                  = 1 [(ext.goname) = "DeviceID", (ext.xml) = "id,attr", (ext.json) = "deviceID", (ext.device_id) = true];
+    bytes                   device_id                  = 1 [(ext.goname) = "DeviceID", (ext.xml) = "id,attr", (ext.json) = "deviceID", (ext.device_id) = true, (ext.nodefault) = true];
     string                  name                       = 2 [(ext.xml) = "name,attr,omitempty"];
     repeated string         addresses                  = 3 [(ext.xml) = "address,omitempty", (ext.default) = "dynamic"];
     protocol.Compression    compression                = 4 [(ext.xml) = "compression,attr"];
     string                  cert_name                  = 5 [(ext.xml) = "certName,attr,omitempty"];
     bool                    introducer                 = 6 [(ext.xml) = "introducer,attr"];
     bool                    skip_introduction_removals = 7 [(ext.xml) = "skipIntroductionRemovals,attr"];
-    bytes                   introduced_by              = 8 [(ext.xml) = "introducedBy,attr", (ext.device_id) = true];
+    bytes                   introduced_by              = 8 [(ext.xml) = "introducedBy,attr", (ext.device_id) = true, (ext.nodefault) = true];
     bool                    paused                     = 9;
     repeated string         allowed_networks           = 10 [(ext.xml) = "allowedNetwork,omitempty"];
     bool                    auto_accept_folders        = 11;

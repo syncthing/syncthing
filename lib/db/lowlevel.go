@@ -441,30 +441,31 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folder []byte) error {
+func (db *Lowlevel) checkGlobals(folder []byte) (int, error) {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer t.close()
 
 	key, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	dbi, err := t.NewPrefixIterator(key.WithoutName())
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer dbi.Release()
 
+	fixed := 0
 	var dk []byte
 	ro := t.readOnlyTransaction
 	for dbi.Next() {
 		var vl VersionList
 		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
-				return err
+				return 0, err
 			}
 			continue
 		}
@@ -480,34 +481,36 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 		for _, fv := range vl.RawVersions {
 			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			changed = changed || changedHere
 
 			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			changed = changed || changedHere
 		}
 
 		if newVL.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
-				return err
+				return 0, err
 			}
+			fixed++
 		} else if changed {
 			if err := t.Put(dbi.Key(), mustMarshal(newVL)); err != nil {
-				return err
+				return 0, err
 			}
+			fixed++
 		}
 	}
 	dbi.Release()
 	if err := dbi.Error(); err != nil {
-		return err
+		return 0, err
 	}
 
-	l.Debugf("db check completed for %q", folder)
-	return t.Commit()
+	l.Debugf("global db check completed for %q", folder)
+	return fixed, t.Commit()
 }
 
 func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *VersionList, t readOnlyTransaction) (bool, error) {
@@ -899,8 +902,10 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 	folder := []byte(folderStr)
 
 	meta := newMetadataTracker(db.keyer, db.evLogger)
-	if err := db.checkGlobals(folder); err != nil {
+	if fixed, err := db.checkGlobals(folder); err != nil {
 		return nil, fmt.Errorf("checking globals: %w", err)
+	} else if fixed > 0 {
+		l.Infof("Repaired %d global entries for folder %v in database", fixed, folderStr)
 	}
 
 	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
@@ -1197,7 +1202,7 @@ func unchanged(nf, ef protocol.FileIntf) bool {
 func (db *Lowlevel) handleFailure(err error) {
 	db.checkErrorForRepair(err)
 	if shouldReportFailure(err) {
-		db.evLogger.Log(events.Failure, err)
+		db.evLogger.Log(events.Failure, err.Error())
 	}
 }
 

@@ -73,7 +73,7 @@ func (c *configMuxBuilder) registerFolders(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustFolder(w, r, config.FolderConfiguration{})
+		c.adjustFolder(w, r, config.FolderConfiguration{}, false)
 	})
 }
 
@@ -126,7 +126,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 	})
 
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustFolder(w, r, config.FolderConfiguration{})
+		c.adjustFolder(w, r, config.FolderConfiguration{}, false)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -135,7 +135,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 			http.Error(w, "No folder with given ID", http.StatusNotFound)
 			return
 		}
-		c.adjustFolder(w, r, folder)
+		c.adjustFolder(w, r, folder, false)
 	})
 
 	c.Handle(http.MethodDelete, path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
@@ -170,12 +170,12 @@ func (c *configMuxBuilder) registerDevice(path string) {
 	})
 
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustDevice(w, r, config.DeviceConfiguration{})
+		c.adjustDevice(w, r, config.DeviceConfiguration{}, false)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if device, ok := deviceFromParams(w, p); ok {
-			c.adjustDevice(w, r, device)
+			c.adjustDevice(w, r, device, false)
 		}
 	})
 
@@ -187,6 +187,34 @@ func (c *configMuxBuilder) registerDevice(path string) {
 			return
 		}
 		c.finish(w, waiter)
+	})
+}
+
+func (c *configMuxBuilder) registerDefaultFolder(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, c.cfg.DefaultFolder())
+	})
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustFolder(w, r, config.FolderConfiguration{}, true)
+	})
+
+	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustFolder(w, r, c.cfg.DefaultFolder(), true)
+	})
+}
+
+func (c *configMuxBuilder) registerDefaultDevice(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, c.cfg.DefaultDevice())
+	})
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustDevice(w, r, config.DeviceConfiguration{}, true)
+	})
+
+	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustDevice(w, r, c.cfg.DefaultDevice(), true)
 	})
 }
 
@@ -260,13 +288,17 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	c.finish(w, waiter)
 }
 
-func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration) {
+func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
 	if err := unmarshalTo(r.Body, &folder); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		cfg.SetFolder(folder)
+		if defaults {
+			cfg.Defaults.Folder = folder
+		} else {
+			cfg.SetFolder(folder)
+		}
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -275,13 +307,17 @@ func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, 
 	c.finish(w, waiter)
 }
 
-func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration) {
+func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration, defaults bool) {
 	if err := unmarshalTo(r.Body, &device); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		cfg.SetDevice(device)
+		if defaults {
+			cfg.Defaults.Device = device
+		} else {
+			cfg.SetDevice(device)
+		}
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

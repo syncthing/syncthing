@@ -1218,7 +1218,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
 				from, ok := haveFcfg[folder.ID]
-				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); changed {
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder.Path); changed {
 					changedFcfg[folder.ID] = to
 				}
 			}
@@ -1638,7 +1638,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				continue
 			}
 
-			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
+			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceID,
 			})
@@ -1678,6 +1678,15 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 	}
 }
 
+func (m *model) newFolderConfiguration(id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
+	fcfg := m.cfg.DefaultFolder()
+	fcfg.ID = id
+	fcfg.Label = label
+	fcfg.FilesystemType = fsType
+	fcfg.Path = path
+	return fcfg
+}
+
 func (m *model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) config.DeviceConfiguration {
 	addresses := []string{"dynamic"}
 	for _, addr := range device.Addresses {
@@ -1687,14 +1696,13 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	}
 
 	l.Infof("Adding device %v to config (vouched for by introducer %v)", device.ID, introducerCfg.DeviceID)
-	newDeviceCfg := config.DeviceConfiguration{
-		DeviceID:     device.ID,
-		Name:         device.Name,
-		Compression:  introducerCfg.Compression,
-		Addresses:    addresses,
-		CertName:     device.CertName,
-		IntroducedBy: introducerCfg.DeviceID,
-	}
+	newDeviceCfg := m.cfg.DefaultDevice()
+	newDeviceCfg.DeviceID = device.ID
+	newDeviceCfg.Name = device.Name
+	newDeviceCfg.Compression = introducerCfg.Compression
+	newDeviceCfg.Addresses = addresses
+	newDeviceCfg.CertName = device.CertName
+	newDeviceCfg.IntroducedBy = introducerCfg.DeviceID
 
 	// The introducers' introducers are also our introducers.
 	if device.Introducer {
@@ -1852,7 +1860,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 			return nil, protocol.ErrNoSuchFile
 		}
-		err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
+		_, err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
 		if err == nil && scanner.Validate(res.data, hash, weakHash) {
 			return res, nil
 		}
@@ -1867,18 +1875,22 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	if err := readOffsetIntoBuf(folderFs, name, offset, res.data); fs.IsNotExist(err) {
+	n, err := readOffsetIntoBuf(folderFs, name, offset, res.data)
+	if fs.IsNotExist(err) {
 		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
-	} else if err == io.EOF && len(hash) == 0 {
-		// Read beyond end of file when we can't verify the hash -- this is
-		// a padded read for an encrypted file. It's fine.
+	} else if err == io.EOF {
+		// Read beyond end of file. This might indicate a problem, or it
+		// might be a short block that gets padded when read for encrypted
+		// folders. We ignore the error and let the hash validation in the
+		// next step take care of it, by only hashing the part we actually
+		// managed to read.
 	} else if err != nil {
 		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrGeneric
 	}
 
-	if len(hash) > 0 && !scanner.Validate(res.data, hash, weakHash) {
+	if len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
 		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
@@ -2988,19 +3000,19 @@ func observedDeviceSet(devices []config.ObservedDevice) deviceIDSet {
 	return res
 }
 
-func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
+func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) (int, error) {
 	fd, err := fs.Open(file)
 	if err != nil {
 		l.Debugln("readOffsetIntoBuf.Open", file, err)
-		return err
+		return 0, err
 	}
 
 	defer fd.Close()
-	_, err = fd.ReadAt(buf, offset)
+	n, err := fd.ReadAt(buf, offset)
 	if err != nil {
 		l.Debugln("readOffsetIntoBuf.ReadAt", file, err)
 	}
-	return err
+	return n, err
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update
@@ -3155,4 +3167,13 @@ func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 		FolderID: cfg.ID,
 		Token:    token,
 	})
+}
+
+func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
+	fcfg := w.DefaultFolder()
+	fcfg.ID = id
+	fcfg.Label = label
+	fcfg.FilesystemType = fsType
+	fcfg.Path = path
+	return fcfg
 }
