@@ -1629,6 +1629,7 @@ angular.module('syncthing.core')
                 ignoredFolders: []
             };
             $scope.editingExisting = false;
+            $scope.editingDefaults = false;
             initShareEditing('device');
             $scope.currentSharing.unrelated = $scope.folderList();
             $scope.currentSharing.selected[folderID] = true;
