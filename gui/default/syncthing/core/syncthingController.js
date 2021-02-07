@@ -1620,20 +1620,18 @@ angular.module('syncthing.core')
 
         $scope.addDeviceAndShare = function (deviceCfg, deviceName, folderID) {
             $('#editFolder').modal('hide');
-            $scope.currentDevice = {
-                name: deviceName,
-                deviceID: deviceCfg.deviceID,
-                addresses: deviceCfg.addresses,
-                compression: 'metadata',
-                introducer: false,
-                ignoredFolders: []
-            };
-            $scope.editingExisting = false;
-            $scope.editingDefaults = false;
-            initShareEditing('device');
-            $scope.currentSharing.unrelated = $scope.folderList();
-            $scope.currentSharing.selected[folderID] = true;
-            editDeviceModal();
+            $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                $scope.currentDevice = p.data;
+                $scope.currentDevice.name = deviceName;
+                $scope.currentDevice.deviceID = deviceCfg.deviceID,
+                $scope.currentDevice.addresses = deviceCfg.addresses,
+                $scope.editingExisting = false;
+                $scope.editingDefaults = false;
+                initShareEditing('device');
+                $scope.currentSharing.unrelated = $scope.folderList();
+                $scope.currentSharing.selected[folderID] = true;
+                editDeviceModal();
+            }, $scope.emitHTTPError);
         };
 
         $scope.deleteDevice = function () {
