@@ -1650,7 +1650,7 @@ angular.module('syncthing.core')
         };
 
         function setDeviceConfig() {
-            var currentID = $scope.currentDevice.DeviceID;
+            var currentID = $scope.currentDevice.deviceID;
             $scope.devices[currentID] = $scope.currentDevice;
             $scope.config.devices = deviceList($scope.devices);
 
