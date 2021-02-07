@@ -304,6 +304,8 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDevices("/rest/config/devices")
 	configBuilder.registerFolder("/rest/config/folders/:id")
 	configBuilder.registerDevice("/rest/config/devices/:id")
+	configBuilder.registerDefaultFolder("/rest/config/defaults/folder")
+	configBuilder.registerDefaultDevice("/rest/config/defaults/device")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
 	configBuilder.registerGUI("/rest/config/gui")
@@ -743,14 +745,19 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	prefix := qs.Get("prefix")
-	dirsonly := qs.Get("dirsonly") != ""
+	dirsOnly := qs.Get("dirsonly") != ""
 
 	levels, err := strconv.Atoi(qs.Get("levels"))
 	if err != nil {
 		levels = -1
 	}
+	result, err := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsOnly)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	sendJSON(w, s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly))
+	sendJSON(w, result)
 }
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "Jan 14, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Feb 02, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -214,6 +214,10 @@ Emitted when a device was paused.
 .UNINDENT
 .SS DeviceRejected
 .sp
+Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
+the replacement pending\-devices\-changed event instead.
+
+.sp
 Emitted when there is a connection from a device we are not configured
 to talk to.
 .INDENT 0.0
@@ -419,6 +423,10 @@ The statechanged event.
 .UNINDENT
 .UNINDENT
 .SS FolderRejected
+.sp
+Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
+the replacement pending\-folders\-changed event instead.
+
 .sp
 Emitted when a device sends index information for a folder we do not
 have, or have but do not share with the device in question.
@@ -720,6 +728,78 @@ is false and in any case the given username is returned.
    },
    "type" : "LoginAttempt",
    "globalID" : 195
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS PendingDevicesChanged
+.sp
+New in version 1.14.0.
+
+.sp
+Emitted when pending devices were added / updated (connection from
+unknown ID) or removed (device is ignored or added).
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 87,
+  "type": "PendingDevicesChanged",
+  "time": "2020\-12\-22T22:24:37.578586718+01:00",
+  "data": {
+    "added": [
+      {
+        "address": "127.0.0.1:51807",
+        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
+        "name": "My dusty computer"
+      }
+    ],
+    "removed": [
+      {
+        "device": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
+      }
+    ]
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS PendingFoldersChanged
+.sp
+New in version 1.14.0.
+
+.sp
+Emitted when pending folders were added / updated (offered by some
+device, but not shared to them) or removed (folder ignored or added or
+no longer offered from the remote device).
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 101,
+  "type": "PendingFoldersChanged",
+  "time": "2020\-12\-22T22:36:55.66744317+01:00",
+  "data": {
+    "added": [
+      {
+        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
+        "folder": "GXWxf\-3zgnU",
+        "folderLabel": "My Pictures"
+      }
+    ],
+    "removed": [
+      {
+        "device": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
+        "folder": "neyfh\-sa2nu"
+      }
+    ]
+  }
 }
 .ft P
 .fi

@@ -566,7 +566,7 @@
                     <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
                       <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="editFolderExisting(folder)">
                       <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
                     </button>
                   </span>
@@ -833,7 +833,7 @@
                     <button ng-if="deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, false)">
                       <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="editDeviceExisting(deviceCfg)">
                       <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
                     </button>
                   </span>

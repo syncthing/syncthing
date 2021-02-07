@@ -250,28 +250,6 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 	return aIsUnspecified
 }
 
-type ExitStatus int
-
-const (
-	ExitSuccess            ExitStatus = 0
-	ExitError              ExitStatus = 1
-	ExitNoUpgradeAvailable ExitStatus = 2
-	ExitRestart            ExitStatus = 3
-	ExitUpgrade            ExitStatus = 4
-)
-
-func (s ExitStatus) AsInt() int {
-	return int(s)
-}
-
-// OnDone calls fn when ctx is cancelled.
-func OnDone(ctx context.Context, fn func()) {
-	go func() {
-		<-ctx.Done()
-		fn()
-	}()
-}
-
 func CallWithContext(ctx context.Context, fn func() error) error {
 	var err error
 	done := make(chan struct{})

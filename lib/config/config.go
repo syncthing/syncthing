@@ -30,7 +30,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 33
+	CurrentVersion       = 34
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -234,6 +234,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 
 	cfg.prepareIgnoredDevices(existingDevices)
 
+	cfg.Defaults.prepare(myID, existingDevices)
+
 	cfg.removeDeprecatedProtocols()
 
 	util.FillNilExceptDeprecated(cfg)
@@ -245,7 +247,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 }
 
 func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
-	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
 		if device.DeviceID == myID {
 			return
@@ -585,4 +586,20 @@ func getFreePort(host string, ports ...int) (int, error) {
 	addr := c.Addr().(*net.TCPAddr)
 	c.Close()
 	return addr.Port, nil
+}
+
+func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+	ensureZeroForNodefault(&FolderConfiguration{}, &defaults.Folder)
+	ensureZeroForNodefault(&DeviceConfiguration{}, &defaults.Device)
+	defaults.Folder.prepare(myID, existingDevices)
+	defaults.Device.prepare(nil)
+}
+
+func ensureZeroForNodefault(empty interface{}, target interface{}) {
+	util.CopyMatchingTag(empty, target, "nodefault", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+		}
+		return len(v) > 0
+	})
 }

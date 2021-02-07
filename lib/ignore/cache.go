@@ -21,7 +21,7 @@ type cache struct {
 
 type cacheEntry struct {
 	result Result
-	access time.Time
+	access int64 // Unix nanosecond count. Sufficient until the year 2262.
 }
 
 func newCache(patterns []Pattern) *cache {
@@ -33,7 +33,7 @@ func newCache(patterns []Pattern) *cache {
 
 func (c *cache) clean(d time.Duration) {
 	for k, v := range c.entries {
-		if clock.Now().Sub(v.access) > d {
+		if clock.Now().Sub(time.Unix(0, v.access)) > d {
 			delete(c.entries, k)
 		}
 	}
@@ -42,14 +42,14 @@ func (c *cache) clean(d time.Duration) {
 func (c *cache) get(key string) (Result, bool) {
 	entry, ok := c.entries[key]
 	if ok {
-		entry.access = clock.Now()
+		entry.access = clock.Now().UnixNano()
 		c.entries[key] = entry
 	}
 	return entry.result, ok
 }
 
 func (c *cache) set(key string, result Result) {
-	c.entries[key] = cacheEntry{result, time.Now()}
+	c.entries[key] = cacheEntry{result, time.Now().UnixNano()}
 }
 
 func (c *cache) len() int {

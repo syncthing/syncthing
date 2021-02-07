@@ -96,10 +96,12 @@ type Wrapper interface {
 	Folders() map[string]FolderConfiguration
 	FolderList() []FolderConfiguration
 	FolderPasswords(device protocol.DeviceID) map[string]string
+	DefaultFolder() FolderConfiguration
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
 	DeviceList() []DeviceConfiguration
+	DefaultDevice() DeviceConfiguration
 
 	IgnoredDevices() []ObservedDevice
 	IgnoredDevice(id protocol.DeviceID) bool
@@ -353,6 +355,12 @@ func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
 	})
 }
 
+func (w *wrapper) DefaultDevice() DeviceConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Defaults.Device.Copy()
+}
+
 // Folders returns a map of folders.
 func (w *wrapper) Folders() map[string]FolderConfiguration {
 	w.mut.Lock()
@@ -386,6 +394,12 @@ func (w *wrapper) FolderPasswords(device protocol.DeviceID) map[string]string {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.cfg.FolderPasswords(device)
+}
+
+func (w *wrapper) DefaultFolder() FolderConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Defaults.Folder.Copy()
 }
 
 // Options returns the current options configuration object.
