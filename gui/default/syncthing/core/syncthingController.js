@@ -773,9 +773,6 @@ angular.module('syncthing.core')
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
-            $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
-                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
-            });
         }
 
         $scope.refreshFailed = function (page, perpage) {
@@ -1561,7 +1558,6 @@ angular.module('syncthing.core')
                             && !candidates.hasOwnProperty(n.id);
                     });
                 });
-            $scope.deviceEditor.$setPristine();
             editDeviceModal();
         };
 
@@ -1627,16 +1623,16 @@ angular.module('syncthing.core')
             $scope.currentDevice = {
                 name: deviceName,
                 deviceID: deviceCfg.deviceID,
-                _addressesStr: deviceCfg.addresses.join(','),
+                addresses: deviceCfg.addresses,
                 compression: 'metadata',
                 introducer: false,
                 ignoredFolders: []
             };
             $scope.editingExisting = false;
             initShareEditing('device');
+            $scope.currentSharing.unrelated = $scope.folderList();
             $scope.currentSharing.selected[folderID] = true;
-            $scope.deviceEditor.$setPristine();
-            $('#editDevice').modal();
+            editDeviceModal();
         };
 
         $scope.deleteDevice = function () {
@@ -1919,12 +1915,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.path = '';
             }
             initShareEditing('folder');
-            $scope.currentFolder.devices.forEach(function (n) {
-                if (n.deviceID !== $scope.myID) {
-                    $scope.currentSharing.shared.push($scope.devices[n.deviceID]);
-                }
-                $scope.currentSharing.selected[n.deviceID] = true;
-            });
             $http.get(urlbase + '/cluster/candidate/devices?folder=' + encodeURIComponent(folderCfg.id))
                 .success(function (candidates) {
                     for (var id in candidates) {
@@ -2091,7 +2081,9 @@ angular.module('syncthing.core')
                 $scope.currentFolder.id = folderID;
 
                 initShareEditing('folder');
-                $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
+                $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
+                    return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
+                }).concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
 
                 $scope.ignores.text = '';
