@@ -748,7 +748,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 				continue
 			}
 
-			fi.SetMustRescan(protocol.LocalDeviceID.Short())
+			fi.SetMustRescan()
 			if err = t.putFile(it.Key(), fi); err != nil {
 				return err
 			}
