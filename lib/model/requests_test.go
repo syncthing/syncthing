@@ -1361,6 +1361,10 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 }
 
 func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping on short testing - scrypt is too slow")
+	}
+
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
 	tfs := fcfg.Filesystem()

@@ -3996,6 +3996,10 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 }
 
 func TestCcCheckEncryption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping on short testing - generating encryption tokens is slow")
+	}
+
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
 	m := setupModel(t, w)
