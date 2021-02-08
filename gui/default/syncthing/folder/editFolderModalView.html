@@ -163,15 +163,19 @@
         <div ng-if="!editingDefaults" id="folder-ignores" class="tab-pane">
           <p>
             <div class="btn-group">
-              <label class="btn btn-default" ng-class="{active: !currentFolder._ignoreIsEditingAdvanced, disabled: !currentFolder._ignoreIsBasic}" ng-if="editingExisting">
-                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder._ignoreIsBasic" />
-                <span translate class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
+              <label class="btn btn-default" ng-class="{active: !currentFolder._ignoreIsEditingAdvanced, disabled: !editingExisting || currentFolder._ignoreAdvancedPattern}">
+                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!editingExisting || currentFolder._ignoreAdvancedPattern" />
+                <span class="fas fa-fw fa-folder-o"></span>&nbsp;<span translate>Basic</span>
               </label>
               <label class="btn btn-default" ng-class="{active: currentFolder._ignoreIsEditingAdvanced}">
                 <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="true" />
-                <span translate class="fas fa-fw fa-code"></span>&nbsp;<span>Advanced</span>
+                <span class="fas fa-fw fa-code"></span>&nbsp;<span translate>Advanced</span>
               </label>
             </div>
+            <span ng-switch on="!editingExisting ? 'unsaved' : (currentFolder._ignoreAdvancedPattern ? 'advanced' : 'none')">
+              <span ng-switch-when="unsaved" translate>Basic mode is not available until folder is saved.</span>
+              <span ng-switch-when="advanced" translate translate-value-pattern="{{currentFolder._ignoreAdvancedPattern.text}}">Basic mode cannot display "{%pattern%}"</span>
+            </span>
           </p>
           <div ng-show="!currentFolder._ignoreIsEditingAdvanced">
             <p translate>Selected items will be synced, other items ignored.</p>

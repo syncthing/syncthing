@@ -1911,8 +1911,8 @@ angular.module('syncthing.core')
             $scope.ignores = Ignores.data;
             $scope.currentFolder._ignoreIsEditingAdvanced = true;
             Ignores.refresh($scope.currentFolder.id).then(function (response) {
-                $scope.currentFolder._ignoreIsBasic = response.patterns.every(function (p) { return p.isSimple; });
-                $scope.currentFolder._ignoreIsEditingAdvanced = !$scope.currentFolder._ignoreIsBasic;
+                $scope.currentFolder._ignoreAdvancedPattern = response.patterns.find(function (p) { return !p.isSimple; });
+                $scope.currentFolder._ignoreIsEditingAdvanced = !!$scope.currentFolder._ignoreAdvancedPattern;
                 $scope.currentFolder.ignores = response.patterns.map(function(p) { return p.text; });
                 IgnoreTree.refresh($scope.currentFolder.id);
             }).catch(function (err) {
@@ -1935,7 +1935,7 @@ angular.module('syncthing.core')
 
         $scope.parseIgnores = function (text) {
             var patterns = Ignores.parseText(text);
-            $scope.currentFolder._ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
+            $scope.currentFolder._ignoreAdvancedPattern = patterns.find(function (p) { return !p.isSimple; });
             IgnoreTree.update();
         };
 

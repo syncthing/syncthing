@@ -40,7 +40,7 @@ describe('SyncthingController', function() {
         it('enables basic ignore UI', async function () {
             $scope.editFolderExisting({ id: 'default', path: '/var/sync', devices: [] });
             await Promise.resolve();
-            expect($scope.currentFolder._ignoreIsBasic).toBeTrue();
+            expect($scope.currentFolder._ignoreAdvancedPattern).toBeUndefined();
             expect($scope.currentFolder._ignoreIsEditingAdvanced).toBeFalse();
         });
 
@@ -64,13 +64,13 @@ describe('SyncthingController', function() {
         it('determines patterns are too advanced for basic UI', function () {
             controller = $controller('SyncthingController', { $scope: $scope });
             $scope.parseIgnores('/Backups\n/*.txt');
-            expect($scope.currentFolder._ignoreIsBasic).toBeFalse();
+            expect($scope.currentFolder._ignoreAdvancedPattern).toBeDefined();
         });
 
         it('determines basic UI is available', function () {
             controller = $controller('SyncthingController', { $scope: $scope });
             $scope.parseIgnores('/Backups/Archived\n*');
-            expect($scope.currentFolder._ignoreIsBasic).toBeTrue();
+            expect($scope.currentFolder._ignoreAdvancedPattern).toBeUndefined();
         });
     });
 });
