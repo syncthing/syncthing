@@ -652,7 +652,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 			if ignoredParent != "" && !fs.IsParent(file.Name, ignoredParent) {
 				for _, file := range toIgnore {
 					l.Debugln("marking file as ignored", file)
-					nf := file.ConvertToIgnoredFileInfo(f.shortID)
+					nf := file.ConvertToIgnoredFileInfo()
 					if batchAppend(nf, snap) {
 						changes++
 					}
@@ -682,7 +682,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 				}
 
 				l.Debugln("marking file as ignored", file)
-				nf := file.ConvertToIgnoredFileInfo(f.shortID)
+				nf := file.ConvertToIgnoredFileInfo()
 				if batchAppend(nf, snap) {
 					changes++
 				}
@@ -745,7 +745,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 		if iterError == nil && len(toIgnore) > 0 {
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", f)
-				nf := file.ConvertToIgnoredFileInfo(f.shortID)
+				nf := file.ConvertToIgnoredFileInfo()
 				if batchAppend(nf, snap) {
 					changes++
 				}
@@ -1192,7 +1192,7 @@ func (f *folder) handleForcedRescans() {
 		if !ok {
 			continue
 		}
-		fi.SetMustRescan(f.shortID)
+		fi.SetMustRescan()
 		batch.append(fi)
 	}
 

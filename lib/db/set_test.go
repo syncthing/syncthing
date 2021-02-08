@@ -1354,7 +1354,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 
 	// Initial state: Devices in sync, locally ignored
 	local := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
-	local.SetIgnored(myID)
+	local.SetIgnored()
 	remote := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
 	s.Update(protocol.LocalDeviceID, fileList{local})
 	s.Update(remoteDevice0, fileList{remote})
