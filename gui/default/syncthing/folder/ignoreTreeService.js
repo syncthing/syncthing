@@ -30,6 +30,12 @@ angular.module('syncthing.folder')
                     },
                     debugLevel: 2,
                     source: promise,
+                    init: function (event, data) {
+                        // Remove the fancytree table extension class that
+                        // styles table and tr. This way we can use our own
+                        // table-striped and other classes for rows.
+                        data.tree.$container.removeClass('fancytree-ext-table');
+                    },
                     lazyLoad: function (event, data) {
                         var prefix = data.node.data.entry.path;
                         data.result = Browse.refresh(folderId, prefix).then(function(response) {

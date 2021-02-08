@@ -412,6 +412,11 @@ ul.three-columns li, ul.two-columns li {
     width: 100% !important;
 }
 
+/* Vertically center fancytree row content, including expander and icons */
+table.fancytree-container td span {
+    vertical-align: middle;
+}
+
 @media (max-width: 419px) {
     /* the selectors are build to target only the content of folder and device
        panels as it would "destroy" e.g. out of sync or recent changes listings */
