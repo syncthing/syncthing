@@ -1910,7 +1910,7 @@ angular.module('syncthing.core')
 
             $scope.ignores = Ignores.data;
             $scope.currentFolder._ignoreIsEditingAdvanced = true;
-            Ignores.refresh($scope.currentFolder.id).then((response) => {
+            Ignores.refresh($scope.currentFolder.id).then(function (response) {
                 $scope.currentFolder._ignoreIsBasic = response.patterns.every(function (p) { return p.isSimple; });
                 $scope.currentFolder._ignoreIsEditingAdvanced = !$scope.currentFolder._ignoreIsBasic;
                 $scope.currentFolder.ignores = response.patterns.map(function(p) { return p.text; });

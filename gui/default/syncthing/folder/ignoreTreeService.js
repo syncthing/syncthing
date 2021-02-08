@@ -1,7 +1,7 @@
 angular.module('syncthing.folder')
     .service('IgnoreTree', function (
         Ignores,
-        Browse,
+        Browse
     ) {
         'use strict';
 
