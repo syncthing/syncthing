@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{33, migrateToConfigV33},
 		{32, migrateToConfigV32},
 		{31, migrateToConfigV31},
 		{30, migrateToConfigV30},
@@ -91,15 +92,22 @@ func (m migration) apply(cfg *Configuration) {
 	cfg.Version = m.targetVersion
 }
 
-func migrateToConfigV31(cfg *Configuration) {
-	// Show a notification about setting User and Password
-	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
+func migrateToConfigV33(cfg *Configuration) {
+	for i := range cfg.Devices {
+		cfg.Devices[i].DeprecatedPendingFolders = nil
+	}
+	cfg.DeprecatedPendingDevices = nil
 }
 
 func migrateToConfigV32(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].JunctionsAsDirs = true
 	}
+}
+
+func migrateToConfigV31(cfg *Configuration) {
+	// Show a notification about setting User and Password
+	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
 }
 
 func migrateToConfigV30(cfg *Configuration) {

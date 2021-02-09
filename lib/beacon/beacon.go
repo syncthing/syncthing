@@ -14,7 +14,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 type recv struct {
@@ -33,8 +33,8 @@ type Interface interface {
 type cast struct {
 	*suture.Supervisor
 	name    string
-	reader  util.ServiceWithError
-	writer  util.ServiceWithError
+	reader  svcutil.ServiceWithError
+	writer  svcutil.ServiceWithError
 	outbox  chan recv
 	inbox   chan []byte
 	stopped chan struct{}
@@ -44,16 +44,13 @@ type cast struct {
 // caller needs to set reader and writer with the addReader and addWriter
 // methods to get a functional implementation of Interface.
 func newCast(name string) *cast {
-	spec := util.Spec()
+	// Only log restarts in debug mode.
+	spec := svcutil.SpecWithDebugLogger(l)
 	// Don't retry too frenetically: an error to open a socket or
 	// whatever is usually something that is either permanent or takes
 	// a while to get solved...
 	spec.FailureThreshold = 2
 	spec.FailureBackoff = 60 * time.Second
-	// Only log restarts in debug mode.
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
 	c := &cast{
 		Supervisor: suture.New(name, spec),
 		name:       name,
@@ -61,7 +58,7 @@ func newCast(name string) *cast {
 		outbox:     make(chan recv, 16),
 		stopped:    make(chan struct{}),
 	}
-	util.OnSupervisorDone(c.Supervisor, func() { close(c.stopped) })
+	svcutil.OnSupervisorDone(c.Supervisor, func() { close(c.stopped) })
 	return c
 }
 
@@ -75,8 +72,8 @@ func (c *cast) addWriter(svc func(ctx context.Context) error) {
 	c.Add(c.writer)
 }
 
-func (c *cast) createService(svc func(context.Context) error, suffix string) util.ServiceWithError {
-	return util.AsService(svc, fmt.Sprintf("%s/%s", c, suffix))
+func (c *cast) createService(svc func(context.Context) error, suffix string) svcutil.ServiceWithError {
+	return svcutil.AsService(svc, fmt.Sprintf("%s/%s", c, suffix))
 }
 
 func (c *cast) String() string {

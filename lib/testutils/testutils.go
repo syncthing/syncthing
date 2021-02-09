@@ -8,7 +8,9 @@ package testutils
 
 import (
 	"errors"
+	"net"
 	"sync"
+	"time"
 )
 
 var ErrClosed = errors.New("closed")
@@ -51,4 +53,54 @@ func (rw *NoopRW) Read(p []byte) (n int, err error) {
 
 func (rw *NoopRW) Write(p []byte) (n int, err error) {
 	return len(p), nil
+}
+
+type NoopCloser struct{}
+
+func (NoopCloser) Close() error {
+	return nil
+}
+
+// FakeConnectionInfo implements the methods of protocol.Connection that are
+// not implemented by protocol.Connection
+type FakeConnectionInfo struct {
+	Name string
+}
+
+func (f *FakeConnectionInfo) RemoteAddr() net.Addr {
+	return &FakeAddr{}
+}
+
+func (f *FakeConnectionInfo) Type() string {
+	return "fake"
+}
+
+func (f *FakeConnectionInfo) Crypto() string {
+	return "fake"
+}
+
+func (f *FakeConnectionInfo) Transport() string {
+	return "fake"
+}
+
+func (f *FakeConnectionInfo) Priority() int {
+	return 9000
+}
+
+func (f *FakeConnectionInfo) String() string {
+	return ""
+}
+
+func (f *FakeConnectionInfo) EstablishedAt() time.Time {
+	return time.Time{}
+}
+
+type FakeAddr struct{}
+
+func (FakeAddr) Network() string {
+	return "network"
+}
+
+func (FakeAddr) String() string {
+	return "address"
 }

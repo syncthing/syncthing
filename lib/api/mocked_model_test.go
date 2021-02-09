@@ -11,7 +11,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -50,11 +49,15 @@ func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
 	return 0
 }
 
+func (m *mockedModel) NumConnections() int {
+	return 0
+}
+
 func (m *mockedModel) ConnectionStats() map[string]interface{} {
 	return nil
 }
 
-func (m *mockedModel) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+func (m *mockedModel) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	return nil, nil
 }
 
@@ -114,7 +117,7 @@ func (m *mockedModel) ScanFolderSubdirs(folder string, subs []string) error {
 
 func (m *mockedModel) BringToFront(folder, file string) {}
 
-func (m *mockedModel) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
+func (m *mockedModel) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	return nil, false
 }
 
@@ -123,6 +126,14 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 }
 
 func (m *mockedModel) UsageReportingStats(r *contract.Report, version int, preview bool) {
+}
+
+func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
@@ -157,7 +168,7 @@ func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string
 	return nil
 }
 
-func (m *mockedModel) AddConnection(conn connections.Connection, hello protocol.Hello) {}
+func (m *mockedModel) AddConnection(conn protocol.Connection, hello protocol.Hello) {}
 
 func (m *mockedModel) OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error {
 	return nil

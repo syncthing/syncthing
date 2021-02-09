@@ -34,6 +34,7 @@ const (
 	AuditLog      LocationEnum = "auditLog"
 	GUIAssets     LocationEnum = "GUIAssets"
 	DefFolder     LocationEnum = "defFolder"
+	FailuresFile  LocationEnum = "FailuresFile"
 )
 
 type BaseDirEnum string
@@ -108,6 +109,7 @@ var locationTemplates = map[LocationEnum]string{
 	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
 	DefFolder:     "Sync",
+	FailuresFile:  "${data}/failures-unreported.txt",
 }
 
 var locations = make(map[LocationEnum]string)

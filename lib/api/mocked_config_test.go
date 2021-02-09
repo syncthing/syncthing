@@ -130,6 +130,10 @@ func (c *mockedConfig) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
+func (c *mockedConfig) IgnoredDevices() []config.ObservedDevice {
+	return nil
+}
+
 func (c *mockedConfig) IgnoredFolder(device protocol.DeviceID, folder string) bool {
 	return false
 }
