@@ -355,6 +355,31 @@ angular.module('syncthing.core')
             $scope.$emit('HTTPError', { data: data, status: status, headers: headers, config: config });
         };
 
+        window.setCurrentDeviceIDFromQR = function(id){
+            $scope.$apply(function(){
+                $scope.currentDevice.deviceID = id;
+                $scope.deviceEditor.deviceID.$dirty = true;
+                $scope.deviceEditor.deviceID.$pristine = false;
+                $scope.deviceEditor.deviceID.$touched = true;
+                $scope.deviceEditor.deviceID.$untouched = false;
+
+                // The remainder is adapted from validDeviceidDirective.js. Could be refactored.
+                $http.get(urlbase + '/svc/deviceid?id=' + id).success(function (resp) {
+                    if (resp.error) {
+                        $scope.deviceEditor.deviceID.$setValidity('validDeviceid', false);
+                    } else {
+                        $scope.deviceEditor.deviceID.$setValidity('validDeviceid', true);
+                    }
+                });
+                //Prevents user from adding a duplicate ID
+                if ($scope.devices.hasOwnProperty(id)) {
+                    $scope.deviceEditor.deviceID.$setValidity('unique', false);
+                } else {
+                    $scope.deviceEditor.deviceID.$setValidity('unique', true);
+                }
+            });
+        };
+
         var debouncedFuncs = {};
 
         function refreshFolder(folder) {
