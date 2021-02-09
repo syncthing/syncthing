@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v3/disk"
 
 	"github.com/syncthing/syncthing/lib/ext"
 	"github.com/syncthing/syncthing/lib/fs"

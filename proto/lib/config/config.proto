@@ -19,5 +19,5 @@ message Configuration {
     LDAPConfiguration            ldap            = 5 [(ext.goname) = "LDAP"];
     OptionsConfiguration         options         = 6;
     repeated ObservedDevice      ignored_devices = 7 [(ext.json) = "remoteIgnoredDevices", (ext.xml) = "remoteIgnoredDevice"];
-    repeated ObservedDevice      pending_devices = 8;
+    repeated ObservedDevice      pending_devices = 8 [deprecated=true];
 }

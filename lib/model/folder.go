@@ -46,6 +46,7 @@ type folder struct {
 	shortID       protocol.ShortID
 	fset          *db.FileSet
 	ignores       *ignore.Matcher
+	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
 	ctx           context.Context // used internally, only accessible on serve lifetime
 	done          chan struct{}   // used externally, accessible regardless of serve
@@ -106,6 +107,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID:       model.shortID,
 		fset:          fset,
 		ignores:       ignores,
+		mtimefs:       fset.MtimeFS(),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -411,6 +413,8 @@ func (f *folder) pull() (success bool) {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
+	l.Debugf("%v scanning", f)
+
 	oldHash := f.ignores.Hash()
 
 	err := f.getHealthErrorAndLoadIgnores()
@@ -474,7 +478,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// to be cancelled.
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
-	mtimefs := f.fset.MtimeFS()
 
 	scanConfig := scanner.Config{
 		Folder:                f.ID,
@@ -482,7 +485,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{snap},
-		Filesystem:            mtimefs,
+		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
@@ -512,6 +515,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// changes.
 	changes := 0
 	defer func() {
+		l.Debugf("%v finished scanning, detected %v changes", f, changes)
 		if changes > 0 {
 			f.SchedulePull()
 		}
@@ -527,6 +531,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
 				fi.Version = gf.Version
+				l.Debugf("%v scanning: Merging identical locally changed item with global", f, fi)
 				fallthrough
 			case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
 				// Our item is deleted and the global item is our own
@@ -534,6 +539,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// case we can't delete file infos, so we just
 				// pretend it is a normal deleted file (nobody
 				// cares about that).
+				l.Debugf("%v scanning: Marking item as not locally changed", f, fi)
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
 			batch.append(fi)
@@ -544,8 +550,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			// We don't track it, but check if anything still exists
 			// within and delete it otherwise.
 			if fi.IsDirectory() && protocol.IsEncryptedParent(fi.Name) {
-				if names, err := mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
-					mtimefs.Remove(fi.Name)
+				if names, err := f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
+					f.mtimefs.Remove(fi.Name)
 				}
 				changes--
 				return
@@ -584,7 +590,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
+			if nf, ok := f.findRename(snap, res.File, alreadyUsed); ok {
 				batchAppend(nf, snap)
 				changes++
 			}
@@ -672,7 +678,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// it's still here. Simply stat:ing it wont do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !osutil.IsDeleted(mtimefs, file.Name) {
+				if !osutil.IsDeleted(f.mtimefs, file.Name) {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
@@ -741,7 +747,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -777,7 +783,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 			return true
 		}
 
-		if !osutil.IsDeleted(mtimefs, fi.Name) {
+		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
 			return true
 		}
 

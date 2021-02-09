@@ -27,8 +27,8 @@ type receiveEncryptedFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
-	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
+func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *byteSemaphore) service {
+	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
 }
 
 func (f *receiveEncryptedFolder) Revert() {
@@ -65,7 +65,7 @@ func (f *receiveEncryptedFolder) revert() {
 			return true
 		}
 
-		if err := f.inWritableDir(f.fs.Remove, fit.Name); err != nil && !fs.IsNotExist(err) {
+		if err := f.inWritableDir(f.mtimefs.Remove, fit.Name); err != nil && !fs.IsNotExist(err) {
 			f.newScanError(fit.Name, fmt.Errorf("deleting unexpected item: %w", err))
 		}
 

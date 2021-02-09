@@ -188,7 +188,7 @@
 
         <!-- Panel: New Device -->
 
-        <div ng-repeat="pendingDevice in config.pendingDevices" class="row">
+        <div ng-repeat="(deviceID, pendingDevice) in pendingDevices" class="row">
           <div class="col-md-12">
             <div class="panel panel-warning">
               <div class="panel-heading">
@@ -200,17 +200,17 @@
               </div>
               <div class="panel-body">
                 <p>
-                  <span translate translate-value-device="{{ pendingDevice.deviceID }}" translate-value-address="{{ pendingDevice.address }}" translate-value-name="{{ pendingDevice.name }}">
+                  <span translate translate-value-device="{{ deviceID }}" translate-value-address="{{ pendingDevice.address }}" translate-value-name="{{ pendingDevice.name }}">
                     Device "{%name%}" ({%device%} at {%address%}) wants to connect. Add new device?
                   </span>
                 </p>
               </div>
               <div class="panel-footer clearfix">
                 <div class="pull-right">
-                  <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(pendingDevice.deviceID, pendingDevice.name)">
+                  <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(deviceID, pendingDevice.name)">
                     <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(pendingDevice)">
+                  <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(deviceID, pendingDevice)">
                     <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                   </button>
                 </div>
@@ -220,8 +220,8 @@
         </div>
 
         <!-- Panel: New Folder -->
-        <div ng-repeat="device in config.devices">
-          <div ng-repeat="pendingFolder in device.pendingFolders" class="row reject">
+        <div ng-repeat="(folderID, pendingFolder) in pendingFolders">
+          <div ng-repeat="(deviceID, offeringDevice) in pendingFolder.offeredBy" class="row reject">
             <div class="col-md-12">
               <div class="panel panel-warning">
                 <div class="panel-heading">
@@ -229,32 +229,32 @@
                     <div class="panel-icon">
                       <span class="fas fa-folder"></span>
                     </div>
-                    <span translate ng-if="!folders[pendingFolder.id]">New Folder</span>
-                    <span translate ng-if="folders[pendingFolder.id]">Share Folder</span>
-                    <span class="pull-right">{{ pendingFolder.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
+                    <span translate ng-if="!folders[folderID]">New Folder</span>
+                    <span translate ng-if="folders[folderID]">Share Folder</span>
+                    <span class="pull-right">{{ offeringDevice.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
                   </h3>
                 </div>
                 <div class="panel-body">
                   <p>
-                    <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(devices[device.deviceID]) }}" translate-value-folder="{{ pendingFolder.id }}">
+                    <span ng-if="offeringDevice.label.length == 0" translate translate-value-device="{{ deviceName(devices[deviceID]) }}" translate-value-folder="{{ folderID }}">
                       {%device%} wants to share folder "{%folder%}".
                     </span>
-                    <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(devices[device.deviceID]) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
+                    <span ng-if="offeringDevice.label.length != 0" translate translate-value-device="{{ deviceName(devices[deviceID]) }}" translate-value-folder="{{ folderID }}" translate-value-folderlabel="{{ offeringDevice.label }}">
                       {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
                     </span>
-                    <span translate ng-if="folders[pendingFolder.id]">Share this folder?</span>
-                    <span translate ng-if="!folders[pendingFolder.id]">Add new folder?</span>
+                    <span translate ng-if="folders[folderID]">Share this folder?</span>
+                    <span translate ng-if="!folders[folderID]">Add new folder?</span>
                   </p>
                 </div>
                 <div class="panel-footer clearfix">
                   <div class="pull-right">
-                    <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(pendingFolder.id, pendingFolder.label, device.deviceID)" ng-if="!folders[pendingFolder.id]">
+                    <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(folderID, offeringDevice.label, deviceID)" ng-if="!folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(pendingFolder.id, device.deviceID)" ng-if="folders[pendingFolder.id]">
+                    <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(folderID, deviceID)" ng-if="folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Share</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(device.deviceID, pendingFolder)">
+                    <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(deviceID, folderID, offeringDevice)">
                       <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                     </button>
                   </div>
