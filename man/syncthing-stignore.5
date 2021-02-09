@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "Nov 18, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Dec 30, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -66,7 +66,8 @@ The \fB\&.stignore\fP file contains a list of file or path patterns. The
 .IP \(bu 2
 Regular file names match themselves, i.e. the pattern \fBfoo\fP matches
 the files \fBfoo\fP, \fBsubdir/foo\fP as well as any directory named
-\fBfoo\fP\&. Spaces are treated as regular characters.
+\fBfoo\fP\&. Spaces are treated as regular characters, except for leading
+and trailing spaces, which are automatically trimmed.
 .IP \(bu 2
 \fBAsterisk\fP (\fB*\fP) matches zero or more characters in a filename, but does not
 match the directory separator. \fBte*ne\fP matches \fBtelephone\fP,

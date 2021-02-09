@@ -719,7 +719,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 	var key, gk []byte
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		meta := newMetadataTracker(db.keyer)
+		meta := newMetadataTracker(db.keyer, db.evLogger)
 		meta.counts.Created = 0 // Recalculate metadata afterwards
 
 		t, err := db.newReadWriteTransaction(meta.CommitHook(folder))

@@ -9,12 +9,10 @@ package db
 import (
 	"testing"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
 	n1 := NewNamespacedKV(ldb, "foo")
@@ -62,7 +60,7 @@ func TestNamespacedInt(t *testing.T) {
 }
 
 func TestNamespacedTime(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
 	n1 := NewNamespacedKV(ldb, "foo")
@@ -86,7 +84,7 @@ func TestNamespacedTime(t *testing.T) {
 }
 
 func TestNamespacedString(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
 	n1 := NewNamespacedKV(ldb, "foo")
@@ -109,7 +107,7 @@ func TestNamespacedString(t *testing.T) {
 }
 
 func TestNamespacedReset(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
 	n1 := NewNamespacedKV(ldb, "foo")

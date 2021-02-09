@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 32
+	CurrentVersion       = 33
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -216,9 +216,6 @@ func (cfg Configuration) Copy() Configuration {
 	newCfg.IgnoredDevices = make([]ObservedDevice, len(cfg.IgnoredDevices))
 	copy(newCfg.IgnoredDevices, cfg.IgnoredDevices)
 
-	newCfg.PendingDevices = make([]ObservedDevice, len(cfg.PendingDevices))
-	copy(newCfg.PendingDevices, cfg.PendingDevices)
-
 	return newCfg
 }
 
@@ -247,9 +244,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	guiPWIsSet := cfg.GUI.User != "" && cfg.GUI.Password != ""
 	cfg.Options.prepare(guiPWIsSet)
 
-	ignoredDevices := cfg.prepareIgnoredDevices(existingDevices)
-
-	cfg.preparePendingDevices(existingDevices, ignoredDevices)
+	cfg.prepareIgnoredDevices(existingDevices)
 
 	cfg.removeDeprecatedProtocols()
 
@@ -364,31 +359,6 @@ func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.Dev
 	}
 	cfg.IgnoredDevices = newIgnoredDevices
 	return ignoredDevices
-}
-
-func (cfg *Configuration) preparePendingDevices(existingDevices, ignoredDevices map[protocol.DeviceID]bool) {
-	// The list of pending devices should not contain devices that were added manually, nor should it contain
-	// ignored devices.
-
-	// Sort by time, so that in case of duplicates latest "time" is used.
-	sort.Slice(cfg.PendingDevices, func(i, j int) bool {
-		return cfg.PendingDevices[i].Time.Before(cfg.PendingDevices[j].Time)
-	})
-
-	newPendingDevices := cfg.PendingDevices[:0]
-nextPendingDevice:
-	for _, pendingDevice := range cfg.PendingDevices {
-		if !existingDevices[pendingDevice.ID] && !ignoredDevices[pendingDevice.ID] {
-			// Deduplicate
-			for _, existingPendingDevice := range newPendingDevices {
-				if existingPendingDevice.ID == pendingDevice.ID {
-					continue nextPendingDevice
-				}
-			}
-			newPendingDevices = append(newPendingDevices, pendingDevice)
-		}
-	}
-	cfg.PendingDevices = newPendingDevices
 }
 
 func (cfg *Configuration) removeDeprecatedProtocols() {

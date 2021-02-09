@@ -260,6 +260,21 @@ func Canonicalize(file string) (string, error) {
 	return file, nil
 }
 
+// wrapFilesystem should always be used when wrapping a Filesystem.
+// It ensures proper wrapping order, which right now means:
+// `logFilesystem` needs to be the outermost wrapper for caller lookup.
+func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesystem {
+	logFs, ok := fs.(*logFilesystem)
+	if ok {
+		fs = logFs.Filesystem
+	}
+	fs = wrapFn(fs)
+	if ok {
+		fs = &logFilesystem{fs}
+	}
+	return fs
+}
+
 // unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
 func unwrapFilesystem(fs Filesystem) Filesystem {
 	for {
@@ -268,7 +283,7 @@ func unwrapFilesystem(fs Filesystem) Filesystem {
 			fs = sfs.Filesystem
 		case *walkFilesystem:
 			fs = sfs.Filesystem
-		case *MtimeFS:
+		case *mtimeFS:
 			fs = sfs.Filesystem
 		default:
 			return sfs

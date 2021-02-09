@@ -39,10 +39,10 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/syncthing"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/pkg/errors"
 )
@@ -325,7 +325,7 @@ func mainCmdline() int {
 	}
 	if err != nil {
 		l.Warnln("Command line options:", err)
-		return util.ExitError.AsInt()
+		return svcutil.ExitError.AsInt()
 	}
 
 	if options.logFile == "default" || options.logFile == "" {
@@ -362,7 +362,7 @@ func mainCmdline() int {
 		)
 		if err != nil {
 			l.Warnln("Error reading device ID:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
@@ -372,7 +372,7 @@ func mainCmdline() int {
 	if options.browserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 		return 0
 	}
@@ -380,7 +380,7 @@ func mainCmdline() int {
 	if options.generateDir != "" {
 		if err := generate(options.generateDir); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 		return 0
 	}
@@ -388,14 +388,14 @@ func mainCmdline() int {
 	// Ensure that our home directory exists.
 	if err := EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		return util.ExitError.AsInt()
+		return svcutil.ExitError.AsInt()
 	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
 		return 0
@@ -426,13 +426,13 @@ func mainCmdline() int {
 			return exitCodeForUpgrade(err)
 		}
 		l.Infof("Upgraded to %q", release.Tag)
-		return util.ExitUpgrade.AsInt()
+		return svcutil.ExitUpgrade.AsInt()
 	}
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return 0
@@ -614,7 +614,7 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
-		return util.ExitError.AsInt()
+		return svcutil.ExitError.AsInt()
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
@@ -660,7 +660,7 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 			}
 		} else {
 			l.Infof("Upgraded to %q, exiting now.", release.Tag)
-			return util.ExitUpgrade.AsInt()
+			return svcutil.ExitUpgrade.AsInt()
 		}
 	}
 
@@ -685,7 +685,11 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 		appOpts.DBIndirectGCInterval = dur
 	}
 
-	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
+	if err != nil {
+		l.Warnln("Failed to start Syncthing:", err)
+		os.Exit(svcutil.ExitError.AsInt())
+	}
 
 	if autoUpgradePossible {
 		go autoUpgrade(cfg, app, evLogger)
@@ -701,18 +705,18 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			l.Warnln("Starting profile:", err)
-			return util.ExitError.AsInt()
+			return svcutil.ExitError.AsInt()
 		}
 	}
 
 	go standbyMonitor(app, cfg)
 
 	if err := app.Start(); err != nil {
-		return util.ExitError.AsInt()
+		return svcutil.ExitError.AsInt()
 	}
 
 	RunningApp = app
@@ -728,7 +732,7 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 
 	status := app.Wait()
 
-	if status == util.ExitError {
+	if status == svcutil.ExitError {
 		l.Warnln("Syncthing stopped with error:", app.Error())
 	}
 
@@ -751,7 +755,7 @@ func setupSignalHandling(app *syncthing.App) {
 	signal.Notify(restartSign, sigHup)
 	go func() {
 		<-restartSign
-		app.Stop(util.ExitRestart)
+		app.Stop(svcutil.ExitRestart)
 	}()
 
 	// Exit with "success" code (no restart) on INT/TERM
@@ -760,7 +764,7 @@ func setupSignalHandling(app *syncthing.App) {
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
-		app.Stop(util.ExitSuccess)
+		app.Stop(svcutil.ExitSuccess)
 	}()
 }
 
@@ -797,7 +801,7 @@ func auditWriter(auditFile string) io.Writer {
 		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
 		if err != nil {
 			l.Warnln("Audit:", err)
-			os.Exit(util.ExitError.AsInt())
+			os.Exit(svcutil.ExitError.AsInt())
 		}
 		auditDest = auditFile
 	}
@@ -847,7 +851,7 @@ func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			app.Stop(util.ExitRestart)
+			app.Stop(svcutil.ExitRestart)
 			return
 		}
 		now = time.Now()
@@ -917,7 +921,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		sub.Unsubscribe()
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
-		app.Stop(util.ExitUpgrade)
+		app.Stop(svcutil.ExitUpgrade)
 		return
 	}
 }
@@ -1005,13 +1009,13 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 	}
 	if _, err := cfg.Replace(raw); err != nil {
 		l.Warnln("Cannot adjust paused state:", err)
-		os.Exit(util.ExitError.AsInt())
+		os.Exit(svcutil.ExitError.AsInt())
 	}
 }
 
 func exitCodeForUpgrade(err error) int {
 	if _, ok := err.(*errNoUpgrade); ok {
-		return util.ExitNoUpgradeAvailable.AsInt()
+		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
-	return util.ExitError.AsInt()
+	return svcutil.ExitError.AsInt()
 }

@@ -16,8 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/sync"
-
 	"github.com/thejerf/suture/v4"
 )
 
@@ -312,89 +310,12 @@ func (s ExitStatus) AsInt() int {
 	return int(s)
 }
 
-type ServiceWithError interface {
-	suture.Service
-	fmt.Stringer
-	Error() error
-	SetError(error)
-}
-
-// AsService wraps the given function to implement suture.Service. In addition
-// it keeps track of the returned error and allows querying and setting that error.
-func AsService(fn func(ctx context.Context) error, creator string) ServiceWithError {
-	return &service{
-		creator: creator,
-		serve:   fn,
-		mut:     sync.NewMutex(),
-	}
-}
-
-type service struct {
-	creator string
-	serve   func(ctx context.Context) error
-	err     error
-	mut     sync.Mutex
-}
-
-func (s *service) Serve(ctx context.Context) error {
-	s.mut.Lock()
-	s.err = nil
-	s.mut.Unlock()
-
-	err := s.serve(ctx)
-
-	s.mut.Lock()
-	s.err = err
-	s.mut.Unlock()
-
-	return err
-}
-
-func (s *service) Error() error {
-	s.mut.Lock()
-	defer s.mut.Unlock()
-	return s.err
-}
-
-func (s *service) SetError(err error) {
-	s.mut.Lock()
-	s.err = err
-	s.mut.Unlock()
-}
-
-func (s *service) String() string {
-	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
-
-}
-
 // OnDone calls fn when ctx is cancelled.
 func OnDone(ctx context.Context, fn func()) {
 	go func() {
 		<-ctx.Done()
 		fn()
 	}()
-}
-
-type doneService struct {
-	fn func()
-}
-
-func (s *doneService) Serve(ctx context.Context) error {
-	<-ctx.Done()
-	s.fn()
-	return nil
-}
-
-// OnSupervisorDone calls fn when sup is done.
-func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
-	sup.Add(&doneService{fn})
-}
-
-func Spec() suture.Spec {
-	return suture.Spec{
-		PassThroughPanics:        true,
-		DontPropagateTermination: false,
-	}
 }
 
 func CallWithContext(ctx context.Context, fn func() error) error {

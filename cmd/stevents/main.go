@@ -28,16 +28,21 @@ func main() {
 	log.SetFlags(0)
 
 	target := flag.String("target", "localhost:8384", "Target Syncthing instance")
+	types := flag.String("types", "", "Filter for specific event types (comma-separated)")
 	apikey := flag.String("apikey", "", "Syncthing API key")
 	flag.Parse()
 
 	if *apikey == "" {
 		log.Fatal("Must give -apikey argument")
 	}
+	var eventsArg string
+	if len(*types) > 0 {
+		eventsArg = "&events=" + *types
+	}
 
 	since := 0
 	for {
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/rest/events?since=%d", *target, since), nil)
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/rest/events?since=%d%s", *target, since, eventsArg), nil)
 		if err != nil {
 			log.Fatal(err)
 		}
