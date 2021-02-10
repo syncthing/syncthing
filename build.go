@@ -51,6 +51,7 @@ var (
 	coverage      bool
 	timeout       = "120s"
 	numVersions   = 5
+	withNewGUI    = os.Getenv("BUILD_NEW_GUI") != ""
 )
 
 type target struct {
@@ -372,6 +373,7 @@ func parseFlags() {
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
+	flag.BoolVar(&withNewGUI, "with-new-gui", withNewGUI, "Also build 'newgui'")
 	flag.Parse()
 }
 
@@ -764,9 +766,45 @@ func rebuildAssets() {
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui") {
+	shouldRebuild := shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") ||
+		shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui")
+
+	if withNewGUI {
+		shouldRebuild = buildNewGUI() || shouldRebuild
+	}
+
+	if shouldRebuild {
 		rebuildAssets()
 	}
+}
+
+func buildNewGUI() bool {
+	// Check if we need to run the npm process, and if so also set the flag
+	// to rebuild Go assets afterwards. The index.html is regenerated every
+	// time by the build process. This assumes the new GUI ends up in
+	// newgui/dist/tech-ui, which is something that might require adjustment
+	// in the future.
+
+	if !shouldRebuildAssets("gui/tech-ui/index.html", "newgui") {
+		// The GUI is up to date.
+		return false
+	}
+
+	runPrintInDir("newgui", "npm", "install")
+	runPrintInDir("newgui", "npm", "run", "build", "--", "--prod")
+
+	rmr("gui/tech-ui")
+
+	for _, src := range listFiles("newgui/dist") {
+		rel, _ := filepath.Rel("newgui/dist", src)
+		dst := filepath.Join("gui", rel)
+		if err := copyFile(src, dst, 0644); err != nil {
+			fmt.Println("copy:", err)
+			os.Exit(1)
+		}
+	}
+
+	return true
 }
 
 func shouldRebuildAssets(target, srcdir string) bool {
