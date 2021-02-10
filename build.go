@@ -791,7 +791,7 @@ func buildNewGUI() bool {
 	}
 
 	runPrintInDir("newgui", "npm", "install")
-	runPrintInDir("newgui", "npm", "run", "build", "--", "--prod")
+	runPrintInDir("newgui", "npm", "run", "build", "--", "--prod", "--subresource-integrity")
 
 	rmr("gui/tech-ui")
 
