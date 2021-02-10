@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Feb 02, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Feb 08, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -38,7 +38,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .ft C
 $HOME/.config/syncthing
 $HOME/Library/Application Support/Syncthing
-%LOCALAPPDATA%/Syncthing
+%LOCALAPPDATA%\eSyncthing
 .ft P
 .fi
 .UNINDENT
@@ -53,7 +53,7 @@ Syncthing uses a single directory to store configuration and crypto keys.
 Syncthing also has a database, which is often stored in this directory too.
 The config location defaults to \fB$HOME/.config/syncthing\fP
 (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
-or \fB%LOCALAPPDATA%/Syncthing\fP (Windows). It can be changed at runtime
+or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can be changed at runtime
 using the \fB\-config\fP flag. In this directory the following files are
 located:
 .INDENT 0.0
