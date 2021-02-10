@@ -1,0 +1,31 @@
+<mat-form-field>
+  <mat-label>Filter</mat-label>
+  <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Up to Date">
+</mat-form-field>
+<table mat-table class="full-width-table" matSort aria-label="Devices" multiTemplateDataRows>
+  <ng-container matColumnDef="{{column}}" *ngFor="let column of displayedColumns">
+    <th mat-header-cell *matHeaderCellDef> {{column}} </th>
+    <td mat-cell *matCellDef="let device"> {{device[column]}} </td>
+  </ng-container>
+  <ng-container matColumnDef="expandedDetail">
+    <td mat-cell *matCellDef="let device" [attr.colspan]="displayedColumns.length">
+      <div class="table-detail" [@detailExpand]="device == expandedDevice ? 'expanded' : 'collapsed'">
+        <div class="detail-items">
+          <span>Folders: </span>
+          <span class="item-name" *ngFor="let folder of device.folders">{{folder.label | trim}}</span>
+        </div>
+      </div>
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let device; columns: displayedColumns;" class="table-row"
+    [class.expanded-row]="expandedDevice === device"
+    (click)="expandedDevice = expandedDevice === device ? null : device">
+  </tr>
+  <tr mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row"></tr>
+</table>
+
+<mat-paginator #paginator [length]="dataSource?.data.length" [pageIndex]="0" [pageSize]="25"
+  [pageSizeOptions]="[25, 50, 100, 250]">
+</mat-paginator>
