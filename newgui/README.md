@@ -62,4 +62,4 @@ MPLv2
 
 ## Copyright
 
-Copyright (c) 2020 Kastelo Inc.
+Copyright (c) 2020 The Syncthing Authors
