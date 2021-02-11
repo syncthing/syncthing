@@ -3,7 +3,7 @@
   "version": 1, 
   "newProjectRoot": "projects",
   "projects": {
-    "tech-ui": {
+    "next-gen-gui": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/tech-ui",
+            "outputPath": "dist/next-gen-gui",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": "src/polyfills.ts",
@@ -66,18 +66,18 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "tech-ui:build"
+            "browserTarget": "next-gen-gui:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "tech-ui:build:production"
+              "browserTarget": "next-gen-gui:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "tech-ui:build"
+            "browserTarget": "next-gen-gui:build"
           }
         },
         "test": {
@@ -114,15 +114,15 @@
           "builder": "@angular-devkit/build-angular:protractor",
           "options": {
             "protractorConfig": "e2e/protractor.conf.js",
-            "devServerTarget": "tech-ui:serve"
+            "devServerTarget": "next-gen-gui:serve"
           },
           "configurations": {
             "production": {
-              "devServerTarget": "tech-ui:serve:production"
+              "devServerTarget": "next-gen-gui:serve:production"
             }
           }
         }
       }
     }},
-  "defaultProject": "tech-ui"
+  "defaultProject": "next-gen-gui"
 }

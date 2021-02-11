@@ -18,4 +18,4 @@ deb
 *.bz2
 /repos
 /proto/scripts/protoc-gen-gosyncthing
-/gui/tech-ui
+/gui/next-gen-gui
