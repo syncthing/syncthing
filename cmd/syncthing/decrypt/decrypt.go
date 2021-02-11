@@ -172,7 +172,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 		if plainFd != nil {
 			_ = dstFs.Remove(plainFd.Name())
 		}
-		return fmt.Errorf("%s: %w", plainFi.Name, err)
+		return fmt.Errorf("%s: %s: %w", path, plainFi.Name, err)
 	} else if c.Verbose {
 		log.Printf("Data verified for %q", plainFi.Name)
 	}
@@ -222,7 +222,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 			// the source. The file might have changed while we pulled it?
 			err := fmt.Errorf("plaintext block %d (%d bytes) failed validation after decryption", i, plainBlock.Size)
 			if c.Continue {
-				log.Printf("Warning: %s: %v", plainFi.Name, err)
+				log.Printf("Warning: %s: %s: %v", encFi.Name, plainFi.Name, err)
 			} else {
 				return err
 			}
