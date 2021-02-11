@@ -66,7 +66,7 @@ The --logflags value is a sum of the following:
    8  Long filename
   16  Short filename
 
-I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
+I.e. to prefix each log line with date and time, set --logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
@@ -146,8 +146,8 @@ type serveOptions struct {
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	HideConsole      bool   `help:"Hide console window (Windows only)"`
 	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
-	LogFile          string `placeholder:"PATH" help:"Log file name (see below)"`
-	LogFlags         int    `placeholder:"BITS" help:"Select information in log line prefix (see below)"`
+	LogFile          string `name:"logfile" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFlags         int    `name:"logflags" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
 	LogMaxFiles      int    `placeholder:"N" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
 	LogMaxSize       int    `placeholder:"BYTES" help:"Maximum size of any file (zero to disable log rotation)"`
 	NoBrowser        bool   `help:"Do not start browser"`
