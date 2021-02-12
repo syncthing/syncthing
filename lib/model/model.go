@@ -88,7 +88,7 @@ type Model interface {
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
-	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
+	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
@@ -2624,7 +2624,7 @@ func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 	return ver.GetVersions()
 }
 
-func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error) {
 	m.fmut.RLock()
 	err := m.checkFolderRunningLocked(folder)
 	fcfg := m.folderCfgs[folder]
@@ -2637,11 +2637,11 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 		return nil, errNoVersioner
 	}
 
-	restoreErrors := make(map[string]string)
+	restoreErrors := make(map[string]error)
 
 	for file, version := range versions {
 		if err := ver.Restore(file, version); err != nil {
-			restoreErrors[file] = err.Error()
+			restoreErrors[file] = err
 		}
 	}
 
