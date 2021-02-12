@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	errDirectory         = errors.New("cannot restore on top of a directory")
+	ErrDirectory         = errors.New("cannot restore on top of a directory")
 	errNotFound          = errors.New("version not found")
 	errFileAlreadyExists = errors.New("file already exists")
 )
@@ -196,7 +196,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 	if info, err := dst.Lstat(filePath); err == nil {
 		switch {
 		case info.IsDir():
-			return errDirectory
+			return ErrDirectory
 		case info.IsSymlink():
 			// Remove existing symlinks (as we don't want to archive them)
 			if err := dst.Remove(filePath); err != nil {

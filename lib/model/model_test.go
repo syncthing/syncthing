@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -2859,7 +2860,7 @@ func TestVersionRestore(t *testing.T) {
 	ferr, err := m.RestoreFolderVersions("default", restore)
 	must(t, err)
 
-	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot restore on top of a directory" {
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || !errors.Is(err, versioner.ErrDirectory) {
 		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
 	}
 
