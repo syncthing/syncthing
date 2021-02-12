@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -129,7 +130,8 @@ var (
 // The cli struct is the main entry point for the command line parser. The
 // commands and options here are top level commands to syncthing.
 var cli struct {
-	Serve serveOptions `cmd:"" help:"Run Syncthing"`
+	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
+	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.

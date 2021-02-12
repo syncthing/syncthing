@@ -3135,7 +3135,7 @@ func (s deviceIDSet) AsSlice() []protocol.DeviceID {
 }
 
 func encryptionTokenPath(cfg config.FolderConfiguration) string {
-	return filepath.Join(cfg.MarkerName, "syncthing-encryption_password_token")
+	return filepath.Join(cfg.MarkerName, config.EncryptionTokenName)
 }
 
 type storedEncryptionToken struct {
