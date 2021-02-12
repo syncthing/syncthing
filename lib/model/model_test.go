@@ -4177,7 +4177,7 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2); err != nil {
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2, false); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err := m.PendingFolders(protocol.EmptyDeviceID)
@@ -4193,7 +4193,7 @@ func TestPendingFolder(t *testing.T) {
 
 	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3); err != nil {
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3, false); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err = m.PendingFolders(device2)

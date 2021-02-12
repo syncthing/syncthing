@@ -1289,7 +1289,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
-	updatedPending := make([]map[string]string, 0, len(folders))
+	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
@@ -1304,14 +1304,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+			recvEnc := len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID, recvEnc); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			updatedPending = append(updatedPending, map[string]string{
-				"folderID":    folder.ID,
-				"folderLabel": folder.Label,
-				"deviceID":    deviceID.String(),
+			updatedPending = append(updatedPending, updatedPendingFolder{
+				FolderID:         folder.ID,
+				FolderLabel:      folder.Label,
+				DeviceID:         deviceID,
+				ReceiveEncrypted: recvEnc,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -2020,6 +2022,10 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 		if !cfgOk {
 			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
+	}
+
+	if cfg.Type == config.FolderTypeReceiveEncrypted {
+		return nil, nil, nil
 	}
 
 	// On creation a new folder with ignore patterns validly has no marker yet.
@@ -3176,4 +3182,11 @@ func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.Filesy
 	fcfg.FilesystemType = fsType
 	fcfg.Path = path
 	return fcfg
+}
+
+type updatedPendingFolder struct {
+	FolderID         string            `json:"folderID"`
+	FolderLabel      string            `json:"folderLabel"`
+	DeviceID         protocol.DeviceID `json:"deviceID"`
+	ReceiveEncrypted bool              `json:"receiveEncrypted"`
 }

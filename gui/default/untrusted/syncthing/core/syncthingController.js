@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentSharing = {};
         $scope.currentFolder = {};
         $scope.currentDevice = {};
         $scope.ignores = {
@@ -276,7 +277,8 @@ angular.module('syncthing.core')
                 arg.data.added.forEach(function (rejected) {
                     var offeringDevice = {
                         time: arg.time,
-                        label: rejected.folderLabel
+                        label: rejected.folderLabel,
+                        receiveEncrypted: rejected.receiveEncrypted,
                     };
                     console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
 
@@ -1831,12 +1833,31 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
-        $scope.fsWatcherToggled = function () {
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                $scope.currentFolder.rescanIntervalS = 3600;
-            } else {
-                $scope.currentFolder.rescanIntervalS = 60;
+        $scope.setFSWatcherIntervalDefault = function () {
+            var defaultRescanIntervals = [60, 3600, 3600*24];
+            if (defaultRescanIntervals.indexOf($scope.currentFolder.rescanIntervalS) === -1) {
+                return;
             }
+            var idx;
+            if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
+            } else if ($scope.currentFolder.type === 'receiveencrypted') {
+                idx = 2;
+            } else {
+                idx = 0;
+            }
+            $scope.currentFolder.rescanIntervalS = defaultRescanIntervals[idx];
+        };
+
+        $scope.setDefaultsForFolderType = function () {
+            if ($scope.currentFolder.type === 'receiveencrypted') {
+                $scope.currentFolder.fsWatcherEnabled = false;
+                $scope.currentFolder.ignorePerms = true;
+                delete $scope.currentFolder.versioning;
+            } else {
+                $scope.currentFolder.fsWatcherEnabled = true;
+            }
+            $scope.setFSWatcherIntervalDefault();
         };
 
         $scope.loadFormIntoScope = function (form) {
@@ -1857,6 +1878,7 @@ angular.module('syncthing.core')
 
         function editFolderModal() {
             initVersioningEditing();
+            $scope.currentFolder._recvEnc = $scope.currentFolder.type === 'receiveencrypted';
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal().one('shown.bs.tab', function (e) {
@@ -1996,13 +2018,20 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.addFolderAndShare = function (folderID, folderLabel, device) {
+        $scope.addFolderAndShare = function (folderID, pendingFolder, device) {
             addFolderInit(folderID).then(function() {
                 $scope.currentFolder.viewFlags = {
                     importFromOtherDevice: true
                 };
                 $scope.currentSharing.selected[device] = true;
-                $scope.currentFolder.label = folderLabel;
+                $scope.currentFolder.label = pendingFolder.offeredBy[device].label;
+                for (var k in pendingFolder.offeredBy) {
+                    if (pendingFolder.offeredBy[k].receiveEncrypted) {
+                        $scope.currentFolder.type = "receiveencrypted";
+                        $scope.setDefaultsForFolderType();
+                        break;
+                    }
+                }
                 editFolderModal();
             });
         };

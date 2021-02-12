@@ -48,7 +48,6 @@ require (
 	golang.org/x/sys v0.0.0-20201101102859-da207088b7d1
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/protobuf v1.23.0
 )
 
 go 1.14

@@ -212,6 +212,10 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	} else if f.MaxConcurrentWrites > maxConcurrentWritesLimit {
 		f.MaxConcurrentWrites = maxConcurrentWritesLimit
 	}
+
+	if f.Type == FolderTypeReceiveEncrypted {
+		f.IgnorePerms = true
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
