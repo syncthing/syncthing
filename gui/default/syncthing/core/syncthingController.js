@@ -1984,13 +1984,13 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.addFolderAndShare = function (folderID, folderLabel, device) {
+        $scope.addFolderAndShare = function (folderID, pendingFolder, device) {
             addFolderInit(folderID).then(function() {
                 $scope.currentFolder.viewFlags = {
                     importFromOtherDevice: true
                 };
                 $scope.currentSharing.selected[device] = true;
-                $scope.currentFolder.label = folderLabel;
+                $scope.currentFolder.label = pendingFolder.offeredBy[device].label;
                 editFolderModal();
             });
         };

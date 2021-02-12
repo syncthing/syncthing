@@ -1830,9 +1830,9 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
-        $scope.setFSWatcherIntervalSDefault = function () {
+        $scope.setFSWatcherIntervalDefault = function () {
             var defaultRescanIntervals = [60, 3600, 3600*24];
-            if (defaultRescanIntervals .indexOf($scope.currentFolder.rescanIntervalS) === -1) {
+            if (defaultRescanIntervals.indexOf($scope.currentFolder.rescanIntervalS) === -1) {
                 return;
             }
             var idx;
@@ -1854,7 +1854,7 @@ angular.module('syncthing.core')
             } else {
                 $scope.currentFolder.fsWatcherEnabled = true;
             }
-            $scope.setFSWatcherIntervalSDefault();
+            $scope.setFSWatcherIntervalDefault();
         };
 
         $scope.loadFormIntoScope = function (form) {

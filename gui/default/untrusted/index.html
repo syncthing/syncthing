@@ -417,7 +417,7 @@
                             <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
                             <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
                             <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B<!-- get rid of the annoying trailing whitespace
-                                                                                                            --><span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
+                            --><span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
                           </span>
                         </td>
                       </tr>
