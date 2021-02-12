@@ -1,0 +1,27 @@
+@mixin chart-item-theme($theme) {
+    .item {
+        cursor: pointer;
+        padding: 3px 7px 3px 7px;
+        border-radius: 4px;
+    }
+
+    .selected {
+        background-color: #DDDDDD;
+        color: #303030;
+    }
+    .selected a {
+        color: #303030;
+        text-decoration: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .selected {
+            background-color: map_get($mat-grey, 900);
+            color: white;
+        }
+
+        .selected a {
+            color: white;
+        }
+    }
+}

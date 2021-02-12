@@ -297,16 +297,16 @@ func blocksEqual(a, b []BlockInfo) bool {
 	return true
 }
 
-func (f *FileInfo) SetMustRescan(by ShortID) {
-	f.setLocalFlags(by, FlagLocalMustRescan)
+func (f *FileInfo) SetMustRescan() {
+	f.setLocalFlags(FlagLocalMustRescan)
 }
 
-func (f *FileInfo) SetIgnored(by ShortID) {
-	f.setLocalFlags(by, FlagLocalIgnored)
+func (f *FileInfo) SetIgnored() {
+	f.setLocalFlags(FlagLocalIgnored)
 }
 
-func (f *FileInfo) SetUnsupported(by ShortID) {
-	f.setLocalFlags(by, FlagLocalUnsupported)
+func (f *FileInfo) SetUnsupported() {
+	f.setLocalFlags(FlagLocalUnsupported)
 }
 
 func (f *FileInfo) SetDeleted(by ShortID) {
@@ -317,10 +317,9 @@ func (f *FileInfo) SetDeleted(by ShortID) {
 	f.setNoContent()
 }
 
-func (f *FileInfo) setLocalFlags(by ShortID, flags uint32) {
+func (f *FileInfo) setLocalFlags(flags uint32) {
 	f.RawInvalid = false
 	f.LocalFlags = flags
-	f.ModifiedBy = by
 	f.setNoContent()
 }
 

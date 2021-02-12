@@ -1862,7 +1862,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 			return nil, protocol.ErrNoSuchFile
 		}
-		err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
+		_, err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
 		if err == nil && scanner.Validate(res.data, hash, weakHash) {
 			return res, nil
 		}
@@ -1877,18 +1877,22 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	if err := readOffsetIntoBuf(folderFs, name, offset, res.data); fs.IsNotExist(err) {
+	n, err := readOffsetIntoBuf(folderFs, name, offset, res.data)
+	if fs.IsNotExist(err) {
 		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
-	} else if err == io.EOF && len(hash) == 0 {
-		// Read beyond end of file when we can't verify the hash -- this is
-		// a padded read for an encrypted file. It's fine.
+	} else if err == io.EOF {
+		// Read beyond end of file. This might indicate a problem, or it
+		// might be a short block that gets padded when read for encrypted
+		// folders. We ignore the error and let the hash validation in the
+		// next step take care of it, by only hashing the part we actually
+		// managed to read.
 	} else if err != nil {
 		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrGeneric
 	}
 
-	if len(hash) > 0 && !scanner.Validate(res.data, hash, weakHash) {
+	if len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
 		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
@@ -3002,19 +3006,19 @@ func observedDeviceSet(devices []config.ObservedDevice) deviceIDSet {
 	return res
 }
 
-func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
+func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) (int, error) {
 	fd, err := fs.Open(file)
 	if err != nil {
 		l.Debugln("readOffsetIntoBuf.Open", file, err)
-		return err
+		return 0, err
 	}
 
 	defer fd.Close()
-	_, err = fd.ReadAt(buf, offset)
+	n, err := fd.ReadAt(buf, offset)
 	if err != nil {
 		l.Debugln("readOffsetIntoBuf.ReadAt", file, err)
 	}
-	return err
+	return n, err
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update

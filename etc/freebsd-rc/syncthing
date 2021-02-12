@@ -38,13 +38,14 @@ syncthing_group=${syncthing_group:-$syncthing_user}
 
 command=/usr/local/bin/syncthing
 pidfile=/var/run/syncthing.pid
-syncthing_flags="${syncthing_home:+-home=${syncthing_home}} ${syncthing_log_file:+-logfile=${syncthing_log_file}}"
+syncthing_cmd=serve
+syncthing_flags="${syncthing_home:+--home=${syncthing_home}} ${syncthing_log_file:+--logfile=${syncthing_log_file}}"
 
 syncthing_start() {
     echo "Starting syncthing"
     touch ${pidfile} && chown ${syncthing_user} ${pidfile}
     touch ${syncthing_log_file} && chown ${syncthing_user} ${syncthing_log_file}
-    /usr/sbin/daemon -cf -p ${pidfile} -u ${syncthing_user} ${command} ${syncthing_flags}
+    /usr/sbin/daemon -cf -p ${pidfile} -u ${syncthing_user} ${command} ${syncthing_cmd} ${syncthing_flags}
 }
 
 syncthing_cleanup() {

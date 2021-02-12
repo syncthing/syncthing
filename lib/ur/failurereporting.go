@@ -123,13 +123,15 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 
 	if sub != nil {
 		sub.Unsubscribe()
-		reports := make([]FailureReport, 0, len(h.buf))
-		for descr, stat := range h.buf {
-			reports = append(reports, newFailureReport(descr, stat.count))
+		if len(h.buf) > 0 {
+			reports := make([]FailureReport, 0, len(h.buf))
+			for descr, stat := range h.buf {
+				reports = append(reports, newFailureReport(descr, stat.count))
+			}
+			timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
+			defer cancel()
+			sendFailureReports(timeout, reports, url)
 		}
-		timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
-		defer cancel()
-		sendFailureReports(timeout, reports, url)
 	}
 	return err
 }
@@ -192,7 +194,7 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, &b)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, &b)
 	if err != nil {
 		l.Infoln("Failed to send failure report:", err)
 		return
