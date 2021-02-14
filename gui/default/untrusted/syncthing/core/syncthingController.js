@@ -1955,7 +1955,7 @@ angular.module('syncthing.core')
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.selector = "external";
-                $scope.currentFolder.externalCommand = currentVersioning.params.command;
+                $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
                 break;
             }
         };
