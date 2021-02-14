@@ -68,6 +68,13 @@ func init() {
 }
 
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
+	if !filepath.IsAbs(path) {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
 	_, ok := baseDirs[baseDirName]
 	if !ok {
 		return fmt.Errorf("unknown base dir: %s", baseDirName)

@@ -3,7 +3,7 @@ module github.com/syncthing/syncthing
 require (
 	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
 	github.com/AudriusButkevicius/recli v0.0.5
-	github.com/alecthomas/kong v0.2.12
+	github.com/alecthomas/kong v0.2.15
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.2
@@ -40,6 +40,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.20.11
 	github.com/syncthing/notify v0.0.0-20201210100135-17de26665ddc
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
+	github.com/thejerf/suture v4.0.0+incompatible
 	github.com/thejerf/suture/v4 v4.0.0
 	github.com/urfave/cli v1.22.4
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0

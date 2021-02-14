@@ -31,6 +31,9 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/thejerf/suture/v4"
+
+	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -48,7 +51,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -127,11 +129,12 @@ var (
 	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 )
 
-// The cli struct is the main entry point for the command line parser. The
+// The entrypoint struct is the main entry point for the command line parser. The
 // commands and options here are top level commands to syncthing.
-var cli struct {
+var entrypoint struct {
 	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
 	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli     cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -227,11 +230,11 @@ func main() {
 		args = append([]string{"serve"}, convertLegacyArgs(args)...)
 	}
 
-	cli.Serve.setDefaults()
+	entrypoint.Serve.setDefaults()
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.
-	parser, err := kong.New(&cli, kong.Help(extraHelpPrinter))
+	parser, err := kong.New(&entrypoint, kong.Help(extraHelpPrinter))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -282,12 +285,12 @@ func (options serveOptions) Run() error {
 	case homeSet && dataSet:
 		err = errors.New("-home must not be used together with -conf and -data")
 	case homeSet:
-		if err = setLocation(locations.ConfigBaseDir, options.HomeDir); err == nil {
-			err = setLocation(locations.DataBaseDir, options.HomeDir)
+		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.HomeDir); err == nil {
+			err = locations.SetBaseDir(locations.DataBaseDir, options.HomeDir)
 		}
 	case dataSet:
-		if err = setLocation(locations.ConfigBaseDir, options.ConfDir); err == nil {
-			err = setLocation(locations.DataBaseDir, options.DataDir)
+		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.ConfDir); err == nil {
+			err = locations.SetBaseDir(locations.DataBaseDir, options.DataDir)
 		}
 	}
 	if err != nil {
@@ -1002,17 +1005,6 @@ func exitCodeForUpgrade(err error) int {
 		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
 	return svcutil.ExitError.AsInt()
-}
-
-func setLocation(enum locations.BaseDirEnum, loc string) error {
-	if !filepath.IsAbs(loc) {
-		var err error
-		loc, err = filepath.Abs(loc)
-		if err != nil {
-			return err
-		}
-	}
-	return locations.SetBaseDir(enum, loc)
 }
 
 // convertLegacyArgs returns the slice of arguments with single dash long
