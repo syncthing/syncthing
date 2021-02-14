@@ -246,6 +246,9 @@ func main() {
 }
 
 func extraHelpPrinter(options kong.HelpOptions, ctx *kong.Context) error {
+	if ctx.Command() == "cli" {
+		return ctx.Run()
+	}
 	if err := kong.DefaultHelpPrinter(options, ctx); err != nil {
 		return err
 	}

@@ -19,7 +19,6 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -137,11 +136,10 @@ func (c *CLI) Run() error {
 
 	// Construct the actual CLI
 	app := cli.NewApp()
-	app.Name = "syncthing"
+	app.Name = "syncthing cli"
 	app.HelpName = app.Name
 	app.Author = "The Syncthing Authors"
 	app.Usage = "Syncthing command line interface"
-	app.Version = build.Version
 	app.Flags = fakeFlags
 	app.Metadata = map[string]interface{}{
 		"client": client,
