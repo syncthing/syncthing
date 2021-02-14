@@ -234,7 +234,7 @@ func main() {
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.
-	parser, err := kong.New(&entrypoint, kong.Help(extraHelpPrinter))
+	parser, err := kong.New(&entrypoint, kong.Help(helpHandler))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -245,7 +245,8 @@ func main() {
 	parser.FatalIfErrorf(err)
 }
 
-func extraHelpPrinter(options kong.HelpOptions, ctx *kong.Context) error {
+func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
+	// If we're looking for CLI help, pass the arguments down to the CLI library to print it's own help.
 	if ctx.Command() == "cli" {
 		return ctx.Run()
 	}
