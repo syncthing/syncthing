@@ -53,7 +53,7 @@
     "Connection Error": "Connection Error",
     "Connection Type": "Connection Type",
     "Connections": "Connections",
-    "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.",
+    "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that fewer full scans are required.",
     "Copied from elsewhere": "Copied from elsewhere",
     "Copied from original": "Copied from original",
     "Copyright © 2014-2019 the following Contributors:": "Copyright © 2014-2019 the following Contributors:",

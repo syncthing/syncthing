@@ -57,7 +57,7 @@ type Options struct {
 	AuditWriter      io.Writer
 	DeadlockTimeoutS int
 	NoUpgrade        bool
-	ProfilerURL      string
+	ProfilerAddr     string
 	ResetDeltaIdxs   bool
 	Verbose          bool
 	// null duration means use default value
@@ -169,11 +169,11 @@ func (a *App) startup() error {
 		return err
 	}
 
-	if len(a.opts.ProfilerURL) > 0 {
+	if len(a.opts.ProfilerAddr) > 0 {
 		go func() {
-			l.Debugln("Starting profiler on", a.opts.ProfilerURL)
+			l.Debugln("Starting profiler on", a.opts.ProfilerAddr)
 			runtime.SetBlockProfileRate(1)
-			err := http.ListenAndServe(a.opts.ProfilerURL, nil)
+			err := http.ListenAndServe(a.opts.ProfilerAddr, nil)
 			if err != nil {
 				l.Warnln(err)
 				return

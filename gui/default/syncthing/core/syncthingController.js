@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentSharing = {};
         $scope.currentFolder = {};
         $scope.currentDevice = {};
         $scope.ignores = {
@@ -213,6 +214,9 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
+            if (!$scope.connections[arg.data.id]) {
+                return;
+            }
             $scope.connections[arg.data.id].connected = false;
             refreshDeviceStats();
         });
@@ -273,7 +277,8 @@ angular.module('syncthing.core')
                 arg.data.added.forEach(function (rejected) {
                     var offeringDevice = {
                         time: arg.time,
-                        label: rejected.folderLabel
+                        label: rejected.folderLabel,
+                        receiveEncrypted: rejected.receiveEncrypted,
                     };
                     console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
 
@@ -1845,12 +1850,18 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
-        $scope.fsWatcherToggled = function () {
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                $scope.currentFolder.rescanIntervalS = 3600;
-            } else {
-                $scope.currentFolder.rescanIntervalS = 60;
+        $scope.setFSWatcherIntervalDefault = function () {
+            var defaultRescanIntervals = [60, 3600];
+            if (defaultRescanIntervals.indexOf($scope.currentFolder.rescanIntervalS) === -1) {
+                return;
             }
+            var idx;
+            if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
+            } else {
+                idx = 0;
+            }
+            $scope.currentFolder.rescanIntervalS = defaultRescanIntervals[idx];
         };
 
         $scope.loadFormIntoScope = function (form) {
@@ -1945,7 +1956,7 @@ angular.module('syncthing.core')
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.selector = "external";
-                $scope.currentFolder.externalCommand = currentVersioning.params.command;
+                $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
                 break;
             }
         };
@@ -2063,13 +2074,13 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.addFolderAndShare = function (folderID, folderLabel, device) {
+        $scope.addFolderAndShare = function (folderID, pendingFolder, device) {
             addFolderInit(folderID).then(function() {
                 $scope.currentFolder.viewFlags = {
                     importFromOtherDevice: true
                 };
                 $scope.currentSharing.selected[device] = true;
-                $scope.currentFolder.label = folderLabel;
+                $scope.currentFolder.label = pendingFolder.offeredBy[device].label;
                 editFolderModal();
             });
         };

@@ -88,7 +88,7 @@ type Model interface {
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
-	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
+	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
@@ -1294,7 +1294,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
-	updatedPending := make([]map[string]string, 0, len(folders))
+	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
@@ -1312,14 +1312,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+			recvEnc := len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID, recvEnc); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			updatedPending = append(updatedPending, map[string]string{
-				"folderID":    folder.ID,
-				"folderLabel": folder.Label,
-				"deviceID":    deviceID.String(),
+			updatedPending = append(updatedPending, updatedPendingFolder{
+				FolderID:         folder.ID,
+				FolderLabel:      folder.Label,
+				DeviceID:         deviceID,
+				ReceiveEncrypted: recvEnc,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -2087,6 +2089,10 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
+	if cfg.Type == config.FolderTypeReceiveEncrypted {
+		return nil, nil, nil
+	}
+
 	// On creation a new folder with ignore patterns validly has no marker yet.
 	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
 		return nil, nil, err
@@ -2689,7 +2695,7 @@ func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 	return ver.GetVersions()
 }
 
-func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error) {
 	m.fmut.RLock()
 	err := m.checkFolderRunningLocked(folder)
 	fcfg := m.folderCfgs[folder]
@@ -2702,11 +2708,11 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 		return nil, errNoVersioner
 	}
 
-	restoreErrors := make(map[string]string)
+	restoreErrors := make(map[string]error)
 
 	for file, version := range versions {
 		if err := ver.Restore(file, version); err != nil {
-			restoreErrors[file] = err.Error()
+			restoreErrors[file] = err
 		}
 	}
 
@@ -3285,7 +3291,7 @@ func (s deviceIDSet) AsSlice() []protocol.DeviceID {
 }
 
 func encryptionTokenPath(cfg config.FolderConfiguration) string {
-	return filepath.Join(cfg.MarkerName, "syncthing-encryption_password_token")
+	return filepath.Join(cfg.MarkerName, config.EncryptionTokenName)
 }
 
 type storedEncryptionToken struct {
@@ -3326,4 +3332,11 @@ func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.Filesy
 	fcfg.FilesystemType = fsType
 	fcfg.Path = path
 	return fcfg
+}
+
+type updatedPendingFolder struct {
+	FolderID         string            `json:"folderID"`
+	FolderLabel      string            `json:"folderLabel"`
+	DeviceID         protocol.DeviceID `json:"deviceID"`
+	ReceiveEncrypted bool              `json:"receiveEncrypted"`
 }

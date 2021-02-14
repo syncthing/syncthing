@@ -15,19 +15,17 @@ import (
 	"time"
 )
 
-func init() {
-	if innerProcess && os.Getenv("STBLOCKPROFILE") != "" {
-		profiler := pprof.Lookup("block")
-		if profiler == nil {
-			panic("Couldn't find block profiler")
-		}
-		l.Debugln("Starting block profiling")
-		go func() {
-			err := saveBlockingProfiles(profiler) // Only returns on error
-			l.Warnln("Block profiler failed:", err)
-			panic("Block profiler failed")
-		}()
+func startBlockProfiler() {
+	profiler := pprof.Lookup("block")
+	if profiler == nil {
+		panic("Couldn't find block profiler")
 	}
+	l.Debugln("Starting block profiling")
+	go func() {
+		err := saveBlockingProfiles(profiler) // Only returns on error
+		l.Warnln("Block profiler failed:", err)
+		panic("Block profiler failed")
+	}()
 }
 
 func saveBlockingProfiles(profiler *pprof.Profile) error {

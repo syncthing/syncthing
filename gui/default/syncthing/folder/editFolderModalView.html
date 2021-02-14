@@ -174,13 +174,13 @@
           <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
             <p translate class="help-block">An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.</p>
             <label translate for="externalCommand">Command</label>
-            <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required="" aria-required="true" />
+            <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder._guiVersioning.externalCommand" required="" aria-required="true" />
             <p class="help-block">
               <span translate ng-if="folderEditor.externalCommand.$valid || folderEditor.externalCommand.$pristine">See external versioning help for supported templated command line parameters.</span>
               <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder._guiVersioning.selector != 'none'" ng-class="{'has-error': folderEditor._guiVersioning.cleanupIntervalS.$invalid && folderEditor._guiVersioning.cleanupIntervalS.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector != 'none' && currentFolder._guiVersioning.selector != 'external'" ng-class="{'has-error': folderEditor._guiVersioning.cleanupIntervalS.$invalid && folderEditor._guiVersioning.cleanupIntervalS.$dirty}">
             <label translate for="versioningCleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
               <input name="versioningCleanupIntervalS" id="versioningCleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
@@ -232,7 +232,7 @@
               <div class="row">
                 <div class="col-md-6">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="setFSWatcherIntervalDefault()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                   </label>
                   <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
                 </div>

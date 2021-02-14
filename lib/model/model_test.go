@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -2859,7 +2860,7 @@ func TestVersionRestore(t *testing.T) {
 	ferr, err := m.RestoreFolderVersions("default", restore)
 	must(t, err)
 
-	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot restore on top of a directory" {
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || !errors.Is(err, versioner.ErrDirectory) {
 		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
 	}
 
@@ -3996,6 +3997,10 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 }
 
 func TestCcCheckEncryption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping on short testing - generating encryption tokens is slow")
+	}
+
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
 	m := setupModel(t, w)
@@ -4172,7 +4177,7 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2); err != nil {
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2, false); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err := m.PendingFolders(protocol.EmptyDeviceID)
@@ -4188,7 +4193,7 @@ func TestPendingFolder(t *testing.T) {
 
 	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3); err != nil {
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3, false); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err = m.PendingFolders(device2)

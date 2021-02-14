@@ -1,0 +1,37 @@
+// Import theming functions
+@import '~@angular/material/theming';
+
+@mixin tui-card-theme($theme) {
+    // Extract the palettes you need from the theme definition.
+    $primary: map-get($theme, primary);
+    $accent: map-get($theme, accent);
+    $background: map-get($theme, background);
+    $foreground: map-get($theme, foreground);
+
+    .tui-card {
+        background-color: white;
+        border-radius: 4px;
+        height: 100%;
+    }
+
+    .tui-card-title {
+        padding: 16px 16px 0 16px;
+        font-size: mat-font-size($tech-ui-typography, subheading-2);
+        font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+        color: mat-color($primary);
+    }
+
+    .tui-card-content {
+        padding: 16px;
+    }
+
+    .tui-button-toggle .mat-button-toggle-appearance-standard .mat-button-toggle-label-content  {
+        line-height: 34px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .tui-card {
+            background-color: map_get($mat-grey, 800);
+        }
+    }
+}

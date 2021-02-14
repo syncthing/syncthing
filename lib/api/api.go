@@ -1578,7 +1578,7 @@ func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	sendJSON(w, ferr)
+	sendJSON(w, errorStringMap(ferr))
 }
 
 func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
@@ -1870,6 +1870,14 @@ func shouldRegenerateCertificate(cert tls.Certificate) error {
 	}
 
 	return nil
+}
+
+func errorStringMap(errs map[string]error) map[string]*string {
+	out := make(map[string]*string, len(errs))
+	for s, e := range errs {
+		out[s] = errorString(e)
+	}
+	return out
 }
 
 func errorString(err error) *string {

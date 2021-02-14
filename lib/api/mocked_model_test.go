@@ -96,7 +96,7 @@ func (m *mockedModel) GetFolderVersions(folder string) (map[string][]versioner.F
 	return nil, nil
 }
 
-func (m *mockedModel) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+func (m *mockedModel) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error) {
 	return nil, nil
 }
 
