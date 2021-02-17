@@ -560,7 +560,7 @@
                     <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
                       <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                     </button>
-                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
+                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'">
                       <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
