@@ -708,6 +708,11 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr ng-if="!connections[deviceCfg.deviceID].connected">
+                        <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
+                        <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
+                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+                      </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                         <td class="text-right">
@@ -792,11 +797,6 @@
                       <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                         <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                         <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
-                      </tr>
-                      <tr ng-if="!connections[deviceCfg.deviceID].connected">
-                        <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
-                        <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
