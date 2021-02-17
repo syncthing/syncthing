@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Feb 08, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Feb 17, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -397,6 +397,14 @@ a 1 GB file even if there is 1 KB file available on the source device until
 the 1 KB becomes known to the pulling device.
 .TP
 .B ignoreDelete
+.
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Enabling this is highly not recommended \- use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
 When set to true, this device will pretend not to see instructions to
 delete files from other devices.
 .TP
