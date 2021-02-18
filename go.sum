@@ -7,8 +7,8 @@ dmitri.shuralyov.com/html/belt v0.0.0-20180602232347-f7d459c86be0/go.mod h1:JLBr
 dmitri.shuralyov.com/service/change v0.0.0-20181023043359-a85b471d5412/go.mod h1:a1inKt/atXimZ4Mv927x+r7UpyzRUf4emIoiiSC2TN4=
 dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D6DFvNNtx+9ybjezNCa8XF0xaYcETyp6rHWU=
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
-github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6 h1:Apvc4kyfdrOxG+F5dn8osz+45kwGJa6CySQn0tB38SU=
-github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
+github.com/AudriusButkevicius/pfilter v0.0.0-20210218141631-7468b85d810a h1:dUzIAgRmHLIUU0PT+OJ0X1WI5j1hlLbf+G420gUjIQg=
+github.com/AudriusButkevicius/pfilter v0.0.0-20210218141631-7468b85d810a/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
 github.com/AudriusButkevicius/recli v0.0.5 h1:xUa55PvWTHBm17T6RvjElRO3y5tALpdceH86vhzQ5wg=
 github.com/AudriusButkevicius/recli v0.0.5/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c h1:/IBSNwUN8+eKzUzbJPqhK839ygXJ82sde8x3ogr6R28=
