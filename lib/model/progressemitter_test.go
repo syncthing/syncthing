@@ -126,7 +126,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	}
 	waiter.Wait()
 
-	fc := &fakeConnection{}
+	fc := newFakeConnection(protocol.DeviceID{}, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	evLogger := events.NewLogger()
