@@ -35,7 +35,7 @@ func WithJunctionsAsDirs() Option {
 				basic.junctionsAsDirs = true
 			}
 		},
-		id: "junctionsAsDirs=true",
+		id: "junctionsAsDirs",
 	}
 }
 
