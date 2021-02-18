@@ -27,12 +27,15 @@ var (
 )
 
 func WithJunctionsAsDirs() Option {
-	return func(fs Filesystem) {
-		if basic, ok := fs.(*BasicFilesystem); !ok {
-			l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
-		} else {
-			basic.junctionsAsDirs = true
-		}
+	return Option{
+		apply: func(fs Filesystem) {
+			if basic, ok := fs.(*BasicFilesystem); !ok {
+				l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
+			} else {
+				basic.junctionsAsDirs = true
+			}
+		},
+		id: "junctionsAsDirs=true",
 	}
 }
 
@@ -82,7 +85,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 		root: root,
 	}
 	for _, opt := range opts {
-		opt(fs)
+		opt.apply(fs)
 	}
 	return fs
 }
