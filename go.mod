@@ -1,7 +1,7 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
+	github.com/AudriusButkevicius/pfilter v0.0.0-20210218141631-7468b85d810a
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/alecthomas/kong v0.2.12
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
