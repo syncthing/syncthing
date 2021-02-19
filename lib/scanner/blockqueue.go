@@ -104,7 +104,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 
 			blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
 			if err != nil {
-				l.Debugln("hash error:", f.Name, err)
+				handleError(ctx, "hashing", f.Name, err, ph.outbox)
 				continue
 			}
 
