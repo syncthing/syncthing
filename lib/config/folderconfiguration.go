@@ -51,7 +51,7 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	}
 	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
-		filesystem = fs.NewCaseFilesystem(filesystem)
+		filesystem = fs.NewCaseFilesystem(filesystem, opts...)
 	}
 	return filesystem
 }
