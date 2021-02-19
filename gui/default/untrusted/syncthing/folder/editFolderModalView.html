@@ -120,9 +120,9 @@
               <span translate ng-if="folderEditor._guiVersioning.staggeredMaxAge.$error.min && folderEditor._guiVersioning.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder._guiVersioning.selector == 'staggered'">
-            <label translate for="staggeredVersionsPath">Versions Path</label>
-            <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder._guiVersioning.staggeredVersionsPath" />
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector != 'none' && currentFolder._guiVersioning.selector != 'external'">
+            <label translate for="versionsPath">Versions Path</label>
+            <input name="versionsPath" id="versionsPath" class="form-control" type="text" ng-model="currentFolder._guiVersioning.versionsPath" />
             <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
           </div>
           <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">

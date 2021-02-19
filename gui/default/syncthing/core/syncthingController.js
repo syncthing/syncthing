@@ -71,7 +71,7 @@ angular.module('syncthing.core')
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
-            staggeredVersionsPath: "",
+            versionsPath: "",
             externalCommand: "",
         };
 
@@ -1902,17 +1902,19 @@ angular.module('syncthing.core')
             case "trashcan":
                 $scope.currentFolder._guiVersioning.selector = "trashcan";
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
+                $scope.currentFolder._guiVersioning.versionsPath = currentVersioning.params.versionsPath;
                 break;
             case "simple":
                 $scope.currentFolder._guiVersioning.selector = "simple";
                 $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
+                $scope.currentFolder._guiVersioning.versionsPath = currentVersioning.params.versionsPath;
                 break;
             case "staggered":
                 $scope.currentFolder._guiVersioning.selector = "staggered";
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
                 $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
-                $scope.currentFolder._guiVersioning.staggeredVersionsPath = currentVersioning.params.versionsPath;
+                $scope.currentFolder._guiVersioning.versionsPath = currentVersioning.params.versionsPath;
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.selector = "external";
@@ -2041,7 +2043,8 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'type': 'trashcan',
                     'params': {
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
+                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean,
+                        'versionsPath': '' + folderCfg._guiVersioning.versionsPath
                     },
                     'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
                 };
@@ -2051,7 +2054,8 @@ angular.module('syncthing.core')
                     'type': 'simple',
                     'params': {
                         'keep': '' + folderCfg._guiVersioning.simpleKeep,
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
+                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean,
+                        'versionsPath': '' + folderCfg._guiVersioning.versionsPath
                     },
                     'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
                 };
@@ -2062,7 +2066,7 @@ angular.module('syncthing.core')
                     'params': {
                         'maxAge': '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400),
                         'cleanInterval': '' + folderCfg._guiVersioning.staggeredCleanInterval,
-                        'versionsPath': '' + folderCfg._guiVersioning.staggeredVersionsPath
+                        'versionsPath': '' + folderCfg._guiVersioning.versionsPath
                     },
                     'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
                 };
