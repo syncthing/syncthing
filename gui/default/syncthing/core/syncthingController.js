@@ -2077,7 +2077,6 @@ angular.module('syncthing.core')
                     'params': {
                         'command': '' + folderCfg._guiVersioning.externalCommand
                     },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
                 };
                 break;
             default:
