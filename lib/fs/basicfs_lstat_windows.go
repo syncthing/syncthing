@@ -29,7 +29,7 @@ func isDirectoryJunction(path string) (bool, error) {
 	}
 	defer syscall.CloseHandle(h)
 
-	//https://docs.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
+	//https://docs.microsoft.com/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
 	const fileAttributeTagInfo = 9
 	type FILE_ATTRIBUTE_TAG_INFO struct {
 		FileAttributes uint32
