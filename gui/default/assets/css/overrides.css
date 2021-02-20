@@ -120,7 +120,8 @@ table.table-dynamic {
     word-break: break-all;
 }
 
-table.table-condensed td {
+table.table-condensed td,
+table.table-condensed th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -363,7 +364,8 @@ ul.three-columns li, ul.two-columns li {
         overflow-y: scroll;
     }
 
-    table.table-condensed td {
+    table.table-condensed td,
+    table.table-condensed th {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
         * columns. */
         white-space: normal;
