@@ -97,6 +97,10 @@ func (s singleFileFS) Open(name string) (fs.File, error) {
 	return &fakeFile{s.name, s.filesize, 0}, nil
 }
 
+func (s singleFileFS) Options() fs.FilesystemOptions {
+	return 0
+}
+
 type fakeInfo struct {
 	name string
 	size int64

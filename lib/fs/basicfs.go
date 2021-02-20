@@ -26,27 +26,14 @@ var (
 	errNotRelative                        = errors.New("not a relative path")
 )
 
-func WithJunctionsAsDirs() Option {
-	return Option{
-		apply: func(fs Filesystem) {
-			if basic, ok := fs.(*BasicFilesystem); !ok {
-				l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
-			} else {
-				basic.junctionsAsDirs = true
-			}
-		},
-		id: "junctionsAsDirs",
-	}
-}
-
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
-	root            string
-	junctionsAsDirs bool
+	FilesystemOptions
+	root string
 }
 
-func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
+func newBasicFilesystem(root string, opts ...FilesystemOptions) *BasicFilesystem {
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
@@ -84,9 +71,8 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	fs := &BasicFilesystem{
 		root: root,
 	}
-	for _, opt := range opts {
-		opt.apply(fs)
-	}
+	fs.FilesystemOptions.Add(opts...)
+
 	return fs
 }
 

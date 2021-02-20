@@ -45,13 +45,13 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	var opts []fs.Option
+	var opts fs.FilesystemOptions
 	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
-		opts = append(opts, fs.WithJunctionsAsDirs())
+		opts |= fs.OptionJunctionsAsDirs
 	}
-	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
+	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts)
 	if !f.CaseSensitiveFS {
-		filesystem = fs.NewCaseFilesystem(filesystem, opts...)
+		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
 	return filesystem
 }

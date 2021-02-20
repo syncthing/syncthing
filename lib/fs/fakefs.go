@@ -54,6 +54,7 @@ const randomBlockShift = 14 // 128k
 // - Two fakefs:s pointing at the same root path see the same files.
 //
 type fakefs struct {
+	FilesystemOptions
 	counters    fakefsCounters
 	uri         string
 	mut         sync.Mutex
@@ -85,7 +86,7 @@ var (
 	fakefsFs  = make(map[string]*fakefs)
 )
 
-func newFakeFilesystem(rootURI string, _ ...Option) *fakefs {
+func newFakeFilesystem(rootURI string, _ ...FilesystemOptions) *fakefs {
 	fakefsMut.Lock()
 	defer fakefsMut.Unlock()
 

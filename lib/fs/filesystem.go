@@ -47,6 +47,7 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	Options() FilesystemOptions
 	SameFile(fi1, fi2 FileInfo) bool
 }
 
@@ -178,12 +179,16 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-type Option struct {
-	apply func(Filesystem)
-	id    string
-}
+type FilesystemOptions uint
 
-func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
+const (
+	OptionJunctionsAsDirs FilesystemOptions = 1 << iota
+)
+
+// NewFilesystem creates a filesystem of given fsType with its root at uri.
+// Options can be passed through multiple optional options. It is also possible
+// to pass a combination of FilesystemOptions in a single argument.
+func NewFilesystem(fsType FilesystemType, uri string, opts ...FilesystemOptions) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
@@ -291,5 +296,21 @@ func unwrapFilesystem(fs Filesystem) Filesystem {
 		default:
 			return sfs
 		}
+	}
+}
+
+// Options is a helper function so that implementations of Filesystem can
+// just embed FilesystemOptions to implement this interface method.
+func (o FilesystemOptions) Options() FilesystemOptions {
+	return o
+}
+
+func (o FilesystemOptions) Has(other FilesystemOptions) bool {
+	return o&other != 0
+}
+
+func (o *FilesystemOptions) Add(opts ...FilesystemOptions) {
+	for _, opt := range opts {
+		*o |= opt
 	}
 }

@@ -12,6 +12,7 @@ import (
 )
 
 type errorFilesystem struct {
+	FilesystemOptions
 	err    error
 	fsType FilesystemType
 	uri    string
