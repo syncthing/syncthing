@@ -7,7 +7,7 @@
       <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
       <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
       <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
-      <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: 20%"><span translate class="show">Downloading</span></div>
+      <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
     </div>
 
     <hr />
@@ -42,7 +42,7 @@
               <div class="progress-bar" style="width: {{progress[neededFolder][f.name].copiedFromOrigin | percent}}"></div>
               <div class="progress-bar progress-bar-info" style="width: {{progress[neededFolder][f.name].copiedFromElsewhere | percent}}"></div>
               <div class="progress-bar progress-bar-warning" style="width: {{progress[neededFolder][f.name].pulled | percent}}"></div>
-              <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: {{progress[neededFolder][f.name].pulling | percent}}"></div>
+              <div class="progress-bar progress-bar-danger" style="width: {{progress[neededFolder][f.name].pulling | percent}}"></div>
               <span class="show frontal">
                 {{progress[neededFolder][f.name].bytesDone | binary}}B / {{progress[neededFolder][f.name].bytesTotal | binary}}B
               </span>
