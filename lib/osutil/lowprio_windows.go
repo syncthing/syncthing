@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686219(v=vs.85).aspx
+	// https://docs.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-setpriorityclass
 	aboveNormalPriorityClass   = 0x00008000
 	belowNormalPriorityClass   = 0x00004000
 	highPriorityClass          = 0x00000080
