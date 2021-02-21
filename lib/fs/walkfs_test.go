@@ -57,7 +57,7 @@ func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 		t.Skip("Directory junctions are available and tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri, OptionJunctionsAsDirs)
+	fs := NewFilesystem(fsType, uri, new(OptionJunctionsAsDirs))
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 		t.Skip("Infinite recursion detection is tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri, OptionJunctionsAsDirs)
+	fs := NewFilesystem(fsType, uri, new(OptionJunctionsAsDirs))
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)

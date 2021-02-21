@@ -43,9 +43,8 @@ type realCaser interface {
 }
 
 type fskey struct {
-	fstype FilesystemType
-	uri    string
-	opts   FilesystemOptions
+	fstype    FilesystemType
+	uri, opts string
 }
 
 // caseFilesystemRegistry caches caseFilesystems and runs a routine to drop
@@ -56,12 +55,22 @@ type caseFilesystemRegistry struct {
 	startCleaner sync.Once
 }
 
-func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
+func newFSKey(fs Filesystem) fskey {
 	k := fskey{
 		fstype: fs.Type(),
 		uri:    fs.URI(),
-		opts:   fs.Options(),
 	}
+	if opts := fs.Options(); len(opts) > 0 {
+		k.opts = opts[0].ID()
+		for _, o := range opts[1:] {
+			k.opts += "&" + o.ID()
+		}
+	}
+	return k
+}
+
+func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
+	k := newFSKey(fs)
 
 	// Use double locking when getting a caseFs. In the common case it will
 	// already exist and we take the read lock fast path. If it doesn't, we

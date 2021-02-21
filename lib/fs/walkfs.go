@@ -67,10 +67,16 @@ type walkFilesystem struct {
 }
 
 func NewWalkFilesystem(next Filesystem) Filesystem {
-	return &walkFilesystem{
-		Filesystem:             next,
-		checkInfiniteRecursion: next.Options().Has(OptionJunctionsAsDirs),
+	fs := &walkFilesystem{
+		Filesystem: next,
 	}
+	for _, opt := range next.Options() {
+		if _, ok := opt.(*OptionJunctionsAsDirs); ok {
+			fs.checkInfiniteRecursion = true
+			break
+		}
+	}
+	return fs
 }
 
 // walk recursively descends path, calling walkFn.

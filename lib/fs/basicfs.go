@@ -26,14 +26,29 @@ var (
 	errNotRelative                        = errors.New("not a relative path")
 )
 
+type OptionJunctionsAsDirs struct{}
+
+func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
+	if basic, ok := fs.(*BasicFilesystem); !ok {
+		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
+	} else {
+		basic.junctionsAsDirs = true
+	}
+}
+
+func (o *OptionJunctionsAsDirs) ID() string {
+	return "junctionsAsDirs"
+}
+
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
-	FilesystemOptions
-	root string
+	root            string
+	junctionsAsDirs bool
+	options         []Option
 }
 
-func newBasicFilesystem(root string, opts ...FilesystemOptions) *BasicFilesystem {
+func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
@@ -69,10 +84,12 @@ func newBasicFilesystem(root string, opts ...FilesystemOptions) *BasicFilesystem
 	}
 
 	fs := &BasicFilesystem{
-		root: root,
+		root:    root,
+		options: opts,
 	}
-	fs.FilesystemOptions.Add(opts...)
-
+	for _, opt := range opts {
+		opt.apply(fs)
+	}
 	return fs
 }
 
@@ -295,6 +312,10 @@ func (f *BasicFilesystem) Type() FilesystemType {
 
 func (f *BasicFilesystem) URI() string {
 	return strings.TrimPrefix(f.root, `\\?\`)
+}
+
+func (f *BasicFilesystem) Options() []Option {
+	return f.options
 }
 
 func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {

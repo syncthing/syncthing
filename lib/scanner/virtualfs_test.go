@@ -97,8 +97,8 @@ func (s singleFileFS) Open(name string) (fs.File, error) {
 	return &fakeFile{s.name, s.filesize, 0}, nil
 }
 
-func (s singleFileFS) Options() fs.FilesystemOptions {
-	return 0
+func (s singleFileFS) Options() []fs.Option {
+	return nil
 }
 
 type fakeInfo struct {
