@@ -314,7 +314,7 @@ table.fancytree-ext-table {
 
 span.fancytree-expander,
 span.fancytree-icon {
-    vertical-align: middle;
+    vertical-align: middle !important;
 }
 
 /* Break long names not to push content off the screen. */
