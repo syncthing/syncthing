@@ -2,27 +2,29 @@
   <div class="modal-body">
     <span translate ng-if="!restoreVersions.versions && !restoreVersions.errors">Loading data...</span>
     <div ng-if="restoreVersions.versions">
-      <table id="restoreTree">
-        <thead>
-          <tr>
-            <th></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-        </tbody>
-      </table>
+      <div id="restoreTree-container" class="form-control">
+        <table id="restoreTree">
+          <thead>
+            <tr>
+              <th></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
       <hr />
       <div class="row form-inline">
         <div class="col-md-6">
           <div class="form-group">
-            <label translate for="restoreVersionSearch">Filter by name</label>:&nbsp
+            <label for="restoreVersionSearch"><span translate>Filter by name</span>:&nbsp</label>
             <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text">
           </div>
         </div>
         <div class="col-md-6">
           <div class="form-group">
-            <label translate for="restoreVersionDate">Filter by date</label>:&nbsp
+            <label for="restoreVersionDate"><span translate>Filter by date</span>:&nbsp</label>
             <input id="restoreVersionDateRange" class="form-control">
           </div>
         </div>

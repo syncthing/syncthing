@@ -304,6 +304,73 @@ ul.three-columns li, ul.two-columns li {
     z-index: 980;
 }
 
+/**
+ * Fancytree tweaks
+ */
+
+table.fancytree-ext-table {
+  width: 100%
+}
+
+span.fancytree-expander,
+span.fancytree-icon {
+    vertical-align: middle;
+}
+
+/* Break long names not to push the restore buttons off the screen. */
+span.fancytree-title {
+    word-break: break-all;
+}
+
+/**
+ * Restore Versions modal tweaks
+ */
+
+/* Contain the file list in a fix-sized box with a scrollbar. By
+   default, display 5.5 items at once (depends on the browser, font, and
+   DPI). The container can be resized by the user at will. */
+#restoreTree-container {
+    height: auto;
+    overflow-y: auto;
+    resize: both;
+    /* Size of a single item, 39px + 12px (.form-control padding). */
+    min-height: 51px;
+    /* Size of 5.5 items, (39px * 5.5) + 6px (.form-control padding). */
+    max-height: 220.5px;
+}
+
+/* Disable the max-height limit set above when resized manually. */
+#restoreTree-container[style*="height"] {
+    max-height: none;
+}
+
+/* The outline is ugly and serves no purpose here. */
+#restoreTree {
+    outline: none;
+}
+
+/* Hide the empty table head, so that it takes no vertical space. */
+#restoreTree > thead {
+    display: none;
+}
+
+/* Reduce the space between the restore button and menu on mobile. */
+#restoreTree .dropdown-toggle {
+    margin-bottom: 0;
+}
+
+/* Move the button to the left, so that it is visible on mobile. */
+#restoreTree .dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Widen the filter inputs to fit more text, esp. the date range. */
+#restoreVersions .form-group,
+#restoreVersions .form-control {
+    width: 100%;
+}
+
 /** Footer nav on small devices **/
 @media (max-width: 1199px) {
     /* Stay at the end of the page, with space reserved for the footer
@@ -395,10 +462,6 @@ ul.three-columns li, ul.two-columns li {
 
 .tab-content {
     padding-top: 10px;
-}
-
-.fancytree-ext-table {
-    width: 100% !important;
 }
 
 @media (max-width: 419px) {
