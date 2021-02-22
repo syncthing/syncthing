@@ -317,7 +317,7 @@ span.fancytree-icon {
     vertical-align: middle;
 }
 
-/* Break long names not to push the restore buttons off the screen. */
+/* Break long names not to push content off the screen. */
 span.fancytree-title {
     word-break: break-all;
 }
