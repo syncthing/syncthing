@@ -1,7 +1,7 @@
 [syncthing]
 title=Syncthing
 description=Syncthing file synchronisation
-ports=22000/tcp|21027/udp
+ports=22000|21027/udp
 
 [syncthing-gui]
 title=Syncthing-GUI
