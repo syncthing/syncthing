@@ -119,7 +119,7 @@
     "Failed Items": "Elementos fallidos",
     "Failed to setup, retrying": "Fallo en la configuración, reintentando",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Se espera un fallo al conectar a los servidores IPv6 si no hay conectividad IPv6.",
-    "File Pull Order": "Orden de obtención de los ficheros",
+    "File Pull Order": "Orden de Obtención de los Archivos",
     "File Versioning": "Versionado de ficheros",
     "Files are moved to .stversions directory when replaced or deleted by Syncthing.": "Los ficheros son movidos a la carpeta .stversions cuando son reemplazados o borrados por Syncthing.",
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Los ficheros son movidos a una carpeta .stversions a versiones con control de fecha cuando son reemplazados o borrados por Syncthing.",
