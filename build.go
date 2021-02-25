@@ -217,13 +217,16 @@ var dependencyRepos = []dependencyRepo{
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
-func init() {
+func initTargets() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
 	for _, pkg := range pkgs {
 		pkg = filepath.Base(pkg)
 		if strings.HasPrefix(pkg, ".") {
 			// ignore dotfiles
+			continue
+		}
+		if noupgrade && pkg == "stupgrades" {
 			continue
 		}
 		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
@@ -256,6 +259,8 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
+
+	initTargets()
 
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
