@@ -121,8 +121,8 @@
             </p>
           </div>
           <div class="form-group" ng-if="internalVersioningEnabled()">
-            <label translate for="versionsPath">Versions Path</label>
-            <input name="versionsPath" id="versionsPath" class="form-control" type="text" ng-model="currentFolder._guiVersioning.versionsPath" />
+            <label translate for="fsPath">Versions Path</label>
+            <input name="fsPath" id="fsPath" class="form-control" type="text" ng-model="currentFolder.versioning.fsPath" />
             <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
           </div>
           <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">

@@ -33,10 +33,8 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 		FilesystemType: fs.FilesystemTypeBasic,
 		Path:           tmpDir1,
 		Versioning: config.VersioningConfiguration{
-			Params: map[string]string{
-				"fsType": "basic",
-				"fsPath": tmpDir2,
-			},
+			FSType: fs.FilesystemTypeBasic,
+			FSPath: tmpDir2,
 		},
 	}
 	folderFs := cfg.Filesystem()
@@ -101,6 +99,7 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 }
 
 func readFile(t *testing.T, filesystem fs.Filesystem, name string) string {
+	t.Helper()
 	fd, err := filesystem.Open(name)
 	if err != nil {
 		t.Fatal(err)

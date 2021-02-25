@@ -41,8 +41,6 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 		maxAge = 31536000 // Default: ~1 year
 	}
 
-	// Backwards compatibility
-	params["fsPath"] = params["versionsPath"]
 	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{

@@ -145,10 +145,8 @@ func TestCreateVersionPath(t *testing.T) {
 		ID:   "default",
 		Path: tmpDir,
 		Versioning: config.VersioningConfiguration{
-			Type: "staggered",
-			Params: map[string]string{
-				"versionsPath": versionsDir,
-			},
+			Type:   "staggered",
+			FSPath: versionsDir,
 		},
 	}
 
