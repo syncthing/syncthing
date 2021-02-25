@@ -49,7 +49,7 @@ var (
 	benchRun       string
 	debugBinary    bool
 	coverage       bool
-	timeout        = "120s"
+	timeout        string
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
 )
@@ -374,6 +374,7 @@ func parseFlags() {
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
+	flag.StringVar(&timeout, "timeout", "120s", "Test timeout")
 	flag.Parse()
 }
 
