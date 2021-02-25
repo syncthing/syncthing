@@ -764,6 +764,7 @@ func listFiles(dir string) []string {
 
 func rebuildAssets(toRebuild []asset) {
 	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
+	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
 	args := make([]string, 1, len(toRebuild)+1)
 	args[0] = "generate"
