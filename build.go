@@ -933,7 +933,7 @@ func proto() {
 		}
 		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 	runPrint(goCmd, "generate", "proto/generate.go")
 }
 
