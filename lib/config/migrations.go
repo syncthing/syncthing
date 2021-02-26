@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{35, migrateToConfigV35},
 		{34, migrateToConfigV34},
 		{33, migrateToConfigV33},
 		{32, migrateToConfigV32},
@@ -91,6 +92,24 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV35(cfg *Configuration) {
+	for i, fcfg := range cfg.Folders {
+		params := fcfg.Versioning.Params
+		if params["fsType"] != "" {
+			var fsType fs.FilesystemType
+			_ = fsType.UnmarshalText([]byte(params["fsType"]))
+			cfg.Folders[i].Versioning.FSType = fsType
+		}
+		if params["versionsPath"] != "" && params["fsPath"] == "" {
+			params["fsPath"] = params["versionsPath"]
+		}
+		cfg.Folders[i].Versioning.FSPath = params["fsPath"]
+		delete(cfg.Folders[i].Versioning.Params, "fsType")
+		delete(cfg.Folders[i].Versioning.Params, "fsPath")
+		delete(cfg.Folders[i].Versioning.Params, "versionsPath")
+	}
 }
 
 func migrateToConfigV34(cfg *Configuration) {
