@@ -71,7 +71,6 @@ angular.module('syncthing.core')
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
-            versionsPath: "",
             externalCommand: "",
         };
 
@@ -1921,9 +1920,6 @@ angular.module('syncthing.core')
 
             $scope.currentFolder._guiVersioning.cleanupIntervalS = +currentVersioning.cleanupIntervalS;
             $scope.currentFolder._guiVersioning.selector = currentVersioning.type;
-            if (currentVersioning.type !== 'external') {
-                $scope.currentFolder._guiVersioning.versionsPath = currentVersioning.params.versionsPath;
-            }
 
             // Apply parameters currently in use
             switch (currentVersioning.type) {
@@ -2064,7 +2060,6 @@ angular.module('syncthing.core')
             folderCfg.versioning.type = folderCfg._guiVersioning.selector;
             if ($scope.internalVersioningEnabled()) {
                 folderCfg.versioning.cleanupIntervalS = folderCfg._guiVersioning.cleanupIntervalS;
-                folderCfg.versioning.versionsPath = folderCfg._guiVersioning.versionsPath;
             }
             switch (folderCfg._guiVersioning.selector) {
             case "trashcan":
