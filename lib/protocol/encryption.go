@@ -356,19 +356,20 @@ func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
 	return decFI, nil
 }
 
+var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
+
 // encryptName encrypts the given string in a deterministic manner (the
 // result is always the same for any given string) and encodes it in a
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key, nil)
-	b32enc := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(enc)
-	return slashify(b32enc)
+	return slashify(base32Hex.EncodeToString(enc))
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
 	name = deslashify(name)
-	bs, err := base32.HexEncoding.WithPadding(base32.NoPadding).DecodeString(name)
+	bs, err := base32Hex.DecodeString(name)
 	if err != nil {
 		return "", err
 	}
