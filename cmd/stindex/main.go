@@ -30,13 +30,7 @@ func main() {
 		path = filepath.Join(defaultConfigDir(), "index-v0.14.0.db")
 	}
 
-	var ldb backend.Backend
-	var err error
-	if looksLikeBadger(path) {
-		ldb, err = backend.OpenBadger(path)
-	} else {
-		ldb, err = backend.OpenLevelDBRO(path)
-	}
+	ldb, err := backend.OpenLevelDBRO(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,9 +49,4 @@ func main() {
 	default:
 		fmt.Println("Unknown mode")
 	}
-}
-
-func looksLikeBadger(path string) bool {
-	_, err := os.Stat(filepath.Join(path, "KEYREGISTRY"))
-	return err == nil
 }
