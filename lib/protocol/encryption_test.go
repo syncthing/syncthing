@@ -8,7 +8,9 @@ package protocol
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -16,11 +18,28 @@ import (
 )
 
 func TestEnDecryptName(t *testing.T) {
+	pattern := regexp.MustCompile(
+		fmt.Sprintf("^[0-9A-V]%s/[0-9A-V]{2}/([0-9A-V]{%d}/)*[0-9A-V]{1,%d}$",
+			regexp.QuoteMeta(encryptedDirExtension),
+			maxPathComponent, maxPathComponent-1))
+
+	makeName := func(n int) string {
+		b := make([]byte, n)
+		for i := range b {
+			b[i] = byte('a' + i%26)
+		}
+		return string(b)
+	}
+
 	var key [32]byte
 	cases := []string{
 		"",
 		"foo",
 		"a longer name/with/slashes and spaces",
+		makeName(maxPathComponent),
+		makeName(1 + maxPathComponent),
+		makeName(2 * maxPathComponent),
+		makeName(1 + 2*maxPathComponent),
 	}
 	for _, tc := range cases {
 		var prev string
@@ -33,6 +52,11 @@ func TestEnDecryptName(t *testing.T) {
 			if tc != "" && strings.Contains(enc, tc) {
 				t.Error("shouldn't contain plaintext")
 			}
+			if !pattern.MatchString(enc) {
+				t.Fatalf("encrypted name %s doesn't match %s",
+					enc, pattern)
+			}
+
 			dec, err := decryptName(enc, &key)
 			if err != nil {
 				t.Error(err)
@@ -40,7 +64,21 @@ func TestEnDecryptName(t *testing.T) {
 			if dec != tc {
 				t.Error("mismatch after decryption")
 			}
-			t.Log(enc)
+			t.Logf("%q encrypts as %q", tc, enc)
+		}
+	}
+}
+
+func TestDecryptNameInvalid(t *testing.T) {
+	key := new([32]byte)
+	for _, c := range []string{
+		"T.syncthing-enc/OD",
+		"T.syncthing-enc/OD/",
+		"T.wrong-extension/OD/PHVDD67S7FI2K5QQMPSOFSK",
+		"OD/PHVDD67S7FI2K5QQMPSOFSK",
+	} {
+		if _, err := decryptName(c, key); err == nil {
+			t.Errorf("no error for %q", c)
 		}
 	}
 }

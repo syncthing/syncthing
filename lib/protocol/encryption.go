@@ -356,19 +356,23 @@ func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
 	return decFI, nil
 }
 
+var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
+
 // encryptName encrypts the given string in a deterministic manner (the
 // result is always the same for any given string) and encodes it in a
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key, nil)
-	b32enc := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(enc)
-	return slashify(b32enc)
+	return slashify(base32Hex.EncodeToString(enc))
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
-	name = deslashify(name)
-	bs, err := base32.HexEncoding.WithPadding(base32.NoPadding).DecodeString(name)
+	name, err := deslashify(name)
+	if err != nil {
+		return "", err
+	}
+	bs, err := base32Hex.DecodeString(name)
 	if err != nil {
 		return "", err
 	}
@@ -524,9 +528,12 @@ func slashify(s string) string {
 
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
-func deslashify(s string) string {
-	s = strings.ReplaceAll(s, encryptedDirExtension, "")
-	return strings.ReplaceAll(s, "/", "")
+func deslashify(s string) (string, error) {
+	if len(s) == 0 || !strings.HasPrefix(s[1:], encryptedDirExtension) {
+		return "", fmt.Errorf("invalid encrypted path: %q", s)
+	}
+	s = s[:1] + s[1+len(encryptedDirExtension):]
+	return strings.ReplaceAll(s, "/", ""), nil
 }
 
 type rawResponse struct {
