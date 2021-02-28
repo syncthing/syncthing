@@ -297,7 +297,8 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 
 	configBuilder.registerConfig("/rest/config")
-	configBuilder.registerConfigInsync("/rest/config/insync")
+	configBuilder.registerConfigInsync("/rest/config/insync") // deprecated
+	configBuilder.registerConfigInsync("/rest/config/restart-required")
 	configBuilder.registerFolders("/rest/config/folders")
 	configBuilder.registerDevices("/rest/config/devices")
 	configBuilder.registerFolder("/rest/config/folders/:id")

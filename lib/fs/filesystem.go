@@ -178,7 +178,10 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-type Option func(Filesystem)
+type Option struct {
+	apply func(Filesystem)
+	id    string
+}
 
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var fs Filesystem
