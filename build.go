@@ -49,7 +49,7 @@ var (
 	benchRun       string
 	debugBinary    bool
 	coverage       bool
-	timeout        string
+	timeout        = "120s"
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
 )
@@ -217,13 +217,16 @@ var dependencyRepos = []dependencyRepo{
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
-func init() {
+func initTargets() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
 	for _, pkg := range pkgs {
 		pkg = filepath.Base(pkg)
 		if strings.HasPrefix(pkg, ".") {
 			// ignore dotfiles
+			continue
+		}
+		if noupgrade && pkg == "stupgrades" {
 			continue
 		}
 		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
@@ -256,6 +259,8 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
+
+	initTargets()
 
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
@@ -306,10 +311,13 @@ func runCommand(cmd string, target target) {
 		integration(true)
 
 	case "assets":
-		rebuildAssets(buildAssets(target.name))
+		rebuildAssets()
 
 	case "proto":
 		proto()
+
+	case "testmocks":
+		testmocks()
 
 	case "translate":
 		translate()
@@ -374,12 +382,11 @@ func parseFlags() {
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
-	flag.StringVar(&timeout, "timeout", "120s", "Test timeout")
 	flag.Parse()
 }
 
 func test(tags []string, pkgs ...string) {
-	lazyRebuildAssets(append(buildAssets(""), testAssets...)...)
+	lazyRebuildAssets()
 
 	tags = append(tags, "purego")
 	args := []string{"test", "-short", "-timeout", timeout, "-tags", strings.Join(tags, " ")}
@@ -401,13 +408,13 @@ func test(tags []string, pkgs ...string) {
 }
 
 func bench(tags []string, pkgs ...string) {
-	lazyRebuildAssets(append(buildAssets(""), testAssets...)...)
+	lazyRebuildAssets()
 	args := append([]string{"test", "-run", "NONE", "-tags", strings.Join(tags, " ")}, benchArgs()...)
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
 func integration(bench bool) {
-	lazyRebuildAssets(append(buildAssets(""), testAssets...)...)
+	lazyRebuildAssets()
 	args := []string{"test", "-v", "-timeout", "60m", "-tags"}
 	tags := "purego,integration"
 	if bench {
@@ -441,7 +448,11 @@ func benchArgs() []string {
 }
 
 func install(target target, tags []string) {
-	lazyRebuildAssets(buildAssets(target.name)...)
+	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
+		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
+	}
+
+	lazyRebuildAssets()
 
 	tags = append(target.tags, tags...)
 
@@ -470,8 +481,11 @@ func install(target target, tags []string) {
 }
 
 func build(target target, tags []string) {
-	lazyRebuildAssets(buildAssets(target.name)...)
+	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
+		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
+	}
 
+	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
 
 	rmr(target.BinaryName())
@@ -762,43 +776,39 @@ func listFiles(dir string) []string {
 	return res
 }
 
-func rebuildAssets(toRebuild []asset) {
-	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
-	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
+func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	args := make([]string, 1, len(toRebuild)+1)
-	args[0] = "generate"
-	// A target path to be generated might be specified by more than one asset
-	paths := make(map[string]struct{}, len(toRebuild))
-	for _, a := range toRebuild {
-		if a.buildFn != nil {
-			a.buildFn()
-		}
-		paths[a.generate] = struct{}{}
-	}
-	for path := range paths {
-		args = append(args, path)
-	}
-	runPrint(goCmd, args...)
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/api/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
 }
 
-func lazyRebuildAssets(toRebuild ...asset) {
-	filtered := toRebuild[:0]
-	for _, a := range toRebuild {
-		if a.shouldRebuild() {
-			filtered = append(filtered, a)
-		}
+func lazyRebuildAssets() {
+	shouldRebuild := shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") ||
+		shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui")
+
+	if withNextGenGUI {
+		shouldRebuild = buildNextGenGUI() || shouldRebuild
 	}
-	if len(filtered) > 0 {
-		rebuildAssets(filtered)
+
+	if shouldRebuild {
+		rebuildAssets()
 	}
 }
 
-func buildNextGenGUI() {
+func buildNextGenGUI() bool {
+	// Check if we need to run the npm process, and if so also set the flag
+	// to rebuild Go assets afterwards. The index.html is regenerated every
+	// time by the build process. This assumes the new GUI ends up in
+	// next-gen-gui/dist/next-gen-gui.
+
+	if !shouldRebuildAssets("gui/next-gen-gui/index.html", "next-gen-gui") {
+		// The GUI is up to date.
+		return false
+	}
+
 	runPrintInDir("next-gen-gui", "npm", "install")
 	runPrintInDir("next-gen-gui", "npm", "run", "build", "--", "--prod", "--subresource-integrity")
 
-	rmr("gui/next-gen-ui")
+	rmr("gui/tech-ui")
 
 	for _, src := range listFiles("next-gen-gui/dist") {
 		rel, _ := filepath.Rel("next-gen-gui/dist", src)
@@ -808,112 +818,34 @@ func buildNextGenGUI() {
 			os.Exit(1)
 		}
 	}
+
+	return true
 }
 
-func buildAssets(targetName string) []asset {
-	assets := make([]asset, 0, 3)
-	if targetName == "syncthing" || targetName == "" {
-		if withNextGenGUI {
-			assets = append(assets, nextGenGUIAsset)
-		} else {
-			log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
-		}
-		assets = append(assets, guiAsset)
+func shouldRebuildAssets(target, srcdir string) bool {
+	info, err := os.Stat(target)
+	if err != nil {
+		// If the file doesn't exist, we must rebuild it
+		return true
 	}
-	if targetName == "strelaypoolsrv" || targetName == "" {
-		assets = append(assets, relayPoolGUIAsset)
-	}
-	return assets
-}
 
-// asset represents a generation step, that produces targets from sources.
-// First buildFn is called (if not nil) and then go generate on the path
-// specified in generate (if not empty).
-type asset struct {
-	buildFn          func()
-	generate         string
-	targets, sources []string
-}
-
-var guiAsset = asset{
-	generate: "./lib/api/auto",
-	targets:  []string{"lib/api/auto/gui.files.go"},
-	sources:  []string{"gui"},
-}
-
-var relayPoolGUIAsset = asset{
-	generate: "./cmd/strelaypoolsrv/auto",
-	targets:  []string{"cmd/strelaypoolsrv/auto/gui.files.go"},
-	sources:  []string{"cmd/strelaypoolsrv/gui"},
-}
-
-var nextGenGUIAsset = asset{
-	buildFn:  buildNextGenGUI,
-	generate: guiAsset.generate,
-	targets:  []string{"gui/next-gen-gui/index.html"},
-	sources:  []string{"next-gen-gui"},
-}
-
-var testAssets = []asset{
-	{
-		generate: "./lib/config",
-		targets:  []string{"lib/config/mocks"},
-		sources:  []string{"lib/config/wrapper.go"},
-	},
-	{
-		generate: "./lib/connections",
-		targets:  []string{"lib/connections/mocks"},
-		sources:  []string{"lib/connections/service.go"},
-	},
-	{
-		generate: "./lib/discover",
-		targets:  []string{"lib/discover/mocks"},
-		sources:  []string{"lib/discover/manager.go"},
-	},
-	{
-		generate: "./lib/events",
-		targets:  []string{"lib/events/mocks"},
-		sources:  []string{"lib/events/events.go"},
-	},
-	{
-		generate: "./lib/logger",
-		targets:  []string{"lib/logger/mocks"},
-		sources:  []string{"lib/logger/logger.go"},
-	},
-	{
-		generate: "./lib/model",
-		targets:  []string{"lib/model/mocks"},
-		sources:  []string{"lib/model/model.go", "lib/model/folder_summary.go"},
-	},
-	{
-		generate: "./lib/protocol",
-		targets:  []string{"lib/protocol/mocks", "lib/protocol/mocked_connection_info_test.go"},
-		sources:  []string{"lib/protocol/protocol.go"},
-	},
-}
-
-func (a asset) shouldRebuild() bool {
-	// Check if any of the files in the source are newer than any asset file,
+	// Check if any of the files in gui/ are newer than the asset file. If
 	// so we should rebuild it.
-	return newestModTime(a.targets...).Before(newestModTime(a.sources...))
-}
+	currentBuild := info.ModTime()
+	assetsAreNewer := false
+	stop := errors.New("no need to iterate further")
+	filepath.Walk(srcdir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.ModTime().After(currentBuild) {
+			assetsAreNewer = true
+			return stop
+		}
+		return nil
+	})
 
-func newestModTime(paths ...string) time.Time {
-	var newest time.Time
-	for _, path := range paths {
-		filepath.Walk(path, func(wpath string, info os.FileInfo, err error) error {
-			if os.IsNotExist(err) && wpath == path {
-				// Missing item -> rebuild
-				newest = time.Time{}
-				return err
-			}
-			if t := info.ModTime(); t.After(newest) {
-				newest = t
-			}
-			return nil
-		})
-	}
-	return newest
+	return assetsAreNewer
 }
 
 func proto() {
@@ -935,6 +867,22 @@ func proto() {
 	}
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 	runPrint(goCmd, "generate", "proto/generate.go")
+}
+
+func testmocks() {
+	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
+	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
+	args := []string{
+		"generate",
+		"lib/config",
+		"lib/connections",
+		"lib/discover",
+		"lib/events",
+		"lib/logger",
+		"lib/model",
+		"lib/protocol",
+	}
+	runPrint(goCmd, args...)
 }
 
 func translate() {
@@ -1411,12 +1359,12 @@ func windowsCodesign(file string) {
 }
 
 func metalint() {
-	lazyRebuildAssets(guiAsset)
+	lazyRebuildAssets()
 	runPrint(goCmd, "test", "-run", "Metalint", "./meta")
 }
 
 func metalintShort() {
-	lazyRebuildAssets(guiAsset)
+	lazyRebuildAssets()
 	runPrint(goCmd, "test", "-short", "-run", "Metalint", "./meta")
 }
 

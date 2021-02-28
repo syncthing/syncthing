@@ -1,7 +1,5 @@
 /syncthing
 /stdiscosrv
-/lib/*/mocks
-/lib/protocol/mocked_connection_info_test.go
 syncthing.exe
 stdiscosrv.exe
 *.tar.gz
