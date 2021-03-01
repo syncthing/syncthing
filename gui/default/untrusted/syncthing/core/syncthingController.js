@@ -1750,7 +1750,7 @@ angular.module('syncthing.core')
 
         $scope.setAllDevicesPause = function (pause) {
             $scope.otherDevices().forEach(function (device) {
-                device.paused = pause;
+                $scope.devices[device.deviceID].paused = pause;
             });
             $scope.config.devices = deviceList($scope.devices);
             $scope.saveConfig();
@@ -1759,7 +1759,7 @@ angular.module('syncthing.core')
         $scope.isAtleastOneDevicePausedStateSetTo = function (pause) {
             var paused = false;
             $scope.otherDevices().forEach(function (device) {
-                if (device.paused == pause) {
+                if ($scope.devices[device.deviceID].paused == pause) {
                     paused = true;
                 }
             });
