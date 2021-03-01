@@ -1735,7 +1735,7 @@ angular.module('syncthing.core')
             $scope.otherDevices().forEach(function (device) {
                 device.paused = pause;
             });
-            $scope.config.devices = deviceList($scope.otherDevices());
+            $scope.config.devices = deviceList($scope.devices);
             $scope.saveConfig();
         }
 
