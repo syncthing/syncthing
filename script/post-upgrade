@@ -1,3 +1,4 @@
 #!/bin/sh
 
+deb-systemd-invoke restart procps.service
 pkill -HUP -x syncthing || true
