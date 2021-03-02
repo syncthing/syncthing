@@ -11,7 +11,6 @@ require (
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/dchest/siphash v1.2.2
-	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.2.4
@@ -23,16 +22,16 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
-	github.com/joefitzgerald/rainbow-reporter v0.1.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/lib/pq v1.8.0
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.5.1
 	github.com/mattn/go-isatty v0.0.12
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0 // indirect
 	github.com/minio/sha256-simd v0.1.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/onsi/gomega v1.10.3 // indirect
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
@@ -50,7 +49,7 @@ require (
 	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.1.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
 
 go 1.14

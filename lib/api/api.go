@@ -1772,8 +1772,13 @@ func addressIsLocalhost(addr string) bool {
 		// There was no port, so we assume the address was just a hostname
 		host = addr
 	}
-	switch strings.ToLower(host) {
-	case "localhost", "localhost.":
+	host = strings.ToLower(host)
+	switch {
+	case host == "localhost":
+		return true
+	case host == "localhost.":
+		return true
+	case strings.HasSuffix(host, ".localhost"):
 		return true
 	default:
 		ip := net.ParseIP(host)
