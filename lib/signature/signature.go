@@ -11,7 +11,6 @@ package signature
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
@@ -20,6 +19,7 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 

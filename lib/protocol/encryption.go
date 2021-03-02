@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
+	"github.com/syncthing/syncthing/lib/rand"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
