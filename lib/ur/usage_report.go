@@ -9,9 +9,9 @@ package ur
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
+	"math/rand"
 	"net"
 	"net/http"
 	"runtime"
@@ -414,7 +414,8 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
-	rand.Reader.Read(bs)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
