@@ -11,7 +11,7 @@ RUN rm -f syncthing && go run build.go -no-upgrade build syncthing
 
 FROM alpine
 
-EXPOSE 8384 22000 21027/udp
+EXPOSE 8384 22000/tcp 22000/udp 21027/udp
 
 VOLUME ["/var/syncthing"]
 
