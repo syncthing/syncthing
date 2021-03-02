@@ -9,12 +9,15 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -42,26 +45,37 @@ func main() {
 }
 
 func pruneInterfaceCheck(path string, size int64) error {
-	fd, err := os.OpenFile(path, os.O_RDWR, 0666)
+	fd, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer fd.Close()
 
-	var chunk int64 = 100
-	buf := make([]byte, chunk)
-	searched := []byte("var _ ")
-	pos := size - chunk
-	for {
-		_, err = fd.ReadAt(buf, pos)
-		if err != nil {
+	tmp, err := ioutil.TempFile(".", "")
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(fd)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(strings.TrimSpace(line), "var _ ") {
+			continue
+		}
+		if _, err := tmp.WriteString(line + "\n"); err != nil {
+			fmt.Println(1)
+			os.Remove(tmp.Name())
 			return err
 		}
-		if i := bytes.LastIndex(buf, searched); i != -1 {
-			pos += int64(i)
-			break
-		}
-		pos -= chunk
 	}
-	return fd.Truncate(pos)
+
+	if err := fd.Close(); err != nil {
+		fmt.Println(2)
+		return err
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }

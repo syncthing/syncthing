@@ -874,13 +874,13 @@ func testmocks() {
 	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
 	args := []string{
 		"generate",
-		"lib/config",
-		"lib/connections",
-		"lib/discover",
-		"lib/events",
-		"lib/logger",
-		"lib/model",
-		"lib/protocol",
+		"github.com/syncthing/syncthing/lib/config",
+		"github.com/syncthing/syncthing/lib/connections",
+		"github.com/syncthing/syncthing/lib/discover",
+		"github.com/syncthing/syncthing/lib/events",
+		"github.com/syncthing/syncthing/lib/logger",
+		"github.com/syncthing/syncthing/lib/model",
+		"github.com/syncthing/syncthing/lib/protocol",
 	}
 	runPrint(goCmd, args...)
 }
