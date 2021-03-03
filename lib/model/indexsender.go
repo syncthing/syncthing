@@ -131,7 +131,10 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 	var err error
 	var f protocol.FileInfo
-	snap := s.fset.Snapshot()
+	snap, err := s.fset.Snapshot()
+	if err != nil {
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
+	}
 	defer snap.Release()
 	previousWasDelete := false
 	snap.WithHaveSequence(s.prevSequence+1, func(fi protocol.FileIntf) bool {

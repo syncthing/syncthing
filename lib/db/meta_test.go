@@ -117,7 +117,7 @@ func TestRecalcMeta(t *testing.T) {
 	s1.Update(protocol.LocalDeviceID, files)
 
 	// Verify local/global size
-	snap := s1.Snapshot()
+	snap := snapshot(t, s1)
 	ls := snap.LocalSize()
 	gs := snap.GlobalSize()
 	snap.Release()
@@ -149,7 +149,7 @@ func TestRecalcMeta(t *testing.T) {
 	}
 
 	// Verify that our bad data "took"
-	snap = s1.Snapshot()
+	snap = snapshot(t, s1)
 	ls = snap.LocalSize()
 	gs = snap.GlobalSize()
 	snap.Release()
@@ -164,7 +164,7 @@ func TestRecalcMeta(t *testing.T) {
 	s2 := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
 
 	// Verify local/global size
-	snap = s2.Snapshot()
+	snap = snapshot(t, s2)
 	ls = snap.LocalSize()
 	gs = snap.GlobalSize()
 	snap.Release()

@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
@@ -87,7 +88,7 @@ type syncRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successful and should not be retried
+	pull() (bool, error) // true when successful and should not be retried
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
@@ -164,16 +165,20 @@ func (f *folder) Serve(ctx context.Context) error {
 	initialCompleted := f.initialScanFinished
 
 	for {
+		var err error
+
 		select {
 		case <-f.ctx.Done():
 			close(f.done)
 			return nil
 
 		case <-f.pullScheduled:
-			f.pull()
+			_, err = f.pull()
 
 		case <-f.pullFailTimer.C:
-			if !f.pull() && f.pullPause < 60*f.pullBasePause() {
+			var success bool
+			success, err = f.pull()
+			if err == nil && success && f.pullPause < 60*f.pullBasePause() {
 				// Back off from retrying to pull
 				f.pullPause *= 2
 			}
@@ -181,18 +186,19 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
 			initialCompleted = nil // never hit this case again
-			f.pull()
+			_, err = f.pull()
 
 		case <-f.forcedRescanRequested:
-			f.handleForcedRescans()
+			err = f.handleForcedRescans()
 
 		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning due to timer")
-			f.scanTimerFired()
+			err = f.scanTimerFired()
 
 		case req := <-f.doInSyncChan:
 			l.Debugln(f, "Running something due to request")
-			req.err <- req.fn()
+			err = req.fn()
+			req.err <- err
 
 		case next := <-f.scanDelay:
 			l.Debugln(f, "Delaying scan")
@@ -200,15 +206,22 @@ func (f *folder) Serve(ctx context.Context) error {
 
 		case fsEvents := <-f.watchChan:
 			l.Debugln(f, "Scan due to watcher")
-			f.scanSubdirs(fsEvents)
+			err = f.scanSubdirs(fsEvents)
 
 		case <-f.restartWatchChan:
 			l.Debugln(f, "Restart watcher")
-			f.restartWatch()
+			err = f.restartWatch()
 
 		case <-f.versionCleanupTimer.C:
 			l.Debugln(f, "Doing version cleanup")
 			f.versionCleanupTimerFired()
+		}
+
+		if err != nil {
+			if svcutil.IsFatal(err) {
+				return err
+			}
+			f.setError(err)
 		}
 	}
 }
@@ -307,7 +320,7 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 	return nil
 }
 
-func (f *folder) pull() (success bool) {
+func (f *folder) pull() (success bool, err error) {
 	f.pullFailTimer.Stop()
 	select {
 	case <-f.pullFailTimer.C:
@@ -318,7 +331,7 @@ func (f *folder) pull() (success bool) {
 	case <-f.initialScanFinished:
 	default:
 		// Once the initial scan finished, a pull will be scheduled
-		return true
+		return true, nil
 	}
 
 	defer func() {
@@ -330,7 +343,10 @@ func (f *folder) pull() (success bool) {
 
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return false, err
+	}
 	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		abort = false
 		return false
@@ -341,16 +357,16 @@ func (f *folder) pull() (success bool) {
 		f.errorsMut.Lock()
 		f.pullErrors = nil
 		f.errorsMut.Unlock()
-		return true
+		return true, nil
 	}
 
 	// Abort early (before acquiring a token) if there's a folder error
-	err := f.getHealthErrorWithoutIgnores()
-	f.setError(err)
+	err = f.getHealthErrorWithoutIgnores()
 	if err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return false
+		return false, err
 	}
+	f.setError(nil)
 
 	// Send only folder doesn't do any io, it only checks for out-of-sync
 	// items that differ in metadata and updates those.
@@ -358,8 +374,7 @@ func (f *folder) pull() (success bool) {
 		f.setState(FolderSyncWaiting)
 
 		if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
-			f.setError(err)
-			return true
+			return true, err
 		}
 		defer f.ioLimiter.give(1)
 	}
@@ -374,23 +389,23 @@ func (f *folder) pull() (success bool) {
 		}
 	}()
 	err = f.getHealthErrorAndLoadIgnores()
-	f.setError(err)
 	if err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return false
+		return false, err
 	}
 
-	success = f.puller.pull()
+	success, err = f.puller.pull()
 
-	if success {
-		return true
+	if success && err != nil {
+		return true, nil
 	}
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
 	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), util.NiceDurationString(delay))
 	f.pullFailTimer.Reset(delay)
-	return false
+
+	return false, err
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
@@ -399,7 +414,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	oldHash := f.ignores.Hash()
 
 	err := f.getHealthErrorAndLoadIgnores()
-	f.setError(err)
 	if err != nil {
 		// If there is a health error we set it as the folder error. We do not
 		// clear the folder error if there is no health error, as there might be
@@ -407,6 +421,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		// we do not use the CheckHealth() convenience function here.
 		return err
 	}
+	f.setError(nil)
 
 	// Check on the way out if the ignore patterns changed as part of scanning
 	// this folder. If they did we should schedule a pull of the folder so that
@@ -443,7 +458,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return err
+	}
 	subDirs = unifySubs(subDirs, func(file string) bool {
 		_, ok := snap.Get(protocol.LocalDeviceID, file)
 		return ok
@@ -560,7 +578,10 @@ func (f *folder) scanSubdirsBatchAppendFunc(batch *fileInfoBatch) batchAppendFun
 
 func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *fileInfoBatch, batchAppend batchAppendFunc) (int, error) {
 	changes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return changes, err
+	}
 	defer snap.Release()
 
 	// If we return early e.g. due to a folder health error, the scan needs
@@ -629,7 +650,10 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
 	changes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return 0, err
+	}
 	defer snap.Release()
 
 	for _, sub := range subDirs {
@@ -821,7 +845,7 @@ func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUs
 	return nf, found
 }
 
-func (f *folder) scanTimerFired() {
+func (f *folder) scanTimerFired() error {
 	err := f.scanSubdirs(nil)
 
 	select {
@@ -836,6 +860,8 @@ func (f *folder) scanTimerFired() {
 	}
 
 	f.Reschedule()
+
+	return err
 }
 
 func (f *folder) versionCleanupTimerFired() {
@@ -884,10 +910,10 @@ func (f *folder) scheduleWatchRestart() {
 
 // restartWatch should only ever be called synchronously. If you want to use
 // this asynchronously, you should probably use scheduleWatchRestart instead.
-func (f *folder) restartWatch() {
+func (f *folder) restartWatch() error {
 	f.stopWatch()
 	f.startWatch()
-	f.scanSubdirs(nil)
+	return f.scanSubdirs(nil)
 }
 
 // startWatch should only ever be called synchronously. If you want to use
@@ -1166,7 +1192,7 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 	}
 }
 
-func (f *folder) handleForcedRescans() {
+func (f *folder) handleForcedRescans() error {
 	f.forcedRescanPathsMut.Lock()
 	paths := make([]string, 0, len(f.forcedRescanPaths))
 	for path := range f.forcedRescanPaths {
@@ -1175,7 +1201,7 @@ func (f *folder) handleForcedRescans() {
 	f.forcedRescanPaths = make(map[string]struct{})
 	f.forcedRescanPathsMut.Unlock()
 	if len(paths) == 0 {
-		return
+		return nil
 	}
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
@@ -1183,10 +1209,16 @@ func (f *folder) handleForcedRescans() {
 		return nil
 	})
 
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return err
+	}
+	defer snap.Release()
 
 	for _, path := range paths {
-		_ = batch.flushIfFull()
+		if err := batch.flushIfFull(); err != nil {
+			return err
+		}
 
 		fi, ok := snap.Get(protocol.LocalDeviceID, path)
 		if !ok {
@@ -1196,11 +1228,21 @@ func (f *folder) handleForcedRescans() {
 		batch.append(fi)
 	}
 
-	snap.Release()
+	if err = batch.flush(); err != nil {
+		return err
+	}
 
-	_ = batch.flush()
+	return f.scanSubdirs(paths)
+}
 
-	_ = f.scanSubdirs(paths)
+// dbSnapshots gets a snapshot from the fileset, and wraps any error
+// in a svcutil.FatalErr.
+func (f *folder) dbSnapshot() (*db.Snapshot, error) {
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
+	}
+	return snap, nil
 }
 
 // The exists function is expected to return true for all known paths
