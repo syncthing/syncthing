@@ -70,7 +70,6 @@ func pruneInterfaceCheck(path string, size int64) error {
 	}
 
 	if err := fd.Close(); err != nil {
-		fmt.Println(2)
 		return err
 	}
 	if err := os.Remove(path); err != nil {
