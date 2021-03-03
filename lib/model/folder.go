@@ -178,7 +178,7 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.pullFailTimer.C:
 			var success bool
 			success, err = f.pull()
-			if err == nil && success && f.pullPause < 60*f.pullBasePause() {
+			if (err != nil || !success) && f.pullPause < 60*f.pullBasePause() {
 				// Back off from retrying to pull
 				f.pullPause *= 2
 			}
@@ -396,7 +396,7 @@ func (f *folder) pull() (success bool, err error) {
 
 	success, err = f.puller.pull()
 
-	if success && err != nil {
+	if success && err == nil {
 		return true, nil
 	}
 
