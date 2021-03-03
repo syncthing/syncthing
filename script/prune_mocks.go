@@ -64,7 +64,6 @@ func pruneInterfaceCheck(path string, size int64) error {
 			continue
 		}
 		if _, err := tmp.WriteString(line + "\n"); err != nil {
-			fmt.Println(1)
 			os.Remove(tmp.Name())
 			return err
 		}
