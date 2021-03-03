@@ -30,6 +30,8 @@ require (
 	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/onsi/gomega v1.10.3 // indirect
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
@@ -44,9 +46,10 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
-	golang.org/x/sys v0.0.0-20201101102859-da207088b7d1
+	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
 
 go 1.14

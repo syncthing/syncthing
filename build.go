@@ -316,6 +316,9 @@ func runCommand(cmd string, target target) {
 	case "proto":
 		proto()
 
+	case "testmocks":
+		testmocks()
+
 	case "translate":
 		translate()
 
@@ -862,8 +865,24 @@ func proto() {
 		}
 		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 	runPrint(goCmd, "generate", "proto/generate.go")
+}
+
+func testmocks() {
+	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
+	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
+	args := []string{
+		"generate",
+		"github.com/syncthing/syncthing/lib/config",
+		"github.com/syncthing/syncthing/lib/connections",
+		"github.com/syncthing/syncthing/lib/discover",
+		"github.com/syncthing/syncthing/lib/events",
+		"github.com/syncthing/syncthing/lib/logger",
+		"github.com/syncthing/syncthing/lib/model",
+		"github.com/syncthing/syncthing/lib/protocol",
+	}
+	runPrint(goCmd, args...)
 }
 
 func translate() {
