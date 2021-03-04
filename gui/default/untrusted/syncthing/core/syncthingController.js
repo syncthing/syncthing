@@ -68,11 +68,10 @@ angular.module('syncthing.core')
         $scope.versioningDefaults = {
             selector: "none",
             trashcanClean: 0,
-            versioningCleanupIntervalS: 3600,
+            cleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
-            staggeredVersionsPath: "",
             externalCommand: "",
         };
 
@@ -1925,36 +1924,39 @@ angular.module('syncthing.core')
             editFolderModal();
         }
 
+        $scope.internalVersioningEnabled = function(guiVersioning) {
+            if (!$scope.currentFolder._guiVersioning) {
+                return false;
+            }
+            return ['none', 'external'].indexOf($scope.currentFolder._guiVersioning.selector) === -1;
+        };
+
         function initVersioningEditing() {
             $scope.currentFolder._guiVersioning = angular.copy($scope.versioningDefaults);
 
-            if (!$scope.currentFolder.versioning) {
+            var currentVersioning = $scope.currentFolder.versioning;
+
+            if (!currentVersioning || !currentVersioning.type || currentVersioning.type === 'none') {
                 return;
             }
 
-            var currentVersioning = $scope.currentFolder.versioning;
-
             $scope.currentFolder._guiVersioning.cleanupIntervalS = +currentVersioning.cleanupIntervalS;
+            $scope.currentFolder._guiVersioning.selector = currentVersioning.type;
 
             // Apply parameters currently in use
             switch (currentVersioning.type) {
             case "trashcan":
-                $scope.currentFolder._guiVersioning.selector = "trashcan";
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "simple":
-                $scope.currentFolder._guiVersioning.selector = "simple";
                 $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "staggered":
-                $scope.currentFolder._guiVersioning.selector = "staggered";
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
                 $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
-                $scope.currentFolder._guiVersioning.staggeredVersionsPath = currentVersioning.params.versionsPath;
                 break;
             case "external":
-                $scope.currentFolder._guiVersioning.selector = "external";
                 $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
                 break;
             }
@@ -2084,45 +2086,24 @@ angular.module('syncthing.core')
             folderCfg.devices = newDevices;
             delete $scope.currentSharing;
 
+            folderCfg.versioning.type = folderCfg._guiVersioning.selector;
+            if ($scope.internalVersioningEnabled()) {
+                folderCfg.versioning.cleanupIntervalS = folderCfg._guiVersioning.cleanupIntervalS;
+            }
             switch (folderCfg._guiVersioning.selector) {
             case "trashcan":
-                folderCfg.versioning = {
-                    'type': 'trashcan',
-                    'params': {
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "simple":
-                folderCfg.versioning = {
-                    'type': 'simple',
-                    'params': {
-                        'keep': '' + folderCfg._guiVersioning.simpleKeep,
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.keep = '' + folderCfg._guiVersioning.simpleKeep,
+                folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "staggered":
-                folderCfg.versioning = {
-                    'type': 'staggered',
-                    'params': {
-                        'maxAge': '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400),
-                        'cleanInterval': '' + folderCfg._guiVersioning.staggeredCleanInterval,
-                        'versionsPath': '' + folderCfg._guiVersioning.staggeredVersionsPath
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
+                folderCfg.versioning.params.cleanInterval = '' + folderCfg._guiVersioning.staggeredCleanInterval;
                 break;
             case "external":
-                folderCfg.versioning = {
-                    'type': 'external',
-                    'params': {
-                        'command': '' + folderCfg._guiVersioning.externalCommand
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
                 break;
             default:
                 delete folderCfg.versioning;

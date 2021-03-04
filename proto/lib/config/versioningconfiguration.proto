@@ -2,13 +2,15 @@ syntax = "proto3";
 
 package config;
 
+import "lib/fs/types.proto";
+
 import "ext.proto";
 
 // VersioningConfiguration is used in the code and for JSON serialization
 message VersioningConfiguration {
-    option (ext.xml_tags) = false;
-
-    string              type               = 1;
+    string              type               = 1[(ext.xml) = "type,attr"];
     map<string, string> parameters         = 2 [(ext.goname) = "Params", (ext.json) = "params"];
     int32               cleanup_interval_s = 3 [(ext.default) = "3600"];
+    string              fs_path            = 4 [(ext.goname) = "FSPath"];
+    fs.FilesystemType   fs_type            = 5 [(ext.goname) = "FSType"];
 }

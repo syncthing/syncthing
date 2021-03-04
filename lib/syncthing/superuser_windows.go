@@ -8,7 +8,7 @@ package syncthing
 
 import "syscall"
 
-// https://msdn.microsoft.com/en-us/library/windows/desktop/aa379649(v=vs.85).aspx
+// https://docs.microsoft.com/windows/win32/secauthz/well-known-sids
 const securityLocalSystemRID = "S-1-5-18"
 
 func isSuperUser() bool {

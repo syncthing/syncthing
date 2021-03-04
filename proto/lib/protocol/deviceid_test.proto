@@ -1,0 +1,15 @@
+
+syntax = "proto3";
+
+package protocol;
+
+import "ext.proto";
+import "repos/protobuf/gogoproto/gogo.proto";
+
+message TestOldDeviceID {
+    bytes test = 1;
+}
+
+message TestNewDeviceID {
+    bytes test = 1 [(ext.device_id) = true, (gogoproto.nullable) = false];
+}

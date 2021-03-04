@@ -9,13 +9,17 @@
 package rand
 
 import (
-	cryptoRand "crypto/rand"
+	"io"
 	mathRand "math/rand"
 	"reflect"
 )
 
-// Reader is the standard crypto/rand.Reader, re-exported for convenience
-var Reader = cryptoRand.Reader
+// Reader is the standard crypto/rand.Reader with added buffering.
+var Reader = defaultSecureSource
+
+func Read(p []byte) (int, error) {
+	return io.ReadFull(defaultSecureSource, p)
+}
 
 // randomCharset contains the characters that can make up a rand.String().
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"

@@ -1,6 +1,8 @@
 // Copyright (C) 2014 Jakob Borg. All rights reserved. Use of this source code
 // is governed by an MIT-style license that can be found in the LICENSE file.
 
+//go:generate counterfeiter -o mocks/logger.go --fake-name Recorder . Recorder
+
 // Package logger implements a standardized logger with callback functionality
 package logger
 

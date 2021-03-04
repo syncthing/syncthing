@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 	"github.com/syncthing/syncthing/lib/versioner"
@@ -116,7 +117,7 @@ func newState(t testing.TB, cfg config.Configuration) (*testModel, context.Cance
 	m := setupModel(t, wcfg)
 
 	for _, dev := range cfg.Devices {
-		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.Hello{})
+		m.AddConnection(newFakeConnection(dev.DeviceID, m), protocol.Hello{})
 	}
 
 	return m, cancel
@@ -267,7 +268,7 @@ func BenchmarkRequestOut(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &fakeConnection{id: device1, model: m}
+	fc := newFakeConnection(device1, m)
 	for _, f := range files {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
@@ -329,7 +330,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := &fakeConnection{id: device1, model: m}
+	conn := newFakeConnection(device1, m)
 
 	m.AddConnection(conn, hello)
 
@@ -871,9 +872,7 @@ func TestIssue5063(t *testing.T) {
 	m.pmut.Lock()
 	for _, c := range m.conn {
 		conn := c.(*fakeConnection)
-		conn.mut.Lock()
-		conn.closeFn = func(_ error) {}
-		conn.mut.Unlock()
+		conn.CloseCalls(func(_ error) {})
 		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
 	}
 	m.pmut.Unlock()
@@ -1324,7 +1323,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// Earlier tests might cause the connection to get closed, thus ClusterConfig
 	// would panic.
 	clusterConfig := func(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
-		m.AddConnection(&fakeConnection{id: deviceID, model: m}, protocol.Hello{})
+		m.AddConnection(newFakeConnection(deviceID, m), protocol.Hello{})
 		m.ClusterConfig(deviceID, cm)
 	}
 
@@ -2196,9 +2195,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	conn1 := &fakeConnection{id: device1, model: m}
+	conn1 := newFakeConnection(device1, m)
 	m.AddConnection(conn1, protocol.Hello{})
-	conn2 := &fakeConnection{id: device2, model: m}
+	conn2 := newFakeConnection(device2, m)
 	m.AddConnection(conn2, protocol.Hello{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -2429,8 +2428,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 		t.Errorf("should have two available")
 	}
 
-	m.Closed(&fakeConnection{id: device1, model: m}, errDeviceUnknown)
-	m.Closed(&fakeConnection{id: device2, model: m}, errDeviceUnknown)
+	m.Closed(newFakeConnection(device1, m), errDeviceUnknown)
+	m.Closed(newFakeConnection(device2, m), errDeviceUnknown)
 
 	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
@@ -3172,7 +3171,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"fc"}, protocol.CompressionNever), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -3819,20 +3818,14 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 
 	cc1 := make(chan struct{}, 1)
 	cc2 := make(chan struct{}, 1)
-	fc1 := &fakeConnection{
-		id:    device1,
-		model: m,
-		clusterConfigFn: func(_ protocol.ClusterConfig) {
-			cc1 <- struct{}{}
-		},
-	}
-	fc2 := &fakeConnection{
-		id:    device2,
-		model: m,
-		clusterConfigFn: func(_ protocol.ClusterConfig) {
-			cc2 <- struct{}{}
-		},
-	}
+	fc1 := newFakeConnection(device1, m)
+	fc1.ClusterConfigCalls(func(_ protocol.ClusterConfig) {
+		cc1 <- struct{}{}
+	})
+	fc2 := newFakeConnection(device2, m)
+	fc2.ClusterConfigCalls(func(_ protocol.ClusterConfig) {
+		cc2 <- struct{}{}
+	})
 	m.AddConnection(fc1, protocol.Hello{})
 	m.AddConnection(fc2, protocol.Hello{})
 

@@ -548,7 +548,7 @@
                     <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
                       <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                     </button>
-                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
+                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'">
                       <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
@@ -570,7 +570,7 @@
             <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
               <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
             </button>
-            <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()" ng-disabled="!isAtleastOneFolderPausedStateSetTo(false)">
+            <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()" ng-if="folderList().length > 0" ng-disabled="!isAtleastOneFolderPausedStateSetTo(false)">
               <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
             </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
@@ -708,6 +708,11 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr ng-if="!connections[deviceCfg.deviceID].connected">
+                        <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
+                        <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
+                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+                      </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                         <td class="text-right">
@@ -792,11 +797,6 @@
                       <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                         <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                         <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
-                      </tr>
-                      <tr ng-if="!connections[deviceCfg.deviceID].connected">
-                        <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
-                        <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
