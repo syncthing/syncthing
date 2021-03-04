@@ -41,6 +41,32 @@ type Model struct {
 		arg1 string
 		arg2 string
 	}
+	CandidateDevicesStub        func(string) (map[protocol.DeviceID]db.CandidateDevice, error)
+	candidateDevicesMutex       sync.RWMutex
+	candidateDevicesArgsForCall []struct {
+		arg1 string
+	}
+	candidateDevicesReturns struct {
+		result1 map[protocol.DeviceID]db.CandidateDevice
+		result2 error
+	}
+	candidateDevicesReturnsOnCall map[int]struct {
+		result1 map[protocol.DeviceID]db.CandidateDevice
+		result2 error
+	}
+	CandidateFoldersStub        func(protocol.DeviceID) (map[string]db.CandidateFolder, error)
+	candidateFoldersMutex       sync.RWMutex
+	candidateFoldersArgsForCall []struct {
+		arg1 protocol.DeviceID
+	}
+	candidateFoldersReturns struct {
+		result1 map[string]db.CandidateFolder
+		result2 error
+	}
+	candidateFoldersReturnsOnCall map[int]struct {
+		result1 map[string]db.CandidateFolder
+		result2 error
+	}
 	ClosedStub        func(protocol.Connection, error)
 	closedMutex       sync.RWMutex
 	closedArgsForCall []struct {
@@ -671,6 +697,134 @@ func (fake *Model) BringToFrontArgsForCall(i int) (string, string) {
 	defer fake.bringToFrontMutex.RUnlock()
 	argsForCall := fake.bringToFrontArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) CandidateDevices(arg1 string) (map[protocol.DeviceID]db.CandidateDevice, error) {
+	fake.candidateDevicesMutex.Lock()
+	ret, specificReturn := fake.candidateDevicesReturnsOnCall[len(fake.candidateDevicesArgsForCall)]
+	fake.candidateDevicesArgsForCall = append(fake.candidateDevicesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.CandidateDevicesStub
+	fakeReturns := fake.candidateDevicesReturns
+	fake.recordInvocation("CandidateDevices", []interface{}{arg1})
+	fake.candidateDevicesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) CandidateDevicesCallCount() int {
+	fake.candidateDevicesMutex.RLock()
+	defer fake.candidateDevicesMutex.RUnlock()
+	return len(fake.candidateDevicesArgsForCall)
+}
+
+func (fake *Model) CandidateDevicesCalls(stub func(string) (map[protocol.DeviceID]db.CandidateDevice, error)) {
+	fake.candidateDevicesMutex.Lock()
+	defer fake.candidateDevicesMutex.Unlock()
+	fake.CandidateDevicesStub = stub
+}
+
+func (fake *Model) CandidateDevicesArgsForCall(i int) string {
+	fake.candidateDevicesMutex.RLock()
+	defer fake.candidateDevicesMutex.RUnlock()
+	argsForCall := fake.candidateDevicesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) CandidateDevicesReturns(result1 map[protocol.DeviceID]db.CandidateDevice, result2 error) {
+	fake.candidateDevicesMutex.Lock()
+	defer fake.candidateDevicesMutex.Unlock()
+	fake.CandidateDevicesStub = nil
+	fake.candidateDevicesReturns = struct {
+		result1 map[protocol.DeviceID]db.CandidateDevice
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) CandidateDevicesReturnsOnCall(i int, result1 map[protocol.DeviceID]db.CandidateDevice, result2 error) {
+	fake.candidateDevicesMutex.Lock()
+	defer fake.candidateDevicesMutex.Unlock()
+	fake.CandidateDevicesStub = nil
+	if fake.candidateDevicesReturnsOnCall == nil {
+		fake.candidateDevicesReturnsOnCall = make(map[int]struct {
+			result1 map[protocol.DeviceID]db.CandidateDevice
+			result2 error
+		})
+	}
+	fake.candidateDevicesReturnsOnCall[i] = struct {
+		result1 map[protocol.DeviceID]db.CandidateDevice
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) CandidateFolders(arg1 protocol.DeviceID) (map[string]db.CandidateFolder, error) {
+	fake.candidateFoldersMutex.Lock()
+	ret, specificReturn := fake.candidateFoldersReturnsOnCall[len(fake.candidateFoldersArgsForCall)]
+	fake.candidateFoldersArgsForCall = append(fake.candidateFoldersArgsForCall, struct {
+		arg1 protocol.DeviceID
+	}{arg1})
+	stub := fake.CandidateFoldersStub
+	fakeReturns := fake.candidateFoldersReturns
+	fake.recordInvocation("CandidateFolders", []interface{}{arg1})
+	fake.candidateFoldersMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) CandidateFoldersCallCount() int {
+	fake.candidateFoldersMutex.RLock()
+	defer fake.candidateFoldersMutex.RUnlock()
+	return len(fake.candidateFoldersArgsForCall)
+}
+
+func (fake *Model) CandidateFoldersCalls(stub func(protocol.DeviceID) (map[string]db.CandidateFolder, error)) {
+	fake.candidateFoldersMutex.Lock()
+	defer fake.candidateFoldersMutex.Unlock()
+	fake.CandidateFoldersStub = stub
+}
+
+func (fake *Model) CandidateFoldersArgsForCall(i int) protocol.DeviceID {
+	fake.candidateFoldersMutex.RLock()
+	defer fake.candidateFoldersMutex.RUnlock()
+	argsForCall := fake.candidateFoldersArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) CandidateFoldersReturns(result1 map[string]db.CandidateFolder, result2 error) {
+	fake.candidateFoldersMutex.Lock()
+	defer fake.candidateFoldersMutex.Unlock()
+	fake.CandidateFoldersStub = nil
+	fake.candidateFoldersReturns = struct {
+		result1 map[string]db.CandidateFolder
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) CandidateFoldersReturnsOnCall(i int, result1 map[string]db.CandidateFolder, result2 error) {
+	fake.candidateFoldersMutex.Lock()
+	defer fake.candidateFoldersMutex.Unlock()
+	fake.CandidateFoldersStub = nil
+	if fake.candidateFoldersReturnsOnCall == nil {
+		fake.candidateFoldersReturnsOnCall = make(map[int]struct {
+			result1 map[string]db.CandidateFolder
+			result2 error
+		})
+	}
+	fake.candidateFoldersReturnsOnCall[i] = struct {
+		result1 map[string]db.CandidateFolder
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Model) Closed(arg1 protocol.Connection, arg2 error) {
@@ -3132,6 +3286,10 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.availabilityMutex.RUnlock()
 	fake.bringToFrontMutex.RLock()
 	defer fake.bringToFrontMutex.RUnlock()
+	fake.candidateDevicesMutex.RLock()
+	defer fake.candidateDevicesMutex.RUnlock()
+	fake.candidateFoldersMutex.RLock()
+	defer fake.candidateFoldersMutex.RUnlock()
 	fake.closedMutex.RLock()
 	defer fake.closedMutex.RUnlock()
 	fake.clusterConfigMutex.RLock()
