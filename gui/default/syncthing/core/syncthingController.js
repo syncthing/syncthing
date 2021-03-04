@@ -1933,6 +1933,7 @@ angular.module('syncthing.core')
 
         $scope.editFolderExisting = function(folderCfg) {
             $scope.editingExisting = true;
+            $scope.editingDefaults = false;
             $scope.currentFolder = angular.copy(folderCfg);
 
             $scope.ignores.text = 'Loading...';
