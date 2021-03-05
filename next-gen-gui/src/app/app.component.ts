@@ -14,9 +14,10 @@ export class AppComponent {
   ) { }
 
   restoreDefaultTheme(): void {
-    this.systemConfigService.setGUITheme('default')
-    .subscribe(() => {
-      this.messageService.add('The default GUI theme has been selected. Please hit "Reload" in your browser.')
-    })
+    this.systemConfigService
+      .setGUITheme('default')
+      .subscribe(() => {
+        this.messageService.add('The default GUI theme has been selected. Please hit "Reload" in your browser.')
+      })
   }
 }
