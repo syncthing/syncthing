@@ -151,7 +151,7 @@ type serveOptions struct {
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	HideConsole      bool   `help:"Hide console window (Windows only)"`
 	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
-	LogFile          string `name:"logfile" default="${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
 	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
 	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
 	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
