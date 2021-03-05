@@ -151,10 +151,10 @@ type serveOptions struct {
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	HideConsole      bool   `help:"Hide console window (Windows only)"`
 	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
-	LogFile          string `name:"logfile" placeholder:"PATH" help:"Log file name (see below)"`
-	LogFlags         int    `name:"logflags" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
-	LogMaxFiles      int    `placeholder:"N" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
-	LogMaxSize       int    `placeholder:"BYTES" help:"Maximum size of any file (zero to disable log rotation)"`
+	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
+	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
+	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
 	NoBrowser        bool   `help:"Do not start browser"`
 	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
 	NoDefaultFolder  bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
@@ -186,13 +186,15 @@ type serveOptions struct {
 	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
 }
 
-func (options *serveOptions) setDefaults() {
-	options.LogFlags = log.Ltime
-	options.LogMaxSize = 10 << 20 // 10 MiB
-	options.LogMaxFiles = 3       // plus the current one
+func defaultVars() kong.Vars {
+	vars := kong.Vars{}
+
+	vars["logFlags"] = strconv.Itoa(log.Ltime)
+	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
+	vars["logMaxFiles"] = "3"                   // plus the current one
 
 	if os.Getenv("STTRACE") != "" {
-		options.LogFlags = logger.DebugFlags
+		vars["logFlags"] = strconv.Itoa(logger.DebugFlags)
 	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
@@ -200,10 +202,12 @@ func (options *serveOptions) setDefaults() {
 	// default path, unless the user has manually specified "-" or
 	// something else.
 	if runtime.GOOS == "windows" {
-		options.LogFile = "default"
+		vars["logFile"] = "default"
 	} else {
-		options.LogFile = "-"
+		vars["logFile"] = "-"
 	}
+
+	return vars
 }
 
 func main() {
@@ -230,11 +234,9 @@ func main() {
 		args = append([]string{"serve"}, convertLegacyArgs(args)...)
 	}
 
-	entrypoint.Serve.setDefaults()
-
 	// Create a parser with an overridden help function to print our extra
 	// help info.
-	parser, err := kong.New(&entrypoint, kong.Help(helpHandler))
+	parser, err := kong.New(&entrypoint, kong.Help(helpHandler), defaultVars())
 	if err != nil {
 		log.Fatal(err)
 	}
