@@ -1868,8 +1868,8 @@ func errorString(err error) *string {
 	return nil
 }
 
-// sanitizedHostname returns the system host name in a suitable form for use
-// as the common name in a certificate, or an error.
+// sanitizedHostname returns the given name in a suitable form for use as
+// the common name in a certificate, or an error.
 func sanitizedHostname(name string) (string, error) {
 	// Remove diacritics, being slightly closer to the original than just
 	// removing "invalid" characters altogether.
