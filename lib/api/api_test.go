@@ -1383,10 +1383,8 @@ func TestSanitizedHostname(t *testing.T) {
 
 	for _, tc := range cases {
 		res, err := sanitizedHostname(tc.in)
-		if tc.out == "" {
-			if err == nil {
-				t.Errorf("%q should cause error", tc.in)
-			}
+		if tc.out == "" && err == nil {
+			t.Errorf("%q should cause error", tc.in)
 		} else if res != tc.out {
 			t.Errorf("%q => %q, expected %q", tc.in, res, tc.out)
 		}
