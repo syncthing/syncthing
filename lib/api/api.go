@@ -30,11 +30,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -150,6 +153,10 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		// default. If that isn't available, use the "syncthing" default.
 		var name string
 		name, err = os.Hostname()
+		if err != nil {
+			name = s.tlsDefaultCommonName
+		}
+		name, err = sanitizedHostname(name)
 		if err != nil {
 			name = s.tlsDefaultCommonName
 		}
@@ -1859,4 +1866,30 @@ func errorString(err error) *string {
 		return &msg
 	}
 	return nil
+}
+
+// sanitizedHostname returns the system host name in a suitable form for use
+// as the common name in a certificate, or an error.
+func sanitizedHostname(name string) (string, error) {
+	// Remove diacritics, being slightly closer to the original than just
+	// removing "invalid" characters altogether.
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+		return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
+	}), norm.NFC)
+	if trans, _, err := transform.String(t, name); err == nil {
+		name = trans
+	}
+
+	// Name should be only alphanumerics, dashes and dots.
+	name = regexp.MustCompile(`[^a-zA-Z0-9.-]+`).ReplaceAllLiteralString(name, "")
+
+	// Name should not start or end with a dash or dot
+	name = strings.Trim(name, "-.")
+
+	// Name should not be empty.
+	if name == "" {
+		return "", errors.New("no suitable name")
+	}
+
+	return strings.ToLower(name), nil
 }
