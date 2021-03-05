@@ -1872,7 +1872,10 @@ func errorString(err error) *string {
 // the common name in a certificate, or an error.
 func sanitizedHostname(name string) (string, error) {
 	// Remove diacritics, being slightly closer to the original than just
-	// removing "invalid" characters altogether.
+	// removing "invalid" characters altogether. This works by first
+	// transforming into normalization form D (things with diacriticals are
+	// split into the base character and the mark) and then removing the
+	// marks.
 	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
 		return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
 	}), norm.NFC)
