@@ -90,13 +90,17 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	svc, conn := stun.New(t.cfg, t, packetConn)
 	defer func() { _ = conn.Close() }()
+	wrapped := &stunConnQUICWrapper{
+		PacketConn: conn,
+		underlying: packetConn.(*net.UDPConn),
+	}
 
 	go svc.Serve(ctx)
 
-	registry.Register(t.uri.Scheme, conn)
-	defer registry.Unregister(t.uri.Scheme, conn)
+	registry.Register(t.uri.Scheme, wrapped)
+	defer registry.Unregister(t.uri.Scheme, wrapped)
 
-	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
@@ -212,4 +216,14 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 
 func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
+}
+
+type stunConnQUICWrapper struct {
+	net.PacketConn
+	underlying *net.UDPConn
+}
+
+// SetReadBuffer is required by QUIC.
+func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
+	return s.underlying.SetReadBuffer(size)
 }
