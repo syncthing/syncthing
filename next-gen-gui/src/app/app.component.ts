@@ -13,7 +13,7 @@ export class AppComponent {
     private messageService: MessageService,
   ) { }
 
-  restoreDefaultTheme() {
+  restoreDefaultTheme(): void {
     this.systemConfigService.setGUITheme('default')
     .subscribe(() => {
       this.messageService.add('The default GUI theme has been selected. Please hit "Reload" in your browser.')
