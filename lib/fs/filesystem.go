@@ -179,6 +179,12 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
+// Option modifies a filesystem at creation. An option might be specific
+// to a filesystem-type.
+//
+// ID is used to identify options with the same effect, i.e. must be different
+// for options with different effects. Meaning if an option has parameters, a
+// representation of those must be part of the returned string.
 type Option interface {
 	ID() string
 	apply(Filesystem)

@@ -40,6 +40,10 @@ func (o *OptionJunctionsAsDirs) ID() string {
 	return "junctionsAsDirs"
 }
 
+func (o *OptionJunctionsAsDirs) String() string {
+	return o.ID()
+}
+
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
