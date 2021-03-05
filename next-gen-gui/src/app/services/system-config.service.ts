@@ -20,6 +20,7 @@ export class SystemConfigService {
   private devicesSubject: ReplaySubject<Device[]> = new ReplaySubject(1);
 
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
+  private guiConfigUrl = environment.production ? apiURL + 'rest/config/gui' : 'api/config/gui';
 
   constructor(
     private http: HttpClient,
@@ -51,5 +52,9 @@ export class SystemConfigService {
 
   getDevices(): Observable<Device[]> {
     return this.devicesSubject.asObservable();
+  }
+
+  setGUITheme(theme: String): Observable<any> {
+    return this.http.patch(this.guiConfigUrl, { theme: theme })
   }
 }

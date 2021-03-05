@@ -1,12 +1,7 @@
 <!--<div class="grid-container" gdAreas="header header | folders devices | status-list status-list | footer footer"
   gdGap="16px" gdRows="auto auto auto"> -->
 <!--<div class="grid-container" fxLayout="row" fxLayoutGap="16px grid" fxLayoutAlign="stretch">-->
-<div class="header" fxLayout="row" fxLayoutAlign="space-between center">
-  <div fxLayout="row" fxLayoutGap="16px" fxLayoutAlign="start center">
-    <img src="assets/logo-horizontal.svg" width="150px" />
-    <span>Tech UI</span>
-  </div>
-</div>
+
 <div class="progress">
   <mat-progress-bar mode="determinate" value="{{progressValue}}" [@progressBar]="isLoading ? 'start' : 'done'">
   </mat-progress-bar>
