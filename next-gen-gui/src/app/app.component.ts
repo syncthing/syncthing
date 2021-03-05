@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { SystemConfigService } from './services/system-config.service';
 import { MessageService } from './services/message.service';
-import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
