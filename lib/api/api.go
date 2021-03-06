@@ -36,6 +36,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
@@ -1871,22 +1872,25 @@ func errorString(err error) *string {
 // sanitizedHostname returns the given name in a suitable form for use as
 // the common name in a certificate, or an error.
 func sanitizedHostname(name string) (string, error) {
-	// Remove diacritics, being slightly closer to the original than just
-	// removing "invalid" characters altogether. This works by first
+	// Remove diacritics and non-alphanumerics. This works by first
 	// transforming into normalization form D (things with diacriticals are
-	// split into the base character and the mark) and then removing the
-	// marks.
-	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
-		return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
-	}), norm.NFC)
-	if trans, _, err := transform.String(t, name); err == nil {
-		name = trans
+	// split into the base character and the mark) and then removing
+	// undesired characters.
+	t := transform.Chain(
+		// Split runes with diacritics into base character and mark.
+		norm.NFD,
+		// Leave only [A-Za-z0-9-.].
+		runes.Remove(runes.Predicate(func(r rune) bool {
+			return r > unicode.MaxASCII ||
+				!unicode.IsLetter(r) && !unicode.IsNumber(r) &&
+					r != '.' && r != '-'
+		})))
+	name, _, err := transform.String(t, name)
+	if err != nil {
+		return "", err
 	}
 
-	// Name should be only alphanumerics, dashes and dots.
-	name = regexp.MustCompile(`[^a-zA-Z0-9.-]+`).ReplaceAllLiteralString(name, "")
-
-	// Name should not start or end with a dash or dot
+	// Name should not start or end with a dash or dot.
 	name = strings.Trim(name, "-.")
 
 	// Name should not be empty.
