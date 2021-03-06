@@ -2715,10 +2715,10 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	}
 	defer snap.Release()
 
-	return m.availabilityWithInfo(cfg, snap, file, block), nil
+	return m.availabilityInSnapshot(cfg, snap, file, block), nil
 }
 
-func (m *model) availabilityWithInfo(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+func (m *model) availabilityInSnapshot(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	var availabilities []Availability
 	for _, device := range snap.Availability(file.Name) {
 		if _, ok := m.remotePausedFolders[device]; !ok {

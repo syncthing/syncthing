@@ -1490,7 +1490,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 	}
 
 	var lastError error
-	candidates := f.model.availabilityWithInfo(f.FolderConfiguration, snap, state.file, state.block)
+	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
 	for {
 		select {
 		case <-f.ctx.Done():
