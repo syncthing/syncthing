@@ -12,9 +12,11 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 func TestEnDecryptName(t *testing.T) {
@@ -178,5 +180,24 @@ func TestIsEncryptedParent(t *testing.T) {
 		if res := IsEncryptedParent(tc.path); res != tc.is {
 			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
 		}
+	}
+}
+
+var benchmarkFileKey struct {
+	key [keySize]byte
+	sync.Once
+}
+
+func BenchmarkFileKey(b *testing.B) {
+	benchmarkFileKey.Do(func() {
+		sha256.SelectAlgo()
+		rand.Read(benchmarkFileKey.key[:])
+	})
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		FileKey("a_kind_of_long_filename.ext", &benchmarkFileKey.key)
 	}
 }

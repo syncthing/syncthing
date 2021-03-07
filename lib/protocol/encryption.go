@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
 	"errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
@@ -487,8 +487,10 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 	return &key
 }
 
+var hkdfSalt = []byte("syncthing")
+
 func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
-	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), []byte("syncthing"), nil)
+	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), hkdfSalt, nil)
 	var fileKey [keySize]byte
 	n, err := io.ReadFull(kdf, fileKey[:])
 	if err != nil || n != keySize {
