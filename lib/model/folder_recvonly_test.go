@@ -384,7 +384,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Do the same changes on the remote
 
 	files := make([]protocol.FileInfo, 0, 2)
-	snap := f.fset.Snapshot()
+	snap := fsetSnapshot(t, f.fset)
 	snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 		if n := fi.FileName(); n != file && n != knownFile {
 			return true

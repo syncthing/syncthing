@@ -77,7 +77,7 @@ func TestIgnoredFiles(t *testing.T) {
 	// Local files should have the "ignored" bit in addition to just being
 	// generally invalid if we want to look at the simulation of that bit.
 
-	snap := fs.Snapshot()
+	snap := snapshot(t, fs)
 	defer snap.Release()
 	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
@@ -866,7 +866,7 @@ func TestCheckLocalNeed(t *testing.T) {
 	fs.Update(remoteDevice0, files)
 
 	checkNeed := func() {
-		snap := fs.Snapshot()
+		snap := snapshot(t, fs)
 		defer snap.Release()
 		c := snap.NeedSize(protocol.LocalDeviceID)
 		if c.Files != 2 {
@@ -974,7 +974,7 @@ func TestNeedAfterDropGlobal(t *testing.T) {
 	fs.Update(remoteDevice1, files[1:])
 
 	// remoteDevice1 needs one file: test
-	snap := fs.Snapshot()
+	snap := snapshot(t, fs)
 	c := snap.NeedSize(remoteDevice1)
 	if c.Files != 1 {
 		t.Errorf("Expected 1 needed files initially, got %v", c.Files)
@@ -986,7 +986,7 @@ func TestNeedAfterDropGlobal(t *testing.T) {
 	fs.Drop(remoteDevice0)
 
 	// remoteDevice1 still needs test.
-	snap = fs.Snapshot()
+	snap = snapshot(t, fs)
 	c = snap.NeedSize(remoteDevice1)
 	if c.Files != 1 {
 		t.Errorf("Expected still 1 needed files, got %v", c.Files)
