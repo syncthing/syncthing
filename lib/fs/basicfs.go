@@ -36,12 +36,8 @@ func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
 	}
 }
 
-func (o *OptionJunctionsAsDirs) ID() string {
-	return "junctionsAsDirs"
-}
-
 func (o *OptionJunctionsAsDirs) String() string {
-	return o.ID()
+	return "junctionsAsDirs"
 }
 
 // The BasicFilesystem implements all aspects by delegating to package os.

@@ -61,9 +61,9 @@ func newFSKey(fs Filesystem) fskey {
 		uri:    fs.URI(),
 	}
 	if opts := fs.Options(); len(opts) > 0 {
-		k.opts = opts[0].ID()
+		k.opts = opts[0].String()
 		for _, o := range opts[1:] {
-			k.opts += "&" + o.ID()
+			k.opts += "&" + o.String()
 		}
 	}
 	return k

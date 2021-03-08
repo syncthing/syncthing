@@ -182,11 +182,11 @@ var IsPathSeparator = os.IsPathSeparator
 // Option modifies a filesystem at creation. An option might be specific
 // to a filesystem-type.
 //
-// ID is used to identify options with the same effect, i.e. must be different
+// String is used to detect options with the same effect, i.e. must be different
 // for options with different effects. Meaning if an option has parameters, a
 // representation of those must be part of the returned string.
 type Option interface {
-	ID() string
+	String() string
 	apply(Filesystem)
 }
 
