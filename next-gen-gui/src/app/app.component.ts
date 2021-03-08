@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { SystemConfigService } from './services/system-config.service';
+import { MessageService } from './services/message.service';
 
 @Component({
   selector: 'app-root',
@@ -6,5 +8,16 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  constructor() { }
+  constructor(
+    private systemConfigService: SystemConfigService,
+    private messageService: MessageService,
+  ) { }
+
+  restoreDefaultTheme(): void {
+    this.systemConfigService
+      .setGUITheme('default')
+      .subscribe(() => {
+        this.messageService.add('The default GUI theme has been selected. Please hit "Reload" in your browser.')
+      })
+  }
 }
