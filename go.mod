@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/client_golang v1.8.0
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/sasha-s/go-deadlock v0.2.0
-	github.com/shirou/gopsutil/v3 v3.20.11
+	github.com/shirou/gopsutil/v3 v3.21.2
 	github.com/syncthing/notify v0.0.0-20210308121556-f45149b04939
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
 	github.com/thejerf/suture/v4 v4.0.0
@@ -47,7 +47,7 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+	golang.org/x/sys v0.0.0-20210217105451-b926d437f341
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.1.0 // indirect
