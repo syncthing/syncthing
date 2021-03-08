@@ -164,7 +164,7 @@
               <div class="form-group">
                 <label translate>GUI Theme</label>
                 <select class="form-control" ng-model="tmpGUI.theme" ng-if="themes.length > 1">
-                  <option ng-repeat="theme in themes.sort()" value="{{ theme }}">
+                  <option translate ng-repeat="theme in themes.sort()" value="{{ theme }}">
                     {{ themeName(theme) }}
                   </option>
                 </select>
