@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-VERSIONING" "7" "Mar 01, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Mar 09, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .
@@ -107,10 +107,12 @@ only for 10 days, use 10.
 .UNINDENT
 .SH EXTERNAL FILE VERSIONING
 .sp
-This versioning method delegates the decision on what to do to an external
-command (program or script).
-Just prior to a file being replaced, the command will be run.
-The command should be specified as an absolute path, and can use the following templated arguments:
+This versioning method delegates the decision on what to do to an
+external command (e.g. a program or a command line script). Just prior
+to a file being replaced, the command will be executed. The file needs
+to be removed from the folder in the process, or otherwise Syncthing
+will report an error. The command can use the following templated
+arguments:
 .INDENT 0.0
 .TP
 .B %FOLDER_PATH%
@@ -119,9 +121,16 @@ Path to the folder
 .B %FILE_PATH%
 Path to the file within the folder
 .UNINDENT
+.sp
+Note that the former expands to the path of the actual Syncthing folder,
+and the latter to the path inside that folder. For instance, if you use
+the default \fBSync\fP folder in Windows, and the full path to the file is
+\fBC:\eUsers\eUser\eSync\eFamily photos\eIMG_2021\-03\-01.jpg\fP, then the
+\fB%FOLDER_PATH%\fP will be \fBC:\eUsers\eUser\eSync\fP, and the
+\fB%FILE_PATH%\fP will be \fBFamily photos\eIMG_2021\-03\-01.jpg\fP\&.
 .SS Example for Unixes
 .sp
-Lets say I want to keep the latest version of each file as they are replaced
+Let’s say I want to keep the latest version of each file as they are replaced
 or removed; essentially I want a “trash can”\-like behavior. For this, I create
 the following script and store it as \fB/Users/jb/bin/onlylatest.sh\fP (i.e. the
 \fBbin\fP directory in my home directory):
@@ -141,7 +150,7 @@ folderpath="$1"
 filepath="$2"
 
 # First ensure the dir where we need to store the file exists
-outpath=\(gadirname "$versionspath/$filepath"\(ga
+outpath=$(dirname "$versionspath/$filepath")
 mkdir \-p "$outpath"
 # Then move the file there
 mv \-f "$folderpath/$filepath" "$versionspath/$filepath"
@@ -153,7 +162,7 @@ mv \-f "$folderpath/$filepath" "$versionspath/$filepath"
 I must ensure that the script has execute permissions (\fBchmod 755
 onlylatest.sh\fP), then configure Syncthing with command \fB/Users/jb/bin/onlylatest.sh %FOLDER_PATH% %FILE_PATH%\fP
 .sp
-Lets assume I have a folder “default” in ~/Sync, and that within that folder
+Let’s assume I have a folder “default” in ~/Sync, and that within that folder
 there is a file \fBdocs/letter.txt\fP that is being replaced or deleted. The
 script will be called as if I ran this from the command line:
 .INDENT 0.0
@@ -206,8 +215,8 @@ move /Y "%FOLDER_PATH%\e%FILE_PATH%" "%VERSIONS_PATH%\e%FILE_PATH%"
 .UNINDENT
 .UNINDENT
 .sp
-Finally, I set \fBC:\eUsers\emfrnd\eScripts\eonlylatest.bat %FOLDER_PATH% %FILE_PATH%\fP as command name in
-Syncthing.
+Finally, I set \fBC:\eUsers\emfrnd\eScripts\eonlylatest.bat %FOLDER_PATH% %FILE_PATH%\fP
+as the command name in Syncthing.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
