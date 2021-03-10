@@ -139,6 +139,7 @@ var entrypoint struct {
 
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
+	buildServeOptions
 	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
 	Audit            bool   `help:"Write events to audit file"`
 	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
@@ -149,7 +150,6 @@ type serveOptions struct {
 	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	HideConsole      bool   `help:"Hide console window (Windows only)"`
 	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
 	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
