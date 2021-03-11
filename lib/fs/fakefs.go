@@ -640,6 +640,10 @@ func (fs *fakefs) URI() string {
 	return fs.uri
 }
 
+func (fs *fakefs) Options() []Option {
+	return nil
+}
+
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
 	// BUG: real systems base file sameness on path, inodes, etc
 	// we try our best, but FileInfo just doesn't have enough data

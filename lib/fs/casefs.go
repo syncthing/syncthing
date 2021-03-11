@@ -55,22 +55,22 @@ type caseFilesystemRegistry struct {
 	startCleaner sync.Once
 }
 
-func newFSKey(fs Filesystem, opts ...Option) fskey {
+func newFSKey(fs Filesystem) fskey {
 	k := fskey{
 		fstype: fs.Type(),
 		uri:    fs.URI(),
 	}
-	if len(opts) > 0 {
-		k.opts = opts[0].id
+	if opts := fs.Options(); len(opts) > 0 {
+		k.opts = opts[0].String()
 		for _, o := range opts[1:] {
-			k.opts += "&" + o.id
+			k.opts += "&" + o.String()
 		}
 	}
 	return k
 }
 
-func (r *caseFilesystemRegistry) get(fs Filesystem, opts ...Option) Filesystem {
-	k := newFSKey(fs, opts...)
+func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
+	k := newFSKey(fs)
 
 	// Use double locking when getting a caseFs. In the common case it will
 	// already exist and we take the read lock fast path. If it doesn't, we
@@ -136,10 +136,8 @@ type caseFilesystem struct {
 // from the real path. It is safe to use with any filesystem, i.e. also a
 // case-sensitive one. However it will add some overhead and thus shouldn't be
 // used if the filesystem is known to already behave case-sensitively.
-func NewCaseFilesystem(fs Filesystem, opts ...Option) Filesystem {
-	return wrapFilesystem(fs, func(fs Filesystem) Filesystem {
-		return globalCaseFilesystemRegistry.get(fs, opts...)
-	})
+func NewCaseFilesystem(fs Filesystem) Filesystem {
+	return wrapFilesystem(fs, globalCaseFilesystemRegistry.get)
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {

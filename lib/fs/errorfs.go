@@ -45,7 +45,10 @@ func (fs *errorFilesystem) Roots() ([]string, error)                     { retur
 func (fs *errorFilesystem) Usage(name string) (Usage, error)             { return Usage{}, fs.err }
 func (fs *errorFilesystem) Type() FilesystemType                         { return fs.fsType }
 func (fs *errorFilesystem) URI() string                                  { return fs.uri }
-func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool              { return false }
+func (fs *errorFilesystem) Options() []Option {
+	return nil
+}
+func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }

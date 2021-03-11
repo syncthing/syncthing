@@ -26,17 +26,18 @@ var (
 	errNotRelative                        = errors.New("not a relative path")
 )
 
-func WithJunctionsAsDirs() Option {
-	return Option{
-		apply: func(fs Filesystem) {
-			if basic, ok := fs.(*BasicFilesystem); !ok {
-				l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
-			} else {
-				basic.junctionsAsDirs = true
-			}
-		},
-		id: "junctionsAsDirs",
+type OptionJunctionsAsDirs struct{}
+
+func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
+	if basic, ok := fs.(*BasicFilesystem); !ok {
+		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
+	} else {
+		basic.junctionsAsDirs = true
 	}
+}
+
+func (o *OptionJunctionsAsDirs) String() string {
+	return "junctionsAsDirs"
 }
 
 // The BasicFilesystem implements all aspects by delegating to package os.
@@ -44,6 +45,7 @@ func WithJunctionsAsDirs() Option {
 type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
+	options         []Option
 }
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
@@ -82,7 +84,8 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	}
 
 	fs := &BasicFilesystem{
-		root: root,
+		root:    root,
+		options: opts,
 	}
 	for _, opt := range opts {
 		opt.apply(fs)
@@ -309,6 +312,10 @@ func (f *BasicFilesystem) Type() FilesystemType {
 
 func (f *BasicFilesystem) URI() string {
 	return strings.TrimPrefix(f.root, `\\?\`)
+}
+
+func (f *BasicFilesystem) Options() []Option {
+	return f.options
 }
 
 func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
