@@ -131,10 +131,11 @@ var (
 
 // The entrypoint struct is the main entry point for the command line parser. The
 // commands and options here are top level commands to syncthing.
+// Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
 	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
 	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli     cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
+	Cli     struct{}     `cmd:"" help:"Command line interface for Syncthing"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -211,6 +212,17 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+	// The "cli" subcommand uses a different command line parser, and e.g. help
+	// gets mangled when integrating it as a subcommand -> detect it here at the
+	// beginning.
+	if os.Args[1] == "cli" {
+		if err := cli.Run(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// First some massaging of the raw command line to fit the new model.
 	// Basically this means adding the default command at the front, and
 	// converting -options to --options.
@@ -248,10 +260,6 @@ func main() {
 }
 
 func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
-	// If we're looking for CLI help, pass the arguments down to the CLI library to print it's own help.
-	if ctx.Command() == "cli" {
-		return ctx.Run()
-	}
 	if err := kong.DefaultHelpPrinter(options, ctx); err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -54,7 +55,7 @@ func (c *APIClient) Endpoint() string {
 	return url
 }
 
-func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
+func (c *APIClient) Request(req *http.Request) (*http.Response, error) {
 	req.Header.Set("X-API-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -63,34 +64,57 @@ func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, checkResponse(resp)
 }
 
-func (c *APIClient) Get(url string) (*http.Response, error) {
-	request, err := http.NewRequest("GET", c.Endpoint()+"rest/"+url, nil)
+func (c *APIClient) Do(url, method, body string) (*http.Response, error) {
+	var r io.Reader
+	if body != "" {
+		r = bytes.NewBufferString(body)
+	}
+	request, err := http.NewRequest(method, c.Endpoint()+"rest/"+url, r)
 	if err != nil {
 		return nil, err
 	}
-	return c.Do(request)
+	return c.Request(request)
+}
+
+func (c *APIClient) Get(url string) (*http.Response, error) {
+	return c.Do(url, "GET", "")
 }
 
 func (c *APIClient) Post(url, body string) (*http.Response, error) {
-	request, err := http.NewRequest("POST", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(request)
+	return c.Do(url, "POST", body)
 }
 
 func checkResponse(response *http.Response) error {
-	if response.StatusCode == 404 {
-		return errors.New("invalid endpoint or API call")
-	} else if response.StatusCode == 403 {
+	switch response.StatusCode {
+	case 403:
 		return errors.New("invalid API key")
-	} else if response.StatusCode != 200 {
-		data, err := responseToBArray(response)
+	case 404:
+		body, err := responseToString(response)
 		if err != nil {
 			return err
 		}
-		body := strings.TrimSpace(string(data))
-		return fmt.Errorf("unexpected HTTP status returned: %s\n%s", response.Status, body)
+		if strings.HasPrefix(body, "404") {
+			return unexpectedError(response.Status, body)
+		}
+		// This is 404 because some Syncthing object (folder, path) does not exist
+		return errors.New(body)
+	case 405:
+		return errors.New(response.Status)
+	case 200:
+	default:
+		body, err := responseToString(response)
+		if err != nil {
+			return err
+		}
+		return unexpectedError(response.Status, body)
 	}
 	return nil
+}
+
+func unexpectedError(status, body string) error {
+	msg := fmt.Sprintf("unexpected HTTP status returned: %s", status)
+	if !strings.HasSuffix(msg, body) {
+		msg = fmt.Sprintf("%s\n%s", msg, body)
+	}
+	return errors.New(msg)
 }

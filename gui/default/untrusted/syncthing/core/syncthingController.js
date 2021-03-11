@@ -2093,9 +2093,6 @@ angular.module('syncthing.core')
             folderCfg.devices = newDevices;
             delete $scope.currentSharing;
 
-            if (!folderCfg.versioning) {
-                folderCfg.versioning = {params: {}};
-            }
             folderCfg.versioning.type = folderCfg._guiVersioning.selector;
             if ($scope.internalVersioningEnabled()) {
                 folderCfg.versioning.cleanupIntervalS = folderCfg._guiVersioning.cleanupIntervalS;

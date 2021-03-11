@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
@@ -23,6 +24,14 @@ func responseToBArray(response *http.Response) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, response.Body.Close()
+}
+
+func responseToString(response *http.Response) (string, error) {
+	data, err := responseToBArray(response)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
 
 func emptyPost(url string) cli.ActionFunc {
@@ -84,6 +93,9 @@ func prettyPrintResponse(c *cli.Context, response *http.Response) error {
 	bytes, err := responseToBArray(response)
 	if err != nil {
 		return err
+	}
+	if len(bytes) == 0 {
+		return nil
 	}
 	var data interface{}
 	if err := json.Unmarshal(bytes, &data); err != nil {
