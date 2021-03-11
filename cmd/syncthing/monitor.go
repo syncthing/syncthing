@@ -36,8 +36,9 @@ var (
 )
 
 const (
-	countRestarts         = 4
-	loopThreshold         = 60 * time.Second
+	restartCounts         = 4
+	restartPause          = 1 * time.Second
+	restartLoopThreshold  = 60 * time.Second
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
 	panicUploadMaxWait    = 30 * time.Second
@@ -84,7 +85,7 @@ func monitorMain(options serveOptions) {
 	}
 
 	args := os.Args
-	var restarts [countRestarts]time.Time
+	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
@@ -97,8 +98,8 @@ func monitorMain(options serveOptions) {
 	for {
 		maybeReportPanics()
 
-		if t := time.Since(restarts[0]); t < loopThreshold {
-			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
+		if t := time.Since(restarts[0]); t < restartLoopThreshold {
+			l.Warnf("%d restarts in %v; not retrying further", restartCounts, t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -193,7 +194,7 @@ func monitorMain(options serveOptions) {
 		}
 
 		l.Infoln("Syncthing exited:", err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(restartPause)
 
 		if first {
 			// Let the next child process know that this is not the first time

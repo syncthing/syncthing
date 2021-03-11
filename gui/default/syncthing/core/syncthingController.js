@@ -600,7 +600,13 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error($scope.emitHTTPError);
+            }).error(function(data, status, headers, config) {
+                if (status === 404) {
+                    console.log("refreshCompletion:", data);
+                } else {
+                    $scope.emitHTTPError(data, status, headers, config);
+                }
+            });
         }
 
         function refreshConnectionStats() {

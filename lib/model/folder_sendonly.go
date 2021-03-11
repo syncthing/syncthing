@@ -36,11 +36,14 @@ func (f *sendOnlyFolder) PullErrors() []FileError {
 }
 
 // pull checks need for files that only differ by metadata (no changes on disk)
-func (f *sendOnlyFolder) pull() bool {
+func (f *sendOnlyFolder) pull() (bool, error) {
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return false, err
+	}
 	defer snap.Release()
 	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
@@ -83,14 +86,14 @@ func (f *sendOnlyFolder) pull() bool {
 		f.updateLocalsFromPulling(batch)
 	}
 
-	return true
+	return true, nil
 }
 
 func (f *sendOnlyFolder) Override() {
-	f.doInSync(func() error { f.override(); return nil })
+	f.doInSync(f.override)
 }
 
-func (f *sendOnlyFolder) override() {
+func (f *sendOnlyFolder) override() error {
 	l.Infoln("Overriding global state on folder", f.Description())
 
 	f.setState(FolderScanning)
@@ -98,7 +101,10 @@ func (f *sendOnlyFolder) override() {
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return err
+	}
 	defer snap.Release()
 	snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
@@ -130,4 +136,5 @@ func (f *sendOnlyFolder) override() {
 	if len(batch) > 0 {
 		f.updateLocalsFromScanning(batch)
 	}
+	return nil
 }

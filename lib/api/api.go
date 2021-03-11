@@ -754,7 +754,15 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sendJSON(w, s.model.Completion(device, folder).Map())
+	if comp, err := s.model.Completion(device, folder); err != nil {
+		status := http.StatusInternalServerError
+		if isFolderNotFound(err) {
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
+	} else {
+		sendJSON(w, comp.Map())
+	}
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
@@ -886,8 +894,25 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
-	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+
+	errStatus := http.StatusInternalServerError
+	gf, gfOk, err := s.model.CurrentGlobalFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
+
+	lf, lfOk, err := s.model.CurrentFolderFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
 
 	if !(gfOk || lfOk) {
 		// This file for sure does not exist.
@@ -895,7 +920,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	av, err := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
@@ -1506,7 +1535,12 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if _, ok := s.model.Connection(device); ok {
-				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
+				comp, err := s.model.Completion(device, folder.ID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				tot[deviceStr] += comp.CompletionPct
 			} else {
 				tot[deviceStr] = 0
 			}
@@ -1899,4 +1933,17 @@ func sanitizedHostname(name string) (string, error) {
 	}
 
 	return strings.ToLower(name), nil
+}
+
+func isFolderNotFound(err error) bool {
+	for _, target := range []error{
+		model.ErrFolderMissing,
+		model.ErrFolderPaused,
+		model.ErrFolderNotRunning,
+	} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
 }
