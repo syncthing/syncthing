@@ -186,6 +186,7 @@ func main() {
 	}
 
 	wrapper := config.Wrap("config", config.New(id), id, events.NoopLogger)
+	go wrapper.Serve(context.TODO())
 	wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.Options.NATLeaseM = natLease
 		cfg.Options.NATRenewalM = natRenewal

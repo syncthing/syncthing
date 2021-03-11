@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thejerf/suture/v4"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -84,12 +82,9 @@ func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelF
 	}
 	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
 	tmpFile.Close()
-	if cfgService, ok := wrapper.(suture.Service); ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		go cfgService.Serve(ctx)
-		return wrapper, cancel
-	}
-	return wrapper, func() {}
+	ctx, cancel := context.WithCancel(context.Background())
+	go wrapper.Serve(ctx)
+	return wrapper, cancel
 }
 
 func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {

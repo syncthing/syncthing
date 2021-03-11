@@ -17,7 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/thejerf/suture/v4"
 	"golang.org/x/time/rate"
 )
 
@@ -45,12 +44,8 @@ func initConfig() (config.Wrapper, context.CancelFunc) {
 	dev3Conf = newDeviceConfiguration(wrapper, device3, "device3")
 	dev4Conf = newDeviceConfiguration(wrapper, device4, "device4")
 
-	var cancel context.CancelFunc = func() {}
-	if wrapperService, ok := wrapper.(suture.Service); ok {
-		var ctx context.Context
-		ctx, cancel = context.WithCancel(context.Background())
-		go wrapperService.Serve(ctx)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go wrapper.Serve(ctx)
 
 	dev2Conf.MaxRecvKbps = rand.Int() % 100000
 	dev2Conf.MaxSendKbps = rand.Int() % 100000

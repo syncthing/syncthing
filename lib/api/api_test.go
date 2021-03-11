@@ -1262,11 +1262,9 @@ func TestConfigChanges(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
 	tmpFile.Close()
-	if cfgService, ok := w.(suture.Service); ok {
-		cfgCtx, cfgCancel := context.WithCancel(context.Background())
-		go cfgService.Serve(cfgCtx)
-		defer cfgCancel()
-	}
+	cfgCtx, cfgCancel := context.WithCancel(context.Background())
+	go w.Serve(cfgCtx)
+	defer cfgCancel()
 	baseURL, cancel, err := startHTTP(w)
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)

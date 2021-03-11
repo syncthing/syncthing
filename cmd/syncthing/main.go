@@ -603,9 +603,7 @@ func syncthingMain(options serveOptions) {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
-	if cfgService, ok := cfgWrapper.(suture.Service); ok {
-		earlyService.Add(cfgService)
-	}
+	earlyService.Add(cfgWrapper)
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
 	// unless we are in a build where it's disabled or the STNOUPGRADE
