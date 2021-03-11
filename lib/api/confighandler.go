@@ -51,6 +51,12 @@ func (c *configMuxBuilder) registerConfigInsync(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerConfigRequiresRestart(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, map[string]bool{"requiresRestart": c.cfg.RequiresRestart()})
+	})
+}
+
 func (c *configMuxBuilder) registerFolders(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
 		sendJSON(w, c.cfg.FolderList())
