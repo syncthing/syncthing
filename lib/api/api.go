@@ -30,11 +30,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -150,6 +154,10 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		// default. If that isn't available, use the "syncthing" default.
 		var name string
 		name, err = os.Hostname()
+		if err != nil {
+			name = s.tlsDefaultCommonName
+		}
+		name, err = sanitizedHostname(name)
 		if err != nil {
 			name = s.tlsDefaultCommonName
 		}
@@ -1893,6 +1901,38 @@ func errorString(err error) *string {
 		return &msg
 	}
 	return nil
+}
+
+// sanitizedHostname returns the given name in a suitable form for use as
+// the common name in a certificate, or an error.
+func sanitizedHostname(name string) (string, error) {
+	// Remove diacritics and non-alphanumerics. This works by first
+	// transforming into normalization form D (things with diacriticals are
+	// split into the base character and the mark) and then removing
+	// undesired characters.
+	t := transform.Chain(
+		// Split runes with diacritics into base character and mark.
+		norm.NFD,
+		// Leave only [A-Za-z0-9-.].
+		runes.Remove(runes.Predicate(func(r rune) bool {
+			return r > unicode.MaxASCII ||
+				!unicode.IsLetter(r) && !unicode.IsNumber(r) &&
+					r != '.' && r != '-'
+		})))
+	name, _, err := transform.String(t, name)
+	if err != nil {
+		return "", err
+	}
+
+	// Name should not start or end with a dash or dot.
+	name = strings.Trim(name, "-.")
+
+	// Name should not be empty.
+	if name == "" {
+		return "", errors.New("no suitable name")
+	}
+
+	return strings.ToLower(name), nil
 }
 
 func isFolderNotFound(err error) bool {

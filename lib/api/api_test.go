@@ -1370,6 +1370,27 @@ func TestConfigChanges(t *testing.T) {
 	}
 }
 
+func TestSanitizedHostname(t *testing.T) {
+	cases := []struct {
+		in, out string
+	}{
+		{"foo.BAR-baz", "foo.bar-baz"},
+		{"~.~-Min 1:a Räksmörgås-dator 😀😎 ~.~-", "min1araksmorgas-dator"},
+		{"Vicenç-PC", "vicenc-pc"},
+		{"~.~-~.~-", ""},
+		{"", ""},
+	}
+
+	for _, tc := range cases {
+		res, err := sanitizedHostname(tc.in)
+		if tc.out == "" && err == nil {
+			t.Errorf("%q should cause error", tc.in)
+		} else if res != tc.out {
+			t.Errorf("%q => %q, expected %q", tc.in, res, tc.out)
+		}
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
