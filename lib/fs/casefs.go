@@ -226,6 +226,9 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.checkCase(oldpath); err != nil {
 		return err
 	}
+	if err := f.checkCase(newpath); err != nil {
+		return err
+	}
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
 	}
