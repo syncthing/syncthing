@@ -36,7 +36,7 @@ import (
 // are prompted for acceptance of the new report.
 const Version = 3
 
-var StartTime = time.Now()
+var StartTime = time.Now().Truncate(time.Second)
 
 type Service struct {
 	cfg                config.Wrapper

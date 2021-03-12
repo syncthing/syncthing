@@ -61,7 +61,7 @@ func (s *FolderStatisticsReference) GetLastFile() (LastFile, error) {
 
 func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) error {
 	l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
-	if err := s.ns.PutTime("lastFileAt", time.Now()); err != nil {
+	if err := s.ns.PutTime("lastFileAt", time.Now().Truncate(time.Second)); err != nil {
 		return err
 	}
 	if err := s.ns.PutString("lastFileName", file); err != nil {
@@ -74,7 +74,7 @@ func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) erro
 }
 
 func (s *FolderStatisticsReference) ScanCompleted() error {
-	return s.ns.PutTime("lastScan", time.Now())
+	return s.ns.PutTime("lastScan", time.Now().Truncate(time.Second))
 }
 
 func (s *FolderStatisticsReference) GetLastScanTime() (time.Time, error) {

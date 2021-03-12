@@ -296,7 +296,7 @@ func (c *rawConnection) Start() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
-	c.startTime = time.Now()
+	c.startTime = time.Now().Truncate(time.Second)
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -1040,7 +1040,7 @@ type Statistics struct {
 
 func (c *rawConnection) Statistics() Statistics {
 	return Statistics{
-		At:            time.Now(),
+		At:            time.Now().Truncate(time.Second),
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
 		StartedAt:     c.startTime,
