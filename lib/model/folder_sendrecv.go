@@ -307,7 +307,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 
 	f.queue.Reset()
 
-	return changed, nil
+	return changed, err
 }
 
 func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
