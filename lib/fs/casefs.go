@@ -227,7 +227,11 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 		return err
 	}
 	if err := f.checkCase(newpath); err != nil {
-		return err
+		// Case-only rename is ok
+		e := &ErrCaseConflict{}
+		if !errors.As(err, &e) || e.Real != oldpath {
+			return err
+		}
 	}
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
