@@ -317,7 +317,7 @@ loop:
 
 func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
-		Time: time.Now(),
+		Time: time.Now(), // intentionally high precision
 		Type: t,
 		Data: data,
 		// SubscriptionID and GlobalID are set in sendEvent

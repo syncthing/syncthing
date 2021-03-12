@@ -62,7 +62,7 @@ func (s *DeviceStatisticsReference) GetLastConnectionDuration() (time.Duration, 
 
 func (s *DeviceStatisticsReference) WasSeen() error {
 	l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
-	return s.ns.PutTime(lastSeenKey, time.Now())
+	return s.ns.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
 }
 
 func (s *DeviceStatisticsReference) LastConnectionDuration(d time.Duration) error {

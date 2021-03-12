@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"io"
 	"io/ioutil"
 	"log"
@@ -22,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 
 	"github.com/golang/groupcache/lru"
 	"github.com/oschwald/geoip2-golang"
@@ -475,7 +476,7 @@ func handleRelayTest(request request) {
 		updateMetrics(request.relay.uri.Host, *stats, location)
 	}
 	request.relay.Stats = stats
-	request.relay.StatsRetrieved = time.Now()
+	request.relay.StatsRetrieved = time.Now().Truncate(time.Second)
 	request.relay.Location = location
 
 	timer, ok := evictionTimers[request.relay.uri.Host]
