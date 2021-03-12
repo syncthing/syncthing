@@ -1369,7 +1369,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			} else {
 				l.Warnln(msg)
 			}
-
+			m.evLogger.Log(events.Failure, err.Error())
 			return tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
