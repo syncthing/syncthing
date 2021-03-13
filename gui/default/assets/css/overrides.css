@@ -437,3 +437,9 @@ ul.three-columns li, ul.two-columns li {
 .form-horizontal {
     margin-bottom: 10px;
 }
+
+/* Use the same style as Bootstrap uses for disabled <select>. */
+.form-control option[disabled] {
+    background-color: #eeeeee;
+    opacity: 1;
+}
