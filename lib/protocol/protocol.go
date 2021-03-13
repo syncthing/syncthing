@@ -437,82 +437,61 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		case <-c.closed:
 			return ErrClosed
 		}
+
+		msgContext, err := messageContext(msg)
+		if err != nil {
+			return fmt.Errorf("protocol error: %w", err)
+		}
+		l.Debugf("handle %v message", msgContext)
+
 		switch msg := msg.(type) {
 		case *ClusterConfig:
-			l.Debugln("read ClusterConfig message")
 			if state == stateInitial {
 				state = stateReady
 			}
-			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
-				return fmt.Errorf("receiving cluster config: %w", err)
-			}
-
-		case *Index:
-			l.Debugln("read Index message")
+		case *Close:
+			return fmt.Errorf("closed by remote: %v", msg.Reason)
+		default:
 			if state != stateReady {
-				return indexError(fmt.Errorf("invalid state %d", state), "index", msg.Folder)
+				return newProtocolError(fmt.Errorf("invalid state %d", state), msgContext)
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return indexError(err, "index", msg.Folder)
-			}
-			if err := c.handleIndex(*msg); err != nil {
-				return indexError(err, "index", msg.Folder)
-			}
-			state = stateReady
+		}
+
+		switch msg := msg.(type) {
+		case *Index:
+			err = checkIndexConsistency(msg.Files)
 
 		case *IndexUpdate:
-			l.Debugln("read IndexUpdate message")
-			if state != stateReady {
-				return indexError(fmt.Errorf("invalid state %d", state), "index update", msg.Folder)
-			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return indexError(err, "index update", msg.Folder)
-			}
-			if err := c.handleIndexUpdate(*msg); err != nil {
-				return indexError(err, "index update", msg.Folder)
-			}
-			state = stateReady
+			err = checkIndexConsistency(msg.Files)
 
 		case *Request:
-			l.Debugln("read Request message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: receiving request in state %d", state)
-			}
-			if err := checkFilename(msg.Name); err != nil {
-				return fmt.Errorf(`protocol error: receiving request for "%v" in %v: %w`, msg.Name, msg.Folder, err)
-			}
+			err = checkFilename(msg.Name)
+		}
+		if err != nil {
+			return newProtocolError(err, msgContext)
+		}
+
+		switch msg := msg.(type) {
+		case *ClusterConfig:
+			err = c.receiver.ClusterConfig(c.id, *msg)
+
+		case *Index:
+			err = c.handleIndex(*msg)
+
+		case *IndexUpdate:
+			err = c.handleIndexUpdate(*msg)
+
+		case *Request:
 			go c.handleRequest(*msg)
 
 		case *Response:
-			l.Debugln("read Response message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: receiving response in state %d", state)
-			}
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
-			l.Debugln("read DownloadProgress message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: receiving download progress for %v in state %d", msg.Folder, state)
-			}
-			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
-				return fmt.Errorf("receiving download for %v progress: %w", msg.Folder, err)
-			}
-
-		case *Ping:
-			l.Debugln("read Ping message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: receiving ping in state %d", state)
-			}
-			// Nothing
-
-		case *Close:
-			l.Debugln("read Close message")
-			return fmt.Errorf("closed by remote: %v", msg.Reason)
-
-		default:
-			l.Debugf("read unknown message: %+T", msg)
-			return fmt.Errorf("protocol error: %s: unknown or empty message", c.id)
+			err = c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
+		}
+		if err != nil {
+			return newHandleError(err, msgContext)
 		}
 	}
 }
@@ -1079,6 +1058,61 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	return decoded, nil
 }
 
-func indexError(err error, op, folder string) error {
-	return fmt.Errorf("protocol error: receiving %v for %v: %w", op, folder, err)
+type ProtocolError commonError
+
+func newProtocolError(err error, msgContext string) *ProtocolError {
+	return (*ProtocolError)(newCommonError(err, msgContext))
+}
+
+func (e *ProtocolError) Error() string {
+	return fmt.Sprintf("protocol error on %v: %v", e.msgContext, e.err)
+}
+
+type HandleError commonError
+
+func newHandleError(err error, msgContext string) *HandleError {
+	return (*HandleError)(newCommonError(err, msgContext))
+}
+
+func (e *HandleError) Error() string {
+	return fmt.Sprintf("handling %v: %v", e.msgContext, e.err)
+}
+
+type commonError struct {
+	err        error
+	msgContext string
+}
+
+func newCommonError(err error, msgContext string) *commonError {
+	return &commonError{
+		err:        err,
+		msgContext: msgContext,
+	}
+}
+
+func (e *commonError) Unwrap() error {
+	return e.err
+}
+
+func messageContext(msg message) (string, error) {
+	switch msg := msg.(type) {
+	case *ClusterConfig:
+		return "cluster-config", nil
+	case *Index:
+		return fmt.Sprintf("index for %v", msg.Folder), nil
+	case *IndexUpdate:
+		return fmt.Sprintf("index-update for %v", msg.Folder), nil
+	case *Request:
+		return fmt.Sprintf(`request for "%v" in %v`, msg.Name, msg.Folder), nil
+	case *Response:
+		return "response", nil
+	case *DownloadProgress:
+		return fmt.Sprintf("download-progress for %v", msg.Folder), nil
+	case *Ping:
+		return "ping", nil
+	case *Close:
+		return "close", nil
+	default:
+		return "", errors.New("unknown or empty message")
+	}
 }
