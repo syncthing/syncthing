@@ -113,9 +113,8 @@ func TestEnDecryptBytes(t *testing.T) {
 	}
 }
 
-func TestEnDecryptFileInfo(t *testing.T) {
-	var key [32]byte
-	fi := FileInfo{
+func encFileInfo() FileInfo {
+	return FileInfo{
 		Name:        "hello",
 		Size:        45,
 		Permissions: 0755,
@@ -133,6 +132,11 @@ func TestEnDecryptFileInfo(t *testing.T) {
 			},
 		},
 	}
+}
+
+func TestEnDecryptFileInfo(t *testing.T) {
+	var key [32]byte
+	fi := encFileInfo()
 
 	enc := encryptFileInfo(fi, &key)
 	if bytes.Equal(enc.Blocks[0].Hash, enc.Blocks[1].Hash) {
@@ -152,6 +156,21 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	}
 	if !reflect.DeepEqual(fi, dec) {
 		t.Error("mismatch after decryption")
+	}
+}
+
+func TestEncryptedFileInfoConsistency(t *testing.T) {
+	var key [32]byte
+	files := []FileInfo{
+		encFileInfo(),
+		encFileInfo(),
+	}
+	files[1].SetIgnored()
+	for i, f := range files {
+		enc := encryptFileInfo(f, &key)
+		if err := checkFileInfoConsistency(enc); err != nil {
+			t.Errorf("%v: %v", i, err)
+		}
 	}
 }
 

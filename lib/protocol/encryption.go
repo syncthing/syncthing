@@ -314,6 +314,7 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 		Permissions:  0644,
 		ModifiedS:    1234567890, // Sat Feb 14 00:31:30 CET 2009
 		Deleted:      fi.Deleted,
+		RawInvalid:   fi.IsInvalid(),
 		Version:      version,
 		Sequence:     fi.Sequence,
 		RawBlockSize: fi.RawBlockSize + blockOverhead,
