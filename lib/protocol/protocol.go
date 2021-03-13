@@ -450,59 +450,59 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		case *Index:
 			l.Debugln("read Index message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: index message in state %d", state)
+				return indexError(fmt.Errorf("invalid state %d", state), "index", msg.Folder)
 			}
 			if err := checkIndexConsistency(msg.Files); err != nil {
-				return errors.Wrap(err, "protocol error: index")
+				return indexError(err, "index", msg.Folder)
 			}
 			if err := c.handleIndex(*msg); err != nil {
-				return fmt.Errorf("receiving index: %w", err)
+				return indexError(err, "index", msg.Folder)
 			}
 			state = stateReady
 
 		case *IndexUpdate:
 			l.Debugln("read IndexUpdate message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: index update message in state %d", state)
+				return indexError(fmt.Errorf("invalid state %d", state), "index update", msg.Folder)
 			}
 			if err := checkIndexConsistency(msg.Files); err != nil {
-				return errors.Wrap(err, "protocol error: index update")
+				return indexError(err, "index update", msg.Folder)
 			}
 			if err := c.handleIndexUpdate(*msg); err != nil {
-				return fmt.Errorf("receiving index update: %w", err)
+				return indexError(err, "index update", msg.Folder)
 			}
 			state = stateReady
 
 		case *Request:
 			l.Debugln("read Request message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: request message in state %d", state)
+				return fmt.Errorf("protocol error: receiving request in state %d", state)
 			}
 			if err := checkFilename(msg.Name); err != nil {
-				return errors.Wrapf(err, "protocol error: request: %q", msg.Name)
+				return fmt.Errorf(`protocol error: receiving request for "%v" in %v: %w`, msg.Name, msg.Folder, err)
 			}
 			go c.handleRequest(*msg)
 
 		case *Response:
 			l.Debugln("read Response message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
+				return fmt.Errorf("protocol error: receiving response in state %d", state)
 			}
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
 			l.Debugln("read DownloadProgress message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
+				return fmt.Errorf("protocol error: receiving download progress for %v in state %d", msg.Folder, state)
 			}
 			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
-				return fmt.Errorf("receiving download progress: %w", err)
+				return fmt.Errorf("receiving download for %v progress: %w", msg.Folder, err)
 			}
 
 		case *Ping:
 			l.Debugln("read Ping message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: ping message in state %d", state)
+				return fmt.Errorf("protocol error: receiving ping in state %d", state)
 			}
 			// Nothing
 
@@ -1077,4 +1077,8 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 		panic("bug: lz4.Decode allocated, which it must not (should use buffer pool)")
 	}
 	return decoded, nil
+}
+
+func indexError(err error, op, folder string) error {
+	return fmt.Errorf("protocol error: receiving %v for %v: %w", op, folder, err)
 }
