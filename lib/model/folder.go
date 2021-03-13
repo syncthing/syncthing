@@ -296,8 +296,10 @@ func (f *folder) getHealthErrorAndLoadIgnores() error {
 	if err := f.getHealthErrorWithoutIgnores(); err != nil {
 		return err
 	}
-	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		return errors.Wrap(err, "loading ignores")
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+			return errors.Wrap(err, "loading ignores")
+		}
 	}
 	return nil
 }

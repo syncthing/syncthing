@@ -331,8 +331,10 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 // Need to hold lock on m.fmut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		l.Warnln("Loading ignores:", err)
+	if cfg.Type != config.FolderTypeReceiveEncrypted {
+		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+			l.Warnln("Loading ignores:", err)
+		}
 	}
 
 	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
@@ -2104,6 +2106,9 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	cfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
+	}
+	if cfg.Type == config.FolderTypeReceiveEncrypted {
+		return nil
 	}
 
 	err := cfg.CheckPath()
