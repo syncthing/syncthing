@@ -762,10 +762,8 @@ func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, add b
 }
 
 func Need(global FileVersion, haveLocal bool, localVersion protocol.Vector) bool {
-	// We never need an invalid file or a file without a valid version (just
-	// another way of expressing "invalid", really, until we fix that
-	// part...).
-	if global.IsInvalid() || global.Version.IsEmpty() {
+	// We never need a file without a valid version.
+	if global.Version.IsEmpty() {
 		return false
 	}
 	// We don't need a deleted file if we don't have it.
