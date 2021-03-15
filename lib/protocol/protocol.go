@@ -1058,29 +1058,12 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	return decoded, nil
 }
 
-type unwrapError interface {
-	error
-	Unwrap() error
+func newProtocolError(err error, msgContext string) error {
+	return fmt.Errorf("protocol error on %v: %w", msgContext, err)
 }
 
-type ProtocolError struct {
-	unwrapError
-}
-
-func newProtocolError(err error, msgContext string) *ProtocolError {
-	return &ProtocolError{
-		unwrapError: fmt.Errorf("protocol error on %v: %w", msgContext, err).(unwrapError),
-	}
-}
-
-type HandleError struct {
-	unwrapError
-}
-
-func newHandleError(err error, msgContext string) *HandleError {
-	return &HandleError{
-		unwrapError: fmt.Errorf("handling %v: %w", msgContext, err).(unwrapError),
-	}
+func newHandleError(err error, msgContext string) error {
+	return fmt.Errorf("handling %v: %w", msgContext, err)
 }
 
 func messageContext(msg message) (string, error) {
