@@ -1399,3 +1399,45 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 		t.Fatal("timed out before receiving index")
 	}
 }
+
+func TestRequestIssue7474(t *testing.T) {
+	// Repro for https://github.com/syncthing/syncthing/issues/7474
+	// Devices A, B and C. B connected to A and C, but not A to C.
+	// A has valid file, B ignores it.
+	// In the test C is local, and B is the fake connection.
+
+	done := make(chan struct{})
+	defer close(done)
+
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	indexChan := make(chan []protocol.FileInfo)
+	fc.setIndexFn(func(ctx context.Context, folder string, fs []protocol.FileInfo) error {
+		select {
+		case indexChan <- fs:
+		case <-done:
+		case <-ctx.Done():
+		}
+		return nil
+	})
+
+	name := "foo"
+
+	fc.addFileWithLocalFlags(name, protocol.FileInfoTypeFile, protocol.FlagLocalIgnored)
+	fc.sendIndexUpdate()
+
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out before receiving index")
+	case fs := <-indexChan:
+		if len(fs) != 1 {
+			t.Fatalf("Expected one file in index, got %v", len(fs))
+		}
+		if !fs[0].IsInvalid() {
+			t.Error("Expected invalid file")
+		}
+	}
+}

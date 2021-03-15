@@ -21,7 +21,7 @@ import (
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
-	dbMigrationVersion    = 15
+	dbMigrationVersion    = 16
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -104,6 +104,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{13, 13, "v1.7.0", db.updateSchemaTo13},
 		{14, 14, "v1.9.0", db.updateSchemaTo14},
 		{14, 15, "v1.9.0", db.migration15},
+		{14, 16, "v1.9.0", db.checkRepairMigration},
 	}
 
 	for _, m := range migrations {
@@ -776,6 +777,16 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 func (db *schemaUpdater) migration15(_ int) error {
 	for _, folder := range db.ListFolders() {
 		if _, err := db.recalcMeta(folder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *schemaUpdater) checkRepairMigration(_ int) error {
+	for _, folder := range db.ListFolders() {
+		_, err := db.getMetaAndCheckGCLocked(folder)
+		if err != nil {
 			return err
 		}
 	}

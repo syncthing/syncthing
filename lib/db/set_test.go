@@ -469,9 +469,10 @@ func TestNeedWithInvalid(t *testing.T) {
 	}
 
 	expectedNeed := fileList{
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+		remote0Have[0],
+		remote1Have[0],
+		remote0Have[2],
+		remote1Have[2],
 	}
 
 	replace(s, protocol.LocalDeviceID, localHave)

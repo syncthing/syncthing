@@ -62,38 +62,48 @@ func (f *fakeConnection) DownloadProgress(_ context.Context, folder string, upda
 	})
 }
 
-func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector) {
+func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector, localFlags uint32) {
 	blockSize := protocol.BlockSize(int64(len(data)))
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
 
-	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
-		f.files = append(f.files, protocol.FileInfo{
-			Name:         name,
-			Type:         ftype,
-			Size:         int64(len(data)),
-			ModifiedS:    time.Now().Unix(),
-			Permissions:  flags,
-			Version:      version,
-			Sequence:     time.Now().UnixNano(),
-			RawBlockSize: blockSize,
-			Blocks:       blocks,
-		})
-	} else {
-		// Symlink
-		f.files = append(f.files, protocol.FileInfo{
-			Name:          name,
-			Type:          ftype,
-			Version:       version,
-			Sequence:      time.Now().UnixNano(),
-			SymlinkTarget: string(data),
-			NoPermissions: true,
-		})
+	file := protocol.FileInfo{
+		Name:       name,
+		Type:       ftype,
+		Version:    version,
+		Sequence:   time.Now().UnixNano(),
+		LocalFlags: localFlags,
 	}
+	switch ftype {
+	case protocol.FileInfoTypeFile, protocol.FileInfoTypeDirectory:
+		file.ModifiedS = time.Now().Unix()
+		file.Permissions = flags
+		if ftype == protocol.FileInfoTypeFile {
+			file.Size = int64(len(data))
+			file.RawBlockSize = blockSize
+			file.Blocks = blocks
+		}
+	default: // Symlink
+		file.Name = name
+		file.Type = ftype
+		file.Version = version
+		file.SymlinkTarget = string(data)
+		file.NoPermissions = true
+	}
+	f.files = append(f.files, file)
 
 	if f.fileData == nil {
 		f.fileData = make(map[string][]byte)
 	}
 	f.fileData[name] = data
+}
+
+func (f *fakeConnection) addFileWithLocalFlags(name string, ftype protocol.FileInfoType, localFlags uint32) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	var version protocol.Vector
+	version = version.Update(f.id.Short())
+	f.addFileLocked(name, 0, ftype, nil, version, localFlags)
 }
 
 func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
@@ -102,7 +112,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
-	f.addFileLocked(name, flags, ftype, data, version)
+	f.addFileLocked(name, flags, ftype, data, version, 0)
 }
 
 func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
@@ -112,7 +122,7 @@ func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.Fi
 	for i, fi := range f.files {
 		if fi.Name == name {
 			f.files = append(f.files[:i], f.files[i+1:]...)
-			f.addFileLocked(name, flags, ftype, data, fi.Version.Update(f.id.Short()))
+			f.addFileLocked(name, flags, ftype, data, fi.Version.Update(f.id.Short()), 0)
 			return
 		}
 	}
@@ -137,7 +147,11 @@ func (f *fakeConnection) deleteFile(name string) {
 }
 
 func (f *fakeConnection) sendIndexUpdate() {
-	f.model.IndexUpdate(f.id, f.folder, f.files)
+	toSend := make([]protocol.FileInfo, len(f.files))
+	for i := range f.files {
+		toSend[i] = prepareFileInfoForIndex(f.files[i])
+	}
+	f.model.IndexUpdate(f.id, f.folder, toSend)
 }
 
 func addFakeConn(m *testModel, dev protocol.DeviceID) *fakeConnection {

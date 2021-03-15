@@ -357,6 +357,11 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				changed--
 			}
 
+		case file.IsInvalid():
+			// Global invalid file just exists for need accounting
+			l.Debugln(f, "Handling global invalid item", file)
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+
 		case file.IsDeleted():
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have

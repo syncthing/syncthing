@@ -178,18 +178,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			return true
 		}
 
-		// Mark the file as invalid if any of the local bad stuff flags are set.
-		f.RawInvalid = f.IsInvalid()
-		// If the file is marked LocalReceive (i.e., changed locally on a
-		// receive only folder) we do not want it to ever become the
-		// globally best version, invalid or not.
-		if f.IsReceiveOnlyChanged() {
-			f.Version = protocol.Vector{}
-		}
-
-		// never sent externally
-		f.LocalFlags = 0
-		f.VersionHash = nil
+		f = prepareFileInfoForIndex(f)
 
 		previousWasDelete = f.IsDeleted()
 
@@ -209,6 +198,21 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 	s.prevSequence = f.Sequence
 	return err
+}
+
+func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
+	// Mark the file as invalid if any of the local bad stuff flags are set.
+	f.RawInvalid = f.IsInvalid()
+	// If the file is marked LocalReceive (i.e., changed locally on a
+	// receive only folder) we do not want it to ever become the
+	// globally best version, invalid or not.
+	if f.IsReceiveOnlyChanged() {
+		f.Version = protocol.Vector{}
+	}
+	// never sent externally
+	f.LocalFlags = 0
+	f.VersionHash = nil
+	return f
 }
 
 func (s *indexSender) String() string {
