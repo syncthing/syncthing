@@ -1058,40 +1058,29 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	return decoded, nil
 }
 
-type ProtocolError commonError
+type unwrapError interface {
+	error
+	Unwrap() error
+}
+
+type ProtocolError struct {
+	unwrapError
+}
 
 func newProtocolError(err error, msgContext string) *ProtocolError {
-	return (*ProtocolError)(newCommonError(err, msgContext))
-}
-
-func (e *ProtocolError) Error() string {
-	return fmt.Sprintf("protocol error on %v: %v", e.msgContext, e.err)
-}
-
-type HandleError commonError
-
-func newHandleError(err error, msgContext string) *HandleError {
-	return (*HandleError)(newCommonError(err, msgContext))
-}
-
-func (e *HandleError) Error() string {
-	return fmt.Sprintf("handling %v: %v", e.msgContext, e.err)
-}
-
-type commonError struct {
-	err        error
-	msgContext string
-}
-
-func newCommonError(err error, msgContext string) *commonError {
-	return &commonError{
-		err:        err,
-		msgContext: msgContext,
+	return &ProtocolError{
+		unwrapError: fmt.Errorf("protocol error on %v: %w", msgContext, err).(unwrapError),
 	}
 }
 
-func (e *commonError) Unwrap() error {
-	return e.err
+type HandleError struct {
+	unwrapError
+}
+
+func newHandleError(err error, msgContext string) *HandleError {
+	return &HandleError{
+		unwrapError: fmt.Errorf("handling %v: %w", msgContext, err).(unwrapError),
+	}
 }
 
 func messageContext(msg message) (string, error) {
