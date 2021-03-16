@@ -249,8 +249,10 @@ func main() {
 
 func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	// If we're looking for CLI help, pass the arguments down to the CLI library to print it's own help.
-	if ctx.Command() == "cli" {
-		return ctx.Run()
+	for node := ctx.Selected(); node != nil; node = node.Parent {
+		if node.Name == "cli" {
+			return ctx.Run()
+		}
 	}
 	if err := kong.DefaultHelpPrinter(options, ctx); err != nil {
 		return err
