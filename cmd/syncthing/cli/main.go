@@ -159,7 +159,6 @@ func Run() error {
 			showCommand,
 			operationCommand,
 			errorsCommand,
-			apiCommand,
 		},
 	}}
 

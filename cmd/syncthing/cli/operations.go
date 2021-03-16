@@ -28,13 +28,18 @@ var operationCommand = cli.Command{
 			Action: expects(0, emptyPost("system/shutdown")),
 		},
 		{
+			Name:   "reset",
+			Usage:  "Reset syncthing deleting all folders and devices",
+			Action: expects(0, emptyPost("system/reset")),
+		},
+		{
 			Name:   "upgrade",
 			Usage:  "Upgrade syncthing (if a newer version is available)",
 			Action: expects(0, emptyPost("system/upgrade")),
 		},
 		{
 			Name:      "folder-override",
-			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
+			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly)",
 			ArgsUsage: "[folder id]",
 			Action:    expects(1, foldersOverride),
 		},

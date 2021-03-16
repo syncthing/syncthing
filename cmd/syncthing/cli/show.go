@@ -23,7 +23,7 @@ var showCommand = cli.Command{
 		{
 			Name:   "config-status",
 			Usage:  "Show configuration status, whether or not a restart is required for changes to take effect",
-			Action: expects(0, dumpOutput("config/restart-required")),
+			Action: expects(0, dumpOutput("system/config/insync")),
 		},
 		{
 			Name:   "system",
