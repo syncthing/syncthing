@@ -2107,9 +2107,6 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
-	if cfg.Type == config.FolderTypeReceiveEncrypted {
-		return nil
-	}
 
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
