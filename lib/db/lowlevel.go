@@ -932,6 +932,9 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 		meta.addFile(protocol.GlobalDeviceID, f)
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
 	err = t.withNeed(folder, protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {

@@ -730,6 +730,9 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		defer t.close()
 
 		key, err = t.keyer.GenerateDeviceFileKey(key, folder, protocol.LocalDeviceID[:], nil)
+		if err != nil {
+			return err
+		}
 		it, err := t.NewPrefixIterator(key)
 		if err != nil {
 			return err
