@@ -244,7 +244,7 @@ func (s *service) handle(ctx context.Context) error {
 		// though, especially in the presence of NAT hairpinning, multiple
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == s.myID {
-			l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+			l.Debugf("Connected to myself (%s) at %s", remoteID, c)
 			c.Close()
 			continue
 		}
@@ -1023,7 +1023,7 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	// though, especially in the presence of NAT hairpinning, multiple
 	// clients between the same NAT gateway, and global discovery.
 	if remoteID == s.myID {
-		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+		l.Debugf("Connected to myself (%s) at %s", remoteID, c)
 		c.Close()
 		return errors.New("connected to self")
 	}
