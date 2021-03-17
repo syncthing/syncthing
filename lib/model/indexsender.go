@@ -315,9 +315,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
 	}
-	if _, ok := r.startInfos[folder.ID]; ok {
-		delete(r.startInfos, folder.ID)
-	}
+	delete(r.startInfos, folder.ID)
 
 	is := &indexSender{
 		conn:                     r.conn,
