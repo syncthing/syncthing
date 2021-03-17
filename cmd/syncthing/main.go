@@ -38,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -392,7 +393,8 @@ func (options serveOptions) Run() error {
 		release, err := checkUpgrade()
 		if err == nil {
 			// Use leveldb database locks to protect against concurrent upgrades
-			ldb, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			var ldb backend.Backend
+			ldb, err = syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
 			if err != nil {
 				err = upgradeViaRest()
 			} else {
