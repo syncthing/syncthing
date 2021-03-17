@@ -262,6 +262,9 @@ func TestUpdate0to3(t *testing.T) {
 			t.Fatal(err)
 		}
 		key, err = trans.keyer.GenerateDeviceFileKey(key, folder, vl.Versions[0].Device, name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		fi, ok, err := trans.getFileTrunc(key, false)
 		if err != nil {
 			t.Fatal(err)
