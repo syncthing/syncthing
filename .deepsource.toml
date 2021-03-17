@@ -1,6 +1,7 @@
 version = 1
 
 exclude_patterns = ["*.pb.go"]
+test_patterns = ["*_test.go"]
 
 [[analyzers]]
 name = "go"
