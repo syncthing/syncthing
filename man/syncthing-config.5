@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Mar 09, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -100,7 +100,16 @@ currently on disk and available from peers.
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
-The following shows an example of the default configuration file (IDs will differ):
+The following shows an example of a default configuration file (IDs will differ):
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+The config examples are present for illustration. Do \fBnot\fP copy them
+entirely to use as your config. They are likely out\-of\-date and the values
+may no longer correspond to the defaults.
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -148,8 +157,7 @@ The following shows an example of the default configuration file (IDs will diffe
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>tcp://0.0.0.0:8384</listenAddress>
-        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+        <listenAddress>default</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>true</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
@@ -820,8 +828,7 @@ Skip verification (true or false).
 .nf
 .ft C
 <options>
-    <listenAddress>tcp://0.0.0.0:8384</listenAddress>
-    <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+    <listenAddress>default</listenAddress>
     <globalAnnounceServer>default</globalAnnounceServer>
     <globalAnnounceEnabled>true</globalAnnounceEnabled>
     <localAnnounceEnabled>true</localAnnounceEnabled>
