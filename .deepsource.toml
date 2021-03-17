@@ -8,3 +8,4 @@ enabled = true
 
   [analyzers.meta]
   import_paths = ["github.com/syncthing/syncthing"]
+  build_tags = ["noassets"]
