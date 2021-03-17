@@ -36,7 +36,7 @@ func newExternal(cfg config.FolderConfiguration) Versioner {
 	command := cfg.Versioning.Params["command"]
 
 	if runtime.GOOS == "windows" {
-		command = strings.Replace(command, `\`, `\\`, -1)
+		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 
 	s := external{
@@ -81,7 +81,7 @@ func (v external) Archive(filePath string) error {
 
 	for i, word := range words {
 		for key, val := range context {
-			word = strings.Replace(word, key, val, -1)
+			word = strings.ReplaceAll(word, key, val)
 		}
 
 		words[i] = word

@@ -252,8 +252,7 @@ func Canonicalize(file string) (string, error) {
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.
-	switch file {
-	case "..":
+	if file == ".." {
 		return "", errNotRelative
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {

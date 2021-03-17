@@ -478,7 +478,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// doesn't have much effect, but it may result in getting up and running
 	// quicker if only a subset of configured devices are actually reachable
 	// (by prioritizing those that were reachable recently).
-	dialQueue.Sort(queue)
+	queue.Sort()
 
 	// Perform dials according to the queue, stopping when we've reached the
 	// allowed additional number of connections (if limited).
