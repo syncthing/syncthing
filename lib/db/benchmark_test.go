@@ -15,7 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var files, filesUpdated, oneFile, firstHalf, secondHalf, changed100, unchanged100 []protocol.FileInfo
+var files, oneFile, firstHalf, secondHalf, changed100, unchanged100 []protocol.FileInfo
 
 func lazyInitBenchFiles() {
 	if files != nil {

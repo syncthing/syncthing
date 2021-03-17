@@ -25,7 +25,6 @@ type indexSender struct {
 	conn                     protocol.Connection
 	folder                   string
 	folderIsReceiveEncrypted bool
-	dev                      string
 	fset                     *db.FileSet
 	prevSequence             int64
 	evLogger                 events.Logger

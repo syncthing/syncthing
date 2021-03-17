@@ -8,7 +8,6 @@ package db
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -31,8 +30,6 @@ type migration struct {
 	minSyncthingVersion string
 	migration           func(prevSchema int) error
 }
-
-var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
 
 type databaseDowngradeError struct {
 	minSyncthingVersion string
