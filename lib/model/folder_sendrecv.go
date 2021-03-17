@@ -1496,11 +1496,12 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 
 	var lastError error
 	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
+loop:
 	for {
 		select {
 		case <-f.ctx.Done():
 			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
-			break
+			break loop
 		default:
 		}
 
