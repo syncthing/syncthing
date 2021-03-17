@@ -215,7 +215,7 @@ func main() {
 	// The "cli" subcommand uses a different command line parser, and e.g. help
 	// gets mangled when integrating it as a subcommand -> detect it here at the
 	// beginning.
-	if os.Args[1] == "cli" {
+	if len(os.Args) > 1 && os.Args[1] == "cli" {
 		if err := cli.Run(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
