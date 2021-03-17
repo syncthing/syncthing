@@ -89,7 +89,7 @@ var funcs = map[string]interface{}{
 			parts = append(parts, part)
 		}
 		if len(input) > 0 {
-			parts = append(parts, input[:])
+			parts = append(parts, input)
 		}
 		return parts[whichPart-1]
 	},
