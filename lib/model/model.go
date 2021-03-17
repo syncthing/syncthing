@@ -184,7 +184,6 @@ var (
 	errNetworkNotAllowed = errors.New("network not allowed")
 	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
-	errIgnoredFolderRemoved            = errors.New("folder no longer ignored")
 	errReplacingConnection             = errors.New("replacing connection")
 	errStopped                         = errors.New("Syncthing is being stopped")
 	errEncryptionInvConfigLocal        = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
@@ -1699,15 +1698,6 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceID)
 		return cfg, true
 	}
-}
-
-func (m *model) newFolderConfiguration(id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
-	fcfg := m.cfg.DefaultFolder()
-	fcfg.ID = id
-	fcfg.Label = label
-	fcfg.FilesystemType = fsType
-	fcfg.Path = path
-	return fcfg
 }
 
 func (m *model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) config.DeviceConfiguration {

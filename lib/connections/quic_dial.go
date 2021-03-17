@@ -90,10 +90,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil
 }
 
-type quicDialerFactory struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
-}
+type quicDialerFactory struct{}
 
 func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
 	return &quicDialer{commonDialer{

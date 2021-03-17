@@ -7,10 +7,11 @@
 package model
 
 import (
-	"github.com/syncthing/syncthing/lib/protocol"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 var (
@@ -46,9 +47,6 @@ func Test_chunk(t *testing.T) {
 }
 
 func Test_inOrderBlockPullReorderer_Reorder(t *testing.T) {
-	type args struct {
-		blocks []protocol.BlockInfo
-	}
 	tests := []struct {
 		name   string
 		blocks []protocol.BlockInfo

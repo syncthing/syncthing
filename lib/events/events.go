@@ -237,7 +237,6 @@ type logger struct {
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
-	stop                chan struct{}
 }
 
 type Event struct {
