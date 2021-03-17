@@ -135,30 +135,30 @@ func setupDB(db *sql.DB) error {
 
 	row := db.QueryRow(`SELECT 'UniqueDayVersionIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		_, err = db.Exec(`CREATE UNIQUE INDEX UniqueDayVersionIndex ON VersionSummary (Day, Version)`)
+		_, _ = db.Exec(`CREATE UNIQUE INDEX UniqueDayVersionIndex ON VersionSummary (Day, Version)`)
 	}
 
 	row = db.QueryRow(`SELECT 'VersionDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		_, err = db.Exec(`CREATE INDEX VersionDayIndex ON VersionSummary (Day)`)
+		_, _ = db.Exec(`CREATE INDEX VersionDayIndex ON VersionSummary (Day)`)
 	}
 
 	row = db.QueryRow(`SELECT 'MovementDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		_, err = db.Exec(`CREATE INDEX MovementDayIndex ON UserMovement (Day)`)
+		_, _ = db.Exec(`CREATE INDEX MovementDayIndex ON UserMovement (Day)`)
 	}
 
 	row = db.QueryRow(`SELECT 'PerformanceDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		_, err = db.Exec(`CREATE INDEX PerformanceDayIndex ON Performance (Day)`)
+		_, _ = db.Exec(`CREATE INDEX PerformanceDayIndex ON Performance (Day)`)
 	}
 
 	row = db.QueryRow(`SELECT 'BlockStatsDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		_, err = db.Exec(`CREATE INDEX BlockStatsDayIndex ON BlockStats (Day)`)
+		_, _ = db.Exec(`CREATE INDEX BlockStatsDayIndex ON BlockStats (Day)`)
 	}
 
-	return err
+	return nil
 }
 
 func maxIndexedDay(db *sql.DB, table string) time.Time {
