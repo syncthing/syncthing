@@ -2717,10 +2717,16 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	}
 	defer snap.Release()
 
-	return m.availabilityInSnapshot(cfg, snap, file, block), nil
+	return m.availabilityInSnapshotPRlocked(cfg, snap, file, block), nil
 }
 
 func (m *model) availabilityInSnapshot(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	return m.availabilityInSnapshotPRlocked(cfg, snap, file, block)
+}
+
+func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	var availabilities []Availability
 	for _, device := range snap.Availability(file.Name) {
 		if _, ok := m.remotePausedFolders[device]; !ok {
