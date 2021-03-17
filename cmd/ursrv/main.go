@@ -725,8 +725,8 @@ func getReport(db *sql.DB) map[string]interface{} {
 
 			if rep.NATType != "" {
 				natType := rep.NATType
-				natType = strings.Replace(natType, "unknown", "Unknown", -1)
-				natType = strings.Replace(natType, "Symetric", "Symmetric", -1)
+				natType = strings.ReplaceAll(natType, "unknown", "Unknown")
+				natType = strings.ReplaceAll(natType, "Symetric", "Symmetric")
 				add(featureGroups["Various"]["v3"], "NAT Type", natType, 1)
 			}
 

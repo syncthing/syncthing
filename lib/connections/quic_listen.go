@@ -79,7 +79,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 }
 
 func (t *quicListener) serve(ctx context.Context) error {
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
@@ -174,7 +174,7 @@ func (t *quicListener) WANAddresses() []*url.URL {
 
 func (t *quicListener) LANAddresses() []*url.URL {
 	addrs := []*url.URL{t.uri}
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
 	return addrs
 }

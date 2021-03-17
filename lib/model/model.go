@@ -692,7 +692,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 				if strings.Contains(line, "**") {
 					report.IgnoreStats.DoubleStars++
 					// Remove not to trip up star checks.
-					line = strings.Replace(line, "**", "", -1)
+					line = strings.ReplaceAll(line, "**", "")
 				}
 
 				if strings.Contains(line, "*") {

@@ -115,7 +115,7 @@ func expandLocations() error {
 	newLocations := make(map[LocationEnum]string)
 	for key, dir := range locationTemplates {
 		for varName, value := range baseDirs {
-			dir = strings.Replace(dir, "${"+string(varName)+"}", value, -1)
+			dir = strings.ReplaceAll(dir, "${"+string(varName)+"}", value)
 		}
 		var err error
 		dir, err = fs.ExpandTilde(dir)
@@ -197,5 +197,5 @@ func GetTimestamped(key LocationEnum) string {
 	// 2006 replaced by 2015...
 	tpl := locations[key]
 	now := time.Now().Format("20060102-150405")
-	return strings.Replace(tpl, "${timestamp}", now, -1)
+	return strings.ReplaceAll(tpl, "${timestamp}", now)
 }
