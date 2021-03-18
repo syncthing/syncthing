@@ -1,5 +1,14 @@
+comment: false
+
 coverage:
   range: "40...100"
+  precision: 1
+  status:
+    patch:
+      default:
+        informational: true
 
 ignore:
   - "**.pb.go"
+  - "**_mocked.go"
+  - "**/mocks/*"
