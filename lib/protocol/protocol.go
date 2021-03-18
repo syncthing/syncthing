@@ -528,6 +528,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	// ... which might be compressed
 
+	l.Debugln("hopefully covered")
+
 	switch hdr.Compression {
 	case MessageCompressionNone:
 		// Nothing
@@ -541,6 +543,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		buf = decomp
 
 	default:
+		l.Debugln("probably not covered")
 		return nil, fmt.Errorf("unknown message compression %d", hdr.Compression)
 	}
 

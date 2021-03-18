@@ -7,6 +7,9 @@ coverage:
     patch:
       default:
         informational: true
+    project:
+      default:
+        informational: true
 
 ignore:
   - "**.pb.go"
