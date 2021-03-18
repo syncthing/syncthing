@@ -8,6 +8,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/urfave/cli"
 )
@@ -37,6 +38,18 @@ var operationCommand = cli.Command{
 			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
 			ArgsUsage: "[folder id]",
 			Action:    expects(1, foldersOverride),
+		},
+		{
+			Name:      "pause",
+			Usage:     "Pause the folder/device",
+			ArgsUsage: folderArgsUsage,
+			Action:    expects(2, pause(true)),
+		},
+		{
+			Name:      "resume",
+			Usage:     "Resume the folder/device",
+			ArgsUsage: folderArgsUsage,
+			Action:    expects(2, pause(false)),
 		},
 	},
 }
@@ -70,4 +83,17 @@ func foldersOverride(c *cli.Context) error {
 		}
 	}
 	return fmt.Errorf("Folder " + rid + " not found")
+}
+
+func pause(paused bool) func(c *cli.Context) error {
+	return func(c *cli.Context) error {
+		switch c.Args()[0] {
+		case "devices", "folders":
+		default:
+			return fmt.Errorf("first argument must be device or folder")
+		}
+		client := c.App.Metadata["client"].(*APIClient)
+		_, err := client.Patch(strings.Join(append([]string{"config"}, c.Args()...), "/"), fmt.Sprintf(`{"paused": %v}`, paused))
+		return err
+	}
 }

@@ -17,6 +17,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+const folderArgsUsage = "( devices | folders ) ID"
+
 func responseToBArray(response *http.Response) ([]byte, error) {
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -36,6 +38,7 @@ func emptyPost(url string) cli.ActionFunc {
 func dumpOutput(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client := c.App.Metadata["client"].(*APIClient)
+		fmt.Println(url)
 		response, err := client.Get(url)
 		if err != nil {
 			return err

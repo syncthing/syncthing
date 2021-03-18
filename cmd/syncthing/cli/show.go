@@ -7,6 +7,11 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )
 
@@ -40,5 +45,43 @@ var showCommand = cli.Command{
 			Usage:  "Show usage report",
 			Action: expects(0, dumpOutput("svc/report")),
 		},
+		{
+			Name:      "paused",
+			Usage:     "Show whether the folder/device is paused",
+			ArgsUsage: folderArgsUsage,
+			Action:    expects(2, paused),
+		},
 	},
+}
+
+func paused(c *cli.Context) error {
+	switch c.Args()[0] {
+	case "devices", "folders":
+	default:
+		return fmt.Errorf("first argument must be device or folder")
+	}
+	client := c.App.Metadata["client"].(*APIClient)
+	response, err := client.Get(strings.Join(append([]string{"config"}, c.Args()...), "/"))
+	if err != nil {
+		return err
+	}
+	bytes, err := responseToBArray(response)
+	if err != nil {
+		return err
+	}
+	var paused bool
+	if c.Args()[0] == "device" {
+		var cfg config.DeviceConfiguration
+		err = json.Unmarshal(bytes, &cfg)
+		paused = cfg.Paused
+	} else {
+		var cfg config.FolderConfiguration
+		err = json.Unmarshal(bytes, &cfg)
+		paused = cfg.Paused
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Println(paused)
+	return nil
 }
