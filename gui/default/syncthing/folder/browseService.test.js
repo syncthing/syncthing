@@ -31,7 +31,7 @@ describe('BrowseService', function() {
             $httpBackend.flush();
         });
 
-        describe('browse', function() {
+        describe('files', function() {
             beforeEach(function() {
                 getBrowseHandler.respond([
                     { name: 'homework.txt', type: service.TYPE_FILE, modTime: '2020-11-10T22:43:23.042914005Z', size: 130940928 },
@@ -41,52 +41,71 @@ describe('BrowseService', function() {
                 $httpBackend.flush();
             });
 
-            describe('files', function() {
-                it('returns an item for each file or directory', function() {
-                    expect(service.data.files.length).toEqual(2);
-                });
+            it('returns an item for each file or directory', function() {
+                expect(service.data.files.length).toEqual(2);
+            });
 
-                it('identifies files', function() {
-                    expect(service.data.files[0].isFile).toBeTrue();
-                });
+            it('identifies files', function() {
+                expect(service.data.files[0].isFile).toBeTrue();
+            });
 
-                it('identifies directories', function() {
-                    expect(service.data.files[1].isFile).toBeFalse();
-                });
+            it('identifies directories', function() {
+                expect(service.data.files[1].isFile).toBeFalse();
+            });
 
-                it('populates name', function() {
-                    expect(service.data.files[0].name).toEqual('homework.txt');
-                    expect(service.data.files[1].name).toEqual('Photos');
-                });
+            it('populates name', function() {
+                expect(service.data.files[0].name).toEqual('homework.txt');
+                expect(service.data.files[1].name).toEqual('Photos');
+            });
 
-                it('populates file path', function() {
-                    expect(service.data.files[0].path).toEqual('homework.txt');
-                });
+            it('populates file path', function() {
+                expect(service.data.files[0].path).toEqual('homework.txt');
+            });
 
-                it('populates directory path', function() {
-                    expect(service.data.files[1].path).toEqual('Photos');
-                });
+            it('populates directory path', function() {
+                expect(service.data.files[1].path).toEqual('Photos');
+            });
 
-                it('populates path with parent directory', function() {
+            it('populates path with parent directory', function() {
+                getBrowseHandler.respond([
+                    { name: 'image.jpg', type: service.TYPE_FILE },
+                    { name: 'Raw', type: service.TYPE_DIRECTORY },
+                ]);
+                service.refresh('default', 'Photos');
+                $httpBackend.flush();
+                expect(service.data.files[0].path).toEqual('Photos/image.jpg');
+                expect(service.data.files[1].path).toEqual('Photos/Raw');
+            });
+
+            it('does not duplicate slash in prefix', function() {
+                getBrowseHandler.respond([
+                    { name: 'image.jpg', type: service.TYPE_FILE },
+                    { name: 'Raw', type: service.TYPE_DIRECTORY },
+                ]);
+                service.refresh('default', 'Photos/');
+                $httpBackend.flush();
+                expect(service.data.files[0].path).toEqual('Photos/image.jpg');
+                expect(service.data.files[1].path).toEqual('Photos/Raw');
+            });
+
+            describe('with backslash path separator', function() {
+                beforeEach(inject(function($injector) {
+                    $injector.get('System').data.pathSeparator = '\\';
                     getBrowseHandler.respond([
                         { name: 'image.jpg', type: service.TYPE_FILE },
-                        { name: 'Raw', type: service.TYPE_DIRECTORY },
                     ]);
+                }));
+
+                it('populates path with parent directory', function() {
                     service.refresh('default', 'Photos');
                     $httpBackend.flush();
-                    expect(service.data.files[0].path).toEqual('Photos/image.jpg');
-                    expect(service.data.files[1].path).toEqual('Photos/Raw');
+                    expect(service.data.files[0].path).toEqual('Photos\\image.jpg');
                 });
 
                 it('does not duplicate slash in prefix', function() {
-                    getBrowseHandler.respond([
-                        { name: 'image.jpg', type: service.TYPE_FILE },
-                        { name: 'Raw', type: service.TYPE_DIRECTORY },
-                    ]);
-                    service.refresh('default', 'Photos/');
+                    service.refresh('default', 'Photos\\');
                     $httpBackend.flush();
-                    expect(service.data.files[0].path).toEqual('Photos/image.jpg');
-                    expect(service.data.files[1].path).toEqual('Photos/Raw');
+                    expect(service.data.files[0].path).toEqual('Photos\\image.jpg');
                 });
             });
         });

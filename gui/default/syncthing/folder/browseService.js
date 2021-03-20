@@ -1,5 +1,5 @@
 angular.module('syncthing.folder')
-    .service('Browse', function ($http) {
+    .service('Browse', function ($http, System) {
         'use strict';
 
         var self = this;
@@ -34,14 +34,14 @@ angular.module('syncthing.folder')
             var pathPrefix = []
             if (prefix) {
                 // Strip trailing slash from prefix to combine with paths
-                pathPrefix.push(prefix.replace(/\/+$/g, ''));
+                pathPrefix.push(prefix.replace(new RegExp('\\' + System.data.pathSeparator + '+$'), ''));
             }
 
             if (!Array.isArray(data)) throw 'Expected rest/db/browse response to be array';
             return data.map(function (entry) {
                 return {
                     name: entry.name,
-                    path: pathPrefix.concat([entry.name]).join('/'),
+                    path: pathPrefix.concat([entry.name]).join(System.data.pathSeparator),
                     isFile: entry.type !== self.TYPE_DIRECTORY
                 };
             });

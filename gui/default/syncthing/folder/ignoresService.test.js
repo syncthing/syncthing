@@ -326,6 +326,32 @@ describe('IgnoresService', function() {
                     expect(patterns[0].path).toEqual('Backups/');
                     expect(patterns[1].path).toEqual('Photos/Raw');
                 });
+
+                describe('with backslash path separator', function() {
+                    beforeEach(inject(function($injector) {
+                        $injector.get('System').data.pathSeparator = '\\';
+                    }));
+
+                    it('returns root path', function() {
+                        var patterns = mockIgnores(['*']);
+                        expect(patterns[0].path).toEqual('\\');
+                    });
+
+                    it('returns simple file path', function() {
+                        var patterns = mockIgnores(['\\Backups']);
+                        expect(patterns[0].path).toEqual('\\Backups');
+                    });
+
+                    it('strips trailing wildcard after path separator', function() {
+                        var patterns = mockIgnores(['!\\Photos\\Raw\\**']);
+                        expect(patterns[0].path).toEqual('\\Photos\\Raw\\');
+                    });
+
+                    it('does not strip leading wildcard', function() {
+                        var patterns = mockIgnores(['**\\Photos']);
+                        expect(patterns[0].path).toEqual('\\**\\Photos');
+                    });
+                });
             });
         });
     });
@@ -362,6 +388,19 @@ describe('IgnoresService', function() {
                 var match = matchFile('Photos');
                 expect(match).toBeDefined();
                 expect(match.text).toEqual('/Photos');
+            });
+
+            describe('with backslash path separator', function() {
+                beforeEach(inject(function($injector) {
+                    $injector.get('System').data.pathSeparator = '\\';
+                    service.addPattern('\\Photos');
+                }));
+
+                it('applies the first matching rule', function() {
+                    var match = matchFile('Photos\\Raw');
+                    expect(match).toBeDefined();
+                    expect(match.text).toEqual('\\Photos');
+                });
             });
 
             describe('with advanced patterns', function() {

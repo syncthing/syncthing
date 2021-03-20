@@ -9,7 +9,6 @@ describe('SyncthingController', function() {
         IgnoresService = $injector.get('Ignores');
         IgnoreTreeService = $injector.get('IgnoreTree');
         $scope = $injector.get('$rootScope');
-        $scope.system = { pathSeparator: '/' };
     }));
 
     describe('editFolderExisting', function() {

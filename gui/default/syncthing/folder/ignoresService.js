@@ -1,5 +1,5 @@
 angular.module('syncthing.folder')
-    .service('Ignores', function ($http) {
+    .service('Ignores', function ($http, System) {
         'use strict';
 
         var self = this;
@@ -121,7 +121,7 @@ angular.module('syncthing.folder')
                 // Only consider patterns that match a simple path
                 if (!pattern.isSimple) return false;
 
-                var absPath = '/' + file.path;
+                var absPath = System.data.pathSeparator + file.path;
                 return pattern.matchFunc(absPath);
             });
         }
@@ -186,11 +186,11 @@ angular.module('syncthing.folder')
             // Add a leading slash when the pattern begins with wildcards
             // because a pattern beginning with * or ** will match entries at
             // the root (as well as those in child directories)
-            line = line.replace(/^\*+/, '/$&'); // `$&` inserts the matched substring, a series of wildcards
+            line = line.replace(/^\*+/, System.data.pathSeparator + '$&'); // `$&` inserts the matched substring, a series of wildcards
 
             // Trim trailing wildcards after separator because child paths would
             // already be prefixed by this path
-            line = line.replace(/\/\*+$/, '/');
+            line = line.replace(new RegExp('\\' + System.data.pathSeparator + '\\*+$'), System.data.pathSeparator);
             return line;
         }
 
@@ -199,8 +199,8 @@ angular.module('syncthing.folder')
         function chooseMatcher(line) {
             if (line.length === 0) return neverMatch;
             if (line.indexOf('//') === 0) return neverMatch; // comment
-            if (line.indexOf('/') !== 0) return null; // not a root line
-            if (line.length > 1 && line.charAt(line.length - 1) === '/') return null; // trailing slash
+            if (line.indexOf(System.data.pathSeparator) !== 0) return null; // not a root line
+            if (line.length > 1 && line.charAt(line.length - 1) === System.data.pathSeparator) return null; // trailing slash
 
             line = line.replaceAll(/\\[\*\?\[\]\{\}]/g, '') // remove properly escaped glob characters
             if (line.match(/[\*\?\[\]\{\}]/)) {
@@ -242,13 +242,13 @@ angular.module('syncthing.folder')
             if (filePath.indexOf(patternPath) !== 0) return false;
 
             // pattern ends with path separator, file is a child of the pattern path
-            if (patternPath.charAt(patternPath.length - 1) === '/') return true;
+            if (patternPath.charAt(patternPath.length - 1) === System.data.pathSeparator) return true;
 
             var suffix = filePath.slice(patternPath.length);
             // pattern is an exact match to file path
             if (suffix.length === 0) return true;
             // pattern is an exact match to a parent directory in the file path
-            return suffix.charAt(0) === '/';
+            return suffix.charAt(0) === System.data.pathSeparator;
         }
 
         function neverMatch() {

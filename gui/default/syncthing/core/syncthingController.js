@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, Ignores, IgnoreTree, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, Ignores, IgnoreTree, LocaleService, System, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -454,7 +454,7 @@ angular.module('syncthing.core')
         }
 
         function refreshSystem() {
-            $http.get(urlbase + '/system/status').success(function (data) {
+            System.refresh().success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
 
@@ -699,8 +699,8 @@ angular.module('syncthing.core')
 
         function pathJoin(base, name) {
             base = expandTilde(base);
-            if (base[base.length - 1] !== $scope.system.pathSeparator) {
-                return base + $scope.system.pathSeparator + name;
+            if (base[base.length - 1] !== System.data.pathSeparator) {
+                return base + System.data.pathSeparator + name;
             }
             return base + name;
         }
@@ -1859,7 +1859,7 @@ angular.module('syncthing.core')
         };
 
         function editFolder() {
-            if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
+            if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === System.data.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             } else if (!$scope.currentFolder.path) {
                 // undefined path leads to invalid input field

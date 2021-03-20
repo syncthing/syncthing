@@ -1,1 +1,1 @@
-angular.module('syncthing.core', ['syncthing.folder', 'pascalprecht.translate']);
+angular.module('syncthing.core', ['syncthing.folder', 'syncthing.system', 'pascalprecht.translate']);

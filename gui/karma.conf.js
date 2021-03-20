@@ -21,6 +21,7 @@ module.exports = function(config) {
         './node_modules/angular-mocks/angular-mocks.js',
         'default/syncthing/**/module.js',
         'default/syncthing/folder/!(*.test).js',
+        'default/syncthing/system/!(*.test).js',
         'default/syncthing/core/!(*.test).js',
         'default/syncthing/app.js',
         'default/syncthing/**/*.test.js',
