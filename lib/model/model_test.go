@@ -4185,6 +4185,9 @@ func TestPendingFolder(t *testing.T) {
 	}
 
 	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
+	if err != nil {
+		t.Fatal(err)
+	}
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
 	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3, false); err != nil {
 		t.Fatal(err)
