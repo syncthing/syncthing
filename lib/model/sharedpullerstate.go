@@ -352,8 +352,8 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 	wireFile := s.file
 	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
 
-	bs := make([]byte, encryptionTrailerSize(s.file))
-	n, err := s.file.MarshalTo(bs)
+	bs := make([]byte, encryptionTrailerSize(wireFile))
+	n, err := wireFile.MarshalTo(bs)
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 			return err
 		}
 	}
-	if _, err := s.writer.WriteAt(bs, s.file.Size); err != nil {
+	if _, err := s.writer.WriteAt(bs, wireFile.Size); err != nil {
 		return err
 	}
 
