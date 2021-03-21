@@ -846,6 +846,10 @@ func (db *Lowlevel) getMetaAndCheck(folder string) (*metadataTracker, error) {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
+	return db.getMetaAndCheckGCLocked(folder)
+}
+
+func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, error) {
 	fixed, err := db.checkLocalNeed([]byte(folder))
 	if err != nil {
 		return nil, fmt.Errorf("checking local need: %w", err)
@@ -928,6 +932,9 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 		meta.addFile(protocol.GlobalDeviceID, f)
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
 	err = t.withNeed(folder, protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {

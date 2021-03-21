@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,16 +21,24 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/alecthomas/kong"
+	"github.com/thejerf/suture/v4"
+
+	"github.com/syncthing/syncthing/cmd/syncthing/cli"
+	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -45,7 +52,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -55,9 +61,8 @@ const (
 )
 
 const (
-	usage      = "syncthing [options]"
 	extraUsage = `
-The -logflags value is a sum of the following:
+The --logflags value is a sum of the following:
 
    1  Date
    2  Time
@@ -65,7 +70,7 @@ The -logflags value is a sum of the following:
    8  Long filename
   16  Short filename
 
-I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
+I.e. to prefix each log line with date and time, set --logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
@@ -80,31 +85,11 @@ Development Settings
 --------------------
 
 The following environment variables modify Syncthing's behavior in ways that
-are mostly useful for developers. Use with care.
-
- STNODEFAULTFOLDER Don't create a default folder when starting for the first
-                   time. This variable will be ignored anytime after the first
-                   run.
-
- STGUIASSETS       Directory to load GUI assets from. Overrides compiled in
-                   assets.
+are mostly useful for developers. Use with care. See also the --debug-* options
+above.
 
  STTRACE           A comma separated string of facilities to trace. The valid
-                   facility strings listed below.
-
- STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start
-                   the profiler with HTTP access.
-
- STCPUPROFILE      Write a CPU profile to cpu-$pid.pprof on exit.
-
- STHEAPPROFILE     Write heap profiles to heap-$pid-$timestamp.pprof each time
-                   heap usage increases.
-
- STBLOCKPROFILE    Write block profiles to block-$pid-$timestamp.pprof every 20
-                   seconds.
-
- STPERFSTATS       Write running performance statistics to perf-$pid.csv. Not
-                   supported on Windows.
+                   facility strings are listed below.
 
  STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
                    sensitivity. Use only under direction of a developer.
@@ -112,23 +97,10 @@ are mostly useful for developers. Use with care.
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
- STNORESTART       Equivalent to the -no-restart argument.
-
- STNOUPGRADE       Disable automatic upgrades.
-
  STHASHING         Select the SHA256 hashing package to use. Possible values
                    are "standard" for the Go standard library implementation,
                    "minio" for the github.com/minio/sha256-simd implementation,
                    and blank (the default) for auto detection.
-
- STRECHECKDBEVERY  Set to a time interval to override the default database
-                   check interval of 30 days (720h). The interval understands
-                   "h", "m" and "s" abbreviations for hours minutes and seconds.
-                   Valid values are like "720h", "30s", etc.
-
- STGCINDIRECTEVERY Set to a time interval to override the default database
-                   indirection GC interval of 13 hours. Same format as the
-                   STRECHECKDBEVERY variable.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
@@ -143,75 +115,88 @@ Debugging Facilities
 
 The following are valid values for the STTRACE variable:
 
-%s`
+%s
+`
 )
 
 var (
-	// Environment options
-	innerProcess    = os.Getenv("STMONITORED") != ""
-	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
-
 	upgradeCheckInterval = 5 * time.Minute
 	upgradeRetryInterval = time.Hour
 	upgradeCheckKey      = "lastUpgradeCheck"
 	upgradeTimeKey       = "lastUpgradeTime"
 	upgradeVersionKey    = "lastUpgradeVersion"
 
-	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
 	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
 	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 )
 
-type RuntimeOptions struct {
-	syncthing.Options
-	homeDir          string
-	confDir          string
-	dataDir          string
-	resetDatabase    bool
-	showVersion      bool
-	showPaths        bool
-	showDeviceId     bool
-	doUpgrade        bool
-	doUpgradeCheck   bool
-	upgradeTo        string
-	noBrowser        bool
-	browserOnly      bool
-	hideConsole      bool
-	logFile          string
-	logMaxSize       int
-	logMaxFiles      int
-	auditEnabled     bool
-	auditFile        string
-	paused           bool
-	unpaused         bool
-	guiAddress       string
-	guiAPIKey        string
-	generateDir      string
-	noRestart        bool
-	cpuProfile       bool
-	stRestarting     bool
-	logFlags         int
-	showHelp         bool
-	allowNewerConfig bool
+// The entrypoint struct is the main entry point for the command line parser. The
+// commands and options here are top level commands to syncthing.
+// Cli is just a placeholder for the help text (see main).
+var entrypoint struct {
+	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
+	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli     struct{}     `cmd:"" help:"Command line interface for Syncthing"`
 }
 
-func defaultRuntimeOptions() RuntimeOptions {
-	options := RuntimeOptions{
-		Options: syncthing.Options{
-			AssetDir:    os.Getenv("STGUIASSETS"),
-			NoUpgrade:   os.Getenv("STNOUPGRADE") != "",
-			ProfilerURL: os.Getenv("STPROFILER"),
-		},
-		noRestart:    os.Getenv("STNORESTART") != "",
-		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
-		stRestarting: os.Getenv("STRESTART") != "",
-		logFlags:     log.Ltime,
-		logMaxSize:   10 << 20, // 10 MiB
-		logMaxFiles:  3,        // plus the current one
-	}
+// serveOptions are the options for the `syncthing serve` command.
+type serveOptions struct {
+	buildServeOptions
+	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
+	Audit            bool   `help:"Write events to audit file"`
+	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
+	BrowserOnly      bool   `help:"Open GUI in browser"`
+	ConfDir          string `name:"conf" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
+	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
+	DeviceID         bool   `help:"Show the device ID"`
+	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`
+	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
+	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
+	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
+	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
+	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
+	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
+	NoBrowser        bool   `help:"Do not start browser"`
+	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
+	NoDefaultFolder  bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
+	NoUpgrade        bool   `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
+	Paths            bool   `help:"Show configuration paths"`
+	Paused           bool   `help:"Start with all devices and folders paused"`
+	Unpaused         bool   `help:"Start with all devices and folders unpaused"`
+	Upgrade          bool   `help:"Perform upgrade"`
+	UpgradeCheck     bool   `help:"Check for available upgrade"`
+	UpgradeTo        string `placeholder:"URL" help:"Force upgrade directly from specified URL"`
+	Verbose          bool   `help:"Print verbose log output"`
+	Version          bool   `help:"Show version"`
+
+	// Debug options below
+	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
+	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
+	DebugDeadlockTimeout      int           `placeholder:"SECONDS" env:"STDEADLOCKTIMEOUT" help:"Used for debugging internal deadlocks"`
+	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
+	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
+	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
+	DebugProfileCPU           bool          `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"CPUPROFILE"`
+	DebugProfileHeap          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
+	DebugProfilerListen       string        `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
+	DebugResetDatabase        bool          `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
+	DebugResetDeltaIdxs       bool          `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
+
+	// Internal options, not shown to users
+	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
+	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
+}
+
+func defaultVars() kong.Vars {
+	vars := kong.Vars{}
+
+	vars["logFlags"] = strconv.Itoa(log.Ltime)
+	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
+	vars["logMaxFiles"] = "3"                   // plus the current one
 
 	if os.Getenv("STTRACE") != "" {
-		options.logFlags = logger.DebugFlags
+		vars["logFlags"] = strconv.Itoa(logger.DebugFlags)
 	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
@@ -219,107 +204,108 @@ func defaultRuntimeOptions() RuntimeOptions {
 	// default path, unless the user has manually specified "-" or
 	// something else.
 	if runtime.GOOS == "windows" {
-		options.logFile = "default"
+		vars["logFile"] = "default"
 	} else {
-		options.logFile = "-"
+		vars["logFile"] = "-"
 	}
 
-	return options
-}
-
-func parseCommandLineOptions() RuntimeOptions {
-	options := defaultRuntimeOptions()
-
-	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
-	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
-	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
-	flag.StringVar(&options.homeDir, "home", "", "Set configuration and data directory")
-	flag.StringVar(&options.confDir, "config", "", "Set configuration directory (config and keys)")
-	flag.StringVar(&options.dataDir, "data", "", "Set data directory (database and logs)")
-	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
-	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
-	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash")
-	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
-	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
-	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
-	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
-	flag.BoolVar(&options.showVersion, "version", false, "Show version")
-	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
-	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
-	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
-	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
-	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
-	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
-	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
-	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")
-	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
-	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
-	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
-	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
-	if runtime.GOOS == "windows" {
-		// Allow user to hide the console window
-		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
-	}
-
-	longUsage := fmt.Sprintf(extraUsage, debugFacilities())
-	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
-	flag.Parse()
-
-	if len(flag.Args()) > 0 {
-		flag.Usage()
-		os.Exit(2)
-	}
-
-	return options
-}
-
-func setLocation(enum locations.BaseDirEnum, loc string) error {
-	if !filepath.IsAbs(loc) {
-		var err error
-		loc, err = filepath.Abs(loc)
-		if err != nil {
-			return err
-		}
-	}
-	return locations.SetBaseDir(enum, loc)
+	return vars
 }
 
 func main() {
-	options := parseCommandLineOptions()
-	l.SetFlags(options.logFlags)
-
-	if options.guiAddress != "" {
-		// The config picks this up from the environment.
-		os.Setenv("STGUIADDRESS", options.guiAddress)
+	// The "cli" subcommand uses a different command line parser, and e.g. help
+	// gets mangled when integrating it as a subcommand -> detect it here at the
+	// beginning.
+	if len(os.Args) > 1 && os.Args[1] == "cli" {
+		if err := cli.Run(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return
 	}
-	if options.guiAPIKey != "" {
-		// The config picks this up from the environment.
-		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
+
+	// First some massaging of the raw command line to fit the new model.
+	// Basically this means adding the default command at the front, and
+	// converting -options to --options.
+
+	args := os.Args[1:]
+	switch {
+	case len(args) == 0:
+		// Empty command line is equivalent to just calling serve
+		args = []string{"serve"}
+	case args[0] == "-help":
+		// For consistency, we consider this equivalent with --help even
+		// though kong would otherwise consider it a bad flag.
+		args[0] = "--help"
+	case args[0] == "-h", args[0] == "--help":
+		// Top level request for help, let it pass as-is to be handled by
+		// kong to list commands.
+	case strings.HasPrefix(args[0], "-"):
+		// There are flags not preceded by a command, so we tack on the
+		// "serve" command and convert the old style arguments (single dash)
+		// to new style (double dash).
+		args = append([]string{"serve"}, convertLegacyArgs(args)...)
 	}
 
-	if options.hideConsole {
+	// Create a parser with an overridden help function to print our extra
+	// help info.
+	parser, err := kong.New(&entrypoint, kong.Help(helpHandler), defaultVars())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx, err := parser.Parse(args)
+	parser.FatalIfErrorf(err)
+	err = ctx.Run()
+	parser.FatalIfErrorf(err)
+}
+
+func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
+	if err := kong.DefaultHelpPrinter(options, ctx); err != nil {
+		return err
+	}
+	if ctx.Command() == "serve" {
+		// Help was requested for `syncthing serve`, so we add our extra
+		// usage info afte the normal options output.
+		fmt.Printf(extraUsage, debugFacilities())
+	}
+	return nil
+}
+
+// serveOptions.Run() is the entrypoint for `syncthing serve`
+func (options serveOptions) Run() error {
+	l.SetFlags(options.LogFlags)
+
+	if options.GUIAddress != "" {
+		// The config picks this up from the environment.
+		os.Setenv("STGUIADDRESS", options.GUIAddress)
+	}
+	if options.GUIAPIKey != "" {
+		// The config picks this up from the environment.
+		os.Setenv("STGUIAPIKEY", options.GUIAPIKey)
+	}
+
+	if options.HideConsole {
 		osutil.HideConsole()
 	}
 
 	// Not set as default above because the strings can be really long.
 	var err error
-	homeSet := options.homeDir != ""
-	confSet := options.confDir != ""
-	dataSet := options.dataDir != ""
+	homeSet := options.HomeDir != ""
+	confSet := options.ConfDir != ""
+	dataSet := options.DataDir != ""
 	switch {
 	case dataSet != confSet:
 		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
 	case homeSet && dataSet:
 		err = errors.New("-home must not be used together with -conf and -data")
 	case homeSet:
-		if err = setLocation(locations.ConfigBaseDir, options.homeDir); err == nil {
-			err = setLocation(locations.DataBaseDir, options.homeDir)
+		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.HomeDir); err == nil {
+			err = locations.SetBaseDir(locations.DataBaseDir, options.HomeDir)
 		}
 	case dataSet:
-		if err = setLocation(locations.ConfigBaseDir, options.confDir); err == nil {
-			err = setLocation(locations.DataBaseDir, options.dataDir)
+		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.ConfDir); err == nil {
+			err = locations.SetBaseDir(locations.DataBaseDir, options.DataDir)
 		}
 	}
 	if err != nil {
@@ -327,34 +313,29 @@ func main() {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.logFile == "default" || options.logFile == "" {
+	if options.LogFile == "default" || options.LogFile == "" {
 		// We must set this *after* expandLocations above.
 		// Handling an empty value is for backwards compatibility (<1.4.1).
-		options.logFile = locations.Get(locations.LogFile)
+		options.LogFile = locations.Get(locations.LogFile)
 	}
 
-	if options.AssetDir == "" {
+	if options.DebugGUIAssetsDir == "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.AssetDir = locations.Get(locations.GUIAssets)
+		options.DebugGUIAssetsDir = locations.Get(locations.GUIAssets)
 	}
 
-	if options.showVersion {
+	if options.Version {
 		fmt.Println(build.LongVersion)
-		return
+		return nil
 	}
 
-	if options.showHelp {
-		flag.Usage()
-		return
-	}
-
-	if options.showPaths {
+	if options.Paths {
 		showPaths(options)
-		return
+		return nil
 	}
 
-	if options.showDeviceId {
+	if options.DeviceID {
 		cert, err := tls.LoadX509KeyPair(
 			locations.Get(locations.CertFile),
 			locations.Get(locations.KeyFile),
@@ -365,23 +346,23 @@ func main() {
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
-		return
+		return nil
 	}
 
-	if options.browserOnly {
+	if options.BrowserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
-		return
+		return nil
 	}
 
-	if options.generateDir != "" {
-		if err := generate(options.generateDir); err != nil {
+	if options.GenerateDir != "" {
+		if err := generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
-		return
+		return nil
 	}
 
 	// Ensure that our home directory exists.
@@ -390,29 +371,30 @@ func main() {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.upgradeTo != "" {
-		err := upgrade.ToURL(options.upgradeTo)
+	if options.UpgradeTo != "" {
+		err := upgrade.ToURL(options.UpgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
-		l.Infoln("Upgraded from", options.upgradeTo)
-		return
+		l.Infoln("Upgraded from", options.UpgradeTo)
+		return nil
 	}
 
-	if options.doUpgradeCheck {
+	if options.UpgradeCheck {
 		if _, err := checkUpgrade(); err != nil {
 			l.Warnln("Checking for upgrade:", err)
 			os.Exit(exitCodeForUpgrade(err))
 		}
-		return
+		return nil
 	}
 
-	if options.doUpgrade {
+	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
 			// Use leveldb database locks to protect against concurrent upgrades
-			ldb, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			var ldb backend.Backend
+			ldb, err = syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
 			if err != nil {
 				err = upgradeViaRest()
 			} else {
@@ -428,24 +410,25 @@ func main() {
 		os.Exit(svcutil.ExitUpgrade.AsInt())
 	}
 
-	if options.resetDatabase {
+	if options.DebugResetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
-		return
+		return nil
 	}
 
-	if innerProcess {
+	if options.InternalInnerProcess {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
 	}
+	return nil
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger, true)
 	if err != nil {
 		return err
 	}
@@ -459,7 +442,7 @@ func openGUI(myID protocol.DeviceID) error {
 	return nil
 }
 
-func generate(generateDir string) error {
+func generate(generateDir string, noDefaultFolder bool) error {
 	dir, err := fs.ExpandTilde(generateDir)
 	if err != nil {
 		return err
@@ -530,7 +513,7 @@ func (e *errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
 	if err != nil {
 		return upgrade.Release{}, err
 	}
@@ -549,7 +532,7 @@ func checkUpgrade() (upgrade.Release, error) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -584,7 +567,17 @@ func upgradeViaRest() error {
 	return err
 }
 
-func syncthingMain(runtimeOptions RuntimeOptions) {
+func syncthingMain(options serveOptions) {
+	if options.DebugProfileBlock {
+		startBlockProfiler()
+	}
+	if options.DebugProfileHeap {
+		startHeapProfiler()
+	}
+	if options.DebugPerfStats {
+		startPerfStats()
+	}
+
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
 	l.SetPrefix("[start] ")
@@ -615,20 +608,18 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	evLogger := events.NewLogger()
 	earlyService.Add(evLogger)
 
-	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
-	if cfgService, ok := cfgWrapper.(suture.Service); ok {
-		earlyService.Add(cfgService)
-	}
+	earlyService.Add(cfgWrapper)
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !options.NoUpgrade {
 		cfgWrapper.Modify(func(cfg *config.Configuration) {
 			l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
@@ -652,7 +643,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// upgrade immedately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
-	autoUpgradePossible := autoUpgradePossible(runtimeOptions)
+	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
 		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
@@ -671,15 +662,24 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if runtimeOptions.unpaused {
+	if options.Unpaused {
 		setPauseState(cfgWrapper, false)
-	} else if runtimeOptions.paused {
+	} else if options.Paused {
 		setPauseState(cfgWrapper, true)
 	}
 
-	appOpts := runtimeOptions.Options
-	if runtimeOptions.auditEnabled {
-		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
+	appOpts := syncthing.Options{
+		AssetDir:             options.DebugGUIAssetsDir,
+		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
+		NoUpgrade:            options.NoUpgrade,
+		ProfilerAddr:         options.DebugProfilerListen,
+		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
+		Verbose:              options.Verbose,
+		DBRecheckInterval:    options.DebugDBRecheckInterval,
+		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
+	}
+	if options.Audit {
+		appOpts.AuditWriter = auditWriter(options.AuditFile)
 	}
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		secs, _ := strconv.Atoi(t)
@@ -708,7 +708,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	if runtimeOptions.cpuProfile {
+	if options.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
@@ -728,7 +728,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
-	if cfgWrapper.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
+	if cfgWrapper.Options().StartBrowser && !options.NoBrowser && !options.InternalRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		go func() { _ = openURL(cfgWrapper.GUI().URL()) }()
@@ -740,7 +740,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Warnln("Syncthing stopped with error:", app.Error())
 	}
 
-	if runtimeOptions.cpuProfile {
+	if options.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
 
@@ -768,7 +768,7 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, evLogger)
 
@@ -858,11 +858,11 @@ func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 	}
 }
 
-func autoUpgradePossible(runtimeOptions RuntimeOptions) bool {
+func autoUpgradePossible(options serveOptions) bool {
 	if upgrade.DisabledByCompilation {
 		return false
 	}
-	if runtimeOptions.NoUpgrade {
+	if options.NoUpgrade {
 		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		return false
 	}
@@ -989,13 +989,13 @@ func cleanConfigDirectory() {
 	}
 }
 
-func showPaths(options RuntimeOptions) {
+func showPaths(options serveOptions) {
 	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
 	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
-	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
-	fmt.Printf("GUI override directory:\n\t%s\n\n", options.AssetDir)
+	fmt.Printf("Log file:\n\t%s\n\n", options.LogFile)
+	fmt.Printf("GUI override directory:\n\t%s\n\n", options.DebugGUIAssetsDir)
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
@@ -1019,4 +1019,22 @@ func exitCodeForUpgrade(err error) int {
 		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
 	return svcutil.ExitError.AsInt()
+}
+
+// convertLegacyArgs returns the slice of arguments with single dash long
+// flags converted to double dash long flags.
+func convertLegacyArgs(args []string) []string {
+	// Legacy args begin with a single dash, followed by two or more characters.
+	legacyExp := regexp.MustCompile(`^-\w{2,}`)
+
+	res := make([]string, len(args))
+	for i, arg := range args {
+		if legacyExp.MatchString(arg) {
+			res[i] = "-" + arg
+		} else {
+			res[i] = arg
+		}
+	}
+
+	return res
 }

@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentSharing = {};
         $scope.currentFolder = {};
         $scope.currentDevice = {};
         $scope.ignores = {
@@ -67,11 +68,10 @@ angular.module('syncthing.core')
         $scope.versioningDefaults = {
             selector: "none",
             trashcanClean: 0,
-            versioningCleanupIntervalS: 3600,
+            cleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
-            staggeredVersionsPath: "",
             externalCommand: "",
         };
 
@@ -213,6 +213,9 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
+            if (!$scope.connections[arg.data.id]) {
+                return;
+            }
             $scope.connections[arg.data.id].connected = false;
             refreshDeviceStats();
         });
@@ -273,7 +276,8 @@ angular.module('syncthing.core')
                 arg.data.added.forEach(function (rejected) {
                     var offeringDevice = {
                         time: arg.time,
-                        label: rejected.folderLabel
+                        label: rejected.folderLabel,
+                        receiveEncrypted: rejected.receiveEncrypted,
                     };
                     console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
 
@@ -596,7 +600,13 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error($scope.emitHTTPError);
+            }).error(function(data, status, headers, config) {
+                if (status === 404) {
+                    console.log("refreshCompletion:", data);
+                } else {
+                    $scope.emitHTTPError(data, status, headers, config);
+                }
+            })
         }
 
         function refreshConnectionStats() {
@@ -1650,7 +1660,7 @@ angular.module('syncthing.core')
         };
 
         function setDeviceConfig() {
-            var currentID = $scope.currentDevice.DeviceID;
+            var currentID = $scope.currentDevice.deviceID;
             $scope.devices[currentID] = $scope.currentDevice;
             $scope.config.devices = deviceList($scope.devices);
 
@@ -1828,12 +1838,31 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
-        $scope.fsWatcherToggled = function () {
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                $scope.currentFolder.rescanIntervalS = 3600;
-            } else {
-                $scope.currentFolder.rescanIntervalS = 60;
+        $scope.setFSWatcherIntervalDefault = function () {
+            var defaultRescanIntervals = [60, 3600, 3600*24];
+            if (defaultRescanIntervals.indexOf($scope.currentFolder.rescanIntervalS) === -1) {
+                return;
             }
+            var idx;
+            if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
+            } else if ($scope.currentFolder.type === 'receiveencrypted') {
+                idx = 2;
+            } else {
+                idx = 0;
+            }
+            $scope.currentFolder.rescanIntervalS = defaultRescanIntervals[idx];
+        };
+
+        $scope.setDefaultsForFolderType = function () {
+            if ($scope.currentFolder.type === 'receiveencrypted') {
+                $scope.currentFolder.fsWatcherEnabled = false;
+                $scope.currentFolder.ignorePerms = true;
+                delete $scope.currentFolder.versioning;
+            } else {
+                $scope.currentFolder.fsWatcherEnabled = true;
+            }
+            $scope.setFSWatcherIntervalDefault();
         };
 
         $scope.loadFormIntoScope = function (form) {
@@ -1854,6 +1883,7 @@ angular.module('syncthing.core')
 
         function editFolderModal() {
             initVersioningEditing();
+            $scope.currentFolder._recvEnc = $scope.currentFolder.type === 'receiveencrypted';
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal().one('shown.bs.tab', function (e) {
@@ -1900,43 +1930,47 @@ angular.module('syncthing.core')
             editFolderModal();
         }
 
+        $scope.internalVersioningEnabled = function(guiVersioning) {
+            if (!$scope.currentFolder._guiVersioning) {
+                return false;
+            }
+            return ['none', 'external'].indexOf($scope.currentFolder._guiVersioning.selector) === -1;
+        };
+
         function initVersioningEditing() {
             $scope.currentFolder._guiVersioning = angular.copy($scope.versioningDefaults);
 
-            if (!$scope.currentFolder.versioning) {
+            var currentVersioning = $scope.currentFolder.versioning;
+
+            if (!currentVersioning || !currentVersioning.type || currentVersioning.type === 'none') {
                 return;
             }
 
-            var currentVersioning = $scope.currentFolder.versioning;
-
             $scope.currentFolder._guiVersioning.cleanupIntervalS = +currentVersioning.cleanupIntervalS;
+            $scope.currentFolder._guiVersioning.selector = currentVersioning.type;
 
             // Apply parameters currently in use
             switch (currentVersioning.type) {
             case "trashcan":
-                $scope.currentFolder._guiVersioning.selector = "trashcan";
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "simple":
-                $scope.currentFolder._guiVersioning.selector = "simple";
                 $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "staggered":
-                $scope.currentFolder._guiVersioning.selector = "staggered";
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
                 $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
-                $scope.currentFolder._guiVersioning.staggeredVersionsPath = currentVersioning.params.versionsPath;
                 break;
             case "external":
-                $scope.currentFolder._guiVersioning.selector = "external";
-                $scope.currentFolder.externalCommand = currentVersioning.params.command;
+                $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
                 break;
             }
         };
 
         $scope.editFolderExisting = function(folderCfg) {
             $scope.editingExisting = true;
+            $scope.editingDefaults = false;
             $scope.currentFolder = angular.copy(folderCfg);
 
             $scope.ignores.text = 'Loading...';
@@ -1993,13 +2027,20 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.addFolderAndShare = function (folderID, folderLabel, device) {
+        $scope.addFolderAndShare = function (folderID, pendingFolder, device) {
             addFolderInit(folderID).then(function() {
                 $scope.currentFolder.viewFlags = {
                     importFromOtherDevice: true
                 };
                 $scope.currentSharing.selected[device] = true;
-                $scope.currentFolder.label = folderLabel;
+                $scope.currentFolder.label = pendingFolder.offeredBy[device].label;
+                for (var k in pendingFolder.offeredBy) {
+                    if (pendingFolder.offeredBy[k].receiveEncrypted) {
+                        $scope.currentFolder.type = "receiveencrypted";
+                        $scope.setDefaultsForFolderType();
+                        break;
+                    }
+                }
                 editFolderModal();
             });
         };
@@ -2052,45 +2093,27 @@ angular.module('syncthing.core')
             folderCfg.devices = newDevices;
             delete $scope.currentSharing;
 
+            if (!folderCfg.versioning) {
+                folderCfg.versioning = {params: {}};
+            }
+            folderCfg.versioning.type = folderCfg._guiVersioning.selector;
+            if ($scope.internalVersioningEnabled()) {
+                folderCfg.versioning.cleanupIntervalS = folderCfg._guiVersioning.cleanupIntervalS;
+            }
             switch (folderCfg._guiVersioning.selector) {
             case "trashcan":
-                folderCfg.versioning = {
-                    'type': 'trashcan',
-                    'params': {
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "simple":
-                folderCfg.versioning = {
-                    'type': 'simple',
-                    'params': {
-                        'keep': '' + folderCfg._guiVersioning.simpleKeep,
-                        'cleanoutDays': '' + folderCfg._guiVersioning.trashcanClean
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.keep = '' + folderCfg._guiVersioning.simpleKeep,
+                folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "staggered":
-                folderCfg.versioning = {
-                    'type': 'staggered',
-                    'params': {
-                        'maxAge': '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400),
-                        'cleanInterval': '' + folderCfg._guiVersioning.staggeredCleanInterval,
-                        'versionsPath': '' + folderCfg._guiVersioning.staggeredVersionsPath
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
+                folderCfg.versioning.params.cleanInterval = '' + folderCfg._guiVersioning.staggeredCleanInterval;
                 break;
             case "external":
-                folderCfg.versioning = {
-                    'type': 'external',
-                    'params': {
-                        'command': '' + folderCfg._guiVersioning.externalCommand
-                    },
-                    'cleanupIntervalS': folderCfg._guiVersioning.cleanupIntervalS
-                };
+                folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
                 break;
             default:
                 delete folderCfg.versioning;

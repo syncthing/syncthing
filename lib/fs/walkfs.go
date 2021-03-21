@@ -63,10 +63,20 @@ type WalkFunc func(path string, info FileInfo, err error) error
 
 type walkFilesystem struct {
 	Filesystem
+	checkInfiniteRecursion bool
 }
 
 func NewWalkFilesystem(next Filesystem) Filesystem {
-	return &walkFilesystem{next}
+	fs := &walkFilesystem{
+		Filesystem: next,
+	}
+	for _, opt := range next.Options() {
+		if _, ok := opt.(*OptionJunctionsAsDirs); ok {
+			fs.checkInfiniteRecursion = true
+			break
+		}
+	}
+	return fs
 }
 
 // walk recursively descends path, calling walkFn.
@@ -89,11 +99,13 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		return nil
 	}
 
-	if !ancestors.Contains(info) {
-		ancestors.Push(info)
-		defer ancestors.Pop()
-	} else {
-		return walkFn(path, info, ErrInfiniteRecursion)
+	if f.checkInfiniteRecursion {
+		if !ancestors.Contains(info) {
+			ancestors.Push(info)
+			defer ancestors.Pop()
+		} else {
+			return walkFn(path, info, ErrInfiniteRecursion)
+		}
 	}
 
 	names, err := f.DirNames(path)
@@ -131,6 +143,9 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	ancestors := &ancestorDirList{fs: f.Filesystem}
+	var ancestors *ancestorDirList
+	if f.checkInfiniteRecursion {
+		ancestors = &ancestorDirList{fs: f.Filesystem}
+	}
 	return f.walk(root, info, walkFn, ancestors)
 }

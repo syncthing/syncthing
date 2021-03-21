@@ -51,6 +51,12 @@ func (c *configMuxBuilder) registerConfigInsync(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerConfigRequiresRestart(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, map[string]bool{"requiresRestart": c.cfg.RequiresRestart()})
+	})
+}
+
 func (c *configMuxBuilder) registerFolders(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
 		sendJSON(w, c.cfg.FolderList())
@@ -181,6 +187,10 @@ func (c *configMuxBuilder) registerDevice(path string) {
 
 	c.Handle(http.MethodDelete, path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
 		id, err := protocol.DeviceIDFromString(p.ByName("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		waiter, err := c.cfg.RemoveDevice(id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

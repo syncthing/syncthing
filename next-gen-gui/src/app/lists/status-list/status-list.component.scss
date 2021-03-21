@@ -1,0 +1,70 @@
+.status-list .tui-card-toggle {
+    padding: 16px 16px 0 16px;
+}
+
+.full-width-table {
+    width: 100%;
+}
+
+.mat-form-field {
+    font-size: 14px;
+    width: 100%;
+}
+
+tr.detail-row {
+    height: 0;
+}
+
+tr.table-row:not(.expanded-row):hover {
+    background: whitesmoke;
+    color: #303030;
+}
+
+tr.table-row:not(.expanded-row):active {
+    background: #DDDDDD;
+    color: #303030;
+}
+
+.expanded-row {
+    background: #DDDDDD;
+    color: #303030;
+}
+
+.table-row td {
+    border-bottom-width: 0;
+}
+
+.table-detail {
+    overflow: hidden;
+    display: flex;
+}
+
+.detail-items {
+    padding: 16px;
+}
+
+// Hide empty name
+.item-name:empty {
+    display: none;
+}
+
+.item-name:not(:last-child):after {
+    content: ", ";
+}
+
+@media (prefers-color-scheme: dark) {
+    tr.table-row:not(.expanded-row):hover {
+        background: #212121;
+        color: white;
+    }
+
+    tr.table-row:not(.expanded-row):active {
+        background: #212121;
+        color: white;
+    }
+
+    .expanded-row {
+        background: #212121;
+        color: white;
+    }
+}

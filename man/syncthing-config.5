@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Feb 02, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -38,7 +38,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .ft C
 $HOME/.config/syncthing
 $HOME/Library/Application Support/Syncthing
-%LOCALAPPDATA%/Syncthing
+%LOCALAPPDATA%\eSyncthing
 .ft P
 .fi
 .UNINDENT
@@ -53,7 +53,7 @@ Syncthing uses a single directory to store configuration and crypto keys.
 Syncthing also has a database, which is often stored in this directory too.
 The config location defaults to \fB$HOME/.config/syncthing\fP
 (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
-or \fB%LOCALAPPDATA%/Syncthing\fP (Windows). It can be changed at runtime
+or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can be changed at runtime
 using the \fB\-config\fP flag. In this directory the following files are
 located:
 .INDENT 0.0
@@ -100,7 +100,16 @@ currently on disk and available from peers.
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
-The following shows an example of the default configuration file (IDs will differ):
+The following shows an example of a default configuration file (IDs will differ):
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+The config examples are present for illustration. Do \fBnot\fP copy them
+entirely to use as your config. They are likely out\-of\-date and the values
+may no longer correspond to the defaults.
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -148,8 +157,7 @@ The following shows an example of the default configuration file (IDs will diffe
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>tcp://0.0.0.0:8384</listenAddress>
-        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+        <listenAddress>default</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>true</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
@@ -397,6 +405,14 @@ a 1 GB file even if there is 1 KB file available on the source device until
 the 1 KB becomes known to the pulling device.
 .TP
 .B ignoreDelete
+.
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Enabling this is highly not recommended \- use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
 When set to true, this device will pretend not to see instructions to
 delete files from other devices.
 .TP
@@ -587,10 +603,16 @@ From following child elements at least one \fBaddress\fP child must exist.
 .INDENT 0.0
 .TP
 .B address
-Contains an address or host name to use when attempting to connect to this device.
-Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack),
-\fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only). Note that IP addresses need
-not use tcp4/tcp6; these are optional. Accepted formats are:
+.INDENT 7.0
+.TP
+.B Contains an address or host name to use when attempting to connect to this device.
+Entries other than \fBdynamic\fP need a protocol specific prefix. For the TCP protocol
+.TP
+.B the prefixes \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only) can be used.
+The prefixes for the QUIC protocol are analogous: \fBquic://\fP, \fBquic4://\fP and \fBquic6://\fP
+.UNINDENT
+.sp
+Note that IP addresses need not use IPv4 or IPv6 prefixes; these are optional. Accepted formats are:
 .INDENT 7.0
 .TP
 .B IPv4 address (\fBtcp://192.0.2.42\fP)
@@ -616,7 +638,7 @@ The host name will be used on the given port and connections will be
 attempted via both IPv4 and IPv6, depending on name resolution.
 .TP
 .B \fBdynamic\fP
-The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and
+The word \fBdynamic\fP (without any prefix) means to use local and
 global discovery to find the device.
 .UNINDENT
 .sp
@@ -629,7 +651,7 @@ for example:
 .ft C
 <device id="...">
     <address>tcp://192.0.2.1:22001</address>
-    <address>tcp://192.0.1.254:22000</address>
+    <address>quic://192.0.1.254:22000</address>
     <address>dynamic</address>
 </device>
 .ft P
@@ -806,8 +828,7 @@ Skip verification (true or false).
 .nf
 .ft C
 <options>
-    <listenAddress>tcp://0.0.0.0:8384</listenAddress>
-    <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+    <listenAddress>default</listenAddress>
     <globalAnnounceServer>default</globalAnnounceServer>
     <globalAnnounceEnabled>true</globalAnnounceEnabled>
     <localAnnounceEnabled>true</localAnnounceEnabled>

@@ -23,18 +23,21 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -55,9 +58,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
-
-// matches a bcrypt hash and not too much else
-var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
 	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
@@ -150,6 +150,10 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		// default. If that isn't available, use the "syncthing" default.
 		var name string
 		name, err = os.Hostname()
+		if err != nil {
+			name = s.tlsDefaultCommonName
+		}
+		name, err = sanitizedHostname(name)
 		if err != nil {
 			name = s.tlsDefaultCommonName
 		}
@@ -297,7 +301,8 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 
 	configBuilder.registerConfig("/rest/config")
-	configBuilder.registerConfigInsync("/rest/config/insync")
+	configBuilder.registerConfigInsync("/rest/config/insync") // deprecated
+	configBuilder.registerConfigRequiresRestart("/rest/config/restart-required")
 	configBuilder.registerFolders("/rest/config/folders")
 	configBuilder.registerDevices("/rest/config/devices")
 	configBuilder.registerFolder("/rest/config/folders/:id")
@@ -745,7 +750,15 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sendJSON(w, s.model.Completion(device, folder).Map())
+	if comp, err := s.model.Completion(device, folder); err != nil {
+		status := http.StatusInternalServerError
+		if isFolderNotFound(err) {
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
+	} else {
+		sendJSON(w, comp.Map())
+	}
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
@@ -877,8 +890,25 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
-	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+
+	errStatus := http.StatusInternalServerError
+	gf, gfOk, err := s.model.CurrentGlobalFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
+
+	lf, lfOk, err := s.model.CurrentFolderFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
 
 	if !(gfOk || lfOk) {
 		// This file for sure does not exist.
@@ -886,7 +916,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	av, err := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
@@ -1497,7 +1531,12 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if _, ok := s.model.Connection(device); ok {
-				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
+				comp, err := s.model.Completion(device, folder.ID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				tot[deviceStr] += comp.CompletionPct
 			} else {
 				tot[deviceStr] = 0
 			}
@@ -1545,7 +1584,7 @@ func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	sendJSON(w, ferr)
+	sendJSON(w, errorStringMap(ferr))
 }
 
 func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
@@ -1771,8 +1810,13 @@ func addressIsLocalhost(addr string) bool {
 		// There was no port, so we assume the address was just a hostname
 		host = addr
 	}
-	switch strings.ToLower(host) {
-	case "localhost", "localhost.":
+	host = strings.ToLower(host)
+	switch {
+	case host == "localhost":
+		return true
+	case host == "localhost.":
+		return true
+	case strings.HasSuffix(host, ".localhost"):
 		return true
 	default:
 		ip := net.ParseIP(host)
@@ -1839,10 +1883,63 @@ func shouldRegenerateCertificate(cert tls.Certificate) error {
 	return nil
 }
 
+func errorStringMap(errs map[string]error) map[string]*string {
+	out := make(map[string]*string, len(errs))
+	for s, e := range errs {
+		out[s] = errorString(e)
+	}
+	return out
+}
+
 func errorString(err error) *string {
 	if err != nil {
 		msg := err.Error()
 		return &msg
 	}
 	return nil
+}
+
+// sanitizedHostname returns the given name in a suitable form for use as
+// the common name in a certificate, or an error.
+func sanitizedHostname(name string) (string, error) {
+	// Remove diacritics and non-alphanumerics. This works by first
+	// transforming into normalization form D (things with diacriticals are
+	// split into the base character and the mark) and then removing
+	// undesired characters.
+	t := transform.Chain(
+		// Split runes with diacritics into base character and mark.
+		norm.NFD,
+		// Leave only [A-Za-z0-9-.].
+		runes.Remove(runes.Predicate(func(r rune) bool {
+			return r > unicode.MaxASCII ||
+				!unicode.IsLetter(r) && !unicode.IsNumber(r) &&
+					r != '.' && r != '-'
+		})))
+	name, _, err := transform.String(t, name)
+	if err != nil {
+		return "", err
+	}
+
+	// Name should not start or end with a dash or dot.
+	name = strings.Trim(name, "-.")
+
+	// Name should not be empty.
+	if name == "" {
+		return "", errors.New("no suitable name")
+	}
+
+	return strings.ToLower(name), nil
+}
+
+func isFolderNotFound(err error) bool {
+	for _, target := range []error{
+		model.ErrFolderMissing,
+		model.ErrFolderPaused,
+		model.ErrFolderNotRunning,
+	} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
 }

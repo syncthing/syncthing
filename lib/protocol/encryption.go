@@ -8,8 +8,6 @@ package protocol
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
 	"errors"
@@ -20,6 +18,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
+	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
@@ -314,6 +314,7 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 		Permissions:  0644,
 		ModifiedS:    1234567890, // Sat Feb 14 00:31:30 CET 2009
 		Deleted:      fi.Deleted,
+		RawInvalid:   fi.IsInvalid(),
 		Version:      version,
 		Sequence:     fi.Sequence,
 		RawBlockSize: fi.RawBlockSize + blockOverhead,
@@ -356,19 +357,23 @@ func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
 	return decFI, nil
 }
 
+var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
+
 // encryptName encrypts the given string in a deterministic manner (the
 // result is always the same for any given string) and encodes it in a
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key, nil)
-	b32enc := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(enc)
-	return slashify(b32enc)
+	return slashify(base32Hex.EncodeToString(enc))
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
-	name = deslashify(name)
-	bs, err := base32.HexEncoding.WithPadding(base32.NoPadding).DecodeString(name)
+	name, err := deslashify(name)
+	if err != nil {
+		return "", err
+	}
+	bs, err := base32Hex.DecodeString(name)
 	if err != nil {
 		return "", err
 	}
@@ -483,8 +488,10 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 	return &key
 }
 
+var hkdfSalt = []byte("syncthing")
+
 func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
-	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), []byte("syncthing"), nil)
+	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), hkdfSalt, nil)
 	var fileKey [keySize]byte
 	n, err := io.ReadFull(kdf, fileKey[:])
 	if err != nil || n != keySize {
@@ -524,9 +531,12 @@ func slashify(s string) string {
 
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
-func deslashify(s string) string {
-	s = strings.ReplaceAll(s, encryptedDirExtension, "")
-	return strings.ReplaceAll(s, "/", "")
+func deslashify(s string) (string, error) {
+	if len(s) == 0 || !strings.HasPrefix(s[1:], encryptedDirExtension) {
+		return "", fmt.Errorf("invalid encrypted path: %q", s)
+	}
+	s = s[:1] + s[1+len(encryptedDirExtension):]
+	return strings.ReplaceAll(s, "/", ""), nil
 }
 
 type rawResponse struct {

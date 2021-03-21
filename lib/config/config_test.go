@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
-	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -1301,16 +1300,10 @@ func startWrapper(wrapper Wrapper) *testWrapper {
 		Wrapper: wrapper,
 		done:    make(chan struct{}),
 	}
-	s, ok := wrapper.(suture.Service)
-	if !ok {
-		tw.cancel = func() {}
-		close(tw.done)
-		return tw
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	tw.cancel = cancel
 	go func() {
-		s.Serve(ctx)
+		wrapper.Serve(ctx)
 		close(tw.done)
 	}()
 	return tw

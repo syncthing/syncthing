@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "Feb 02, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "Mar 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -48,9 +48,9 @@ Created UPnP port mapping for external port XXXXX on UPnP device YYYYY.
 .UNINDENT
 .UNINDENT
 .sp
-If this is not possible or desirable, you should set up a port forward for port
-\fB22000/TCP\fP (or whichever port is set in the \fISync Protocol Listen Address\fP setting).
-The external forwarded port and the internal destination port has to be the same
+If this is not possible or desirable, you should set up a port forwarding for ports
+\fB22000/TCP\fP and \fB22000/UDP\fP (or whichever port is set in the \fISync Protocol Listen Address\fP setting).
+The external forwarded ports and the internal destination ports have to be the same
 (e.g. 22000/TCP).
 .sp
 Communication in Syncthing works both ways. Therefore if you set up port
@@ -76,11 +76,15 @@ If your PC has a local firewall, you will need to open the following ports for
 incoming and outgoing traffic:
 .INDENT 0.0
 .IP \(bu 2
-Port \fB22000/TCP\fP (or the actual listening port if you have changed
-the \fISync Protocol Listen Address\fP setting.)
+Port \fB22000/TCP\fP: TCP based sync protocol traffic
 .IP \(bu 2
-Port \fB21027/UDP\fP (for discovery broadcasts on IPv4 and multicasts on IPv6)
+Port \fB22000/UDP\fP: QUIC based sync protocol traffic
+.IP \(bu 2
+Port \fB21027/UDP\fP: for discovery broadcasts on IPv4 and multicasts on IPv6
 .UNINDENT
+.sp
+If you configured a custom port in the \fISync Protocol Listen Address\fP setting,
+you have to adapt the firewall rules accordingly.
 .SS Uncomplicated Firewall (ufw)
 .sp
 If you’re using \fBufw\fP on Linux and have installed the \fI\%Syncthing package\fP <\fBhttps://apt.syncthing.net/\fP>, you can allow the necessary ports by running:

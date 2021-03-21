@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Feb 02, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -805,42 +805,53 @@ start building the structure.
 .sp
 .nf
 .ft C
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default | json_pp
-{
-   "directory": {
-      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-      "subdirectory": {
-         "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
-      }
-   },
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=0 | json_pp
-{
-   "directory": {},
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=1 | json_pp
-{
-   "directory": {
-      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-      "subdirectory": {}
-   },
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory/subdirectory | json_pp
-{
-   "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory&levels=0 | json_pp
-{
-   "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-   "subdirectory": {}
-}
+$ curl \-s http://localhost:8384/rest/db/browse?folder=j663y\-3ct3e&prefix=DCIM&levels=2
+[
+    {
+        "modTime" : "2020\-10\-02T23:48:52.076996974+02:00",
+        "name" : "100ANDRO",
+        "size" : 128,
+        "type" : "FILE_INFO_TYPE_DIRECTORY"
+    },
+    {
+        "children" : [
+            {
+                "modTime" : "2020\-12\-16T23:31:34.5009668+01:00",
+                "name" : "IMG_20201114_124821.jpg",
+                "size" : 10682189,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-16T23:31:35.0106367+01:00",
+                "name" : "IMG_20201213_122451.jpg",
+                "size" : 7936351,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:25:05.017097469+01:00",
+                "name" : "IMG_20201213_122504.jpg",
+                "size" : 8406507,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:25:06.127097469+01:00",
+                "name" : "IMG_20201213_122505.jpg",
+                "size" : 8381931,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:53:29.707298401+01:00",
+                "name" : "IMG_20201213_125329.jpg",
+                "size" : 4388331,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+        ],
+        "modTime" : "2020\-10\-09T13:04:42.4410738+02:00",
+        "name" : "Camera",
+        "size" : 128,
+        "type" : "FILE_INFO_TYPE_DIRECTORY"
+    },
+]
 .ft P
 .fi
 .UNINDENT

@@ -18,4 +18,5 @@ deb
 *.bz2
 /repos
 /proto/scripts/protoc-gen-gosyncthing
+/gui/next-gen-gui
 node_modules

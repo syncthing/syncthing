@@ -607,8 +607,9 @@ func TestHashOfEmpty(t *testing.T) {
 	firstHash := p1.Hash()
 
 	// Reloading with a non-existent file should empty the patterns and
-	// recalculate the hash. d41d8cd98f00b204e9800998ecf8427e is the md5 of
-	// nothing.
+	// recalculate the hash.
+	// e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 is
+	// the sah256 of nothing.
 
 	p1.Load("file/does/not/exist")
 	secondHash := p1.Hash()
@@ -616,7 +617,7 @@ func TestHashOfEmpty(t *testing.T) {
 	if firstHash == secondHash {
 		t.Error("hash did not change")
 	}
-	if secondHash != "d41d8cd98f00b204e9800998ecf8427e" {
+	if secondHash != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
 		t.Error("second hash is not hash of empty string")
 	}
 	if len(p1.patterns) != 0 {

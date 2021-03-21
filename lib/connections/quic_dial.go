@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.16
+// +build go1.14,!noquic,!go1.17
 
 package connections
 
@@ -90,10 +90,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil
 }
 
-type quicDialerFactory struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
-}
+type quicDialerFactory struct{}
 
 func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
 	return &quicDialer{commonDialer{

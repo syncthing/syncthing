@@ -47,6 +47,7 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
 }
 
@@ -178,7 +179,16 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-type Option func(Filesystem)
+// Option modifies a filesystem at creation. An option might be specific
+// to a filesystem-type.
+//
+// String is used to detect options with the same effect, i.e. must be different
+// for options with different effects. Meaning if an option has parameters, a
+// representation of those must be part of the returned string.
+type Option interface {
+	String() string
+	apply(Filesystem)
+}
 
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var fs Filesystem
@@ -242,8 +252,7 @@ func Canonicalize(file string) (string, error) {
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.
-	switch file {
-	case "..":
+	if file == ".." {
 		return "", errNotRelative
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {

@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-// The secureSource is a math/rand.Source that reads bytes from
+// The secureSource is a math/rand.Source + io.Reader that reads bytes from
 // crypto/rand.Reader. It means we can use the convenience functions
 // provided by math/rand.Rand on top of a secure source of numbers. It is
 // concurrency safe for ease of use.
@@ -38,6 +38,12 @@ func (s *secureSource) Seed(int64) {
 
 func (s *secureSource) Int63() int64 {
 	return int64(s.Uint64() & (1<<63 - 1))
+}
+
+func (s *secureSource) Read(p []byte) (int, error) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	return s.rd.Read(p)
 }
 
 func (s *secureSource) Uint64() uint64 {

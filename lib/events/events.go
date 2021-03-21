@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
+
 // Package events provides event subscription and polling functionality.
 package events
 
@@ -235,7 +237,6 @@ type logger struct {
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
-	stop                chan struct{}
 }
 
 type Event struct {
@@ -315,7 +316,7 @@ loop:
 
 func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
-		Time: time.Now(),
+		Time: time.Now(), // intentionally high precision
 		Type: t,
 		Data: data,
 		// SubscriptionID and GlobalID are set in sendEvent

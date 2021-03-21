@@ -66,7 +66,7 @@ func DebugSymlinkForTestsOnly(oldFs, newFS Filesystem, oldname, newname string) 
 // or contains .. elements), or is short enough, fixLongPath returns
 // path unmodified.
 //
-// See https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+// See https://docs.microsoft.com/windows/win32/fileio/naming-a-file#maximum-path-length-limitation
 func fixLongPath(path string) string {
 	// Do nothing (and don't allocate) if the path is "short".
 	// Empirically (at least on the Windows Server 2013 builder),
@@ -77,7 +77,7 @@ func fixLongPath(path string) string {
 	// name (that is, the directory name cannot exceed MAX_PATH
 	// minus 12)." Since MAX_PATH is 260, 260 - 12 = 248.
 	//
-	// The MSDN docs appear to say that a normal path that is 248 bytes long
+	// The MS docs appear to say that a normal path that is 248 bytes long
 	// will work; empirically the path must be less than 248 bytes long.
 	if len(path) < 248 {
 		// Don't fix. (This is how Go 1.7 and earlier worked,

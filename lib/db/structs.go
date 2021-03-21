@@ -125,9 +125,9 @@ func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 	return f.ModifiedBy
 }
 
-func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
+func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {
 	file := f.copyToFileInfo()
-	file.SetIgnored(by)
+	file.SetIgnored()
 	return file
 }
 
@@ -396,25 +396,6 @@ func (vl *VersionList) findDevice(device []byte) (bool, int, int, bool) {
 	return false, -1, -1, false
 }
 
-func (vl *VersionList) popVersion(version protocol.Vector) (FileVersion, bool) {
-	i := vl.versionIndex(version)
-	if i == -1 {
-		return FileVersion{}, false
-	}
-	fv := vl.RawVersions[i]
-	vl.popVersionAt(i)
-	return fv, true
-}
-
-func (vl *VersionList) versionIndex(version protocol.Vector) int {
-	for i, v := range vl.RawVersions {
-		if version.Equal(v.Version) {
-			return i
-		}
-	}
-	return -1
-}
-
 func (vl *VersionList) popVersionAt(i int) {
 	vl.RawVersions = append(vl.RawVersions[:i], vl.RawVersions[i+1:]...)
 }
@@ -494,14 +475,6 @@ func deviceIndex(devices [][]byte, device []byte) int {
 
 func popDeviceAt(devices [][]byte, i int) [][]byte {
 	return append(devices[:i], devices[i+1:]...)
-}
-
-func popDevice(devices [][]byte, device []byte) ([][]byte, bool) {
-	i := deviceIndex(devices, device)
-	if i == -1 {
-		return devices, false
-	}
-	return popDeviceAt(devices, i), true
 }
 
 func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) FileVersion {

@@ -156,7 +156,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
-func (f *sendReceiveFolder) pull() bool {
+func (f *sendReceiveFolder) pull() (bool, error) {
 	l.Debugf("%v pulling", f)
 
 	scanChan := make(chan string)
@@ -173,10 +173,11 @@ func (f *sendReceiveFolder) pull() bool {
 	f.pullErrors = nil
 	f.errorsMut.Unlock()
 
+	var err error
 	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
 		case <-f.ctx.Done():
-			return false
+			return false, f.ctx.Err()
 		default:
 		}
 
@@ -184,7 +185,10 @@ func (f *sendReceiveFolder) pull() bool {
 		// it to FolderSyncing during the last iteration.
 		f.setState(FolderSyncPreparing)
 
-		changed = f.pullerIteration(scanChan)
+		changed, err = f.pullerIteration(scanChan)
+		if err != nil {
+			return false, err
+		}
 
 		l.Debugln(f, "changed", changed, "on try", tries+1)
 
@@ -219,19 +223,22 @@ func (f *sendReceiveFolder) pull() bool {
 		})
 	}
 
-	return changed == 0
+	return changed == 0, nil
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
+func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error) {
 	f.errorsMut.Lock()
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()
 
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return 0, err
+	}
 	defer snap.Release()
 
 	pullChan := make(chan pullBlockState)
@@ -265,7 +272,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	pullWg.Add(1)
 	go func() {
 		// pullerRoutine finishes when pullChan is closed
-		f.pullerRoutine(pullChan, finisherChan)
+		f.pullerRoutine(snap, pullChan, finisherChan)
 		pullWg.Done()
 	}()
 
@@ -300,7 +307,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 
 	f.queue.Reset()
 
-	return changed
+	return changed, err
 }
 
 func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
@@ -331,7 +338,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 
 		switch {
 		case f.ignores.ShouldIgnore(file.Name):
-			file.SetIgnored(f.shortID)
+			file.SetIgnored()
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -349,6 +356,11 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// No reason to retry for this
 				changed--
 			}
+
+		case file.IsInvalid():
+			// Global invalid file just exists for need accounting
+			l.Debugln(f, "Handling global invalid item", file)
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
 		case file.IsDeleted():
 			if file.IsDirectory() {
@@ -390,7 +402,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
 				break
 			}
-			file.SetUnsupported(f.shortID)
+			file.SetUnsupported()
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -582,7 +594,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// that don't result in a conflict.
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
-		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
+		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
 			err = errors.Wrap(err, "handling dir")
 			f.newPullError(file.Name, err)
@@ -766,7 +778,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		return err
 	}
 	// Check that it is what we have in the database.
-	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
+	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
 		return err
 	}
@@ -1427,7 +1439,7 @@ func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) e
 	return nil
 }
 
-func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
+func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
@@ -1458,13 +1470,13 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			defer wg.Done()
 			defer requestLimiter.give(bytes)
 
-			f.pullBlock(state, out)
+			f.pullBlock(state, snap, out)
 		}()
 	}
 	wg.Wait()
 }
 
-func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPullerState) {
+func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, out chan<- *sharedPullerState) {
 	// Get an fd to the temporary file. Technically we don't need it until
 	// after fetching the block, but if we run into an error here there is
 	// no point in issuing the request to the network.
@@ -1483,12 +1495,13 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	}
 
 	var lastError error
-	candidates := f.model.Availability(f.folderID, state.file, state.block)
+	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
+loop:
 	for {
 		select {
 		case <-f.ctx.Done():
 			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
-			break
+			break loop
 		default:
 		}
 

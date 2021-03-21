@@ -43,8 +43,8 @@ type realCaser interface {
 }
 
 type fskey struct {
-	fstype FilesystemType
-	uri    string
+	fstype    FilesystemType
+	uri, opts string
 }
 
 // caseFilesystemRegistry caches caseFilesystems and runs a routine to drop
@@ -55,8 +55,22 @@ type caseFilesystemRegistry struct {
 	startCleaner sync.Once
 }
 
+func newFSKey(fs Filesystem) fskey {
+	k := fskey{
+		fstype: fs.Type(),
+		uri:    fs.URI(),
+	}
+	if opts := fs.Options(); len(opts) > 0 {
+		k.opts = opts[0].String()
+		for _, o := range opts[1:] {
+			k.opts += "&" + o.String()
+		}
+	}
+	return k
+}
+
 func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
-	k := fskey{fs.Type(), fs.URI()}
+	k := newFSKey(fs)
 
 	// Use double locking when getting a caseFs. In the common case it will
 	// already exist and we take the read lock fast path. If it doesn't, we
@@ -209,6 +223,13 @@ func (f *caseFilesystem) RemoveAll(name string) error {
 func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.checkCase(oldpath); err != nil {
 		return err
+	}
+	if err := f.checkCase(newpath); err != nil {
+		// Case-only rename is ok
+		e := &ErrCaseConflict{}
+		if !errors.As(err, &e) || e.Real != oldpath {
+			return err
+		}
 	}
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err

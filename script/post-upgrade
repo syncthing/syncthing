@@ -1,3 +1,8 @@
 #!/bin/sh
 
+if command -v deb-systemd-invoke > /dev/null; then
+	deb-systemd-invoke restart procps.service
+else
+	sysctl -q --system
+fi
 pkill -HUP -x syncthing || true

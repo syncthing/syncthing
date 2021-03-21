@@ -63,10 +63,10 @@ func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 }
 
 func (f *receiveOnlyFolder) Revert() {
-	f.doInSync(func() error { f.revert(); return nil })
+	f.doInSync(f.revert)
 }
 
-func (f *receiveOnlyFolder) revert() {
+func (f *receiveOnlyFolder) revert() error {
 	l.Infof("Reverting folder %v", f.Description)
 
 	f.setState(FolderScanning)
@@ -84,7 +84,10 @@ func (f *receiveOnlyFolder) revert() {
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return err
+	}
 	defer snap.Release()
 	snap.WithHave(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)
@@ -161,6 +164,8 @@ func (f *receiveOnlyFolder) revert() {
 	// pull by itself. Make sure we schedule one so that we start
 	// downloading files.
 	f.SchedulePull()
+
+	return nil
 }
 
 // deleteQueue handles deletes by delegating to a handler and queuing

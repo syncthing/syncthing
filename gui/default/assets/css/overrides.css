@@ -120,7 +120,8 @@ table.table-dynamic {
     word-break: break-all;
 }
 
-table.table-condensed td {
+table.table-condensed td,
+table.table-condensed th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -376,7 +377,8 @@ ul.three-columns li, ul.two-columns li {
         overflow-y: scroll;
     }
 
-    table.table-condensed td {
+    table.table-condensed td,
+    table.table-condensed th {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
         * columns. */
         white-space: normal;
@@ -452,4 +454,10 @@ table.fancytree-container td span {
 
 .form-horizontal {
     margin-bottom: 10px;
+}
+
+/* Use the same style as Bootstrap uses for disabled <select>. */
+.form-control option[disabled] {
+    background-color: #eeeeee;
+    opacity: 1;
 }

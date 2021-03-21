@@ -151,12 +151,13 @@ type Snapshot struct {
 	fatalError func(error, string)
 }
 
-func (s *FileSet) Snapshot() *Snapshot {
+func (s *FileSet) Snapshot() (*Snapshot, error) {
 	opStr := fmt.Sprintf("%s Snapshot()", s.folder)
 	l.Debugf(opStr)
 	t, err := s.db.newReadOnlyTransaction()
 	if err != nil {
-		fatalError(err, opStr, s.db)
+		s.db.handleFailure(err)
+		return nil, err
 	}
 	return &Snapshot{
 		folder: s.folder,
@@ -165,7 +166,7 @@ func (s *FileSet) Snapshot() *Snapshot {
 		fatalError: func(err error, opStr string) {
 			fatalError(err, opStr, s.db)
 		},
-	}
+	}, nil
 }
 
 func (s *Snapshot) Release() {

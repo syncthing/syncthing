@@ -203,15 +203,15 @@ func chunkify(s string) string {
 }
 
 func unchunkify(s string) string {
-	s = strings.Replace(s, "-", "", -1)
-	s = strings.Replace(s, " ", "", -1)
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, " ", "")
 	return s
 }
 
 func untypeoify(s string) string {
-	s = strings.Replace(s, "0", "O", -1)
-	s = strings.Replace(s, "1", "I", -1)
-	s = strings.Replace(s, "8", "B", -1)
+	s = strings.ReplaceAll(s, "0", "O")
+	s = strings.ReplaceAll(s, "1", "I")
+	s = strings.ReplaceAll(s, "8", "B")
 	return s
 }
 

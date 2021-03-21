@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate counterfeiter -o mocks/mocked_wrapper.go --fake-name Wrapper . Wrapper
+
 package config
 
 import (
@@ -18,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -109,6 +112,8 @@ type Wrapper interface {
 
 	Subscribe(c Committer) Configuration
 	Unsubscribe(c Committer)
+
+	suture.Service
 }
 
 type wrapper struct {

@@ -77,7 +77,7 @@ func TestIgnoredFiles(t *testing.T) {
 	// Local files should have the "ignored" bit in addition to just being
 	// generally invalid if we want to look at the simulation of that bit.
 
-	snap := fs.Snapshot()
+	snap := snapshot(t, fs)
 	defer snap.Release()
 	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
@@ -262,6 +262,9 @@ func TestUpdate0to3(t *testing.T) {
 			t.Fatal(err)
 		}
 		key, err = trans.keyer.GenerateDeviceFileKey(key, folder, vl.Versions[0].Device, name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		fi, ok, err := trans.getFileTrunc(key, false)
 		if err != nil {
 			t.Fatal(err)
@@ -866,7 +869,7 @@ func TestCheckLocalNeed(t *testing.T) {
 	fs.Update(remoteDevice0, files)
 
 	checkNeed := func() {
-		snap := fs.Snapshot()
+		snap := snapshot(t, fs)
 		defer snap.Release()
 		c := snap.NeedSize(protocol.LocalDeviceID)
 		if c.Files != 2 {
@@ -949,6 +952,49 @@ func TestDuplicateNeedCount(t *testing.T) {
 	if !found {
 		t.Fatal("no need count for local device encountered")
 	}
+}
+
+func TestNeedAfterDropGlobal(t *testing.T) {
+	db := newLowlevelMemory(t)
+	defer db.Close()
+
+	folder := "test"
+	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+
+	fs := newFileSet(t, folder, testFs, db)
+
+	// Initial:
+	// Three devices and a file "test": local has Version 1, remoteDevice0
+	// Version 2 and remoteDevice2 doesn't have it.
+	// All of them have "bar", just so the db knows about remoteDevice2.
+	files := []protocol.FileInfo{
+		{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1},
+		{Name: "bar", Version: protocol.Vector{}.Update(myID), Sequence: 2},
+	}
+	fs.Update(protocol.LocalDeviceID, files)
+	files[0].Version = files[0].Version.Update(myID)
+	fs.Update(remoteDevice0, files)
+	fs.Update(remoteDevice1, files[1:])
+
+	// remoteDevice1 needs one file: test
+	snap := snapshot(t, fs)
+	c := snap.NeedSize(remoteDevice1)
+	if c.Files != 1 {
+		t.Errorf("Expected 1 needed files initially, got %v", c.Files)
+	}
+	snap.Release()
+
+	// Drop remoteDevice0, i.e. remove all their files from db.
+	// That changes the global file, which is now what local has.
+	fs.Drop(remoteDevice0)
+
+	// remoteDevice1 still needs test.
+	snap = snapshot(t, fs)
+	c = snap.NeedSize(remoteDevice1)
+	if c.Files != 1 {
+		t.Errorf("Expected still 1 needed files, got %v", c.Files)
+	}
+	snap.Release()
 }
 
 func numBlockLists(db *Lowlevel) (int, error) {

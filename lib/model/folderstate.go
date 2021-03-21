@@ -100,7 +100,7 @@ func (s *stateTracker) setState(newState folderState) {
 	}
 
 	s.current = newState
-	s.changed = time.Now()
+	s.changed = time.Now().Truncate(time.Second)
 
 	s.evLogger.Log(events.StateChanged, eventData)
 }
@@ -139,7 +139,7 @@ func (s *stateTracker) setError(err error) {
 	}
 
 	s.err = err
-	s.changed = time.Now()
+	s.changed = time.Now().Truncate(time.Second)
 
 	s.evLogger.Log(events.StateChanged, eventData)
 }
