@@ -126,8 +126,8 @@ type Model interface {
 	Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
-	// The peer device closed the connection
-	Closed(conn Connection, err error)
+	// The peer device closed the connection or an error occurred
+	Closed(device DeviceID, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
 }
@@ -140,6 +140,7 @@ type RequestResponse interface {
 
 type Connection interface {
 	Start()
+	ResetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	ID() DeviceID
 	Index(ctx context.Context, folder string, files []FileInfo) error
@@ -226,23 +227,15 @@ const (
 var CloseTimeout = 10 * time.Second
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) Connection {
-	receiver = nativeModel{receiver}
-	rc := newRawConnection(deviceID, reader, writer, closer, receiver, connInfo, compress)
-	return wireFormatConnection{rc}
-}
-
-func NewEncryptedConnection(passwords map[string]string, deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) Connection {
-	keys := keysFromPasswords(passwords)
-
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := nativeModel{receiver}
-	em := encryptedModel{model: nm, folderKeys: keys}
+	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry()}
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
-	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: keys}
+	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, em: em}
 	wc := wireFormatConnection{ec}
 
 	return wc
@@ -748,6 +741,8 @@ func (c *rawConnection) writerLoop() {
 }
 
 func (c *rawConnection) writeMessage(msg message) error {
+	msgContext, _ := messageContext(msg)
+	l.Debugf("Writing %v", msgContext)
 	if c.shouldCompressMessage(msg) {
 		return c.writeCompressedMessage(msg)
 	}
@@ -955,7 +950,7 @@ func (c *rawConnection) internalClose(err error) {
 
 		<-c.dispatcherLoopStopped
 
-		c.receiver.Closed(c, err)
+		c.receiver.Closed(c.ID(), err)
 	})
 }
 

@@ -188,7 +188,7 @@ func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error
 	return nil
 }
 
-func (m *fakeModel) Closed(conn Connection, err error) {
+func (m *fakeModel) Closed(DeviceID, error) {
 }
 
 func (m *fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
