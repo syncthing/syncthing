@@ -192,10 +192,12 @@ var (
 	errEncryptionNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
 	errEncryptionNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
 	errEncryptionPassword              = errors.New("different encryption passwords used")
-	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
+	errEncryptionNeedToken             = errors.New("require password token for receive-encrypted token")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
 	errConnLimitReached                = errors.New("connection limit reached")
+	// messages for failure reports
+	failureUnexpectedGenerateCCError = "unexpected error occurred in generateClusterConfig"
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1365,7 +1367,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
-			if sameError || err == errEncryptionReceivedToken {
+			if sameError {
 				l.Debugln(msg)
 			} else {
 				l.Warnln(msg)
@@ -1534,7 +1536,15 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm, passwords := m.generateClusterConfig(conn.ID())
+		cm, passwords, err := m.generateClusterConfig(conn.ID())
+		if err != nil {
+			if err != errEncryptionNeedToken {
+				m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
+				continue
+			}
+			go conn.Close(err)
+			continue
+		}
 		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
@@ -2246,7 +2256,12 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.pmut.Unlock()
 
 	// Acquires fmut, so has to be done outside of pmut.
-	cm, passwords := m.generateClusterConfig(deviceID)
+	cm, passwords, err := m.generateClusterConfig(deviceID)
+	// We ignore errEncryptionNeedToken on a new connection, as the missing
+	// token should be delivered in the cluster-config about to be received.
+	if err != nil && err != errEncryptionNeedToken {
+		m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
+	}
 	conn.SetFolderPasswords(passwords)
 	conn.ClusterConfig(cm)
 
@@ -2409,7 +2424,7 @@ func (m *model) numHashers(folder string) int {
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the
 // set of folder passwords for the given peer device
-func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
+func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string, error) {
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
@@ -2426,10 +2441,10 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 		var hasEncryptionToken bool
 		if folderCfg.Type == config.FolderTypeReceiveEncrypted {
 			if encryptionToken, hasEncryptionToken = m.folderEncryptionPasswordTokens[folderCfg.ID]; !hasEncryptionToken {
-				// We haven't gotten a token for us yet and without
-				// one the other side can't validate us - pretend
-				// we don't have the folder yet.
-				continue
+				// We haven't gotten a token yet and without one the other side
+				// can't validate us - reset the connection to trigger a new
+				// cluster-config and get the token.
+				return message, nil, errEncryptionNeedToken
 			}
 		}
 
@@ -2487,7 +2502,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 		message.Folders = append(message.Folders, protocolFolder)
 	}
 
-	return message, passwords
+	return message, passwords, nil
 }
 
 func (m *model) State(folder string) (string, time.Time, error) {
