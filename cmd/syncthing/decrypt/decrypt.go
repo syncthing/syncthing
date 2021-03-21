@@ -18,6 +18,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
@@ -79,7 +80,7 @@ func (c *CLI) walk() error {
 		dstFs = fs.NewFilesystem(fs.FilesystemTypeBasic, c.To)
 	}
 
-	return srcFs.Walk("/", func(path string, info fs.FileInfo, err error) error {
+	return srcFs.Walk(".", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -141,6 +142,10 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	if err != nil {
 		return fmt.Errorf("%s: loading metadata trailer: %w", path, err)
 	}
+
+	// Workaround for a bug in <= v1.15.0-rc.5 where we stored names
+	// in native format, while protocol expects wire format (slashes).
+	encFi.Name = osutil.NormalizedFilename(encFi.Name)
 
 	plainFi, err := protocol.DecryptFileInfo(*encFi, c.folderKey)
 	if err != nil {
