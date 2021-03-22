@@ -293,7 +293,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
 
-	m.resendClusterConfig(clusterConfigDevices.AsSlice())
+	m.sendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
 }
 
@@ -1510,7 +1510,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Unlock()
 			// We can only announce ourselfs once we have the token,
 			// thus we need to resend CCs now that we have it.
-			m.resendClusterConfig(fcfg.DeviceIDs())
+			m.sendClusterConfig(fcfg.DeviceIDs())
 			return nil
 		}
 	}
@@ -1520,7 +1520,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	return nil
 }
 
-func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
+func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	if len(ids) == 0 {
 		return
 	}
@@ -1534,7 +1534,8 @@ func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm := m.generateClusterConfig(conn.ID())
+		cm, passwords := m.generateClusterConfig(conn.ID())
+		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
 }
@@ -1728,9 +1729,7 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 // Closed is called when a connection has been closed
-func (m *model) Closed(conn protocol.Connection, err error) {
-	device := conn.ID()
-
+func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
 	conn, ok := m.conn[device]
 	if !ok {
@@ -2247,7 +2246,8 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.pmut.Unlock()
 
 	// Acquires fmut, so has to be done outside of pmut.
-	cm := m.generateClusterConfig(deviceID)
+	cm, passwords := m.generateClusterConfig(deviceID)
+	conn.SetFolderPasswords(passwords)
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
@@ -2407,15 +2407,17 @@ func (m *model) numHashers(folder string) int {
 	return 1
 }
 
-// generateClusterConfig returns a ClusterConfigMessage that is correct for
-// the given peer device
-func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
+// generateClusterConfig returns a ClusterConfigMessage that is correct and the
+// set of folder passwords for the given peer device
+func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
-	for _, folderCfg := range m.cfg.FolderList() {
+	folders := m.cfg.FolderList()
+	passwords := make(map[string]string, len(folders))
+	for _, folderCfg := range folders {
 		if !folderCfg.SharedWith(device) {
 			continue
 		}
@@ -2448,8 +2450,8 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		// another cluster config once the folder is started.
 		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
-		for _, device := range folderCfg.Devices {
-			deviceCfg, _ := m.cfg.Device(device.DeviceID)
+		for _, folderDevice := range folderCfg.Devices {
+			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
 
 			protocolDevice := protocol.Device{
 				ID:          deviceCfg.DeviceID,
@@ -2462,8 +2464,11 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 
 			if deviceCfg.DeviceID == m.id && hasEncryptionToken {
 				protocolDevice.EncryptionPasswordToken = encryptionToken
-			} else if device.EncryptionPassword != "" {
-				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
+			} else if folderDevice.EncryptionPassword != "" {
+				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, folderDevice.EncryptionPassword)
+				if folderDevice.DeviceID == device {
+					passwords[folderCfg.ID] = folderDevice.EncryptionPassword
+				}
 			}
 
 			if fs != nil {
@@ -2482,7 +2487,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		message.Folders = append(message.Folders, protocolFolder)
 	}
 
-	return message
+	return message, passwords
 }
 
 func (m *model) State(folder string) (string, time.Time, error) {
@@ -2891,7 +2896,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
-	m.resendClusterConfig(clusterConfigDevices.AsSlice())
+	m.sendClusterConfig(clusterConfigDevices.AsSlice())
 
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
