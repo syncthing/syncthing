@@ -426,12 +426,12 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 			perf = v
 		}
 	}
-	if blocksResult == nil {
-		// not looking at the blocksResult makes it unused from a static
-		// analysis / compiler standpoint...
-		panic("blocksResult should have been set by benchmark loop")
+	// not looking at the blocksResult makes it unused from a static
+	// analysis / compiler standpoint...
+	// blocksResult may be nil at this point if the context is cancelled
+	if blocksResult != nil {
+		blocksResult = nil
 	}
-	blocksResult = nil
 	return perf
 }
 
