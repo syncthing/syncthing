@@ -1535,7 +1535,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
 		cm, passwords := m.generateClusterConfig(conn.ID())
-		conn.ResetFolderPasswords(passwords)
+		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
 }
@@ -2247,7 +2247,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	// Acquires fmut, so has to be done outside of pmut.
 	cm, passwords := m.generateClusterConfig(deviceID)
-	conn.ResetFolderPasswords(passwords)
+	conn.SetFolderPasswords(passwords)
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
@@ -2407,8 +2407,8 @@ func (m *model) numHashers(folder string) int {
 	return 1
 }
 
-// generateClusterConfig returns a ClusterConfigMessage that is correct for
-// the given peer device
+// generateClusterConfig returns a ClusterConfigMessage that is correct and the
+// set of folder passwords for the given peer device
 func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
 	var message protocol.ClusterConfig
 

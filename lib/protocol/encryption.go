@@ -144,16 +144,16 @@ func (e encryptedModel) Closed(device DeviceID, err error) {
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	ConnectionInfo
-	conn *rawConnection
-	em   *encryptedModel
+	conn       *rawConnection
+	folderKeys *folderKeyRegistry
 }
 
 func (e encryptedConnection) Start() {
 	e.conn.Start()
 }
 
-func (e encryptedConnection) ResetFolderPasswords(passwords map[string]string) {
-	e.em.folderKeys.reset(passwords)
+func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
+	e.folderKeys.setPasswords(passwords)
 }
 
 func (e encryptedConnection) ID() DeviceID {
@@ -161,21 +161,21 @@ func (e encryptedConnection) ID() DeviceID {
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.em.folderKeys.get(folder); ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		encryptFileInfos(files, folderKey)
 	}
 	return e.conn.Index(ctx, folder, files)
 }
 
 func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.em.folderKeys.get(folder); ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		encryptFileInfos(files, folderKey)
 	}
 	return e.conn.IndexUpdate(ctx, folder, files)
 }
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	folderKey, ok := e.em.folderKeys.get(folder)
+	folderKey, ok := e.folderKeys.get(folder)
 	if !ok {
 		return e.conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	}
@@ -210,7 +210,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	if _, ok := e.em.folderKeys.get(folder); !ok {
+	if _, ok := e.folderKeys.get(folder); !ok {
 		e.conn.DownloadProgress(ctx, folder, updates)
 	}
 
@@ -614,7 +614,7 @@ func (r *folderKeyRegistry) get(folder string) (*[keySize]byte, bool) {
 	return key, ok
 }
 
-func (r *folderKeyRegistry) reset(passwords map[string]string) {
+func (r *folderKeyRegistry) setPasswords(passwords map[string]string) {
 	r.mut.Lock()
 	r.keys = keysFromPasswords(passwords)
 	r.mut.Unlock()

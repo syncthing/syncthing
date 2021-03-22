@@ -135,9 +135,9 @@ type Connection struct {
 		result1 []byte
 		result2 error
 	}
-	ResetFolderPasswordsStub        func(map[string]string)
-	resetFolderPasswordsMutex       sync.RWMutex
-	resetFolderPasswordsArgsForCall []struct {
+	SetFolderPasswordsStub        func(map[string]string)
+	setFolderPasswordsMutex       sync.RWMutex
+	setFolderPasswordsArgsForCall []struct {
 		arg1 map[string]string
 	}
 	StartStub        func()
@@ -822,35 +822,35 @@ func (fake *Connection) RequestReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
-func (fake *Connection) ResetFolderPasswords(arg1 map[string]string) {
-	fake.resetFolderPasswordsMutex.Lock()
-	fake.resetFolderPasswordsArgsForCall = append(fake.resetFolderPasswordsArgsForCall, struct {
+func (fake *Connection) SetFolderPasswords(arg1 map[string]string) {
+	fake.setFolderPasswordsMutex.Lock()
+	fake.setFolderPasswordsArgsForCall = append(fake.setFolderPasswordsArgsForCall, struct {
 		arg1 map[string]string
 	}{arg1})
-	stub := fake.ResetFolderPasswordsStub
-	fake.recordInvocation("ResetFolderPasswords", []interface{}{arg1})
-	fake.resetFolderPasswordsMutex.Unlock()
+	stub := fake.SetFolderPasswordsStub
+	fake.recordInvocation("SetFolderPasswords", []interface{}{arg1})
+	fake.setFolderPasswordsMutex.Unlock()
 	if stub != nil {
-		fake.ResetFolderPasswordsStub(arg1)
+		fake.SetFolderPasswordsStub(arg1)
 	}
 }
 
-func (fake *Connection) ResetFolderPasswordsCallCount() int {
-	fake.resetFolderPasswordsMutex.RLock()
-	defer fake.resetFolderPasswordsMutex.RUnlock()
-	return len(fake.resetFolderPasswordsArgsForCall)
+func (fake *Connection) SetFolderPasswordsCallCount() int {
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
+	return len(fake.setFolderPasswordsArgsForCall)
 }
 
-func (fake *Connection) ResetFolderPasswordsCalls(stub func(map[string]string)) {
-	fake.resetFolderPasswordsMutex.Lock()
-	defer fake.resetFolderPasswordsMutex.Unlock()
-	fake.ResetFolderPasswordsStub = stub
+func (fake *Connection) SetFolderPasswordsCalls(stub func(map[string]string)) {
+	fake.setFolderPasswordsMutex.Lock()
+	defer fake.setFolderPasswordsMutex.Unlock()
+	fake.SetFolderPasswordsStub = stub
 }
 
-func (fake *Connection) ResetFolderPasswordsArgsForCall(i int) map[string]string {
-	fake.resetFolderPasswordsMutex.RLock()
-	defer fake.resetFolderPasswordsMutex.RUnlock()
-	argsForCall := fake.resetFolderPasswordsArgsForCall[i]
+func (fake *Connection) SetFolderPasswordsArgsForCall(i int) map[string]string {
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
+	argsForCall := fake.setFolderPasswordsArgsForCall[i]
 	return argsForCall.arg1
 }
 
@@ -1117,8 +1117,8 @@ func (fake *Connection) Invocations() map[string][][]interface{} {
 	defer fake.remoteAddrMutex.RUnlock()
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
-	fake.resetFolderPasswordsMutex.RLock()
-	defer fake.resetFolderPasswordsMutex.RUnlock()
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
 	fake.startMutex.RLock()
 	defer fake.startMutex.RUnlock()
 	fake.statisticsMutex.RLock()

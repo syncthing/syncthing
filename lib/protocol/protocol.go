@@ -140,7 +140,7 @@ type RequestResponse interface {
 
 type Connection interface {
 	Start()
-	ResetFolderPasswords(passwords map[string]string)
+	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	ID() DeviceID
 	Index(ctx context.Context, folder string, files []FileInfo) error
@@ -235,7 +235,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
-	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, em: em}
+	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: em.folderKeys}
 	wc := wireFormatConnection{ec}
 
 	return wc
