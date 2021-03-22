@@ -233,6 +233,7 @@ func main() {
 	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", mapping.Address(), id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
+		return
 	}
 
 	log.Println("URI:", uri.String())
