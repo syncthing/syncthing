@@ -601,9 +601,9 @@ type folderKeyRegistry struct {
 	mut  sync.RWMutex
 }
 
-func newFolderKeyRegistry() *folderKeyRegistry {
+func newFolderKeyRegistry(passwords map[string]string) *folderKeyRegistry {
 	return &folderKeyRegistry{
-		keys: make(map[string]*[keySize]byte),
+		keys: keysFromPasswords(passwords),
 	}
 }
 

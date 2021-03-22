@@ -3171,7 +3171,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))

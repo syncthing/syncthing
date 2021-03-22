@@ -226,11 +226,11 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string) Connection {
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := nativeModel{receiver}
-	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry()}
+	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry(passwords)}
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
