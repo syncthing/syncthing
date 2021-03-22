@@ -129,6 +129,7 @@ type Report struct {
 		BlockPullOrder          map[string]int `json:"blockPullOrder,omitempty" since:"3"`
 		CopyRangeMethod         map[string]int `json:"copyRangeMethod,omitempty" since:"3"`
 		CaseSensitiveFS         int            `json:"caseSensitiveFS,omitempty" since:"3"`
+		ReceiveEncrypted        int            `json:"receiveencrypted,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
 	DeviceUsesV3 struct {

@@ -47,11 +47,11 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// cfg.Folders["default"].Filesystem() should be valid.
 	var opts []fs.Option
 	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
-		opts = append(opts, fs.WithJunctionsAsDirs())
+		opts = append(opts, new(fs.OptionJunctionsAsDirs))
 	}
 	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
-		filesystem = fs.NewCaseFilesystem(filesystem, opts...)
+		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
 	return filesystem
 }

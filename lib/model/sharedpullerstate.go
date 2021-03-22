@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -346,8 +347,13 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
 func (s *sharedPullerState) finalizeEncrypted() error {
-	bs := make([]byte, encryptionTrailerSize(s.file))
-	n, err := s.file.MarshalTo(bs)
+	// Here the file is in native format, while encryption happens in
+	// wire format (always slashes).
+	wireFile := s.file
+	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
+
+	bs := make([]byte, encryptionTrailerSize(wireFile))
+	n, err := wireFile.MarshalTo(bs)
 	if err != nil {
 		return err
 	}
@@ -359,7 +365,7 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 			return err
 		}
 	}
-	if _, err := s.writer.WriteAt(bs, s.file.Size); err != nil {
+	if _, err := s.writer.WriteAt(bs, wireFile.Size); err != nil {
 		return err
 	}
 

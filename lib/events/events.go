@@ -237,7 +237,6 @@ type logger struct {
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
-	stop                chan struct{}
 }
 
 type Event struct {
@@ -317,7 +316,7 @@ loop:
 
 func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
-		Time: time.Now(),
+		Time: time.Now(), // intentionally high precision
 		Type: t,
 		Data: data,
 		// SubscriptionID and GlobalID are set in sendEvent

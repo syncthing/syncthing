@@ -16,7 +16,7 @@ import (
 func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) error {
 	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
 	od := ObservedDevice{
-		Time:    time.Now().Round(time.Second),
+		Time:    time.Now().Truncate(time.Second),
 		Name:    name,
 		Address: address,
 	}
@@ -73,7 +73,7 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 		return err
 	}
 	of := ObservedFolder{
-		Time:             time.Now().Round(time.Second),
+		Time:             time.Now().Truncate(time.Second),
 		Label:            label,
 		ReceiveEncrypted: receiveEncrypted,
 	}

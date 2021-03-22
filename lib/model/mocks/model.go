@@ -22,7 +22,7 @@ type Model struct {
 		arg1 protocol.Connection
 		arg2 protocol.Hello
 	}
-	AvailabilityStub        func(string, protocol.FileInfo, protocol.BlockInfo) []model.Availability
+	AvailabilityStub        func(string, protocol.FileInfo, protocol.BlockInfo) ([]model.Availability, error)
 	availabilityMutex       sync.RWMutex
 	availabilityArgsForCall []struct {
 		arg1 string
@@ -31,9 +31,11 @@ type Model struct {
 	}
 	availabilityReturns struct {
 		result1 []model.Availability
+		result2 error
 	}
 	availabilityReturnsOnCall map[int]struct {
 		result1 []model.Availability
+		result2 error
 	}
 	BringToFrontStub        func(string, string)
 	bringToFrontMutex       sync.RWMutex
@@ -67,10 +69,10 @@ type Model struct {
 		result1 map[string]db.CandidateFolder
 		result2 error
 	}
-	ClosedStub        func(protocol.Connection, error)
+	ClosedStub        func(protocol.DeviceID, error)
 	closedMutex       sync.RWMutex
 	closedArgsForCall []struct {
-		arg1 protocol.Connection
+		arg1 protocol.DeviceID
 		arg2 error
 	}
 	ClusterConfigStub        func(protocol.DeviceID, protocol.ClusterConfig) error
@@ -85,7 +87,7 @@ type Model struct {
 	clusterConfigReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CompletionStub        func(protocol.DeviceID, string) model.FolderCompletion
+	CompletionStub        func(protocol.DeviceID, string) (model.FolderCompletion, error)
 	completionMutex       sync.RWMutex
 	completionArgsForCall []struct {
 		arg1 protocol.DeviceID
@@ -93,9 +95,11 @@ type Model struct {
 	}
 	completionReturns struct {
 		result1 model.FolderCompletion
+		result2 error
 	}
 	completionReturnsOnCall map[int]struct {
 		result1 model.FolderCompletion
+		result2 error
 	}
 	ConnectionStub        func(protocol.DeviceID) (protocol.Connection, bool)
 	connectionMutex       sync.RWMutex
@@ -120,7 +124,7 @@ type Model struct {
 	connectionStatsReturnsOnCall map[int]struct {
 		result1 map[string]interface{}
 	}
-	CurrentFolderFileStub        func(string, string) (protocol.FileInfo, bool)
+	CurrentFolderFileStub        func(string, string) (protocol.FileInfo, bool, error)
 	currentFolderFileMutex       sync.RWMutex
 	currentFolderFileArgsForCall []struct {
 		arg1 string
@@ -129,12 +133,14 @@ type Model struct {
 	currentFolderFileReturns struct {
 		result1 protocol.FileInfo
 		result2 bool
+		result3 error
 	}
 	currentFolderFileReturnsOnCall map[int]struct {
 		result1 protocol.FileInfo
 		result2 bool
+		result3 error
 	}
-	CurrentGlobalFileStub        func(string, string) (protocol.FileInfo, bool)
+	CurrentGlobalFileStub        func(string, string) (protocol.FileInfo, bool, error)
 	currentGlobalFileMutex       sync.RWMutex
 	currentGlobalFileArgsForCall []struct {
 		arg1 string
@@ -143,10 +149,12 @@ type Model struct {
 	currentGlobalFileReturns struct {
 		result1 protocol.FileInfo
 		result2 bool
+		result3 error
 	}
 	currentGlobalFileReturnsOnCall map[int]struct {
 		result1 protocol.FileInfo
 		result2 bool
+		result3 error
 	}
 	CurrentIgnoresStub        func(string) ([]string, []string, error)
 	currentIgnoresMutex       sync.RWMutex
@@ -603,7 +611,7 @@ func (fake *Model) AddConnectionArgsForCall(i int) (protocol.Connection, protoco
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protocol.BlockInfo) []model.Availability {
+func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protocol.BlockInfo) ([]model.Availability, error) {
 	fake.availabilityMutex.Lock()
 	ret, specificReturn := fake.availabilityReturnsOnCall[len(fake.availabilityArgsForCall)]
 	fake.availabilityArgsForCall = append(fake.availabilityArgsForCall, struct {
@@ -619,9 +627,9 @@ func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protoc
 		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Model) AvailabilityCallCount() int {
@@ -630,7 +638,7 @@ func (fake *Model) AvailabilityCallCount() int {
 	return len(fake.availabilityArgsForCall)
 }
 
-func (fake *Model) AvailabilityCalls(stub func(string, protocol.FileInfo, protocol.BlockInfo) []model.Availability) {
+func (fake *Model) AvailabilityCalls(stub func(string, protocol.FileInfo, protocol.BlockInfo) ([]model.Availability, error)) {
 	fake.availabilityMutex.Lock()
 	defer fake.availabilityMutex.Unlock()
 	fake.AvailabilityStub = stub
@@ -643,27 +651,30 @@ func (fake *Model) AvailabilityArgsForCall(i int) (string, protocol.FileInfo, pr
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *Model) AvailabilityReturns(result1 []model.Availability) {
+func (fake *Model) AvailabilityReturns(result1 []model.Availability, result2 error) {
 	fake.availabilityMutex.Lock()
 	defer fake.availabilityMutex.Unlock()
 	fake.AvailabilityStub = nil
 	fake.availabilityReturns = struct {
 		result1 []model.Availability
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *Model) AvailabilityReturnsOnCall(i int, result1 []model.Availability) {
+func (fake *Model) AvailabilityReturnsOnCall(i int, result1 []model.Availability, result2 error) {
 	fake.availabilityMutex.Lock()
 	defer fake.availabilityMutex.Unlock()
 	fake.AvailabilityStub = nil
 	if fake.availabilityReturnsOnCall == nil {
 		fake.availabilityReturnsOnCall = make(map[int]struct {
 			result1 []model.Availability
+			result2 error
 		})
 	}
 	fake.availabilityReturnsOnCall[i] = struct {
 		result1 []model.Availability
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Model) BringToFront(arg1 string, arg2 string) {
@@ -827,10 +838,10 @@ func (fake *Model) CandidateFoldersReturnsOnCall(i int, result1 map[string]db.Ca
 	}{result1, result2}
 }
 
-func (fake *Model) Closed(arg1 protocol.Connection, arg2 error) {
+func (fake *Model) Closed(arg1 protocol.DeviceID, arg2 error) {
 	fake.closedMutex.Lock()
 	fake.closedArgsForCall = append(fake.closedArgsForCall, struct {
-		arg1 protocol.Connection
+		arg1 protocol.DeviceID
 		arg2 error
 	}{arg1, arg2})
 	stub := fake.ClosedStub
@@ -847,13 +858,13 @@ func (fake *Model) ClosedCallCount() int {
 	return len(fake.closedArgsForCall)
 }
 
-func (fake *Model) ClosedCalls(stub func(protocol.Connection, error)) {
+func (fake *Model) ClosedCalls(stub func(protocol.DeviceID, error)) {
 	fake.closedMutex.Lock()
 	defer fake.closedMutex.Unlock()
 	fake.ClosedStub = stub
 }
 
-func (fake *Model) ClosedArgsForCall(i int) (protocol.Connection, error) {
+func (fake *Model) ClosedArgsForCall(i int) (protocol.DeviceID, error) {
 	fake.closedMutex.RLock()
 	defer fake.closedMutex.RUnlock()
 	argsForCall := fake.closedArgsForCall[i]
@@ -922,7 +933,7 @@ func (fake *Model) ClusterConfigReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) model.FolderCompletion {
+func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (model.FolderCompletion, error) {
 	fake.completionMutex.Lock()
 	ret, specificReturn := fake.completionReturnsOnCall[len(fake.completionArgsForCall)]
 	fake.completionArgsForCall = append(fake.completionArgsForCall, struct {
@@ -937,9 +948,9 @@ func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) model.FolderC
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Model) CompletionCallCount() int {
@@ -948,7 +959,7 @@ func (fake *Model) CompletionCallCount() int {
 	return len(fake.completionArgsForCall)
 }
 
-func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) model.FolderCompletion) {
+func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) (model.FolderCompletion, error)) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = stub
@@ -961,27 +972,30 @@ func (fake *Model) CompletionArgsForCall(i int) (protocol.DeviceID, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) CompletionReturns(result1 model.FolderCompletion) {
+func (fake *Model) CompletionReturns(result1 model.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	fake.completionReturns = struct {
 		result1 model.FolderCompletion
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *Model) CompletionReturnsOnCall(i int, result1 model.FolderCompletion) {
+func (fake *Model) CompletionReturnsOnCall(i int, result1 model.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	if fake.completionReturnsOnCall == nil {
 		fake.completionReturnsOnCall = make(map[int]struct {
 			result1 model.FolderCompletion
+			result2 error
 		})
 	}
 	fake.completionReturnsOnCall[i] = struct {
 		result1 model.FolderCompletion
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Model) Connection(arg1 protocol.DeviceID) (protocol.Connection, bool) {
@@ -1101,7 +1115,7 @@ func (fake *Model) ConnectionStatsReturnsOnCall(i int, result1 map[string]interf
 	}{result1}
 }
 
-func (fake *Model) CurrentFolderFile(arg1 string, arg2 string) (protocol.FileInfo, bool) {
+func (fake *Model) CurrentFolderFile(arg1 string, arg2 string) (protocol.FileInfo, bool, error) {
 	fake.currentFolderFileMutex.Lock()
 	ret, specificReturn := fake.currentFolderFileReturnsOnCall[len(fake.currentFolderFileArgsForCall)]
 	fake.currentFolderFileArgsForCall = append(fake.currentFolderFileArgsForCall, struct {
@@ -1116,9 +1130,9 @@ func (fake *Model) CurrentFolderFile(arg1 string, arg2 string) (protocol.FileInf
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1, ret.result2, ret.result3
 	}
-	return fakeReturns.result1, fakeReturns.result2
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
 }
 
 func (fake *Model) CurrentFolderFileCallCount() int {
@@ -1127,7 +1141,7 @@ func (fake *Model) CurrentFolderFileCallCount() int {
 	return len(fake.currentFolderFileArgsForCall)
 }
 
-func (fake *Model) CurrentFolderFileCalls(stub func(string, string) (protocol.FileInfo, bool)) {
+func (fake *Model) CurrentFolderFileCalls(stub func(string, string) (protocol.FileInfo, bool, error)) {
 	fake.currentFolderFileMutex.Lock()
 	defer fake.currentFolderFileMutex.Unlock()
 	fake.CurrentFolderFileStub = stub
@@ -1140,17 +1154,18 @@ func (fake *Model) CurrentFolderFileArgsForCall(i int) (string, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) CurrentFolderFileReturns(result1 protocol.FileInfo, result2 bool) {
+func (fake *Model) CurrentFolderFileReturns(result1 protocol.FileInfo, result2 bool, result3 error) {
 	fake.currentFolderFileMutex.Lock()
 	defer fake.currentFolderFileMutex.Unlock()
 	fake.CurrentFolderFileStub = nil
 	fake.currentFolderFileReturns = struct {
 		result1 protocol.FileInfo
 		result2 bool
-	}{result1, result2}
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *Model) CurrentFolderFileReturnsOnCall(i int, result1 protocol.FileInfo, result2 bool) {
+func (fake *Model) CurrentFolderFileReturnsOnCall(i int, result1 protocol.FileInfo, result2 bool, result3 error) {
 	fake.currentFolderFileMutex.Lock()
 	defer fake.currentFolderFileMutex.Unlock()
 	fake.CurrentFolderFileStub = nil
@@ -1158,15 +1173,17 @@ func (fake *Model) CurrentFolderFileReturnsOnCall(i int, result1 protocol.FileIn
 		fake.currentFolderFileReturnsOnCall = make(map[int]struct {
 			result1 protocol.FileInfo
 			result2 bool
+			result3 error
 		})
 	}
 	fake.currentFolderFileReturnsOnCall[i] = struct {
 		result1 protocol.FileInfo
 		result2 bool
-	}{result1, result2}
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *Model) CurrentGlobalFile(arg1 string, arg2 string) (protocol.FileInfo, bool) {
+func (fake *Model) CurrentGlobalFile(arg1 string, arg2 string) (protocol.FileInfo, bool, error) {
 	fake.currentGlobalFileMutex.Lock()
 	ret, specificReturn := fake.currentGlobalFileReturnsOnCall[len(fake.currentGlobalFileArgsForCall)]
 	fake.currentGlobalFileArgsForCall = append(fake.currentGlobalFileArgsForCall, struct {
@@ -1181,9 +1198,9 @@ func (fake *Model) CurrentGlobalFile(arg1 string, arg2 string) (protocol.FileInf
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1, ret.result2, ret.result3
 	}
-	return fakeReturns.result1, fakeReturns.result2
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
 }
 
 func (fake *Model) CurrentGlobalFileCallCount() int {
@@ -1192,7 +1209,7 @@ func (fake *Model) CurrentGlobalFileCallCount() int {
 	return len(fake.currentGlobalFileArgsForCall)
 }
 
-func (fake *Model) CurrentGlobalFileCalls(stub func(string, string) (protocol.FileInfo, bool)) {
+func (fake *Model) CurrentGlobalFileCalls(stub func(string, string) (protocol.FileInfo, bool, error)) {
 	fake.currentGlobalFileMutex.Lock()
 	defer fake.currentGlobalFileMutex.Unlock()
 	fake.CurrentGlobalFileStub = stub
@@ -1205,17 +1222,18 @@ func (fake *Model) CurrentGlobalFileArgsForCall(i int) (string, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) CurrentGlobalFileReturns(result1 protocol.FileInfo, result2 bool) {
+func (fake *Model) CurrentGlobalFileReturns(result1 protocol.FileInfo, result2 bool, result3 error) {
 	fake.currentGlobalFileMutex.Lock()
 	defer fake.currentGlobalFileMutex.Unlock()
 	fake.CurrentGlobalFileStub = nil
 	fake.currentGlobalFileReturns = struct {
 		result1 protocol.FileInfo
 		result2 bool
-	}{result1, result2}
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *Model) CurrentGlobalFileReturnsOnCall(i int, result1 protocol.FileInfo, result2 bool) {
+func (fake *Model) CurrentGlobalFileReturnsOnCall(i int, result1 protocol.FileInfo, result2 bool, result3 error) {
 	fake.currentGlobalFileMutex.Lock()
 	defer fake.currentGlobalFileMutex.Unlock()
 	fake.CurrentGlobalFileStub = nil
@@ -1223,12 +1241,14 @@ func (fake *Model) CurrentGlobalFileReturnsOnCall(i int, result1 protocol.FileIn
 		fake.currentGlobalFileReturnsOnCall = make(map[int]struct {
 			result1 protocol.FileInfo
 			result2 bool
+			result3 error
 		})
 	}
 	fake.currentGlobalFileReturnsOnCall[i] = struct {
 		result1 protocol.FileInfo
 		result2 bool
-	}{result1, result2}
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *Model) CurrentIgnores(arg1 string) ([]string, []string, error) {

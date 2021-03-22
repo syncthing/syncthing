@@ -10,33 +10,39 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
-	"log"
+	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/AudriusButkevicius/recli"
+	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/svcutil"
-
 	"github.com/urfave/cli"
 )
 
-type CLI struct {
-	GUIAddress string   `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
-	GUIAPIKey  string   `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	HomeDir    string   `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
-	ConfDir    string   `name:"conf" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
-	Args       []string `arg:"" optional:""`
+type preCli struct {
+	GUIAddress string `name:"gui-address"`
+	GUIAPIKey  string `name:"gui-apikey"`
+	HomeDir    string `name:"home"`
+	ConfDir    string `name:"conf"`
 }
 
-func (c *CLI) Run() error {
+func Run() error {
+	// This is somewhat a hack around a chicken and egg problem. We need to set
+	// the home directory and potentially other flags to know where the
+	// syncthing instance is running in order to get it's config ... which we
+	// then use to construct the actual CLI ... at which point it's too late to
+	// add flags there...
+	c := preCli{}
+	parseFlags(&c)
+
 	// Not set as default above because the strings can be really long.
 	var err error
 	homeSet := c.HomeDir != ""
@@ -50,8 +56,7 @@ func (c *CLI) Run() error {
 		err = locations.SetBaseDir(locations.ConfigBaseDir, c.ConfDir)
 	}
 	if err != nil {
-		log.Println("Command line options:", err)
-		os.Exit(svcutil.ExitError.AsInt())
+		return errors.Wrap(err, "Command line options:")
 	}
 	guiCfg := config.GUIConfiguration{
 		RawAddress: c.GUIAddress,
@@ -136,28 +141,26 @@ func (c *CLI) Run() error {
 
 	// Construct the actual CLI
 	app := cli.NewApp()
-	app.Name = "syncthing cli"
-	app.HelpName = app.Name
 	app.Author = "The Syncthing Authors"
-	app.Usage = "Syncthing command line interface"
-	app.Flags = fakeFlags
 	app.Metadata = map[string]interface{}{
 		"client": client,
 	}
-	app.Commands = []cli.Command{
-		{
-			Name:        "config",
-			HideHelp:    true,
-			Usage:       "Configuration modification command group",
-			Subcommands: commands,
+	app.Commands = []cli.Command{{
+		Name:  "cli",
+		Usage: "Syncthing command line interface",
+		Flags: fakeFlags,
+		Subcommands: []cli.Command{
+			{
+				Name:        "config",
+				HideHelp:    true,
+				Usage:       "Configuration modification command group",
+				Subcommands: commands,
+			},
+			showCommand,
+			operationCommand,
+			errorsCommand,
 		},
-		showCommand,
-		operationCommand,
-		errorsCommand,
-	}
-
-	// It expects to be give os.Args which has argv[0] set to executable name, so fake it.
-	c.Args = append([]string{"cli"}, c.Args...)
+	}}
 
 	tty := isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 	if !tty {
@@ -171,7 +174,7 @@ func (c *CLI) Run() error {
 			if len(input) == 0 {
 				continue
 			}
-			err = app.Run(append(c.Args, input...))
+			err = app.Run(append(os.Args, input...))
 			if err != nil {
 				return err
 			}
@@ -181,7 +184,7 @@ func (c *CLI) Run() error {
 			return err
 		}
 	} else {
-		err = app.Run(c.Args)
+		err = app.Run(os.Args)
 		if err != nil {
 			return err
 		}
@@ -205,4 +208,29 @@ func (c *CLI) Run() error {
 		}
 	}
 	return nil
+}
+
+func parseFlags(c *preCli) error {
+	// kong only needs to parse the global arguments after "cli" and before the
+	// subcommand (if any).
+	if len(os.Args) <= 2 {
+		return nil
+	}
+	args := os.Args[2:]
+	for i := 0; i < len(args); i++ {
+		if !strings.HasPrefix(args[i], "--") {
+			args = args[:i]
+			break
+		}
+		if !strings.Contains(args[i], "=") {
+			i++
+		}
+	}
+	// We don't want kong to print anything nor os.Exit (e.g. on -h)
+	parser, err := kong.New(c, kong.Writers(ioutil.Discard, ioutil.Discard), kong.Exit(func(int) {}))
+	if err != nil {
+		return err
+	}
+	_, err = parser.Parse(args)
+	return err
 }

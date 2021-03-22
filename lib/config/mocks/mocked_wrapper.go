@@ -2,6 +2,7 @@
 package mocks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -256,6 +257,17 @@ type Wrapper struct {
 		result1 error
 	}
 	saveReturnsOnCall map[int]struct {
+		result1 error
+	}
+	ServeStub        func(context.Context) error
+	serveMutex       sync.RWMutex
+	serveArgsForCall []struct {
+		arg1 context.Context
+	}
+	serveReturns struct {
+		result1 error
+	}
+	serveReturnsOnCall map[int]struct {
 		result1 error
 	}
 	SubscribeStub        func(config.Committer) config.Configuration
@@ -1577,6 +1589,67 @@ func (fake *Wrapper) SaveReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *Wrapper) Serve(arg1 context.Context) error {
+	fake.serveMutex.Lock()
+	ret, specificReturn := fake.serveReturnsOnCall[len(fake.serveArgsForCall)]
+	fake.serveArgsForCall = append(fake.serveArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.ServeStub
+	fakeReturns := fake.serveReturns
+	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.serveMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Wrapper) ServeCallCount() int {
+	fake.serveMutex.RLock()
+	defer fake.serveMutex.RUnlock()
+	return len(fake.serveArgsForCall)
+}
+
+func (fake *Wrapper) ServeCalls(stub func(context.Context) error) {
+	fake.serveMutex.Lock()
+	defer fake.serveMutex.Unlock()
+	fake.ServeStub = stub
+}
+
+func (fake *Wrapper) ServeArgsForCall(i int) context.Context {
+	fake.serveMutex.RLock()
+	defer fake.serveMutex.RUnlock()
+	argsForCall := fake.serveArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Wrapper) ServeReturns(result1 error) {
+	fake.serveMutex.Lock()
+	defer fake.serveMutex.Unlock()
+	fake.ServeStub = nil
+	fake.serveReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Wrapper) ServeReturnsOnCall(i int, result1 error) {
+	fake.serveMutex.Lock()
+	defer fake.serveMutex.Unlock()
+	fake.ServeStub = nil
+	if fake.serveReturnsOnCall == nil {
+		fake.serveReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.serveReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *Wrapper) Subscribe(arg1 config.Committer) config.Configuration {
 	fake.subscribeMutex.Lock()
 	ret, specificReturn := fake.subscribeReturnsOnCall[len(fake.subscribeArgsForCall)]
@@ -1719,6 +1792,8 @@ func (fake *Wrapper) Invocations() map[string][][]interface{} {
 	defer fake.requiresRestartMutex.RUnlock()
 	fake.saveMutex.RLock()
 	defer fake.saveMutex.RUnlock()
+	fake.serveMutex.RLock()
+	defer fake.serveMutex.RUnlock()
 	fake.subscribeMutex.RLock()
 	defer fake.subscribeMutex.RUnlock()
 	fake.unsubscribeMutex.RLock()

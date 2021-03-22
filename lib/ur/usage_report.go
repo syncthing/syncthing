@@ -36,7 +36,7 @@ import (
 // are prompted for acceptance of the new report.
 const Version = 3
 
-var StartTime = time.Now()
+var StartTime = time.Now().Truncate(time.Second)
 
 type Service struct {
 	cfg                config.Wrapper
@@ -267,6 +267,9 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.CaseSensitiveFS {
 				report.FolderUsesV3.CaseSensitiveFS++
 			}
+			if cfg.Type == config.FolderTypeReceiveEncrypted {
+				report.FolderUsesV3.ReceiveEncrypted++
+			}
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
@@ -423,7 +426,12 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 			perf = v
 		}
 	}
-	blocksResult = nil
+	// not looking at the blocksResult makes it unused from a static
+	// analysis / compiler standpoint...
+	// blocksResult may be nil at this point if the context is cancelled
+	if blocksResult != nil {
+		blocksResult = nil
+	}
 	return perf
 }
 

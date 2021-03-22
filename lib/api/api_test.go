@@ -1262,11 +1262,9 @@ func TestConfigChanges(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
 	tmpFile.Close()
-	if cfgService, ok := w.(suture.Service); ok {
-		cfgCtx, cfgCancel := context.WithCancel(context.Background())
-		go cfgService.Serve(cfgCtx)
-		defer cfgCancel()
-	}
+	cfgCtx, cfgCancel := context.WithCancel(context.Background())
+	go w.Serve(cfgCtx)
+	defer cfgCancel()
 	baseURL, cancel, err := startHTTP(w)
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)
@@ -1367,6 +1365,27 @@ func TestConfigChanges(t *testing.T) {
 	}
 	if opts.MaxSendKbps != 50 {
 		t.Error("Exepcted 50 for MaxSendKbps, got", opts.MaxSendKbps)
+	}
+}
+
+func TestSanitizedHostname(t *testing.T) {
+	cases := []struct {
+		in, out string
+	}{
+		{"foo.BAR-baz", "foo.bar-baz"},
+		{"~.~-Min 1:a Räksmörgås-dator 😀😎 ~.~-", "min1araksmorgas-dator"},
+		{"Vicenç-PC", "vicenc-pc"},
+		{"~.~-~.~-", ""},
+		{"", ""},
+	}
+
+	for _, tc := range cases {
+		res, err := sanitizedHostname(tc.in)
+		if tc.out == "" && err == nil {
+			t.Errorf("%q should cause error", tc.in)
+		} else if res != tc.out {
+			t.Errorf("%q => %q, expected %q", tc.in, res, tc.out)
+		}
 	}
 }
 

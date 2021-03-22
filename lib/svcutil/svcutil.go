@@ -38,6 +38,11 @@ func AsFatalErr(err error, status ExitStatus) *FatalErr {
 	}
 }
 
+func IsFatal(err error) bool {
+	ferr := &FatalErr{}
+	return errors.As(err, &ferr)
+}
+
 func (e *FatalErr) Error() string {
 	return e.Err.Error()
 }

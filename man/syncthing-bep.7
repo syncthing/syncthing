@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "Mar 01, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Mar 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -302,6 +302,7 @@ message Device {
     bool            introducer                 = 7;
     uint64          index_id                   = 8;
     bool            skip_introduction_removals = 9;
+    bytes           encryption_password_token  = 10;
 }
 
 enum Compression {
@@ -383,6 +384,12 @@ index data. See \fI\%Delta Index Exchange\fP for the usage of this field.
 The \fBskip introduction removals\fP field signifies if the remote device has
 opted to ignore introduction removals for the given device. This setting is
 copied across as we are being introduced to a new device.
+.sp
+The \fBenc pw token\fP field contains a token derived from the password, that is
+used to encrypt data sent to this device. If the device is the same as the
+device sending the message, it signifies that the device itself has encrypted
+data that was encrypted with the given token. It is empty or missing if there is
+no encryption. See untrusted for details on the encryption scheme.
 .SS Index and Index Update
 .sp
 The Index and Index Update messages define the contents of the senders

@@ -126,8 +126,8 @@ type Model interface {
 	Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
-	// The peer device closed the connection
-	Closed(conn Connection, err error)
+	// The peer device closed the connection or an error occurred
+	Closed(device DeviceID, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
 }
@@ -140,6 +140,7 @@ type RequestResponse interface {
 
 type Connection interface {
 	Start()
+	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	ID() DeviceID
 	Index(ctx context.Context, folder string, files []FileInfo) error
@@ -225,24 +226,16 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) Connection {
-	receiver = nativeModel{receiver}
-	rc := newRawConnection(deviceID, reader, writer, closer, receiver, connInfo, compress)
-	return wireFormatConnection{rc}
-}
-
-func NewEncryptedConnection(passwords map[string]string, deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) Connection {
-	keys := keysFromPasswords(passwords)
-
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string) Connection {
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := nativeModel{receiver}
-	em := encryptedModel{model: nm, folderKeys: keys}
+	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry(passwords)}
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
-	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: keys}
+	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: em.folderKeys}
 	wc := wireFormatConnection{ec}
 
 	return wc
@@ -296,7 +289,7 @@ func (c *rawConnection) Start() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
-	c.startTime = time.Now()
+	c.startTime = time.Now().Truncate(time.Second)
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -437,82 +430,61 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		case <-c.closed:
 			return ErrClosed
 		}
+
+		msgContext, err := messageContext(msg)
+		if err != nil {
+			return fmt.Errorf("protocol error: %w", err)
+		}
+		l.Debugf("handle %v message", msgContext)
+
 		switch msg := msg.(type) {
 		case *ClusterConfig:
-			l.Debugln("read ClusterConfig message")
 			if state == stateInitial {
 				state = stateReady
 			}
-			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
-				return fmt.Errorf("receiving cluster config: %w", err)
-			}
-
-		case *Index:
-			l.Debugln("read Index message")
+		case *Close:
+			return fmt.Errorf("closed by remote: %v", msg.Reason)
+		default:
 			if state != stateReady {
-				return fmt.Errorf("protocol error: index message in state %d", state)
+				return newProtocolError(fmt.Errorf("invalid state %d", state), msgContext)
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return errors.Wrap(err, "protocol error: index")
-			}
-			if err := c.handleIndex(*msg); err != nil {
-				return fmt.Errorf("receiving index: %w", err)
-			}
-			state = stateReady
+		}
+
+		switch msg := msg.(type) {
+		case *Index:
+			err = checkIndexConsistency(msg.Files)
 
 		case *IndexUpdate:
-			l.Debugln("read IndexUpdate message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: index update message in state %d", state)
-			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return errors.Wrap(err, "protocol error: index update")
-			}
-			if err := c.handleIndexUpdate(*msg); err != nil {
-				return fmt.Errorf("receiving index update: %w", err)
-			}
-			state = stateReady
+			err = checkIndexConsistency(msg.Files)
 
 		case *Request:
-			l.Debugln("read Request message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: request message in state %d", state)
-			}
-			if err := checkFilename(msg.Name); err != nil {
-				return errors.Wrapf(err, "protocol error: request: %q", msg.Name)
-			}
+			err = checkFilename(msg.Name)
+		}
+		if err != nil {
+			return newProtocolError(err, msgContext)
+		}
+
+		switch msg := msg.(type) {
+		case *ClusterConfig:
+			err = c.receiver.ClusterConfig(c.id, *msg)
+
+		case *Index:
+			err = c.handleIndex(*msg)
+
+		case *IndexUpdate:
+			err = c.handleIndexUpdate(*msg)
+
+		case *Request:
 			go c.handleRequest(*msg)
 
 		case *Response:
-			l.Debugln("read Response message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
-			}
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
-			l.Debugln("read DownloadProgress message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
-			}
-			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
-				return fmt.Errorf("receiving download progress: %w", err)
-			}
-
-		case *Ping:
-			l.Debugln("read Ping message")
-			if state != stateReady {
-				return fmt.Errorf("protocol error: ping message in state %d", state)
-			}
-			// Nothing
-
-		case *Close:
-			l.Debugln("read Close message")
-			return fmt.Errorf("closed by remote: %v", msg.Reason)
-
-		default:
-			l.Debugf("read unknown message: %+T", msg)
-			return fmt.Errorf("protocol error: %s: unknown or empty message", c.id)
+			err = c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
+		}
+		if err != nil {
+			return newHandleError(err, msgContext)
 		}
 	}
 }
@@ -769,6 +741,8 @@ func (c *rawConnection) writerLoop() {
 }
 
 func (c *rawConnection) writeMessage(msg message) error {
+	msgContext, _ := messageContext(msg)
+	l.Debugf("Writing %v", msgContext)
 	if c.shouldCompressMessage(msg) {
 		return c.writeCompressedMessage(msg)
 	}
@@ -976,7 +950,7 @@ func (c *rawConnection) internalClose(err error) {
 
 		<-c.dispatcherLoopStopped
 
-		c.receiver.Closed(c, err)
+		c.receiver.Closed(c.ID(), err)
 	})
 }
 
@@ -1040,7 +1014,7 @@ type Statistics struct {
 
 func (c *rawConnection) Statistics() Statistics {
 	return Statistics{
-		At:            time.Now(),
+		At:            time.Now().Truncate(time.Second),
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
 		StartedAt:     c.startTime,
@@ -1077,4 +1051,35 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 		panic("bug: lz4.Decode allocated, which it must not (should use buffer pool)")
 	}
 	return decoded, nil
+}
+
+func newProtocolError(err error, msgContext string) error {
+	return fmt.Errorf("protocol error on %v: %w", msgContext, err)
+}
+
+func newHandleError(err error, msgContext string) error {
+	return fmt.Errorf("handling %v: %w", msgContext, err)
+}
+
+func messageContext(msg message) (string, error) {
+	switch msg := msg.(type) {
+	case *ClusterConfig:
+		return "cluster-config", nil
+	case *Index:
+		return fmt.Sprintf("index for %v", msg.Folder), nil
+	case *IndexUpdate:
+		return fmt.Sprintf("index-update for %v", msg.Folder), nil
+	case *Request:
+		return fmt.Sprintf(`request for "%v" in %v`, msg.Name, msg.Folder), nil
+	case *Response:
+		return "response", nil
+	case *DownloadProgress:
+		return fmt.Sprintf("download-progress for %v", msg.Folder), nil
+	case *Ping:
+		return "ping", nil
+	case *Close:
+		return "close", nil
+	default:
+		return "", errors.New("unknown or empty message")
+	}
 }

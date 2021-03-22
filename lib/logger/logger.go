@@ -337,7 +337,7 @@ func (r *recorder) Clear() {
 
 func (r *recorder) append(l LogLevel, msg string) {
 	line := Line{
-		When:    time.Now(),
+		When:    time.Now(), // intentionally high precision
 		Message: msg,
 		Level:   l,
 	}

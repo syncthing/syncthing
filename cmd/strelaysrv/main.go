@@ -99,7 +99,7 @@ func main() {
 	flag.IntVar(&natRenewal, "nat-renewal", 30, "NAT renewal frequency in minutes")
 	flag.IntVar(&natTimeout, "nat-timeout", 10, "NAT discovery timeout in seconds")
 	flag.BoolVar(&pprofEnabled, "pprof", false, "Enable the built in profiling on the status server")
-	flag.IntVar(&networkBufferSize, "network-buffer", 2048, "Network buffer size (two of these per proxied connection)")
+	flag.IntVar(&networkBufferSize, "network-buffer", 65536, "Network buffer size (two of these per proxied connection)")
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
@@ -186,6 +186,7 @@ func main() {
 	}
 
 	wrapper := config.Wrap("config", config.New(id), id, events.NoopLogger)
+	go wrapper.Serve(context.TODO())
 	wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.Options.NATLeaseM = natLease
 		cfg.Options.NATRenewalM = natRenewal
@@ -232,6 +233,7 @@ func main() {
 	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", mapping.Address(), id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
+		return
 	}
 
 	log.Println("URI:", uri.String())

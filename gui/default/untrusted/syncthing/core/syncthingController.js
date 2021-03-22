@@ -600,7 +600,13 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error($scope.emitHTTPError);
+            }).error(function(data, status, headers, config) {
+                if (status === 404) {
+                    console.log("refreshCompletion:", data);
+                } else {
+                    $scope.emitHTTPError(data, status, headers, config);
+                }
+            })
         }
 
         function refreshConnectionStats() {
@@ -1964,6 +1970,7 @@ angular.module('syncthing.core')
 
         $scope.editFolderExisting = function(folderCfg) {
             $scope.editingExisting = true;
+            $scope.editingDefaults = false;
             $scope.currentFolder = angular.copy(folderCfg);
 
             $scope.ignores.text = 'Loading...';
@@ -2086,6 +2093,9 @@ angular.module('syncthing.core')
             folderCfg.devices = newDevices;
             delete $scope.currentSharing;
 
+            if (!folderCfg.versioning) {
+                folderCfg.versioning = {params: {}};
+            }
             folderCfg.versioning.type = folderCfg._guiVersioning.selector;
             if ($scope.internalVersioningEnabled()) {
                 folderCfg.versioning.cleanupIntervalS = folderCfg._guiVersioning.cleanupIntervalS;

@@ -341,7 +341,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester"
 	m.AddConnection(conn, hello)
 
@@ -349,7 +349,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device did not get a name")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
@@ -367,7 +367,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name not saved in config")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
 		cfg.Options.OverwriteRemoteDevNames = true
@@ -428,7 +428,7 @@ func TestClusterConfig(t *testing.T) {
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	cm := m.generateClusterConfig(device2)
+	cm, _ := m.generateClusterConfig(device2)
 
 	if l := len(cm.Folders); l != 2 {
 		t.Fatalf("Incorrect number of folders %d != 2", l)
@@ -853,7 +853,7 @@ func TestIssue4897(t *testing.T) {
 	defer cleanupModel(m)
 	cancel()
 
-	cm := m.generateClusterConfig(device1)
+	cm, _ := m.generateClusterConfig(device1)
 	if l := len(cm.Folders); l != 1 {
 		t.Errorf("Cluster config contains %v folders, expected 1", l)
 	}
@@ -873,7 +873,7 @@ func TestIssue5063(t *testing.T) {
 	for _, c := range m.conn {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
-		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
+		defer m.Closed(c.ID(), errStopped) // to unblock deferred m.Stop()
 	}
 	m.pmut.Unlock()
 
@@ -2300,7 +2300,7 @@ func TestIssue3496(t *testing.T) {
 	fs := m.folderFiles["default"]
 	m.fmut.RUnlock()
 	var localFiles []protocol.FileInfo
-	snap := fs.Snapshot()
+	snap := fsetSnapshot(t, fs)
 	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		localFiles = append(localFiles, i.(protocol.FileInfo))
 		return true
@@ -2329,7 +2329,7 @@ func TestIssue3496(t *testing.T) {
 
 	// Check that the completion percentage for us makes sense
 
-	comp := m.Completion(protocol.LocalDeviceID, "default")
+	comp := m.testCompletion(protocol.LocalDeviceID, "default")
 	if comp.NeedBytes > comp.GlobalBytes {
 		t.Errorf("Need more bytes than exist, not possible: %d > %d", comp.NeedBytes, comp.GlobalBytes)
 	}
@@ -2393,7 +2393,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	files.Update(device1, []protocol.FileInfo{file})
 	files.Update(device2, []protocol.FileInfo{file})
 
-	avail := m.Availability("default", file, file.Blocks[0])
+	avail := m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
 		t.Errorf("should not be available, no connections")
 	}
@@ -2403,7 +2403,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	// !!! This is not what I'd expect to happen, as we don't even know if the peer has the original index !!!
 
-	avail = m.Availability("default", file, file.Blocks[0])
+	avail = m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 2 {
 		t.Errorf("should have two available")
 	}
@@ -2423,15 +2423,15 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	m.ClusterConfig(device1, cc)
 	m.ClusterConfig(device2, cc)
 
-	avail = m.Availability("default", file, file.Blocks[0])
+	avail = m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 2 {
 		t.Errorf("should have two available")
 	}
 
-	m.Closed(newFakeConnection(device1, m), errDeviceUnknown)
-	m.Closed(newFakeConnection(device2, m), errDeviceUnknown)
+	m.Closed(device1, errDeviceUnknown)
+	m.Closed(device2, errDeviceUnknown)
 
-	avail = m.Availability("default", file, file.Blocks[0])
+	avail = m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
 		t.Errorf("should have no available")
 	}
@@ -2446,7 +2446,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	ccp.Folders[0].Paused = true
 	m.ClusterConfig(device1, ccp)
 
-	avail = m.Availability("default", file, file.Blocks[0])
+	avail = m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 1 {
 		t.Errorf("should have one available")
 	}
@@ -2479,12 +2479,12 @@ func TestIssue2571(t *testing.T) {
 
 	m.ScanFolder("default")
 
-	if dir, ok := m.CurrentFolderFile("default", "toLink"); !ok {
+	if dir, ok := m.testCurrentFolderFile("default", "toLink"); !ok {
 		t.Fatalf("Dir missing in db")
 	} else if !dir.IsSymlink() {
 		t.Errorf("Dir wasn't changed to symlink")
 	}
-	if file, ok := m.CurrentFolderFile("default", filepath.Join("toLink", "a")); !ok {
+	if file, ok := m.testCurrentFolderFile("default", filepath.Join("toLink", "a")); !ok {
 		t.Fatalf("File missing in db")
 	} else if !file.Deleted {
 		t.Errorf("File below symlink has not been marked as deleted")
@@ -2517,7 +2517,7 @@ func TestIssue4573(t *testing.T) {
 
 	m.ScanFolder("default")
 
-	if file, ok := m.CurrentFolderFile("default", file); !ok {
+	if file, ok := m.testCurrentFolderFile("default", file); !ok {
 		t.Fatalf("File missing in db")
 	} else if file.Deleted {
 		t.Errorf("Inaccessible file has been marked as deleted.")
@@ -2577,7 +2577,7 @@ func TestInternalScan(t *testing.T) {
 	m.ScanFolder("default")
 
 	for path, cond := range testCases {
-		if f, ok := m.CurrentFolderFile("default", path); !ok {
+		if f, ok := m.testCurrentFolderFile("default", path); !ok {
 			t.Fatalf("%v missing in db", path)
 		} else if cond(f) {
 			t.Errorf("Incorrect db entry for %v", path)
@@ -2638,14 +2638,14 @@ func TestRemoveDirWithContent(t *testing.T) {
 	m := setupModel(t, defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	dir, ok := m.CurrentFolderFile("default", "dirwith")
+	dir, ok := m.testCurrentFolderFile("default", "dirwith")
 	if !ok {
 		t.Fatalf("Can't get dir \"dirwith\" after initial scan")
 	}
 	dir.Deleted = true
 	dir.Version = dir.Version.Update(device1.Short()).Update(device1.Short())
 
-	file, ok := m.CurrentFolderFile("default", content)
+	file, ok := m.testCurrentFolderFile("default", content)
 	if !ok {
 		t.Fatalf("Can't get file \"%v\" after initial scan", content)
 	}
@@ -2657,11 +2657,11 @@ func TestRemoveDirWithContent(t *testing.T) {
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
 	for {
-		dir, ok := m.CurrentFolderFile("default", "dirwith")
+		dir, ok := m.testCurrentFolderFile("default", "dirwith")
 		if !ok {
 			t.Fatalf("Can't get dir \"dirwith\" after index update")
 		}
-		file, ok := m.CurrentFolderFile("default", content)
+		file, ok := m.testCurrentFolderFile("default", content)
 		if !ok {
 			t.Fatalf("Can't get file \"%v\" after index update", content)
 		}
@@ -2713,11 +2713,11 @@ func TestIssue4475(t *testing.T) {
 	created := false
 	for {
 		if !created {
-			if _, ok := m.CurrentFolderFile("default", fileName); ok {
+			if _, ok := m.testCurrentFolderFile("default", fileName); ok {
 				created = true
 			}
 		} else {
-			dir, ok := m.CurrentFolderFile("default", "delDir")
+			dir, ok := m.testCurrentFolderFile("default", "delDir")
 			if !ok {
 				t.Fatalf("can't get dir from db")
 			}
@@ -2954,7 +2954,7 @@ func TestPausedFolders(t *testing.T) {
 		t.Errorf("Expected folder paused error, received: %v", err)
 	}
 
-	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
+	if err := m.ScanFolder("nonexistent"); err != ErrFolderMissing {
 		t.Errorf("Expected missing folder error, received: %v", err)
 	}
 }
@@ -3035,7 +3035,7 @@ func TestIssue5002(t *testing.T) {
 		t.Error(err)
 	}
 
-	file, ok := m.CurrentFolderFile("default", "foo")
+	file, ok := m.testCurrentFolderFile("default", "foo")
 	if !ok {
 		t.Fatal("test file should exist")
 	}
@@ -3054,7 +3054,7 @@ func TestParentOfUnignored(t *testing.T) {
 
 	m.SetIgnores("default", []string{"!quux", "*"})
 
-	if parent, ok := m.CurrentFolderFile("default", "baz"); !ok {
+	if parent, ok := m.testCurrentFolderFile("default", "baz"); !ok {
 		t.Errorf(`Directory "baz" missing in db`)
 	} else if parent.IsIgnored() {
 		t.Errorf(`Directory "baz" is ignored`)
@@ -3171,7 +3171,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -3222,7 +3222,7 @@ func TestModTimeWindow(t *testing.T) {
 
 	// Get current version
 
-	fi, ok := m.CurrentFolderFile("default", name)
+	fi, ok := m.testCurrentFolderFile("default", name)
 	if !ok {
 		t.Fatal("File missing")
 	}
@@ -3237,7 +3237,7 @@ func TestModTimeWindow(t *testing.T) {
 
 	// No change due to within window
 
-	fi, _ = m.CurrentFolderFile("default", name)
+	fi, _ = m.testCurrentFolderFile("default", name)
 	if !fi.Version.Equal(v) {
 		t.Fatalf("Got version %v, expected %v", fi.Version, v)
 	}
@@ -3251,7 +3251,7 @@ func TestModTimeWindow(t *testing.T) {
 
 	// Version should have updated
 
-	fi, _ = m.CurrentFolderFile("default", name)
+	fi, _ = m.testCurrentFolderFile("default", name)
 	if fi.Version.Compare(v) != protocol.Greater {
 		t.Fatalf("Got result %v, expected %v", fi.Version.Compare(v), protocol.Greater)
 	}
@@ -3368,8 +3368,8 @@ func TestFolderAPIErrors(t *testing.T) {
 		if err := method(fcfg.ID); err != ErrFolderPaused {
 			t.Errorf(`Expected "%v", got "%v" (method no %v)`, ErrFolderPaused, err, i)
 		}
-		if err := method("notexisting"); err != errFolderMissing {
-			t.Errorf(`Expected "%v", got "%v" (method no %v)`, errFolderMissing, err, i)
+		if err := method("notexisting"); err != ErrFolderMissing {
+			t.Errorf(`Expected "%v", got "%v" (method no %v)`, ErrFolderMissing, err, i)
 		}
 	}
 }
@@ -3776,7 +3776,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	must(t, writeFile(ffs, name, []byte(name), 0644))
 	m.ScanFolders()
 
-	file, ok := m.CurrentFolderFile(fcfg.ID, name)
+	file, ok := m.testCurrentFolderFile(fcfg.ID, name)
 	if !ok {
 		t.Fatal("file missing in db")
 	}
@@ -3927,7 +3927,7 @@ func TestIssue6961(t *testing.T) {
 	pauseFolder(t, wcfg, fcfg.ID, true)
 	pauseFolder(t, wcfg, fcfg.ID, false)
 
-	if comp := m.Completion(device2, fcfg.ID); comp.NeedDeletes != 0 {
+	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedDeletes != 0 {
 		t.Error("Expected 0 needed deletes, got", comp.NeedDeletes)
 	} else {
 		t.Log(comp)
@@ -3946,7 +3946,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
 	m.IndexUpdate(device1, fcfg.ID, files)
-	comp := m.Completion(protocol.LocalDeviceID, fcfg.ID)
+	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
 	}
@@ -3978,13 +3978,13 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 	files[0].Sequence = seq
 	m.IndexUpdate(device1, fcfg.ID, files)
 
-	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 
 	// Pretend we had an index reset on device 1
 	m.Index(device1, fcfg.ID, files)
-	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 }
@@ -4142,7 +4142,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// A connection can happen before all the folders are started.
-	cc := m.generateClusterConfig(device1)
+	cc, _ := m.generateClusterConfig(device1)
 	if l := len(cc.Folders); l != 1 {
 		t.Fatalf("Expected 1 folder in CC, got %v", l)
 	}
@@ -4185,6 +4185,9 @@ func TestPendingFolder(t *testing.T) {
 	}
 
 	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
+	if err != nil {
+		t.Fatal(err)
+	}
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
 	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3, false); err != nil {
 		t.Fatal(err)

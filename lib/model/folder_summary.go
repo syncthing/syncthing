@@ -96,7 +96,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
 	// summary is returned for not running folders, an error might actually be
 	// more appropriate
-	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
+	if err != nil && err != ErrFolderPaused && err != ErrFolderNotRunning {
 		return nil, err
 	}
 
@@ -348,9 +348,14 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 
 		// Get completion percentage of this folder for the
 		// remote device.
-		comp := c.model.Completion(devCfg.DeviceID, folder).Map()
-		comp["folder"] = folder
-		comp["device"] = devCfg.DeviceID.String()
-		c.evLogger.Log(events.FolderCompletion, comp)
+		comp, err := c.model.Completion(devCfg.DeviceID, folder)
+		if err != nil {
+			l.Debugf("Error getting completion for folder %v, device %v: %v", folder, devCfg.DeviceID, err)
+			continue
+		}
+		ev := comp.Map()
+		ev["folder"] = folder
+		ev["device"] = devCfg.DeviceID.String()
+		c.evLogger.Log(events.FolderCompletion, ev)
 	}
 }

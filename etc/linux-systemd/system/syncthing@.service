@@ -7,7 +7,9 @@ After=network.target
 User=%i
 ExecStart=/usr/bin/syncthing serve --no-browser --no-restart --logflags=0
 Restart=on-failure
-RestartSec=5
+RestartSec=1
+StartLimitIntervalSec=60
+StartLimitBurst=4
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
 

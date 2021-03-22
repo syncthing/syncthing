@@ -25,7 +25,6 @@ type indexSender struct {
 	conn                     protocol.Connection
 	folder                   string
 	folderIsReceiveEncrypted bool
-	dev                      string
 	fset                     *db.FileSet
 	prevSequence             int64
 	evLogger                 events.Logger
@@ -131,7 +130,10 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 	var err error
 	var f protocol.FileInfo
-	snap := s.fset.Snapshot()
+	snap, err := s.fset.Snapshot()
+	if err != nil {
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
+	}
 	defer snap.Release()
 	previousWasDelete := false
 	snap.WithHaveSequence(s.prevSequence+1, func(fi protocol.FileIntf) bool {
@@ -175,18 +177,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			return true
 		}
 
-		// Mark the file as invalid if any of the local bad stuff flags are set.
-		f.RawInvalid = f.IsInvalid()
-		// If the file is marked LocalReceive (i.e., changed locally on a
-		// receive only folder) we do not want it to ever become the
-		// globally best version, invalid or not.
-		if f.IsReceiveOnlyChanged() {
-			f.Version = protocol.Vector{}
-		}
-
-		// never sent externally
-		f.LocalFlags = 0
-		f.VersionHash = nil
+		f = prepareFileInfoForIndex(f)
 
 		previousWasDelete = f.IsDeleted()
 
@@ -206,6 +197,21 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 	s.prevSequence = f.Sequence
 	return err
+}
+
+func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
+	// Mark the file as invalid if any of the local bad stuff flags are set.
+	f.RawInvalid = f.IsInvalid()
+	// If the file is marked LocalReceive (i.e., changed locally on a
+	// receive only folder) we do not want it to ever become the
+	// globally best version, invalid or not.
+	if f.IsReceiveOnlyChanged() {
+		f.Version = protocol.Vector{}
+	}
+	// never sent externally
+	f.LocalFlags = 0
+	f.VersionHash = nil
+	return f
 }
 
 func (s *indexSender) String() string {
@@ -309,9 +315,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
 	}
-	if _, ok := r.startInfos[folder.ID]; ok {
-		delete(r.startInfos, folder.ID)
-	}
+	delete(r.startInfos, folder.ID)
 
 	is := &indexSender{
 		conn:                     r.conn,

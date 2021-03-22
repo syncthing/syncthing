@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thejerf/suture/v4"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -84,12 +82,9 @@ func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelF
 	}
 	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
 	tmpFile.Close()
-	if cfgService, ok := wrapper.(suture.Service); ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		go cfgService.Serve(ctx)
-		return wrapper, cancel
-	}
-	return wrapper, func() {}
+	ctx, cancel := context.WithCancel(context.Background())
+	go wrapper.Serve(ctx)
+	return wrapper, cancel
 }
 
 func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
@@ -152,6 +147,7 @@ func setupModel(t testing.TB, w config.Wrapper) *testModel {
 
 type testModel struct {
 	*model
+	t        testing.TB
 	cancel   context.CancelFunc
 	evCancel context.CancelFunc
 	stopped  chan struct{}
@@ -171,6 +167,7 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName
 		model:    m,
 		evCancel: cancel,
 		stopped:  make(chan struct{}),
+		t:        t,
 	}
 }
 
@@ -182,6 +179,24 @@ func (m *testModel) ServeBackground() {
 		close(m.stopped)
 	}()
 	<-m.started
+}
+
+func (m *testModel) testAvailability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+	av, err := m.model.Availability(folder, file, block)
+	must(m.t, err)
+	return av
+}
+
+func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
+	f, ok, err := m.model.CurrentFolderFile(folder, file)
+	must(m.t, err)
+	return f, ok
+}
+
+func (m *testModel) testCompletion(device protocol.DeviceID, folder string) FolderCompletion {
+	comp, err := m.Completion(protocol.LocalDeviceID, "default")
+	must(m.t, err)
+	return comp
 }
 
 func cleanupModel(m *testModel) {
@@ -271,6 +286,15 @@ func needSize(t *testing.T, m Model, folder string) db.Counts {
 func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 	t.Helper()
 	snap, err := m.DBSnapshot(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
+func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
+	t.Helper()
+	snap, err := fset.Snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}

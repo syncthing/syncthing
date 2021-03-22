@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -111,6 +112,8 @@ type Wrapper interface {
 
 	Subscribe(c Committer) Configuration
 	Unsubscribe(c Committer)
+
+	suture.Service
 }
 
 type wrapper struct {

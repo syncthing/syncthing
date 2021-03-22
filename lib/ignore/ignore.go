@@ -9,7 +9,6 @@ package ignore
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -373,7 +373,7 @@ func (m *Matcher) SkipIgnoredDirs() bool {
 }
 
 func hashPatterns(patterns []Pattern) string {
-	h := md5.New()
+	h := sha256.New()
 	for _, pat := range patterns {
 		h.Write([]byte(pat.String()))
 		h.Write([]byte("\n"))
