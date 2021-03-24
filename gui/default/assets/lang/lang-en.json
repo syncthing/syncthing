@@ -133,6 +133,7 @@
    "Folder Label": "Folder Label",
    "Folder Path": "Folder Path",
    "Folder Type": "Folder Type",
+   "Folder type \"{%receiveEncrypted%}\" can only be set when adding a new folder.": "Folder type \"{{receiveEncrypted}}\" can only be set when adding a new folder.",
    "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Folder type \"{{receiveEncrypted}}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.",
    "Folders": "Folders",
    "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.",
