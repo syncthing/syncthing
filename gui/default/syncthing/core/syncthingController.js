@@ -2473,10 +2473,6 @@ angular.module('syncthing.core')
             return $scope.model[folder].errors !== 0;
         };
 
-        $scope.override = function (folder) {
-            $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
-        };
-
         $scope.showLocalChanged = function (folder) {
             $scope.localChangedFolder = folder;
             $scope.localChanged = $scope.refreshLocalChanged(1, 10);
@@ -2486,16 +2482,40 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.revert = function (folder) {
-            $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
-        };
-
         $scope.canRevert = function (folder) {
             var f = $scope.model[folder];
             if (!f) {
                 return false;
             }
             return $scope.model[folder].receiveOnlyTotalItems > 0;
+        };
+
+        $scope.revertOverride = function () {
+            $http.post(
+                urlbase + "/db/" + $scope.revertOverrideParams.operation +"?folder="
+                +encodeURIComponent($scope.revertOverrideParams.folderID));
+        };
+
+        $scope.revertOverrideConfirmationModal = function (type, folderID) {
+            var params = {};
+            params.type = type;
+            params.folderID = folderID;
+            switch (type) {
+                case "override":
+                    params.heading = $translate.instant("Override");
+                    params.operation = "override";
+                    break;
+                case "revert":
+                    params.heading = $translate.instant("Revert");
+                    params.operation = "revert";
+                    break;
+                case "deleteEnc":
+                    params.heading = $translate.instant("Delete Unexpected Items");
+                    params.operation = "revert";
+                    break;
+            }
+            $scope.revertOverrideParams = params;
+            $('#revert-override-confirmation').modal('show');
         };
 
         $scope.advanced = function () {

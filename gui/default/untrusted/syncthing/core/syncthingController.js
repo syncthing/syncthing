@@ -2513,10 +2513,6 @@ angular.module('syncthing.core')
             return $scope.model[folder].errors !== 0;
         };
 
-        $scope.override = function (folder) {
-            $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
-        };
-
         $scope.showLocalChanged = function (folder, folderType) {
             $scope.localChangedFolder = folder;
             $scope.localChangedType = folderType;
@@ -2551,15 +2547,32 @@ angular.module('syncthing.core')
             return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes;
         }
 
-        $scope.revert = function (folder) {
-            $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
+        $scope.revertOverride = function () {
+            $http.post(
+                urlbase + "/db/" + $scope.revertOverrideParams.operation +"?folder="
+                +encodeURIComponent($scope.revertOverrideParams.folderID));
         };
 
-        $scope.deleteEncryptionModal = function (folderID) {
-            $scope.revertEncryptionFolder = folderID;
-            $('#delete-encryption-confirmation').modal('show').one('hidden.bs.modal', function () {
-                $scope.revertEncryptionFolder = undefined;
-            });
+        $scope.revertOverrideConfirmationModal = function (type, folderID) {
+            var params = {};
+            params.type = type;
+            params.folderID = folderID;
+            switch (type) {
+                case "override":
+                    params.heading = $translate.instant("Override");
+                    params.operation = "override";
+                    break;
+                case "revert":
+                    params.heading = $translate.instant("Revert");
+                    params.operation = "revert";
+                    break;
+                case "deleteEnc":
+                    params.heading = $translate.instant("Delete Unexpected Items");
+                    params.operation = "revert";
+                    break;
+            }
+            $scope.revertOverrideParams = params;
+            $('#revert-override-confirmation').modal('show');
         };
 
         $scope.advanced = function () {
@@ -2777,7 +2790,6 @@ angular.module('syncthing.core')
                     address.indexOf('unix://') == 0 ||
                     address.indexOf('unixs://') == 0);
         }
-
     })
     .directive('shareTemplate', function () {
         return {

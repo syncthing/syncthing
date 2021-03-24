@@ -535,10 +535,10 @@
                   </table>
                 </div>
                 <div class="panel-footer">
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
                     <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revert(folder.id)" ng-if="canRevert(folder.id)">
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                   </button>
                   <span class="pull-right">
@@ -895,6 +895,7 @@
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/revertOverrideView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
 
