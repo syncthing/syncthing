@@ -406,8 +406,16 @@ angular.module('syncthing.core')
             console.log("FolderScanProgress", data);
         });
 
+        // May be called through .error with the presented arguments, or through
+        // .catch with the http response object containing the same arguments.
         $scope.emitHTTPError = function (data, status, headers, config) {
-            $scope.$emit('HTTPError', { data: data, status: status, headers: headers, config: config });
+            var out;
+            if (out && out.data) {
+                out = data;
+            } else {
+                out = { data: data, status: status, headers: headers, config: config };
+            }
+            $scope.$emit('HTTPError', out);
         };
 
         var debouncedFuncs = {};
@@ -735,7 +743,6 @@ angular.module('syncthing.core')
             $scope.remoteNeedFolders = [];
             $scope.remoteNeedDevice = undefined;
         }
-
 
         function setDefaultTheme() {
             if (!document.getElementById("fallback-theme-css")) {
@@ -1977,30 +1984,36 @@ angular.module('syncthing.core')
             $scope.ignores.error = null;
             $scope.ignores.disabled = true;
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .success(function (data) {
-                    $scope.currentFolder.ignores = data.ignore || [];
-                    $scope.ignores.text = $scope.currentFolder.ignores.join('\n');
-                    $scope.ignores.error = data.error;
-                    $scope.ignores.disabled = false;
-                })
-                .error(function (err) {
+                .then(editFolderInitIgnores)
+                .catch(function (response) {
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
-                    $scope.emitHTTPError(err);
+                    $scope.emitHTTPError(response);
                 });
 
             editFolder();
         };
 
         $scope.editFolderDefaults = function() {
-            $http.get(urlbase + '/config/defaults/folder')
-                 .success(function (data) {
-                     $scope.currentFolder = data;
-                     $scope.editingExisting = false;
-                     $scope.editingDefaults = true;
-                     editFolder();
-                 })
-                 .error($scope.emitHTTPError);
+            $q.all([
+                $http.get(urlbase + '/config/defaults/folder')
+                     .then(function (response) {
+                         $scope.currentFolder = response.data;
+                     }),
+                $http.get(urlbase + '/db/defaultignores')
+                     .then(editFolderInitIgnores),
+            ]).then(function() {
+                $scope.editingExisting = false;
+                $scope.editingDefaults = true;
+                editFolder();
+            }).catch($scope.emitHTTPError);
         };
+
+        function editFolderInitIgnores(response) {
+            $scope.currentFolder.ignores = response.data.ignore || [];
+            $scope.ignores.text = $scope.currentFolder.ignores.join('\n');
+            $scope.ignores.error = response.data.error;
+            $scope.ignores.disabled = false;
+        }
 
         $scope.selectAllSharedDevices = function (state) {
             var devices = $scope.currentSharing.shared;
@@ -2062,6 +2075,21 @@ angular.module('syncthing.core')
             }, $scope.emitHTTPError);
         }
 
+        $scope.ignoresClicked = function () {
+            if ($scope.editingExisting || $scope.editingDefaults || $scope.ignores.path === $scope.currentFolder.path || !$scope.folderEditor.ignoresText.$pristine ) {
+                return;
+            }
+            $http.get(urlbase + '/system/readignores?path=' + encodeURIComponent(pathJoin($scope.currentFolder.path, ".stignore")))
+                 .then(function(p) {
+                     if (p.data.ignore) {
+                         editFolderInitIgnores(p);
+                     } else {
+                         $http.get(urlbase + '/db/defaultignores')
+                              .then(editFolderInitIgnores);
+                     }
+                 });
+        };
+
         $scope.shareFolderWithDevice = function (folder, device) {
             $scope.folders[folder].devices.push({
                 deviceID: device
@@ -2120,15 +2148,6 @@ angular.module('syncthing.core')
             }
             delete folderCfg._guiVersioning;
 
-            if ($scope.editingDefaults) {
-                $scope.config.defaults.folder = folderCfg;
-                $scope.saveConfig();
-            } else {
-                saveFolderExisting(folderCfg);
-            }
-        };
-
-        function saveFolderExisting(folderCfg) {
             var ignoresLoaded = !$scope.ignores.disabled;
             var ignores = $scope.ignores.text.split('\n');
             // Split always returns a minimum 1-length array even for no patterns
@@ -2139,24 +2158,35 @@ angular.module('syncthing.core')
                 folderCfg.paused = true;
             };
 
-            $scope.folders[folderCfg.id] = folderCfg;
-            $scope.config.folders = folderList($scope.folders);
-
-            function arrayEquals(a, b) {
-              return a.length === b.length && a.every(function(v, i) { return v === b[i] });
+            function arrayDiffers(a, b) {
+              return a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
             }
+            var ignoresChanged = arrayDiffers(ignores, folderCfg.ignores);
 
-            if (ignoresLoaded && $scope.editingExisting && !arrayEquals(ignores, folderCfg.ignores)) {
-                saveIgnores(ignores);
-            };
-
-            $scope.saveConfig(function () {
-                if (!$scope.editingExisting && ignores.length) {
-                    saveIgnores(ignores, function () {
-                        $scope.setFolderPause(folderCfg.id, false);
-                    });
+            if ($scope.editingDefaults) {
+                if (ignoresChanged) {
+                    $http.post(urlbase + '/db/defaultignores', {
+                        ignore: ignores
+                    }).error($scope.emitHTTPError);
                 }
-            });
+                $scope.config.defaults.folder = folderCfg;
+                $scope.saveConfig();
+            } else {
+                $scope.folders[folderCfg.id] = folderCfg;
+                $scope.config.folders = folderList($scope.folders);
+
+                if (ignoresLoaded && $scope.editingExisting && ignoresChanged) {
+                    saveIgnores(ignores);
+                };
+
+                $scope.saveConfig(function () {
+                    if (!$scope.editingExisting && ignores.length) {
+                        saveIgnores(ignores, function () {
+                            $scope.setFolderPause(folderCfg.id, false);
+                        });
+                    }
+                });
+            }
         };
 
         $scope.ignoreFolder = function (device, folderID, offeringDevice) {

@@ -158,6 +158,18 @@ type Model struct {
 		result1 *db.Snapshot
 		result2 error
 	}
+	DefaultIgnoresStub        func() ([]string, []string)
+	defaultIgnoresMutex       sync.RWMutex
+	defaultIgnoresArgsForCall []struct {
+	}
+	defaultIgnoresReturns struct {
+		result1 []string
+		result2 []string
+	}
+	defaultIgnoresReturnsOnCall map[int]struct {
+		result1 []string
+		result2 []string
+	}
 	DelayScanStub        func(string, time.Duration)
 	delayScanMutex       sync.RWMutex
 	delayScanArgsForCall []struct {
@@ -496,6 +508,17 @@ type Model struct {
 		result1 error
 	}
 	serveReturnsOnCall map[int]struct {
+		result1 error
+	}
+	SetDefaultIgnoresStub        func([]string) error
+	setDefaultIgnoresMutex       sync.RWMutex
+	setDefaultIgnoresArgsForCall []struct {
+		arg1 []string
+	}
+	setDefaultIgnoresReturns struct {
+		result1 error
+	}
+	setDefaultIgnoresReturnsOnCall map[int]struct {
 		result1 error
 	}
 	SetIgnoresStub        func(string, []string) error
@@ -1225,6 +1248,62 @@ func (fake *Model) DBSnapshotReturnsOnCall(i int, result1 *db.Snapshot, result2 
 	fake.dBSnapshotReturnsOnCall[i] = struct {
 		result1 *db.Snapshot
 		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) DefaultIgnores() ([]string, []string) {
+	fake.defaultIgnoresMutex.Lock()
+	ret, specificReturn := fake.defaultIgnoresReturnsOnCall[len(fake.defaultIgnoresArgsForCall)]
+	fake.defaultIgnoresArgsForCall = append(fake.defaultIgnoresArgsForCall, struct {
+	}{})
+	stub := fake.DefaultIgnoresStub
+	fakeReturns := fake.defaultIgnoresReturns
+	fake.recordInvocation("DefaultIgnores", []interface{}{})
+	fake.defaultIgnoresMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) DefaultIgnoresCallCount() int {
+	fake.defaultIgnoresMutex.RLock()
+	defer fake.defaultIgnoresMutex.RUnlock()
+	return len(fake.defaultIgnoresArgsForCall)
+}
+
+func (fake *Model) DefaultIgnoresCalls(stub func() ([]string, []string)) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = stub
+}
+
+func (fake *Model) DefaultIgnoresReturns(result1 []string, result2 []string) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = nil
+	fake.defaultIgnoresReturns = struct {
+		result1 []string
+		result2 []string
+	}{result1, result2}
+}
+
+func (fake *Model) DefaultIgnoresReturnsOnCall(i int, result1 []string, result2 []string) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = nil
+	if fake.defaultIgnoresReturnsOnCall == nil {
+		fake.defaultIgnoresReturnsOnCall = make(map[int]struct {
+			result1 []string
+			result2 []string
+		})
+	}
+	fake.defaultIgnoresReturnsOnCall[i] = struct {
+		result1 []string
+		result2 []string
 	}{result1, result2}
 }
 
@@ -2882,6 +2961,72 @@ func (fake *Model) ServeReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *Model) SetDefaultIgnores(arg1 []string) error {
+	var arg1Copy []string
+	if arg1 != nil {
+		arg1Copy = make([]string, len(arg1))
+		copy(arg1Copy, arg1)
+	}
+	fake.setDefaultIgnoresMutex.Lock()
+	ret, specificReturn := fake.setDefaultIgnoresReturnsOnCall[len(fake.setDefaultIgnoresArgsForCall)]
+	fake.setDefaultIgnoresArgsForCall = append(fake.setDefaultIgnoresArgsForCall, struct {
+		arg1 []string
+	}{arg1Copy})
+	stub := fake.SetDefaultIgnoresStub
+	fakeReturns := fake.setDefaultIgnoresReturns
+	fake.recordInvocation("SetDefaultIgnores", []interface{}{arg1Copy})
+	fake.setDefaultIgnoresMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) SetDefaultIgnoresCallCount() int {
+	fake.setDefaultIgnoresMutex.RLock()
+	defer fake.setDefaultIgnoresMutex.RUnlock()
+	return len(fake.setDefaultIgnoresArgsForCall)
+}
+
+func (fake *Model) SetDefaultIgnoresCalls(stub func([]string) error) {
+	fake.setDefaultIgnoresMutex.Lock()
+	defer fake.setDefaultIgnoresMutex.Unlock()
+	fake.SetDefaultIgnoresStub = stub
+}
+
+func (fake *Model) SetDefaultIgnoresArgsForCall(i int) []string {
+	fake.setDefaultIgnoresMutex.RLock()
+	defer fake.setDefaultIgnoresMutex.RUnlock()
+	argsForCall := fake.setDefaultIgnoresArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) SetDefaultIgnoresReturns(result1 error) {
+	fake.setDefaultIgnoresMutex.Lock()
+	defer fake.setDefaultIgnoresMutex.Unlock()
+	fake.SetDefaultIgnoresStub = nil
+	fake.setDefaultIgnoresReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Model) SetDefaultIgnoresReturnsOnCall(i int, result1 error) {
+	fake.setDefaultIgnoresMutex.Lock()
+	defer fake.setDefaultIgnoresMutex.Unlock()
+	fake.SetDefaultIgnoresStub = nil
+	if fake.setDefaultIgnoresReturnsOnCall == nil {
+		fake.setDefaultIgnoresReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.setDefaultIgnoresReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *Model) SetIgnores(arg1 string, arg2 []string) error {
 	var arg2Copy []string
 	if arg2 != nil {
@@ -3170,6 +3315,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.currentIgnoresMutex.RUnlock()
 	fake.dBSnapshotMutex.RLock()
 	defer fake.dBSnapshotMutex.RUnlock()
+	fake.defaultIgnoresMutex.RLock()
+	defer fake.defaultIgnoresMutex.RUnlock()
 	fake.delayScanMutex.RLock()
 	defer fake.delayScanMutex.RUnlock()
 	fake.deviceStatisticsMutex.RLock()
@@ -3226,6 +3373,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.scanFoldersMutex.RUnlock()
 	fake.serveMutex.RLock()
 	defer fake.serveMutex.RUnlock()
+	fake.setDefaultIgnoresMutex.RLock()
+	defer fake.setDefaultIgnoresMutex.RUnlock()
 	fake.setIgnoresMutex.RLock()
 	defer fake.setIgnoresMutex.RUnlock()
 	fake.startDeadlockDetectorMutex.RLock()

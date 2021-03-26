@@ -582,6 +582,15 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 
 // WriteIgnores is a convenience function to avoid code duplication
 func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error {
+	return writeIgnores(filesystem, path, content)
+}
+
+// WriteIgnores is a convenience function to avoid code duplication
+func (m *Matcher) WriteIgnores(path string, content []string) error {
+	return writeIgnores(m.fs, path, content)
+}
+
+func writeIgnores(filesystem fs.Filesystem, path string, content []string) error {
 	if len(content) == 0 {
 		err := filesystem.Remove(path)
 		if fs.IsNotExist(err) {
