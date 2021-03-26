@@ -441,13 +441,14 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folder []byte) (int, error) {
+func (db *Lowlevel) checkGlobals(folderStr string) (int, error) {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return 0, err
 	}
 	defer t.close()
 
+	folder := []byte(folderStr)
 	key, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
 	if err != nil {
 		return 0, err
@@ -509,7 +510,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) (int, error) {
 		return 0, err
 	}
 
-	l.Debugf("global db check completed for %q", folder)
+	l.Debugf("global db check completed for %v", folder)
 	return fixed, t.Commit()
 }
 
@@ -834,8 +835,10 @@ func (b *bloomFilter) hash(id []byte) uint64 {
 
 // checkRepair checks folder metadata and sequences for miscellaneous errors.
 func (db *Lowlevel) checkRepair() error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
 	for _, folder := range db.ListFolders() {
-		if _, err := db.getMetaAndCheck(folder); err != nil {
+		if _, err := db.getMetaAndCheckGCLocked(folder); err != nil {
 			return err
 		}
 	}
@@ -858,6 +861,14 @@ func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, er
 		l.Infof("Repaired %d local need entries for folder %v in database", fixed, folder)
 	}
 
+	fixed, err = db.checkGlobals(folder)
+	if err != nil {
+		return nil, fmt.Errorf("checking globals: %w", err)
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d global entries for folder %v in database", fixed, folder)
+	}
+
 	meta, err := db.recalcMeta(folder)
 	if err != nil {
 		return nil, fmt.Errorf("recalculating metadata: %w", err)
@@ -869,6 +880,10 @@ func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, er
 	}
 	if fixed != 0 {
 		l.Infof("Repaired %d sequence entries for folder %v in database", fixed, folder)
+		meta, err = db.recalcMeta(folder)
+		if err != nil {
+			return nil, fmt.Errorf("recalculating metadata: %w", err)
+		}
 	}
 
 	return meta, nil
@@ -906,11 +921,6 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 	folder := []byte(folderStr)
 
 	meta := newMetadataTracker(db.keyer, db.evLogger)
-	if fixed, err := db.checkGlobals(folder); err != nil {
-		return nil, fmt.Errorf("checking globals: %w", err)
-	} else if fixed > 0 {
-		l.Infof("Repaired %d global entries for folder %v in database", fixed, folderStr)
-	}
 
 	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
@@ -1022,6 +1032,25 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if err != nil {
+			// Delete local items with invalid indirected blocks/versions.
+			// They will be rescanned.
+			var ierr *blocksIndirectionError
+			if ok := errors.As(err, &ierr); ok && backend.IsNotFound(err) {
+				intf, err = t.unmarshalTrunc(it.Value(), true)
+				if err != nil {
+					return 0, err
+				}
+				sk, err = db.keyer.GenerateSequenceKey(sk, folder, intf.SequenceNo())
+				if err != nil {
+					return 0, err
+				}
+				if err := t.Delete(sk); err != nil {
+					return 0, err
+				}
+				if err := t.Delete(it.Key()); err != nil {
+					return 0, err
+				}
+			}
 			return 0, err
 		}
 		fi := intf.(protocol.FileInfo)

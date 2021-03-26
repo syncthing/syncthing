@@ -100,7 +100,6 @@ func (db *schemaUpdater) updateSchema() error {
 		{11, 11, "v1.6.0", db.updateSchemaTo11},
 		{13, 13, "v1.7.0", db.updateSchemaTo13},
 		{14, 14, "v1.9.0", db.updateSchemaTo14},
-		{14, 15, "v1.9.0", db.migration15},
 		{14, 16, "v1.9.0", db.checkRepairMigration},
 	}
 
@@ -771,15 +770,6 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		t.close()
 	}
 
-	return nil
-}
-
-func (db *schemaUpdater) migration15(_ int) error {
-	for _, folder := range db.ListFolders() {
-		if _, err := db.recalcMeta(folder); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
