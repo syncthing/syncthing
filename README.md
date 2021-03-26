@@ -80,7 +80,7 @@ bug, feel free to report it in the [GitHub issue tracker][10].
 
 ## Building
 
-Building Syncthing from source is easy, and there's a [guide][5]
+Building Syncthing from source is easy, and there's [a guide][5]
 that describes it for both Unix and Windows systems.
 
 ## Signed Releases
