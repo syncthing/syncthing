@@ -1040,6 +1040,15 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 				if err != nil {
 					return 0, err
 				}
+				name := []byte(intf.FileName())
+				gk, err := t.keyer.GenerateGlobalVersionKey(nil, folder, name)
+				if err != nil {
+					return 0, err
+				}
+				_, err = t.removeFromGlobal(gk, nil, folder, protocol.LocalDeviceID[:], name, nil)
+				if err != nil {
+					return 0, err
+				}
 				sk, err = db.keyer.GenerateSequenceKey(sk, folder, intf.SequenceNo())
 				if err != nil {
 					return 0, err
