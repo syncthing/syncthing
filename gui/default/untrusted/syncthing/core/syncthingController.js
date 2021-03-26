@@ -2554,9 +2554,10 @@ angular.module('syncthing.core')
         };
 
         $scope.revertOverrideConfirmationModal = function (type, folderID) {
-            var params = {};
-            params.type = type;
-            params.folderID = folderID;
+            var params = {
+                type: type,
+                folderID: folderID,
+            };
             switch (type) {
                 case "override":
                     params.heading = $translate.instant("Override");
