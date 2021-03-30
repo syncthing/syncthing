@@ -312,7 +312,7 @@ func (s *Snapshot) DebugGlobalVersions(file string) VersionList {
 	opStr := fmt.Sprintf("%s DebugGlobalVersions(%v)", s.folder, file)
 	l.Debugf(opStr)
 	vl, err := s.t.getGlobalVersions(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
-	if backend.IsClosed(err) {
+	if backend.IsClosed(err) || backend.IsNotFound(err) {
 		return VersionList{}
 	} else if err != nil {
 		s.fatalError(err, opStr)
