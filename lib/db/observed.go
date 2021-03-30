@@ -124,7 +124,7 @@ func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, old
 		return nil, err
 	}
 	defer iter.Release()
-	oldest = oldest.Round(time.Second)
+	oldest = oldest.Truncate(time.Second)
 	var res []string
 	for iter.Next() {
 		var of ObservedFolder
