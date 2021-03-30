@@ -2159,7 +2159,7 @@ angular.module('syncthing.core')
             };
 
             function arrayDiffers(a, b) {
-              return a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
+                return !a !== !b || a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
             }
             var ignoresChanged = arrayDiffers(ignores, folderCfg.ignores);
 
