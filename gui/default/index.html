@@ -643,26 +643,20 @@
                     <tr>
                       <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                       <td class="text-right">
-                        <span ng-if="listenersFailed.length == 0" class="data text-success">
-                          <span>{{listenersTotal}}/{{listenersTotal}}</span>
-                        </span>
-                        <span ng-if="listenersFailed.length != 0" class="data" ng-class="{'text-danger': listenersFailed.length == listenersTotal}">
-                          <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{listenersFailed.join('<br>\n')}}">
-                            {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
-                          </span>
+                        <span class="data" popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see listener status' | translate}}.">
+                          <a href="" style="color:inherit" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
+			    {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
+			  </a>
                         </span>
                       </td>
                     </tr>
                     <tr ng-if="system.discoveryEnabled">
                       <th><span class="fas fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                       <td class="text-right">
-                        <span ng-if="discoveryFailed.length == 0" class="data text-success">
-                          <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
-                        </span>
-                        <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                          <span popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery failures' | translate}}.">
-                            <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
-                          </span>
+                        <span class="data" popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery status' | translate}}.">
+                          <a href="" style="color:inherit" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
+			    {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+			  </a>
                         </span>
                       </td>
                     </tr>
@@ -893,7 +887,7 @@
   <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/connectivityStatusModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/folder/revertOverrideView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
