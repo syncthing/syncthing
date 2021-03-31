@@ -39,7 +39,8 @@ services:
       - /wherever/st-sync:/var/syncthing
     ports:
       - 8384:8384
-      - 22000:22000
+      - 22000:22000/tcp
+      - 22000:22000/udp
     restart: unless-stopped
 ```
 
