@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Mar 22, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 27, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -697,8 +697,8 @@ a restart is required.
 For all endpoints supporting \fBPATCH\fP, it takes the existing config and
 unmarshals the given JSON object on top of it. This means all child objects will
 replace the existing objects, not extend them. For example for
-\fBRawListenAddresses\(ga in options, which is an array of strings, sending
-\(ga\(ga{RawListenAddresses: ["tcp://10.0.0.2"]\fP will replace all existing listen
+\fBRawListenAddresses\fP in options, which is an array of strings, sending
+\fB{RawListenAddresses: ["tcp://10.0.0.2"]}\fP will replace all existing listen
 addresses.
 .SS /rest/config
 .sp

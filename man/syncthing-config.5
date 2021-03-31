@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Mar 22, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 27, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -603,15 +603,10 @@ From following child elements at least one \fBaddress\fP child must exist.
 .INDENT 0.0
 .TP
 .B address
-.INDENT 7.0
-.TP
-.B Contains an address or host name to use when attempting to connect to this device.
+Contains an address or host name to use when attempting to connect to this device.
 Entries other than \fBdynamic\fP need a protocol specific prefix. For the TCP protocol
-.TP
-.B the prefixes \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only) can be used.
+the prefixes \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only) can be used.
 The prefixes for the QUIC protocol are analogous: \fBquic://\fP, \fBquic4://\fP and \fBquic6://\fP
-.UNINDENT
-.sp
 Note that IP addresses need not use IPv4 or IPv6 prefixes; these are optional. Accepted formats are:
 .INDENT 7.0
 .TP
