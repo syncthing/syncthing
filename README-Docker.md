@@ -7,16 +7,43 @@ Use the `/var/syncthing` volume to have the synchronized files available on the
 host. You can add more folders and map them as you prefer.
 
 Note that Syncthing runs as UID 1000 and GID 1000 by default. These may be
-altered with the ``PUID`` and ``PGID`` environment variables.
+altered with the ``PUID`` and ``PGID`` environment variables. In addition
+the name of the Syncthing instance can be optionally defined by using
+``--hostname=syncthing`` parameter.
 
 ## Example Usage
 
+**Docker cli**
 ```
 $ docker pull syncthing/syncthing
 $ docker run --sysctl net.core.rmem_max=2097152 \
     -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp \
     -v /wherever/st-sync:/var/syncthing \
+    --hostname=my-syncthing \
     syncthing/syncthing:latest
+```
+
+**Docker compose**
+```
+---
+version: "3"
+services:
+  syncthing:
+    image: syncthing/syncthing
+    container_name: syncthing
+    hostname: my-syncthing
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /wherever/st-sync:/var/syncthing
+    ports:
+      - 8384:8384
+      - 22000:22000/tcp
+      - 22000:22000/udp
+    sysctls:
+      - net.core.rmem_max=2097152
+    restart: unless-stopped
 ```
 
 ## Discovery
