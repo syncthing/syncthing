@@ -41,7 +41,7 @@ services:
       - 8384:8384
       - 22000:22000/tcp
       - 22000:22000/udp
-    sysctl:
+    sysctls:
       - net.core.rmem_max=2097152
     restart: unless-stopped
 ```
