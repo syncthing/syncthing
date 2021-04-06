@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build ignore
+// +build build
 
 package main
 
@@ -30,7 +30,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
+
+	"github.com/goreleaser/nfpm/v2"
+	_ "github.com/goreleaser/nfpm/v2/deb" // To execute a required init()
+	"github.com/goreleaser/nfpm/v2/files"
 )
 
 var (
@@ -59,12 +64,11 @@ type target struct {
 	debname           string
 	debdeps           []string
 	debpre            string
-	debpost           string
 	description       string
 	buildPkgs         []string
 	binaryName        string
 	archiveFiles      []archiveFile
-	systemdServices   []string
+	systemdService    string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -86,7 +90,6 @@ var targets = map[string]target{
 		name:        "syncthing",
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
-		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
@@ -97,6 +100,7 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
+		systemdService: "syncthing@*.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
@@ -141,9 +145,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
-		},
+		systemdService: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
@@ -170,9 +172,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
-		},
+		systemdService: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -623,13 +623,6 @@ func buildDeb(target target) {
 		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 	}
 
-	for _, af := range target.installationFiles {
-		if err := copyFile(af.src, af.dst, af.perm); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	maintainer := "Syncthing Release Management <release@syncthing.net>"
 	debver := version
 	if strings.HasPrefix(debver, "v") {
 		debver = debver[1:]
@@ -638,32 +631,91 @@ func buildDeb(target target) {
 		// than just 0.14.26. This rectifies that.
 		debver = strings.Replace(debver, "-", "~", -1)
 	}
-	args := []string{
-		"-t", "deb",
-		"-s", "dir",
-		"-C", "deb",
-		"-n", target.debname,
-		"-v", debver,
-		"-a", debarch,
-		"-m", maintainer,
-		"--vendor", maintainer,
-		"--description", target.description,
-		"--url", "https://syncthing.net/",
-		"--license", "MPL-2",
+	if err := createDeb(target, debarch, debver); err != nil {
+		log.Fatal(err)
 	}
-	for _, dep := range target.debdeps {
-		args = append(args, "-d", dep)
+}
+
+func createDeb(target target, arch, version string) error {
+	maintainer := "Syncthing Release Management <release@syncthing.net>"
+	config := nfpm.Config{
+		Info: nfpm.Info{
+			Name:        target.debname,
+			Arch:        arch,
+			Version:     version,
+			Maintainer:  maintainer,
+			Vendor:      maintainer,
+			Description: target.description,
+			Homepage:    "https://syncthing.net/",
+			License:     "MPL-2",
+			Overridables: nfpm.Overridables{
+				Depends:  target.debdeps,
+				Contents: make(files.Contents, len(target.installationFiles)),
+				Scripts: nfpm.Scripts{
+					PreInstall: target.debpre,
+				},
+			},
+		},
 	}
-	for _, service := range target.systemdServices {
-		args = append(args, "--deb-systemd", service)
+
+	if target.systemdService != "" {
+		scriptname := filepath.Join("script", "deb-post-inst.template")
+		t, err := template.ParseFiles(scriptname)
+		if err != nil {
+			return err
+		}
+		scriptname = strings.TrimSuffix(scriptname, ".template")
+		w, err := os.Create(scriptname)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			w.Close()
+			os.Remove(scriptname)
+		}()
+		if err = t.Execute(w, struct {
+			Service, Command string
+		}{
+			target.systemdService, target.binaryName,
+		}); err != nil {
+			return err
+		}
+		config.Scripts.PostInstall = scriptname
 	}
-	if target.debpost != "" {
-		args = append(args, "--after-upgrade", target.debpost)
+	for i, file := range target.installationFiles {
+		config.Contents[i] = &files.Content{
+			Source:      file.src,
+			Destination: file.dst,
+			FileInfo:    &files.ContentFileInfo{Mode: file.perm},
+		}
 	}
-	if target.debpre != "" {
-		args = append(args, "--before-install", target.debpre)
+	packager := "deb"
+
+	info, err := config.Get(packager)
+	if err != nil {
+		return err
 	}
-	runPrint("fpm", args...)
+
+	if err = nfpm.Validate(info); err != nil {
+		return err
+	}
+
+	pkg, err := nfpm.Get(packager)
+	if err != nil {
+		return err
+	}
+
+	filename := fmt.Sprintf("%v_%v_%v.%v", target.debname, version, arch, packager)
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	info.Target = filename
+
+	return pkg.Package(info, f)
 }
 
 func shouldBuildSyso(dir string) (string, error) {
