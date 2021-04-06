@@ -31,7 +31,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -46,7 +45,6 @@ import (
 const (
 	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
 	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
-	defaultIgnoreName = "default-stignore"
 )
 
 type service interface {
@@ -90,8 +88,6 @@ type Model interface {
 	LoadIgnores(folder string) ([]string, []string, error)
 	CurrentIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
-	DefaultIgnores() ([]string, []string)
-	SetDefaultIgnores(content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
@@ -141,7 +137,6 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
-	defaultIgnores  *ignore.Matcher
 	fatalChan       chan error
 	started         chan struct{}
 
@@ -228,7 +223,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		shortID:              id.Short(),
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
-		defaultIgnores:       ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 
@@ -265,10 +259,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 func (m *model) serve(ctx context.Context) error {
 	defer m.closeAllConnectionsAndWait()
-
-	if err := m.defaultIgnores.Load(defaultIgnoreName); err != nil {
-		l.Warnf("Failed to load default ignores: %v", err)
-	}
 
 	cfg := m.cfg.Subscribe(m)
 	defer m.cfg.Unsubscribe(m)
@@ -1689,7 +1679,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 			} else {
-				lines, _ := m.DefaultIgnores()
+				lines := m.cfg.DefaultIgnores()
 				if err := m.SetIgnores(fcfg.ID, lines); err != nil {
 					l.Warnf("Failed to apply default ignores to auto-accepted folder %s at path %s: %v", folder.Description(), fcfg.Path, err)
 				}

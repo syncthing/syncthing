@@ -228,6 +228,31 @@ func (c *configMuxBuilder) registerDefaultDevice(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerDefaultIgnores(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, map[string]interface{}{
+			"ignore": c.cfg.DefaultIgnores(),
+		})
+	})
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		ignores, err := deserializeIgnores(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
+			cfg.Defaults.Ignores.Lines = ignores
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		c.finish(w, waiter)
+	})
+}
+
 func (c *configMuxBuilder) registerOptions(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
 		sendJSON(w, c.cfg.Options())

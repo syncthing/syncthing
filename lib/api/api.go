@@ -246,40 +246,38 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/completion", s.getDBCompletion)             // [device] [folder]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/file", s.getDBFile)                         // folder file
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/ignores", s.getDBIgnores)                   // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/defaultignores", s.getDefaultIgnores)
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/need", s.getDBNeed)                       // folder [perpage] [page]
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/remoteneed", s.getDBRemoteNeed)           // device folder [perpage] [page]
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/localchanged", s.getDBLocalChanged)       // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/status", s.getDBStatus)                   // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/browse", s.getDBBrowse)                   // folder [prefix] [dirsonly] [levels]
-	restMux.HandlerFunc(http.MethodGet, "/rest/folder/versions", s.getFolderVersions)       // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/folder/errors", s.getFolderErrors)           // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)       // folder (deprecated)
-	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                   // [since] [limit] [timeout] [events]
-	restMux.HandlerFunc(http.MethodGet, "/rest/events/disk", s.getDiskEvents)               // [since] [limit] [timeout]
-	restMux.HandlerFunc(http.MethodGet, "/rest/stats/device", s.getDeviceStats)             // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/stats/folder", s.getFolderStats)             // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/svc/deviceid", s.getDeviceID)                // id
-	restMux.HandlerFunc(http.MethodGet, "/rest/svc/lang", s.getLang)                        // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/svc/report", s.getReport)                    // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/svc/random/string", s.getRandomString)       // [length]
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/browse", s.getSystemBrowse)           // current
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/connections", s.getSystemConnections) // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/discovery", s.getSystemDiscovery)     // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/error", s.getSystemError)             // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/ping", s.restPing)                    // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)           // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)         // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/version", s.getSystemVersion)         // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)             // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                 // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)          // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/readignores", s.readIgnores)          // path
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/need", s.getDBNeed)                         // folder [perpage] [page]
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/remoteneed", s.getDBRemoteNeed)             // device folder [perpage] [page]
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/localchanged", s.getDBLocalChanged)         // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/status", s.getDBStatus)                     // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/browse", s.getDBBrowse)                     // folder [prefix] [dirsonly] [levels]
+	restMux.HandlerFunc(http.MethodGet, "/rest/folder/versions", s.getFolderVersions)         // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/folder/errors", s.getFolderErrors)             // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)         // folder (deprecated)
+	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                     // [since] [limit] [timeout] [events]
+	restMux.HandlerFunc(http.MethodGet, "/rest/events/disk", s.getDiskEvents)                 // [since] [limit] [timeout]
+	restMux.HandlerFunc(http.MethodGet, "/rest/stats/device", s.getDeviceStats)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/stats/folder", s.getFolderStats)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/svc/deviceid", s.getDeviceID)                  // id
+	restMux.HandlerFunc(http.MethodGet, "/rest/svc/lang", s.getLang)                          // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/svc/report", s.getReport)                      // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/svc/random/string", s.getRandomString)         // [length]
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/browse", s.getSystemBrowse)             // current
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/connections", s.getSystemConnections)   // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/discovery", s.getSystemDiscovery)       // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/error", s.getSystemError)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/ping", s.restPing)                      // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)             // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)           // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/version", s.getSystemVersion)           // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/readignores", s.readIgnores)            // path
 
 	// The POST handlers
-	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)       // folder file [perpage] [page]
-	restMux.HandlerFunc(http.MethodPost, "/rest/db/ignores", s.postDBIgnores) // folder
-	restMux.HandlerFunc(http.MethodPost, "/rest/db/defaultignores", s.postDefaultIgnores)
+	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
+	restMux.HandlerFunc(http.MethodPost, "/rest/db/ignores", s.postDBIgnores)                    // folder
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/override", s.postDBOverride)                  // folder
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/revert", s.postDBRevert)                      // folder
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
@@ -312,6 +310,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDevice("/rest/config/devices/:id")
 	configBuilder.registerDefaultFolder("/rest/config/defaults/folder")
 	configBuilder.registerDefaultDevice("/rest/config/defaults/device")
+	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
 	configBuilder.registerGUI("/rest/config/gui")
@@ -1290,30 +1289,6 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.getDBIgnores(w, r)
-}
-
-func (s *service) getDefaultIgnores(w http.ResponseWriter, r *http.Request) {
-	lines, patterns := s.model.DefaultIgnores()
-	sendJSON(w, map[string]interface{}{
-		"ignore":   lines,
-		"expanded": patterns,
-	})
-}
-
-func (s *service) postDefaultIgnores(w http.ResponseWriter, r *http.Request) {
-	ignores, err := deserializeIgnores(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	err = s.model.SetDefaultIgnores(ignores)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	s.getDefaultIgnores(w, r)
 }
 
 func (s *service) readIgnores(w http.ResponseWriter, r *http.Request) {
