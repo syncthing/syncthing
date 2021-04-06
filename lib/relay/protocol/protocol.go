@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -85,6 +86,9 @@ func ReadMessage(r io.Reader) (interface{}, error) {
 
 	if header.magic != magic {
 		return nil, errors.New("magic mismatch")
+	}
+	if header.messageLength < 0 || header.messageLength > 1024 {
+		return nil, fmt.Errorf("bad length (%d)", header.messageLength)
 	}
 
 	buf = make([]byte, int(header.messageLength))
