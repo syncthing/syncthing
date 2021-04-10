@@ -31,8 +31,8 @@ var (
 
 func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
-		"success":  success,
-		"username": username,
+		"success":       success,
+		"username":      username,
 		"remoteAddress": address,
 	})
 }
