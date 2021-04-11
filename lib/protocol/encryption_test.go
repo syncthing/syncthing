@@ -196,7 +196,7 @@ func TestIsEncryptedParent(t *testing.T) {
 		{"1" + encryptedDirExtension + "/bc/" + comp + "/a/" + comp, false},
 	}
 	for _, tc := range cases {
-		if res := IsEncryptedParent(tc.path); res != tc.is {
+		if res := IsEncryptedParent(strings.Split(tc.path, "/")); res != tc.is {
 			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
 		}
 	}
