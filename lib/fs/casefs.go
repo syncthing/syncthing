@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -400,7 +399,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	for _, comp := range strings.Split(name, string(PathSeparator)) {
+	for _, comp := range PathComponents(name) {
 		node := r.cache.getExpireAdd(realName)
 
 		node.once.Do(func() {

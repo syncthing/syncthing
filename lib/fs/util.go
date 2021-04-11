@@ -15,6 +15,8 @@ import (
 	"unicode"
 )
 
+const pathSeparatorString = string(PathSeparator)
+
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
 		return getHomeDir()
@@ -164,7 +166,7 @@ func IsParent(path, parent string) bool {
 		return path != "/"
 	}
 	if parent[len(parent)-1] != PathSeparator {
-		parent += string(PathSeparator)
+		parent += pathSeparatorString
 	}
 	return strings.HasPrefix(path, parent)
 }
@@ -175,8 +177,8 @@ func CommonPrefix(first, second string) string {
 		return ""
 	}
 
-	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
-	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
+	firstParts := PathComponents(filepath.Clean(first))
+	secondParts := PathComponents(filepath.Clean(second))
 
 	isAbs := filepath.IsAbs(first) && filepath.IsAbs(second)
 
@@ -200,7 +202,7 @@ func CommonPrefix(first, second string) string {
 			common = append(common, "")
 		} else if len(common) == 1 {
 			// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
-			return string(PathSeparator)
+			return pathSeparatorString
 		}
 	}
 
@@ -211,8 +213,14 @@ func CommonPrefix(first, second string) string {
 	}
 
 	// This has to be strings.Join, because filepath.Join([]string{"", "", "?", "C:", "Audrius"}...) returns garbage
-	result := strings.Join(common, string(PathSeparator))
+	result := strings.Join(common, pathSeparatorString)
 	return filepath.Clean(result)
+}
+
+// PathComponents returns a list of names of parent directories and the leaf
+// item for the given native (fs.PathSeparator delimited) and clean path.
+func PathComponents(path string) []string {
+	return strings.Split(path, pathSeparatorString)
 }
 
 func isVolumeNameOnly(parts []string) bool {

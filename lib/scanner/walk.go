@@ -311,7 +311,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// ignored path need to be handled as well.
 		// Prepend an empty string to handle ignoredParent without anything
 		// appended in the first iteration.
-		for _, name := range append([]string{""}, strings.Split(rel, string(fs.PathSeparator))...) {
+		for _, name := range append([]string{""}, fs.PathComponents(rel)...) {
 			ignoredParent = filepath.Join(ignoredParent, name)
 			info, err = w.Filesystem.Lstat(ignoredParent)
 			// An error here would be weird as we've already gotten to this point, but act on it nonetheless

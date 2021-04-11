@@ -558,7 +558,7 @@ func (f *folder) scanSubdirsBatchAppendFunc(batch *fileInfoBatch) batchAppendFun
 			// This is a "virtual" parent directory of encrypted files.
 			// We don't track it, but check if anything still exists
 			// within and delete it otherwise.
-			if fi.IsDirectory() && protocol.IsEncryptedParent(fi.Name) {
+			if fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
 				if names, err := f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
 					f.mtimefs.Remove(fi.Name)
 				}

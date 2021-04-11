@@ -559,24 +559,10 @@ func (r rawResponse) Data() []byte {
 func (r rawResponse) Close() {}
 func (r rawResponse) Wait()  {}
 
-// IsEncryptedPath returns true if the path points at encrypted data. This is
-// determined by checking for a sentinel string in the path.
-func IsEncryptedPath(path string) bool {
-	pathComponents := strings.Split(path, "/")
-	if len(pathComponents) != 3 {
-		return false
-	}
-	return isEncryptedParentFromComponents(pathComponents[:2])
-}
-
 // IsEncryptedParent returns true if the path points at a parent directory of
 // encrypted data, i.e. is not a "real" directory. This is determined by
 // checking for a sentinel string in the path.
-func IsEncryptedParent(path string) bool {
-	return isEncryptedParentFromComponents(strings.Split(path, "/"))
-}
-
-func isEncryptedParentFromComponents(pathComponents []string) bool {
+func IsEncryptedParent(pathComponents []string) bool {
 	l := len(pathComponents)
 	if l == 2 && len(pathComponents[1]) != 2 {
 		return false

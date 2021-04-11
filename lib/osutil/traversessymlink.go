@@ -9,7 +9,6 @@ package osutil
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
@@ -47,7 +46,7 @@ func TraversesSymlink(filesystem fs.Filesystem, name string) error {
 	}
 
 	var path string
-	for _, part := range strings.Split(name, string(fs.PathSeparator)) {
+	for _, part := range fs.PathComponents(name) {
 		path = filepath.Join(path, part)
 		info, err := filesystem.Lstat(path)
 		if err != nil {
