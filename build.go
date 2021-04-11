@@ -30,6 +30,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -59,12 +60,11 @@ type target struct {
 	debname           string
 	debdeps           []string
 	debpre            string
-	debpost           string
 	description       string
 	buildPkgs         []string
 	binaryName        string
 	archiveFiles      []archiveFile
-	systemdServices   []string
+	systemdService    string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -86,7 +86,6 @@ var targets = map[string]target{
 		name:        "syncthing",
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
-		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
@@ -97,6 +96,7 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
+		systemdService: "syncthing@*.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
@@ -141,9 +141,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
-		},
+		systemdService: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
@@ -170,9 +168,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
-		},
+		systemdService: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -654,16 +650,40 @@ func buildDeb(target target) {
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
 	}
-	for _, service := range target.systemdServices {
-		args = append(args, "--deb-systemd", service)
-	}
-	if target.debpost != "" {
-		args = append(args, "--after-upgrade", target.debpost)
+	if target.systemdService != "" {
+		debpost, err := createPostInstScript(target)
+		defer os.Remove(debpost)
+		if err != nil {
+			log.Fatal(err)
+		}
+		args = append(args, "--after-upgrade", debpost)
 	}
 	if target.debpre != "" {
 		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
+}
+
+func createPostInstScript(target target) (string, error) {
+	scriptname := filepath.Join("script", "deb-post-inst.template")
+	t, err := template.ParseFiles(scriptname)
+	if err != nil {
+		return "", err
+	}
+	scriptname = strings.TrimSuffix(scriptname, ".template")
+	w, err := os.Create(scriptname)
+	if err != nil {
+		return "", err
+	}
+	defer w.Close()
+	if err = t.Execute(w, struct {
+		Service, Command string
+	}{
+		target.systemdService, target.binaryName,
+	}); err != nil {
+		return "", err
+	}
+	return scriptname, nil
 }
 
 func shouldBuildSyso(dir string) (string, error) {
