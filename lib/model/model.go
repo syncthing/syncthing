@@ -110,6 +110,8 @@ type Model interface {
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+	CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error)
+	CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
@@ -294,6 +296,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
+	m.cleanCandidates(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices)
 
 	m.sendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
@@ -1193,6 +1196,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
+	// Collect candidate devices that we have an indirect connection to
+	// because they have the same folder, but do not share it with us.
 
 	m.pmut.RLock()
 	indexSenderRegistry, ok := m.indexSenders[deviceID]
@@ -1322,10 +1327,13 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
+			m.ccHandleFolderCandidates(folder, deviceID, cfg)
 			folderDevice, ok = cfg.Device(deviceID)
 		}
 		if !ok {
 			indexSenders.remove(folder.ID)
+			// This folder is offered to us from the remote device, suggest it
+			// to the user for approval unless previously ignored.
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -1350,6 +1358,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				"device":      deviceID.String(),
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+			//FIXME Should still collect candidate device entries?  Might help
+			// to decide whether the offer should be accepted, if the user
+			// sees who else has this folder.  Problem: Folder ID not yet in
+			// the DB!
 			continue
 		}
 
@@ -1434,8 +1446,61 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			"removed": expiredPendingList,
 		})
 	}
+	// All current candidate links were touched above, so discard any with older timestamps
+	_, err = m.db.RemoveCandidateLinksBeforeTime(deviceID, handleTime)
+	if err != nil {
+		l.Infof("Could not clean up candidate link entries: %v", err)
+	}
 
 	return tempIndexFolders, paused, nil
+}
+
+func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer protocol.DeviceID, fcfg config.FolderConfiguration) {
+	// Note this is called for locally known folders the introducer shares with us,
+	// but we don't necessarily offer them to the introducer yet.
+	if !fcfg.SharedWith(introducer) {
+		// Folder is offered from the introducer, but pending locally.  Do not use
+		// any announced devices as candidates, as we cannot know if the folder is
+		// really accessible to them.
+		return
+	}
+	for _, dev := range folder.Devices {
+		if dev.ID == m.id || dev.ID == introducer {
+			// This is the other side's description of themselves, or of what
+			// it knows about us.
+			continue
+		}
+		if fcfg.SharedWith(dev.ID) {
+			// Local folder is already shared with the candidate device.
+			continue
+		}
+		if knownDev, ok := m.cfg.Device(dev.ID); ok {
+			if knownDev.IgnoredFolder(folder.ID) {
+				// Folder deliberately ignored from this candidate.
+				continue
+			}
+			// This device is known to us and shares this folder, but not
+			// directly with us.  Remember it in order to possibly present a
+			// list of suggested devices for additional cluster connectivity.
+			l.Infof("Known device %s (%s) is not directly sharing common folder %s, marking as candidate",
+				dev.ID.Short(), knownDev.Name, folder.ID)
+		} else if m.cfg.IgnoredDevice(dev.ID) {
+			// Device is deliberately ignored, so skip as candidate.
+			continue
+		} else {
+			// There is another device sharing this folder that we haven't
+			// heard of yet.  Remember it in order to possibly present a list
+			// of suggested devices for additional cluster connectivity.
+			l.Infof("Unknown device %v (%s) is a candidate for indirectly shared folder %s",
+				dev.ID, dev.Name, folder.ID)
+		}
+		// Record as a new candidate device, remembering all the details received
+		// from our known peer.
+		if err := m.db.AddOrUpdateCandidateLink(folder.ID, folder.Label, dev.ID, introducer,
+			dev.CertName, dev.Name, dev.Addresses); err != nil {
+			l.Warnf("Failed to persist candidate link entry to database: %v", err)
+		}
+	}
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {
@@ -2919,6 +2984,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
+	m.cleanCandidates(toDevices, toFolders, ignoredDevices)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
@@ -3011,6 +3077,44 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	}
 }
 
+func (m *model) cleanCandidates(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet) {
+	candidates, err := m.db.CandidateLinks()
+	if err != nil {
+		l.Infof("Could not iterate through candidate link entries for cleanup: %v", err)
+		return
+	}
+	for _, cl := range candidates {
+		folderCfg, ok := existingFolders[cl.Folder]
+		if !ok {
+			l.Debugf("Discarding candidate through unknown folder %s", cl.Folder)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if !folderCfg.SharedWith(cl.Introducer) {
+			l.Debugf("Discarding candidate introduction from unrelated device %v", cl.Introducer)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if _, ok := ignoredDevices[cl.Candidate]; ok {
+			l.Debugf("Discarding ignored candidate device %v", cl.Candidate)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if folderCfg.SharedWith(cl.Candidate) {
+			l.Debugf("Discarding candidate already shared to %v", cl.Candidate)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if candidate, ok := existingDevices[cl.Candidate]; ok {
+			if candidate.IgnoredFolder(cl.Folder) {
+				l.Debugf("Discarding ignored candidate folder %v for device %v", cl.Folder, cl.Candidate)
+				m.db.RemoveCandidateLink(cl)
+				continue
+			}
+		}
+	}
+}
+
 // checkFolderRunningLocked returns nil if the folder is up and running and a
 // descriptive error if not.
 // Need to hold (read) lock on m.fmut when calling this.
@@ -3039,6 +3143,52 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return m.db.PendingFoldersForDevice(device)
+}
+
+// CandidateDevices lists devices that already have an indirect link over one or more
+// folders, through the introducing third parties.  For each candidate, the suggestion is
+// attributed to one or more introducing device IDs with the common folders IDs.  The
+// output is filtered for candidates having a specific folder ID if passed in non-empty.
+func (m *model) CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error) {
+	res, err := m.db.CandidateDevicesForFolder(folder)
+	if err != nil {
+		return nil, err
+	}
+	for deviceID, candidate := range res {
+		if _, ok := m.cfg.Device(deviceID); ok {
+			// Omit connection details and suggested names for already known devices
+			candidate.CertName = ""
+			candidate.Addresses = nil
+			for introducerID, attrib := range candidate.IntroducedBy {
+				attrib.SuggestedName = ""
+				candidate.IntroducedBy[introducerID] = attrib
+			}
+			res[deviceID] = candidate
+		}
+	}
+	return res, nil
+}
+
+// CandidateFolders lists folders where other known devices already have an indirect link,
+// through the introducing third parties.  For each candidate folder-device combination,
+// the suggestion is attributed to one or more introducing device IDs.  It returns the
+// entries grouped by common folder ID and filters for a given candidate device unless the
+// argument is specified as EmptyDeviceID.
+func (m *model) CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error) {
+	res, err := m.db.CandidateFoldersForDevice(device)
+	if err != nil {
+		return nil, err
+	}
+	for folderID, candidates := range res {
+		for deviceID := range candidates {
+			if _, ok := m.cfg.Device(deviceID); !ok {
+				// Omit unknown devices
+				delete(candidates, deviceID)
+			}
+		}
+		res[folderID] = candidates
+	}
+	return res, nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

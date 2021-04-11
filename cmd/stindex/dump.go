@@ -148,6 +148,18 @@ func dump(ldb backend.Backend) {
 			od.Unmarshal(it.Value())
 			fmt.Printf("[pendingDevice] D:%v V:%v\n", device, od)
 
+		case db.KeyTypeCandidateLink:
+			introducer := binary.BigEndian.Uint32(key[1:])
+			folder := binary.BigEndian.Uint32(key[5:])
+			candidate := "<invalid>"
+			dev, err := protocol.DeviceIDFromBytes(key[9:])
+			if err == nil {
+				candidate = dev.String()
+			}
+			var ocl db.ObservedCandidateLink
+			ocl.Unmarshal(it.Value())
+			fmt.Printf("[candidateLink] D:%d says F:%d exists on %v V:%v\n", introducer, folder, candidate, ocl)
+
 		default:
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}

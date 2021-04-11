@@ -767,6 +767,8 @@ angular.module('syncthing.core')
             $scope.currentSharing = {};
             $scope.currentSharing.editing = editing;
             $scope.currentSharing.shared = [];
+            $scope.currentSharing.suggested = [];
+            $scope.currentSharing.suggestedUnknownDevices = [];
             $scope.currentSharing.unrelated = [];
             $scope.currentSharing.selected = {};
             if (editing === 'folder') {
@@ -780,9 +782,6 @@ angular.module('syncthing.core')
                     $scope.currentSharing.shared.push($scope.devices[n.deviceID]);
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
-            });
-            $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
-                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
             });
         }
 
@@ -1554,9 +1553,21 @@ angular.module('syncthing.core')
                 $scope.currentSharing.shared.push($scope.folders[folderID]);
                 $scope.currentSharing.selected[folderID] = true;
             });
-            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
-                return !$scope.currentSharing.selected[n.id];
-            });
+            $http.get(urlbase + '/cluster/candidate/folders?device=' + encodeURIComponent(deviceCfg.deviceID))
+                .success(function (candidates) {
+                    for (var folderID in candidates) {
+                        var candidate = $scope.folders[folderID];
+                        candidate.introducedBy = candidates[folderID][deviceCfg.deviceID];
+                        $scope.currentSharing.suggested.push(candidate);
+                    }
+                })
+                .then(function (response) {
+                    var candidates = response.data;
+                    $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
+                        return !$scope.currentSharing.selected[n.id]
+                            && !candidates.hasOwnProperty(n.id);
+                    });
+                });
             editDeviceModal();
         };
 
@@ -1570,6 +1581,13 @@ angular.module('syncthing.core')
 
         $scope.selectAllSharedFolders = function (state) {
             var folders = $scope.currentSharing.shared;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
+            }
+        };
+
+        $scope.selectAllSuggestedFolders = function (state) {
+            var folders = $scope.currentSharing.suggested;
             for (var i = 0; i < folders.length; i++) {
                 $scope.currentSharing.selected[folders[i].id] = !!state;
             }
@@ -1608,6 +1626,22 @@ angular.module('syncthing.core')
                         editDeviceModal();
                     }, $scope.emitHTTPError);
                 });
+        };
+
+        $scope.addDeviceAndShare = function (deviceCfg, deviceName, folderID) {
+            $('#editFolder').modal('hide');
+            $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                $scope.currentDevice = p.data;
+                $scope.currentDevice.name = deviceName;
+                $scope.currentDevice.deviceID = deviceCfg.deviceID,
+                $scope.currentDevice.addresses = deviceCfg.addresses,
+                $scope.editingExisting = false;
+                $scope.editingDefaults = false;
+                initShareEditing('device');
+                $scope.currentSharing.unrelated = $scope.folderList();
+                $scope.currentSharing.selected[folderID] = true;
+                editDeviceModal();
+            }, $scope.emitHTTPError);
         };
 
         $scope.deleteDevice = function () {
@@ -1888,15 +1922,13 @@ angular.module('syncthing.core')
             return 'fas fa-folder';
         };
 
-        function editFolder() {
+        function initPathEditing() {
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             } else if (!$scope.currentFolder.path) {
                 // undefined path leads to invalid input field
                 $scope.currentFolder.path = '';
             }
-            initShareEditing('folder');
-            editFolderModal();
         }
 
         $scope.internalVersioningEnabled = function(guiVersioning) {
@@ -1957,7 +1989,41 @@ angular.module('syncthing.core')
                     $scope.emitHTTPError(err);
                 });
 
-            editFolder();
+            initPathEditing();
+            initShareEditing('folder');
+            $http.get(urlbase + '/cluster/candidate/devices?folder=' + encodeURIComponent(folderCfg.id))
+                .success(function (candidates) {
+                    for (var id in candidates) {
+                        if (id in $scope.devices) {
+                            var candidate = $scope.devices[id];
+                            candidate.introducedBy = candidates[id].introducedBy;
+                            $scope.currentSharing.suggested.push(candidate);
+                        } else {
+                            var alias = '';
+                            for (i in candidates[id].introducedBy) {
+                                if (alias === '') {
+                                    alias = i.suggestedName;
+                                } else if (alias !== i.suggestedName) {
+                                    alias = undefined;
+                                    break;
+                                }
+                            }
+                            var candidate = candidates[id];
+                            candidate['deviceID'] = id;
+                            candidate['alias'] = alias;
+                            $scope.currentSharing.suggestedUnknownDevices.push(candidate);
+                        }
+                    }
+                })
+                .then(function (response) {
+                    var candidates = response.data;
+                    $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
+                        return n.deviceID !== $scope.myID
+                            && !$scope.currentSharing.selected[n.deviceID]
+                            && !candidates.hasOwnProperty(n.deviceID);
+                    });
+                });
+            editFolderModal();
         };
 
         $scope.editFolderDefaults = function() {
@@ -1966,7 +2032,9 @@ angular.module('syncthing.core')
                      $scope.currentFolder = data;
                      $scope.editingExisting = false;
                      $scope.editingDefaults = true;
-                     editFolder();
+                     initPathEditing();
+                     initShareEditing('folder');
+                     editFolderModal();
                  })
                  .error($scope.emitHTTPError);
         };
@@ -1978,11 +2046,30 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.selectAllSuggestedDevices = function (state) {
+            var devices = $scope.currentSharing.suggested;
+            for (var i = 0; i < devices.length; i++) {
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            }
+        };
+
         $scope.selectAllUnrelatedDevices = function (state) {
             var devices = $scope.currentSharing.unrelated;
             for (var i = 0; i < devices.length; i++) {
                 $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
+        };
+
+        $scope.introducerList = function (introducedBy) {
+            var text = '';
+            for (var id in introducedBy) {
+                if (text !== '') {
+                    text += '<br />';
+                }
+                text += $scope.deviceName($scope.devices[id]);
+                text += ' (' + new Date(introducedBy[id].time).toLocaleString() + ')';
+            }
+            return text.trim();
         };
 
         $scope.addFolder = function () {
@@ -2015,7 +2102,9 @@ angular.module('syncthing.core')
                 $scope.currentFolder.id = folderID;
 
                 initShareEditing('folder');
-                $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
+                $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
+                    return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
+                }).concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
 
                 $scope.ignores.text = '';

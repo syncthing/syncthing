@@ -65,21 +65,55 @@
               </div>
             </div>
           </div>
-          <div class="form-group" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
+          <div class="form-group" ng-if="currentSharing.suggested.length || currentSharing.unrelated.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
-              <small><a href="#" ng-click="selectAllUnrelatedDevices(true)" translate>Select All</a>&emsp;
-                <a href="#" ng-click="selectAllUnrelatedDevices(false)" translate>Deselect All</a></small>
+              <small><a href="#" ng-click="selectAllSuggestedDevices(true); selectAllUnrelatedDevices(true)" translate>Select All</a>&emsp;
+                <a href="#" ng-click="selectAllSuggestedDevices(false); selectAllUnrelatedDevices(false)" translate>Deselect All</a></small>
+	      <small ng-if="currentSharing.suggested.length">
+		<br /><span translate>* Highlighted devices already have this folder available.</span>&emsp;
+		<a href="#" ng-click="selectAllSuggestedDevices(true)" translate>Select Suggested</a>
+	      </small>
             </p>
             <p class="help-block" ng-if="otherDevices().length <= 0">
               <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="row">
+              <div class="col-md-4" ng-repeat="device in currentSharing.suggested">
+                <div class="checkbox">
+                  <label>
+                    <input type="checkbox" ng-model="currentSharing.selected[device.deviceID]" />
+		    <strong>{{deviceName(device)}} *</strong>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="row">
               <div class="col-md-4" ng-repeat="device in currentSharing.unrelated">
                 <div class="checkbox">
                   <label>
                     <input type="checkbox" ng-model="currentSharing.selected[device.deviceID]" /> {{deviceName(device)}}
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" ng-if="currentSharing.suggestedUnknownDevices.length">
+            <label translate>Other Suggested Devices</label>
+            <p class="help-block">
+              <span translate>Add suggested devices where this folder is already available to offer them direct sharing.</span>&emsp;
+            </p>
+            <div class="row">
+              <div class="col-md-12" ng-repeat="device in currentSharing.suggestedUnknownDevices">
+                <div>
+                  <label>
+                    <a ng-click="addDeviceAndShare(device, device.alias, currentFolder.id)">
+                      <span tooltip data-original-title="{{introducerList(device.introducedBy)}}">
+                        <span class="fas fa-plus"></span>&nbsp;{{device.deviceID}}
+                        <span class="text-nowrap" ng-if="device.alias">&nbsp;"{{device.alias}}"</span>
+                      </span>
+                    </a>
                   </label>
                 </div>
               </div>
