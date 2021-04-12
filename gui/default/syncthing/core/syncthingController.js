@@ -2366,12 +2366,13 @@ angular.module('syncthing.core')
                             });
 
                             $("#restoreVersionDateRange").daterangepicker({
+                                parentEl: '#restoreVersions',
                                 timePicker: true,
                                 timePicker24Hour: true,
                                 timePickerSeconds: true,
                                 autoUpdateInput: true,
                                 opens: "left",
-                                drops: "up",
+                                drops: "down",
                                 startDate: minDate,
                                 endDate: maxDate,
                                 minDate: minDate,
