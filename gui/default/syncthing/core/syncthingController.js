@@ -11,6 +11,7 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+		var defaultPerPage = 10;
 
         function initController() {
             LocaleService.autoConfigLocale();
@@ -59,7 +60,9 @@ angular.module('syncthing.core')
             error: null,
             disabled: false,
         };
-        resetRemoteNeed();
+        $scope.remoteNeed = {};
+        $scope.remoteNeedFolders = [];
+        $scope.remoteNeedDevice = undefined;
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -728,12 +731,6 @@ angular.module('syncthing.core')
 
         function shouldSetDefaultFolderPath() {
             return $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine && !$scope.editingDefaults;
-        }
-
-        function resetRemoteNeed() {
-            $scope.remoteNeed = {};
-            $scope.remoteNeedFolders = [];
-            $scope.remoteNeedDevice = undefined;
         }
 
 
@@ -2435,15 +2432,15 @@ angular.module('syncthing.core')
 
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
-            $scope.refreshNeed(1, 10);
+            $scope.refreshNeed(1, $scope.needed.perpage || defaultPerPage);
             $('#needed').modal().one('hidden.bs.modal', function () {
-                $scope.needed = undefined;
+                $scope.needed = { perpage: $scope.needed.perpage };
                 $scope.neededFolder = '';
             });
         };
 
         $scope.showRemoteNeed = function (device) {
-            resetRemoteNeed();
+            $scope.remoteNeedFolders = [];
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function (folder) {
                 var comp = $scope.completion[device.deviceID][folder];
@@ -2451,18 +2448,18 @@ angular.module('syncthing.core')
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
-                $scope.refreshRemoteNeed(folder, 1, 10);
+                $scope.refreshRemoteNeed(folder, 1, $scope.remoteNeed.perpage || defaultPerPage);
             });
             $('#remoteNeed').modal().one('hidden.bs.modal', function () {
-                resetRemoteNeed();
+				$scope.remoteNeed = { perpage: $scope.remoteNeed.perpage };
             });
         };
 
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
-            $scope.failed = $scope.refreshFailed(1, 10);
+            $scope.refreshFailed(1, $scope.failed.perpage || defaultPerPage);
             $('#failed').modal().one('hidden.bs.modal', function () {
-                $scope.failed = {};
+                $scope.failed = { perpage: $scope.failed.perpage };
             });
         };
 
@@ -2475,9 +2472,9 @@ angular.module('syncthing.core')
 
         $scope.showLocalChanged = function (folder) {
             $scope.localChangedFolder = folder;
-            $scope.localChanged = $scope.refreshLocalChanged(1, 10);
+            $scope.refreshLocalChanged(1, $scope.localChanged.perpage || defaultPerPage);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
-                $scope.localChanged = {};
+                $scope.localChanged = { perpage: $scope.localChanged.perpage };
                 $scope.localChangedFolder = undefined;
             });
         };
