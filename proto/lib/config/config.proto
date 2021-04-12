@@ -12,16 +12,15 @@ import "lib/config/observed.proto";
 import "ext.proto";
 
 message Configuration {
-    int32                        version          = 1 [(ext.xml) = "version,attr"];
-    repeated FolderConfiguration folders          = 2;
-    repeated DeviceConfiguration devices          = 3;
-    GUIConfiguration             gui              = 4 [(ext.goname) = "GUI"];
-    LDAPConfiguration            ldap             = 5 [(ext.goname) = "LDAP"];
-    OptionsConfiguration         options          = 6;
-    repeated ObservedDevice      ignored_devices  = 7 [(ext.json) = "remoteIgnoredDevices", (ext.xml) = "remoteIgnoredDevice"];
-    repeated ObservedDevice      pending_devices  = 8 [deprecated=true];
-    Defaults                     defaults         = 9;
-    int32                        migrationVersion = 10 [(ext.xml) = "migrationVersion,attr"];
+    int32                        version         = 1 [(ext.xml) = "version,attr"];
+    repeated FolderConfiguration folders         = 2;
+    repeated DeviceConfiguration devices         = 3;
+    GUIConfiguration             gui             = 4 [(ext.goname) = "GUI"];
+    LDAPConfiguration            ldap            = 5 [(ext.goname) = "LDAP"];
+    OptionsConfiguration         options         = 6;
+    repeated ObservedDevice      ignored_devices = 7 [(ext.json) = "remoteIgnoredDevices", (ext.xml) = "remoteIgnoredDevice"];
+    repeated ObservedDevice      pending_devices = 8 [deprecated=true];
+    Defaults                     defaults        = 9;
 }
 
 message Defaults {
