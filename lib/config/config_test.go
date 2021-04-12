@@ -44,8 +44,9 @@ func TestDefaultValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := Configuration{
-		Version: CurrentVersion,
-		Folders: []FolderConfiguration{},
+		Version:          CurrentVersion,
+		MigrationVersion: CurrentMigrationVersion,
+		Folders:          []FolderConfiguration{},
 		Options: OptionsConfiguration{
 			RawListenAddresses:      []string{"default"},
 			RawGlobalAnnServers:     []string{"default"},
@@ -817,7 +818,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		},
 	}
 
-	m := migration{14, migrateToConfigV14}
+	m := migration{14, 14, migrateToConfigV14}
 
 	for _, tc := range tcs {
 		cfg := Configuration{

@@ -27,31 +27,32 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
-		{35, migrateToConfigV35},
-		{34, migrateToConfigV34},
-		{33, migrateToConfigV33},
-		{32, migrateToConfigV32},
-		{31, migrateToConfigV31},
-		{30, migrateToConfigV30},
-		{29, migrateToConfigV29},
-		{28, migrateToConfigV28},
-		{27, migrateToConfigV27},
-		{26, nil}, // triggers database update
-		{25, migrateToConfigV25},
-		{24, migrateToConfigV24},
-		{23, migrateToConfigV23},
-		{22, migrateToConfigV22},
-		{21, migrateToConfigV21},
-		{20, migrateToConfigV20},
-		{19, nil}, // Triggers a database tweak
-		{18, migrateToConfigV18},
-		{17, nil}, // Fsync = true removed
-		{16, nil}, // Triggers a database tweak
-		{15, migrateToConfigV15},
-		{14, migrateToConfigV14},
-		{13, migrateToConfigV13},
-		{12, migrateToConfigV12},
-		{11, migrateToConfigV11},
+		{35, 1, migration1},
+		{35, 0, migrateToConfigV35},
+		{34, 0, migrateToConfigV34},
+		{33, 0, migrateToConfigV33},
+		{32, 0, migrateToConfigV32},
+		{31, 0, migrateToConfigV31},
+		{30, 0, migrateToConfigV30},
+		{29, 0, migrateToConfigV29},
+		{28, 0, migrateToConfigV28},
+		{27, 0, migrateToConfigV27},
+		{26, 0, nil}, // triggers database update
+		{25, 0, migrateToConfigV25},
+		{24, 0, migrateToConfigV24},
+		{23, 0, migrateToConfigV23},
+		{22, 0, migrateToConfigV22},
+		{21, 0, migrateToConfigV21},
+		{20, 0, migrateToConfigV20},
+		{19, 0, nil}, // Triggers a database tweak
+		{18, 0, migrateToConfigV18},
+		{17, 0, nil}, // Fsync = true removed
+		{16, 0, nil}, // Triggers a database tweak
+		{15, 0, migrateToConfigV15},
+		{14, 0, migrateToConfigV14},
+		{13, 0, migrateToConfigV13},
+		{12, 0, migrateToConfigV12},
+		{11, 0, migrateToConfigV11},
 	}
 	migrationsMut = sync.Mutex{}
 )
@@ -64,6 +65,9 @@ func (ms migrationSet) apply(cfg *Configuration) {
 	// Make sure we apply the migrations in target version order regardless
 	// of how it was defined.
 	sort.Slice(ms, func(a, b int) bool {
+		if ms[a].targetVersion == ms[b].targetVersion {
+			return ms[a].targetMigrationVersion < ms[b].targetMigrationVersion
+		}
 		return ms[a].targetVersion < ms[b].targetVersion
 	})
 
@@ -77,21 +81,32 @@ func (ms migrationSet) apply(cfg *Configuration) {
 // to reach that version. The function does not need to change the actual
 // cfg.Version field.
 type migration struct {
-	targetVersion int
-	convert       func(cfg *Configuration)
+	targetVersion          int
+	targetMigrationVersion int
+	convert                func(cfg *Configuration)
 }
 
 // apply applies the conversion function if the current version is below the
 // target version and the function is not nil, and updates the current
 // version.
 func (m migration) apply(cfg *Configuration) {
-	if cfg.Version >= m.targetVersion {
+	if cfg.Version > m.targetVersion || (cfg.Version == m.targetVersion && cfg.MigrationVersion >= m.targetMigrationVersion) {
 		return
 	}
 	if m.convert != nil {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+	cfg.MigrationVersion = m.targetMigrationVersion
+}
+
+func migration1(cfg *Configuration) {
+	for i := range cfg.Options.FeatureFlags {
+		if cfg.Options.FeatureFlags[i] == "untrusted" {
+			cfg.Options.FeatureFlags = append(cfg.Options.FeatureFlags[:i], cfg.Options.FeatureFlags[i+1:]...)
+			return
+		}
+	}
 }
 
 func migrateToConfigV35(cfg *Configuration) {

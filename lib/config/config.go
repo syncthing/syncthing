@@ -29,9 +29,10 @@ import (
 )
 
 const (
-	OldestHandledVersion = 10
-	CurrentVersion       = 35
-	MaxRescanIntervalS   = 365 * 24 * 60 * 60
+	OldestHandledVersion    = 10
+	CurrentVersion          = 35
+	CurrentMigrationVersion = 1
+	MaxRescanIntervalS      = 365 * 24 * 60 * 60
 )
 
 var (
@@ -100,6 +101,7 @@ var (
 func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
+	cfg.MigrationVersion = CurrentMigrationVersion
 
 	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 
