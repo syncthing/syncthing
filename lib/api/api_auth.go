@@ -57,7 +57,8 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
-		error := func() {
+		error := func(reason string) {
+			l.Infoln("API authorization failed: ", reason)
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 			w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
@@ -65,20 +66,20 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		hdr := r.Header.Get("Authorization")
 		if !strings.HasPrefix(hdr, "Basic ") {
-			error()
+			error("Wrong authorization type")
 			return
 		}
 
 		hdr = hdr[6:]
 		bs, err := base64.StdEncoding.DecodeString(hdr)
 		if err != nil {
-			error()
+			error("Decoding error")
 			return
 		}
 
 		fields := bytes.SplitN(bs, []byte(":"), 2)
 		if len(fields) != 2 {
-			error()
+			error("Could not find username and password")
 			return
 		}
 
@@ -97,7 +98,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		if !authOk {
 			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			error()
+			error("Wrong credentials supplied")
 			return
 		}
 
