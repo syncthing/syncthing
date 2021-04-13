@@ -1,0 +1,40 @@
+<div class="col-md-6 checkbox">
+  <label for="sharedwith-{{id}}">
+    <input id="sharedwith-{{id}}" ng-model="selected[id]" type="checkbox" />
+    <span tooltip data-original-title="{{id}}">{{label}}</span>
+  </label>
+</div>
+<div class="col-md-6">
+  <div class="input-group">
+    <span class="input-group-addon" ng-switch="folderType !== 'receiveencrypted' && !encryptionPasswords[id]">
+      <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
+      <span ng-switch-default class="fas fa-fw fa-lock" />
+    </span>
+    <span ng-switch="folderType === 'receiveencrypted'">
+      <span ng-switch-when='true'>
+        <input class="form-control input-sm" type="password" placeholder="{{'Received data is already encrypted' | translate}}" disabled />
+      </span>
+      <span ng-switch-default ng-switch="selected[id]">
+        <span ng-switch-when='true' ng-switch="untrusted">
+          <span ng-switch-when='true' ng-class="{'has-error': !encryptionPasswords[id]}">
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" required placeholder="{{'Device is untrusted, enter encryption password' | translate}}" />
+          </span>
+          <span ng-switch-default>
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" placeholder="{{'If untrusted, enter encryption password' | translate}}" />
+          </span>
+        </span>
+        <span ng-switch-default>
+          <input class="form-control input-sm" type="password" placeholder="{{'Not shared' | translate}}" disabled />
+        </span>
+      </span>
+    </span>
+    <span ng-switch="selected[id] && folderType !== 'receiveencrypted'" class="input-group-addon">
+      <span ng-switch-when='true'>
+        <span class="button fas fa-fw fa-eye" ng-click="togglePasswordVisibility()" />
+      </span>
+      <span ng-switch-default>
+        <span class="button fas fa-fw fa-eye" disabled />
+      </span>
+    </span>
+  </div>
+</div>
