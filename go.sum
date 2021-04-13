@@ -52,6 +52,8 @@ github.com/calmh/xdr v1.1.0/go.mod h1:E8sz2ByAdXC8MbANf1LCRYzedSnnc+/sXXJs/PVqoe
 github.com/casbin/casbin/v2 v2.1.2/go.mod h1:YcPU1XXisHhLzuxH9coDNf2FbKpjGlbCg3n9yuLkIJQ=
 github.com/ccding/go-stun v0.1.2 h1:1CZhjVwfyO/jGxk06a+0OSOGBWZu588kuZQQO4nihsw=
 github.com/ccding/go-stun v0.1.2/go.mod h1:3FK1bMar37f7jqVY7q/63k3OMX1c47pGCufzt3X0sYE=
+github.com/ccding/go-stun v0.1.3 h1:uEAFsxqPBuo4tvILfloEHUBO3b4BlEAMnx2PZdh54jE=
+github.com/ccding/go-stun v0.1.3/go.mod h1:cCZjJ1J3WFSJV6Wj8Y9Di8JMTsEXh6uv2eNmLzKaUeM=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/certifi/gocertifi v0.0.0-20200922220541-2c3bb06c6054 h1:uH66TXeswKn5PW5zdZ39xEwfS9an067BirqA+P4QaLI=
