@@ -342,6 +342,7 @@
                     <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
                     <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
                     <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
+                    <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
                   </div>
                   <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                     <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
@@ -374,6 +375,7 @@
                     </span>
                     <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                     <span ng-switch-when="faileditems"><span class="hidden-xs" translate>Failed Items</span><span class="visible-xs" aria-label="{{'Failed Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
+                    <span ng-switch-when="localunencrypted"><span class="hidden-xs">{{'Unexpected Items' | translate}}</span><span class="visible-xs" aria-label="{{'Unexpected Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -438,10 +440,16 @@
                           <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
                         </td>
                       </tr>
-                      <tr ng-if="folder.type == 'receiveonly' && canRevert(folder.id)">
+                      <tr ng-if="hasReceiveOnlyChanged(folder)">
                         <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                         <td class="text-right">
-                          <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
+                          <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
+                        </td>
+                      </tr>
+                      <tr ng-if="hasReceiveEncryptedItems(folder)">
+                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
+                        <td class="text-right">
+                          <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{receiveEncryptedItemsCount(folder) | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
                       <tr ng-if="folder.type != 'sendreceive'">
@@ -449,6 +457,7 @@
                         <td class="text-right">
                           <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                           <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
+                          <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
                         </td>
                       </tr>
                       <tr ng-if="folder.ignorePerms">
@@ -521,7 +530,7 @@
                           <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
                         </td>
                       </tr>
-                      <tr ng-if="folder.type != 'sendonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
+                      <tr ng-if="folder.type != 'sendonly' && folder.type != 'receiveencrypted' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
                         <td class="text-right">
                           <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
@@ -540,6 +549,9 @@
                   </button>
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder)">
+                    <span class="fa fa-arrow-lock"></span>&nbsp;<span translate>Delete Unexpected Items</span>
                   </button>
                   <span class="pull-right">
                     <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
@@ -760,8 +772,8 @@
                         </td>
                         <td ng-if="!connections[deviceCfg.deviceID].connected" class="text-right">
                           <span ng-repeat="addr in deviceCfg.addresses">
-                              <span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br>
-                              <small ng-if="system.lastDialStatus[addr].error" tooltip data-original-title="{{system.lastDialStatus[addr].error}}" class="text-danger">{{abbreviatedError(addr)}}<br></small>
+                            <span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br>
+                            <small ng-if="system.lastDialStatus[addr].error" tooltip data-original-title="{{system.lastDialStatus[addr].error}}" class="text-danger">{{abbreviatedError(addr)}}<br></small>
                           </span>
                           <span ng-repeat="addr in discoveryCache[deviceCfg.deviceID].addresses">
                             <span tooltip data-original-title="{{'Discovered' | translate}}">{{addr}}</span><br>
