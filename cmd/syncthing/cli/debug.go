@@ -18,30 +18,12 @@ var debugCommand = cli.Command{
 	Usage:    "Debug command group",
 	Subcommands: []cli.Command{
 		{
-			Name:   "enable",
-			Usage:  "Enable debugging",
-			Action: expects(0, setDebug(true)),
-		},
-		{
-			Name:   "disable",
-			Usage:  "Disable debugging",
-			Action: expects(0, setDebug(true)),
-		},
-		{
 			Name:      "file",
 			Usage:     "Show information about a file (or directory/symlink)",
 			ArgsUsage: "FOLDER-ID PATH",
 			Action:    expects(2, debugFile()),
 		},
 	},
-}
-
-func setDebug(enabled bool) func(c *cli.Context) error {
-	return func(c *cli.Context) error {
-		client := c.App.Metadata["client"].(*APIClient)
-		_, err := client.Patch("config/gui", fmt.Sprintf(`{"debugging": %v}`, enabled))
-		return err
-	}
 }
 
 func debugFile() cli.ActionFunc {

@@ -79,14 +79,6 @@ func (c *APIClient) Post(url, body string) (*http.Response, error) {
 	return c.Do(request)
 }
 
-func (c *APIClient) Patch(url, body string) (*http.Response, error) {
-	request, err := http.NewRequest("PATCH", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(request)
-}
-
 func checkResponse(response *http.Response) error {
 	if response.StatusCode == 404 {
 		return errors.New("invalid endpoint or API call")
