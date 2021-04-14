@@ -15,12 +15,12 @@ var indexCommand = cli.Command{
 	Usage: "Show information about the index (database)",
 	Subcommands: []cli.Command{
 		{
-			Name:   "indexDump",
+			Name:   "dump",
 			Usage:  "Print the entire db",
 			Action: expects(0, indexDump),
 		},
 		{
-			Name:   "indexDumpsize",
+			Name:   "dump-size",
 			Usage:  "Print the db size of different categories of information",
 			Action: expects(0, indexDumpSize),
 		},
@@ -30,7 +30,7 @@ var indexCommand = cli.Command{
 			Action: expects(0, indexCheck),
 		},
 		{
-			Name:   "indexAccount",
+			Name:   "account",
 			Usage:  "Print key and value size statistics per key type",
 			Action: expects(0, indexAccount),
 		},
