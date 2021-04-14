@@ -20,18 +20,21 @@ import (
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
+
+	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/urfave/cli"
 )
 
 type preCli struct {
 	GUIAddress string `name:"gui-address"`
 	GUIAPIKey  string `name:"gui-apikey"`
 	HomeDir    string `name:"home"`
-	ConfDir    string `name:"conf"`
+	ConfDir    string `name:"config"`
+	DataDir    string `name:"data"`
 }
 
 func Run() error {
@@ -44,17 +47,7 @@ func Run() error {
 	parseFlags(&c)
 
 	// Not set as default above because the strings can be really long.
-	var err error
-	homeSet := c.HomeDir != ""
-	confSet := c.ConfDir != ""
-	switch {
-	case homeSet && confSet:
-		err = errors.New("-home must not be used together with -conf")
-	case homeSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.HomeDir)
-	case confSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.ConfDir)
-	}
+	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "Command line options:")
 	}

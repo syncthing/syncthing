@@ -23,6 +23,7 @@ var debugCommand = cli.Command{
 			ArgsUsage: "FOLDER-ID PATH",
 			Action:    expects(2, debugFile()),
 		},
+		indexCommand,
 	},
 }
 

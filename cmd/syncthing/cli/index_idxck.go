@@ -4,17 +4,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package cli
 
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"log"
 	"sort"
 
+	"github.com/urfave/cli"
+
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -34,7 +35,12 @@ type sequenceKey struct {
 	sequence uint64
 }
 
-func idxck(ldb backend.Backend) (success bool) {
+func idxck(*cli.Context) (err error) {
+	ldb, err := getDB()
+	if err != nil {
+		return err
+	}
+
 	folders := make(map[uint32]string)
 	devices := make(map[uint32]string)
 	deviceToIDs := make(map[string]uint32)
@@ -47,11 +53,20 @@ func idxck(ldb backend.Backend) (success bool) {
 	usedBlocklists := make(map[string]struct{})
 	usedVersions := make(map[string]struct{})
 	var localDeviceKey uint32
-	success = true
+	success := true
+	defer func() {
+		if err == nil {
+			if success {
+				fmt.Println("Index check completed succesfully.")
+			} else {
+				err = errors.New("Inconsistencies found in the index")
+			}
+		}
+	}()
 
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for it.Next() {
 		key := it.Key()
@@ -329,7 +344,7 @@ func idxck(ldb backend.Backend) (success bool) {
 		fmt.Printf("%d version entries out of %d needs GC\n", d, len(versions))
 	}
 
-	return
+	return nil
 }
 
 func needsLocally(vl db.VersionList) bool {

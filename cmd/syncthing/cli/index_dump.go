@@ -4,23 +4,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package cli
 
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/urfave/cli"
+
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(ldb backend.Backend) {
+func dump(*cli.Context) error {
+	ldb, err := getDB()
+	if err != nil {
+		return err
+	}
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for it.Next() {
 		key := it.Key()
@@ -34,7 +38,7 @@ func dump(ldb backend.Backend) {
 			var f protocol.FileInfo
 			err := f.Unmarshal(it.Value())
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			fmt.Printf(" V:%v\n", f)
 
@@ -152,4 +156,5 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
 	}
+	return nil
 }
