@@ -17,7 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(*cli.Context) error {
+func indexDump(*cli.Context) error {
 	ldb, err := getDB()
 	if err != nil {
 		return err

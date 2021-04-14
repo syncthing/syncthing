@@ -39,7 +39,7 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(*cli.Context) error {
+func indexDumpSize(*cli.Context) error {
 	ldb, err := getDB()
 	if err != nil {
 		return err

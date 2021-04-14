@@ -18,27 +18,27 @@ var showCommand = cli.Command{
 		{
 			Name:   "version",
 			Usage:  "Show syncthing client version",
-			Action: expects(0, dumpOutput("system/version")),
+			Action: expects(0, indexDumpOutput("system/version")),
 		},
 		{
 			Name:   "config-status",
 			Usage:  "Show configuration status, whether or not a restart is required for changes to take effect",
-			Action: expects(0, dumpOutput("config/restart-required")),
+			Action: expects(0, indexDumpOutput("config/restart-required")),
 		},
 		{
 			Name:   "system",
 			Usage:  "Show system status",
-			Action: expects(0, dumpOutput("system/status")),
+			Action: expects(0, indexDumpOutput("system/status")),
 		},
 		{
 			Name:   "connections",
 			Usage:  "Report about connections to other devices",
-			Action: expects(0, dumpOutput("system/connections")),
+			Action: expects(0, indexDumpOutput("system/connections")),
 		},
 		{
 			Name:   "usage",
 			Usage:  "Show usage report",
-			Action: expects(0, dumpOutput("svc/report")),
+			Action: expects(0, indexDumpOutput("svc/report")),
 		},
 	},
 }

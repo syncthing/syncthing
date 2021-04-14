@@ -35,7 +35,7 @@ var debugCommand = cli.Command{
 
 func debugFile() cli.ActionFunc {
 	return func(c *cli.Context) error {
-		return dumpOutput(fmt.Sprintf("debug/file?folder=%v&file=%v", c.Args()[0], c.Args()[1]))(c)
+		return indexDumpOutput(fmt.Sprintf("debug/file?folder=%v&file=%v", c.Args()[0], normalizePath(c.Args()[1])))(c)
 	}
 }
 

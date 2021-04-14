@@ -35,7 +35,7 @@ type sequenceKey struct {
 	sequence uint64
 }
 
-func idxck(*cli.Context) (err error) {
+func indexCheck(*cli.Context) (err error) {
 	ldb, err := getDB()
 	if err != nil {
 		return err

@@ -14,8 +14,8 @@ import (
 	"github.com/urfave/cli"
 )
 
-// account prints key and data size statistics per class
-func account(*cli.Context) error {
+// indexAccount prints key and data size statistics per class
+func indexAccount(*cli.Context) error {
 	ldb, err := getDB()
 	if err != nil {
 		return err

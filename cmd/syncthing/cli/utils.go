@@ -14,8 +14,11 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/urfave/cli"
 )
 
@@ -35,7 +38,7 @@ func emptyPost(url string) cli.ActionFunc {
 	}
 }
 
-func dumpOutput(url string) cli.ActionFunc {
+func indexDumpOutput(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client := c.App.Metadata["client"].(*APIClient)
 		response, err := client.Get(url)
@@ -126,4 +129,21 @@ func prettyPrintResponse(c *cli.Context, response *http.Response) error {
 	}
 	// TODO: Check flag for pretty print format
 	return prettyPrintJSON(data)
+}
+
+func getDB() (backend.Backend, error) {
+	return backend.OpenLevelDBRO(locations.Get(locations.Database))
+}
+
+func nulString(bs []byte) string {
+	for i := range bs {
+		if bs[i] == 0 {
+			return string(bs[:i])
+		}
+	}
+	return string(bs)
+}
+
+func normalizePath(path string) string {
+	return filepath.ToSlash(filepath.Clean(path))
 }

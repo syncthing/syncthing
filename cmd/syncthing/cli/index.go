@@ -8,9 +8,6 @@ package cli
 
 import (
 	"github.com/urfave/cli"
-
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/locations"
 )
 
 var indexCommand = cli.Command{
@@ -18,37 +15,24 @@ var indexCommand = cli.Command{
 	Usage: "Show information about the index (database)",
 	Subcommands: []cli.Command{
 		{
-			Name:   "dump",
+			Name:   "indexDump",
 			Usage:  "Print the entire db",
-			Action: expects(0, dump),
+			Action: expects(0, indexDump),
 		},
 		{
-			Name:   "dumpsize",
+			Name:   "indexDumpsize",
 			Usage:  "Print the db size of different categories of information",
-			Action: expects(0, dumpsize),
+			Action: expects(0, indexDumpSize),
 		},
 		{
-			Name:   "idxck",
+			Name:   "check",
 			Usage:  "Check the database for inconsistencies",
-			Action: expects(0, idxck),
+			Action: expects(0, indexCheck),
 		},
 		{
-			Name:   "account",
+			Name:   "indexAccount",
 			Usage:  "Print key and value size statistics per key type",
-			Action: expects(0, account),
+			Action: expects(0, indexAccount),
 		},
 	},
-}
-
-func getDB() (backend.Backend, error) {
-	return backend.OpenLevelDBRO(locations.Get(locations.Database))
-}
-
-func nulString(bs []byte) string {
-	for i := range bs {
-		if bs[i] == 0 {
-			return string(bs[:i])
-		}
-	}
-	return string(bs)
 }
