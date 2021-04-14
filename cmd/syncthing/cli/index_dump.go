@@ -65,10 +65,10 @@ func dump(*cli.Context) error {
 			folder := binary.BigEndian.Uint32(key[1:])
 			name := nulString(key[1+4:])
 			val := it.Value()
-			var real, virt time.Time
-			real.UnmarshalBinary(val[:len(val)/2])
-			virt.UnmarshalBinary(val[len(val)/2:])
-			fmt.Printf("[mtime] F:%d N:%q R:%v V:%v\n", folder, name, real, virt)
+			var realTime, virtualTime time.Time
+			realTime.UnmarshalBinary(val[:len(val)/2])
+			virtualTime.UnmarshalBinary(val[len(val)/2:])
+			fmt.Printf("[mtime] F:%d N:%q R:%v V:%v\n", folder, name, realTime, virtualTime)
 
 		case db.KeyTypeFolderIdx:
 			key := binary.BigEndian.Uint32(key[1:])

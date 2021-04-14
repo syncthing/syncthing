@@ -18,7 +18,6 @@ import (
 	"github.com/AudriusButkevicius/recli"
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
-	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
@@ -159,8 +158,8 @@ func Run() error {
 		},
 	}}
 
-	tty := isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
-	if !tty {
+	// tty := isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
+	if false {
 		// Not a TTY, consume from stdin
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
