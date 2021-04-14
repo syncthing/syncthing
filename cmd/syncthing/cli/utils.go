@@ -8,8 +8,10 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"os"
 
@@ -41,6 +43,39 @@ func dumpOutput(url string) cli.ActionFunc {
 			return err
 		}
 		return prettyPrintResponse(c, response)
+	}
+}
+
+func saveToFile(url string) cli.ActionFunc {
+	return func(c *cli.Context) error {
+		client := c.App.Metadata["client"].(*APIClient)
+		response, err := client.Get(url)
+		if err != nil {
+			return err
+		}
+		_, params, err := mime.ParseMediaType(response.Header.Get("Content-Disposition"))
+		if err != nil {
+			return err
+		}
+		filename := params["filename"]
+		if filename == "" {
+			return errors.New("Missing filename in response")
+		}
+		bs, err := responseToBArray(response)
+		if err != nil {
+			return err
+		}
+		f, err := os.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.Write(bs)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Wrote results to", filename)
+		return err
 	}
 }
 

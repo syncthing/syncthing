@@ -24,11 +24,28 @@ var debugCommand = cli.Command{
 			Action:    expects(2, debugFile()),
 		},
 		indexCommand,
+		{
+			Name:      "profile",
+			Usage:     "Save a profile to help figuring out what Syncthing does.",
+			ArgsUsage: "cpu | heap",
+			Action:    expects(1, profile()),
+		},
 	},
 }
 
 func debugFile() cli.ActionFunc {
 	return func(c *cli.Context) error {
 		return dumpOutput(fmt.Sprintf("debug/file?folder=%v&file=%v", c.Args()[0], c.Args()[1]))(c)
+	}
+}
+
+func profile() cli.ActionFunc {
+	return func(c *cli.Context) error {
+		switch t := c.Args()[0]; t {
+		case "cpu", "heap":
+			return saveToFile(fmt.Sprintf("debug/%vprof", c.Args()[0]))(c)
+		default:
+			return fmt.Errorf("expected cpu or heap as argument, got %v", t)
+		}
 	}
 }
