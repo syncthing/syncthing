@@ -35,6 +35,9 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 		"username":      username,
 		"remoteAddress": address,
 	})
+	if !success {
+		l.Infof("Wrong credentials supplied during API authorization from %s", address)
+	}
 }
 
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
@@ -97,7 +100,6 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		if !authOk {
 			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			l.Infof("Wrong credentials supplied during API authorization from %s", r.RemoteAddr)
 			error()
 			return
 		}
