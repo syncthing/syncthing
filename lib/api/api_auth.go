@@ -97,7 +97,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		if !authOk {
 			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			l.Infoln("Wrong credentials supplied during API authorization")
+			l.Infof("Wrong credentials supplied during API authorization from %s", r.RemoteAddr)
 			error()
 			return
 		}
