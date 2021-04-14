@@ -91,20 +91,28 @@ func Run() error {
 
 	client := getClient(guiCfg)
 
-	cfg, err := getConfig(client)
+	cfg, cfgErr := getConfig(client)
 	original := cfg.Copy()
-	if err != nil {
-		return errors.Wrap(err, "getting config")
-	}
 
 	// Copy the config and set the default flags
 	recliCfg := recli.DefaultConfig
 	recliCfg.IDTag.Name = "xml"
 	recliCfg.SkipTag.Name = "json"
 
-	commands, err := recli.New(recliCfg).Construct(&cfg)
-	if err != nil {
-		return errors.Wrap(err, "config reflect")
+	configCommand := cli.Command{
+		Name:     "config",
+		HideHelp: true,
+		Usage:    "Configuration modification command group",
+	}
+	if cfgErr != nil {
+		configCommand.Action = func(*cli.Context) error {
+			return cfgErr
+		}
+	} else {
+		configCommand.Subcommands, err = recli.New(recliCfg).Construct(&cfg)
+		if err != nil {
+			return errors.Wrap(err, "config reflect")
+		}
 	}
 
 	// Implement the same flags at the upper CLI, but do nothing with them.
@@ -143,12 +151,7 @@ func Run() error {
 		Usage: "Syncthing command line interface",
 		Flags: fakeFlags,
 		Subcommands: []cli.Command{
-			{
-				Name:        "config",
-				HideHelp:    true,
-				Usage:       "Configuration modification command group",
-				Subcommands: commands,
-			},
+			configCommand,
 			showCommand,
 			operationCommand,
 			errorsCommand,
@@ -184,7 +187,7 @@ func Run() error {
 		}
 	}
 
-	if !reflect.DeepEqual(cfg, original) {
+	if cfgErr == nil && !reflect.DeepEqual(cfg, original) {
 		body, err := json.MarshalIndent(cfg, "", "  ")
 		if err != nil {
 			return err
