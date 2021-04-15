@@ -9,10 +9,12 @@ angular.module('syncthing.folder')
         var self = this;
 
         // public definitions
+        self.folderId = null;
         self.tree = null;
 
         self.refresh = function(folderId) {
-            var promise = Browse.refresh(folderId).then(function(response) {
+            self.folderId = folderId
+            var promise = Browse.refresh(self.folderId).then(function(response) {
                 return response.files.map(buildNode);
             });
 
@@ -38,7 +40,7 @@ angular.module('syncthing.folder')
                     },
                     lazyLoad: function (event, data) {
                         var prefix = data.node.data.entry.path;
-                        data.result = Browse.refresh(folderId, prefix).then(function(response) {
+                        data.result = Browse.refresh(self.folderId, prefix).then(function(response) {
                             return response.files.map(buildNode);
                         });
                     },

@@ -59,9 +59,11 @@ describe('IgnoreTreeService', function() {
 
         it('reloads contents when tree exists', async function () {
             await loadTable('default');
-            browseSpy.and.returnValue(Promise.resolve({ files: [] }));
+            browseSpy.and.returnValue(Promise.resolve({ files: [{ name: 'Radiohead', path: 'Radiohead', isFile: false }] }));
             await loadTable('music');
-            expect($('table tbody tr').map((i, el) => $(el).text()).get()).toEqual([]);
+            expect($('table tbody tr').map((i, el) => $(el).text()).get()).toEqual(['Radiohead']);
+            $('table tbody tr .fancytree-expander').click();
+            expect(browseSpy).toHaveBeenCalledWith('music', 'Radiohead')
         });
     });
 
