@@ -135,6 +135,11 @@ type Connection struct {
 		result1 []byte
 		result2 error
 	}
+	SetFolderPasswordsStub        func(map[string]string)
+	setFolderPasswordsMutex       sync.RWMutex
+	setFolderPasswordsArgsForCall []struct {
+		arg1 map[string]string
+	}
 	StartStub        func()
 	startMutex       sync.RWMutex
 	startArgsForCall []struct {
@@ -817,6 +822,38 @@ func (fake *Connection) RequestReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
+func (fake *Connection) SetFolderPasswords(arg1 map[string]string) {
+	fake.setFolderPasswordsMutex.Lock()
+	fake.setFolderPasswordsArgsForCall = append(fake.setFolderPasswordsArgsForCall, struct {
+		arg1 map[string]string
+	}{arg1})
+	stub := fake.SetFolderPasswordsStub
+	fake.recordInvocation("SetFolderPasswords", []interface{}{arg1})
+	fake.setFolderPasswordsMutex.Unlock()
+	if stub != nil {
+		fake.SetFolderPasswordsStub(arg1)
+	}
+}
+
+func (fake *Connection) SetFolderPasswordsCallCount() int {
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
+	return len(fake.setFolderPasswordsArgsForCall)
+}
+
+func (fake *Connection) SetFolderPasswordsCalls(stub func(map[string]string)) {
+	fake.setFolderPasswordsMutex.Lock()
+	defer fake.setFolderPasswordsMutex.Unlock()
+	fake.SetFolderPasswordsStub = stub
+}
+
+func (fake *Connection) SetFolderPasswordsArgsForCall(i int) map[string]string {
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
+	argsForCall := fake.setFolderPasswordsArgsForCall[i]
+	return argsForCall.arg1
+}
+
 func (fake *Connection) Start() {
 	fake.startMutex.Lock()
 	fake.startArgsForCall = append(fake.startArgsForCall, struct {
@@ -1080,6 +1117,8 @@ func (fake *Connection) Invocations() map[string][][]interface{} {
 	defer fake.remoteAddrMutex.RUnlock()
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
+	fake.setFolderPasswordsMutex.RLock()
+	defer fake.setFolderPasswordsMutex.RUnlock()
 	fake.startMutex.RLock()
 	defer fake.startMutex.RUnlock()
 	fake.statisticsMutex.RLock()

@@ -146,7 +146,7 @@ type serveOptions struct {
 	Audit            bool   `help:"Write events to audit file"`
 	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
 	BrowserOnly      bool   `help:"Open GUI in browser"`
-	ConfDir          string `name:"conf" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
+	ConfDir          string `name:"config" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
 	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`

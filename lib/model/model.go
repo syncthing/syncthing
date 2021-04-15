@@ -192,10 +192,12 @@ var (
 	errEncryptionNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
 	errEncryptionNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
 	errEncryptionPassword              = errors.New("different encryption passwords used")
-	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
+	errEncryptionNeedToken             = errors.New("require password token for receive-encrypted token")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
 	errConnLimitReached                = errors.New("connection limit reached")
+	// messages for failure reports
+	failureUnexpectedGenerateCCError = "unexpected error occurred in generateClusterConfig"
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -293,7 +295,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
 
-	m.resendClusterConfig(clusterConfigDevices.AsSlice())
+	m.sendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
 }
 
@@ -1304,13 +1306,17 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
-	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
 	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
+	expiredPending, err := m.db.PendingFoldersForDevice(deviceID)
+	if err != nil {
+		l.Infof("Could not get pending folders for cleanup: %v", err)
+	}
+	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
 
@@ -1324,8 +1330,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			recvEnc := len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
-			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID, recvEnc); err != nil {
+			delete(expiredPending, folder.ID)
+			of.Label = folder.Label
+			of.ReceiveEncrypted = len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
@@ -1333,7 +1341,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				FolderID:         folder.ID,
 				FolderLabel:      folder.Label,
 				DeviceID:         deviceID,
-				ReceiveEncrypted: recvEnc,
+				ReceiveEncrypted: of.ReceiveEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1365,7 +1373,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
-			if sameError || err == errEncryptionReceivedToken {
+			if sameError {
 				l.Debugln(msg)
 			} else {
 				l.Warnln(msg)
@@ -1410,18 +1418,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
-	// All current pending folders were touched above, so discard any with older timestamps
-	expiredPending, err := m.db.RemovePendingFoldersBeforeTime(deviceID, handleTime)
-	if err != nil {
-		l.Infof("Could not clean up pending folder entries: %v", err)
+	for folder := range expiredPending {
+		m.db.RemovePendingFolderForDevice(folder, deviceID)
 	}
 	if len(updatedPending) > 0 || len(expiredPending) > 0 {
-		expiredPendingList := make([]map[string]string, len(expiredPending))
-		for i, folderID := range expiredPending {
-			expiredPendingList[i] = map[string]string{
+		expiredPendingList := make([]map[string]string, 0, len(expiredPending))
+		for folderID := range expiredPending {
+			expiredPendingList = append(expiredPendingList, map[string]string{
 				"folderID": folderID,
 				"deviceID": deviceID.String(),
-			}
+			})
 		}
 		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
 			"added":   updatedPending,
@@ -1510,7 +1516,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Unlock()
 			// We can only announce ourselfs once we have the token,
 			// thus we need to resend CCs now that we have it.
-			m.resendClusterConfig(fcfg.DeviceIDs())
+			m.sendClusterConfig(fcfg.DeviceIDs())
 			return nil
 		}
 	}
@@ -1520,7 +1526,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	return nil
 }
 
-func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
+func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	if len(ids) == 0 {
 		return
 	}
@@ -1534,7 +1540,16 @@ func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm := m.generateClusterConfig(conn.ID())
+		cm, passwords, err := m.generateClusterConfig(conn.ID())
+		if err != nil {
+			if err != errEncryptionNeedToken {
+				m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
+				continue
+			}
+			go conn.Close(err)
+			continue
+		}
+		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
 }
@@ -1728,9 +1743,7 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 // Closed is called when a connection has been closed
-func (m *model) Closed(conn protocol.Connection, err error) {
-	device := conn.ID()
-
+func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
 	conn, ok := m.conn[device]
 	if !ok {
@@ -2247,7 +2260,13 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.pmut.Unlock()
 
 	// Acquires fmut, so has to be done outside of pmut.
-	cm := m.generateClusterConfig(deviceID)
+	cm, passwords, err := m.generateClusterConfig(deviceID)
+	// We ignore errEncryptionNeedToken on a new connection, as the missing
+	// token should be delivered in the cluster-config about to be received.
+	if err != nil && err != errEncryptionNeedToken {
+		m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
+	}
+	conn.SetFolderPasswords(passwords)
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
@@ -2407,15 +2426,17 @@ func (m *model) numHashers(folder string) int {
 	return 1
 }
 
-// generateClusterConfig returns a ClusterConfigMessage that is correct for
-// the given peer device
-func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
+// generateClusterConfig returns a ClusterConfigMessage that is correct and the
+// set of folder passwords for the given peer device
+func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string, error) {
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
-	for _, folderCfg := range m.cfg.FolderList() {
+	folders := m.cfg.FolderList()
+	passwords := make(map[string]string, len(folders))
+	for _, folderCfg := range folders {
 		if !folderCfg.SharedWith(device) {
 			continue
 		}
@@ -2424,10 +2445,10 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		var hasEncryptionToken bool
 		if folderCfg.Type == config.FolderTypeReceiveEncrypted {
 			if encryptionToken, hasEncryptionToken = m.folderEncryptionPasswordTokens[folderCfg.ID]; !hasEncryptionToken {
-				// We haven't gotten a token for us yet and without
-				// one the other side can't validate us - pretend
-				// we don't have the folder yet.
-				continue
+				// We haven't gotten a token yet and without one the other side
+				// can't validate us - reset the connection to trigger a new
+				// cluster-config and get the token.
+				return message, nil, errEncryptionNeedToken
 			}
 		}
 
@@ -2448,8 +2469,8 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		// another cluster config once the folder is started.
 		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
-		for _, device := range folderCfg.Devices {
-			deviceCfg, _ := m.cfg.Device(device.DeviceID)
+		for _, folderDevice := range folderCfg.Devices {
+			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
 
 			protocolDevice := protocol.Device{
 				ID:          deviceCfg.DeviceID,
@@ -2462,8 +2483,11 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 
 			if deviceCfg.DeviceID == m.id && hasEncryptionToken {
 				protocolDevice.EncryptionPasswordToken = encryptionToken
-			} else if device.EncryptionPassword != "" {
-				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
+			} else if folderDevice.EncryptionPassword != "" {
+				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, folderDevice.EncryptionPassword)
+				if folderDevice.DeviceID == device {
+					passwords[folderCfg.ID] = folderDevice.EncryptionPassword
+				}
 			}
 
 			if fs != nil {
@@ -2482,7 +2506,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		message.Folders = append(message.Folders, protocolFolder)
 	}
 
-	return message
+	return message, passwords, nil
 }
 
 func (m *model) State(folder string) (string, time.Time, error) {
@@ -2891,7 +2915,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
-	m.resendClusterConfig(clusterConfigDevices.AsSlice())
+	m.sendClusterConfig(clusterConfigDevices.AsSlice())
 
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)

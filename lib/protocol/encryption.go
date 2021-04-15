@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
@@ -41,11 +41,11 @@ const (
 // must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
 	model      Model
-	folderKeys map[string]*[keySize]byte // folder ID -> key
+	folderKeys *folderKeyRegistry
 }
 
 func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys[folder]; ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		// incoming index data to be decrypted
 		if err := decryptFileInfos(files, folderKey); err != nil {
 			return err
@@ -55,7 +55,7 @@ func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo
 }
 
 func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys[folder]; ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		// incoming index data to be decrypted
 		if err := decryptFileInfos(files, folderKey); err != nil {
 			return err
@@ -65,7 +65,7 @@ func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []Fi
 }
 
 func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	folderKey, ok := e.folderKeys[folder]
+	folderKey, ok := e.folderKeys.get(folder)
 	if !ok {
 		return e.model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 	}
@@ -123,7 +123,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 }
 
 func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
-	if _, ok := e.folderKeys[folder]; !ok {
+	if _, ok := e.folderKeys.get(folder); !ok {
 		return e.model.DownloadProgress(deviceID, folder, updates)
 	}
 
@@ -135,20 +135,24 @@ func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) e
 	return e.model.ClusterConfig(deviceID, config)
 }
 
-func (e encryptedModel) Closed(conn Connection, err error) {
-	e.model.Closed(conn, err)
+func (e encryptedModel) Closed(device DeviceID, err error) {
+	e.model.Closed(device, err)
 }
 
 // The encryptedConnection sits between the model and the encrypted device. It
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	ConnectionInfo
-	conn       Connection
-	folderKeys map[string]*[keySize]byte // folder ID -> key
+	conn       *rawConnection
+	folderKeys *folderKeyRegistry
 }
 
 func (e encryptedConnection) Start() {
 	e.conn.Start()
+}
+
+func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
+	e.folderKeys.setPasswords(passwords)
 }
 
 func (e encryptedConnection) ID() DeviceID {
@@ -156,21 +160,21 @@ func (e encryptedConnection) ID() DeviceID {
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys[folder]; ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		encryptFileInfos(files, folderKey)
 	}
 	return e.conn.Index(ctx, folder, files)
 }
 
 func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys[folder]; ok {
+	if folderKey, ok := e.folderKeys.get(folder); ok {
 		encryptFileInfos(files, folderKey)
 	}
 	return e.conn.IndexUpdate(ctx, folder, files)
 }
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	folderKey, ok := e.folderKeys[folder]
+	folderKey, ok := e.folderKeys.get(folder)
 	if !ok {
 		return e.conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	}
@@ -205,7 +209,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	if _, ok := e.folderKeys[folder]; !ok {
+	if _, ok := e.folderKeys.get(folder); !ok {
 		e.conn.DownloadProgress(ctx, folder, updates)
 	}
 
@@ -249,20 +253,25 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 	encryptedFI := encryptBytes(bs, fileKey)
 
 	// The vector is set to something that is higher than any other version sent
-	// previously, assuming people's clocks are correct. We do this because
+	// previously. We do this because
 	// there is no way for the insecure device on the other end to do proper
 	// conflict resolution, so they will simply accept and keep whatever is the
 	// latest version they see. The secure devices will decrypt the real
 	// FileInfo, see the real Version, and act appropriately regardless of what
 	// this fake version happens to be.
+	// The vector also needs to be deterministic/the same among all trusted
+	// devices with the same vector, such that the pulling/remote completion
+	// works correctly on the untrusted device(s).
 
 	version := Vector{
 		Counters: []Counter{
 			{
-				ID:    1,
-				Value: uint64(time.Now().UnixNano()),
+				ID: 1,
 			},
 		},
+	}
+	for _, counter := range fi.Version.Counters {
+		version.Counters[0].Value += counter.Value
 	}
 
 	// Construct the fake block list. Each block will be blockOverhead bytes
@@ -550,24 +559,10 @@ func (r rawResponse) Data() []byte {
 func (r rawResponse) Close() {}
 func (r rawResponse) Wait()  {}
 
-// IsEncryptedPath returns true if the path points at encrypted data. This is
-// determined by checking for a sentinel string in the path.
-func IsEncryptedPath(path string) bool {
-	pathComponents := strings.Split(path, "/")
-	if len(pathComponents) != 3 {
-		return false
-	}
-	return isEncryptedParentFromComponents(pathComponents[:2])
-}
-
 // IsEncryptedParent returns true if the path points at a parent directory of
 // encrypted data, i.e. is not a "real" directory. This is determined by
 // checking for a sentinel string in the path.
-func IsEncryptedParent(path string) bool {
-	return isEncryptedParentFromComponents(strings.Split(path, "/"))
-}
-
-func isEncryptedParentFromComponents(pathComponents []string) bool {
+func IsEncryptedParent(pathComponents []string) bool {
 	l := len(pathComponents)
 	if l == 2 && len(pathComponents[1]) != 2 {
 		return false
@@ -589,4 +584,28 @@ func isEncryptedParentFromComponents(pathComponents []string) bool {
 		}
 	}
 	return true
+}
+
+type folderKeyRegistry struct {
+	keys map[string]*[keySize]byte // folder ID -> key
+	mut  sync.RWMutex
+}
+
+func newFolderKeyRegistry(passwords map[string]string) *folderKeyRegistry {
+	return &folderKeyRegistry{
+		keys: keysFromPasswords(passwords),
+	}
+}
+
+func (r *folderKeyRegistry) get(folder string) (*[keySize]byte, bool) {
+	r.mut.RLock()
+	key, ok := r.keys[folder]
+	r.mut.RUnlock()
+	return key, ok
+}
+
+func (r *folderKeyRegistry) setPasswords(passwords map[string]string) {
+	r.mut.Lock()
+	r.keys = keysFromPasswords(passwords)
+	r.mut.Unlock()
 }

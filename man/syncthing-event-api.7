@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "Mar 11, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Apr 13, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -713,7 +713,9 @@ changes during a scan.
 .sp
 When authentication is enabled for the GUI, this event is emitted on every
 login attempt. If either the username or password are incorrect, \fBsuccess\fP
-is false and in any case the given username is returned.
+is false and in any case the given username is returned.  The included
+remote address concerns the immediate connecting host, which may not be the
+origin of the request, but e.g. a reverse proxy.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -723,6 +725,7 @@ is false and in any case the given username is returned.
    "id" : 187,
    "time" : "2017\-03\-07T00:19:24.420386143+01:00",
    "data" : {
+      "remoteAddress" : "127.0.0.1:55530",
       "username" : "somename",
       "success" : false
    },

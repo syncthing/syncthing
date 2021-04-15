@@ -341,7 +341,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester"
 	m.AddConnection(conn, hello)
 
@@ -349,7 +349,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device did not get a name")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
@@ -367,7 +367,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name not saved in config")
 	}
 
-	m.Closed(conn, protocol.ErrTimeout)
+	m.Closed(conn.ID(), protocol.ErrTimeout)
 
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
 		cfg.Options.OverwriteRemoteDevNames = true
@@ -428,7 +428,8 @@ func TestClusterConfig(t *testing.T) {
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	cm := m.generateClusterConfig(device2)
+	cm, _, err := m.generateClusterConfig(device2)
+	must(t, err)
 
 	if l := len(cm.Folders); l != 2 {
 		t.Fatalf("Incorrect number of folders %d != 2", l)
@@ -853,7 +854,8 @@ func TestIssue4897(t *testing.T) {
 	defer cleanupModel(m)
 	cancel()
 
-	cm := m.generateClusterConfig(device1)
+	cm, _, err := m.generateClusterConfig(device1)
+	must(t, err)
 	if l := len(cm.Folders); l != 1 {
 		t.Errorf("Cluster config contains %v folders, expected 1", l)
 	}
@@ -873,7 +875,7 @@ func TestIssue5063(t *testing.T) {
 	for _, c := range m.conn {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
-		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
+		defer m.Closed(c.ID(), errStopped) // to unblock deferred m.Stop()
 	}
 	m.pmut.Unlock()
 
@@ -2428,8 +2430,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 		t.Errorf("should have two available")
 	}
 
-	m.Closed(newFakeConnection(device1, m), errDeviceUnknown)
-	m.Closed(newFakeConnection(device2, m), errDeviceUnknown)
+	m.Closed(device1, errDeviceUnknown)
+	m.Closed(device2, errDeviceUnknown)
 
 	avail = m.testAvailability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
@@ -3171,7 +3173,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -4142,7 +4144,8 @@ func TestCCFolderNotRunning(t *testing.T) {
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// A connection can happen before all the folders are started.
-	cc := m.generateClusterConfig(device1)
+	cc, _, err := m.generateClusterConfig(device1)
+	must(t, err)
 	if l := len(cc.Folders); l != 1 {
 		t.Fatalf("Expected 1 folder in CC, got %v", l)
 	}
@@ -4170,7 +4173,11 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2, false); err != nil {
+	of := db.ObservedFolder{
+		Time:  time.Now().Truncate(time.Second),
+		Label: pfolder,
+	}
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, of, device2); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err := m.PendingFolders(protocol.EmptyDeviceID)
@@ -4185,8 +4192,11 @@ func TestPendingFolder(t *testing.T) {
 	}
 
 	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
+	if err != nil {
+		t.Fatal(err)
+	}
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3, false); err != nil {
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, of, device3); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err = m.PendingFolders(device2)

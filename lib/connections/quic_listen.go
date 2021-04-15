@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -223,7 +224,12 @@ type stunConnQUICWrapper struct {
 	underlying *net.UDPConn
 }
 
-// SetReadBuffer is required by QUIC.
+// SetReadBuffer is required by QUIC < v0.20.0
 func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
 	return s.underlying.SetReadBuffer(size)
+}
+
+// SyscallConn is required by QUIC
+func (s *stunConnQUICWrapper) SyscallConn() (syscall.RawConn, error) {
+	return s.underlying.SyscallConn()
 }

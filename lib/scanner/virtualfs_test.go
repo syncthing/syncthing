@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -43,7 +42,7 @@ func (i infiniteFS) DirNames(name string) ([]string, error) {
 	for j := 0; j < i.width; j++ {
 		names = append(names, fmt.Sprintf("aa-file-%d", j))
 	}
-	if len(strings.Split(name, string(os.PathSeparator))) < i.depth {
+	if len(fs.PathComponents(name)) < i.depth {
 		for j := 0; j < i.width; j++ {
 			names = append(names, fmt.Sprintf("zz-dir-%d", j))
 		}
