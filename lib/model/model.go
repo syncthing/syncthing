@@ -475,8 +475,13 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		}
 	}
 	if isPathUnique {
-		// Delete syncthing specific files
-		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+		// Remove (if empty and removable) or move away (if non-empty or
+		// otherwise not removable) Syncthing-specific marker files.
+		fs := cfg.Filesystem()
+		if err := fs.Remove(config.DefaultMarkerName); err != nil {
+			moved := config.DefaultMarkerName + time.Now().Format(".removed-20060102-150405")
+			_ = fs.Rename(config.DefaultMarkerName, moved)
+		}
 	}
 
 	m.cleanupFolderLocked(cfg)
