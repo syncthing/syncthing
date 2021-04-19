@@ -3,7 +3,6 @@ syntax = "proto3";
 package config;
 
 import "lib/config/folderconfiguration.proto";
-import "lib/config/defaults.proto";
 import "lib/config/deviceconfiguration.proto";
 import "lib/config/guiconfiguration.proto";
 import "lib/config/ldapconfiguration.proto";

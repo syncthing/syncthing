@@ -2146,17 +2146,6 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	return nil
 }
 
-func (m *model) DefaultIgnores() ([]string, []string) {
-	return m.defaultIgnores.Lines(), m.defaultIgnores.Patterns()
-}
-
-func (m *model) SetDefaultIgnores(content []string) error {
-	if err := m.defaultIgnores.WriteIgnores(defaultIgnoreName, content); err != nil {
-		return err
-	}
-	return m.defaultIgnores.Load("default-stignore")
-}
-
 // OnHello is called when an device connects to us.
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.

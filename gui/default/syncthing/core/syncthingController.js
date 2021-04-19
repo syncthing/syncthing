@@ -1999,7 +1999,7 @@ angular.module('syncthing.core')
                      .then(function (response) {
                          $scope.currentFolder = response.data;
                      }),
-                $http.get(urlbase + '/db/defaultignores')
+                $http.get(urlbase + '/config/defaults/ignores')
                      .then(editFolderInitIgnores),
             ]).then(function() {
                 $scope.editingExisting = false;
@@ -2009,8 +2009,8 @@ angular.module('syncthing.core')
         };
 
         function editFolderInitIgnores(response) {
-            $scope.currentFolder.ignores = response.data.ignore || [];
-            $scope.ignores.text = $scope.currentFolder.ignores.join('\n');
+            $scope.ignores.originalLines = response.data.ignore || [];
+            $scope.ignores.text = $scope.ignores.originalLines.join('\n');
             $scope.ignores.error = response.data.error;
             $scope.ignores.disabled = false;
         }
@@ -2061,17 +2061,19 @@ angular.module('syncthing.core')
         function addFolderInit(folderID) {
             $scope.editingExisting = false;
             $scope.editingDefaults = false;
-            return $http.get(urlbase + '/config/defaults/folder').then(function(p) {
-                $scope.currentFolder = p.data;
+            return $q.all([
+                $http.get(urlbase + '/config/defaults/folder')
+                     .then(function (response) {
+                         $scope.currentFolder = response.data;
+                     }),
+                $http.get(urlbase + '/config/defaults/ignores')
+                     .then(editFolderInitIgnores),
+            ]).then(function() {
                 $scope.currentFolder.id = folderID;
 
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
-
-                $scope.ignores.text = '';
-                $scope.ignores.error = null;
-                $scope.ignores.disabled = false;
             }, $scope.emitHTTPError);
         }
 
@@ -2080,11 +2082,12 @@ angular.module('syncthing.core')
                 return;
             }
             $http.get(urlbase + '/system/readignores?path=' + encodeURIComponent(pathJoin($scope.currentFolder.path, ".stignore")))
-                 .then(function(p) {
-                     if (p.data.ignore) {
-                         editFolderInitIgnores(p);
+                 .then(function(response) {
+                     $scope.ignores.path = $scope.currentFolder.path;
+                     if (response.data.ignore) {
+                         editFolderInitIgnores(response);
                      } else {
-                         $http.get(urlbase + '/db/defaultignores')
+                         $http.get(urlbase + '/config/defaults/ignores')
                               .then(editFolderInitIgnores);
                      }
                  });
@@ -2161,14 +2164,10 @@ angular.module('syncthing.core')
             function arrayDiffers(a, b) {
                 return !a !== !b || a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
             }
-            var ignoresChanged = arrayDiffers(ignores, folderCfg.ignores);
+            var ignoresChanged = arrayDiffers(ignores, $scope.ignores.originalLines);
 
             if ($scope.editingDefaults) {
-                if (ignoresChanged) {
-                    $http.post(urlbase + '/db/defaultignores', {
-                        ignore: ignores
-                    }).error($scope.emitHTTPError);
-                }
+                $scope.config.defaults.ignores.lines = ignores;
                 $scope.config.defaults.folder = folderCfg;
                 $scope.saveConfig();
             } else {

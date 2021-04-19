@@ -472,7 +472,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v", "-trimpath"}
+	args := []string{"install", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -504,7 +504,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v", "-trimpath"}
+	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -538,13 +538,13 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags(tags))
+		args = append(args, "-trimpath", "-ldflags", ldflags(tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
 		// offset 0x0: too short` on 'dlv exec ...' see
 		// https://github.com/go-delve/delve/issues/79
-		args = append(args, "-gcflags", "-N -l")
+		args = append(args, "-gcflags", "all=-N -l")
 	}
 
 	return append(args, pkgs...)
@@ -891,8 +891,8 @@ func proto() {
 }
 
 func testmocks() {
-	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
-	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
+	runPrint(goCmd, "install", "golang.org/x/tools/cmd/goimports")
+	runPrint(goCmd, "install", "github.com/maxbrunsfeld/counterfeiter/v6")
 	args := []string{
 		"generate",
 		"github.com/syncthing/syncthing/lib/config",

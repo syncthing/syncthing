@@ -114,6 +114,9 @@ func TestDefaultValues(t *testing.T) {
 				Compression:     protocol.CompressionMetadata,
 				IgnoredFolders:  []ObservedFolder{},
 			},
+			Ignores: Ignores{
+				Lines: []string{},
+			},
 		},
 		IgnoredDevices: []ObservedDevice{},
 	}
