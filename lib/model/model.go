@@ -475,8 +475,13 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		}
 	}
 	if isPathUnique {
-		// Delete syncthing specific files
-		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+		// Remove (if empty and removable) or move away (if non-empty or
+		// otherwise not removable) Syncthing-specific marker files.
+		fs := cfg.Filesystem()
+		if err := fs.Remove(config.DefaultMarkerName); err != nil {
+			moved := config.DefaultMarkerName + time.Now().Format(".removed-20060102-150405")
+			_ = fs.Rename(config.DefaultMarkerName, moved)
+		}
 	}
 
 	m.cleanupFolderLocked(cfg)
@@ -1306,13 +1311,17 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
-	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
 	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
+	expiredPending, err := m.db.PendingFoldersForDevice(deviceID)
+	if err != nil {
+		l.Infof("Could not get pending folders for cleanup: %v", err)
+	}
+	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
 
@@ -1326,8 +1335,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			recvEnc := len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
-			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID, recvEnc); err != nil {
+			delete(expiredPending, folder.ID)
+			of.Label = folder.Label
+			of.ReceiveEncrypted = len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
@@ -1335,7 +1346,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				FolderID:         folder.ID,
 				FolderLabel:      folder.Label,
 				DeviceID:         deviceID,
-				ReceiveEncrypted: recvEnc,
+				ReceiveEncrypted: of.ReceiveEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1412,18 +1423,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
-	// All current pending folders were touched above, so discard any with older timestamps
-	expiredPending, err := m.db.RemovePendingFoldersBeforeTime(deviceID, handleTime)
-	if err != nil {
-		l.Infof("Could not clean up pending folder entries: %v", err)
+	for folder := range expiredPending {
+		m.db.RemovePendingFolderForDevice(folder, deviceID)
 	}
 	if len(updatedPending) > 0 || len(expiredPending) > 0 {
-		expiredPendingList := make([]map[string]string, len(expiredPending))
-		for i, folderID := range expiredPending {
-			expiredPendingList[i] = map[string]string{
+		expiredPendingList := make([]map[string]string, 0, len(expiredPending))
+		for folderID := range expiredPending {
+			expiredPendingList = append(expiredPendingList, map[string]string{
 				"folderID": folderID,
 				"deviceID": deviceID.String(),
-			}
+			})
 		}
 		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
 			"added":   updatedPending,

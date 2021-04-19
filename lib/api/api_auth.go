@@ -29,11 +29,15 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-func emitLoginAttempt(success bool, username string, evLogger events.Logger) {
+func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
-		"success":  success,
-		"username": username,
+		"success":       success,
+		"username":      username,
+		"remoteAddress": address,
 	})
+	if !success {
+		l.Infof("Wrong credentials supplied during API authorization from %s", address)
+	}
 }
 
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
@@ -95,7 +99,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		}
 
 		if !authOk {
-			emitLoginAttempt(false, username, evLogger)
+			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
 			error()
 			return
 		}
@@ -110,7 +114,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			MaxAge: 0,
 		})
 
-		emitLoginAttempt(true, username, evLogger)
+		emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
 		next.ServeHTTP(w, r)
 	})
 }

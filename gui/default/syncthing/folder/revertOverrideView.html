@@ -1,0 +1,33 @@
+<modal id="revert-override-confirmation" status="danger" icon="fas fa-question-circle" heading="{{revertOverrideParams.heading}}" large="no" closeable="yes">
+  <div class="modal-body" ng-switch="revertOverrideParams.type">
+    <div ng-switch-when="deleteEnc">
+      <p>
+        <span translate>Unexpected items have been found in this folder.</span></br>
+        <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
+      </p>
+      <p translate>
+        Are you sure you want to permanently delete all these files?
+      </p>
+    </div>
+    <div ng-switch-default>
+      <p>
+        <span translate>Warning</span>:</br>
+        <span ng-switch="revertOverrideParams.type">
+          <span ng-switch-when="override" translate>The folder content on other devices will be overwritten to become identical with this device. Files not present here will be deleted on other devices.</span>
+          <span ng-switch-default translate>The folder content on this device will be overwritten to become identical with other devices. Files newly added here will be deleted.</span>
+        </span>
+      </p>
+      <p translate>
+        Are you sure you want to continue?
+      </p>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-danger pull-left btn-sm" data-dismiss="modal" ng-click="revertOverride()">
+      <span class="fas fa-check"></span>&nbsp;<span translate>Yes</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>No</span>
+    </button>
+  </div>
+</modal>

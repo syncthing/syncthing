@@ -103,6 +103,18 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (protocol.Fil
 	return fi, nil
 }
 
+type blocksIndirectionError struct {
+	err error
+}
+
+func (e *blocksIndirectionError) Error() string {
+	return fmt.Sprintf("filling Blocks: %v", e.err)
+}
+
+func (e *blocksIndirectionError) Unwrap() error {
+	return e.err
+}
+
 // fillFileInfo follows the (possible) indirection of blocks and version
 // vector and fills it out.
 func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
@@ -113,7 +125,7 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 		key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
 		bs, err := t.Get(key)
 		if err != nil {
-			return fmt.Errorf("filling Blocks: %w", err)
+			return &blocksIndirectionError{err}
 		}
 		var bl BlockList
 		if err := bl.Unmarshal(bs); err != nil {

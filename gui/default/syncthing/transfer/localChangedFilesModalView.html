@@ -1,7 +1,11 @@
-<modal id="localChanged" status="info" icon="fas fa-exclamation-circle" heading="{{'Locally Changed Items' | translate}}" large="yes" closeable="yes">
-  <div class="modal-body">
-    <p translate>
+<modal id="localChanged" status="{{localChangedType === 'receiveencrypted' ? 'warning' : 'info'}}" icon="fas fa-exclamation-circle" heading="{{localChangedHeading(localChangedType)}}" large="yes" closeable="yes">
+  <div class="modal-body" ng-switch="localChangedType">
+    <p ng-switch-when="receiveonly" translate>
       The following items were changed locally.
+    </p>
+    <p ng-switch-when="receiveencrypted">
+      <span translate>The following unexpected items were found.</span>
+      <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
     </p>
     <table class="table table-striped">
       <thead>

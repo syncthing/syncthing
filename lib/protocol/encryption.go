@@ -15,7 +15,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
@@ -254,20 +253,25 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 	encryptedFI := encryptBytes(bs, fileKey)
 
 	// The vector is set to something that is higher than any other version sent
-	// previously, assuming people's clocks are correct. We do this because
+	// previously. We do this because
 	// there is no way for the insecure device on the other end to do proper
 	// conflict resolution, so they will simply accept and keep whatever is the
 	// latest version they see. The secure devices will decrypt the real
 	// FileInfo, see the real Version, and act appropriately regardless of what
 	// this fake version happens to be.
+	// The vector also needs to be deterministic/the same among all trusted
+	// devices with the same vector, such that the pulling/remote completion
+	// works correctly on the untrusted device(s).
 
 	version := Vector{
 		Counters: []Counter{
 			{
-				ID:    1,
-				Value: uint64(time.Now().UnixNano()),
+				ID: 1,
 			},
 		},
+	}
+	for _, counter := range fi.Version.Counters {
+		version.Counters[0].Value += counter.Value
 	}
 
 	// Construct the fake block list. Each block will be blockOverhead bytes
@@ -555,24 +559,10 @@ func (r rawResponse) Data() []byte {
 func (r rawResponse) Close() {}
 func (r rawResponse) Wait()  {}
 
-// IsEncryptedPath returns true if the path points at encrypted data. This is
-// determined by checking for a sentinel string in the path.
-func IsEncryptedPath(path string) bool {
-	pathComponents := strings.Split(path, "/")
-	if len(pathComponents) != 3 {
-		return false
-	}
-	return isEncryptedParentFromComponents(pathComponents[:2])
-}
-
 // IsEncryptedParent returns true if the path points at a parent directory of
 // encrypted data, i.e. is not a "real" directory. This is determined by
 // checking for a sentinel string in the path.
-func IsEncryptedParent(path string) bool {
-	return isEncryptedParentFromComponents(strings.Split(path, "/"))
-}
-
-func isEncryptedParentFromComponents(pathComponents []string) bool {
+func IsEncryptedParent(pathComponents []string) bool {
 	l := len(pathComponents)
 	if l == 2 && len(pathComponents[1]) != 2 {
 		return false
