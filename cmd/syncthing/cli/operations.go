@@ -9,6 +9,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )
 
@@ -37,6 +38,12 @@ var operationCommand = cli.Command{
 			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
 			ArgsUsage: "[folder id]",
 			Action:    expects(1, foldersOverride),
+		},
+		{
+			Name:      "default-ignores",
+			Usage:     "Set the default ignores (config) from a file",
+			ArgsUsage: "path",
+			Action:    expects(1, setDefaultIgnores),
 		},
 	},
 }
@@ -70,4 +77,14 @@ func foldersOverride(c *cli.Context) error {
 		}
 	}
 	return fmt.Errorf("Folder " + rid + " not found")
+}
+
+func setDefaultIgnores(c *cli.Context) error {
+	client := c.App.Metadata["client"].(*APIClient)
+	ignores, err := config.IgnoresFromFile(c.Args()[0])
+	if err != nil {
+		return err
+	}
+	_, err = client.PutJSON("config/defaults/ignores", ignores)
+	return err
 }

@@ -40,15 +40,15 @@ type Wrapper struct {
 	defaultFolderReturnsOnCall map[int]struct {
 		result1 config.FolderConfiguration
 	}
-	DefaultIgnoresStub        func() []string
+	DefaultIgnoresStub        func() config.Ignores
 	defaultIgnoresMutex       sync.RWMutex
 	defaultIgnoresArgsForCall []struct {
 	}
 	defaultIgnoresReturns struct {
-		result1 []string
+		result1 config.Ignores
 	}
 	defaultIgnoresReturnsOnCall map[int]struct {
-		result1 []string
+		result1 config.Ignores
 	}
 	DeviceStub        func(protocol.DeviceID) (config.DeviceConfiguration, bool)
 	deviceMutex       sync.RWMutex
@@ -459,7 +459,7 @@ func (fake *Wrapper) DefaultFolderReturnsOnCall(i int, result1 config.FolderConf
 	}{result1}
 }
 
-func (fake *Wrapper) DefaultIgnores() []string {
+func (fake *Wrapper) DefaultIgnores() config.Ignores {
 	fake.defaultIgnoresMutex.Lock()
 	ret, specificReturn := fake.defaultIgnoresReturnsOnCall[len(fake.defaultIgnoresArgsForCall)]
 	fake.defaultIgnoresArgsForCall = append(fake.defaultIgnoresArgsForCall, struct {
@@ -483,32 +483,32 @@ func (fake *Wrapper) DefaultIgnoresCallCount() int {
 	return len(fake.defaultIgnoresArgsForCall)
 }
 
-func (fake *Wrapper) DefaultIgnoresCalls(stub func() []string) {
+func (fake *Wrapper) DefaultIgnoresCalls(stub func() config.Ignores) {
 	fake.defaultIgnoresMutex.Lock()
 	defer fake.defaultIgnoresMutex.Unlock()
 	fake.DefaultIgnoresStub = stub
 }
 
-func (fake *Wrapper) DefaultIgnoresReturns(result1 []string) {
+func (fake *Wrapper) DefaultIgnoresReturns(result1 config.Ignores) {
 	fake.defaultIgnoresMutex.Lock()
 	defer fake.defaultIgnoresMutex.Unlock()
 	fake.DefaultIgnoresStub = nil
 	fake.defaultIgnoresReturns = struct {
-		result1 []string
+		result1 config.Ignores
 	}{result1}
 }
 
-func (fake *Wrapper) DefaultIgnoresReturnsOnCall(i int, result1 []string) {
+func (fake *Wrapper) DefaultIgnoresReturnsOnCall(i int, result1 config.Ignores) {
 	fake.defaultIgnoresMutex.Lock()
 	defer fake.defaultIgnoresMutex.Unlock()
 	fake.DefaultIgnoresStub = nil
 	if fake.defaultIgnoresReturnsOnCall == nil {
 		fake.defaultIgnoresReturnsOnCall = make(map[int]struct {
-			result1 []string
+			result1 config.Ignores
 		})
 	}
 	fake.defaultIgnoresReturnsOnCall[i] = struct {
-		result1 []string
+		result1 config.Ignores
 	}{result1}
 }
 

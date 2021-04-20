@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -54,7 +56,7 @@ func (c *APIClient) Endpoint() string {
 	return url
 }
 
-func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
+func (c *APIClient) Request(req *http.Request) (*http.Response, error) {
 	req.Header.Set("X-API-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -63,20 +65,36 @@ func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, checkResponse(resp)
 }
 
-func (c *APIClient) Get(url string) (*http.Response, error) {
-	request, err := http.NewRequest("GET", c.Endpoint()+"rest/"+url, nil)
+func (c *APIClient) Do(url, method string, r io.Reader) (*http.Response, error) {
+	request, err := http.NewRequest(method, c.Endpoint()+"rest/"+url, r)
 	if err != nil {
 		return nil, err
 	}
-	return c.Do(request)
+	return c.Request(request)
+}
+
+func (c *APIClient) DoString(url, method, data string) (*http.Response, error) {
+	return c.Do(url, method, bytes.NewBufferString(data))
+}
+
+func (c *APIClient) DoJSON(url, method string, o interface{}) (*http.Response, error) {
+	data, err := json.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(url, method, bytes.NewBuffer(data))
+}
+
+func (c *APIClient) Get(url string) (*http.Response, error) {
+	return c.DoString(url, "GET", "")
 }
 
 func (c *APIClient) Post(url, body string) (*http.Response, error) {
-	request, err := http.NewRequest("POST", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(request)
+	return c.DoString(url, "POST", body)
+}
+
+func (c *APIClient) PutJSON(url string, o interface{}) (*http.Response, error) {
+	return c.DoJSON(url, "PUT", o)
 }
 
 func checkResponse(response *http.Response) error {
