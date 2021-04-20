@@ -603,3 +603,20 @@ func ensureZeroForNodefault(empty interface{}, target interface{}) {
 		return len(v) > 0
 	})
 }
+
+// IgnoresFromFile return Ignores with Lines initiated with the lines of the file at give path.
+func IgnoresFromFile(path string) (Ignores, error) {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return Ignores{}, err
+	}
+	return Ignores{
+		Lines: strings.Split(string(content), "\n"),
+	}, nil
+}
+
+func (i Ignores) Copy() Ignores {
+	out := Ignores{Lines: make([]string, len(i.Lines))}
+	copy(out.Lines, i.Lines)
+	return out
+}

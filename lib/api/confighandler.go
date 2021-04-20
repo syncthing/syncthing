@@ -230,20 +230,17 @@ func (c *configMuxBuilder) registerDefaultDevice(path string) {
 
 func (c *configMuxBuilder) registerDefaultIgnores(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
-		sendJSON(w, map[string]interface{}{
-			"ignore": c.cfg.DefaultIgnores(),
-		})
+		sendJSON(w, c.cfg.DefaultIgnores())
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		ignores, err := deserializeIgnores(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
+		var ignores config.Ignores
+		if err := unmarshalTo(r.Body, &ignores); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-			cfg.Defaults.Ignores.Lines = ignores
+			cfg.Defaults.Ignores = ignores
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

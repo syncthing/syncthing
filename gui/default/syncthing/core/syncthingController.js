@@ -1983,13 +1983,15 @@ angular.module('syncthing.core')
             $scope.ignores.text = 'Loading...';
             $scope.ignores.error = null;
             $scope.ignores.disabled = true;
-            $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .then(editFolderInitIgnores)
-                .catch(function (response) {
-                    $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
-                    $scope.emitHTTPError(response);
-                });
-
+            $http.get(
+                urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id)
+            ).then(function(r) {
+                editFolderInitIgnores(r.data.ignores);
+                $scope.ignores.error = r.data.error;
+            }).catch(function (response) {
+                $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
+                $scope.emitHTTPError(response);
+            });
             editFolder();
         };
 
@@ -1999,8 +2001,7 @@ angular.module('syncthing.core')
                      .then(function (response) {
                          $scope.currentFolder = response.data;
                      }),
-                $http.get(urlbase + '/config/defaults/ignores')
-                     .then(editFolderInitIgnores),
+                editFolderInitIgnoresDefault(),
             ]).then(function() {
                 $scope.editingExisting = false;
                 $scope.editingDefaults = true;
@@ -2008,10 +2009,16 @@ angular.module('syncthing.core')
             }).catch($scope.emitHTTPError);
         };
 
-        function editFolderInitIgnores(response) {
-            $scope.ignores.originalLines = response.data.ignore || [];
+        function editFolderInitIgnoresDefault() {
+            return $http.get(urlbase + '/config/defaults/ignores').then(function (r) {
+                editFolderInitIgnores(r.data.lines);
+            });
+        }
+
+        function editFolderInitIgnores(lines) {
+            $scope.ignores.originalLines = lines || [];
             $scope.ignores.text = $scope.ignores.originalLines.join('\n');
-            $scope.ignores.error = response.data.error;
+            $scope.ignores.error = undefined;
             $scope.ignores.disabled = false;
         }
 
@@ -2066,8 +2073,7 @@ angular.module('syncthing.core')
                      .then(function (response) {
                          $scope.currentFolder = response.data;
                      }),
-                $http.get(urlbase + '/config/defaults/ignores')
-                     .then(editFolderInitIgnores),
+                editFolderInitIgnoresDefault(),
             ]).then(function() {
                 $scope.currentFolder.id = folderID;
 
@@ -2081,16 +2087,16 @@ angular.module('syncthing.core')
             if ($scope.editingExisting || $scope.editingDefaults || $scope.ignores.path === $scope.currentFolder.path || !$scope.folderEditor.ignoresText.$pristine ) {
                 return;
             }
-            $http.get(urlbase + '/system/readignores?path=' + encodeURIComponent(pathJoin($scope.currentFolder.path, ".stignore")))
-                 .then(function(response) {
-                     $scope.ignores.path = $scope.currentFolder.path;
-                     if (response.data.ignore) {
-                         editFolderInitIgnores(response);
-                     } else {
-                         $http.get(urlbase + '/config/defaults/ignores')
-                              .then(editFolderInitIgnores);
-                     }
-                 });
+            $http.get(
+                urlbase + '/system/readignores?path=' + encodeURIComponent(pathJoin($scope.currentFolder.path, ".stignore"))
+            ).then(function(response) {
+                $scope.ignores.path = $scope.currentFolder.path;
+                if (response.data.lines) {
+                    editFolderInitIgnores(response.data.lines);
+                } else {
+                    editFolderInitIgnoresDefault();
+                }
+            });
         };
 
         $scope.shareFolderWithDevice = function (folder, device) {

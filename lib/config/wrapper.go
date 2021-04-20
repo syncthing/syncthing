@@ -94,7 +94,7 @@ type Wrapper interface {
 	GUI() GUIConfiguration
 	LDAP() LDAPConfiguration
 	Options() OptionsConfiguration
-	DefaultIgnores() []string
+	DefaultIgnores() Ignores
 
 	Folder(id string) (FolderConfiguration, bool)
 	Folders() map[string]FolderConfiguration
@@ -429,12 +429,10 @@ func (w *wrapper) GUI() GUIConfiguration {
 }
 
 // DefaultIgnores returns the list of ignore patterns to be used by default on folders.
-func (w *wrapper) DefaultIgnores() []string {
+func (w *wrapper) DefaultIgnores() Ignores {
 	w.mut.Lock()
-	out := make([]string, len(w.cfg.Defaults.Ignores.Lines))
-	copy(out, w.cfg.Defaults.Ignores.Lines)
-	w.mut.Unlock()
-	return out
+	defer w.mut.Unlock()
+	return w.cfg.Defaults.Ignores.Copy()
 }
 
 // IgnoredDevice returns whether or not connection attempts from the given
