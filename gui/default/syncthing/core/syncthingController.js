@@ -1893,6 +1893,7 @@ angular.module('syncthing.core')
             }).one('hidden.bs.modal', function () {
                 $('.nav-tabs a[href="#folder-general"]').tab('show');
                 window.location.hash = "";
+                $scope.currentFolder = {};
             });
         };
 
