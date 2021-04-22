@@ -42,7 +42,7 @@ var operationCommand = cli.Command{
 }
 
 func foldersOverride(c *cli.Context) error {
-	client := c.App.Metadata["client"].(*APIClient)
+	client := c.App.Metadata["client"].(APIClient)
 	cfg, err := getConfig(client)
 	if err != nil {
 		return err

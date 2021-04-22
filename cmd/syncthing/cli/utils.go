@@ -32,7 +32,7 @@ func responseToBArray(response *http.Response) ([]byte, error) {
 
 func emptyPost(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
-		client := c.App.Metadata["client"].(*APIClient)
+		client := c.App.Metadata["client"].(APIClient)
 		_, err := client.Post(url, "")
 		return err
 	}
@@ -40,7 +40,7 @@ func emptyPost(url string) cli.ActionFunc {
 
 func indexDumpOutput(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
-		client := c.App.Metadata["client"].(*APIClient)
+		client := c.App.Metadata["client"].(APIClient)
 		response, err := client.Get(url)
 		if err != nil {
 			return err
@@ -51,7 +51,7 @@ func indexDumpOutput(url string) cli.ActionFunc {
 
 func saveToFile(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
-		client := c.App.Metadata["client"].(*APIClient)
+		client := c.App.Metadata["client"].(APIClient)
 		response, err := client.Get(url)
 		if err != nil {
 			return err
@@ -82,7 +82,7 @@ func saveToFile(url string) cli.ActionFunc {
 	}
 }
 
-func getConfig(c *APIClient) (config.Configuration, error) {
+func getConfig(c APIClient) (config.Configuration, error) {
 	cfg := config.Configuration{}
 	response, err := c.Get("system/config")
 	if err != nil {

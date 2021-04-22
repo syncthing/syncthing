@@ -19,13 +19,18 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 )
 
-type APIClient struct {
+type APIClient interface {
+	Get(url string) (*http.Response, error)
+	Post(url, body string) (*http.Response, error)
+}
+
+type apiClient struct {
 	http.Client
 	cfg    config.GUIConfiguration
 	apikey string
 }
 
-func getClient(cfg config.GUIConfiguration) *APIClient {
+func getClient(cfg config.GUIConfiguration) *apiClient {
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -36,14 +41,14 @@ func getClient(cfg config.GUIConfiguration) *APIClient {
 			},
 		},
 	}
-	return &APIClient{
+	return &apiClient{
 		Client: httpClient,
 		cfg:    cfg,
 		apikey: cfg.APIKey,
 	}
 }
 
-func (c *APIClient) Endpoint() string {
+func (c *apiClient) Endpoint() string {
 	if c.cfg.Network() == "unix" {
 		return "http://unix/"
 	}
@@ -54,7 +59,7 @@ func (c *APIClient) Endpoint() string {
 	return url
 }
 
-func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
+func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("X-API-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -63,7 +68,7 @@ func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, checkResponse(resp)
 }
 
-func (c *APIClient) Get(url string) (*http.Response, error) {
+func (c *apiClient) Get(url string) (*http.Response, error) {
 	request, err := http.NewRequest("GET", c.Endpoint()+"rest/"+url, nil)
 	if err != nil {
 		return nil, err
@@ -71,7 +76,7 @@ func (c *APIClient) Get(url string) (*http.Response, error) {
 	return c.Do(request)
 }
 
-func (c *APIClient) Post(url, body string) (*http.Response, error) {
+func (c *apiClient) Post(url, body string) (*http.Response, error) {
 	request, err := http.NewRequest("POST", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
 	if err != nil {
 		return nil, err
@@ -93,4 +98,16 @@ func checkResponse(response *http.Response) error {
 		return fmt.Errorf("unexpected HTTP status returned: %s\n%s", response.Status, body)
 	}
 	return nil
+}
+
+type errorAPIClient struct {
+	err error
+}
+
+func (c *errorAPIClient) Get(_ string) (*http.Response, error) {
+	return nil, c.err
+}
+
+func (c *errorAPIClient) Post(_, _ string) (*http.Response, error) {
+	return nil, c.err
 }

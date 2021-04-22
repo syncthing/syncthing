@@ -56,40 +56,22 @@ func Run() error {
 		APIKey:     c.GUIAPIKey,
 	}
 
+	var apiError error
+
 	// Now if the API key and address is not provided (we are not connecting to a remote instance),
 	// try to rip it out of the config.
 	if guiCfg.RawAddress == "" && guiCfg.APIKey == "" {
-		// Load the certs and get the ID
-		cert, err := tls.LoadX509KeyPair(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
-		)
-		if err != nil {
-			return errors.Wrap(err, "reading device ID")
-		}
-
-		myID := protocol.NewDeviceID(cert.Certificate[0])
-
-		// Load the config
-		cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
-		if err != nil {
-			return errors.Wrap(err, "loading config")
-		}
-
-		guiCfg = cfg.GUI()
+		guiCfg, apiError = loadGUIConfig()
 	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
 		return errors.New("Both --gui-address and --gui-apikey should be specified")
 	}
 
-	if guiCfg.Address() == "" {
-		return errors.New("Could not find GUI Address")
+	var client APIClient
+	if apiError != nil {
+		client = &errorAPIClient{err: apiError}
+	} else {
+		client = getClient(guiCfg)
 	}
-
-	if guiCfg.APIKey == "" {
-		return errors.New("Could not find GUI API key")
-	}
-
-	client := getClient(guiCfg)
 
 	cfg, cfgErr := getConfig(client)
 	original := cfg.Copy()
@@ -205,6 +187,37 @@ func Run() error {
 		}
 	}
 	return nil
+}
+
+func loadGUIConfig() (config.GUIConfiguration, error) {
+	// Load the certs and get the ID
+	cert, err := tls.LoadX509KeyPair(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
+	if err != nil {
+		return config.GUIConfiguration{}, errors.Wrap(err, "reading device ID")
+	}
+
+	myID := protocol.NewDeviceID(cert.Certificate[0])
+
+	// Load the config
+	cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
+	if err != nil {
+		return config.GUIConfiguration{}, errors.Wrap(err, "loading config")
+	}
+
+	guiCfg := cfg.GUI()
+
+	if guiCfg.Address() == "" {
+		return config.GUIConfiguration{}, errors.New("Could not find GUI Address")
+	}
+
+	if guiCfg.APIKey == "" {
+		return config.GUIConfiguration{}, errors.New("Could not find GUI API key")
+	}
+
+	return guiCfg, nil
 }
 
 func parseFlags(c *preCli) error {
