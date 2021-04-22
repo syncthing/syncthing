@@ -8,12 +8,17 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/urfave/cli"
 )
 
@@ -33,7 +38,7 @@ func emptyPost(url string) cli.ActionFunc {
 	}
 }
 
-func dumpOutput(url string) cli.ActionFunc {
+func indexDumpOutput(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client := c.App.Metadata["client"].(*APIClient)
 		response, err := client.Get(url)
@@ -41,6 +46,39 @@ func dumpOutput(url string) cli.ActionFunc {
 			return err
 		}
 		return prettyPrintResponse(c, response)
+	}
+}
+
+func saveToFile(url string) cli.ActionFunc {
+	return func(c *cli.Context) error {
+		client := c.App.Metadata["client"].(*APIClient)
+		response, err := client.Get(url)
+		if err != nil {
+			return err
+		}
+		_, params, err := mime.ParseMediaType(response.Header.Get("Content-Disposition"))
+		if err != nil {
+			return err
+		}
+		filename := params["filename"]
+		if filename == "" {
+			return errors.New("Missing filename in response")
+		}
+		bs, err := responseToBArray(response)
+		if err != nil {
+			return err
+		}
+		f, err := os.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.Write(bs)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Wrote results to", filename)
+		return err
 	}
 }
 
@@ -91,4 +129,21 @@ func prettyPrintResponse(c *cli.Context, response *http.Response) error {
 	}
 	// TODO: Check flag for pretty print format
 	return prettyPrintJSON(data)
+}
+
+func getDB() (backend.Backend, error) {
+	return backend.OpenLevelDBRO(locations.Get(locations.Database))
+}
+
+func nulString(bs []byte) string {
+	for i := range bs {
+		if bs[i] == 0 {
+			return string(bs[:i])
+		}
+	}
+	return string(bs)
+}
+
+func normalizePath(path string) string {
+	return filepath.ToSlash(filepath.Clean(path))
 }

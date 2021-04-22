@@ -22,7 +22,7 @@ var errorsCommand = cli.Command{
 		{
 			Name:   "show",
 			Usage:  "Show pending errors",
-			Action: expects(0, dumpOutput("system/error")),
+			Action: expects(0, indexDumpOutput("system/error")),
 		},
 		{
 			Name:      "push",

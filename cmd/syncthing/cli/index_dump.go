@@ -4,23 +4,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package cli
 
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/urfave/cli"
+
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(ldb backend.Backend) {
+func indexDump(*cli.Context) error {
+	ldb, err := getDB()
+	if err != nil {
+		return err
+	}
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for it.Next() {
 		key := it.Key()
@@ -34,7 +38,7 @@ func dump(ldb backend.Backend) {
 			var f protocol.FileInfo
 			err := f.Unmarshal(it.Value())
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			fmt.Printf(" V:%v\n", f)
 
@@ -61,10 +65,10 @@ func dump(ldb backend.Backend) {
 			folder := binary.BigEndian.Uint32(key[1:])
 			name := nulString(key[1+4:])
 			val := it.Value()
-			var real, virt time.Time
-			real.UnmarshalBinary(val[:len(val)/2])
-			virt.UnmarshalBinary(val[len(val)/2:])
-			fmt.Printf("[mtime] F:%d N:%q R:%v V:%v\n", folder, name, real, virt)
+			var realTime, virtualTime time.Time
+			realTime.UnmarshalBinary(val[:len(val)/2])
+			virtualTime.UnmarshalBinary(val[len(val)/2:])
+			fmt.Printf("[mtime] F:%d N:%q R:%v V:%v\n", folder, name, realTime, virtualTime)
 
 		case db.KeyTypeFolderIdx:
 			key := binary.BigEndian.Uint32(key[1:])
@@ -152,4 +156,5 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
 	}
+	return nil
 }

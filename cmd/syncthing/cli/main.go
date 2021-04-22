@@ -20,18 +20,21 @@ import (
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli"
+
+	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/urfave/cli"
 )
 
 type preCli struct {
 	GUIAddress string `name:"gui-address"`
 	GUIAPIKey  string `name:"gui-apikey"`
 	HomeDir    string `name:"home"`
-	ConfDir    string `name:"conf"`
+	ConfDir    string `name:"config"`
+	DataDir    string `name:"data"`
 }
 
 func Run() error {
@@ -44,17 +47,7 @@ func Run() error {
 	parseFlags(&c)
 
 	// Not set as default above because the strings can be really long.
-	var err error
-	homeSet := c.HomeDir != ""
-	confSet := c.ConfDir != ""
-	switch {
-	case homeSet && confSet:
-		err = errors.New("-home must not be used together with -conf")
-	case homeSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.HomeDir)
-	case confSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.ConfDir)
-	}
+	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "Command line options:")
 	}
@@ -98,20 +91,28 @@ func Run() error {
 
 	client := getClient(guiCfg)
 
-	cfg, err := getConfig(client)
+	cfg, cfgErr := getConfig(client)
 	original := cfg.Copy()
-	if err != nil {
-		return errors.Wrap(err, "getting config")
-	}
 
 	// Copy the config and set the default flags
 	recliCfg := recli.DefaultConfig
 	recliCfg.IDTag.Name = "xml"
 	recliCfg.SkipTag.Name = "json"
 
-	commands, err := recli.New(recliCfg).Construct(&cfg)
-	if err != nil {
-		return errors.Wrap(err, "config reflect")
+	configCommand := cli.Command{
+		Name:     "config",
+		HideHelp: true,
+		Usage:    "Configuration modification command group",
+	}
+	if cfgErr != nil {
+		configCommand.Action = func(*cli.Context) error {
+			return cfgErr
+		}
+	} else {
+		configCommand.Subcommands, err = recli.New(recliCfg).Construct(&cfg)
+		if err != nil {
+			return errors.Wrap(err, "config reflect")
+		}
 	}
 
 	// Implement the same flags at the upper CLI, but do nothing with them.
@@ -150,15 +151,11 @@ func Run() error {
 		Usage: "Syncthing command line interface",
 		Flags: fakeFlags,
 		Subcommands: []cli.Command{
-			{
-				Name:        "config",
-				HideHelp:    true,
-				Usage:       "Configuration modification command group",
-				Subcommands: commands,
-			},
+			configCommand,
 			showCommand,
 			operationCommand,
 			errorsCommand,
+			debugCommand,
 		},
 	}}
 
@@ -190,7 +187,7 @@ func Run() error {
 		}
 	}
 
-	if !reflect.DeepEqual(cfg, original) {
+	if cfgErr == nil && !reflect.DeepEqual(cfg, original) {
 		body, err := json.MarshalIndent(cfg, "", "  ")
 		if err != nil {
 			return err
