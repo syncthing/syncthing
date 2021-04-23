@@ -37,8 +37,10 @@ func (f *sendOnlyFolder) PullErrors() []FileError {
 
 // pull checks need for files that only differ by metadata (no changes on disk)
 func (f *sendOnlyFolder) pull() (bool, error) {
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
+	batch := newFileInfoBatch(func(files []protocol.FileInfo) error {
+		f.updateLocalsFromPulling(files)
+		return nil
+	})
 
 	snap, err := f.dbSnapshot()
 	if err != nil {
@@ -46,45 +48,40 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 	}
 	defer snap.Release()
 	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			f.updateLocalsFromPulling(batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
-		}
+		batch.flushIfFull()
+
+		file := intf.(protocol.FileInfo)
 
 		if f.ignores.ShouldIgnore(intf.FileName()) {
-			file := intf.(protocol.FileInfo)
 			file.SetIgnored()
-			batch = append(batch, file)
-			batchSizeBytes += file.ProtoSize()
+			batch.append(file)
 			l.Debugln(f, "Handling ignored file", file)
 			return true
 		}
 
 		curFile, ok := snap.Get(protocol.LocalDeviceID, intf.FileName())
 		if !ok {
-			if intf.IsDeleted() {
+			if intf.IsInvalid() {
+				// Global invalid file just exists for need accounting
+				batch.append(file)
+			} else if intf.IsDeleted() {
 				l.Debugln("Should never get a deleted file as needed when we don't have it")
 				f.evLogger.Log(events.Failure, "got deleted file that doesn't exist locally as needed when pulling on send-only")
 			}
 			return true
 		}
 
-		file := intf.(protocol.FileInfo)
 		if !file.IsEquivalentOptional(curFile, f.modTimeWindow, f.IgnorePerms, false, 0) {
 			return true
 		}
 
-		batch = append(batch, file)
-		batchSizeBytes += file.ProtoSize()
+		batch.append(file)
 		l.Debugln(f, "Merging versions of identical file", file)
 
 		return true
 	})
 
-	if len(batch) > 0 {
-		f.updateLocalsFromPulling(batch)
-	}
+	batch.flush()
 
 	return true, nil
 }
