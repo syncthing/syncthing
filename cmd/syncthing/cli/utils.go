@@ -36,7 +36,7 @@ func emptyPost(url string) cli.ActionFunc {
 		if err != nil {
 			return err
 		}
-		_, err := client.Post(url, "")
+		_, err = client.Post(url, "")
 		return err
 	}
 }
@@ -155,10 +155,6 @@ func nulString(bs []byte) string {
 
 func normalizePath(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
-}
-
-func setClientFactory(c *cli.Context, f *apiClientFactory) {
-	c.App.Metadata["clientFactory"] = f
 }
 
 func getClientFactory(c *cli.Context) *apiClientFactory {
