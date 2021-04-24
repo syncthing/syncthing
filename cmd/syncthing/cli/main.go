@@ -8,13 +8,10 @@ package cli
 
 import (
 	"bufio"
-	"encoding/json"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"strings"
 
-	"github.com/AudriusButkevicius/recli"
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
@@ -54,32 +51,9 @@ func Run() error {
 		},
 	}
 
-	var cfg config.Configuration
-	client, cfgErr := clientFactory.getClient()
-	if cfgErr == nil {
-		cfg, cfgErr = getConfig(client)
-	}
-	original := cfg.Copy()
-
-	// Copy the config and set the default flags
-	recliCfg := recli.DefaultConfig
-	recliCfg.IDTag.Name = "xml"
-	recliCfg.SkipTag.Name = "json"
-
-	configCommand := cli.Command{
-		Name:     "config",
-		HideHelp: true,
-		Usage:    "Configuration modification command group",
-	}
-	if cfgErr != nil {
-		configCommand.Action = func(*cli.Context) error {
-			return cfgErr
-		}
-	} else {
-		configCommand.Subcommands, err = recli.New(recliCfg).Construct(&cfg)
-		if err != nil {
-			return errors.Wrap(err, "config reflect")
-		}
+	configCommand, err := getConfigCommand(clientFactory)
+	if err != nil {
+		return err
 	}
 
 	// Implement the same flags at the upper CLI, but do nothing with them.
@@ -154,23 +128,6 @@ func Run() error {
 		}
 	}
 
-	if cfgErr == nil && !reflect.DeepEqual(cfg, original) {
-		body, err := json.MarshalIndent(cfg, "", "  ")
-		if err != nil {
-			return err
-		}
-		resp, err := client.Post("system/config", string(body))
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			body, err := responseToBArray(resp)
-			if err != nil {
-				return err
-			}
-			return errors.New(string(body))
-		}
-	}
 	return nil
 }
 
