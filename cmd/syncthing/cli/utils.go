@@ -147,3 +147,7 @@ func nulString(bs []byte) string {
 func normalizePath(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
 }
+
+func getClientFactory(c *cli.Context) *apiClientFactory {
+	return c.App.Metadata["clientFactory"].(*apiClientFactory)
+}

@@ -8,7 +8,6 @@ package cli
 
 import (
 	"bufio"
-	"crypto/tls"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -24,9 +23,6 @@ import (
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type preCli struct {
@@ -51,29 +47,18 @@ func Run() error {
 	if err != nil {
 		return errors.Wrap(err, "Command line options:")
 	}
-	guiCfg := config.GUIConfiguration{
-		RawAddress: c.GUIAddress,
-		APIKey:     c.GUIAPIKey,
+	clientFactory := &apiClientFactory{
+		cfg: config.GUIConfiguration{
+			RawAddress: c.GUIAddress,
+			APIKey:     c.GUIAPIKey,
+		},
 	}
 
-	var apiError error
-
-	// Now if the API key and address is not provided (we are not connecting to a remote instance),
-	// try to rip it out of the config.
-	if guiCfg.RawAddress == "" && guiCfg.APIKey == "" {
-		guiCfg, apiError = loadGUIConfig()
-	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
-		return errors.New("Both --gui-address and --gui-apikey should be specified")
+	var cfg config.Configuration
+	client, cfgErr := clientFactory.getClient()
+	if cfgErr == nil {
+		cfg, cfgErr = getConfig(client)
 	}
-
-	var client APIClient
-	if apiError != nil {
-		client = &errorAPIClient{err: apiError}
-	} else {
-		client = getClient(guiCfg)
-	}
-
-	cfg, cfgErr := getConfig(client)
 	original := cfg.Copy()
 
 	// Copy the config and set the default flags
@@ -126,7 +111,7 @@ func Run() error {
 	app := cli.NewApp()
 	app.Author = "The Syncthing Authors"
 	app.Metadata = map[string]interface{}{
-		"client": client,
+		"clientFactory": clientFactory,
 	}
 	app.Commands = []cli.Command{{
 		Name:  "cli",
@@ -187,37 +172,6 @@ func Run() error {
 		}
 	}
 	return nil
-}
-
-func loadGUIConfig() (config.GUIConfiguration, error) {
-	// Load the certs and get the ID
-	cert, err := tls.LoadX509KeyPair(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
-	if err != nil {
-		return config.GUIConfiguration{}, errors.Wrap(err, "reading device ID")
-	}
-
-	myID := protocol.NewDeviceID(cert.Certificate[0])
-
-	// Load the config
-	cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
-	if err != nil {
-		return config.GUIConfiguration{}, errors.Wrap(err, "loading config")
-	}
-
-	guiCfg := cfg.GUI()
-
-	if guiCfg.Address() == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI Address")
-	}
-
-	if guiCfg.APIKey == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI API key")
-	}
-
-	return guiCfg, nil
 }
 
 func parseFlags(c *preCli) error {
