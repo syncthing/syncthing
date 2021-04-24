@@ -42,7 +42,7 @@ angular.module('syncthing.core')
         $scope.pendingFolders = {};
         $scope.progress = {};
         $scope.version = {};
-        $scope.needed = {}
+        $scope.needed = {};
         $scope.neededFolder = '';
         $scope.failed = {};
         $scope.localChanged = {};
@@ -673,7 +673,7 @@ angular.module('syncthing.core')
                 console.log("refreshNeed", $scope.neededFolder, data);
                 parseNeeded(data);
             }).error($scope.emitHTTPError);
-        }
+        };
 
         function needAction(file) {
             var fDelete = 4096;
@@ -1010,7 +1010,7 @@ angular.module('syncthing.core')
                 if (days > 31) {
                     return '> 1 month';
                 }
-                res.push('' + days + 'd')
+                res.push('' + days + 'd');
                 seconds = seconds % 86400;
             }
 
@@ -1018,7 +1018,7 @@ angular.module('syncthing.core')
             var hours = 0;
             if (seconds > 3600) {
                 hours = Math.floor(seconds / 3600);
-                res.push('' + hours + 'h')
+                res.push('' + hours + 'h');
                 seconds = seconds % 3600;
             }
 
@@ -1759,7 +1759,7 @@ angular.module('syncthing.core')
             };
             $scope.config.devices = deviceList($scope.devices);
             $scope.saveConfig();
-        }
+        };
 
         $scope.isAtleastOneDevicePausedStateSetTo = function (pause) {
             for (var id in $scope.devices) {
@@ -1769,7 +1769,7 @@ angular.module('syncthing.core')
             }
 
             return false
-        }
+        };
 
         $scope.errorList = function () {
             if (!$scope.errors) {
@@ -2779,7 +2779,7 @@ angular.module('syncthing.core')
             var time = $filter('date')(status.when, "HH:mm:ss")
             var err = status.error.replace(/.+: /, '');
             return err + " (" + time + ")";
-        }
+        };
 
         $scope.setCrashReportingEnabled = function (enabled) {
             $scope.config.options.crashReportingEnabled = enabled;
@@ -2791,7 +2791,7 @@ angular.module('syncthing.core')
                 (address.indexOf('/') == 0 ||
                     address.indexOf('unix://') == 0 ||
                     address.indexOf('unixs://') == 0);
-        }
+        };
     })
     .directive('shareTemplate', function () {
         return {
