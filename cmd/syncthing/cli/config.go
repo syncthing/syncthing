@@ -46,13 +46,24 @@ func getConfigCommand(f *apiClientFactory) (cli.Command, error) {
 		HideHelp:    true,
 		Usage:       "Configuration modification command group",
 		Subcommands: commands,
+		Before:      h.configBefore,
 		After:       h.configAfter,
 	}, nil
 }
 
+func (h *configHandler) configBefore(c *cli.Context) error {
+	for _, arg := range c.Args() {
+		if arg == "--help" || arg == "-h" {
+			return nil
+		}
+	}
+	return h.err
+}
+
 func (h *configHandler) configAfter(c *cli.Context) error {
 	if h.err != nil {
-		return h.err
+		// Error was already returned in configBefore
+		return nil
 	}
 	if reflect.DeepEqual(h.cfg, h.original) {
 		return nil
