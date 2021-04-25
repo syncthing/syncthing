@@ -255,7 +255,13 @@ func (a *App) startup() error {
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
 
-	tlsCfg := tlsutil.SecureDefault()
+	var tlsCfg *tls.Config
+	if a.cfg.Options().InsecureAllowOldTLSVersions {
+		l.Infoln("TLS 1.2 is allowed on sync connections. This is less than optimally secure.")
+		tlsCfg = tlsutil.SecureDefaultWithTLS12()
+	} else {
+		tlsCfg = tlsutil.SecureDefaultTLS13()
+	}
 	tlsCfg.Certificates = []tls.Certificate{a.cert}
 	tlsCfg.NextProtos = []string{bepProtocolName}
 	tlsCfg.ClientAuth = tls.RequestClientCert

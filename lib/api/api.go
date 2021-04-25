@@ -162,7 +162,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg := tlsutil.SecureDefaultWithTLS12()
 	tlsCfg.Certificates = []tls.Certificate{cert}
 
 	if guiCfg.Network() == "unix" {
