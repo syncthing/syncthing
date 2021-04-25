@@ -202,18 +202,6 @@ var targets = map[string]target{
 	},
 }
 
-// These are repos we need to clone to run "go generate"
-
-type dependencyRepo struct {
-	path   string
-	repo   string
-	commit string
-}
-
-var dependencyRepos = []dependencyRepo{
-	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
-}
-
 func initTargets() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
@@ -871,28 +859,24 @@ func shouldRebuildAssets(target, srcdir string) bool {
 
 func proto() {
 	pv := protobufVersion()
-	dependencyRepos = append(dependencyRepos,
-		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
-	)
+	repo := "https://github.com/gogo/protobuf.git"
+	path := filepath.Join("repos", "protobuf")
 
 	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
-	for _, dep := range dependencyRepos {
-		path := filepath.Join("repos", dep.path)
-		if _, err := os.Stat(path); err != nil {
-			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
-		} else {
-			runPrintInDir(path, "git", "fetch")
-		}
-		runPrintInDir(path, "git", "checkout", dep.commit)
+
+	if _, err := os.Stat(path); err != nil {
+		runPrint("git", "clone", repo, path)
+	} else {
+		runPrintInDir(path, "git", "fetch")
 	}
+	runPrintInDir(path, "git", "checkout", pv)
+
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 	runPrint(goCmd, "generate", "proto/generate.go")
 }
 
 func testmocks() {
-	runPrint(goCmd, "get", "golang.org/x/tools/cmd/goimports")
-	runPrint(goCmd, "get", "github.com/maxbrunsfeld/counterfeiter/v6")
 	args := []string{
 		"generate",
 		"github.com/syncthing/syncthing/lib/config",
