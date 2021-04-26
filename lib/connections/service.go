@@ -129,23 +129,23 @@ type service struct {
 	*suture.Supervisor
 	connectionStatusHandler
 
-	cfg                    config.Wrapper
-	deviceAddressesChanged chan struct{}
-	myID                   protocol.DeviceID
-	model                  Model
-	tlsCfg                 *tls.Config
-	discoverer             discover.Finder
-	conns                  chan internalConn
-	bepProtocolName        string
-	tlsDefaultCommonName   string
-	limiter                *limiter
-	natService             *nat.Service
-	evLogger               events.Logger
+	cfg                  config.Wrapper
+	myID                 protocol.DeviceID
+	model                Model
+	tlsCfg               *tls.Config
+	discoverer           discover.Finder
+	conns                chan internalConn
+	bepProtocolName      string
+	tlsDefaultCommonName string
+	limiter              *limiter
+	natService           *nat.Service
+	evLogger             events.Logger
 
-	listenersMut       sync.RWMutex
-	listeners          map[string]genericListener
-	listenerTokens     map[string]suture.ServiceToken
-	listenerSupervisor *suture.Supervisor
+	deviceAddressesChanged chan struct{}
+	listenersMut           sync.RWMutex
+	listeners              map[string]genericListener
+	listenerTokens         map[string]suture.ServiceToken
+	listenerSupervisor     *suture.Supervisor
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -154,22 +154,22 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
 
-		cfg:                    cfg,
-		deviceAddressesChanged: make(chan struct{}),
-		myID:                   myID,
-		model:                  mdl,
-		tlsCfg:                 tlsCfg,
-		discoverer:             discoverer,
-		conns:                  make(chan internalConn),
-		bepProtocolName:        bepProtocolName,
-		tlsDefaultCommonName:   tlsDefaultCommonName,
-		limiter:                newLimiter(myID, cfg),
-		natService:             nat.NewService(myID, cfg),
-		evLogger:               evLogger,
+		cfg:                  cfg,
+		myID:                 myID,
+		model:                mdl,
+		tlsCfg:               tlsCfg,
+		discoverer:           discoverer,
+		conns:                make(chan internalConn),
+		bepProtocolName:      bepProtocolName,
+		tlsDefaultCommonName: tlsDefaultCommonName,
+		limiter:              newLimiter(myID, cfg),
+		natService:           nat.NewService(myID, cfg),
+		evLogger:             evLogger,
 
-		listenersMut:   sync.NewRWMutex(),
-		listeners:      make(map[string]genericListener),
-		listenerTokens: make(map[string]suture.ServiceToken),
+		deviceAddressesChanged: make(chan struct{}, 1),
+		listenersMut:           sync.NewRWMutex(),
+		listeners:              make(map[string]genericListener),
+		listenerTokens:         make(map[string]suture.ServiceToken),
 
 		// A listener can fail twice, rapidly. Any more than that and it
 		// will be put on suspension for ten minutes. Restarts and changes
@@ -747,7 +747,11 @@ func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Conf
 	for _, dev := range to.Devices {
 		oldDev, ok := oldDevices[dev.DeviceID]
 		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
-			s.deviceAddressesChanged <- struct{}{}
+			select {
+			case s.deviceAddressesChanged <- struct{}{}:
+			default:
+				// channel is blocked - a config update is already pending for the connection loop.
+			}
 			break
 		}
 	}
