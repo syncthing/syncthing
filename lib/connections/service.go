@@ -129,17 +129,18 @@ type service struct {
 	*suture.Supervisor
 	connectionStatusHandler
 
-	cfg                  config.Wrapper
-	myID                 protocol.DeviceID
-	model                Model
-	tlsCfg               *tls.Config
-	discoverer           discover.Finder
-	conns                chan internalConn
-	bepProtocolName      string
-	tlsDefaultCommonName string
-	limiter              *limiter
-	natService           *nat.Service
-	evLogger             events.Logger
+	cfg                    config.Wrapper
+	deviceAddressesChanged chan struct{}
+	myID                   protocol.DeviceID
+	model                  Model
+	tlsCfg                 *tls.Config
+	discoverer             discover.Finder
+	conns                  chan internalConn
+	bepProtocolName        string
+	tlsDefaultCommonName   string
+	limiter                *limiter
+	natService             *nat.Service
+	evLogger               events.Logger
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
@@ -153,17 +154,18 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
 
-		cfg:                  cfg,
-		myID:                 myID,
-		model:                mdl,
-		tlsCfg:               tlsCfg,
-		discoverer:           discoverer,
-		conns:                make(chan internalConn),
-		bepProtocolName:      bepProtocolName,
-		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(myID, cfg),
-		natService:           nat.NewService(myID, cfg),
-		evLogger:             evLogger,
+		cfg:                    cfg,
+		deviceAddressesChanged: make(chan struct{}),
+		myID:                   myID,
+		model:                  mdl,
+		tlsCfg:                 tlsCfg,
+		discoverer:             discoverer,
+		conns:                  make(chan internalConn),
+		bepProtocolName:        bepProtocolName,
+		tlsDefaultCommonName:   tlsDefaultCommonName,
+		limiter:                newLimiter(myID, cfg),
+		natService:             nat.NewService(myID, cfg),
+		evLogger:               evLogger,
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -392,6 +394,7 @@ func (s *service) connect(ctx context.Context) error {
 		l.Debugln("Next connection loop in", sleep)
 
 		select {
+		case <-s.deviceAddressesChanged:
 		case <-time.After(sleep):
 		case <-ctx.Done():
 			return ctx.Err()
@@ -667,11 +670,20 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		newDevices[dev.DeviceID] = true
 	}
 
+	oldDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range from.Devices {
+		oldDevices[dev.DeviceID] = true
 		if !newDevices[dev.DeviceID] {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
+		}
+	}
+
+	for deviceID := range newDevices {
+		if !oldDevices[deviceID] {
+			s.deviceAddressesChanged <- struct{}{}
+			break
 		}
 	}
 
