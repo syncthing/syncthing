@@ -739,7 +739,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
-	oldDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(to.Devices))
+	oldDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(from.Devices))
 	for _, dev := range from.Devices {
 		oldDevices[dev.DeviceID] = dev
 	}
