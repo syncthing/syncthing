@@ -15,7 +15,6 @@ import (
 	"math"
 	"net"
 	"net/url"
-	"reflect"
 	"sort"
 	"strings"
 	stdsync "sync"
@@ -747,7 +746,7 @@ func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Conf
 
 	for _, dev := range to.Devices {
 		oldDev, ok := oldDevices[dev.DeviceID]
-		if !ok || !reflect.DeepEqual(oldDev.Addresses, dev.Addresses) {
+		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
 			s.deviceAddressesChanged <- struct{}{}
 			break
 		}
