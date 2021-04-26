@@ -141,10 +141,11 @@ type service struct {
 	natService           *nat.Service
 	evLogger             events.Logger
 
-	listenersMut       sync.RWMutex
-	listeners          map[string]genericListener
-	listenerTokens     map[string]suture.ServiceToken
-	listenerSupervisor *suture.Supervisor
+	deviceAddressesChanged chan struct{}
+	listenersMut           sync.RWMutex
+	listeners              map[string]genericListener
+	listenerTokens         map[string]suture.ServiceToken
+	listenerSupervisor     *suture.Supervisor
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -165,9 +166,10 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
 
-		listenersMut:   sync.NewRWMutex(),
-		listeners:      make(map[string]genericListener),
-		listenerTokens: make(map[string]suture.ServiceToken),
+		deviceAddressesChanged: make(chan struct{}, 1),
+		listenersMut:           sync.NewRWMutex(),
+		listeners:              make(map[string]genericListener),
+		listenerTokens:         make(map[string]suture.ServiceToken),
 
 		// A listener can fail twice, rapidly. Any more than that and it
 		// will be put on suspension for ten minutes. Restarts and changes
@@ -392,6 +394,7 @@ func (s *service) connect(ctx context.Context) error {
 		l.Debugln("Next connection loop in", sleep)
 
 		select {
+		case <-s.deviceAddressesChanged:
 		case <-time.After(sleep):
 		case <-ctx.Done():
 			return ctx.Err()
@@ -675,6 +678,8 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	s.checkAndSignalConnectLoopOnUpdatedDevices(from, to)
+
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range to.Options.ListenAddresses() {
@@ -731,6 +736,25 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Unlock()
 
 	return true
+}
+
+func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
+	oldDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(from.Devices))
+	for _, dev := range from.Devices {
+		oldDevices[dev.DeviceID] = dev
+	}
+
+	for _, dev := range to.Devices {
+		oldDev, ok := oldDevices[dev.DeviceID]
+		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
+			select {
+			case s.deviceAddressesChanged <- struct{}{}:
+			default:
+				// channel is blocked - a config update is already pending for the connection loop.
+			}
+			break
+		}
+	}
 }
 
 func (s *service) AllAddresses() []string {

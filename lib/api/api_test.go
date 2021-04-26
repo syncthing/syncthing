@@ -42,6 +42,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -126,6 +127,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
+
 	srv.started = make(chan string)
 
 	sup := suture.New("test", svcutil.SpecWithDebugLogger(l))
@@ -1178,7 +1180,7 @@ func TestBrowse(t *testing.T) {
 
 	for _, tc := range cases {
 		ret := browseFiles(tc.current, fs.FilesystemTypeBasic)
-		if !equalStrings(ret, tc.returns) {
+		if !util.EqualStrings(ret, tc.returns) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}
 	}
@@ -1387,18 +1389,6 @@ func TestSanitizedHostname(t *testing.T) {
 			t.Errorf("%q => %q, expected %q", tc.in, res, tc.out)
 		}
 	}
-}
-
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // runningInContainer returns true if we are inside Docker or LXC. It might
