@@ -24,6 +24,9 @@ angular.module('syncthing.core')
                     scope.folderPathErrors.isParent = false;
                     scope.folderPathErrors.otherID = "";
                     scope.folderPathErrors.otherLabel = "";
+                    if (!viewValue) {
+                        return true;
+                    }
                     for (var folderID in scope.folders) {
                         if (folderID === scope.currentFolder.id) {
                             continue;
