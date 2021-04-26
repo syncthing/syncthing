@@ -15,6 +15,7 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"reflect"
 	"sort"
 	"strings"
 	stdsync "sync"
@@ -670,9 +671,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		newDevices[dev.DeviceID] = true
 	}
 
-	oldDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range from.Devices {
-		oldDevices[dev.DeviceID] = true
 		if !newDevices[dev.DeviceID] {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
@@ -680,12 +679,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	for deviceID := range newDevices {
-		if !oldDevices[deviceID] {
-			s.deviceAddressesChanged <- struct{}{}
-			break
-		}
-	}
+	s.checkAndSignalConnectLoopOnUpdatedDevices(from, to)
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
@@ -743,6 +737,21 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Unlock()
 
 	return true
+}
+
+func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
+	oldDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(to.Devices))
+	for _, dev := range from.Devices {
+		oldDevices[dev.DeviceID] = dev
+	}
+
+	for _, dev := range to.Devices {
+		oldDev, ok := oldDevices[dev.DeviceID]
+		if !ok || !reflect.DeepEqual(oldDev.Addresses, dev.Addresses) {
+			s.deviceAddressesChanged <- struct{}{}
+			break
+		}
+	}
 }
 
 func (s *service) AllAddresses() []string {
