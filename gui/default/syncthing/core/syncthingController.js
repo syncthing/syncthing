@@ -1768,7 +1768,7 @@ angular.module('syncthing.core')
                 }
             }
 
-            return false
+            return false;
         };
 
         $scope.errorList = function () {
