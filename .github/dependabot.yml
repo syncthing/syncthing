@@ -1,0 +1,60 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: github.com/mattn/go-isatty
+    versions:
+    - ">= 0.0.8.a, < 0.0.9"
+  - dependency-name: github.com/lib/pq
+    versions:
+    - 1.10.0
+    - 1.10.1
+  - dependency-name: github.com/greatroar/blobloom
+    versions:
+    - 0.7.0
+  - dependency-name: github.com/go-ldap/ldap/v3
+    versions:
+    - 3.3.0
+  - dependency-name: github.com/golang/protobuf
+    versions:
+    - 1.5.1
+    - 1.5.2
+  - dependency-name: github.com/lucas-clemente/quic-go
+    versions:
+    - 0.20.0
+    - 0.20.1
+  - dependency-name: golang.org/x/text
+    versions:
+    - 0.3.5
+    - 0.3.6
+  - dependency-name: github.com/shirou/gopsutil/v3
+    versions:
+    - 3.21.1
+    - 3.21.2
+    - 3.21.3
+  - dependency-name: github.com/prometheus/client_golang
+    versions:
+    - 1.10.0
+  - dependency-name: github.com/alecthomas/kong
+    versions:
+    - 0.2.15
+    - 0.2.16
+  - dependency-name: github.com/oschwald/geoip2-golang
+    versions:
+    - 1.5.0
+  - dependency-name: github.com/gogo/protobuf
+    versions:
+    - 1.3.2
+  - dependency-name: github.com/hashicorp/golang-lru
+    versions:
+    - 0.5.4
+  - dependency-name: google.golang.org/protobuf
+    versions:
+    - 1.25.0
+  - dependency-name: github.com/maruel/panicparse
+    versions:
+    - 1.6.1
