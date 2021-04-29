@@ -1901,6 +1901,7 @@ angular.module('syncthing.core')
                 $('.nav-tabs a[href="#folder-general"]').tab('show');
                 window.location.hash = "";
                 $scope.currentFolder = {};
+                $scope.ignores = {};
             });
         };
 

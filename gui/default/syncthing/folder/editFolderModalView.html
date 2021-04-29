@@ -173,7 +173,7 @@
             <dd><span translate>Comment, when used at the start of a line</span></dd>
           </dl>
           <hr />
-          <span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+          <span ng-if="!editingDefaults" translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
         </div>
 
         <div id="folder-advanced" class="tab-pane">
