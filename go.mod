@@ -17,7 +17,6 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
-	github.com/golang/protobuf v1.4.3
 	github.com/greatroar/blobloom v0.5.0
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/jackpal/gateway v1.0.6
@@ -28,7 +27,6 @@ require (
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.5.1
 	github.com/mattn/go-isatty v0.0.12
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0 // indirect
 	github.com/minio/sha256-simd v0.1.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -36,7 +34,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.8.0
+	github.com/prometheus/client_golang v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil/v3 v3.20.11
@@ -47,11 +45,10 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.1.0 // indirect
-	google.golang.org/protobuf v1.23.0 // indirect
+	google.golang.org/protobuf v1.23.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
 
