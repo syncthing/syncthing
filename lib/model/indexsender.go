@@ -118,15 +118,15 @@ func (s *indexSender) pause() {
 // returns the highest sent sequence number.
 func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	initial := s.prevSequence == 0
-	batch := newFileInfoBatch(nil)
-	batch.flushFn = func(fs []protocol.FileInfo) error {
-		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(batch.infos), batch.size)
+	batch := db.NewFileInfoBatch(nil)
+	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
+		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
 		if initial {
 			initial = false
 			return s.conn.Index(ctx, s.folder, fs)
 		}
 		return s.conn.IndexUpdate(ctx, s.folder, fs)
-	}
+	})
 
 	var err error
 	var f protocol.FileInfo
@@ -140,8 +140,8 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
-		if batch.full() && (!fi.IsDeleted() || previousWasDelete) {
-			if err = batch.flush(); err != nil {
+		if batch.Full() && (!fi.IsDeleted() || previousWasDelete) {
+			if err = batch.Flush(); err != nil {
 				return false
 			}
 		}
@@ -181,14 +181,14 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 		previousWasDelete = f.IsDeleted()
 
-		batch.append(f)
+		batch.Append(f)
 		return true
 	})
 	if err != nil {
 		return err
 	}
 
-	err = batch.flush()
+	err = batch.Flush()
 
 	// True if there was nothing to be sent
 	if f.Sequence == 0 {
