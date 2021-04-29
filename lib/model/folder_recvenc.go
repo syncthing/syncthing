@@ -41,7 +41,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
 		return nil
 	})
@@ -54,7 +54,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	var iterErr error
 	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		if iterErr = batch.flushIfFull(); iterErr != nil {
+		if iterErr = batch.FlushIfFull(); iterErr != nil {
 			return false
 		}
 
@@ -81,7 +81,7 @@ func (f *receiveEncryptedFolder) revert() error {
 		// item should still not be sent in index updates. However being
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
-		batch.append(fi)
+		batch.Append(fi)
 
 		return true
 	})
@@ -91,7 +91,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	if iterErr != nil {
 		return iterErr
 	}
-	return batch.flush()
+	return batch.Flush()
 }
 
 func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {

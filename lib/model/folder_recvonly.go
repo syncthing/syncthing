@@ -82,8 +82,10 @@ func (f *receiveOnlyFolder) revert() error {
 		scanChan: scanChan,
 	}
 
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
+	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
+		f.updateLocalsFromScanning(files)
+		return nil
+	})
 	snap, err := f.dbSnapshot()
 	if err != nil {
 		return err
@@ -124,21 +126,12 @@ func (f *receiveOnlyFolder) revert() error {
 			fi.Version = protocol.Vector{}
 		}
 
-		batch = append(batch, fi)
-		batchSizeBytes += fi.ProtoSize()
+		batch.Append(fi)
+		_ = batch.FlushIfFull()
 
-		if len(batch) >= maxBatchSizeFiles || batchSizeBytes >= maxBatchSizeBytes {
-			f.updateLocalsFromScanning(batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
-		}
 		return true
 	})
-	if len(batch) > 0 {
-		f.updateLocalsFromScanning(batch)
-	}
-	batch = batch[:0]
-	batchSizeBytes = 0
+	_ = batch.Flush()
 
 	// Handle any queued directories
 	deleted, err := delQueue.flush(snap)
@@ -147,7 +140,7 @@ func (f *receiveOnlyFolder) revert() error {
 	}
 	now := time.Now()
 	for _, dir := range deleted {
-		batch = append(batch, protocol.FileInfo{
+		batch.Append(protocol.FileInfo{
 			Name:       dir,
 			Type:       protocol.FileInfoTypeDirectory,
 			ModifiedS:  now.Unix(),
@@ -156,9 +149,7 @@ func (f *receiveOnlyFolder) revert() error {
 			Version:    protocol.Vector{},
 		})
 	}
-	if len(batch) > 0 {
-		f.updateLocalsFromScanning(batch)
-	}
+	_ = batch.Flush()
 
 	// We will likely have changed our local index, but that won't trigger a
 	// pull by itself. Make sure we schedule one so that we start

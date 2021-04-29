@@ -473,7 +473,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.setState(FolderScanning)
 	f.clearScanErrors(subDirs)
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
@@ -500,7 +500,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	if err := batch.flush(); err != nil {
+	if err := batch.Flush(); err != nil {
 		return err
 	}
 
@@ -519,7 +519,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	if err := batch.flush(); err != nil {
+	if err := batch.Flush(); err != nil {
 		return err
 	}
 
@@ -529,7 +529,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 type batchAppendFunc func(protocol.FileInfo, *db.Snapshot) bool
 
-func (f *folder) scanSubdirsBatchAppendFunc(batch *fileInfoBatch) batchAppendFunc {
+func (f *folder) scanSubdirsBatchAppendFunc(batch *db.FileInfoBatch) batchAppendFunc {
 	// Resolve items which are identical with the global state.
 	switch f.Type {
 	case config.FolderTypeReceiveOnly:
@@ -550,7 +550,7 @@ func (f *folder) scanSubdirsBatchAppendFunc(batch *fileInfoBatch) batchAppendFun
 				l.Debugf("%v scanning: Marking item as not locally changed", f, fi)
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
-			batch.append(fi)
+			batch.Append(fi)
 			return true
 		}
 	case config.FolderTypeReceiveEncrypted:
@@ -567,18 +567,18 @@ func (f *folder) scanSubdirsBatchAppendFunc(batch *fileInfoBatch) batchAppendFun
 			// Any local change must not be sent as index entry to
 			// remotes and show up as an error in the UI.
 			fi.LocalFlags = protocol.FlagLocalReceiveOnly
-			batch.append(fi)
+			batch.Append(fi)
 			return true
 		}
 	default:
 		return func(fi protocol.FileInfo, _ *db.Snapshot) bool {
-			batch.append(fi)
+			batch.Append(fi)
 			return true
 		}
 	}
 }
 
-func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *fileInfoBatch, batchAppend batchAppendFunc) (int, error) {
+func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *db.FileInfoBatch, batchAppend batchAppendFunc) (int, error) {
 	changes := 0
 	snap, err := f.dbSnapshot()
 	if err != nil {
@@ -621,7 +621,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *fileInfoBatch
 			continue
 		}
 
-		if err := batch.flushIfFull(); err != nil {
+		if err := batch.FlushIfFull(); err != nil {
 			// Prevent a race between the scan aborting due to context
 			// cancellation and releasing the snapshot in defer here.
 			scanCancel()
@@ -648,7 +648,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *fileInfoBatch
 	return changes, nil
 }
 
-func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoBatch, batchAppend batchAppendFunc) (int, error) {
+func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *db.FileInfoBatch, batchAppend batchAppendFunc) (int, error) {
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
 	changes := 0
@@ -670,7 +670,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 
 			file := fi.(db.FileInfoTruncated)
 
-			if err := batch.flushIfFull(); err != nil {
+			if err := batch.FlushIfFull(); err != nil {
 				iterError = err
 				return false
 			}
@@ -682,7 +682,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 					if batchAppend(nf, snap) {
 						changes++
 					}
-					if err := batch.flushIfFull(); err != nil {
+					if err := batch.FlushIfFull(); err != nil {
 						iterError = err
 						return false
 					}
@@ -775,7 +775,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *fileInfoB
 				if batchAppend(nf, snap) {
 					changes++
 				}
-				if iterError = batch.flushIfFull(); iterError != nil {
+				if iterError = batch.FlushIfFull(); iterError != nil {
 					break
 				}
 			}
@@ -1206,7 +1206,7 @@ func (f *folder) handleForcedRescans() error {
 		return nil
 	}
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.fset.Update(protocol.LocalDeviceID, fs)
 		return nil
 	})
@@ -1218,7 +1218,7 @@ func (f *folder) handleForcedRescans() error {
 	defer snap.Release()
 
 	for _, path := range paths {
-		if err := batch.flushIfFull(); err != nil {
+		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
 
@@ -1227,10 +1227,10 @@ func (f *folder) handleForcedRescans() error {
 			continue
 		}
 		fi.SetMustRescan()
-		batch.append(fi)
+		batch.Append(fi)
 	}
 
-	if err = batch.flush(); err != nil {
+	if err = batch.Flush(); err != nil {
 		return err
 	}
 

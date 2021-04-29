@@ -1400,21 +1400,24 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	}
 }
 
-func TestRequestIssue7474(t *testing.T) {
-	// Repro for https://github.com/syncthing/syncthing/issues/7474
-	// Devices A, B and C. B connected to A and C, but not A to C.
-	// A has valid file, B ignores it.
-	// In the test C is local, and B is the fake connection.
-
+func TestRequestGlobalInvalidToValid(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done)
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+	waiter, err := m.cfg.Modify(func(cfg *config.Configuration) {
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
+		fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+		cfg.SetFolder(fcfg)
+	})
+	must(t, err)
+	waiter.Wait()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
-	indexChan := make(chan []protocol.FileInfo)
+	indexChan := make(chan []protocol.FileInfo, 1)
 	fc.setIndexFn(func(ctx context.Context, folder string, fs []protocol.FileInfo) error {
 		select {
 		case indexChan <- fs:
@@ -1426,18 +1429,67 @@ func TestRequestIssue7474(t *testing.T) {
 
 	name := "foo"
 
-	fc.addFileWithLocalFlags(name, protocol.FileInfoTypeFile, protocol.FlagLocalIgnored)
+	// Setup device with valid file, do not send index yet
+	contents := []byte("test file contents\n")
+	fc.addFile(name, 0644, protocol.FileInfoTypeFile, contents)
+
+	// Third device ignoring the same file
+	fc.mut.Lock()
+	file := fc.files[0]
+	fc.mut.Unlock()
+	file.SetIgnored()
+	m.IndexUpdate(device2, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
+
+	// Wait for the ignored file to be received and possible pulled
+	timeout := time.After(10 * time.Second)
+	globalUpdated := false
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("timed out (globalUpdated == %v)", globalUpdated)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+		if !globalUpdated {
+			_, ok, err := m.CurrentGlobalFile(fcfg.ID, name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !ok {
+				continue
+			}
+			globalUpdated = true
+		}
+		snap, err := m.DBSnapshot(fcfg.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		need := snap.NeedSize(protocol.LocalDeviceID)
+		snap.Release()
+		if need.Files == 0 {
+			break
+		}
+	}
+
+	// Send the valid file
 	fc.sendIndexUpdate()
 
-	select {
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out before receiving index")
-	case fs := <-indexChan:
-		if len(fs) != 1 {
-			t.Fatalf("Expected one file in index, got %v", len(fs))
-		}
-		if !fs[0].IsInvalid() {
-			t.Error("Expected invalid file")
+	gotInvalid := false
+	for {
+		select {
+		case <-timeout:
+			t.Fatal("timed out before receiving index")
+		case fs := <-indexChan:
+			if len(fs) != 1 {
+				t.Fatalf("Expected one file in index, got %v", len(fs))
+			}
+			if !fs[0].IsInvalid() {
+				return
+			}
+			if gotInvalid {
+				t.Fatal("Received two invalid index updates")
+			}
+			gotInvalid = true
 		}
 	}
 }

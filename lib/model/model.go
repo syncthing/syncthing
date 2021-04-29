@@ -41,12 +41,6 @@ import (
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
-// How many files to send in each Index/IndexUpdate message.
-const (
-	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
-)
-
 type service interface {
 	suture.Service
 	BringToFront(string)
@@ -3133,51 +3127,6 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
-}
-
-type fileInfoBatch struct {
-	infos   []protocol.FileInfo
-	size    int
-	flushFn func([]protocol.FileInfo) error
-}
-
-func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
-	return &fileInfoBatch{
-		infos:   make([]protocol.FileInfo, 0, maxBatchSizeFiles),
-		flushFn: fn,
-	}
-}
-
-func (b *fileInfoBatch) append(f protocol.FileInfo) {
-	b.infos = append(b.infos, f)
-	b.size += f.ProtoSize()
-}
-
-func (b *fileInfoBatch) full() bool {
-	return len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes
-}
-
-func (b *fileInfoBatch) flushIfFull() error {
-	if b.full() {
-		return b.flush()
-	}
-	return nil
-}
-
-func (b *fileInfoBatch) flush() error {
-	if len(b.infos) == 0 {
-		return nil
-	}
-	if err := b.flushFn(b.infos); err != nil {
-		return err
-	}
-	b.reset()
-	return nil
-}
-
-func (b *fileInfoBatch) reset() {
-	b.infos = b.infos[:0]
-	b.size = 0
 }
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes

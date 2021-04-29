@@ -472,7 +472,6 @@ func TestNeedWithInvalid(t *testing.T) {
 		remote0Have[0],
 		remote1Have[0],
 		remote0Have[2],
-		remote1Have[2],
 	}
 
 	replace(s, protocol.LocalDeviceID, localHave)
