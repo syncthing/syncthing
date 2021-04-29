@@ -22,7 +22,7 @@ var errorsCommand = cli.Command{
 		{
 			Name:   "show",
 			Usage:  "Show pending errors",
-			Action: expects(0, dumpOutput("system/error")),
+			Action: expects(0, indexDumpOutput("system/error")),
 		},
 		{
 			Name:      "push",
@@ -39,7 +39,7 @@ var errorsCommand = cli.Command{
 }
 
 func errorsPush(c *cli.Context) error {
-	client := c.App.Metadata["client"].(*APIClient)
+	client := c.App.Metadata["client"].(APIClient)
 	errStr := strings.Join(c.Args(), " ")
 	response, err := client.Post("system/error", strings.TrimSpace(errStr))
 	if err != nil {

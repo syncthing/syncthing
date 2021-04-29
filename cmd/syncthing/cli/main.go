@@ -8,30 +8,26 @@ package cli
 
 import (
 	"bufio"
-	"crypto/tls"
-	"encoding/json"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"strings"
 
-	"github.com/AudriusButkevicius/recli"
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
-	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/urfave/cli"
+
+	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 type preCli struct {
 	GUIAddress string `name:"gui-address"`
 	GUIAPIKey  string `name:"gui-apikey"`
 	HomeDir    string `name:"home"`
-	ConfDir    string `name:"conf"`
+	ConfDir    string `name:"config"`
+	DataDir    string `name:"data"`
 }
 
 func Run() error {
@@ -44,74 +40,20 @@ func Run() error {
 	parseFlags(&c)
 
 	// Not set as default above because the strings can be really long.
-	var err error
-	homeSet := c.HomeDir != ""
-	confSet := c.ConfDir != ""
-	switch {
-	case homeSet && confSet:
-		err = errors.New("-home must not be used together with -conf")
-	case homeSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.HomeDir)
-	case confSet:
-		err = locations.SetBaseDir(locations.ConfigBaseDir, c.ConfDir)
-	}
+	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "Command line options:")
 	}
-	guiCfg := config.GUIConfiguration{
-		RawAddress: c.GUIAddress,
-		APIKey:     c.GUIAPIKey,
+	clientFactory := &apiClientFactory{
+		cfg: config.GUIConfiguration{
+			RawAddress: c.GUIAddress,
+			APIKey:     c.GUIAPIKey,
+		},
 	}
 
-	// Now if the API key and address is not provided (we are not connecting to a remote instance),
-	// try to rip it out of the config.
-	if guiCfg.RawAddress == "" && guiCfg.APIKey == "" {
-		// Load the certs and get the ID
-		cert, err := tls.LoadX509KeyPair(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
-		)
-		if err != nil {
-			return errors.Wrap(err, "reading device ID")
-		}
-
-		myID := protocol.NewDeviceID(cert.Certificate[0])
-
-		// Load the config
-		cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
-		if err != nil {
-			return errors.Wrap(err, "loading config")
-		}
-
-		guiCfg = cfg.GUI()
-	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
-		return errors.New("Both --gui-address and --gui-apikey should be specified")
-	}
-
-	if guiCfg.Address() == "" {
-		return errors.New("Could not find GUI Address")
-	}
-
-	if guiCfg.APIKey == "" {
-		return errors.New("Could not find GUI API key")
-	}
-
-	client := getClient(guiCfg)
-
-	cfg, err := getConfig(client)
-	original := cfg.Copy()
+	configCommand, err := getConfigCommand(clientFactory)
 	if err != nil {
-		return errors.Wrap(err, "getting config")
-	}
-
-	// Copy the config and set the default flags
-	recliCfg := recli.DefaultConfig
-	recliCfg.IDTag.Name = "xml"
-	recliCfg.SkipTag.Name = "json"
-
-	commands, err := recli.New(recliCfg).Construct(&cfg)
-	if err != nil {
-		return errors.Wrap(err, "config reflect")
+		return err
 	}
 
 	// Implement the same flags at the upper CLI, but do nothing with them.
@@ -143,22 +85,18 @@ func Run() error {
 	app := cli.NewApp()
 	app.Author = "The Syncthing Authors"
 	app.Metadata = map[string]interface{}{
-		"client": client,
+		"clientFactory": clientFactory,
 	}
 	app.Commands = []cli.Command{{
 		Name:  "cli",
 		Usage: "Syncthing command line interface",
 		Flags: fakeFlags,
 		Subcommands: []cli.Command{
-			{
-				Name:        "config",
-				HideHelp:    true,
-				Usage:       "Configuration modification command group",
-				Subcommands: commands,
-			},
+			configCommand,
 			showCommand,
 			operationCommand,
 			errorsCommand,
+			debugCommand,
 		},
 	}}
 
@@ -190,23 +128,6 @@ func Run() error {
 		}
 	}
 
-	if !reflect.DeepEqual(cfg, original) {
-		body, err := json.MarshalIndent(cfg, "", "  ")
-		if err != nil {
-			return err
-		}
-		resp, err := client.Post("system/config", string(body))
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != 200 {
-			body, err := responseToBArray(resp)
-			if err != nil {
-				return err
-			}
-			return errors.New(string(body))
-		}
-	}
 	return nil
 }
 

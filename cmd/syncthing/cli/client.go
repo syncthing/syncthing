@@ -19,33 +19,89 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type APIClient struct {
+type APIClient interface {
+	Get(url string) (*http.Response, error)
+	Post(url, body string) (*http.Response, error)
+	PutJSON(url string, o interface{}) (*http.Response, error)
+}
+
+type apiClient struct {
 	http.Client
 	cfg    config.GUIConfiguration
 	apikey string
 }
 
-func getClient(cfg config.GUIConfiguration) *APIClient {
+type apiClientFactory struct {
+	cfg config.GUIConfiguration
+}
+
+func (f *apiClientFactory) getClient() (APIClient, error) {
+	// Now if the API key and address is not provided (we are not connecting to a remote instance),
+	// try to rip it out of the config.
+	if f.cfg.RawAddress == "" && f.cfg.APIKey == "" {
+		var err error
+		f.cfg, err = loadGUIConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else if f.cfg.Address() == "" || f.cfg.APIKey == "" {
+		return nil, errors.New("Both --gui-address and --gui-apikey should be specified")
+	}
+
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial(cfg.Network(), cfg.Address())
+				return net.Dial(f.cfg.Network(), f.cfg.Address())
 			},
 		},
 	}
-	return &APIClient{
+	return &apiClient{
 		Client: httpClient,
-		cfg:    cfg,
-		apikey: cfg.APIKey,
-	}
+		cfg:    f.cfg,
+		apikey: f.cfg.APIKey,
+	}, nil
 }
 
-func (c *APIClient) Endpoint() string {
+func loadGUIConfig() (config.GUIConfiguration, error) {
+	// Load the certs and get the ID
+	cert, err := tls.LoadX509KeyPair(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
+	if err != nil {
+		return config.GUIConfiguration{}, fmt.Errorf("reading device ID: %w", err)
+	}
+
+	myID := protocol.NewDeviceID(cert.Certificate[0])
+
+	// Load the config
+	cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
+	if err != nil {
+		return config.GUIConfiguration{}, fmt.Errorf("loading config: %w", err)
+	}
+
+	guiCfg := cfg.GUI()
+
+	if guiCfg.Address() == "" {
+		return config.GUIConfiguration{}, errors.New("Could not find GUI Address")
+	}
+
+	if guiCfg.APIKey == "" {
+		return config.GUIConfiguration{}, errors.New("Could not find GUI API key")
+	}
+
+	return guiCfg, nil
+}
+
+func (c *apiClient) Endpoint() string {
 	if c.cfg.Network() == "unix" {
 		return "http://unix/"
 	}
@@ -56,7 +112,7 @@ func (c *APIClient) Endpoint() string {
 	return url
 }
 
-func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
+func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("X-API-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -65,7 +121,7 @@ func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, checkResponse(resp)
 }
 
-func (c *APIClient) Request(url, method string, r io.Reader) (*http.Response, error) {
+func (c *apiClient) Request(url, method string, r io.Reader) (*http.Response, error) {
 	request, err := http.NewRequest(method, c.Endpoint()+"rest/"+url, r)
 	if err != nil {
 		return nil, err
@@ -73,11 +129,11 @@ func (c *APIClient) Request(url, method string, r io.Reader) (*http.Response, er
 	return c.Do(request)
 }
 
-func (c *APIClient) RequestString(url, method, data string) (*http.Response, error) {
+func (c *apiClient) RequestString(url, method, data string) (*http.Response, error) {
 	return c.Request(url, method, bytes.NewBufferString(data))
 }
 
-func (c *APIClient) RequestJSON(url, method string, o interface{}) (*http.Response, error) {
+func (c *apiClient) RequestJSON(url, method string, o interface{}) (*http.Response, error) {
 	data, err := json.Marshal(o)
 	if err != nil {
 		return nil, err
@@ -85,15 +141,15 @@ func (c *APIClient) RequestJSON(url, method string, o interface{}) (*http.Respon
 	return c.Request(url, method, bytes.NewBuffer(data))
 }
 
-func (c *APIClient) Get(url string) (*http.Response, error) {
+func (c *apiClient) Get(url string) (*http.Response, error) {
 	return c.RequestString(url, "GET", "")
 }
 
-func (c *APIClient) Post(url, body string) (*http.Response, error) {
+func (c *apiClient) Post(url, body string) (*http.Response, error) {
 	return c.RequestString(url, "POST", body)
 }
 
-func (c *APIClient) PutJSON(url string, o interface{}) (*http.Response, error) {
+func (c *apiClient) PutJSON(url string, o interface{}) (*http.Response, error) {
 	return c.RequestJSON(url, "PUT", o)
 }
 

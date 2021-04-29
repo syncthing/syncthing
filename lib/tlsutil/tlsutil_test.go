@@ -98,7 +98,7 @@ func TestCheckCipherSuites(t *testing.T) {
 		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 	}
 
-	suites := buildCipherSuites()
+	suites := SecureDefaultWithTLS12().CipherSuites
 
 	if len(suites) != len(allSuites) {
 		t.Fatal("should get a list representing all suites")

@@ -34,6 +34,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
+	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -290,24 +291,7 @@ func (options serveOptions) Run() error {
 	}
 
 	// Not set as default above because the strings can be really long.
-	var err error
-	homeSet := options.HomeDir != ""
-	confSet := options.ConfDir != ""
-	dataSet := options.DataDir != ""
-	switch {
-	case dataSet != confSet:
-		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
-	case homeSet && dataSet:
-		err = errors.New("-home must not be used together with -conf and -data")
-	case homeSet:
-		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.HomeDir); err == nil {
-			err = locations.SetBaseDir(locations.DataBaseDir, options.HomeDir)
-		}
-	case dataSet:
-		if err = locations.SetBaseDir(locations.ConfigBaseDir, options.ConfDir); err == nil {
-			err = locations.SetBaseDir(locations.DataBaseDir, options.DataDir)
-		}
-	}
+	err := cmdutil.SetConfigDataLocationsFromFlags(options.HomeDir, options.ConfDir, options.DataDir)
 	if err != nil {
 		l.Warnln("Command line options:", err)
 		os.Exit(svcutil.ExitError.AsInt())

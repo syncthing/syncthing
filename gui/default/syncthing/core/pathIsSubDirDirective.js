@@ -3,7 +3,7 @@ angular.module('syncthing.core')
         return {
             require: 'ngModel',
             link: function (scope, elm, attrs, ctrl) {
-                ctrl.$parsers.unshift(function (viewValue) {
+                ctrl.$validators.folderPathErrors = function (viewValue) {
                     // This function checks whether ydir is a subdirectory of xdir,
                     // e.g. it would return true if xdir = "/home/a", ydir = "/home/a/b".
                     function isSubDir(xdir, ydir) {
@@ -24,7 +24,13 @@ angular.module('syncthing.core')
                     scope.folderPathErrors.isParent = false;
                     scope.folderPathErrors.otherID = "";
                     scope.folderPathErrors.otherLabel = "";
+                    if (!viewValue) {
+                        return true;
+                    }
                     for (var folderID in scope.folders) {
+                        if (folderID === scope.currentFolder.id) {
+                            continue;
+                        }
                         if (isSubDir(scope.folders[folderID].path, viewValue)) {
                             scope.folderPathErrors.otherID = folderID;
                             scope.folderPathErrors.otherLabel = scope.folders[folderID].label;
@@ -39,8 +45,8 @@ angular.module('syncthing.core')
                             break;
                         }
                     }
-                    return viewValue;
-                });
+                    return true;
+                };
             }
         };
     });

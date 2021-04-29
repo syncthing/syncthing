@@ -4,22 +4,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"text/tabwriter"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/urfave/cli"
 )
 
-// account prints key and data size statistics per class
-func account(ldb backend.Backend) {
+// indexAccount prints key and data size statistics per class
+func indexAccount(*cli.Context) error {
+	ldb, err := getDB()
+	if err != nil {
+		return err
+	}
+
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	var ksizes [256]int
@@ -55,4 +59,6 @@ func account(ldb backend.Backend) {
 	}
 	fmt.Fprintf(tw, "Total\t%d items,\t%d KB keys +\t%d KB data.\t\n", toti, totks/1000, totds/1000)
 	tw.Flush()
+
+	return nil
 }

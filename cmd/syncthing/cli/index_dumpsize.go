@@ -4,16 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package cli
 
 import (
 	"container/heap"
 	"encoding/binary"
 	"fmt"
-	"log"
+
+	"github.com/urfave/cli"
 
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 type SizedElement struct {
@@ -39,13 +39,18 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(ldb backend.Backend) {
+func indexDumpSize(*cli.Context) error {
+	ldb, err := getDB()
+	if err != nil {
+		return err
+	}
+
 	h := &ElementHeap{}
 	heap.Init(h)
 
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	var ele SizedElement
 	for it.Next() {
@@ -96,4 +101,6 @@ func dumpsize(ldb backend.Backend) {
 		ele = heap.Pop(h).(SizedElement)
 		fmt.Println(ele.key, ele.size)
 	}
+
+	return nil
 }
