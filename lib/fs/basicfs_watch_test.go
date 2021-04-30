@@ -437,7 +437,15 @@ func TestWatchModTime(t *testing.T) {
 		{file, NonRemove},
 	}
 
-	testScenario(t, name, testCase, expectedEvents, nil, fakeMatcher{}, true)
+	var allowedEvents []Event
+	// Apparently an event for the parent is also sent on mac
+	if runtime.GOOS == "darwin" {
+		allowedEvents = []Event{
+			{name, NonRemove},
+		}
+	}
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, true)
 }
 
 // path relative to folder root, also creates parent dirs if necessary
