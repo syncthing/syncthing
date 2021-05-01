@@ -939,6 +939,8 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dbMtime, mtimeErr := s.model.MtimeRemappings(folder, file)
+
 	lf, _ := snap.Get(protocol.LocalDeviceID, file)
 	gf, _ := snap.GetGlobal(file)
 	av := snap.Availability(file)
@@ -949,6 +951,10 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		"local":          jsonFileInfo(lf),
 		"availability":   av,
 		"globalVersions": vl.String(),
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": dbMtime,
+		},
 	})
 }
 

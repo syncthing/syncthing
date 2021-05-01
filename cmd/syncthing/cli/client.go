@@ -135,11 +135,11 @@ func (c *apiClient) Post(url, body string) (*http.Response, error) {
 }
 
 func checkResponse(response *http.Response) error {
-	if response.StatusCode == 404 {
+	if response.StatusCode == http.StatusNotFound {
 		return errors.New("invalid endpoint or API call")
-	} else if response.StatusCode == 403 {
+	} else if response.StatusCode == http.StatusUnauthorized {
 		return errors.New("invalid API key")
-	} else if response.StatusCode != 200 {
+	} else if response.StatusCode != http.StatusOK {
 		data, err := responseToBArray(response)
 		if err != nil {
 			return err
