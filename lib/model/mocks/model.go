@@ -250,6 +250,20 @@ type Model struct {
 	getHelloReturnsOnCall map[int]struct {
 		result1 protocol.HelloIntf
 	}
+	GetMtimeMappingStub        func(string, string) (fs.MtimeMapping, error)
+	getMtimeMappingMutex       sync.RWMutex
+	getMtimeMappingArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
+	getMtimeMappingReturns struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}
+	getMtimeMappingReturnsOnCall map[int]struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}
 	GlobalDirectoryTreeStub        func(string, string, int, bool) ([]*model.TreeEntry, error)
 	globalDirectoryTreeMutex       sync.RWMutex
 	globalDirectoryTreeArgsForCall []struct {
@@ -320,20 +334,6 @@ type Model struct {
 	}
 	localChangedFolderFilesReturnsOnCall map[int]struct {
 		result1 []db.FileInfoTruncated
-		result2 error
-	}
-	MtimeRemappingsStub        func(string, string) (fs.DBMtime, error)
-	mtimeRemappingsMutex       sync.RWMutex
-	mtimeRemappingsArgsForCall []struct {
-		arg1 string
-		arg2 string
-	}
-	mtimeRemappingsReturns struct {
-		result1 fs.DBMtime
-		result2 error
-	}
-	mtimeRemappingsReturnsOnCall map[int]struct {
-		result1 fs.DBMtime
 		result2 error
 	}
 	NeedFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
@@ -1706,6 +1706,71 @@ func (fake *Model) GetHelloReturnsOnCall(i int, result1 protocol.HelloIntf) {
 	}{result1}
 }
 
+func (fake *Model) GetMtimeMapping(arg1 string, arg2 string) (fs.MtimeMapping, error) {
+	fake.getMtimeMappingMutex.Lock()
+	ret, specificReturn := fake.getMtimeMappingReturnsOnCall[len(fake.getMtimeMappingArgsForCall)]
+	fake.getMtimeMappingArgsForCall = append(fake.getMtimeMappingArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.GetMtimeMappingStub
+	fakeReturns := fake.getMtimeMappingReturns
+	fake.recordInvocation("GetMtimeMapping", []interface{}{arg1, arg2})
+	fake.getMtimeMappingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) GetMtimeMappingCallCount() int {
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
+	return len(fake.getMtimeMappingArgsForCall)
+}
+
+func (fake *Model) GetMtimeMappingCalls(stub func(string, string) (fs.MtimeMapping, error)) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = stub
+}
+
+func (fake *Model) GetMtimeMappingArgsForCall(i int) (string, string) {
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
+	argsForCall := fake.getMtimeMappingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) GetMtimeMappingReturns(result1 fs.MtimeMapping, result2 error) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = nil
+	fake.getMtimeMappingReturns = struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) GetMtimeMappingReturnsOnCall(i int, result1 fs.MtimeMapping, result2 error) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = nil
+	if fake.getMtimeMappingReturnsOnCall == nil {
+		fake.getMtimeMappingReturnsOnCall = make(map[int]struct {
+			result1 fs.MtimeMapping
+			result2 error
+		})
+	}
+	fake.getMtimeMappingReturnsOnCall[i] = struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 bool) ([]*model.TreeEntry, error) {
 	fake.globalDirectoryTreeMutex.Lock()
 	ret, specificReturn := fake.globalDirectoryTreeReturnsOnCall[len(fake.globalDirectoryTreeArgsForCall)]
@@ -2038,71 +2103,6 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []db.File
 	}
 	fake.localChangedFolderFilesReturnsOnCall[i] = struct {
 		result1 []db.FileInfoTruncated
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Model) MtimeRemappings(arg1 string, arg2 string) (fs.DBMtime, error) {
-	fake.mtimeRemappingsMutex.Lock()
-	ret, specificReturn := fake.mtimeRemappingsReturnsOnCall[len(fake.mtimeRemappingsArgsForCall)]
-	fake.mtimeRemappingsArgsForCall = append(fake.mtimeRemappingsArgsForCall, struct {
-		arg1 string
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.MtimeRemappingsStub
-	fakeReturns := fake.mtimeRemappingsReturns
-	fake.recordInvocation("MtimeRemappings", []interface{}{arg1, arg2})
-	fake.mtimeRemappingsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *Model) MtimeRemappingsCallCount() int {
-	fake.mtimeRemappingsMutex.RLock()
-	defer fake.mtimeRemappingsMutex.RUnlock()
-	return len(fake.mtimeRemappingsArgsForCall)
-}
-
-func (fake *Model) MtimeRemappingsCalls(stub func(string, string) (fs.DBMtime, error)) {
-	fake.mtimeRemappingsMutex.Lock()
-	defer fake.mtimeRemappingsMutex.Unlock()
-	fake.MtimeRemappingsStub = stub
-}
-
-func (fake *Model) MtimeRemappingsArgsForCall(i int) (string, string) {
-	fake.mtimeRemappingsMutex.RLock()
-	defer fake.mtimeRemappingsMutex.RUnlock()
-	argsForCall := fake.mtimeRemappingsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *Model) MtimeRemappingsReturns(result1 fs.DBMtime, result2 error) {
-	fake.mtimeRemappingsMutex.Lock()
-	defer fake.mtimeRemappingsMutex.Unlock()
-	fake.MtimeRemappingsStub = nil
-	fake.mtimeRemappingsReturns = struct {
-		result1 fs.DBMtime
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Model) MtimeRemappingsReturnsOnCall(i int, result1 fs.DBMtime, result2 error) {
-	fake.mtimeRemappingsMutex.Lock()
-	defer fake.mtimeRemappingsMutex.Unlock()
-	fake.MtimeRemappingsStub = nil
-	if fake.mtimeRemappingsReturnsOnCall == nil {
-		fake.mtimeRemappingsReturnsOnCall = make(map[int]struct {
-			result1 fs.DBMtime
-			result2 error
-		})
-	}
-	fake.mtimeRemappingsReturnsOnCall[i] = struct {
-		result1 fs.DBMtime
 		result2 error
 	}{result1, result2}
 }
@@ -3266,6 +3266,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.getFolderVersionsMutex.RUnlock()
 	fake.getHelloMutex.RLock()
 	defer fake.getHelloMutex.RUnlock()
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
 	fake.globalDirectoryTreeMutex.RLock()
 	defer fake.globalDirectoryTreeMutex.RUnlock()
 	fake.indexMutex.RLock()
@@ -3276,8 +3278,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.loadIgnoresMutex.RUnlock()
 	fake.localChangedFolderFilesMutex.RLock()
 	defer fake.localChangedFolderFilesMutex.RUnlock()
-	fake.mtimeRemappingsMutex.RLock()
-	defer fake.mtimeRemappingsMutex.RUnlock()
 	fake.needFolderFilesMutex.RLock()
 	defer fake.needFolderFilesMutex.RUnlock()
 	fake.numConnectionsMutex.RLock()

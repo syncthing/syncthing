@@ -95,7 +95,7 @@ type Model interface {
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
-	MtimeRemappings(folder string, file string) (fs.DBMtime, error)
+	GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error)
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
 	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
@@ -2053,19 +2053,19 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	return f, ok, nil
 }
 
-func (m *model) MtimeRemappings(folder string, file string) (fs.DBMtime, error) {
+func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
 	m.fmut.RLock()
 	ffs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return fs.DBMtime{}, ErrFolderMissing
+		return fs.MtimeMapping{}, ErrFolderMissing
 	}
 	mtimeFs, ok := fs.UnwrapFilesystem(ffs.MtimeFS(), fs.FilesystemVariantMtime)
 	if !ok {
-		return fs.DBMtime{}, errors.New("not wrapped")
+		return fs.MtimeMapping{}, errors.New("not wrapped")
 	}
 	if mfs, ok := mtimeFs.(*fs.MtimeFS); !ok {
-		return fs.DBMtime{}, errors.New("unwrapping failed")
+		return fs.MtimeMapping{}, errors.New("unwrapping failed")
 	} else {
 		return mfs.Load(file)
 	}

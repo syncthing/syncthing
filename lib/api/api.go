@@ -915,7 +915,7 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	dbMtime, mtimeErr := s.model.MtimeRemappings(folder, file)
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
@@ -923,7 +923,7 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		"availability": av,
 		"mtime": map[string]interface{}{
 			"err":   mtimeErr,
-			"value": dbMtime,
+			"value": mtimeMapping,
 		},
 	})
 }
@@ -939,7 +939,7 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbMtime, mtimeErr := s.model.MtimeRemappings(folder, file)
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	lf, _ := snap.Get(protocol.LocalDeviceID, file)
 	gf, _ := snap.GetGlobal(file)
@@ -953,7 +953,7 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		"globalVersions": vl.String(),
 		"mtime": map[string]interface{}{
 			"err":   mtimeErr,
-			"value": dbMtime,
+			"value": mtimeMapping,
 		},
 	})
 }
