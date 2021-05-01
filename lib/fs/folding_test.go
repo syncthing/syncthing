@@ -25,7 +25,7 @@ var caseCases = [][2]string{
 	// context; we should always choose the same one.
 	{"Ὀδυσσεύς", "ὀδυσσεύσ"},
 	{"ὈΔΥΣΣΕΎΣ", "ὀδυσσεύσ"},
-	// German ß doesn't really have an upper case variant, and we
+	// German ß doesn't really have an upper case wrapperType, and we
 	// shouldn't mess things up when lower casing it either. We don't
 	// attempt to make ß equivalent to "ss".
 	{"Reichwaldstraße", "reichwaldstraße"},
@@ -38,7 +38,7 @@ var caseCases = [][2]string{
 	{"العَرَبِيَّة", "العَرَبِيَّة"},
 	// Neither does Hebrew.
 	{"עברית", "עברית"},
-	// Nor Chinese, in any variant.
+	// Nor Chinese, in any wrapperType.
 	{"汉语/漢語 or 中文", "汉语/漢語 or 中文"},
 	// Nor katakana, as far as I can tell.
 	{"チャーハン", "チャーハン"},

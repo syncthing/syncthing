@@ -2060,7 +2060,7 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	mtimeFs, ok := fs.UnwrapFilesystem(ffs.MtimeFS(), fs.FilesystemVariantMtime)
+	mtimeFs, ok := fs.UnwrapFilesystem(ffs.MtimeFS(), fs.FilesystemWrapperTypeMtime)
 	if !ok {
 		return fs.MtimeMapping{}, errors.New("not wrapped")
 	}

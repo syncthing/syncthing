@@ -150,8 +150,8 @@ func (f *MtimeFS) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *MtimeFS) variant() FilesystemVariant {
-	return FilesystemVariantMtime
+func (f *MtimeFS) wrapperType() FilesystemWrapperType {
+	return FilesystemWrapperTypeMtime
 }
 
 func (f *MtimeFS) save(name string, real, virtual time.Time) {

@@ -334,8 +334,8 @@ func (f *BasicFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (f *BasicFilesystem) variant() FilesystemVariant {
-	return FilesystemVariantBasic
+func (f *BasicFilesystem) wrapperType() FilesystemWrapperType {
+	return FilesystemWrapperTypeNone
 }
 
 // basicFile implements the fs.File interface on top of an os.File

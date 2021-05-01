@@ -168,6 +168,6 @@ func (fs *logFilesystem) underlying() (Filesystem, bool) {
 	return fs.Filesystem, true
 }
 
-func (fs *logFilesystem) variant() FilesystemVariant {
-	return FilesystemVariantLog
+func (fs *logFilesystem) wrapperType() FilesystemWrapperType {
+	return FilesystemWrapperTypeLog
 }
