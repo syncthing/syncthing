@@ -57,6 +57,6 @@ func (fs *errorFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *errorFilesystem) wrapperType() FilesystemWrapperType {
-	return FilesystemWrapperTypeError
+func (fs *errorFilesystem) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeError
 }

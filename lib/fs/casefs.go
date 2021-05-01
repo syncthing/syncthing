@@ -343,8 +343,8 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *caseFilesystem) wrapperType() FilesystemWrapperType {
-	return FilesystemWrapperTypeCase
+func (f *caseFilesystem) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeCase
 }
 
 func (f *caseFilesystem) checkCase(name string) error {

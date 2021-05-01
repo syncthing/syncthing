@@ -16,15 +16,15 @@ import (
 	"time"
 )
 
-type FilesystemWrapperType int32
+type filesystemWrapperType int32
 
 const (
-	FilesystemWrapperTypeNone FilesystemWrapperType = iota
-	FilesystemWrapperTypeMtime
-	FilesystemWrapperTypeCase
-	FilesystemWrapperTypeError
-	FilesystemWrapperTypeWalk
-	FilesystemWrapperTypeLog
+	filesystemWrapperTypeNone filesystemWrapperType = iota
+	filesystemWrapperTypeMtime
+	filesystemWrapperTypeCase
+	filesystemWrapperTypeError
+	filesystemWrapperTypeWalk
+	filesystemWrapperTypeLog
 )
 
 // The Filesystem interface abstracts access to the file system.
@@ -63,7 +63,7 @@ type Filesystem interface {
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
-	wrapperType() FilesystemWrapperType
+	wrapperType() filesystemWrapperType
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -288,9 +288,9 @@ func Canonicalize(file string) (string, error) {
 // It ensures proper wrapping order, which right now means:
 // `logFilesystem` needs to be the outermost wrapper for caller lookup.
 func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesystem {
-	logFs, ok := UnwrapFilesystem(fs, FilesystemWrapperTypeLog)
+	logFs, ok := fs.(*logFilesystem)
 	if ok {
-		fs = logFs.(*logFilesystem).Filesystem
+		fs = logFs.Filesystem
 	}
 	fs = wrapFn(fs)
 	if ok {
@@ -299,8 +299,8 @@ func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesyste
 	return fs
 }
 
-// UnwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
-func UnwrapFilesystem(fs Filesystem, wrapperType FilesystemWrapperType) (Filesystem, bool) {
+// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
+func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesystem, bool) {
 	var ok bool
 	for {
 		if fs.wrapperType() == wrapperType {

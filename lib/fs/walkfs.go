@@ -154,6 +154,6 @@ func (f *walkFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *walkFilesystem) wrapperType() FilesystemWrapperType {
-	return FilesystemWrapperTypeWalk
+func (f *walkFilesystem) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeWalk
 }

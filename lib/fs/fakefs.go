@@ -663,8 +663,8 @@ func (fs *fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *fakeFS) wrapperType() FilesystemWrapperType {
-	return FilesystemWrapperTypeNone
+func (fs *fakeFS) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeNone
 }
 
 func (fs *fakeFS) resetCounters() {

@@ -2060,15 +2060,7 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	mtimeFs, ok := fs.UnwrapFilesystem(ffs.MtimeFS(), fs.FilesystemWrapperTypeMtime)
-	if !ok {
-		return fs.MtimeMapping{}, errors.New("not wrapped")
-	}
-	if mfs, ok := mtimeFs.(*fs.MtimeFS); !ok {
-		return fs.MtimeMapping{}, errors.New("unwrapping failed")
-	} else {
-		return mfs.Load(file)
-	}
+	return fs.GetMtimeMapping(ffs.MtimeFS(), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
