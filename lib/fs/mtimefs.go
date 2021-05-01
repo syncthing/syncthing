@@ -17,17 +17,17 @@ type database interface {
 	Delete(key string) error
 }
 
-type mtimeFS struct {
+type MtimeFS struct {
 	Filesystem
 	chtimes         func(string, time.Time, time.Time) error
 	db              database
 	caseInsensitive bool
 }
 
-type MtimeFSOption func(*mtimeFS)
+type MtimeFSOption func(*MtimeFS)
 
 func WithCaseInsensitivity(v bool) MtimeFSOption {
-	return func(f *mtimeFS) {
+	return func(f *MtimeFS) {
 		f.caseInsensitive = v
 	}
 }
@@ -36,7 +36,7 @@ func WithCaseInsensitivity(v bool) MtimeFSOption {
 // of what shenanigans the underlying filesystem gets up to.
 func NewMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) Filesystem {
 	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
-		f := &mtimeFS{
+		f := &MtimeFS{
 			Filesystem: underlying,
 			chtimes:    underlying.Chtimes, // for mocking it out in the tests
 			db:         db,
@@ -48,7 +48,7 @@ func NewMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) Filesystem
 	})
 }
 
-func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
+func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	// Do a normal Chtimes call, don't care if it succeeds or not.
 	f.chtimes(name, atime, mtime)
 
@@ -63,58 +63,58 @@ func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	return nil
 }
 
-func (f *mtimeFS) Stat(name string) (FileInfo, error) {
+func (f *MtimeFS) Stat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Stat(name)
 	if err != nil {
 		return nil, err
 	}
 
-	real, virtual, err := f.load(name)
+	dbMtime, err := f.Load(name)
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if dbMtime.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    dbMtime.Virtual,
 		}
 	}
 
 	return info, nil
 }
 
-func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
+func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
 
-	real, virtual, err := f.load(name)
+	dbMtime, err := f.Load(name)
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if dbMtime.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    dbMtime.Virtual,
 		}
 	}
 
 	return info, nil
 }
 
-func (f *mtimeFS) Walk(root string, walkFn WalkFunc) error {
+func (f *MtimeFS) Walk(root string, walkFn WalkFunc) error {
 	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
 		if info != nil {
-			real, virtual, loadErr := f.load(path)
+			dbMtime, loadErr := f.Load(path)
 			if loadErr != nil && err == nil {
 				// The iterator gets to deal with the error
 				err = loadErr
 			}
-			if real == info.ModTime() {
+			if dbMtime.Real == info.ModTime() {
 				info = mtimeFileInfo{
 					FileInfo: info,
-					mtime:    virtual,
+					mtime:    dbMtime.Virtual,
 				}
 			}
 		}
@@ -122,7 +122,7 @@ func (f *mtimeFS) Walk(root string, walkFn WalkFunc) error {
 	})
 }
 
-func (f *mtimeFS) Create(name string) (File, error) {
+func (f *MtimeFS) Create(name string) (File, error) {
 	fd, err := f.Filesystem.Create(name)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (f *mtimeFS) Create(name string) (File, error) {
 	return mtimeFile{fd, f}, nil
 }
 
-func (f *mtimeFS) Open(name string) (File, error) {
+func (f *MtimeFS) Open(name string) (File, error) {
 	fd, err := f.Filesystem.Open(name)
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (f *mtimeFS) Open(name string) (File, error) {
 	return mtimeFile{fd, f}, nil
 }
 
-func (f *mtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
+func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
 	fd, err := f.Filesystem.OpenFile(name, flags, mode)
 	if err != nil {
 		return nil, err
@@ -146,10 +146,15 @@ func (f *mtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	return mtimeFile{fd, f}, nil
 }
 
-// "real" is the on disk timestamp
-// "virtual" is what want the timestamp to be
+func (f *MtimeFS) underlying() (Filesystem, bool) {
+	return f.Filesystem, true
+}
 
-func (f *mtimeFS) save(name string, real, virtual time.Time) {
+func (f *MtimeFS) variant() FilesystemVariant {
+	return FilesystemVariantMtime
+}
+
+func (f *MtimeFS) save(name string, real, virtual time.Time) {
 	if f.caseInsensitive {
 		name = UnicodeLowercase(name)
 	}
@@ -161,32 +166,31 @@ func (f *mtimeFS) save(name string, real, virtual time.Time) {
 		return
 	}
 
-	mtime := dbMtime{
-		real:    real,
-		virtual: virtual,
+	mtime := DBMtime{
+		Real:    real,
+		Virtual: virtual,
 	}
 	bs, _ := mtime.Marshal() // Can't fail
 	f.db.PutBytes(name, bs)
 }
 
-func (f *mtimeFS) load(name string) (real, virtual time.Time, err error) {
+func (f *MtimeFS) Load(name string) (DBMtime, error) {
 	if f.caseInsensitive {
 		name = UnicodeLowercase(name)
 	}
 
 	data, exists, err := f.db.Bytes(name)
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return DBMtime{}, err
 	} else if !exists {
-		return time.Time{}, time.Time{}, nil
+		return DBMtime{}, nil
 	}
 
-	var mtime dbMtime
+	var mtime DBMtime
 	if err := mtime.Unmarshal(data); err != nil {
-		return time.Time{}, time.Time{}, err
+		return DBMtime{}, err
 	}
-
-	return mtime.real, mtime.virtual, nil
+	return mtime, nil
 }
 
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
@@ -202,7 +206,7 @@ func (m mtimeFileInfo) ModTime() time.Time {
 
 type mtimeFile struct {
 	File
-	fs *mtimeFS
+	fs *MtimeFS
 }
 
 func (f mtimeFile) Stat() (FileInfo, error) {
@@ -211,42 +215,44 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual, err := f.fs.load(f.Name())
+	dbMtime, err := f.fs.Load(f.Name())
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if dbMtime.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    dbMtime.Virtual,
 		}
 	}
 
 	return info, nil
 }
 
+// Used by copyRange to unwrap the real file to access the
 func (f mtimeFile) unwrap() File {
 	return f.File
 }
 
-// The dbMtime is our database representation
-
-type dbMtime struct {
-	real    time.Time
-	virtual time.Time
+// The DBMtime is our database representation
+type DBMtime struct {
+	// "Real" is the on disk timestamp
+	Real    time.Time `json:"real"`
+	// "Virtual" is what want the timestamp to be
+	Virtual time.Time `json:"virtual"`
 }
 
-func (t *dbMtime) Marshal() ([]byte, error) {
-	bs0, _ := t.real.MarshalBinary()
-	bs1, _ := t.virtual.MarshalBinary()
+func (t *DBMtime) Marshal() ([]byte, error) {
+	bs0, _ := t.Real.MarshalBinary()
+	bs1, _ := t.Virtual.MarshalBinary()
 	return append(bs0, bs1...), nil
 }
 
-func (t *dbMtime) Unmarshal(bs []byte) error {
-	if err := t.real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
+func (t *DBMtime) Unmarshal(bs []byte) error {
+	if err := t.Real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
 		return err
 	}
-	if err := t.virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
+	if err := t.Virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
 		return err
 	}
 	return nil

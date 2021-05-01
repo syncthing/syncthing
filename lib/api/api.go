@@ -32,7 +32,7 @@ import (
 	"unicode"
 
 	"github.com/julienschmidt/httprouter"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/text/runes"
@@ -915,11 +915,16 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	dbMtime, mtimeErr := s.model.MtimeRemappings(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": dbMtime,
+		},
 	})
 }
 

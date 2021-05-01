@@ -52,3 +52,11 @@ func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
+
+func (fs *errorFilesystem) underlying() (Filesystem, bool) {
+	return nil, false
+}
+
+func (fs *errorFilesystem) variant() FilesystemVariant {
+	return FilesystemVariantError
+}

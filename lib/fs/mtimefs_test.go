@@ -196,7 +196,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 		t.Skip("need case insensitive FS")
 	}
 
-	theTest := func(t *testing.T, fs *mtimeFS, shouldSucceed bool) {
+	theTest := func(t *testing.T, fs *MtimeFS, shouldSucceed bool) {
 		os.RemoveAll("testdata")
 		defer os.RemoveAll("testdata")
 		os.Mkdir("testdata", 0755)
@@ -262,6 +262,6 @@ func evilChtimes(name string, mtime, atime time.Time) error {
 	return os.Chtimes(name, mtime.Add(300*time.Hour).Truncate(time.Hour), atime.Add(300*time.Hour).Truncate(time.Hour))
 }
 
-func newMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) *mtimeFS {
-	return NewMtimeFS(fs, db, options...).(*mtimeFS)
+func newMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) *MtimeFS {
+	return NewMtimeFS(fs, db, options...).(*MtimeFS)
 }

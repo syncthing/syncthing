@@ -149,3 +149,11 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	}
 	return f.walk(root, info, walkFn, ancestors)
 }
+
+func (f *walkFilesystem) underlying() (Filesystem, bool) {
+	return f.Filesystem, true
+}
+
+func (f *walkFilesystem) variant() FilesystemVariant {
+	return FilesystemVariantWalk
+}

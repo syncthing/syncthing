@@ -21,7 +21,7 @@ import (
 )
 
 func TestFakeFS(t *testing.T) {
-	// Test some basic aspects of the fakefs
+	// Test some basic aspects of the fakeFs
 
 	fs := newFakeFilesystem("/foo/bar/baz")
 
@@ -131,7 +131,7 @@ func TestFakeFS(t *testing.T) {
 }
 
 func testFakeFSRead(t *testing.T, fs Filesystem) {
-	// Test some basic aspects of the fakefs
+	// Test some basic aspects of the fakeFs
 	// Create
 	fd, _ := fs.Create("test")
 	defer fd.Close()
@@ -201,7 +201,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"FileName", testFakeFSFileName},
 	}
 	var filesystems = []testFS{
-		{"fakefs", newFakeFilesystem("/foo")},
+		{"fakeFs", newFakeFilesystem("/foo")},
 	}
 
 	testDir, sensitive := createTestDir(t)
@@ -237,7 +237,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	var filesystems = []testFS{
-		{"fakefs", newFakeFilesystem("/foobar?insens=true")},
+		{"fakeFs", newFakeFilesystem("/foobar?insens=true")},
 	}
 
 	testDir, sensitive := createTestDir(t)

@@ -330,6 +330,14 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	return os.SameFile(f1.osFileInfo(), f2.osFileInfo())
 }
 
+func (f *BasicFilesystem) underlying() (Filesystem, bool) {
+	return nil, false
+}
+
+func (f *BasicFilesystem) variant() FilesystemVariant {
+	return FilesystemVariantBasic
+}
+
 // basicFile implements the fs.File interface on top of an os.File
 type basicFile struct {
 	*os.File

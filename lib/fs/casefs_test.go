@@ -161,7 +161,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.Run("rawfs", func(b *testing.B) {
-		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		var fakefs *fakeFs
+		if ffs, ok := UnwrapFilesystem(fsys, FilesystemVariantFake); ok {
+			fakefs = ffs.(*fakeFs)
+		}
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, fsys, paths, 0, "")
 		fakefs.reportMetricsPerOp(b)
@@ -174,7 +177,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 			Filesystem: fsys,
 			realCaser:  newDefaultRealCaser(fsys),
 		}
-		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		var fakefs *fakeFs
+		if ffs, ok := UnwrapFilesystem(fsys, FilesystemVariantFake); ok {
+			fakefs = ffs.(*fakeFs)
+		}
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, casefs, paths, 0, "")
 		fakefs.reportMetricsPerOp(b)
@@ -197,7 +203,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 			Filesystem: fsys,
 			realCaser:  newDefaultRealCaser(fsys),
 		}
-		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		var fakefs *fakeFs
+		if ffs, ok := UnwrapFilesystem(fsys, FilesystemVariantFake); ok {
+			fakefs = ffs.(*fakeFs)
+		}
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, casefs, paths, otherOpEvery, otherOpPath)
 		fakefs.reportMetricsPerOp(b)
