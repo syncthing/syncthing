@@ -237,7 +237,7 @@ func (f mtimeFile) unwrap() File {
 // The DBMtime is our database representation
 type DBMtime struct {
 	// "Real" is the on disk timestamp
-	Real    time.Time `json:"real"`
+	Real time.Time `json:"real"`
 	// "Virtual" is what want the timestamp to be
 	Virtual time.Time `json:"virtual"`
 }

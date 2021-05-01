@@ -347,7 +347,6 @@ func (f *caseFilesystem) variant() FilesystemVariant {
 	return FilesystemVariantCase
 }
 
-
 func (f *caseFilesystem) checkCase(name string) error {
 	var err error
 	if name, err = Canonicalize(name); err != nil {

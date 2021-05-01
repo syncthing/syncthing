@@ -659,7 +659,6 @@ func (fs *fakeFs) SameFile(fi1, fi2 FileInfo) bool {
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
-
 func (fs *fakeFs) underlying() (Filesystem, bool) {
 	return nil, false
 }
