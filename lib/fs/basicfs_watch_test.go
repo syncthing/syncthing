@@ -87,7 +87,7 @@ func TestWatchIgnore(t *testing.T) {
 		{name, NonRemove},
 	}
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), skipIgnoredDirs: true})
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), skipIgnoredDirs: true}, false)
 }
 
 func TestWatchInclude(t *testing.T) {
@@ -114,7 +114,7 @@ func TestWatchInclude(t *testing.T) {
 		{name, NonRemove},
 	}
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), include: filepath.Join(name, included)})
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), include: filepath.Join(name, included)}, false)
 }
 
 func TestWatchRename(t *testing.T) {
@@ -146,7 +146,7 @@ func TestWatchRename(t *testing.T) {
 
 	// set the "allow others" flag because we might get the create of
 	// "oldfile" initially
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
 }
 
 // TestWatchWinRoot checks that a watch at a drive letter does not panic due to
@@ -308,7 +308,7 @@ func TestWatchOverflow(t *testing.T) {
 		}
 	}
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
 }
 
 func TestWatchErrorLinuxInterpretation(t *testing.T) {
@@ -413,7 +413,39 @@ func TestWatchIssue4877(t *testing.T) {
 		testFs = origTestFs
 	}()
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
+}
+
+func TestWatchModTime(t *testing.T) {
+	name := "modtime"
+
+	file := createTestFile(name, "foo")
+	path := filepath.Join(name, file)
+	now := time.Now()
+	before := now.Add(-10 * time.Second)
+	if err := testFs.Chtimes(path, before, before); err != nil {
+		t.Fatal(err)
+	}
+
+	testCase := func() {
+		if err := testFs.Chtimes(path, now, now); err != nil {
+			t.Error(err)
+		}
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+	}
+
+	var allowedEvents []Event
+	// Apparently an event for the parent is also sent on mac
+	if runtime.GOOS == "darwin" {
+		allowedEvents = []Event{
+			{name, NonRemove},
+		}
+	}
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, true)
 }
 
 // path relative to folder root, also creates parent dirs if necessary
@@ -442,7 +474,7 @@ func sleepMs(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, fm fakeMatcher) {
+func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, fm fakeMatcher, ignorePerms bool) {
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
@@ -451,7 +483,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	eventChan, errChan, err := testFs.Watch(name, fm, ctx, false)
+	eventChan, errChan, err := testFs.Watch(name, fm, ctx, ignorePerms)
 	if err != nil {
 		panic(err)
 	}

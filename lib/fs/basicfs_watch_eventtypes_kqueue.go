@@ -13,7 +13,8 @@ import "github.com/syncthing/notify"
 const (
 	// Platform independent notify.Create is required, as kqueue does not have
 	// any event signalling file creation, but notify does generate those internally.
-	subEventMask  = notify.NoteDelete | notify.NoteWrite | notify.NoteRename | notify.Create
-	permEventMask = notify.NoteAttrib | notify.NoteExtend
+	// NoteAttrib is not only required for permissions, but also mod. time changes
+	subEventMask  = notify.NoteDelete | notify.NoteWrite | notify.NoteRename | notify.Create | notify.NoteAttrib | notify.NoteExtend
+	permEventMask = 0
 	rmEventMask   = notify.NoteDelete | notify.NoteRename
 )
