@@ -32,7 +32,7 @@ import (
 	"unicode"
 
 	"github.com/julienschmidt/httprouter"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/text/runes"
@@ -915,11 +915,16 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": mtimeMapping,
+		},
 	})
 }
 
@@ -934,6 +939,8 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
+
 	lf, _ := snap.Get(protocol.LocalDeviceID, file)
 	gf, _ := snap.GetGlobal(file)
 	av := snap.Availability(file)
@@ -944,6 +951,10 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		"local":          jsonFileInfo(lf),
 		"availability":   av,
 		"globalVersions": vl.String(),
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": mtimeMapping,
+		},
 	})
 }
 

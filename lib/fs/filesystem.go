@@ -16,6 +16,17 @@ import (
 	"time"
 )
 
+type filesystemWrapperType int32
+
+const (
+	filesystemWrapperTypeNone filesystemWrapperType = iota
+	filesystemWrapperTypeMtime
+	filesystemWrapperTypeCase
+	filesystemWrapperTypeError
+	filesystemWrapperTypeWalk
+	filesystemWrapperTypeLog
+)
+
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
@@ -49,6 +60,10 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
+
+	// Used for unwrapping things
+	underlying() (Filesystem, bool)
+	wrapperType() filesystemWrapperType
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -284,18 +299,16 @@ func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesyste
 	return fs
 }
 
-// unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
-func unwrapFilesystem(fs Filesystem) Filesystem {
+// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
+func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesystem, bool) {
+	var ok bool
 	for {
-		switch sfs := fs.(type) {
-		case *logFilesystem:
-			fs = sfs.Filesystem
-		case *walkFilesystem:
-			fs = sfs.Filesystem
-		case *mtimeFS:
-			fs = sfs.Filesystem
-		default:
-			return sfs
+		if fs.wrapperType() == wrapperType {
+			return fs, true
+		}
+		fs, ok = fs.underlying()
+		if !ok {
+			return nil, false
 		}
 	}
 }

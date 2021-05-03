@@ -95,6 +95,7 @@ type Model interface {
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
+	GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error)
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
 	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
@@ -2038,18 +2039,28 @@ func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
 	m.fmut.RLock()
-	fs, ok := m.folderFiles[folder]
+	ffs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return protocol.FileInfo{}, false, ErrFolderMissing
 	}
-	snap, err := fs.Snapshot()
+	snap, err := ffs.Snapshot()
 	if err != nil {
 		return protocol.FileInfo{}, false, err
 	}
 	f, ok := snap.GetGlobal(file)
 	snap.Release()
 	return f, ok, nil
+}
+
+func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
+	m.fmut.RLock()
+	ffs, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return fs.MtimeMapping{}, ErrFolderMissing
+	}
+	return fs.GetMtimeMapping(ffs.MtimeFS(), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.

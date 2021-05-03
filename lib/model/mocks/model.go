@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -248,6 +249,20 @@ type Model struct {
 	}
 	getHelloReturnsOnCall map[int]struct {
 		result1 protocol.HelloIntf
+	}
+	GetMtimeMappingStub        func(string, string) (fs.MtimeMapping, error)
+	getMtimeMappingMutex       sync.RWMutex
+	getMtimeMappingArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
+	getMtimeMappingReturns struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}
+	getMtimeMappingReturnsOnCall map[int]struct {
+		result1 fs.MtimeMapping
+		result2 error
 	}
 	GlobalDirectoryTreeStub        func(string, string, int, bool) ([]*model.TreeEntry, error)
 	globalDirectoryTreeMutex       sync.RWMutex
@@ -1689,6 +1704,71 @@ func (fake *Model) GetHelloReturnsOnCall(i int, result1 protocol.HelloIntf) {
 	fake.getHelloReturnsOnCall[i] = struct {
 		result1 protocol.HelloIntf
 	}{result1}
+}
+
+func (fake *Model) GetMtimeMapping(arg1 string, arg2 string) (fs.MtimeMapping, error) {
+	fake.getMtimeMappingMutex.Lock()
+	ret, specificReturn := fake.getMtimeMappingReturnsOnCall[len(fake.getMtimeMappingArgsForCall)]
+	fake.getMtimeMappingArgsForCall = append(fake.getMtimeMappingArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.GetMtimeMappingStub
+	fakeReturns := fake.getMtimeMappingReturns
+	fake.recordInvocation("GetMtimeMapping", []interface{}{arg1, arg2})
+	fake.getMtimeMappingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) GetMtimeMappingCallCount() int {
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
+	return len(fake.getMtimeMappingArgsForCall)
+}
+
+func (fake *Model) GetMtimeMappingCalls(stub func(string, string) (fs.MtimeMapping, error)) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = stub
+}
+
+func (fake *Model) GetMtimeMappingArgsForCall(i int) (string, string) {
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
+	argsForCall := fake.getMtimeMappingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) GetMtimeMappingReturns(result1 fs.MtimeMapping, result2 error) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = nil
+	fake.getMtimeMappingReturns = struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) GetMtimeMappingReturnsOnCall(i int, result1 fs.MtimeMapping, result2 error) {
+	fake.getMtimeMappingMutex.Lock()
+	defer fake.getMtimeMappingMutex.Unlock()
+	fake.GetMtimeMappingStub = nil
+	if fake.getMtimeMappingReturnsOnCall == nil {
+		fake.getMtimeMappingReturnsOnCall = make(map[int]struct {
+			result1 fs.MtimeMapping
+			result2 error
+		})
+	}
+	fake.getMtimeMappingReturnsOnCall[i] = struct {
+		result1 fs.MtimeMapping
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 bool) ([]*model.TreeEntry, error) {
@@ -3186,6 +3266,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.getFolderVersionsMutex.RUnlock()
 	fake.getHelloMutex.RLock()
 	defer fake.getHelloMutex.RUnlock()
+	fake.getMtimeMappingMutex.RLock()
+	defer fake.getMtimeMappingMutex.RUnlock()
 	fake.globalDirectoryTreeMutex.RLock()
 	defer fake.globalDirectoryTreeMutex.RUnlock()
 	fake.indexMutex.RLock()

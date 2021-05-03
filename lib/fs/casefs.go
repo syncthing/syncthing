@@ -339,6 +339,14 @@ func (f *caseFilesystem) Unhide(name string) error {
 	return f.Filesystem.Unhide(name)
 }
 
+func (f *caseFilesystem) underlying() (Filesystem, bool) {
+	return f.Filesystem, true
+}
+
+func (f *caseFilesystem) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeCase
+}
+
 func (f *caseFilesystem) checkCase(name string) error {
 	var err error
 	if name, err = Canonicalize(name); err != nil {

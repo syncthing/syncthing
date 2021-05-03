@@ -21,7 +21,7 @@ import (
 )
 
 func TestFakeFS(t *testing.T) {
-	// Test some basic aspects of the fakefs
+	// Test some basic aspects of the fakeFS
 
 	fs := newFakeFilesystem("/foo/bar/baz")
 
@@ -131,7 +131,7 @@ func TestFakeFS(t *testing.T) {
 }
 
 func testFakeFSRead(t *testing.T, fs Filesystem) {
-	// Test some basic aspects of the fakefs
+	// Test some basic aspects of the fakeFS
 	// Create
 	fd, _ := fs.Create("test")
 	defer fd.Close()
@@ -201,7 +201,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"FileName", testFakeFSFileName},
 	}
 	var filesystems = []testFS{
-		{"fakefs", newFakeFilesystem("/foo")},
+		{"fakeFS", newFakeFilesystem("/foo")},
 	}
 
 	testDir, sensitive := createTestDir(t)
@@ -237,7 +237,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	var filesystems = []testFS{
-		{"fakefs", newFakeFilesystem("/foobar?insens=true")},
+		{"fakeFS", newFakeFilesystem("/foobar?insens=true")},
 	}
 
 	testDir, sensitive := createTestDir(t)
@@ -891,7 +891,7 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
 	}
 
-	// one would expect DirNames to show the last variant, but in fact it shows
+	// one would expect DirNames to show the last wrapperType, but in fact it shows
 	// the original one
 	assertDir(t, fs, "/", []string{"FOO"})
 }
