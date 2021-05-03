@@ -95,7 +95,7 @@ namespace Device {
 
     export function recalcCompletion(d: Device) {
         if (!d || !d.completion || !d.folders) {
-            return
+            return;
         }
         var total = 0, needed = 0, deletes = 0, items = 0;
         d.folders.forEach(folder => {
