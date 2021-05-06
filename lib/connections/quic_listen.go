@@ -89,19 +89,10 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer func() { _ = packetConn.Close() }()
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
-	defer func() { _ = conn.Close() }()
-	wrapped := &stunConnQUICWrapper{
-		PacketConn: conn,
-		underlying: packetConn.(*net.UDPConn),
-	}
+	registry.Register(t.uri.Scheme, packetConn)
+	defer registry.Unregister(t.uri.Scheme, packetConn)
 
-	go svc.Serve(ctx)
-
-	registry.Register(t.uri.Scheme, wrapped)
-	defer registry.Unregister(t.uri.Scheme, wrapped)
-
-	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(packetConn, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
