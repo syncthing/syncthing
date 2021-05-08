@@ -1988,7 +1988,7 @@ angular.module('syncthing.core')
             $http.get(
                 urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id)
             ).then(function(r) {
-                editFolderInitIgnores(r.data.ignores);
+                editFolderInitIgnores(r.data.ignore);
                 $scope.ignores.error = r.data.error;
             }).catch(function (response) {
                 $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
@@ -2078,7 +2078,6 @@ angular.module('syncthing.core')
                 editFolderInitIgnoresDefault(),
             ]).then(function() {
                 $scope.currentFolder.id = folderID;
-
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
