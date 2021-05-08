@@ -1,5 +1,7 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
+
 // Prevents import loop, for internal testing
 //go:generate counterfeiter -o mocked_connection_info_test.go --fake-name mockedConnectionInfo . ConnectionInfo
 //go:generate go run ../../script/prune_mocks.go -t mocked_connection_info_test.go

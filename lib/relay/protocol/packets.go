@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
-//go:generate -command genxdr go run ../../../repos/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run github.com/calmh/xdr/cmd/genxdr
 //go:generate genxdr -o packets_xdr.go packets.go
 
 package protocol
