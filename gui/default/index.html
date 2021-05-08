@@ -560,7 +560,7 @@
                     <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
                       <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                     </button>
-                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'">
+                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'" ng-disabled="folder.paused">
                       <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
@@ -713,7 +713,7 @@
                     <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
                     <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                   </span>
-                  <span>{{deviceName(deviceCfg)}}</span>
+                  <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>
               <div id="device-{{$index}}" class="panel-collapse collapse">

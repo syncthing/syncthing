@@ -357,11 +357,6 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				changed--
 			}
 
-		case file.IsInvalid():
-			// Global invalid file just exists for need accounting
-			l.Debugln(f, "Handling global invalid item", file)
-			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
-
 		case file.IsDeleted():
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
@@ -1668,15 +1663,12 @@ func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
 func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 	const maxBatchTime = 2 * time.Second
 
-	batch := newFileInfoBatch(nil)
-	tick := time.NewTicker(maxBatchTime)
-	defer tick.Stop()
-
 	changedDirs := make(map[string]struct{})
 	found := false
 	var lastFile protocol.FileInfo
-
-	batch.flushFn = func(files []protocol.FileInfo) error {
+	tick := time.NewTicker(maxBatchTime)
+	defer tick.Stop()
+	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
@@ -1703,7 +1695,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		}
 
 		return nil
-	}
+	})
 
 	recvEnc := f.Type == config.FolderTypeReceiveEncrypted
 loop:
@@ -1736,16 +1728,16 @@ loop:
 
 			job.file.Sequence = 0
 
-			batch.append(job.file)
+			batch.Append(job.file)
 
-			batch.flushIfFull()
+			batch.FlushIfFull()
 
 		case <-tick.C:
-			batch.flush()
+			batch.Flush()
 		}
 	}
 
-	batch.flush()
+	batch.Flush()
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is

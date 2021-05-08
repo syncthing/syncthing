@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
 //go:generate counterfeiter -o mocks/model.go --fake-name Model . Model
 
 package model
@@ -15,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -39,12 +41,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
-)
-
-// How many files to send in each Index/IndexUpdate message.
-const (
-	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -100,6 +96,7 @@ type Model interface {
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
+	GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error)
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
 	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
@@ -192,6 +189,8 @@ var (
 	errEncryptionNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
 	errEncryptionNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
 	errEncryptionPassword              = errors.New("different encryption passwords used")
+	errEncryptionTokenRead             = errors.New("failed to read encryption token")
+	errEncryptionTokenWrite            = errors.New("failed to write encryption token")
 	errEncryptionNeedToken             = errors.New("require password token for receive-encrypted token")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
@@ -1381,9 +1380,12 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			if sameError {
 				l.Debugln(msg)
 			} else {
+				if rerr, ok := err.(*redactedError); ok {
+					err = rerr.redacted
+				}
+				m.evLogger.Log(events.Failure, err.Error())
 				l.Warnln(msg)
 			}
-			m.evLogger.Log(events.Failure, err.Error())
 			return tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
@@ -1506,7 +1508,13 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 		var err error
 		token, err = readEncryptionToken(fcfg)
 		if err != nil && !fs.IsNotExist(err) {
-			return err
+			if rerr, ok := redactPathError(err); ok {
+				return rerr
+			}
+			return &redactedError{
+				error:    err,
+				redacted: errEncryptionTokenRead,
+			}
 		}
 		if err == nil {
 			m.fmut.Lock()
@@ -1514,7 +1522,14 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Unlock()
 		} else {
 			if err := writeEncryptionToken(ccToken, fcfg); err != nil {
-				return err
+				if rerr, ok := redactPathError(err); ok {
+					return rerr
+				} else {
+					return &redactedError{
+						error:    err,
+						redacted: errEncryptionTokenWrite,
+					}
+				}
 			}
 			m.fmut.Lock()
 			m.folderEncryptionPasswordTokens[fcfg.ID] = ccToken
@@ -2030,18 +2045,28 @@ func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
 	m.fmut.RLock()
-	fs, ok := m.folderFiles[folder]
+	ffs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return protocol.FileInfo{}, false, ErrFolderMissing
 	}
-	snap, err := fs.Snapshot()
+	snap, err := ffs.Snapshot()
 	if err != nil {
 		return protocol.FileInfo{}, false, err
 	}
 	f, ok := snap.GetGlobal(file)
 	snap.Release()
 	return f, ok, nil
+}
+
+func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
+	m.fmut.RLock()
+	ffs, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return fs.MtimeMapping{}, ErrFolderMissing
+	}
+	return fs.GetMtimeMapping(ffs.MtimeFS(), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
@@ -3140,51 +3165,6 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 	return false
 }
 
-type fileInfoBatch struct {
-	infos   []protocol.FileInfo
-	size    int
-	flushFn func([]protocol.FileInfo) error
-}
-
-func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
-	return &fileInfoBatch{
-		infos:   make([]protocol.FileInfo, 0, maxBatchSizeFiles),
-		flushFn: fn,
-	}
-}
-
-func (b *fileInfoBatch) append(f protocol.FileInfo) {
-	b.infos = append(b.infos, f)
-	b.size += f.ProtoSize()
-}
-
-func (b *fileInfoBatch) full() bool {
-	return len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes
-}
-
-func (b *fileInfoBatch) flushIfFull() error {
-	if b.full() {
-		return b.flush()
-	}
-	return nil
-}
-
-func (b *fileInfoBatch) flush() error {
-	if len(b.infos) == 0 {
-		return nil
-	}
-	if err := b.flushFn(b.infos); err != nil {
-		return err
-	}
-	b.reset()
-	return nil
-}
-
-func (b *fileInfoBatch) reset() {
-	b.infos = b.infos[:0]
-	b.size = 0
-}
-
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
 type syncMutexMap struct {
 	inner stdsync.Map
@@ -3262,4 +3242,22 @@ type updatedPendingFolder struct {
 	FolderLabel      string            `json:"folderLabel"`
 	DeviceID         protocol.DeviceID `json:"deviceID"`
 	ReceiveEncrypted bool              `json:"receiveEncrypted"`
+}
+
+// redactPathError checks if the error is actually a os.PathError, and if yes
+// returns a redactedError with the path removed.
+func redactPathError(err error) (error, bool) {
+	perr, ok := err.(*os.PathError)
+	if !ok {
+		return nil, false
+	}
+	return &redactedError{
+		error:    err,
+		redacted: fmt.Errorf("%v: %w", perr.Op, perr.Err),
+	}, true
+}
+
+type redactedError struct {
+	error
+	redacted error
 }
