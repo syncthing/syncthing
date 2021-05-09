@@ -30,6 +30,16 @@ type Manager struct {
 	childErrorsReturnsOnCall map[int]struct {
 		result1 map[string]error
 	}
+	DiscoveryStatusStub        func() map[string]discover.DiscoveryStatusEntry
+	discoveryStatusMutex       sync.RWMutex
+	discoveryStatusArgsForCall []struct {
+	}
+	discoveryStatusReturns struct {
+		result1 map[string]discover.DiscoveryStatusEntry
+	}
+	discoveryStatusReturnsOnCall map[int]struct {
+		result1 map[string]discover.DiscoveryStatusEntry
+	}
 	ErrorStub        func() error
 	errorMutex       sync.RWMutex
 	errorArgsForCall []struct {
@@ -182,6 +192,59 @@ func (fake *Manager) ChildErrorsReturnsOnCall(i int, result1 map[string]error) {
 	}
 	fake.childErrorsReturnsOnCall[i] = struct {
 		result1 map[string]error
+	}{result1}
+}
+
+func (fake *Manager) DiscoveryStatus() map[string]discover.DiscoveryStatusEntry {
+	fake.discoveryStatusMutex.Lock()
+	ret, specificReturn := fake.discoveryStatusReturnsOnCall[len(fake.discoveryStatusArgsForCall)]
+	fake.discoveryStatusArgsForCall = append(fake.discoveryStatusArgsForCall, struct {
+	}{})
+	stub := fake.DiscoveryStatusStub
+	fakeReturns := fake.discoveryStatusReturns
+	fake.recordInvocation("DiscoveryStatus", []interface{}{})
+	fake.discoveryStatusMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Manager) DiscoveryStatusCallCount() int {
+	fake.discoveryStatusMutex.RLock()
+	defer fake.discoveryStatusMutex.RUnlock()
+	return len(fake.discoveryStatusArgsForCall)
+}
+
+func (fake *Manager) DiscoveryStatusCalls(stub func() map[string]discover.DiscoveryStatusEntry) {
+	fake.discoveryStatusMutex.Lock()
+	defer fake.discoveryStatusMutex.Unlock()
+	fake.DiscoveryStatusStub = stub
+}
+
+func (fake *Manager) DiscoveryStatusReturns(result1 map[string]discover.DiscoveryStatusEntry) {
+	fake.discoveryStatusMutex.Lock()
+	defer fake.discoveryStatusMutex.Unlock()
+	fake.DiscoveryStatusStub = nil
+	fake.discoveryStatusReturns = struct {
+		result1 map[string]discover.DiscoveryStatusEntry
+	}{result1}
+}
+
+func (fake *Manager) DiscoveryStatusReturnsOnCall(i int, result1 map[string]discover.DiscoveryStatusEntry) {
+	fake.discoveryStatusMutex.Lock()
+	defer fake.discoveryStatusMutex.Unlock()
+	fake.DiscoveryStatusStub = nil
+	if fake.discoveryStatusReturnsOnCall == nil {
+		fake.discoveryStatusReturnsOnCall = make(map[int]struct {
+			result1 map[string]discover.DiscoveryStatusEntry
+		})
+	}
+	fake.discoveryStatusReturnsOnCall[i] = struct {
+		result1 map[string]discover.DiscoveryStatusEntry
 	}{result1}
 }
 
@@ -424,6 +487,8 @@ func (fake *Manager) Invocations() map[string][][]interface{} {
 	defer fake.cacheMutex.RUnlock()
 	fake.childErrorsMutex.RLock()
 	defer fake.childErrorsMutex.RUnlock()
+	fake.discoveryStatusMutex.RLock()
+	defer fake.discoveryStatusMutex.RUnlock()
 	fake.errorMutex.RLock()
 	defer fake.errorMutex.RUnlock()
 	fake.lookupMutex.RLock()
