@@ -88,10 +88,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = packetConn.Close() }()
 
 	svc, conn := stun.New(t.cfg, t, packetConn)
-	defer func() { _ = conn.Close() }()
 	wrapped := &stunConnQUICWrapper{
 		PacketConn: conn,
 		underlying: packetConn.(*net.UDPConn),
@@ -100,26 +98,29 @@ func (t *quicListener) serve(ctx context.Context) error {
 	go svc.Serve(ctx)
 
 	registry.Register(t.uri.Scheme, wrapped)
-	defer registry.Unregister(t.uri.Scheme, wrapped)
 
-	listener, err := quic.Listen(packetConn, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
 	t.notifyAddressesChanged(t)
-	defer listener.Close()
-	defer t.clearAddresses(t)
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	t.mut.Lock()
 	t.laddr = packetConn.LocalAddr()
 	t.mut.Unlock()
+
 	defer func() {
 		l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
 		t.mut.Lock()
 		t.laddr = nil
 		t.mut.Unlock()
+		registry.Unregister(t.uri.Scheme, wrapped)
+		t.clearAddresses(t)
+		_ = listener.Close()
+		_ = conn.Close()
+		_ = packetConn.Close()
 	}()
 
 	acceptFailures := 0
@@ -163,6 +164,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 			_ = session.CloseWithError(1, err.Error())
 			continue
 		}
+
 		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority)
 	}
 }
@@ -238,7 +240,6 @@ type stunConnQUICWrapper struct {
 	underlying *net.UDPConn
 }
 
-// SetReadBuffer is required by QUIC < v0.20.0g
 func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
 	return s.underlying.SetReadBuffer(size)
 }
