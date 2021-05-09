@@ -13,7 +13,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -90,18 +89,18 @@ func (t *quicListener) serve(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = packetConn.Close() }()
-	//
-	// svc, conn := stun.New(t.cfg, t, packetConn)
-	// defer func() { _ = conn.Close() }()
-	// wrapped := &stunConnQUICWrapper{
-	// 	PacketConn: conn,
-	// 	underlying: packetConn.(*net.UDPConn),
-	// }
-	//
-	// go svc.Serve(ctx)
 
-	registry.Register(t.uri.Scheme, packetConn)
-	defer registry.Unregister(t.uri.Scheme, packetConn)
+	svc, conn := stun.New(t.cfg, t, packetConn)
+	defer func() { _ = conn.Close() }()
+	wrapped := &stunConnQUICWrapper{
+		PacketConn: conn,
+		underlying: packetConn.(*net.UDPConn),
+	}
+
+	go svc.Serve(ctx)
+
+	registry.Register(t.uri.Scheme, wrapped)
+	defer registry.Unregister(t.uri.Scheme, wrapped)
 
 	listener, err := quic.Listen(packetConn, t.tlsCfg, quicConfig)
 	if err != nil {
@@ -172,39 +171,9 @@ func (t *quicListener) URI() *url.URL {
 	return t.uri
 }
 
-func (t *quicListener) listenUri() *url.URL {
-	t.mut.Lock()
-	laddr := t.laddr
-	t.mut.Unlock()
-	if laddr == nil {
-		return t.uri
-	}
-
-	uriCopy := *t.uri
-	host, portStr, err := net.SplitHostPort(uriCopy.Host)
-	if err != nil {
-		return t.uri
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return t.uri
-	}
-	if port != 0 {
-		return t.uri
-	}
-
-	_, lportStr, err := net.SplitHostPort(laddr.String())
-	if err != nil {
-		return t.uri
-	}
-
-	uriCopy.Host = net.JoinHostPort(host, lportStr)
-	return &uriCopy
-}
-
 func (t *quicListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.listenUri()}
 	t.mut.Lock()
+	uris := []*url.URL{maybeReplacePort(t.uri, t.laddr)}
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
@@ -213,9 +182,12 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.listenUri()}
-	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
+	t.mut.Lock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.Unlock()
+	addrs := []*url.URL{uri}
+	network := strings.ReplaceAll(uri.Scheme, "quic", "udp")
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, uri)...)
 	return addrs
 }
 

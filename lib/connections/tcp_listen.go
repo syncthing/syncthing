@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
@@ -156,39 +155,11 @@ func (t *tcpListener) URI() *url.URL {
 	return t.uri
 }
 
-func (t *tcpListener) listenUri() *url.URL {
-	t.mut.RLock()
-	laddr := t.laddr
-	t.mut.RUnlock()
-	if laddr == nil {
-		return t.uri
-	}
-
-	uriCopy := *t.uri
-	host, portStr, err := net.SplitHostPort(uriCopy.Host)
-	if err != nil {
-		return t.uri
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return t.uri
-	}
-	if port != 0 {
-		return t.uri
-	}
-
-	_, lportStr, err := net.SplitHostPort(laddr.String())
-	if err != nil {
-		return t.uri
-	}
-
-	uriCopy.Host = net.JoinHostPort(host, lportStr)
-	return &uriCopy
-}
-
 func (t *tcpListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.listenUri()}
 	t.mut.RLock()
+	uris := []*url.URL{
+		maybeReplacePort(t.uri, t.laddr),
+	}
 	if t.mapping != nil {
 		addrs := t.mapping.ExternalAddresses()
 		for _, addr := range addrs {
@@ -220,8 +191,11 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 }
 
 func (t *tcpListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.listenUri()}
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(t.uri.Scheme, t.uri)...)
+	t.mut.RLock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.RUnlock()
+	addrs := []*url.URL{uri}
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(uri.Scheme, uri)...)
 	return addrs
 }
 
