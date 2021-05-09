@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -40,6 +41,7 @@ type tcpListener struct {
 
 	natService *nat.Service
 	mapping    *nat.Mapping
+	laddr      net.Addr
 
 	mut sync.RWMutex
 }
@@ -68,7 +70,16 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	defer registry.Unregister(t.uri.Scheme, tcaddr)
 
 	l.Infof("TCP listener (%v) starting", listener.Addr())
-	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
+	t.mut.Lock()
+	t.laddr = listener.Addr()
+	t.mut.Unlock()
+
+	defer func() {
+		l.Infof("TCP listener (%v) shutting down", listener.Addr())
+		t.mut.Lock()
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
@@ -145,8 +156,38 @@ func (t *tcpListener) URI() *url.URL {
 	return t.uri
 }
 
+func (t *tcpListener) listenUri() *url.URL {
+	t.mut.RLock()
+	laddr := t.laddr
+	t.mut.RUnlock()
+	if laddr == nil {
+		return t.uri
+	}
+
+	uriCopy := *t.uri
+	host, portStr, err := net.SplitHostPort(uriCopy.Host)
+	if err != nil {
+		return t.uri
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return t.uri
+	}
+	if port != 0 {
+		return t.uri
+	}
+
+	_, lportStr, err := net.SplitHostPort(laddr.String())
+	if err != nil {
+		return t.uri
+	}
+
+	uriCopy.Host = net.JoinHostPort(host, lportStr)
+	return &uriCopy
+}
+
 func (t *tcpListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
+	uris := []*url.URL{t.listenUri()}
 	t.mut.RLock()
 	if t.mapping != nil {
 		addrs := t.mapping.ExternalAddresses()
@@ -179,7 +220,7 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 }
 
 func (t *tcpListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
+	addrs := []*url.URL{t.listenUri()}
 	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(t.uri.Scheme, t.uri)...)
 	return addrs
 }

@@ -13,6 +13,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -48,6 +49,7 @@ type quicListener struct {
 	factory listenerFactory
 
 	address *url.URL
+	laddr   net.Addr
 	mut     sync.Mutex
 }
 
@@ -88,20 +90,20 @@ func (t *quicListener) serve(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = packetConn.Close() }()
+	//
+	// svc, conn := stun.New(t.cfg, t, packetConn)
+	// defer func() { _ = conn.Close() }()
+	// wrapped := &stunConnQUICWrapper{
+	// 	PacketConn: conn,
+	// 	underlying: packetConn.(*net.UDPConn),
+	// }
+	//
+	// go svc.Serve(ctx)
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
-	defer func() { _ = conn.Close() }()
-	wrapped := &stunConnQUICWrapper{
-		PacketConn: conn,
-		underlying: packetConn.(*net.UDPConn),
-	}
+	registry.Register(t.uri.Scheme, packetConn)
+	defer registry.Unregister(t.uri.Scheme, packetConn)
 
-	go svc.Serve(ctx)
-
-	registry.Register(t.uri.Scheme, wrapped)
-	defer registry.Unregister(t.uri.Scheme, wrapped)
-
-	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(packetConn, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
@@ -111,7 +113,15 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer t.clearAddresses(t)
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+	t.mut.Lock()
+	t.laddr = packetConn.LocalAddr()
+	t.mut.Unlock()
+	defer func() {
+		l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+		t.mut.Lock()
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -154,7 +164,6 @@ func (t *quicListener) serve(ctx context.Context) error {
 			_ = session.CloseWithError(1, err.Error())
 			continue
 		}
-
 		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority)
 	}
 }
@@ -163,8 +172,38 @@ func (t *quicListener) URI() *url.URL {
 	return t.uri
 }
 
+func (t *quicListener) listenUri() *url.URL {
+	t.mut.Lock()
+	laddr := t.laddr
+	t.mut.Unlock()
+	if laddr == nil {
+		return t.uri
+	}
+
+	uriCopy := *t.uri
+	host, portStr, err := net.SplitHostPort(uriCopy.Host)
+	if err != nil {
+		return t.uri
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return t.uri
+	}
+	if port != 0 {
+		return t.uri
+	}
+
+	_, lportStr, err := net.SplitHostPort(laddr.String())
+	if err != nil {
+		return t.uri
+	}
+
+	uriCopy.Host = net.JoinHostPort(host, lportStr)
+	return &uriCopy
+}
+
 func (t *quicListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
+	uris := []*url.URL{t.listenUri()}
 	t.mut.Lock()
 	if t.address != nil {
 		uris = append(uris, t.address)
@@ -174,7 +213,7 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
+	addrs := []*url.URL{t.listenUri()}
 	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
 	return addrs
@@ -227,6 +266,7 @@ type stunConnQUICWrapper struct {
 	underlying *net.UDPConn
 }
 
+// SetReadBuffer is required by QUIC < v0.20.0g
 func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
 	return s.underlying.SetReadBuffer(size)
 }
