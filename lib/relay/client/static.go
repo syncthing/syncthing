@@ -48,7 +48,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 func (c *staticClient) serve(ctx context.Context) error {
 	if err := c.connect(ctx); err != nil {
-		l.Infof("Could not connect to relay %s: %s", c.uri, err)
+		l.Debugf("Could not connect to relay %s: %s", c.uri, err)
 		return err
 	}
 
@@ -56,17 +56,16 @@ func (c *staticClient) serve(ctx context.Context) error {
 	defer c.disconnect()
 
 	if err := c.join(); err != nil {
-		l.Infof("Could not join relay %s: %s", c.uri, err)
+		l.Debugf("Could not join relay %s: %s", c.uri, err)
 		return err
 	}
 
 	if err := c.conn.SetDeadline(time.Time{}); err != nil {
-		l.Infoln("Relay set deadline:", err)
+		l.Debugln("Relay set deadline:", err)
 		return err
 	}
 
 	l.Infof("Joined relay %s://%s", c.uri.Scheme, c.uri.Host)
-	defer l.Infof("Disconnected from relay %s://%s", c.uri.Scheme, c.uri.Host)
 
 	c.mut.Lock()
 	c.connected = true
@@ -88,7 +87,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 			switch msg := message.(type) {
 			case protocol.Ping:
 				if err := protocol.WriteMessage(c.conn, protocol.Pong{}); err != nil {
-					l.Infoln("Relay write:", err)
+					l.Debugln("Relay write:", err)
 					return err
 				}
 				l.Debugln(c, "sent pong")
@@ -101,20 +100,20 @@ func (c *staticClient) serve(ctx context.Context) error {
 				c.invitations <- msg
 
 			case protocol.RelayFull:
-				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
+				l.Debugf("Disconnected from relay %s due to it becoming full.", c.uri)
 				return errors.New("relay full")
 
 			default:
-				l.Infoln("Relay: protocol error: unexpected message %v", msg)
+				l.Debugln("Relay: protocol error: unexpected message %v", msg)
 				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
 		case <-ctx.Done():
 			l.Debugln(c, "stopping")
-			return nil
+			return ctx.Err()
 
 		case err := <-errorsc:
-			l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
+			l.Debugf("Disconnecting from relay %s due to error: %s", c.uri, err)
 			return err
 
 		case <-timeout.C:
