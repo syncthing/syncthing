@@ -11,7 +11,14 @@
           <div ng-if="!editingDefaults" class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
             <label translate for="deviceID">Device ID</label>
             <div ng-if="!editingExisting">
-              <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true" />
+              <div class="input-group">
+                <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true" />
+                <div class="input-group-btn">
+                  <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-disabled="!deviceEditor.deviceID.$valid">
+                    <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
+                  </button>
+                </div>
+              </div>
               <datalist id="discovery-list">
                 <option ng-repeat="id in discovery" value="{{id}}" />
               </datalist>
@@ -29,7 +36,14 @@
                 <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added.</span>
               </p>
             </div>
-            <div ng-if="editingExisting" class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
+            <div ng-if="editingExisting" class="input-group">
+              <div class="well well-sm text-monospace form-control" style="height: auto;" select-on-click>{{currentDevice.deviceID}}</div>
+              <div class="input-group-btn">
+                <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr">
+                  <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label translate for="name">Device Name</label>
@@ -150,9 +164,6 @@
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
       <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
-    </button>
-    <button ng-if="!editingDefaults" type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
-      <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
