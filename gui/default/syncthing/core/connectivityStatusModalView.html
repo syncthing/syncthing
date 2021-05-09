@@ -21,7 +21,7 @@
     <div ng-switch-default><!-- discovery methods -->
       <div ng-if="discoveryRunning.length > 0">
 	<p translate>
-	  The following methods are used to discover other devices on the network:
+	  The following methods are used to discover other devices on the network and announce this device to be found by others:
 	</p>
 	<ul>
 	  <li ng-repeat="discovery in discoveryRunning">{{discovery}}</li>
@@ -29,7 +29,7 @@
       </div>
       <div ng-if="discoveryFailed.length > 0">
 	<p translate>
-	  Some discovery methods could not be established for finding other devices:
+	  Some discovery methods could not be established for finding other devices or announcing this device:
 	</p>
 	<ul>
 	  <li ng-repeat="discovery in discoveryFailed">{{discovery}}</li>
