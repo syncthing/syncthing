@@ -219,17 +219,18 @@ func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
 
+// stunConnQUICWrapper provides methods used by quic.
 type stunConnQUICWrapper struct {
 	net.PacketConn
 	underlying *net.UDPConn
 }
 
-// SetReadBuffer is required by QUIC < v0.20.0
 func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
+	// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
 	return s.underlying.SetReadBuffer(size)
 }
 
-// SyscallConn is required by QUIC
 func (s *stunConnQUICWrapper) SyscallConn() (syscall.RawConn, error) {
+	// https://github.com/lucas-clemente/quic-go/blob/84e03e59760ceee37359688871bb0688fcc4e98f/conn_windows.go#L18
 	return s.underlying.SyscallConn()
 }
