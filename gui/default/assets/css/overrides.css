@@ -135,11 +135,13 @@ table.table-auto {
 	table-layout: auto;
 }
 
-table.table-auto th {
-	width: 1px;
+table.table-auto th, table.table-auto .col-fixed {
+    width: 1px;
+    max-width: none;
 }
 
-table.table-auto td {
+table.table-auto td, table.table-auto .col-flex {
+    width: unset;
     max-width: 0px;
 }
 
@@ -227,6 +229,17 @@ button.panel-heading {
     border-left-width: 0;
     border-right-width: 0;
     border-radius: 0 !important;
+}
+
+/* Duplicate bootstrap rule that requires data-toggle="buttons" for these styles
+so we can use them without bootstrap JS trying to control the inputs */
+.btn-group > .btn input[type="radio"],
+.btn-group > .btn input[type="radio"],
+.btn-group > .btn input[type="checkbox"],
+.btn-group > .btn input[type="checkbox"] {
+    position: absolute;
+    clip: rect(0, 0, 0, 0);
+    pointer-events: none;
 }
 
 .panel-heading .panel-title-text {
@@ -399,6 +412,11 @@ ul.three-columns li, ul.two-columns li {
 
 .fancytree-ext-table {
     width: 100% !important;
+}
+
+/* Vertically center fancytree row content, including expander and icons */
+table.fancytree-container td span {
+    vertical-align: middle;
 }
 
 @media (max-width: 419px) {

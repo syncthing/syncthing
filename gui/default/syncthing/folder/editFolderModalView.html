@@ -149,29 +149,64 @@
         </div>
 
         <div ng-if="!editingDefaults" id="folder-ignores" class="tab-pane">
-          <p translate>Enter ignore patterns, one per line.</p>
-          <div ng-class="{'has-error': ignores.error != null}">
-            <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
-            <p class="help-block" ng-if="ignores.error">
-              {{ignores.error}}
-            </p>
+          <p>
+            <div class="btn-group">
+              <label class="btn btn-default" ng-class="{active: !currentFolder._ignoreIsEditingAdvanced, disabled: !editingExisting || currentFolder._ignoreAdvancedPattern}">
+                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!editingExisting || currentFolder._ignoreAdvancedPattern" />
+                <span class="fas fa-fw fa-folder-o"></span>&nbsp;<span translate>Basic</span>
+              </label>
+              <label class="btn btn-default" ng-class="{active: currentFolder._ignoreIsEditingAdvanced}">
+                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="true" />
+                <span class="fas fa-fw fa-code"></span>&nbsp;<span translate>Advanced</span>
+              </label>
+            </div>
+            <span ng-switch on="!editingExisting ? 'unsaved' : (currentFolder._ignoreAdvancedPattern ? 'advanced' : 'none')">
+              <span ng-switch-when="unsaved" translate>Basic mode is not available until folder is saved.</span>
+              <span ng-switch-when="advanced" translate translate-value-pattern="{{currentFolder._ignoreAdvancedPattern.text}}">Basic mode cannot display "{%pattern%}"</span>
+            </span>
+          </p>
+          <div ng-show="!currentFolder._ignoreIsEditingAdvanced">
+            <p translate>Selected items will be synced, other items ignored.</p>
+            <table id="ignore-tree" class="table table-condensed table-striped table-auto">
+              <thead style="display: none;">
+                <tr>
+                  <th class="col-fixed"></th>
+                  <th class="col-flex"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="col-fixed"></td>
+                  <td class="col-flex"></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <hr />
-          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
-          <dl class="dl-horizontal dl-narrow small">
-            <dt><code>(?d)</code></dt>
-            <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
-            <dt><code>(?i)</code></dt>
-            <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
-            <dt><code>!</code></dt>
-            <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
-            <dt><code>*</code></dt>
-            <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
-            <dt><code>**</code></dt>
-            <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
-            <dt><code>//</code></dt>
-            <dd><span translate>Comment, when used at the start of a line</span></dd>
-          </dl>
+          <div ng-if="currentFolder._ignoreIsEditingAdvanced">
+            <p translate>Enter ignore patterns, one per line.</p>
+            <div ng-class="{'has-error': ignores.error != null}">
+              <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled" ng-blur="parseIgnores(ignores.text)"></textarea>
+              <p class="help-block" ng-if="ignores.error">
+                <span translate>Failed to load ignore patterns.</span>
+              </p>
+            </div>
+            <hr />
+            <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+            <dl class="dl-horizontal dl-narrow small">
+              <dt><code>(?d)</code></dt>
+              <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+              <dt><code>(?i)</code></dt>
+              <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+              <dt><code>!</code></dt>
+              <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+              <dt><code>*</code></dt>
+              <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+              <dt><code>**</code></dt>
+              <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+              <dt><code>//</code></dt>
+              <dd><span translate>Comment, when used at the start of a line</span></dd>
+            </dl>
+          </div>
           <hr />
           <span translate ng-show="editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
           <span translate ng-show="!editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span>

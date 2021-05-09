@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "angular-mocks": "^1.3.20",
+    "karma": "^5.2.3",
+    "karma-jasmine": "^4.0.1",
+    "karma-mocha-reporter": "^2.2.5"
+  }
+}
