@@ -483,14 +483,18 @@ angular.module('syncthing.core')
                 $scope.listenersRunning = listenersRunning;
                 $scope.listenersTotal = $scope.sizeOf(data.connectionServiceStatus);
 
-                $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
+                var discoveryRunning = [];
                 for (var disco in data.discoveryErrors) {
                     if (data.discoveryErrors[disco]) {
                         discoveryFailed.push(disco + ": " + data.discoveryErrors[disco]);
+                    } else {
+                        discoveryRunning.push(disco);
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
+                $scope.discoveryRunning = discoveryRunning;
+                $scope.discoveryTotal = $scope.sizeOf(data.discoveryErrors);
 
                 refreshNoAuthWarning();
 
