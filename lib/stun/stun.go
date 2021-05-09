@@ -38,17 +38,35 @@ const (
 	NATSymmetricUDPFirewall = stun.NATSymmetricUDPFirewall
 )
 
-type writeTrackingPacketConn struct {
+type writeTrackingUdpConn struct {
 	lastWrite int64 // atomic, must remain 64-bit aligned
-	net.PacketConn
+	// Needs to be UDPConn not PacketConn, as pfilter checks for WriteMsgUDP/ReadMsgUDP
+	// and even if we embed UDPConn here, in place of a PacketConn, seems the interface
+	// check fails.
+	*net.UDPConn
 }
 
-func (c *writeTrackingPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+func (c *writeTrackingUdpConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
-	return c.PacketConn.WriteTo(p, addr)
+	return c.UDPConn.WriteTo(p, addr)
 }
 
-func (c *writeTrackingPacketConn) getLastWrite() time.Time {
+func (c *writeTrackingUdpConn) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
+	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	return c.UDPConn.WriteMsgUDP(b, oob, addr)
+}
+
+func (c *writeTrackingUdpConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
+	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	return c.UDPConn.WriteToUDP(b, addr)
+}
+
+func (c *writeTrackingUdpConn) Write(b []byte) (int, error) {
+	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	return c.UDPConn.Write(b)
+}
+
+func (c *writeTrackingUdpConn) getLastWrite() time.Time {
 	unix := atomic.LoadInt64(&c.lastWrite)
 	return time.Unix(unix, 0)
 }
@@ -65,18 +83,18 @@ type Service struct {
 	stunConn   net.PacketConn
 	client     *stun.Client
 
-	writeTrackingPacketConn *writeTrackingPacketConn
+	writeTrackingUdpConn *writeTrackingUdpConn
 
 	natType NATType
 	addr    *Host
 }
 
-func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Service, net.PacketConn) {
+func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service, net.PacketConn) {
 	// Wrap the original connection to track writes on it
-	writeTrackingPacketConn := &writeTrackingPacketConn{lastWrite: 0, PacketConn: conn}
+	writeTrackingUdpConn := &writeTrackingUdpConn{lastWrite: 0, UDPConn: conn}
 
 	// Wrap it in a filter and split it up, so that stun packets arrive on stun conn, others arrive on the data conn
-	filterConn := pfilter.NewPacketFilter(writeTrackingPacketConn)
+	filterConn := pfilter.NewPacketFilter(writeTrackingUdpConn)
 	otherDataConn := filterConn.NewConn(otherDataPriority, nil)
 	stunConn := filterConn.NewConn(stunFilterPriority, &stunFilter{
 		ids: make(map[string]time.Time),
@@ -97,7 +115,7 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 		stunConn:   stunConn,
 		client:     client,
 
-		writeTrackingPacketConn: writeTrackingPacketConn,
+		writeTrackingUdpConn: writeTrackingUdpConn,
 
 		natType: NATUnknown,
 		addr:    nil,
@@ -241,7 +259,7 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		}
 
 		// Adjust the keepalives to fire only nextSleep after last write.
-		lastWrite := s.writeTrackingPacketConn.getLastWrite()
+		lastWrite := s.writeTrackingUdpConn.getLastWrite()
 		minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
 		if nextSleep < minSleep {
 			nextSleep = minSleep
@@ -270,7 +288,7 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		}
 
 		// Check if any writes happened while we were sleeping, if they did, sleep again
-		lastWrite = s.writeTrackingPacketConn.getLastWrite()
+		lastWrite = s.writeTrackingUdpConn.getLastWrite()
 		if gap := time.Since(lastWrite); gap < nextSleep {
 			l.Debugf("%s stun last write gap less than next sleep: %s < %s. Will try later", s, gap, nextSleep)
 			goto tryLater

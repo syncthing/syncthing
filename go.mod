@@ -1,7 +1,7 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/pfilter v0.0.0-20210218141631-7468b85d810a
+	github.com/AudriusButkevicius/pfilter v0.0.0-20210509224425-1301e3144acb
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/alecthomas/kong v0.2.16
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
@@ -28,7 +28,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lib/pq v1.10.1
-	github.com/lucas-clemente/quic-go v0.19.3
+	github.com/lucas-clemente/quic-go v0.20.1
 	github.com/maruel/panicparse v1.6.1
 	github.com/mattn/go-isatty v0.0.12
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
@@ -57,3 +57,5 @@ require (
 )
 
 go 1.14
+
+replace github.com/lucas-clemente/quic-go v0.20.1 => github.com/lucas-clemente/quic-go v0.19.3

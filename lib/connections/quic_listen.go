@@ -82,18 +82,24 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 func (t *quicListener) serve(ctx context.Context) error {
 	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 
-	packetConn, err := net.ListenPacket(network, t.uri.Host)
+	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = packetConn.Close() }()
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
+	udpConn, err := net.ListenUDP(network, udpAddr)
+	if err != nil {
+		l.Infoln("Listen (BEP/quic):", err)
+		return err
+	}
+	defer func() { _ = udpConn.Close() }()
+
+	svc, conn := stun.New(t.cfg, t, udpConn)
 	defer func() { _ = conn.Close() }()
 	wrapped := &stunConnQUICWrapper{
 		PacketConn: conn,
-		underlying: packetConn.(*net.UDPConn),
+		underlying: udpConn,
 	}
 
 	go svc.Serve(ctx)
@@ -110,8 +116,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer listener.Close()
 	defer t.clearAddresses(t)
 
-	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
+	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -219,18 +225,32 @@ func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
 
-// stunConnQUICWrapper provides methods used by quic.
+// stunConnQUICWrapper provides methods used by quic, as well as pfilter packages.
+// https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
+// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
 type stunConnQUICWrapper struct {
 	net.PacketConn
 	underlying *net.UDPConn
 }
 
+// SetReadBuffer is required by QUIC
 func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
-	// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
 	return s.underlying.SetReadBuffer(size)
 }
 
+// SyscallConn is required by QUIC
 func (s *stunConnQUICWrapper) SyscallConn() (syscall.RawConn, error) {
-	// https://github.com/lucas-clemente/quic-go/blob/84e03e59760ceee37359688871bb0688fcc4e98f/conn_windows.go#L18
 	return s.underlying.SyscallConn()
+}
+
+// ReadMsgUDP used by pfilter, which then returns a connection that also supports this method, which is then used by
+// QUIC
+func (s *stunConnQUICWrapper) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error) {
+	return s.underlying.ReadMsgUDP(b, oob)
+}
+
+// WriteMsgUDP used by pfilter, which then returns a connection that also supports this method, which is then used by
+// QUIC
+func (s *stunConnQUICWrapper) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
+	return s.underlying.WriteMsgUDP(b, oob, addr)
 }
