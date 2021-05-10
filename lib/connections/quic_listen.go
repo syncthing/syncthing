@@ -131,7 +131,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
 
 	t.mut.Lock()
-	t.laddr = packetConn.LocalAddr()
+	t.laddr = udpConn.LocalAddr()
 	t.mut.Unlock()
 	defer func() {
 		t.mut.Lock()
