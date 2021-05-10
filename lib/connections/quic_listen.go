@@ -97,9 +97,18 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	svc, conn := stun.New(t.cfg, t, udpConn)
 	defer func() { _ = conn.Close() }()
-	wrapped := &stunConnQUICWrapper{
+
+	quicWrapper := quicWrapper{
 		PacketConn: conn,
 		underlying: udpConn,
+	}
+	var wrapped net.PacketConn = &quicWrapper
+
+	if oobConn, ok := conn.(oobConn); ok {
+		l.Debugf("wrapping in oob conn")
+		wrapped = &oobConnWrapper{
+			quicWrapper, oobConn,
+		}
 	}
 
 	go svc.Serve(ctx)
@@ -225,32 +234,32 @@ func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
 
-// stunConnQUICWrapper provides methods used by quic, as well as pfilter packages.
-// https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
+// quicWrapper provides methods used by quic
 // https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
-type stunConnQUICWrapper struct {
+type quicWrapper struct {
 	net.PacketConn
 	underlying *net.UDPConn
 }
 
 // SetReadBuffer is required by QUIC
-func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
+func (s *quicWrapper) SetReadBuffer(size int) error {
 	return s.underlying.SetReadBuffer(size)
 }
 
 // SyscallConn is required by QUIC
-func (s *stunConnQUICWrapper) SyscallConn() (syscall.RawConn, error) {
+func (s *quicWrapper) SyscallConn() (syscall.RawConn, error) {
 	return s.underlying.SyscallConn()
 }
 
-// ReadMsgUDP used by pfilter, which then returns a connection that also supports this method, which is then used by
-// QUIC
-func (s *stunConnQUICWrapper) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error) {
-	return s.underlying.ReadMsgUDP(b, oob)
+// oobConn is used to assert that stun package returned a net.PacketConn that implements this interface.
+// If it does, we then wrap quicWrapper in oobConnWrapper, to expose those methods to QUIC package.
+type oobConn interface {
+	ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error)
+	WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error)
 }
 
-// WriteMsgUDP used by pfilter, which then returns a connection that also supports this method, which is then used by
-// QUIC
-func (s *stunConnQUICWrapper) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
-	return s.underlying.WriteMsgUDP(b, oob, addr)
+// See: https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
+type oobConnWrapper struct {
+	quicWrapper
+	oobConn
 }
