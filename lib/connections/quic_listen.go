@@ -48,6 +48,7 @@ type quicListener struct {
 	factory listenerFactory
 
 	address *url.URL
+	laddr   net.Addr
 	mut     sync.Mutex
 }
 
@@ -96,7 +97,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer func() { _ = udpConn.Close() }()
 
 	svc, conn := stun.New(t.cfg, t, udpConn)
-	defer func() { _ = conn.Close() }()
+	defer conn.Close()
 
 	quicWrapper := quicWrapper{
 		PacketConn: conn,
@@ -121,12 +122,22 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	t.notifyAddressesChanged(t)
 	defer listener.Close()
+
+	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
 	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
+
+	t.mut.Lock()
+	t.laddr = packetConn.LocalAddr()
+	t.mut.Unlock()
+	defer func() {
+		t.mut.Lock()
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -179,8 +190,8 @@ func (t *quicListener) URI() *url.URL {
 }
 
 func (t *quicListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
 	t.mut.Lock()
+	uris := []*url.URL{maybeReplacePort(t.uri, t.laddr)}
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
@@ -189,9 +200,12 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
-	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
+	t.mut.Lock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.Unlock()
+	addrs := []*url.URL{uri}
+	network := strings.ReplaceAll(uri.Scheme, "quic", "udp")
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, uri)...)
 	return addrs
 }
 
