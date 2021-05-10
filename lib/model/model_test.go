@@ -4068,14 +4068,14 @@ func TestCcCheckEncryption(t *testing.T) {
 			tokenLocal:        nil,
 			isEncryptedRemote: true,
 			isEncryptedLocal:  false,
-			expectedErr:       errEncryptionNotEncryptedRemote,
+			expectedErr:       errEncryptionPlainForRemoteEncrypted,
 		},
 		{
 			tokenRemote:       nil,
 			tokenLocal:        nil,
 			isEncryptedRemote: false,
 			isEncryptedLocal:  true,
-			expectedErr:       errEncryptionNotEncryptedRemote,
+			expectedErr:       errEncryptionPlainForReceiveEncrypted,
 		},
 		{
 			tokenRemote:       nil,
