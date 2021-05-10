@@ -98,7 +98,12 @@ func (c *staticClient) serve(ctx context.Context) error {
 				if len(ip) == 0 || ip.IsUnspecified() {
 					msg.Address = remoteIPBytes(c.conn)
 				}
-				c.invitations <- msg
+				select {
+				case c.invitations <- msg:
+				case <-ctx.Done():
+					l.Debugln(c, "stopping")
+					return ctx.Err()
+				}
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
