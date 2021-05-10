@@ -31,7 +31,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.6.1
 	github.com/mattn/go-isatty v0.0.12
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.4.1
 	github.com/minio/sha256-simd v1.0.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.5.0
