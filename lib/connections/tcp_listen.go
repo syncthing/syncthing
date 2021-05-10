@@ -61,34 +61,36 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/tcp):", err)
 		return err
 	}
+	defer listener.Close()
 
 	// We might bind to :0, so use the port we've been given.
 	tcaddr = listener.Addr().(*net.TCPAddr)
 
 	t.notifyAddressesChanged(t)
+	defer t.clearAddresses(t)
+
 	registry.Register(t.uri.Scheme, tcaddr)
+	defer registry.Unregister(t.uri.Scheme, tcaddr)
 
 	l.Infof("TCP listener (%v) starting", tcaddr)
+	defer l.Infof("TCP listener (%v) shutting down", tcaddr)
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
 		t.notifyAddressesChanged(t)
 	})
+	// Should be called after t.mapping is nil'ed out.
+	defer t.natService.RemoveMapping(mapping)
 
 	t.mut.Lock()
 	t.mapping = mapping
 	t.laddr = tcaddr
 	t.mut.Unlock()
-
 	defer func() {
-		l.Infof("TCP listener (%v) shutting down", tcaddr)
-		t.natService.RemoveMapping(mapping)
 		t.mut.Lock()
+		t.mapping = nil
 		t.laddr = nil
 		t.mut.Unlock()
-		registry.Unregister(t.uri.Scheme, tcaddr)
-		t.clearAddresses(t)
-		_ = listener.Close()
 	}()
 
 	acceptFailures := 0
@@ -105,9 +107,6 @@ func (t *tcpListener) serve(ctx context.Context) error {
 			if err == nil {
 				conn.Close()
 			}
-			t.mut.Lock()
-			t.mapping = nil
-			t.mut.Unlock()
 			return nil
 		default:
 		}

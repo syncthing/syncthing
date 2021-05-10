@@ -88,8 +88,10 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
+	defer packetConn.Close()
 
 	svc, conn := stun.New(t.cfg, t, packetConn)
+	defer conn.Close()
 	wrapped := &stunConnQUICWrapper{
 		PacketConn: conn,
 		underlying: packetConn.(*net.UDPConn),
@@ -98,29 +100,28 @@ func (t *quicListener) serve(ctx context.Context) error {
 	go svc.Serve(ctx)
 
 	registry.Register(t.uri.Scheme, wrapped)
+	defer registry.Unregister(t.uri.Scheme, wrapped)
 
 	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
+	defer listener.Close()
+
 	t.notifyAddressesChanged(t)
+	defer t.clearAddresses(t)
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
+	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+
 	t.mut.Lock()
 	t.laddr = packetConn.LocalAddr()
 	t.mut.Unlock()
-
 	defer func() {
-		l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
 		t.mut.Lock()
 		t.laddr = nil
 		t.mut.Unlock()
-		registry.Unregister(t.uri.Scheme, wrapped)
-		t.clearAddresses(t)
-		_ = listener.Close()
-		_ = conn.Close()
-		_ = packetConn.Close()
 	}()
 
 	acceptFailures := 0
