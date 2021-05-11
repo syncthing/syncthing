@@ -181,20 +181,21 @@ var (
 	errNetworkNotAllowed = errors.New("network not allowed")
 	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
-	errReplacingConnection             = errors.New("replacing connection")
-	errStopped                         = errors.New("Syncthing is being stopped")
-	errEncryptionInvConfigLocal        = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
-	errEncryptionInvConfigRemote       = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
-	errEncryptionNotEncryptedLocal     = errors.New("folder is announced as encrypted, but not configured thus")
-	errEncryptionNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
-	errEncryptionNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
-	errEncryptionPassword              = errors.New("different encryption passwords used")
-	errEncryptionTokenRead             = errors.New("failed to read encryption token")
-	errEncryptionTokenWrite            = errors.New("failed to write encryption token")
-	errEncryptionNeedToken             = errors.New("require password token for receive-encrypted token")
-	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
-	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
-	errConnLimitReached                = errors.New("connection limit reached")
+	errReplacingConnection                = errors.New("replacing connection")
+	errStopped                            = errors.New("Syncthing is being stopped")
+	errEncryptionInvConfigLocal           = errors.New("can't encrypt outgoing data because local data is encrypted (folder-type receive-encrypted)")
+	errEncryptionInvConfigRemote          = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
+	errEncryptionNotEncryptedLocal        = errors.New("remote expects to exchange encrypted data, but is configured for plain data")
+	errEncryptionPlainForReceiveEncrypted = errors.New("remote expects to exchange plain data, but is configured to be encrypted")
+	errEncryptionPlainForRemoteEncrypted  = errors.New("remote expects to exchange plain data, but local data is encrypted (folder-type receive-encrypted)")
+	errEncryptionNotEncryptedUntrusted    = errors.New("device is untrusted, but configured to receive plain data")
+	errEncryptionPassword                 = errors.New("different encryption passwords used")
+	errEncryptionTokenRead                = errors.New("failed to read encryption token")
+	errEncryptionTokenWrite               = errors.New("failed to write encryption token")
+	errEncryptionNeedToken                = errors.New("require password token for receive-encrypted token")
+	errMissingRemoteInClusterConfig       = errors.New("remote device missing in cluster config")
+	errMissingLocalInClusterConfig        = errors.New("local device missing in cluster config")
+	errConnLimitReached                   = errors.New("connection limit reached")
 	// messages for failure reports
 	failureUnexpectedGenerateCCError = "unexpected error occurred in generateClusterConfig"
 )
@@ -1470,7 +1471,11 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if !(hasTokenRemote || hasTokenLocal) {
-		return errEncryptionNotEncryptedRemote
+		if isEncryptedRemote {
+			return errEncryptionPlainForReceiveEncrypted
+		} else {
+			return errEncryptionPlainForRemoteEncrypted
+		}
 	}
 
 	if !(isEncryptedRemote || isEncryptedLocal) {
