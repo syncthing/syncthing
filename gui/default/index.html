@@ -74,7 +74,7 @@
           <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
         </span>
         <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">
-          <a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()" tooltip data-original-title="{{'Show ID' | translate}}" data-placement="bottom">
+          <a href="" class="navbar-link" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()" tooltip data-original-title="{{'Show ID' | translate}}" data-placement="bottom">
             {{thisDeviceName()}}
             &nbsp;<span class="fas fa-fw fa-qrcode"></span>
           </a>
