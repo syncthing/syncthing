@@ -146,7 +146,6 @@ type service struct {
 	listenersMut           sync.RWMutex
 	listeners              map[string]genericListener
 	listenerTokens         map[string]suture.ServiceToken
-	listenerSupervisor     *suture.Supervisor
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -725,7 +724,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	for addr, listener := range s.listeners {
 		if _, ok := seen[addr]; !ok || listener.Factory().Valid(to) != nil {
 			l.Debugln("Stopping listener", addr)
-			s.listenerSupervisor.Remove(s.listenerTokens[addr])
+			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
 			delete(s.listeners, addr)
 		}
