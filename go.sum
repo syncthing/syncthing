@@ -9,6 +9,8 @@ dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/AudriusButkevicius/pfilter v0.0.0-20210510194644-fad42c10c5ac h1:ua8XsAiW9JrUa97ioh+ZaZu2JeSMrhcQ2peBxSMrqSs=
 github.com/AudriusButkevicius/pfilter v0.0.0-20210510194644-fad42c10c5ac/go.mod h1:EEEtt5r8y0gGHlRFF2+cLx0WUy/rKHnjALmom5E0+74=
+github.com/AudriusButkevicius/pfilter v0.0.0-20210511165305-e9aaf99ab213 h1:9E6vGKdipZ+AAkU19TUb5JQKMf44CGAYMtXDAyfonO4=
+github.com/AudriusButkevicius/pfilter v0.0.0-20210511165305-e9aaf99ab213/go.mod h1:EEEtt5r8y0gGHlRFF2+cLx0WUy/rKHnjALmom5E0+74=
 github.com/AudriusButkevicius/recli v0.0.5 h1:xUa55PvWTHBm17T6RvjElRO3y5tALpdceH86vhzQ5wg=
 github.com/AudriusButkevicius/recli v0.0.5/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c h1:/IBSNwUN8+eKzUzbJPqhK839ygXJ82sde8x3ogr6R28=
