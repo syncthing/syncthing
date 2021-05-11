@@ -49,30 +49,30 @@ func runAggregation(db *sql.DB) {
 	log.Println("Aggregating VersionSummary data since", since)
 	rows, err := aggregateVersionSummary(db, since)
 	if err != nil {
-		log.Fatalln("aggregate:", err)
+		log.Println("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
 
 	log.Println("Aggregating UserMovement data")
 	rows, err = aggregateUserMovement(db)
 	if err != nil {
-		log.Fatalln("aggregate:", err)
+		log.Println("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
 
-	log.Println("Aggregating Performance data")
 	since = maxIndexedDay(db, "Performance")
+	log.Println("Aggregating Performance data since", since)
 	rows, err = aggregatePerformance(db, since)
 	if err != nil {
-		log.Fatalln("aggregate:", err)
+		log.Println("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
 
-	log.Println("Aggregating BlockStats data")
 	since = maxIndexedDay(db, "BlockStats")
+	log.Println("Aggregating BlockStats data since", since)
 	rows, err = aggregateBlockStats(db, since)
 	if err != nil {
-		log.Fatalln("aggregate:", err)
+		log.Println("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
 }
@@ -198,7 +198,8 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 		Report->>'uniqueID'
 		FROM ReportsJson
 		WHERE
-			DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			Report->>'uniqueID' IS NOT NULL
+			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
 			AND Report->>'version' like 'v_.%'
 		ORDER BY Day
 	`)
