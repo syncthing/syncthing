@@ -287,6 +287,8 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
 			AND Report->>'version' like 'v_.%'
+			/* Some custom implementation reported bytes when we expect megabytes, cap at petabyte */
+			AND (Report->>'memorySize')::numeric < 1073741824
 		GROUP BY Day
 		);
 	`, since)
