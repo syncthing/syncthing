@@ -2,47 +2,47 @@
   <div class="modal-body" ng-switch="connectivityStatusParams.type">
     <div ng-switch-when="listeners">
       <div ng-if="listenersRunning.length > 0">
-	<p translate>
-	  The following network ports and protocols are available for other devices to connect to this one:
-	</p>
-	<ul>
-	  <li ng-repeat="listener in listenersRunning">{{listener}}</li>
-	</ul>
+        <p translate>
+          The following network ports and protocols are available for other devices to connect to this one:
+        </p>
+        <ul>
+          <li ng-repeat="listener in listenersRunning">{{listener}}</li>
+        </ul>
       </div>
       <div ng-if="listenersFailed.length > 0">
-	<p translate>
-	  Some network ports or protocols could not be enabled to accept connections:
-	</p>
-	<ul>
-	  <li ng-repeat="listener in listenersFailed">{{listener}}</li>
-	</ul>
+        <p translate>
+          Some network ports or protocols could not be enabled to accept connections:
+        </p>
+        <ul>
+          <li ng-repeat="listener in listenersFailed">{{listener}}</li>
+        </ul>
       </div>
     </div>
     <div ng-switch-default><!-- discovery methods -->
       <div ng-if="discoveryRunning.length > 0">
-	<p translate>
-	  The following methods are used to discover other devices on the network and announce this device to be found by others:
-	</p>
-	<ul>
-	  <li ng-repeat="discovery in discoveryRunning">{{discovery}}</li>
-	</ul>
+        <p translate>
+          The following methods are used to discover other devices on the network and announce this device to be found by others:
+        </p>
+        <ul>
+          <li ng-repeat="discovery in discoveryRunning">{{discovery}}</li>
+        </ul>
       </div>
       <div ng-if="discoveryFailed.length > 0">
-	<p translate>
-	  Some discovery methods could not be established for finding other devices or announcing this device:
-	</p>
-	<ul>
-	  <li ng-repeat="discovery in discoveryFailed">{{discovery}}</li>
-	</ul>
+        <p translate>
+          Some discovery methods could not be established for finding other devices or announcing this device:
+        </p>
+        <ul>
+          <li ng-repeat="discovery in discoveryFailed">{{discovery}}</li>
+        </ul>
       </div>
       <div class="row">
-	<div class="col-md-offset-2 col-md-8">
-	  <div class="panel panel-default">
+        <div class="col-md-offset-2 col-md-8">
+          <div class="panel panel-default">
             <div translate class="panel-body">
               Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.
             </div>
-	  </div>
-	</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
