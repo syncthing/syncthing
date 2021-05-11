@@ -83,18 +83,33 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 func (t *quicListener) serve(ctx context.Context) error {
 	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 
-	packetConn, err := net.ListenPacket(network, t.uri.Host)
+	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer packetConn.Close()
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
+	udpConn, err := net.ListenUDP(network, udpAddr)
+	if err != nil {
+		l.Infoln("Listen (BEP/quic):", err)
+		return err
+	}
+	defer func() { _ = udpConn.Close() }()
+
+	svc, conn := stun.New(t.cfg, t, udpConn)
 	defer conn.Close()
-	wrapped := &stunConnQUICWrapper{
+
+	quicWrapper := quicWrapper{
 		PacketConn: conn,
-		underlying: packetConn.(*net.UDPConn),
+		underlying: udpConn,
+	}
+	var wrapped net.PacketConn = &quicWrapper
+
+	if oobConn, ok := conn.(oobConn); ok {
+		l.Debugf("wrapping in oob conn")
+		wrapped = &oobConnWrapper{
+			quicWrapper, oobConn,
+		}
 	}
 
 	go svc.Serve(ctx)
@@ -112,11 +127,11 @@ func (t *quicListener) serve(ctx context.Context) error {
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
+	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
 
 	t.mut.Lock()
-	t.laddr = packetConn.LocalAddr()
+	t.laddr = udpConn.LocalAddr()
 	t.mut.Unlock()
 	defer func() {
 		t.mut.Lock()
@@ -233,18 +248,32 @@ func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
 
-// stunConnQUICWrapper provides methods used by quic.
-type stunConnQUICWrapper struct {
+// quicWrapper provides methods used by quic
+// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
+type quicWrapper struct {
 	net.PacketConn
 	underlying *net.UDPConn
 }
 
-func (s *stunConnQUICWrapper) SetReadBuffer(size int) error {
-	// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
+// SetReadBuffer is required by QUIC
+func (s *quicWrapper) SetReadBuffer(size int) error {
 	return s.underlying.SetReadBuffer(size)
 }
 
-func (s *stunConnQUICWrapper) SyscallConn() (syscall.RawConn, error) {
-	// https://github.com/lucas-clemente/quic-go/blob/84e03e59760ceee37359688871bb0688fcc4e98f/conn_windows.go#L18
+// SyscallConn is required by QUIC
+func (s *quicWrapper) SyscallConn() (syscall.RawConn, error) {
 	return s.underlying.SyscallConn()
+}
+
+// oobConn is used to assert that stun package returned a net.PacketConn that implements this interface.
+// If it does, we then wrap quicWrapper in oobConnWrapper, to expose those methods to QUIC package.
+type oobConn interface {
+	ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error)
+	WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error)
+}
+
+// See: https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
+type oobConnWrapper struct {
+	quicWrapper
+	oobConn
 }
