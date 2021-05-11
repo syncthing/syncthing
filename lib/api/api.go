@@ -1017,7 +1017,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["tilde"] = tilde
 	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
-		discoStatus := s.discoverer.DiscoveryStatus()
+		discoStatus := s.discoverer.FinderStatus()
 		res["discoveryMethods"] = len(discoStatus) // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
 		res["discoveryErrors"] = discoStatus
 	}

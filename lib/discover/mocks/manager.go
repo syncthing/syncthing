@@ -30,16 +30,6 @@ type Manager struct {
 	childErrorsReturnsOnCall map[int]struct {
 		result1 map[string]error
 	}
-	DiscoveryStatusStub        func() map[string]discover.DiscoveryStatusEntry
-	discoveryStatusMutex       sync.RWMutex
-	discoveryStatusArgsForCall []struct {
-	}
-	discoveryStatusReturns struct {
-		result1 map[string]discover.DiscoveryStatusEntry
-	}
-	discoveryStatusReturnsOnCall map[int]struct {
-		result1 map[string]discover.DiscoveryStatusEntry
-	}
 	ErrorStub        func() error
 	errorMutex       sync.RWMutex
 	errorArgsForCall []struct {
@@ -49,6 +39,16 @@ type Manager struct {
 	}
 	errorReturnsOnCall map[int]struct {
 		result1 error
+	}
+	FinderStatusStub        func() map[string]discover.FinderStatusEntry
+	finderStatusMutex       sync.RWMutex
+	finderStatusArgsForCall []struct {
+	}
+	finderStatusReturns struct {
+		result1 map[string]discover.FinderStatusEntry
+	}
+	finderStatusReturnsOnCall map[int]struct {
+		result1 map[string]discover.FinderStatusEntry
 	}
 	LookupStub        func(context.Context, protocol.DeviceID) ([]string, error)
 	lookupMutex       sync.RWMutex
@@ -195,59 +195,6 @@ func (fake *Manager) ChildErrorsReturnsOnCall(i int, result1 map[string]error) {
 	}{result1}
 }
 
-func (fake *Manager) DiscoveryStatus() map[string]discover.DiscoveryStatusEntry {
-	fake.discoveryStatusMutex.Lock()
-	ret, specificReturn := fake.discoveryStatusReturnsOnCall[len(fake.discoveryStatusArgsForCall)]
-	fake.discoveryStatusArgsForCall = append(fake.discoveryStatusArgsForCall, struct {
-	}{})
-	stub := fake.DiscoveryStatusStub
-	fakeReturns := fake.discoveryStatusReturns
-	fake.recordInvocation("DiscoveryStatus", []interface{}{})
-	fake.discoveryStatusMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Manager) DiscoveryStatusCallCount() int {
-	fake.discoveryStatusMutex.RLock()
-	defer fake.discoveryStatusMutex.RUnlock()
-	return len(fake.discoveryStatusArgsForCall)
-}
-
-func (fake *Manager) DiscoveryStatusCalls(stub func() map[string]discover.DiscoveryStatusEntry) {
-	fake.discoveryStatusMutex.Lock()
-	defer fake.discoveryStatusMutex.Unlock()
-	fake.DiscoveryStatusStub = stub
-}
-
-func (fake *Manager) DiscoveryStatusReturns(result1 map[string]discover.DiscoveryStatusEntry) {
-	fake.discoveryStatusMutex.Lock()
-	defer fake.discoveryStatusMutex.Unlock()
-	fake.DiscoveryStatusStub = nil
-	fake.discoveryStatusReturns = struct {
-		result1 map[string]discover.DiscoveryStatusEntry
-	}{result1}
-}
-
-func (fake *Manager) DiscoveryStatusReturnsOnCall(i int, result1 map[string]discover.DiscoveryStatusEntry) {
-	fake.discoveryStatusMutex.Lock()
-	defer fake.discoveryStatusMutex.Unlock()
-	fake.DiscoveryStatusStub = nil
-	if fake.discoveryStatusReturnsOnCall == nil {
-		fake.discoveryStatusReturnsOnCall = make(map[int]struct {
-			result1 map[string]discover.DiscoveryStatusEntry
-		})
-	}
-	fake.discoveryStatusReturnsOnCall[i] = struct {
-		result1 map[string]discover.DiscoveryStatusEntry
-	}{result1}
-}
-
 func (fake *Manager) Error() error {
 	fake.errorMutex.Lock()
 	ret, specificReturn := fake.errorReturnsOnCall[len(fake.errorArgsForCall)]
@@ -298,6 +245,59 @@ func (fake *Manager) ErrorReturnsOnCall(i int, result1 error) {
 	}
 	fake.errorReturnsOnCall[i] = struct {
 		result1 error
+	}{result1}
+}
+
+func (fake *Manager) FinderStatus() map[string]discover.FinderStatusEntry {
+	fake.finderStatusMutex.Lock()
+	ret, specificReturn := fake.finderStatusReturnsOnCall[len(fake.finderStatusArgsForCall)]
+	fake.finderStatusArgsForCall = append(fake.finderStatusArgsForCall, struct {
+	}{})
+	stub := fake.FinderStatusStub
+	fakeReturns := fake.finderStatusReturns
+	fake.recordInvocation("FinderStatus", []interface{}{})
+	fake.finderStatusMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Manager) FinderStatusCallCount() int {
+	fake.finderStatusMutex.RLock()
+	defer fake.finderStatusMutex.RUnlock()
+	return len(fake.finderStatusArgsForCall)
+}
+
+func (fake *Manager) FinderStatusCalls(stub func() map[string]discover.FinderStatusEntry) {
+	fake.finderStatusMutex.Lock()
+	defer fake.finderStatusMutex.Unlock()
+	fake.FinderStatusStub = stub
+}
+
+func (fake *Manager) FinderStatusReturns(result1 map[string]discover.FinderStatusEntry) {
+	fake.finderStatusMutex.Lock()
+	defer fake.finderStatusMutex.Unlock()
+	fake.FinderStatusStub = nil
+	fake.finderStatusReturns = struct {
+		result1 map[string]discover.FinderStatusEntry
+	}{result1}
+}
+
+func (fake *Manager) FinderStatusReturnsOnCall(i int, result1 map[string]discover.FinderStatusEntry) {
+	fake.finderStatusMutex.Lock()
+	defer fake.finderStatusMutex.Unlock()
+	fake.FinderStatusStub = nil
+	if fake.finderStatusReturnsOnCall == nil {
+		fake.finderStatusReturnsOnCall = make(map[int]struct {
+			result1 map[string]discover.FinderStatusEntry
+		})
+	}
+	fake.finderStatusReturnsOnCall[i] = struct {
+		result1 map[string]discover.FinderStatusEntry
 	}{result1}
 }
 
@@ -487,10 +487,10 @@ func (fake *Manager) Invocations() map[string][][]interface{} {
 	defer fake.cacheMutex.RUnlock()
 	fake.childErrorsMutex.RLock()
 	defer fake.childErrorsMutex.RUnlock()
-	fake.discoveryStatusMutex.RLock()
-	defer fake.discoveryStatusMutex.RUnlock()
 	fake.errorMutex.RLock()
 	defer fake.errorMutex.RUnlock()
+	fake.finderStatusMutex.RLock()
+	defer fake.finderStatusMutex.RUnlock()
 	fake.lookupMutex.RLock()
 	defer fake.lookupMutex.RUnlock()
 	fake.serveMutex.RLock()
