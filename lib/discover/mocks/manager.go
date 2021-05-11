@@ -20,16 +20,6 @@ type Manager struct {
 	cacheReturnsOnCall map[int]struct {
 		result1 map[protocol.DeviceID]discover.CacheEntry
 	}
-	ChildErrorsStub        func() map[string]error
-	childErrorsMutex       sync.RWMutex
-	childErrorsArgsForCall []struct {
-	}
-	childErrorsReturns struct {
-		result1 map[string]error
-	}
-	childErrorsReturnsOnCall map[int]struct {
-		result1 map[string]error
-	}
 	ErrorStub        func() error
 	errorMutex       sync.RWMutex
 	errorArgsForCall []struct {
@@ -139,59 +129,6 @@ func (fake *Manager) CacheReturnsOnCall(i int, result1 map[protocol.DeviceID]dis
 	}
 	fake.cacheReturnsOnCall[i] = struct {
 		result1 map[protocol.DeviceID]discover.CacheEntry
-	}{result1}
-}
-
-func (fake *Manager) ChildErrors() map[string]error {
-	fake.childErrorsMutex.Lock()
-	ret, specificReturn := fake.childErrorsReturnsOnCall[len(fake.childErrorsArgsForCall)]
-	fake.childErrorsArgsForCall = append(fake.childErrorsArgsForCall, struct {
-	}{})
-	stub := fake.ChildErrorsStub
-	fakeReturns := fake.childErrorsReturns
-	fake.recordInvocation("ChildErrors", []interface{}{})
-	fake.childErrorsMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Manager) ChildErrorsCallCount() int {
-	fake.childErrorsMutex.RLock()
-	defer fake.childErrorsMutex.RUnlock()
-	return len(fake.childErrorsArgsForCall)
-}
-
-func (fake *Manager) ChildErrorsCalls(stub func() map[string]error) {
-	fake.childErrorsMutex.Lock()
-	defer fake.childErrorsMutex.Unlock()
-	fake.ChildErrorsStub = stub
-}
-
-func (fake *Manager) ChildErrorsReturns(result1 map[string]error) {
-	fake.childErrorsMutex.Lock()
-	defer fake.childErrorsMutex.Unlock()
-	fake.ChildErrorsStub = nil
-	fake.childErrorsReturns = struct {
-		result1 map[string]error
-	}{result1}
-}
-
-func (fake *Manager) ChildErrorsReturnsOnCall(i int, result1 map[string]error) {
-	fake.childErrorsMutex.Lock()
-	defer fake.childErrorsMutex.Unlock()
-	fake.ChildErrorsStub = nil
-	if fake.childErrorsReturnsOnCall == nil {
-		fake.childErrorsReturnsOnCall = make(map[int]struct {
-			result1 map[string]error
-		})
-	}
-	fake.childErrorsReturnsOnCall[i] = struct {
-		result1 map[string]error
 	}{result1}
 }
 
@@ -485,8 +422,6 @@ func (fake *Manager) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.cacheMutex.RLock()
 	defer fake.cacheMutex.RUnlock()
-	fake.childErrorsMutex.RLock()
-	defer fake.childErrorsMutex.RUnlock()
 	fake.errorMutex.RLock()
 	defer fake.errorMutex.RUnlock()
 	fake.finderStatusMutex.RLock()
