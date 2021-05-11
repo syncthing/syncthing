@@ -14,7 +14,7 @@
               <div class="input-group">
                 <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true" />
                 <div class="input-group-btn">
-                  <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-disabled="!deviceEditor.deviceID.$valid">
+                  <button type="button" class="btn btn-default" data-toggle="modal" data-target="#idqr" ng-disabled="!deviceEditor.deviceID.$valid">
                     <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
                   </button>
                 </div>
@@ -39,7 +39,7 @@
             <div ng-if="editingExisting" class="input-group">
               <div class="well well-sm text-monospace form-control" style="height: auto;" select-on-click>{{currentDevice.deviceID}}</div>
               <div class="input-group-btn">
-                <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr">
+                <button type="button" class="btn btn-default" data-toggle="modal" data-target="#idqr">
                   <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
                 </button>
               </div>
