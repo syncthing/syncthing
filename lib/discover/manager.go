@@ -33,6 +33,7 @@ import (
 // or negative).
 type Manager interface {
 	FinderService
+	ChildErrors() map[string]error
 	FinderStatus() map[string]FinderStatusEntry
 }
 
@@ -171,6 +172,16 @@ func (m *manager) String() string {
 
 func (m *manager) Error() error {
 	return nil
+}
+
+func (m *manager) ChildErrors() map[string]error {
+	children := make(map[string]error, len(m.finders))
+	m.mut.RLock()
+	for _, f := range m.finders {
+		children[f.String()] = f.Error()
+	}
+	m.mut.RUnlock()
+	return children
 }
 
 func (m *manager) FinderStatus() map[string]FinderStatusEntry {

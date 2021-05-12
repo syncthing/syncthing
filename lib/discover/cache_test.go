@@ -109,15 +109,15 @@ func TestCacheSlowLookup(t *testing.T) {
 	go c.Lookup(context.Background(), protocol.LocalDeviceID)
 	<-started // The slow lookup method has been called so we're inside the lock
 
-	// It should be possible to get FinderStatus while it's running
+	// It should be possible to get ChildErrors while it's running
 
-	c.FinderStatus()
+	c.ChildErrors()
 
 	// Only a small amount of time should have passed, not the full second
 
 	diff := time.Since(t0)
 	if diff > 500*time.Millisecond {
-		t.Error("FinderStatus was blocked for", diff)
+		t.Error("ChildErrors was blocked for", diff)
 	}
 }
 
