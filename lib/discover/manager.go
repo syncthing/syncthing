@@ -34,10 +34,7 @@ import (
 type Manager interface {
 	FinderService
 	ChildErrors() map[string]error
-	FinderStatus() map[string]FinderStatusEntry
 }
-
-type FinderStatusEntry *string
 
 type manager struct {
 	*suture.Supervisor
@@ -182,23 +179,6 @@ func (m *manager) ChildErrors() map[string]error {
 	}
 	m.mut.RUnlock()
 	return children
-}
-
-func (m *manager) FinderStatus() map[string]FinderStatusEntry {
-	result := make(map[string]FinderStatusEntry, len(m.finders))
-	m.mut.RLock()
-	for _, f := range m.finders {
-		var status FinderStatusEntry
-
-		if err := f.Error(); err != nil {
-			errStr := err.Error()
-			status = &errStr
-		}
-
-		result[f.String()] = status
-	}
-	m.mut.RUnlock()
-	return result
 }
 
 func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
