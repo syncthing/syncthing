@@ -16,8 +16,7 @@ the name of the Syncthing instance can be optionally defined by using
 **Docker cli**
 ```
 $ docker pull syncthing/syncthing
-$ docker run --sysctl net.core.rmem_max=2097152 \
-    -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp \
+$ docker run -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp \
     -v /wherever/st-sync:/var/syncthing \
     --hostname=my-syncthing \
     syncthing/syncthing:latest
@@ -41,8 +40,6 @@ services:
       - 8384:8384
       - 22000:22000/tcp
       - 22000:22000/udp
-    sysctls:
-      - net.core.rmem_max=2097152
     restart: unless-stopped
 ```
 
