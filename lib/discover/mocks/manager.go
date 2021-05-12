@@ -40,16 +40,6 @@ type Manager struct {
 	errorReturnsOnCall map[int]struct {
 		result1 error
 	}
-	FinderStatusStub        func() map[string]discover.FinderStatusEntry
-	finderStatusMutex       sync.RWMutex
-	finderStatusArgsForCall []struct {
-	}
-	finderStatusReturns struct {
-		result1 map[string]discover.FinderStatusEntry
-	}
-	finderStatusReturnsOnCall map[int]struct {
-		result1 map[string]discover.FinderStatusEntry
-	}
 	LookupStub        func(context.Context, protocol.DeviceID) ([]string, error)
 	lookupMutex       sync.RWMutex
 	lookupArgsForCall []struct {
@@ -248,59 +238,6 @@ func (fake *Manager) ErrorReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Manager) FinderStatus() map[string]discover.FinderStatusEntry {
-	fake.finderStatusMutex.Lock()
-	ret, specificReturn := fake.finderStatusReturnsOnCall[len(fake.finderStatusArgsForCall)]
-	fake.finderStatusArgsForCall = append(fake.finderStatusArgsForCall, struct {
-	}{})
-	stub := fake.FinderStatusStub
-	fakeReturns := fake.finderStatusReturns
-	fake.recordInvocation("FinderStatus", []interface{}{})
-	fake.finderStatusMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Manager) FinderStatusCallCount() int {
-	fake.finderStatusMutex.RLock()
-	defer fake.finderStatusMutex.RUnlock()
-	return len(fake.finderStatusArgsForCall)
-}
-
-func (fake *Manager) FinderStatusCalls(stub func() map[string]discover.FinderStatusEntry) {
-	fake.finderStatusMutex.Lock()
-	defer fake.finderStatusMutex.Unlock()
-	fake.FinderStatusStub = stub
-}
-
-func (fake *Manager) FinderStatusReturns(result1 map[string]discover.FinderStatusEntry) {
-	fake.finderStatusMutex.Lock()
-	defer fake.finderStatusMutex.Unlock()
-	fake.FinderStatusStub = nil
-	fake.finderStatusReturns = struct {
-		result1 map[string]discover.FinderStatusEntry
-	}{result1}
-}
-
-func (fake *Manager) FinderStatusReturnsOnCall(i int, result1 map[string]discover.FinderStatusEntry) {
-	fake.finderStatusMutex.Lock()
-	defer fake.finderStatusMutex.Unlock()
-	fake.FinderStatusStub = nil
-	if fake.finderStatusReturnsOnCall == nil {
-		fake.finderStatusReturnsOnCall = make(map[int]struct {
-			result1 map[string]discover.FinderStatusEntry
-		})
-	}
-	fake.finderStatusReturnsOnCall[i] = struct {
-		result1 map[string]discover.FinderStatusEntry
-	}{result1}
-}
-
 func (fake *Manager) Lookup(arg1 context.Context, arg2 protocol.DeviceID) ([]string, error) {
 	fake.lookupMutex.Lock()
 	ret, specificReturn := fake.lookupReturnsOnCall[len(fake.lookupArgsForCall)]
@@ -489,8 +426,6 @@ func (fake *Manager) Invocations() map[string][][]interface{} {
 	defer fake.childErrorsMutex.RUnlock()
 	fake.errorMutex.RLock()
 	defer fake.errorMutex.RUnlock()
-	fake.finderStatusMutex.RLock()
-	defer fake.finderStatusMutex.RUnlock()
 	fake.lookupMutex.RLock()
 	defer fake.lookupMutex.RUnlock()
 	fake.serveMutex.RLock()
