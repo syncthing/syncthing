@@ -96,7 +96,7 @@ func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Confi
 	// So the idea is that we should probably try dialing every 20 seconds.
 	// However it would still be nice if this was adjustable/proportional to ReconnectIntervalS
 	// But prevent something silly like 1/3 = 0 etc.
-	quicInterval := opts.ReconnectIntervalS/3
+	quicInterval := opts.ReconnectIntervalS / 3
 	if quicInterval < 10 {
 		quicInterval = 10
 	}
