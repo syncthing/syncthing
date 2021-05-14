@@ -337,17 +337,17 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 // addPending stores the given info to start an index sender once resume is called
 // for this folder.
 // If an index sender is already running, it will be stopped.
-func (r *indexSenderRegistry) addPending(folder config.FolderConfiguration, startInfo *indexSenderStartInfo) {
+func (r *indexSenderRegistry) addPending(folder string, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	if is, ok := r.indexSenders[folder.ID]; ok {
+	if is, ok := r.indexSenders[folder]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexSenders, folder.ID)
-		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.deviceID.Short(), folder.ID)
+		delete(r.indexSenders, folder)
+		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.deviceID.Short(), folder)
 	}
-	r.startInfos[folder.ID] = startInfo
-	l.Debugf("Pending index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
+	r.startInfos[folder] = startInfo
+	l.Debugf("Pending index sender for device %v and folder %v", r.deviceID.Short(), folder)
 }
 
 // remove stops a running index sender or removes one pending to be started.
