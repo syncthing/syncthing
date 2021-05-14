@@ -247,7 +247,7 @@ func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup 
 func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	r.addLocked(folder, fset, startInfo)
-	l.Debugf("Started index sender for device %v and folder %v", r.deviceID.Short(), folder)
+	l.Debugf("Started index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
 	r.mut.Unlock()
 }
 
@@ -344,6 +344,7 @@ func (r *indexSenderRegistry) addPending(folder config.FolderConfiguration, star
 	if is, ok := r.indexSenders[folder.ID]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
+		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.deviceID.Short(), folder.ID)
 	}
 	r.startInfos[folder.ID] = startInfo
 	l.Debugf("Pending index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
@@ -411,16 +412,16 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 		if isOk {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder.ID)
-			l.Debugf("Removed index sender for device %v and folder %v in resume", r.deviceID.Short(), folder)
+			l.Debugf("Removed index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
 		}
 		r.addLocked(folder, fset, info)
 		delete(r.startInfos, folder.ID)
-		l.Debugf("Started index sender for device %v and folder %v in resume", r.deviceID.Short(), folder)
+		l.Debugf("Started index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
 	} else if isOk {
 		is.resume(fset)
-		l.Debugf("Resume index sender for device %v and folder %v", r.deviceID.Short(), folder)
+		l.Debugf("Resume index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
 	} else {
-		l.Debugf("Not resuming index sender for device %v and folder %v as none is paused and there is no start info", r.deviceID.Short(), folder)
+		l.Debugf("Not resuming index sender for device %v and folder %v as none is paused and there is no start info", r.deviceID.Short(), folder.ID)
 	}
 }
 
