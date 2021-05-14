@@ -253,7 +253,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if !utf8.ValidString(path) {
-			w.handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
+			handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
 			return skip
 		}
 
@@ -285,7 +285,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if err != nil {
-			w.handleError(ctx, "scan", path, err, finishedChan)
+			// No need reporting errors for files that don't exist (e.g. scan
+			// due to filesystem watcher)
+			if !fs.IsNotExist(err) {
+				handleError(ctx, "scan", path, err, finishedChan)
+			}
 			return skip
 		}
 
@@ -316,7 +320,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			info, err = w.Filesystem.Lstat(ignoredParent)
 			// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 			if err != nil {
-				w.handleError(ctx, "scan", ignoredParent, err, finishedChan)
+				handleError(ctx, "scan", ignoredParent, err, finishedChan)
 				return skip
 			}
 			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan, skip); err != nil {
@@ -333,7 +337,7 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 	oldPath := path
 	path, err := w.normalizePath(path, info)
 	if err != nil {
-		w.handleError(ctx, "normalizing path", oldPath, err, finishedChan)
+		handleError(ctx, "normalizing path", oldPath, err, finishedChan)
 		return skip
 	}
 
@@ -453,7 +457,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem)
 	if err != nil {
-		w.handleError(ctx, "reading link:", relPath, err, finishedChan)
+		handleError(ctx, "reading link:", relPath, err, finishedChan)
 		return nil
 	}
 
@@ -559,17 +563,7 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 	return file
 }
 
-func (w *walker) handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
-	handleError(ctx, fmt.Sprintf("%v: %v", w, context), path, err, finishedChan)
-}
-
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
-	// Ignore missing items, as deletions are not handled by the scanner.
-	if fs.IsNotExist(err) {
-		l.Debugf("%v: dropping not-exist-error for %v: %v", context, path, err)
-		return
-	}
-	l.Debugf("%v: sending error for %v: %v", context, path, err)
 	select {
 	case finishedChan <- ScanResult{
 		Err:  fmt.Errorf("%s: %w", context, err),
