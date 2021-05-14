@@ -28,7 +28,6 @@ type indexSender struct {
 	fset                     *db.FileSet
 	prevSequence             int64
 	evLogger                 events.Logger
-	connClosed               chan struct{}
 	done                     chan struct{}
 	token                    suture.ServiceToken
 	pauseChan                chan struct{}
@@ -104,7 +103,6 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 
 	is := &indexSender{
 		conn:                     r.conn,
-		connClosed:               r.closed,
 		done:                     make(chan struct{}),
 		folder:                   folder.ID,
 		folderIsReceiveEncrypted: folder.Type == config.FolderTypeReceiveEncrypted,
@@ -144,8 +142,6 @@ func (s *indexSender) Serve(ctx context.Context) (err error) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-s.connClosed:
-			return nil
 		default:
 		}
 
@@ -157,8 +153,6 @@ func (s *indexSender) Serve(ctx context.Context) (err error) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-s.connClosed:
-				return nil
 			case <-evChan:
 			case <-ticker.C:
 			case <-s.pauseChan:
@@ -177,7 +171,11 @@ func (s *indexSender) Serve(ctx context.Context) (err error) {
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
 		// time to batch them up a little.
-		time.Sleep(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(250 * time.Millisecond):
+		}
 	}
 
 	return err
@@ -305,22 +303,39 @@ type indexSenderRegistry struct {
 	sup          *suture.Supervisor
 	evLogger     events.Logger
 	conn         protocol.Connection
-	closed       chan struct{}
 	indexSenders map[string]*indexSender
 	startInfos   map[string]*indexSenderStartInfo
 	mut          sync.Mutex
 }
 
-func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup *suture.Supervisor, evLogger events.Logger) *indexSenderRegistry {
-	return &indexSenderRegistry{
+func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, parentSup *suture.Supervisor, evLogger events.Logger) *indexSenderRegistry {
+	r := &indexSenderRegistry{
 		conn:         conn,
-		closed:       closed,
-		sup:          sup,
 		evLogger:     evLogger,
 		indexSenders: make(map[string]*indexSender),
 		startInfos:   make(map[string]*indexSenderStartInfo),
 		mut:          sync.Mutex{},
 	}
+	r.sup = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
+	ourToken := parentSup.Add(r.sup)
+	r.sup.Add(svcutil.AsService(func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-closed:
+			parentSup.Remove(ourToken)
+		}
+		return nil
+	}, fmt.Sprintf("%v/waitForClosed", r)))
+	return r
+}
+
+func (r *indexSenderRegistry) String() string {
+	return fmt.Sprintf("indexSenderRegistry/%v", r.conn.ID().Short())
+}
+
+func (r *indexSenderRegistry) GetSupervisor() *suture.Supervisor {
+	return r.sup
 }
 
 // add starts an index sender for given folder.
