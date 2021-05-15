@@ -47,7 +47,7 @@ func main() {
 func runAggregation(db *sql.DB) {
 	since := maxIndexedDay(db, "VersionSummary")
 	log.Println("Aggregating VersionSummary data since", since)
-	rows, err := aggregateVersionSummary(db, since.Add(24 * time.Hour))
+	rows, err := aggregateVersionSummary(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
@@ -62,7 +62,7 @@ func runAggregation(db *sql.DB) {
 
 	since = maxIndexedDay(db, "Performance")
 	log.Println("Aggregating Performance data since", since)
-	rows, err = aggregatePerformance(db, since.Add(24 * time.Hour))
+	rows, err = aggregatePerformance(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
@@ -70,7 +70,7 @@ func runAggregation(db *sql.DB) {
 
 	since = maxIndexedDay(db, "BlockStats")
 	log.Println("Aggregating BlockStats data since", since)
-	rows, err = aggregateBlockStats(db, since.Add(24 * time.Hour))
+	rows, err = aggregateBlockStats(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
