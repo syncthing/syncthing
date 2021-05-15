@@ -587,6 +587,18 @@ func (db *Lowlevel) dropFolderIndexIDs(folder []byte) error {
 	return t.Commit()
 }
 
+func (db *Lowlevel) dropIndexIDs() error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+	if err := t.deleteKeyPrefix([]byte{KeyTypeIndexID}); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
 func (db *Lowlevel) dropMtimes(folder []byte) error {
 	key, err := db.keyer.GenerateMtimesKey(nil, folder)
 	if err != nil {

@@ -247,6 +247,7 @@ func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup 
 func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	r.addLocked(folder, fset, startInfo)
+	l.Debugf("Started index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
 	r.mut.Unlock()
 }
 
@@ -336,15 +337,17 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 // addPending stores the given info to start an index sender once resume is called
 // for this folder.
 // If an index sender is already running, it will be stopped.
-func (r *indexSenderRegistry) addPending(folder config.FolderConfiguration, startInfo *indexSenderStartInfo) {
+func (r *indexSenderRegistry) addPending(folder string, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	if is, ok := r.indexSenders[folder.ID]; ok {
+	if is, ok := r.indexSenders[folder]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexSenders, folder.ID)
+		delete(r.indexSenders, folder)
+		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.deviceID.Short(), folder)
 	}
-	r.startInfos[folder.ID] = startInfo
+	r.startInfos[folder] = startInfo
+	l.Debugf("Pending index sender for device %v and folder %v", r.deviceID.Short(), folder)
 }
 
 // remove stops a running index sender or removes one pending to be started.
@@ -358,6 +361,7 @@ func (r *indexSenderRegistry) remove(folder string) {
 		delete(r.indexSenders, folder)
 	}
 	delete(r.startInfos, folder)
+	l.Debugf("Removed index sender for device %v and folder %v", r.deviceID.Short(), folder)
 }
 
 // removeAllExcept stops all running index senders and removes those pending to be started,
@@ -371,11 +375,13 @@ func (r *indexSenderRegistry) removeAllExcept(except map[string]struct{}) {
 		if _, ok := except[folder]; !ok {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder)
+			l.Debugf("Removed index sender for device %v and folder %v (removeAllExcept)", r.deviceID.Short(), folder)
 		}
 	}
 	for folder := range r.startInfos {
 		if _, ok := except[folder]; !ok {
 			delete(r.startInfos, folder)
+			l.Debugf("Removed pending index sender for device %v and folder %v (removeAllExcept)", r.deviceID.Short(), folder)
 		}
 	}
 }
@@ -388,6 +394,9 @@ func (r *indexSenderRegistry) pause(folder string) {
 
 	if is, ok := r.indexSenders[folder]; ok {
 		is.pause()
+		l.Debugf("Paused index sender for device %v and folder %v", r.deviceID.Short(), folder)
+	} else {
+		l.Debugf("No index sender for device %v and folder %v to pause", r.deviceID.Short(), folder)
 	}
 }
 
@@ -403,11 +412,16 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 		if isOk {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder.ID)
+			l.Debugf("Removed index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
 		}
 		r.addLocked(folder, fset, info)
 		delete(r.startInfos, folder.ID)
+		l.Debugf("Started index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
 	} else if isOk {
 		is.resume(fset)
+		l.Debugf("Resume index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
+	} else {
+		l.Debugf("Not resuming index sender for device %v and folder %v as none is paused and there is no start info", r.deviceID.Short(), folder.ID)
 	}
 }
 
