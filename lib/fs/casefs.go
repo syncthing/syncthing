@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -360,7 +361,17 @@ func (f *caseFilesystem) checkCase(name string) error {
 		}
 		return err
 	}
-	return f.checkCaseExisting(name)
+
+	err = f.checkCaseExisting(name)
+	if runtime.GOOS == "darwin" && IsNotExist(err) {
+		// As a special case, even though Lstat succeeded we might get "not
+		// found" back in the case insensitive search. This happens when the
+		// difference in file name is in normalization only: Lstat finds the
+		// file because the macOS filesystem does normalization, but our
+		// case insensitive search does not. We consider this a non-error.
+		return nil
+	}
+	return err
 }
 
 // checkCaseExisting must only be called after successfully canonicalizing and

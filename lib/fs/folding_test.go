@@ -44,6 +44,8 @@ var caseCases = [][2]string{
 	{"チャーハン", "チャーハン"},
 	// Some special Unicode characters, however, are folded by OSes.
 	{"\u212A", "k"},
+	// Folding should preserve normalization form D
+	{"A\xCC\x88", "a\xCC\x88"},
 }
 
 func TestUnicodeLowercase(t *testing.T) {
