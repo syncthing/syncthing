@@ -47,7 +47,7 @@ func main() {
 func runAggregation(db *sql.DB) {
 	since := maxIndexedDay(db, "VersionSummary")
 	log.Println("Aggregating VersionSummary data since", since)
-	rows, err := aggregateVersionSummary(db, since)
+	rows, err := aggregateVersionSummary(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
@@ -62,7 +62,7 @@ func runAggregation(db *sql.DB) {
 
 	since = maxIndexedDay(db, "Performance")
 	log.Println("Aggregating Performance data since", since)
-	rows, err = aggregatePerformance(db, since)
+	rows, err = aggregatePerformance(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
@@ -70,7 +70,7 @@ func runAggregation(db *sql.DB) {
 
 	since = maxIndexedDay(db, "BlockStats")
 	log.Println("Aggregating BlockStats data since", since)
-	rows, err = aggregateBlockStats(db, since)
+	rows, err = aggregateBlockStats(db, since.Add(24*time.Hour))
 	if err != nil {
 		log.Println("aggregate:", err)
 	}
@@ -163,7 +163,7 @@ func setupDB(db *sql.DB) error {
 
 func maxIndexedDay(db *sql.DB, table string) time.Time {
 	var t time.Time
-	row := db.QueryRow("SELECT MAX(Day) FROM " + table)
+	row := db.QueryRow("SELECT MAX(DATE_TRUNC('day', Day)) FROM " + table)
 	err := row.Scan(&t)
 	if err != nil {
 		return time.Time{}
@@ -179,8 +179,8 @@ func aggregateVersionSummary(db *sql.DB, since time.Time) (int64, error) {
 		COUNT(*) AS Count
 		FROM ReportsJson
 		WHERE
-			DATE_TRUNC('day', Received) > $1
-			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			Received > $1
+			AND Received < DATE_TRUNC('day', NOW())
 			AND Report->>'version' like 'v_.%'
 		GROUP BY Day, Ver
 		);
@@ -199,7 +199,7 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 		FROM ReportsJson
 		WHERE
 			Report->>'uniqueID' IS NOT NULL
-			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			AND Received < DATE_TRUNC('day', NOW())
 			AND Report->>'version' like 'v_.%'
 		ORDER BY Day
 	`)
@@ -284,8 +284,8 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 		AVG((Report->>'memoryUsageMiB')::numeric) As MemoryUsageMiB
 		FROM ReportsJson
 		WHERE
-			DATE_TRUNC('day', Received) > $1
-			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			Received > $1
+			AND Received < DATE_TRUNC('day', NOW())
 			AND Report->>'version' like 'v_.%'
 			/* Some custom implementation reported bytes when we expect megabytes, cap at petabyte */
 			AND (Report->>'memorySize')::numeric < 1073741824
@@ -315,8 +315,8 @@ func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
 		SUM((Report->'blockStats'->>'copyElsewhere')::numeric) AS CopyElsewhere
 		FROM ReportsJson
 		WHERE
-			DATE_TRUNC('day', Received) > $1
-			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			Received > $1
+			AND Received < DATE_TRUNC('day', NOW())
 			AND (Report->>'urVersion')::numeric >= 3
 			AND Report->>'version' like 'v_.%'
 			AND Report->>'version' NOT LIKE 'v0.14.40%'
