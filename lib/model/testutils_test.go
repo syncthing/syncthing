@@ -126,7 +126,7 @@ func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testM
 	t.Helper()
 	m := setupModel(t, w)
 
-	fc := addFakeConn(m, device1)
+	fc := addFakeConn(m, device1, "default")
 	fc.folder = "default"
 
 	_ = m.ScanFolder("default")
