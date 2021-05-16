@@ -57,7 +57,11 @@ func TestRequestSimple(t *testing.T) {
 	contents := []byte("test file contents\n")
 	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, contents)
 	fc.sendIndexUpdate()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
 
 	// Verify the contents
 	if err := equalContents(filepath.Join(tfs.URI(), "testfile"), contents); err != nil {
@@ -305,7 +309,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	folderIgnoresAlwaysReload(t, m, fcfg)
 
-	fc := addFakeConn(m, device1)
+	fc := addFakeConn(m, device1, fcfg.ID)
 	fc.folder = "default"
 
 	if err := m.SetIgnores("default", []string{"*ignored*"}); err != nil {
@@ -1037,7 +1041,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	folderIgnoresAlwaysReload(t, m, fcfg)
 	m.ScanFolders()
 
-	fc := addFakeConn(m, device1)
+	fc := addFakeConn(m, device1, fcfg.ID)
 	fc.folder = "default"
 	fc.mut.Lock()
 	fc.mut.Unlock()
@@ -1295,7 +1299,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 		stopped:  make(chan struct{}),
 	}
 	defer cleanupModel(m)
-	fc := addFakeConn(m, device1)
+	fc := addFakeConn(m, device1, fcfg.ID)
 	done := make(chan struct{})
 	defer close(done) // Must be the last thing to be deferred, thus first to run.
 	indexChan := make(chan []protocol.FileInfo, 1)
@@ -1489,6 +1493,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 			if gotInvalid {
 				t.Fatal("Received two invalid index updates")
 			}
+			t.Log("got index with invalid file")
 			gotInvalid = true
 		}
 	}

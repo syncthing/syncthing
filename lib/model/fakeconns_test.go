@@ -154,17 +154,17 @@ func (f *fakeConnection) sendIndexUpdate() {
 	f.model.IndexUpdate(f.id, f.folder, toSend)
 }
 
-func addFakeConn(m *testModel, dev protocol.DeviceID) *fakeConnection {
+func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConnection {
 	fc := newFakeConnection(dev, m)
 	m.AddConnection(fc, protocol.Hello{})
 
 	m.ClusterConfig(dev, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
-				ID: "default",
+				ID: folderID,
 				Devices: []protocol.Device{
 					{ID: myID},
-					{ID: device1},
+					{ID: dev},
 				},
 			},
 		},

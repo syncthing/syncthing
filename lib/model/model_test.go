@@ -224,11 +224,11 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	defer cleanupModel(m)
 
 	files := genFiles(nfiles)
-	m.Index(device1, "default", files)
+	must(b, m.Index(device1, "default", files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(device1, "default", files)
+		must(b, m.Index(device1, "default", files))
 	}
 	b.ReportAllocs()
 }
@@ -252,11 +252,11 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
 
-	m.Index(device1, "default", files)
+	must(b, m.Index(device1, "default", files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(device1, "default", ufiles)
+		must(b, m.IndexUpdate(device1, "default", ufiles))
 	}
 	b.ReportAllocs()
 }
@@ -273,7 +273,7 @@ func BenchmarkRequestOut(b *testing.B) {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.Hello{})
-	m.Index(device1, "default", files)
+	must(b, m.Index(device1, "default", files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1799,7 +1799,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	m.Index(device1, "default", testdata)
+	must(t, m.Index(device1, "default", testdata))
 
 	result, _ := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -2006,7 +2006,7 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	m.ScanFolder("default")
 	files := genDeepFiles(n1, n2)
 
-	m.Index(device1, "default", files)
+	must(b, m.Index(device1, "default", files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -2293,8 +2293,8 @@ func TestIssue3496(t *testing.T) {
 
 	m.ScanFolder("default")
 
-	addFakeConn(m, device1)
-	addFakeConn(m, device2)
+	addFakeConn(m, device1, "default")
+	addFakeConn(m, device2, "default")
 
 	// Reach into the model and grab the current file list...
 
@@ -2327,7 +2327,7 @@ func TestIssue3496(t *testing.T) {
 		Version: protocol.Vector{Counters: []protocol.Counter{{ID: device1.Short(), Value: 42}}},
 	})
 
-	m.IndexUpdate(device1, "default", localFiles)
+	must(t, m.IndexUpdate(device1, "default", localFiles))
 
 	// Check that the completion percentage for us makes sense
 
@@ -2400,8 +2400,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 		t.Errorf("should not be available, no connections")
 	}
 
-	addFakeConn(m, device1)
-	addFakeConn(m, device2)
+	addFakeConn(m, device1, "default")
+	addFakeConn(m, device2, "default")
 
 	// !!! This is not what I'd expect to happen, as we don't even know if the peer has the original index !!!
 
@@ -2440,8 +2440,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	// Test that remote paused folders are not used.
 
-	addFakeConn(m, device1)
-	addFakeConn(m, device2)
+	addFakeConn(m, device1, "default")
+	addFakeConn(m, device2, "default")
 
 	m.ClusterConfig(device1, cc)
 	ccp := cc
@@ -2654,7 +2654,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 	file.Deleted = true
 	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
 
-	m.IndexUpdate(device1, "default", []protocol.FileInfo{dir, file})
+	must(t, m.IndexUpdate(device1, "default", []protocol.FileInfo{dir, file}))
 
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
@@ -3784,7 +3784,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 	// A remote must have the file, otherwise the deletion below is
 	// automatically resolved as not a ro-changed item.
-	m.IndexUpdate(device1, fcfg.ID, []protocol.FileInfo{file})
+	must(t, m.IndexUpdate(device1, fcfg.ID, []protocol.FileInfo{file}))
 
 	must(t, ffs.Remove(name))
 	m.ScanFolders()
@@ -3895,9 +3895,9 @@ func TestIssue6961(t *testing.T) {
 	version := protocol.Vector{}.Update(device1.Short())
 
 	// Remote, valid and existing file
-	m.Index(device1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}})
+	must(t, m.Index(device1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}))
 	// Remote, invalid (receive-only) and existing file
-	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}})
+	must(t, m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}))
 	// Create a local file
 	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0666); err != nil {
 		t.Fatal(err)
@@ -3923,7 +3923,7 @@ func TestIssue6961(t *testing.T) {
 	m.ScanFolders()
 
 	// Drop ther remote index, add some other file.
-	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}})
+	must(t, m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}))
 
 	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
 	pauseFolder(t, wcfg, fcfg.ID, true)
@@ -3947,7 +3947,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	m.fmut.Unlock()
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	m.IndexUpdate(device1, fcfg.ID, files)
+	must(t, m.IndexUpdate(device1, fcfg.ID, files))
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
@@ -3966,26 +3966,26 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 
 	// Start with two remotes having one file, then both deleting it, then
 	// only one adding it again.
-	m.Index(device1, fcfg.ID, files)
-	m.Index(device2, fcfg.ID, files)
+	must(t, m.Index(device1, fcfg.ID, files))
+	must(t, m.Index(device2, fcfg.ID, files))
 	seq++
 	files[0].SetDeleted(device2.Short())
 	files[0].Sequence = seq
-	m.IndexUpdate(device2, fcfg.ID, files)
-	m.IndexUpdate(device1, fcfg.ID, files)
+	must(t, m.IndexUpdate(device2, fcfg.ID, files))
+	must(t, m.IndexUpdate(device1, fcfg.ID, files))
 	seq++
 	files[0].Deleted = false
 	files[0].Size = 20
 	files[0].Version = files[0].Version.Update(device1.Short())
 	files[0].Sequence = seq
-	m.IndexUpdate(device1, fcfg.ID, files)
+	must(t, m.IndexUpdate(device1, fcfg.ID, files))
 
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 
 	// Pretend we had an index reset on device 1
-	m.Index(device1, fcfg.ID, files)
+	must(t, m.Index(device1, fcfg.ID, files))
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
