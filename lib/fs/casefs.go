@@ -361,7 +361,6 @@ func (f *caseFilesystem) checkCase(name string) error {
 		}
 		return err
 	}
-
 	return f.checkCaseExisting(name)
 }
 
@@ -412,8 +411,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	comps := PathComponents(name)
-	for _, comp := range comps {
+	for _, comp := range PathComponents(name) {
 		node := r.cache.getExpireAdd(realName)
 
 		node.once.Do(func() {
