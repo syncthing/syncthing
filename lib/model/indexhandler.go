@@ -35,6 +35,89 @@ type indexSender struct {
 	resumeChan               chan *db.FileSet
 }
 
+func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
+	myIndexID := fset.IndexID(protocol.LocalDeviceID)
+	mySequence := fset.Sequence(protocol.LocalDeviceID)
+	var startSequence int64
+
+	// This is the other side's description of what it knows
+	// about us. Lets check to see if we can start sending index
+	// updates directly or need to send the index from start...
+
+	if startInfo.local.IndexID == myIndexID {
+		// They say they've seen our index ID before, so we can
+		// send a delta update only.
+
+		if startInfo.local.MaxSequence > mySequence {
+			// Safety check. They claim to have more or newer
+			// index data than we have - either we have lost
+			// index data, or reset the index without resetting
+			// the IndexID, or something else weird has
+			// happened. We send a full index to reset the
+			// situation.
+			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", r.deviceID, folder.Description())
+			startSequence = 0
+		} else {
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.deviceID, folder.Description(), startInfo.local.MaxSequence)
+			startSequence = startInfo.local.MaxSequence
+		}
+	} else if startInfo.local.IndexID != 0 {
+		// They say they've seen an index ID from us, but it's
+		// not the right one. Either they are confused or we
+		// must have reset our database since last talking to
+		// them. We'll start with a full index transfer.
+		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
+		startSequence = 0
+	} else {
+		l.Debugf("Device %v folder %s has no index ID for us", r.deviceID, folder.Description())
+	}
+
+	// This is the other side's description of themselves. We
+	// check to see that it matches the IndexID we have on file,
+	// otherwise we drop our old index data and expect to get a
+	// completely new set.
+
+	theirIndexID := fset.IndexID(r.deviceID)
+	if startInfo.remote.IndexID == 0 {
+		// They're not announcing an index ID. This means they
+		// do not support delta indexes and we should clear any
+		// information we have from them before accepting their
+		// index, which will presumably be a full index.
+		l.Debugf("Device %v folder %s does not announce an index ID", r.deviceID, folder.Description())
+		fset.Drop(r.deviceID)
+	} else if startInfo.remote.IndexID != theirIndexID {
+		// The index ID we have on file is not what they're
+		// announcing. They must have reset their database and
+		// will probably send us a full index. We drop any
+		// information we have and remember this new index ID
+		// instead.
+		l.Infof("Device %v folder %s has a new index ID (%v)", r.deviceID, folder.Description(), startInfo.remote.IndexID)
+		fset.Drop(r.deviceID)
+		fset.SetIndexID(r.deviceID, startInfo.remote.IndexID)
+	}
+
+	if is, ok := r.indexSenders[folder.ID]; ok {
+		r.sup.RemoveAndWait(is.token, 0)
+		delete(r.indexSenders, folder.ID)
+	}
+	delete(r.startInfos, folder.ID)
+
+	is := &indexSender{
+		conn:                     r.conn,
+		connClosed:               r.closed,
+		done:                     make(chan struct{}),
+		folder:                   folder.ID,
+		folderIsReceiveEncrypted: folder.Type == config.FolderTypeReceiveEncrypted,
+		fset:                     fset,
+		prevSequence:             startSequence,
+		evLogger:                 r.evLogger,
+		pauseChan:                make(chan struct{}),
+		resumeChan:               make(chan *db.FileSet),
+	}
+	is.token = r.sup.Add(is)
+	r.indexSenders[folder.ID] = is
+}
+
 func (s *indexSender) Serve(ctx context.Context) (err error) {
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
 	defer func() {
@@ -249,89 +332,6 @@ func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.Fi
 	r.addLocked(folder, fset, startInfo)
 	l.Debugf("Started index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
 	r.mut.Unlock()
-}
-
-func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
-	myIndexID := fset.IndexID(protocol.LocalDeviceID)
-	mySequence := fset.Sequence(protocol.LocalDeviceID)
-	var startSequence int64
-
-	// This is the other side's description of what it knows
-	// about us. Lets check to see if we can start sending index
-	// updates directly or need to send the index from start...
-
-	if startInfo.local.IndexID == myIndexID {
-		// They say they've seen our index ID before, so we can
-		// send a delta update only.
-
-		if startInfo.local.MaxSequence > mySequence {
-			// Safety check. They claim to have more or newer
-			// index data than we have - either we have lost
-			// index data, or reset the index without resetting
-			// the IndexID, or something else weird has
-			// happened. We send a full index to reset the
-			// situation.
-			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", r.deviceID, folder.Description())
-			startSequence = 0
-		} else {
-			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.deviceID, folder.Description(), startInfo.local.MaxSequence)
-			startSequence = startInfo.local.MaxSequence
-		}
-	} else if startInfo.local.IndexID != 0 {
-		// They say they've seen an index ID from us, but it's
-		// not the right one. Either they are confused or we
-		// must have reset our database since last talking to
-		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
-		startSequence = 0
-	} else {
-		l.Debugf("Device %v folder %s has no index ID for us", r.deviceID, folder.Description())
-	}
-
-	// This is the other side's description of themselves. We
-	// check to see that it matches the IndexID we have on file,
-	// otherwise we drop our old index data and expect to get a
-	// completely new set.
-
-	theirIndexID := fset.IndexID(r.deviceID)
-	if startInfo.remote.IndexID == 0 {
-		// They're not announcing an index ID. This means they
-		// do not support delta indexes and we should clear any
-		// information we have from them before accepting their
-		// index, which will presumably be a full index.
-		l.Debugf("Device %v folder %s does not announce an index ID", r.deviceID, folder.Description())
-		fset.Drop(r.deviceID)
-	} else if startInfo.remote.IndexID != theirIndexID {
-		// The index ID we have on file is not what they're
-		// announcing. They must have reset their database and
-		// will probably send us a full index. We drop any
-		// information we have and remember this new index ID
-		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", r.deviceID, folder.Description(), startInfo.remote.IndexID)
-		fset.Drop(r.deviceID)
-		fset.SetIndexID(r.deviceID, startInfo.remote.IndexID)
-	}
-
-	if is, ok := r.indexSenders[folder.ID]; ok {
-		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexSenders, folder.ID)
-	}
-	delete(r.startInfos, folder.ID)
-
-	is := &indexSender{
-		conn:                     r.conn,
-		connClosed:               r.closed,
-		done:                     make(chan struct{}),
-		folder:                   folder.ID,
-		folderIsReceiveEncrypted: folder.Type == config.FolderTypeReceiveEncrypted,
-		fset:                     fset,
-		prevSequence:             startSequence,
-		evLogger:                 r.evLogger,
-		pauseChan:                make(chan struct{}),
-		resumeChan:               make(chan *db.FileSet),
-	}
-	is.token = r.sup.Add(is)
-	r.indexSenders[folder.ID] = is
 }
 
 // addPending stores the given info to start an index sender once resume is called
