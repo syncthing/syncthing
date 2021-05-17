@@ -19,7 +19,7 @@ import (
 func UnicodeLowercaseNormalized(s string) string {
 	i := firstCaseChange(s)
 	if i == -1 {
-		return s
+		return norm.NFC.String(s)
 	}
 
 	var rs strings.Builder
