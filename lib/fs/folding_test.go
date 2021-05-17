@@ -48,11 +48,11 @@ var caseCases = [][2]string{
 	{"A\xCC\x88", "\xC3\xA4"}, // ä
 }
 
-func TestUnicodeLowercase(t *testing.T) {
+func TestUnicodeLowercaseNormalized(t *testing.T) {
 	for _, tc := range caseCases {
 		res := UnicodeLowercaseNormalized(tc[0])
 		if res != tc[1] {
-			t.Errorf("UnicodeLowercase(%q) => %q, expected %q", tc[0], res, tc[1])
+			t.Errorf("UnicodeLowercaseNormalized(%q) => %q, expected %q", tc[0], res, tc[1])
 		}
 	}
 }
