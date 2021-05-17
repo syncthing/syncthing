@@ -15,6 +15,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -375,7 +376,10 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 	if err != nil {
 		return err
 	}
-	if realName != name {
+	// We normalize the normalization (hah!) of the strings before
+	// comparing, as we don't want to treat a normalization difference as a
+	// case conflict.
+	if norm.NFC.String(realName) != norm.NFC.String(name) {
 		return &ErrCaseConflict{name, realName}
 	}
 	return nil
@@ -424,7 +428,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			lastLower := ""
 			for _, n := range dirNames {
 				node.children[n] = struct{}{}
-				lower := UnicodeLowercase(n)
+				lower := UnicodeLowercaseNormalized(n)
 				if lower != lastLower {
 					node.lowerToReal[lower] = n
 					lastLower = n
@@ -437,7 +441,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 
 		// Try to find a direct or case match
 		if _, ok := node.children[comp]; !ok {
-			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
+			comp, ok = node.lowerToReal[UnicodeLowercaseNormalized(comp)]
 			if !ok {
 				return "", ErrNotExist
 			}
