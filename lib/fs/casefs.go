@@ -368,11 +368,6 @@ func (f *caseFilesystem) checkCase(name string) error {
 // stating the file.
 func (f *caseFilesystem) checkCaseExisting(name string) error {
 	realName, err := f.realCase(name)
-	if IsNotExist(err) {
-		// It did exist just before -> cache is outdated, try again
-		f.dropCache()
-		realName, err = f.realCase(name)
-	}
 	if err != nil {
 		return err
 	}
