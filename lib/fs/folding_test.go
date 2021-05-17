@@ -46,6 +46,7 @@ var caseCases = [][2]string{
 	{"\u212A", "k"},
 	// Folding renormalizes to NFC
 	{"A\xCC\x88", "\xC3\xA4"}, // ä
+	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
 func TestUnicodeLowercaseNormalized(t *testing.T) {
