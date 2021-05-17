@@ -186,7 +186,7 @@ type fakeEntry struct {
 func (fs *fakeFS) entryForName(name string) *fakeEntry {
 	// bug: lookup doesn't work through symlinks.
 	if fs.insens {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	name = filepath.ToSlash(name)
@@ -285,7 +285,7 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	}
 
 	if fs.insens {
-		base = UnicodeLowercase(base)
+		base = UnicodeLowercaseNormalized(base)
 	}
 
 	if fs.withContent {
@@ -373,7 +373,7 @@ func (fs *fakeFS) Mkdir(name string, perm FileMode) error {
 		return os.ErrExist
 	}
 	if fs.insens {
-		key = UnicodeLowercase(key)
+		key = UnicodeLowercaseNormalized(key)
 	}
 	if _, ok := entry.children[key]; ok {
 		return os.ErrExist
@@ -402,7 +402,7 @@ func (fs *fakeFS) MkdirAll(name string, perm FileMode) error {
 	for _, comp := range comps {
 		key := comp
 		if fs.insens {
-			key = UnicodeLowercase(key)
+			key = UnicodeLowercaseNormalized(key)
 		}
 
 		next, ok := entry.children[key]
@@ -465,7 +465,7 @@ func (fs *fakeFS) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	}
 
 	if fs.insens {
-		key = UnicodeLowercase(key)
+		key = UnicodeLowercaseNormalized(key)
 	}
 	if flags&os.O_EXCL != 0 {
 		if _, ok := entry.children[key]; ok {
@@ -508,7 +508,7 @@ func (fs *fakeFS) Remove(name string) error {
 	time.Sleep(fs.latency)
 
 	if fs.insens {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	entry := fs.entryForName(name)
@@ -531,7 +531,7 @@ func (fs *fakeFS) RemoveAll(name string) error {
 	time.Sleep(fs.latency)
 
 	if fs.insens {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	entry := fs.entryForName(filepath.Dir(name))
@@ -555,8 +555,8 @@ func (fs *fakeFS) Rename(oldname, newname string) error {
 	newKey := filepath.Base(newname)
 
 	if fs.insens {
-		oldKey = UnicodeLowercase(oldKey)
-		newKey = UnicodeLowercase(newKey)
+		oldKey = UnicodeLowercaseNormalized(oldKey)
+		newKey = UnicodeLowercaseNormalized(newKey)
 	}
 
 	p0 := fs.entryForName(filepath.Dir(oldname))
@@ -651,7 +651,7 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	// where ModTime is not that precise
 	var ok bool
 	if fs.insens {
-		ok = UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name())
+		ok = UnicodeLowercaseNormalized(fi1.Name()) == UnicodeLowercaseNormalized(fi2.Name())
 	} else {
 		ok = fi1.Name() == fi2.Name()
 	}

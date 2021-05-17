@@ -15,6 +15,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -376,7 +377,10 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 	if err != nil {
 		return err
 	}
-	if realName != name {
+	// We normalize the normalization (hah!) of the strings before
+	// comparing, as we don't want to treat a normalization difference as a
+	// case conflict.
+	if norm.NFC.String(realName) != norm.NFC.String(name) {
 		return &ErrCaseConflict{name, realName}
 	}
 	return nil
@@ -409,7 +413,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	comps := PathComponents(name)
-	for i, comp := range comps {
+	for _, comp := range comps {
 		node := r.cache.getExpireAdd(realName)
 
 		node.once.Do(func() {
@@ -426,7 +430,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			lastLower := ""
 			for _, n := range dirNames {
 				node.children[n] = struct{}{}
-				lower := UnicodeLowercase(n)
+				lower := UnicodeLowercaseNormalized(n)
 				if lower != lastLower {
 					node.lowerToReal[lower] = n
 					lastLower = n
@@ -439,19 +443,9 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 
 		// Try to find a direct or case match
 		if _, ok := node.children[comp]; !ok {
-			origComp := comp
-			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
+			comp, ok = node.lowerToReal[UnicodeLowercaseNormalized(comp)]
 			if !ok {
-				// Well so far as we understand we were good up until this
-				// point, and now we're lost. On macOS this happens when
-				// we're looking for something with the wrong normalization
-				// form, so Lstat earlier said it existed but our more
-				// strict string lookups won't find it. Let's call that not
-				// a case error. We take the realName as determined so far,
-				// the component we're at now unmodified, and the remaining
-				// components (if any) as the real name.
-				realName = filepath.Join(append([]string{realName, origComp}, comps[i+1:]...)...)
-				return realName, nil
+				return "", ErrNotExist
 			}
 		}
 

@@ -157,7 +157,7 @@ func (f *mtimeFS) wrapperType() filesystemWrapperType {
 
 func (f *mtimeFS) save(name string, real, virtual time.Time) {
 	if f.caseInsensitive {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	if real.Equal(virtual) {
@@ -177,7 +177,7 @@ func (f *mtimeFS) save(name string, real, virtual time.Time) {
 
 func (f *mtimeFS) load(name string) (MtimeMapping, error) {
 	if f.caseInsensitive {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	data, exists, err := f.db.Bytes(name)
