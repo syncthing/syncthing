@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -362,16 +361,7 @@ func (f *caseFilesystem) checkCase(name string) error {
 		return err
 	}
 
-	err = f.checkCaseExisting(name)
-	if runtime.GOOS == "darwin" && IsNotExist(err) {
-		// As a special case, even though Lstat succeeded we might get "not
-		// found" back in the case insensitive search. This happens when the
-		// difference in file name is in normalization only: Lstat finds the
-		// file because the macOS filesystem does normalization, but our
-		// case insensitive search does not. We consider this a non-error.
-		return nil
-	}
-	return err
+	return f.checkCaseExisting(name)
 }
 
 // checkCaseExisting must only be called after successfully canonicalizing and
@@ -418,7 +408,8 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	for _, comp := range PathComponents(name) {
+	comps := PathComponents(name)
+	for i, comp := range comps {
 		node := r.cache.getExpireAdd(realName)
 
 		node.once.Do(func() {
@@ -448,9 +439,19 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 
 		// Try to find a direct or case match
 		if _, ok := node.children[comp]; !ok {
+			origComp := comp
 			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
 			if !ok {
-				return "", ErrNotExist
+				// Well so far as we understand we were good up until this
+				// point, and now we're lost. On macOS this happens when
+				// we're looking for something with the wrong normalization
+				// form, so Lstat earlier said it existed but our more
+				// strict string lookups won't find it. Let's call that not
+				// a case error. We take the realName as determined so far,
+				// the component we're at now unmodified, and the remaining
+				// components (if any) as the real name.
+				realName = filepath.Join(append([]string{realName, origComp}, comps[i+1:]...)...)
+				return realName, nil
 			}
 		}
 
