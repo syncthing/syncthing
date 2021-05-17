@@ -570,7 +570,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		// sending indexes if connected.
 		if to.Paused {
 			indexSenders.pause(to.ID)
-		} else if !from.SharedWith(indexSenders.deviceID) || fsetNil || from.Paused {
+		} else if !from.SharedWith(id) || fsetNil || from.Paused {
 			indexSenders.resume(to, fset)
 		}
 	}

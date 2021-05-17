@@ -55,10 +55,10 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 			// the IndexID, or something else weird has
 			// happened. We send a full index to reset the
 			// situation.
-			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", r.deviceID, folder.Description())
+			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", r.conn.ID(), folder.Description())
 			startSequence = 0
 		} else {
-			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.deviceID, folder.Description(), startInfo.local.MaxSequence)
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.conn.ID(), folder.Description(), startInfo.local.MaxSequence)
 			startSequence = startInfo.local.MaxSequence
 		}
 	} else if startInfo.local.IndexID != 0 {
@@ -66,10 +66,10 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
+		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.conn.ID(), folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
 	} else {
-		l.Debugf("Device %v folder %s has no index ID for us", r.deviceID, folder.Description())
+		l.Debugf("Device %v folder %s has no index ID for us", r.conn.ID(), folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
@@ -77,23 +77,23 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 	// otherwise we drop our old index data and expect to get a
 	// completely new set.
 
-	theirIndexID := fset.IndexID(r.deviceID)
+	theirIndexID := fset.IndexID(r.conn.ID())
 	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
-		l.Debugf("Device %v folder %s does not announce an index ID", r.deviceID, folder.Description())
-		fset.Drop(r.deviceID)
+		l.Debugf("Device %v folder %s does not announce an index ID", r.conn.ID(), folder.Description())
+		fset.Drop(r.conn.ID())
 	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
 		// announcing. They must have reset their database and
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", r.deviceID, folder.Description(), startInfo.remote.IndexID)
-		fset.Drop(r.deviceID)
-		fset.SetIndexID(r.deviceID, startInfo.remote.IndexID)
+		l.Infof("Device %v folder %s has a new index ID (%v)", r.conn.ID(), folder.Description(), startInfo.remote.IndexID)
+		fset.Drop(r.conn.ID())
+		fset.SetIndexID(r.conn.ID(), startInfo.remote.IndexID)
 	}
 
 	if is, ok := r.indexSenders[folder.ID]; ok {
@@ -302,7 +302,6 @@ func (s *indexSender) String() string {
 }
 
 type indexSenderRegistry struct {
-	deviceID     protocol.DeviceID
 	sup          *suture.Supervisor
 	evLogger     events.Logger
 	conn         protocol.Connection
@@ -314,7 +313,6 @@ type indexSenderRegistry struct {
 
 func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup *suture.Supervisor, evLogger events.Logger) *indexSenderRegistry {
 	return &indexSenderRegistry{
-		deviceID:     conn.ID(),
 		conn:         conn,
 		closed:       closed,
 		sup:          sup,
@@ -330,7 +328,7 @@ func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup 
 func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	r.addLocked(folder, fset, startInfo)
-	l.Debugf("Started index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
+	l.Debugf("Started index sender for device %v and folder %v", r.conn.ID().Short(), folder.ID)
 	r.mut.Unlock()
 }
 
@@ -344,10 +342,10 @@ func (r *indexSenderRegistry) addPending(folder string, startInfo *indexSenderSt
 	if is, ok := r.indexSenders[folder]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder)
-		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.deviceID.Short(), folder)
+		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.conn.ID().Short(), folder)
 	}
 	r.startInfos[folder] = startInfo
-	l.Debugf("Pending index sender for device %v and folder %v", r.deviceID.Short(), folder)
+	l.Debugf("Pending index sender for device %v and folder %v", r.conn.ID().Short(), folder)
 }
 
 // remove stops a running index sender or removes one pending to be started.
@@ -361,7 +359,7 @@ func (r *indexSenderRegistry) remove(folder string) {
 		delete(r.indexSenders, folder)
 	}
 	delete(r.startInfos, folder)
-	l.Debugf("Removed index sender for device %v and folder %v", r.deviceID.Short(), folder)
+	l.Debugf("Removed index sender for device %v and folder %v", r.conn.ID().Short(), folder)
 }
 
 // removeAllExcept stops all running index senders and removes those pending to be started,
@@ -375,13 +373,13 @@ func (r *indexSenderRegistry) removeAllExcept(except map[string]struct{}) {
 		if _, ok := except[folder]; !ok {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder)
-			l.Debugf("Removed index sender for device %v and folder %v (removeAllExcept)", r.deviceID.Short(), folder)
+			l.Debugf("Removed index sender for device %v and folder %v (removeAllExcept)", r.conn.ID().Short(), folder)
 		}
 	}
 	for folder := range r.startInfos {
 		if _, ok := except[folder]; !ok {
 			delete(r.startInfos, folder)
-			l.Debugf("Removed pending index sender for device %v and folder %v (removeAllExcept)", r.deviceID.Short(), folder)
+			l.Debugf("Removed pending index sender for device %v and folder %v (removeAllExcept)", r.conn.ID().Short(), folder)
 		}
 	}
 }
@@ -394,9 +392,9 @@ func (r *indexSenderRegistry) pause(folder string) {
 
 	if is, ok := r.indexSenders[folder]; ok {
 		is.pause()
-		l.Debugf("Paused index sender for device %v and folder %v", r.deviceID.Short(), folder)
+		l.Debugf("Paused index sender for device %v and folder %v", r.conn.ID().Short(), folder)
 	} else {
-		l.Debugf("No index sender for device %v and folder %v to pause", r.deviceID.Short(), folder)
+		l.Debugf("No index sender for device %v and folder %v to pause", r.conn.ID().Short(), folder)
 	}
 }
 
@@ -412,16 +410,16 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 		if isOk {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder.ID)
-			l.Debugf("Removed index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
+			l.Debugf("Removed index sender for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
 		}
 		r.addLocked(folder, fset, info)
 		delete(r.startInfos, folder.ID)
-		l.Debugf("Started index sender for device %v and folder %v in resume", r.deviceID.Short(), folder.ID)
+		l.Debugf("Started index sender for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
 	} else if isOk {
 		is.resume(fset)
-		l.Debugf("Resume index sender for device %v and folder %v", r.deviceID.Short(), folder.ID)
+		l.Debugf("Resume index sender for device %v and folder %v", r.conn.ID().Short(), folder.ID)
 	} else {
-		l.Debugf("Not resuming index sender for device %v and folder %v as none is paused and there is no start info", r.deviceID.Short(), folder.ID)
+		l.Debugf("Not resuming index sender for device %v and folder %v as none is paused and there is no start info", r.conn.ID().Short(), folder.ID)
 	}
 }
 
