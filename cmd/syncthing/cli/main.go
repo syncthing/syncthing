@@ -8,13 +8,13 @@ package cli
 
 import (
 	"bufio"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
-	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
@@ -97,38 +97,41 @@ func Run() error {
 			operationCommand,
 			errorsCommand,
 			debugCommand,
+			{
+				Name:     "-",
+				HideHelp: true,
+				Usage:    "Read commands from stdin",
+				Action: func(ctx *cli.Context) error {
+					if ctx.NArg() > 0 {
+						return errors.New("command does not expect any arguments")
+					}
+
+					// Drop the `-` not to recurse into self.
+					args := make([]string, len(os.Args)-1)
+					copy(args, os.Args)
+
+					fmt.Println("Reading commands from stdin...", args)
+					scanner := bufio.NewScanner(os.Stdin)
+					for scanner.Scan() {
+						input, err := shlex.Split(scanner.Text())
+						if err != nil {
+							return errors.Wrap(err, "parsing input")
+						}
+						if len(input) == 0 {
+							continue
+						}
+						err = app.Run(append(args, input...))
+						if err != nil {
+							return err
+						}
+					}
+					return scanner.Err()
+				},
+			},
 		},
 	}}
 
-	tty := isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
-	if !tty {
-		// Not a TTY, consume from stdin
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			input, err := shlex.Split(scanner.Text())
-			if err != nil {
-				return errors.Wrap(err, "parsing input")
-			}
-			if len(input) == 0 {
-				continue
-			}
-			err = app.Run(append(os.Args, input...))
-			if err != nil {
-				return err
-			}
-		}
-		err = scanner.Err()
-		if err != nil {
-			return err
-		}
-	} else {
-		err = app.Run(os.Args)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return app.Run(os.Args)
 }
 
 func parseFlags(c *preCli) error {
