@@ -2117,7 +2117,7 @@ angular.module('syncthing.core')
                 folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
                 break;
             default:
-                delete folderCfg.versioning;
+                folderCfg.versioning.type = '';
             }
             delete folderCfg._guiVersioning;
 
