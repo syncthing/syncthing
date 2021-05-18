@@ -36,7 +36,7 @@ type indexHandler struct {
 	runner service
 }
 
-func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *indexHandlerStartInfo, evLogger events.Logger) *indexHandler {
+func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) *indexHandler {
 	myIndexID := fset.IndexID(protocol.LocalDeviceID)
 	mySequence := fset.Sequence(protocol.LocalDeviceID)
 	var startSequence int64
@@ -347,7 +347,7 @@ type indexHandlerRegistry struct {
 	conn          protocol.Connection
 	downloads     *deviceDownloadState
 	indexHandlers map[string]*indexHandler
-	startInfos    map[string]*indexHandlerStartInfo
+	startInfos    map[string]*clusterConfigDeviceInfo
 	folderStates  map[string]*indexHandlerFolderState
 	mut           sync.Mutex
 }
@@ -364,7 +364,7 @@ func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownload
 		downloads:     downloads,
 		evLogger:      evLogger,
 		indexHandlers: make(map[string]*indexHandler),
-		startInfos:    make(map[string]*indexHandlerStartInfo),
+		startInfos:    make(map[string]*clusterConfigDeviceInfo),
 		folderStates:  make(map[string]*indexHandlerFolderState),
 		mut:           sync.Mutex{},
 	}
@@ -390,7 +390,7 @@ func (r *indexHandlerRegistry) GetSupervisor() *suture.Supervisor {
 	return r.sup
 }
 
-func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *indexHandlerStartInfo) {
+func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
 	if is, ok := r.indexHandlers[folder.ID]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexHandlers, folder.ID)
@@ -406,7 +406,7 @@ func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fs
 // If it is paused, the given startInfo is stored to start the sender once the
 // folder is resumed.
 // If an index handler is already running, it will be stopped first.
-func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *indexHandlerStartInfo) {
+func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterConfigDeviceInfo) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
@@ -517,10 +517,6 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 		return ErrFolderMissing
 	}
 	return is.receive(fs, update, op)
-}
-
-type indexHandlerStartInfo struct {
-	local, remote protocol.Device
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update

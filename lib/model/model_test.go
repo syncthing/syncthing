@@ -4101,7 +4101,7 @@ func TestCcCheckEncryption(t *testing.T) {
 			dcfg.EncryptionPassword = pw
 		}
 
-		deviceInfos := &indexHandlerStartInfo{
+		deviceInfos := &clusterConfigDeviceInfo{
 			remote: protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenRemote},
 			local:  protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenLocal},
 		}
