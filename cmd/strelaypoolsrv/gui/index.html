@@ -46,18 +46,18 @@
       <h1>Relay Pool Data</h1>
       <div ng-if="relays === undefined" class="text-center">
         <img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" alt=""/>
-        <p>Please wait while we gather data</p>
+        <p>Please wait while we gather data…</p>
       </div>
       <div>
         <div ng-show="relays !== undefined" class="ng-hide">
           <p>
             The relays listed on this page are not managed or vetted by the Syncthing project.
             Each relay is the responsibility of the relay operator.
-            Currently {{ relays.length }} relays online.
+            Currently {{ relays.length }} relays are online.
           </p>
         </div>
         <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
-        <p>The circle size represents how much bytes the relay transferred relative to other relays</p>
+        <p>The circle size represents how much bytes the relay has transferred relatively to other relays.</p>
       </div>
       <div>
         <table class="table table-striped table-condensed table">
@@ -187,8 +187,8 @@
       </div>
       <hr>
       <p>
-        This product includes GeoLite2 data created by MaxMind, available from
-        <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+        This product includes GeoLite2 data created by MaxMind, available at
+        <a href="http://www.maxmind.com">https://www.maxmind.com</a>.
       </p>
     </div>
 
