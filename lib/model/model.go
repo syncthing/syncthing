@@ -559,16 +559,13 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	folderState := &indexHandlerFolderState{
-		fset:   fset,
-		runner: m.folderRunners[to.ID],
-	}
+	runner := m.folderRunners[to.ID]
 	for _, id := range to.DeviceIDs() {
 		if indexHandlers, ok := m.indexHandlers[id]; ok {
 			if to.Paused {
 				indexHandlers.FolderPaused(to.ID)
 			} else {
-				indexHandlers.FolderStarted(to, folderState)
+				indexHandlers.FolderStarted(to, fset, runner)
 			}
 		}
 	}
@@ -605,13 +602,10 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// point, i.e. before the folder is started. If that's the case, start
 	// index senders here.
 	m.pmut.RLock()
-	folderState := &indexHandlerFolderState{
-		fset:   fset,
-		runner: m.folderRunners[cfg.ID],
-	}
+	runner := m.folderRunners[cfg.ID]
 	for _, id := range cfg.DeviceIDs() {
 		if is, ok := m.indexHandlers[id]; ok {
-			is.FolderStarted(cfg, folderState)
+			is.FolderStarted(cfg, fset, runner)
 		}
 	}
 	m.pmut.RUnlock()
@@ -2228,18 +2222,14 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	closed := make(chan struct{})
 	m.closed[deviceID] = closed
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	folderStates := make(map[string]*indexHandlerFolderState, len(m.folderCfgs))
+	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		if fcfg.SharedWith(deviceID) {
-			folderStates[id] = &indexHandlerFolderState{
-				cfg:    fcfg,
-				fset:   m.folderFiles[id],
-				runner: m.folderRunners[id],
-			}
+			indexRegistry.FolderStarted(fcfg, m.folderFiles[id], m.folderRunners[id])
 		}
 	}
+	m.indexHandlers[deviceID] = indexRegistry
 	m.fmut.RUnlock()
-	m.indexHandlers[deviceID] = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, folderStates, m.Supervisor, m.evLogger)
 	// 0: default, <0: no limiting
 	switch {
 	case device.MaxRequestKiB > 0:

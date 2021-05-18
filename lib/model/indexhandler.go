@@ -358,14 +358,14 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, folderStates map[string]*indexHandlerFolderState, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		conn:          conn,
 		downloads:     downloads,
 		evLogger:      evLogger,
 		indexHandlers: make(map[string]*indexHandler),
 		startInfos:    make(map[string]*indexHandlerStartInfo),
-		folderStates:  folderStates,
+		folderStates:  make(map[string]*indexHandlerFolderState),
 		mut:           sync.Mutex{},
 	}
 	r.sup = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
@@ -480,11 +480,15 @@ func (r *indexHandlerRegistry) FolderPaused(folder string) {
 // FolderStarted resumes an already running index handler or starts it, if it
 // was added while paused.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) FolderStarted(folder config.FolderConfiguration, folderState *indexHandlerFolderState) {
+func (r *indexHandlerRegistry) FolderStarted(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	r.folderStates[folder.ID] = folderState
+	r.folderStates[folder.ID] = &indexHandlerFolderState{
+		cfg:    folder,
+		fset:   fset,
+		runner: runner,
+	}
 
 	is, isOk := r.indexHandlers[folder.ID]
 	if info, ok := r.startInfos[folder.ID]; ok {
@@ -493,12 +497,12 @@ func (r *indexHandlerRegistry) FolderStarted(folder config.FolderConfiguration, 
 			delete(r.indexHandlers, folder.ID)
 			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
 		}
-		r.startLocked(folder, folderState.fset, folderState.runner, info)
+		r.startLocked(folder, fset, runner, info)
 		delete(r.startInfos, folder.ID)
 		l.Debugf("Started index handler for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
 	} else if isOk {
 		l.Debugf("Resuming index handler for device %v and folder %v", r.conn.ID().Short(), folder)
-		is.resume(folderState.fset, folderState.runner)
+		is.resume(fset, runner)
 	} else {
 		l.Debugf("Not resuming index handler for device %v and folder %v as none is paused and there is no start info", r.conn.ID().Short(), folder.ID)
 	}
