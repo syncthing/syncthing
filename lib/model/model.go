@@ -559,15 +559,8 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	runner := m.folderRunners[to.ID]
-	for _, id := range to.DeviceIDs() {
-		if indexHandlers, ok := m.indexHandlers[id]; ok {
-			if to.Paused {
-				indexHandlers.FolderPaused(to.ID)
-			} else {
-				indexHandlers.FolderStarted(to, fset, runner)
-			}
-		}
+	for _, indexRegistry := range m.indexHandlers {
+		indexRegistry.RegisterFolderState(to, fset, m.folderRunners[to.ID])
 	}
 	m.pmut.RUnlock()
 
@@ -601,12 +594,11 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start
 	// index senders here.
+	// Care needs to be taken because we already hold fmut and the lock order
+	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	runner := m.folderRunners[cfg.ID]
-	for _, id := range cfg.DeviceIDs() {
-		if is, ok := m.indexHandlers[id]; ok {
-			is.FolderStarted(cfg, fset, runner)
-		}
+	for _, indexRegistry := range m.indexHandlers {
+		indexRegistry.RegisterFolderState(cfg, fset, m.folderRunners[cfg.ID])
 	}
 	m.pmut.RUnlock()
 
@@ -2228,9 +2220,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
 	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
-		if fcfg.SharedWith(deviceID) {
-			indexRegistry.FolderStarted(fcfg, m.folderFiles[id], m.folderRunners[id])
-		}
+		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
 	m.indexHandlers[deviceID] = indexRegistry
 	m.fmut.RUnlock()

@@ -461,12 +461,27 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]struct{}) {
 	}
 }
 
-// FolderPaused stops a running index handler.
-// It is a noop if the folder isn't known or has not been started yet.
-func (r *indexHandlerRegistry) FolderPaused(folder string) {
-	r.mut.Lock()
-	defer r.mut.Unlock()
+// RegisterFolderState must be called whenever something about the folder
+// changes. The exception being if the folder is removed entirely, then call
+// Remove. The fset and runner arguments may be nil, if given folder is paused.
+func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
+	if !folder.SharedWith(r.conn.ID()) {
+		r.Remove(folder.ID)
+		return
+	}
 
+	r.mut.Lock()
+	if folder.Paused {
+		r.folderPausedLocked(folder.ID)
+	} else {
+		r.folderStartedLocked(folder, fset, runner)
+	}
+	r.mut.Unlock()
+}
+
+// folderPausedLocked stops a running index handler.
+// It is a noop if the folder isn't known or has not been started yet.
+func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
 	l.Debugf("Pausing index handler for device %v and folder %v", r.conn.ID().Short(), folder)
 	delete(r.folderStates, folder)
 	if is, ok := r.indexHandlers[folder]; ok {
@@ -477,13 +492,10 @@ func (r *indexHandlerRegistry) FolderPaused(folder string) {
 	}
 }
 
-// FolderStarted resumes an already running index handler or starts it, if it
+// folderStartedLocked resumes an already running index handler or starts it, if it
 // was added while paused.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) FolderStarted(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
-	r.mut.Lock()
-	defer r.mut.Unlock()
-
+func (r *indexHandlerRegistry) folderStartedLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
 	r.folderStates[folder.ID] = &indexHandlerFolderState{
 		cfg:    folder,
 		fset:   fset,
