@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Apr 26, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "May 18, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -88,16 +88,17 @@ that will be kept for each.
 .INDENT 0.0
 .TP
 .B 1 Hour
-For the first hour, the most recent version is kept every 30 seconds.
+For the first hour, the oldest version in every 30\-seconds interval is
+kept.
 .TP
 .B 1 Day
-For the first day, the most recent version is kept every hour.
+For the first day, the oldest version in every hour is kept.
 .TP
 .B 30 Days
-For the first 30 days, the most recent version is kept every day.
+For the first 30 days, the oldest version in every day is kept.
 .TP
 .B Until Maximum Age
-Until maximum age, the most recent version is kept every week.
+Until maximum age, the oldest version in every week is kept.
 .TP
 .B Maximum Age
 The maximum time to keep a version in days. For example, to keep replaced or
@@ -105,6 +106,14 @@ deleted files in the “.stversions” folder for an entire year, use 365. If
 only for 10 days, use 10.
 \fBNote: Set to 0 to keep versions forever.\fP
 .UNINDENT
+.sp
+This means that there is only one version in each interval and as files age they
+will be deleted unless when the interval they are entering is empty. By keeping
+the oldest versions this versioning scheme preserves the file if it is
+overwritten.
+.sp
+For more info, check the \fI\%unit test file\fP <\fBhttps://github.com/syncthing/syncthing/blob/main/lib/versioner/staggered_test.go#L32\fP>
+that shows which versions are deleted for a specific run.
 .SH EXTERNAL FILE VERSIONING
 .sp
 This versioning method delegates the decision on what to do to an
