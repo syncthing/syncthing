@@ -2475,10 +2475,7 @@ func (m *OptionsConfiguration) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthOptionsconfiguration
-			}
-			if (iNdEx + skippy) < 0 {
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
 				return ErrInvalidLengthOptionsconfiguration
 			}
 			if (iNdEx + skippy) > l {
