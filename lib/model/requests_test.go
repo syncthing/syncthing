@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func TestRequestSimple(t *testing.T) {
@@ -1339,7 +1340,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	}
 }
 
-func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
+func TestRequestReceiveEncrypted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping on short testing - scrypt is too slow")
 	}
@@ -1364,10 +1365,11 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	m.fmut.RUnlock()
 	fset.Update(protocol.LocalDeviceID, files)
 
-	indexChan := make(chan []protocol.FileInfo, 1)
+	indexChan := make(chan []protocol.FileInfo, 10)
 	done := make(chan struct{})
 	defer close(done)
 	fc := newFakeConnection(device1, m)
+	fc.folder = fcfg.ID
 	fc.setIndexFn(func(_ context.Context, _ string, fs []protocol.FileInfo) error {
 		select {
 		case indexChan <- fs:
@@ -1402,6 +1404,32 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out before receiving index")
 	}
+
+	// Detects deletion, as we never really created the file on disk
+	// Shouldn't send anything because receive-encrypted
+	must(t, m.ScanFolder(fcfg.ID))
+	// One real file to be sent
+	name := "foo"
+	data := make([]byte, 2000)
+	rand.Read(data)
+	fc.addFile(name, 0664, protocol.FileInfoTypeFile, data)
+	fc.sendIndexUpdate()
+
+	select {
+	case fs := <-indexChan:
+		if len(fs) != 1 {
+			t.Error("Expected index with one file, got", fs)
+		}
+		if got := fs[0].Name; got != name {
+			t.Errorf("Expected file %v, got %v", got, files[0].Name)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
+	}
+
+	// Simulate request from device that is untrusted too, i.e. with non-empty, but garbage hash
+	_, err := m.Request(device1, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
+	must(t, err)
 }
 
 func TestRequestGlobalInvalidToValid(t *testing.T) {
