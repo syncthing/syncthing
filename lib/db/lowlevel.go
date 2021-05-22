@@ -675,7 +675,7 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcIndirect(ctx context.Context) error {
+func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 	// The indirection GC uses bloom filters to track used block lists and
 	// versions. This means iterating over all items, adding their hashes to
 	// the filter, then iterating over the indirected items and removing
@@ -688,6 +688,26 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
+
+	l.Debugln("Started database GC")
+
+	var discardedBlocks, matchedBlocks, discardedVersions, matchedVersions int
+
+	internalCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		// Only print something if the process takes more than "a moment".
+		select {
+		case <-internalCtx.Done():
+		case <-time.After(10 * time.Second):
+			l.Infoln("Database GC started - many Syncthing operations will be unresponsive until it's finished")
+			<-internalCtx.Done()
+			if err != nil || ctx.Err() != nil {
+				return
+			}
+			l.Infof("Database GC done (discarded/remaining: %v/%v blocks, %v/%v versions)", discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
+		}
+	}()
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -746,7 +766,6 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		return err
 	}
 	defer it.Release()
-	matchedBlocks := 0
 	for it.Next() {
 		select {
 		case <-ctx.Done():
@@ -762,6 +781,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		if err := t.Delete(key); err != nil {
 			return err
 		}
+		discardedBlocks++
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
@@ -775,7 +795,6 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	matchedVersions := 0
 	for it.Next() {
 		select {
 		case <-ctx.Done():
@@ -791,6 +810,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		if err := t.Delete(key); err != nil {
 			return err
 		}
+		discardedVersions++
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
@@ -806,6 +826,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if err := t.Commit(); err != nil {
 		return err
 	}
+
+	l.Debugf("Finished GC, starting compaction (discarded/remaining: %v/%v blocks, %v/%v versions)", discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
 
 	return db.Compact()
 }
