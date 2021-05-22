@@ -1941,7 +1941,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrGeneric
 	}
 
-	if len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
+	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
 		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
