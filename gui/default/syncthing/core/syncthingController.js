@@ -1703,6 +1703,10 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
+        $scope.dismissPendingDevice = function (deviceID) {
+            $http.delete(urlbase + '/cluster/pending/devices?device=' + encodeURIComponent(deviceID));
+        };
+
         $scope.unignoreDeviceFromTemporaryConfig = function (ignoredDevice) {
             $scope.tmpRemoteIgnoredDevices = $scope.tmpRemoteIgnoredDevices.filter(function (existingIgnoredDevice) {
                 return ignoredDevice.deviceID !== existingIgnoredDevice.deviceID;
@@ -2172,6 +2176,11 @@ angular.module('syncthing.core')
                 $scope.devices[device].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
+        };
+
+        $scope.dismissPendingFolder = function (folderID, deviceID) {
+            $http.delete(urlbase + '/cluster/pending/folders?folder=' + encodeURIComponent(folderID)
+                         + '&device=' + encodeURIComponent(deviceID));
         };
 
         $scope.sharesFolder = function (folderCfg) {
