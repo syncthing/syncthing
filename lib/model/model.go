@@ -107,6 +107,7 @@ type Model interface {
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+	DismissPendingDevice(device protocol.DeviceID) error
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
@@ -3079,6 +3080,22 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return m.db.PendingFoldersForDevice(device)
+}
+
+// DismissPendingDevices removes the record of a specific pending device.
+func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
+	l.Debugf("Discarding pending device %v", device)
+	err := m.db.RemovePendingDevice(device)
+	if err != nil {
+		return err
+	}
+	removedPendingDevices := []map[string]string{
+		{"deviceID": device.String()},
+	}
+	m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+		"removed": removedPendingDevices,
+	})
+	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

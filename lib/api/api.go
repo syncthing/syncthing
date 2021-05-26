@@ -291,6 +291,9 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
+	// The DELETE handlers
+	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
+
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
@@ -630,6 +633,21 @@ func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, devices)
+}
+
+func (s *service) deletePendingDevices(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := s.model.DismissPendingDevice(deviceID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
