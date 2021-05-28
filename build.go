@@ -50,7 +50,9 @@ var (
 	benchRun       string
 	debugBinary    bool
 	coverage       bool
+	long           bool
 	timeout        = "120s"
+	longTimeout    = "600s"
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
 )
@@ -363,6 +365,7 @@ func parseFlags() {
 	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
+	flag.BoolVar(&long, "long", long, "Run tests without the -short flag")
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
@@ -374,7 +377,13 @@ func test(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
 
 	tags = append(tags, "purego")
-	args := []string{"test", "-short", "-timeout", timeout, "-tags", strings.Join(tags, " ")}
+	args := []string{"test", "-tags", strings.Join(tags, " ")}
+	if long {
+		timeout = longTimeout
+	} else {
+		args = append(args, "-short")
+	}
+	args = append(args, "-timeout", timeout)
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {

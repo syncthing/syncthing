@@ -1472,9 +1472,9 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 
 	if !(hasTokenRemote || hasTokenLocal) {
 		if isEncryptedRemote {
-			return errEncryptionPlainForReceiveEncrypted
-		} else {
 			return errEncryptionPlainForRemoteEncrypted
+		} else {
+			return errEncryptionPlainForReceiveEncrypted
 		}
 	}
 
