@@ -100,9 +100,15 @@ func (f *receiveOnlyFolder) revert() error {
 		}
 
 		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-		if len(fi.Version.Counters) == 1 && fi.Version.Counters[0].ID == f.shortID {
-			// We are the only device mentioned in the version vector so the
-			// file must originate here. A revert then means to delete it.
+
+		switch gf, ok := snap.GetGlobal(fi.Name); {
+		case !ok:
+			msg := "Unexpected global file that we have locally"
+			l.Debugf("%v revert: %v: %v", f, msg, fi.Name)
+			f.evLogger.Log(events.Failure, msg)
+			return true
+		case gf.IsReceiveOnlyChanged():
+			// The global file is our own. A revert then means to delete it.
 			// We'll delete files directly, directories get queued and
 			// handled below.
 
@@ -114,10 +120,12 @@ func (f *receiveOnlyFolder) revert() error {
 			if !handled {
 				return true // continue
 			}
-
 			fi.SetDeleted(f.shortID)
 			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-		} else {
+		case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+			// What we have locally is equivalent to the global file.
+			fi = gf
+		default:
 			// Revert means to throw away our local changes. We reset the
 			// version to the empty vector, which is strictly older than any
 			// other existing version. It is not in conflict with anything,

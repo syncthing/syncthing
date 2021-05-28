@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -407,6 +408,69 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories+size.Deleted != 0 {
 		t.Fatalf("Receive only: expected all zero: %+v", size)
+	}
+}
+
+func TestRecvOnlyRevertOwnID(t *testing.T) {
+	// If the folder was receive-only in the past, the global item might have
+	// only our id in the version vector and be valid. There was a bug based on
+	// the incorrect assumpation that this can never happen.
+
+	// Get us a model up and running
+
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
+	ffs := f.Filesystem()
+	defer cleanupModel(m)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0755))
+	data := []byte("hello\n")
+	name := "foo"
+	must(t, writeFile(ffs, name, data, 0644))
+
+	// Make sure the file is scanned and locally changed
+	must(t, m.ScanFolder("ro"))
+	fi, ok := m.testCurrentFolderFile(f.ID, name)
+	if !ok {
+		t.Fatal("File missing")
+	} else if !fi.IsReceiveOnlyChanged() {
+		t.Fatal("File should be receiveonly changed")
+	}
+	fi.LocalFlags = 0
+	v := fi.Version.Counters[0].Value
+	fi.Version.Counters[0].Value = uint64(time.Unix(int64(v), 0).Add(-10 * time.Second).Unix())
+
+	// Monitor the outcome
+	sub := f.evLogger.Subscribe(events.LocalIndexUpdated)
+	defer sub.Unsubscribe()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-sub.C():
+				if file, _ := m.testCurrentFolderFile(f.ID, name); file.Deleted {
+					t.Error("local file was deleted")
+					cancel()
+				} else if file.IsEquivalent(fi, f.modTimeWindow) {
+					cancel() // That's what we are waiting for
+				}
+			}
+		}
+	}()
+
+	// Receive an index update with an older version, but valid and then revert
+	must(t, m.Index(device1, f.ID, []protocol.FileInfo{fi}))
+	f.Revert()
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
 	}
 }
 
