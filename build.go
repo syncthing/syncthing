@@ -52,7 +52,7 @@ var (
 	coverage       bool
 	long           bool
 	timeout        = "120s"
-	longTimeout    = "240s"
+	longTimeout    = "600s"
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
 )
@@ -378,8 +378,9 @@ func test(tags []string, pkgs ...string) {
 
 	tags = append(tags, "purego")
 	args := []string{"test", "-tags", strings.Join(tags, " ")}
-	if !long {
+	if long {
 		timeout = longTimeout
+	} else {
 		args = append(args, "-short")
 	}
 	args = append(args, "-timeout", timeout)
