@@ -414,7 +414,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 func TestRecvOnlyRevertOwnID(t *testing.T) {
 	// If the folder was receive-only in the past, the global item might have
 	// only our id in the version vector and be valid. There was a bug based on
-	// the incorrect assumpation that this can never happen.
+	// the incorrect assumption that this can never happen.
 
 	// Get us a model up and running
 
