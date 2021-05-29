@@ -693,20 +693,19 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 
 	var discardedBlocks, matchedBlocks, discardedVersions, matchedVersions int
 
-	internalCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		// Only print something if the process takes more than "a moment".
-		select {
-		case <-internalCtx.Done():
-		case <-time.After(10 * time.Second):
-			l.Infoln("Database GC started - many Syncthing operations will be unresponsive until it's finished")
-			<-internalCtx.Done()
-			if err != nil || ctx.Err() != nil {
-				return
-			}
-			l.Infof("Database GC done (discarded/remaining: %v/%v blocks, %v/%v versions)", discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
+	// Only print something if the process takes more than "a moment".
+	logWait := make(chan struct{})
+	logTimer := time.AfterFunc(10*time.Second, func() {
+		l.Infoln("Database GC started - many Syncthing operations will be unresponsive until it's finished")
+		close(logWait)
+	})
+	defer func() {
+		if logTimer.Stop() || err != nil {
+			return
 		}
+		<-logWait // Make sure messages are sent in order.
+		l.Infof("Database GC done (discarded/remaining: %v/%v blocks, %v/%v versions)",
+			discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
 	}()
 
 	t, err := db.newReadWriteTransaction()
