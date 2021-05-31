@@ -518,16 +518,20 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
+const maxToRemove = 1000
+
 type scanBatch struct {
-	*db.FileInfoBatch
-	f *folder
+	f           *folder
+	updateBatch *db.FileInfoBatch
+	toRemove    []string
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
-		f: f,
+		f:        f,
+		toRemove: make([]string, 0, maxToRemove),
 	}
-	b.FileInfoBatch = db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	b.updateBatch = db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", b.f.Description(), err)
 			return err
@@ -538,11 +542,34 @@ func (f *folder) newScanBatch() *scanBatch {
 	return b
 }
 
-// Append adds the fileinfo to the batch for updating, and does a few checks.
+func (b *scanBatch) Remove(item string) {
+	b.toRemove = append(b.toRemove, item)
+}
+
+func (b *scanBatch) flushToRemove() {
+	if len(b.toRemove) > 0 {
+		b.f.fset.RemoveLocalItems(b.toRemove)
+		b.toRemove = b.toRemove[:0]
+	}
+}
+
+func (b *scanBatch) Flush() error {
+	b.flushToRemove()
+	return b.updateBatch.Flush()
+}
+
+func (b *scanBatch) FlushIfFull() error {
+	if len(b.toRemove) >= maxToRemove {
+		b.flushToRemove()
+	}
+	return b.updateBatch.FlushIfFull()
+}
+
+// Update adds the fileinfo to the batch for updating, and does a few checks.
 // It returns false if the checks result in the file not going to be updated or removed.
-func (b *scanBatch) Append(fi protocol.FileInfo, snap *db.Snapshot) bool {
+func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	if !fi.IsReceiveOnlyChanged() {
-		b.FileInfoBatch.Append(fi)
+		b.updateBatch.Append(fi)
 		return true
 	}
 	// Check for a "virtual" parent directory of encrypted files. We don't track
@@ -555,18 +582,21 @@ func (b *scanBatch) Append(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
-	// Except if they are in a receive-encrypted folder and are locally added.
-	// Those must never be sent in index updates and thus must retain the flag.
 	switch gf, ok := snap.GetGlobal(fi.Name); {
 	case !ok:
-	case fi.IsDeleted() && gf.IsReceiveOnlyChanged() && b.f.Type != config.FolderTypeReceiveEncrypted:
-		l.Debugf("%v scanning: Marking deleted item as not locally changed", b.f, fi)
-		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-	case !gf.IsReceiveOnlyChanged() && gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
-		l.Debugf("%v scanning: Marking item equivalent to global as not locally changed", b.f, fi)
+	case gf.IsReceiveOnlyChanged():
+		if fi.IsDeleted() {
+			// Our item is deleted and the global item is our own receive only
+			// file. No point in keeping track of that.
+			b.Remove(fi.Name)
+			return true
+		}
+	case gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+		// What we have locally is equivalent to the global file.
+		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
 		fi = gf
 	}
-	b.FileInfoBatch.Append(fi)
+	b.updateBatch.Append(fi)
 	return true
 }
 
@@ -622,7 +652,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 			return changes, err
 		}
 
-		if batch.Append(res.File, snap) {
+		if batch.Update(res.File, snap) {
 			changes++
 		}
 
@@ -630,7 +660,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
 			if nf, ok := f.findRename(snap, res.File, alreadyUsedOrExisting); ok {
-				if batch.Append(nf, snap) {
+				if batch.Update(nf, snap) {
 					changes++
 				}
 			}
@@ -671,7 +701,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				for _, file := range toIgnore {
 					l.Debugln("marking file as ignored", file)
 					nf := file.ConvertToIgnoredFileInfo()
-					if batch.Append(nf, snap) {
+					if batch.Update(nf, snap) {
 						changes++
 					}
 					if err := batch.FlushIfFull(); err != nil {
@@ -701,7 +731,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 
 				l.Debugln("marking file as ignored", file)
 				nf := file.ConvertToIgnoredFileInfo()
-				if batch.Append(nf, snap) {
+				if batch.Update(nf, snap) {
 					changes++
 				}
 
@@ -731,24 +761,24 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					nf.Version = protocol.Vector{}
 				}
 				l.Debugln("marking file as deleted", nf)
-				if batch.Append(nf, snap) {
+				if batch.Update(nf, snap) {
 					changes++
 				}
 			case file.IsDeleted() && file.IsReceiveOnlyChanged():
 				switch f.Type {
 				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-					if gf, _ := snap.GetGlobal(file.Name); gf.IsDeleted() {
+					switch gf, ok := snap.GetGlobal(file.Name); {
+					case !ok:
+					case gf.IsReceiveOnlyChanged():
+						l.Debugln("removing deleted, receive-only item that is globally receive-only from db", file)
+						batch.Remove(file.Name)
+						changes++
+					case gf.IsDeleted():
 						// Our item is deleted and the global item is deleted too. We just
 						// pretend it is a normal deleted file (nobody cares about that).
-						// Except if this is a receive-encrypted folder and it
-						// is a locally added file. Those must never be sent
-						// in index updates and thus must retain the flag.
-						if f.Type == config.FolderTypeReceiveEncrypted && gf.IsReceiveOnlyChanged() {
-							return true
-						}
 						l.Debugf("%v scanning: Marking globally deleted item as not locally changed: %v", f, file.Name)
 						file.LocalFlags &^= protocol.FlagLocalReceiveOnly
-						if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
+						if batch.Update(file.ConvertDeletedToFileInfo(), snap) {
 							changes++
 						}
 					}
@@ -757,7 +787,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					// deleted and just the folder type/local flags changed.
 					file.LocalFlags &^= protocol.FlagLocalReceiveOnly
 					l.Debugln("removing receive-only flag on deleted item", file)
-					if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
+					if batch.Update(file.ConvertDeletedToFileInfo(), snap) {
 						changes++
 					}
 				}
@@ -776,7 +806,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", f)
 				nf := file.ConvertToIgnoredFileInfo()
-				if batch.Append(nf, snap) {
+				if batch.Update(nf, snap) {
 					changes++
 				}
 				if iterError = batch.FlushIfFull(); iterError != nil {
