@@ -541,46 +541,33 @@ func (f *folder) newScanBatch() *scanBatch {
 // Append adds the fileinfo to the batch for updating, and does a few checks.
 // It returns false if the checks result in the file not going to be updated or removed.
 func (b *scanBatch) Append(fi protocol.FileInfo, snap *db.Snapshot) bool {
-	// Resolve items which are identical with the global state.
-	switch b.f.Type {
-	case config.FolderTypeReceiveOnly:
-		switch gf, ok := snap.GetGlobal(fi.Name); {
-		case !ok:
-		case gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
-			// What we have locally is equivalent to the global file.
-			fi.Version = gf.Version
-			l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
-			fallthrough
-		case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
-			// Our item is deleted and the global item is our own
-			// receive only file or deleted too. In the former
-			// case we can't delete file infos, so we just
-			// pretend it is a normal deleted file (nobody
-			// cares about that).
-			l.Debugf("%v scanning: Marking item as not locally changed", b.f, fi)
-			fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-		}
-		b.FileInfoBatch.Append(fi)
-		return true
-	case config.FolderTypeReceiveEncrypted:
-		// This is a "virtual" parent directory of encrypted files.
-		// We don't track it, but check if anything still exists
-		// within and delete it otherwise.
-		if fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
-			if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
-				b.f.mtimefs.Remove(fi.Name)
-			}
-			return false
-		}
-		// Any local change must not be sent as index entry to
-		// remotes and show up as an error in the UI.
-		fi.LocalFlags = protocol.FlagLocalReceiveOnly
-		b.FileInfoBatch.Append(fi)
-		return true
-	default:
+	if !fi.IsReceiveOnlyChanged() {
 		b.FileInfoBatch.Append(fi)
 		return true
 	}
+	// Check for a "virtual" parent directory of encrypted files. We don't track
+	// it, but check if anything still exists within and delete it otherwise.
+	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
+		if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
+			b.f.mtimefs.Remove(fi.Name)
+		}
+		return false
+	}
+	// Resolve receive-only items which are identical with the global state or
+	// the global item is our own receive-only item.
+	// Except if they are in a receive-encrypted folder and are locally added.
+	// Those must never be sent in index updates and thus must retain the flag.
+	switch gf, ok := snap.GetGlobal(fi.Name); {
+	case !ok:
+	case fi.IsDeleted() && gf.IsReceiveOnlyChanged() && b.f.Type != config.FolderTypeReceiveEncrypted:
+		l.Debugf("%v scanning: Marking deleted item as not locally changed", b.f, fi)
+		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
+	case !gf.IsReceiveOnlyChanged() && gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+		l.Debugf("%v scanning: Marking item equivalent to global as not locally changed", b.f, fi)
+		fi = gf
+	}
+	b.FileInfoBatch.Append(fi)
+	return true
 }
 
 func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (int, error) {
@@ -747,20 +734,32 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				if batch.Append(nf, snap) {
 					changes++
 				}
-			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type == config.FolderTypeReceiveOnly && len(snap.Availability(file.Name)) == 0:
-				file.Version = protocol.Vector{}
-				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
-				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)
-				if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
-					changes++
-				}
-			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type != config.FolderTypeReceiveOnly:
-				// No need to bump the version for a file that was and is
-				// deleted and just the folder type/local flags changed.
-				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
-				l.Debugln("removing receive-only flag on deleted item", file)
-				if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
-					changes++
+			case file.IsDeleted() && file.IsReceiveOnlyChanged():
+				switch f.Type {
+				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
+					if gf, _ := snap.GetGlobal(file.Name); gf.IsDeleted() {
+						// Our item is deleted and the global item is deleted too. We just
+						// pretend it is a normal deleted file (nobody cares about that).
+						// Except if this is a receive-encrypted folder and it
+						// is a locally added file. Those must never be sent
+						// in index updates and thus must retain the flag.
+						if f.Type == config.FolderTypeReceiveEncrypted && gf.IsReceiveOnlyChanged() {
+							return true
+						}
+						l.Debugf("%v scanning: Marking globally deleted item as not locally changed: %v", f, file.Name)
+						file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+						if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
+							changes++
+						}
+					}
+				default:
+					// No need to bump the version for a file that was and is
+					// deleted and just the folder type/local flags changed.
+					file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+					l.Debugln("removing receive-only flag on deleted item", file)
+					if batch.Append(file.ConvertDeletedToFileInfo(), snap) {
+						changes++
+					}
 				}
 			}
 
