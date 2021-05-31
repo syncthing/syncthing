@@ -49,7 +49,7 @@ angular.module('syncthing.core')
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
-        $scope.metricRates = false;
+        $scope.metricRates = true;
         $scope.folderPathErrors = {};
         $scope.currentSharing = {};
         $scope.currentFolder = {};
