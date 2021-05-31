@@ -153,6 +153,7 @@
    "Help": "Help",
    "Home page": "Home page",
    "However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.": "However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.",
+   "Identification": "Identification",
    "If untrusted, enter encryption password": "If untrusted, enter encryption password",
    "If you want to prevent other users on this computer from accessing Syncthing and through it your files, consider setting up authentication.": "If you want to prevent other users on this computer from accessing Syncthing and through it your files, consider setting up authentication.",
    "Ignore": "Ignore",
