@@ -1222,6 +1222,11 @@ angular.module('syncthing.core')
             return device.deviceID.substr(0, 6);
         };
 
+        $scope.showDeviceIdentification = function (deviceCfg) {
+            $scope.currentDevice = deviceCfg;
+            $('#idqr').modal();
+        };
+
         $scope.setDevicePause = function (device, pause) {
             $scope.devices[device].paused = pause;
             $scope.config.devices = $scope.deviceList();
