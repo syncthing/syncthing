@@ -1202,13 +1202,20 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceName = function (deviceCfg) {
-            if (typeof deviceCfg === 'undefined' || typeof deviceCfg.deviceID === 'undefined') {
+            if (typeof deviceCfg === 'undefined') {
                 return "";
             }
             if (deviceCfg.name) {
                 return deviceCfg.name;
             }
-            return deviceCfg.deviceID.substr(0, 6);
+            return $scope.deviceShortID(deviceCfg.deviceID);
+        };
+
+        $scope.deviceShortID = function (deviceID) {
+            if (typeof deviceID === 'undefined') {
+                return "";
+            }
+            return deviceID.substr(0, 6);
         };
 
         $scope.thisDeviceName = function () {
@@ -1220,6 +1227,11 @@ angular.module('syncthing.core')
                 return device.name;
             }
             return device.deviceID.substr(0, 6);
+        };
+
+        $scope.showDeviceIdentification = function (deviceCfg) {
+            $scope.currentDevice = deviceCfg;
+            $('#idqr').modal();
         };
 
         $scope.setDevicePause = function (device, pause) {
