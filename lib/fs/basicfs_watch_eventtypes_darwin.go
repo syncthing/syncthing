@@ -4,17 +4,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build !linux,!windows,!dragonfly,!freebsd,!netbsd,!openbsd,!solaris,!darwin,!cgo
-
-// Catch all platforms that are not specifically handled to use the generic
-// event types.
+// +build darwin,!kqueue,cgo
 
 package fs
 
 import "github.com/syncthing/notify"
 
 const (
-	subEventMask  = notify.All
+	subEventMask  = notify.Create | notify.Remove | notify.Write | notify.Rename | notify.FSEventsInodeMetaMod
 	permEventMask = 0
 	rmEventMask   = notify.Remove | notify.Rename
 )
