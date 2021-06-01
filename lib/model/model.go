@@ -1616,6 +1616,11 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 				continue
 			}
 
+			if fcfg.Type != config.FolderTypeReceiveEncrypted && device.EncryptionPasswordToken != nil {
+				l.Infof("Cannot share folder %s with %v because the introducer %v encrypts data, which requires a password", folder.Description(), device.ID, introducerCfg.DeviceID)
+				continue
+			}
+
 			// We don't yet share this folder with this device. Add the device
 			// to sharing list of the folder.
 			l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)

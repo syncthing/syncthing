@@ -516,11 +516,17 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	cc := basicClusterConfig(myID, device1, "folder1")
+	cc := basicClusterConfig(myID, device1, "folder1", "folder2")
 	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
 		ID:                       device2,
 		Introducer:               true,
 		SkipIntroductionRemovals: true,
+	})
+	cc.Folders[1].Devices = append(cc.Folders[1].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
+		EncryptionPasswordToken:  []byte("faketoken"),
 	})
 	m.ClusterConfig(device1, cc)
 
@@ -530,6 +536,12 @@ func TestIntroducer(t *testing.T) {
 
 	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
 		t.Error("expected folder 1 to have device2 introduced by device 1")
+	}
+
+	for _, devCfg := range m.cfg.Folders()["folder2"].Devices {
+		if devCfg.DeviceID == device2 {
+			t.Error("Device was added even though it's untrusted")
+		}
 	}
 
 	cleanupModel(m)
