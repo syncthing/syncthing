@@ -445,6 +445,50 @@ func TestWatchModTime(t *testing.T) {
 		}
 	}
 
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
+}
+
+func TestModifyFile(t *testing.T){
+	name := "modify"
+
+	old := createTestFile(name, "file")
+	modifyTestFile(name, old, "syncthing")
+
+	testCase := func() {
+		modifyTestFile(name, old, "modified")
+	}
+
+	expectedEvents := []Event{
+		{old, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	sleepMs(1000)
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{},false)
+}
+
+func TestModifyFileWatchFail(t *testing.T){
+	name := "modify"
+
+	old := createTestFile(name, "file")
+	modifyTestFile(name, old, "syncthing")
+
+	// modified the content to empty, then can not
+	// receive event from notify
+	testCase := func() {
+		modifyTestFile(name, old, "")
+	}
+
+	expectedEvents := []Event{
+		{old, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	sleepMs(1000)
 	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, true)
 }
 
@@ -467,6 +511,14 @@ func renameTestFile(name string, old string, new string) {
 	new = filepath.Join(name, new)
 	if err := testFs.Rename(old, new); err != nil {
 		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new, err))
+	}
+}
+
+func modifyTestFile(name string, file string, content string) {
+	joined := filepath.Join(testDirAbs, name, file)
+	err := os.WriteFile(joined, []byte(content), 0755)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to modify test file %s: %s", joined, err))
 	}
 }
 
