@@ -1018,8 +1018,15 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
 		discoStatus := s.discoverer.ChildErrors()
+		res["discoveryStatus"] = discoveryStatusMap(discoStatus)
 		res["discoveryMethods"] = len(discoStatus) // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
-		res["discoveryErrors"] = errorStringMap(discoStatus)
+		discoErrors := make(map[string]*string, len(discoStatus))
+		for s, e := range discoStatus {
+			if e != nil {
+				discoErrors[s] = errorString(e)
+			}
+		}
+		res["discoveryErrors"] = discoErrors // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
 	}
 
 	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
@@ -1890,6 +1897,20 @@ func errorString(err error) *string {
 		return &msg
 	}
 	return nil
+}
+
+type discoveryStatusEntry struct {
+	Error *string `json:"error"`
+}
+
+func discoveryStatusMap(errs map[string]error) map[string]discoveryStatusEntry {
+	out := make(map[string]discoveryStatusEntry, len(errs))
+	for s, e := range errs {
+		out[s] = discoveryStatusEntry{
+			Error: errorString(e),
+		}
+	}
+	return out
 }
 
 // sanitizedHostname returns the given name in a suitable form for use as
