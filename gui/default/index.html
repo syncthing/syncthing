@@ -683,7 +683,7 @@
                       <td class="text-right">{{system.uptime | duration:"m"}}</td>
                     </tr>
                     <tr>
-                      <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Device ID</span></th>
+                      <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
                           <a href="" ng-click="showDeviceIdentification(thisDevice())">{{deviceShortID(deviceCfg.deviceID)}}</a>
@@ -815,7 +815,7 @@
                         <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                       </tr>
                       <tr>
-                        <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Device ID</span></th>
+                        <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
                         <td class="text-right">
                           <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
                             <a href="" ng-click="showDeviceIdentification(deviceCfg)">{{deviceShortID(deviceCfg.deviceID)}}</a>
