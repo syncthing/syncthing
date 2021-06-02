@@ -798,6 +798,14 @@ angular.module('syncthing.core')
             });
         }
 
+        $scope.pendingIsRemoteEncrypted = function(folderID, deviceID) {
+            var pending = $scope.pendingFolders[folderID];
+            if (!pending || !pending.offeredBy || !pending.offeredBy[deviceID]) {
+                return false;
+            }
+            return pending.offeredBy[deviceID].remoteEncrypted;
+        };
+
         $scope.refreshFailed = function (page, perpage) {
             if (!$scope.failed || !$scope.failed.folder) {
                 return;
@@ -2114,11 +2122,19 @@ angular.module('syncthing.core')
         }
 
         $scope.shareFolderWithDevice = function (folder, device) {
-            $scope.folders[folder].devices.push({
-                deviceID: device
-            });
-            $scope.config.folders = folderList($scope.folders);
-            $scope.saveConfig();
+            var folderCfg = $scope.folders[folder];
+            if (folderCfg.type == "receiveencrypted" || !$scope.pendingIsRemoteEncrypted(folder, device)) {
+                $scope.folders[folder].devices.push({
+                    deviceID: device
+                });
+                $scope.config.folders = folderList($scope.folders);
+                $scope.saveConfig();
+            } else {
+                // Open edit folder dialog to enter encryption password
+                $scope.editFolderExisting(folderCfg);
+                $scope.currentSharing.selected[device] = true;
+                $('.nav-tabs a[href="#folder-sharing"]').tab('show');
+            }
         };
 
         $scope.saveFolder = function () {
