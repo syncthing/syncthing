@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "May 24, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 28, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -691,7 +691,7 @@ New in version 1.12.0.
 These endpoints facilitate access and modification of the configuration in a granular way. Config sent to the endpoints must be in the same
 format as returned by the corresponding GET request. When posting the
 configuration succeeds, the posted configuration is immediately applied, except
-for changes that require a restart. Query \fI\%/rest/system/config/insync\fP to check if
+for changes that require a restart. Query \fI\%/rest/config/restart\-required\fP to check if
 a restart is required.
 .sp
 For all endpoints supporting \fBPATCH\fP, it takes the existing config and
@@ -703,10 +703,10 @@ addresses.
 .SS /rest/config
 .sp
 \fBGET\fP returns the entire config and \fBPUT\fP replaces it.
-.SS /rest/system/config/insync
+.SS /rest/config/restart\-required
 .sp
-\fBGET\fP returns whether the config is in sync, i.e. whether the running configuration is
-the same as that on disk or if a restart is required.
+\fBGET\fP returns whether a restart of Syncthing is required for the current
+config to take effect.
 .SS /rest/config/folders, /rest/config/devices
 .sp
 \fBGET\fP returns all folders respectively devices as an array. \fBPUT\fP takes an array and
