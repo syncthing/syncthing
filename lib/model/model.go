@@ -192,12 +192,9 @@ var (
 	errEncryptionPassword                 = errors.New("different encryption passwords used")
 	errEncryptionTokenRead                = errors.New("failed to read encryption token")
 	errEncryptionTokenWrite               = errors.New("failed to write encryption token")
-	errEncryptionNeedToken                = errors.New("require password token for receive-encrypted token")
 	errMissingRemoteInClusterConfig       = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig        = errors.New("local device missing in cluster config")
 	errConnLimitReached                   = errors.New("connection limit reached")
-	// messages for failure reports
-	failureUnexpectedGenerateCCError = "unexpected error occurred in generateClusterConfig"
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1565,15 +1562,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm, passwords, err := m.generateClusterConfig(conn.ID())
-		if err != nil {
-			if err != errEncryptionNeedToken {
-				m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
-				continue
-			}
-			go conn.Close(err)
-			continue
-		}
+		cm, passwords := m.generateClusterConfig(conn.ID())
 		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
@@ -2295,12 +2284,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.pmut.Unlock()
 
 	// Acquires fmut, so has to be done outside of pmut.
-	cm, passwords, err := m.generateClusterConfig(deviceID)
-	// We ignore errEncryptionNeedToken on a new connection, as the missing
-	// token should be delivered in the cluster-config about to be received.
-	if err != nil && err != errEncryptionNeedToken {
-		m.evLogger.Log(events.Failure, failureUnexpectedGenerateCCError)
-	}
+	cm, passwords := m.generateClusterConfig(deviceID)
 	conn.SetFolderPasswords(passwords)
 	conn.ClusterConfig(cm)
 
@@ -2463,7 +2447,7 @@ func (m *model) numHashers(folder string) int {
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the
 // set of folder passwords for the given peer device
-func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string, error) {
+func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
@@ -2476,15 +2460,11 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 			continue
 		}
 
-		var encryptionToken []byte
-		var hasEncryptionToken bool
-		if folderCfg.Type == config.FolderTypeReceiveEncrypted {
-			if encryptionToken, hasEncryptionToken = m.folderEncryptionPasswordTokens[folderCfg.ID]; !hasEncryptionToken {
-				// We haven't gotten a token yet and without one the other side
-				// can't validate us - reset the connection to trigger a new
-				// cluster-config and get the token.
-				return message, nil, errEncryptionNeedToken
-			}
+		encryptionToken, hasEncryptionToken := m.folderEncryptionPasswordTokens[folderCfg.ID]
+		if folderCfg.Type == config.FolderTypeReceiveEncrypted && !hasEncryptionToken {
+			// We haven't gotten a token for us yet and without one the other
+			// side can't validate us - pretend we don't have the folder yet.
+			continue
 		}
 
 		protocolFolder := protocol.Folder{
@@ -2541,7 +2521,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 		message.Folders = append(message.Folders, protocolFolder)
 	}
 
-	return message, passwords, nil
+	return message, passwords
 }
 
 func (m *model) State(folder string) (string, time.Time, error) {
@@ -2833,6 +2813,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Tracks devices affected by any configuration change to resend ClusterConfig.
 	clusterConfigDevices := make(deviceIDSet, len(from.Devices)+len(to.Devices))
+	closeDevices := make([]protocol.DeviceID, 0, len(to.Devices))
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
@@ -2875,7 +2856,23 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				return true
 			}
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
-			clusterConfigDevices.add(toCfg.DeviceIDs())
+			if toCfg.Type != config.FolderTypeReceiveEncrypted {
+				clusterConfigDevices.add(toCfg.DeviceIDs())
+			} else {
+				// If we don't have the encryption token yet, we need to drop
+				// the connection to make the remote re-send the cluster-config
+				// and with it the token.
+				m.fmut.RLock()
+				_, ok := m.folderEncryptionPasswordTokens[toCfg.ID]
+				m.fmut.RUnlock()
+				if !ok {
+					for _, id := range toCfg.DeviceIDs() {
+						closeDevices = append(closeDevices, id)
+					}
+				} else {
+					clusterConfigDevices.add(toCfg.DeviceIDs())
+				}
+			}
 		}
 
 		// Emit the folder pause/resume event
@@ -2898,7 +2895,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Pausing a device, unpausing is handled by the connection service.
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
-	closeDevices := make([]protocol.DeviceID, 0, len(to.Devices))
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
@@ -2913,17 +2909,17 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		// Ignored folder was removed, reconnect to retrigger the prompt.
-		if !toCfg.Paused && len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
-			closeDevices = append(closeDevices, deviceID)
-		}
-
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			closeDevices = append(closeDevices, deviceID)
-			delete(clusterConfigDevices, deviceID)
 			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
+			// Ignored folder was removed, reconnect to retrigger the prompt.
+			if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
+				closeDevices = append(closeDevices, deviceID)
+			}
+
+			l.Infoln("Resuming", deviceID)
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
@@ -2939,11 +2935,13 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	m.pmut.RLock()
 	for _, id := range closeDevices {
+		delete(clusterConfigDevices, id)
 		if conn, ok := m.conn[id]; ok {
 			go conn.Close(errDevicePaused)
 		}
 	}
 	for _, id := range removedDevices {
+		delete(clusterConfigDevices, id)
 		if conn, ok := m.conn[id]; ok {
 			go conn.Close(errDeviceRemoved)
 		}
