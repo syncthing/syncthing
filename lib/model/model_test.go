@@ -430,8 +430,7 @@ func TestClusterConfig(t *testing.T) {
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	cm, _, err := m.generateClusterConfig(device2)
-	must(t, err)
+	cm, _ := m.generateClusterConfig(device2)
 
 	if l := len(cm.Folders); l != 2 {
 		t.Fatalf("Incorrect number of folders %d != 2", l)
@@ -868,8 +867,7 @@ func TestIssue4897(t *testing.T) {
 	defer cleanupModel(m)
 	cancel()
 
-	cm, _, err := m.generateClusterConfig(device1)
-	must(t, err)
+	cm, _ := m.generateClusterConfig(device1)
 	if l := len(cm.Folders); l != 1 {
 		t.Errorf("Cluster config contains %v folders, expected 1", l)
 	}
@@ -4160,8 +4158,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// A connection can happen before all the folders are started.
-	cc, _, err := m.generateClusterConfig(device1)
-	must(t, err)
+	cc, _ := m.generateClusterConfig(device1)
 	if l := len(cc.Folders); l != 1 {
 		t.Fatalf("Expected 1 folder in CC, got %v", l)
 	}
