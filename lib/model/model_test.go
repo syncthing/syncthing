@@ -220,15 +220,16 @@ func BenchmarkIndex_100(b *testing.B) {
 }
 
 func benchmarkIndex(b *testing.B, nfiles int) {
-	m := setupModel(b, defaultCfgWrapper)
-	defer cleanupModel(m)
+	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
+	defer wcfgCancel()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	files := genFiles(nfiles)
-	must(b, m.Index(device1, "default", files))
+	must(b, m.Index(device1, fcfg.ID, files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		must(b, m.Index(device1, "default", files))
+		must(b, m.Index(device1, fcfg.ID, files))
 	}
 	b.ReportAllocs()
 }
@@ -246,17 +247,18 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 }
 
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
-	m := setupModel(b, defaultCfgWrapper)
-	defer cleanupModel(m)
+	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
+	defer wcfgCancel()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
 
-	must(b, m.Index(device1, "default", files))
+	must(b, m.Index(device1, fcfg.ID, files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		must(b, m.IndexUpdate(device1, "default", ufiles))
+		must(b, m.IndexUpdate(device1, fcfg.ID, ufiles))
 	}
 	b.ReportAllocs()
 }
@@ -1695,9 +1697,8 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	m, _, fcfg, wCancel := setupModelWithConnection(t)
 	defer wCancel()
-	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -1999,18 +2000,18 @@ func BenchmarkTree_100_10(b *testing.B) {
 }
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
-	m := newModel(b, defaultCfgWrapper, myID, "syncthing", "dev", nil)
-	m.ServeBackground()
-	defer cleanupModel(m)
+	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
+	defer wcfgCancel()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
-	m.ScanFolder("default")
+	m.ScanFolder(fcfg.ID)
 	files := genDeepFiles(n1, n2)
 
-	must(b, m.Index(device1, "default", files))
+	must(b, m.Index(device1, fcfg.ID, files))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.GlobalDirectoryTree("default", "", -1, false)
+		m.GlobalDirectoryTree(fcfg.ID, "", -1, false)
 	}
 	b.ReportAllocs()
 }
@@ -2627,43 +2628,43 @@ func TestCustomMarkerName(t *testing.T) {
 }
 
 func TestRemoveDirWithContent(t *testing.T) {
-	defer func() {
-		defaultFs.RemoveAll("dirwith")
-	}()
+	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
-	defaultFs.MkdirAll("dirwith", 0755)
+	tfs.MkdirAll("dirwith", 0755)
 	content := filepath.Join("dirwith", "content")
-	fd, err := defaultFs.Create(content)
+	fd, err := tfs.Create(content)
 	must(t, err)
 	fd.Close()
 
-	m := setupModel(t, defaultCfgWrapper)
-	defer cleanupModel(m)
+	must(t, m.ScanFolder(fcfg.ID))
 
-	dir, ok := m.testCurrentFolderFile("default", "dirwith")
+	dir, ok := m.testCurrentFolderFile(fcfg.ID, "dirwith")
 	if !ok {
 		t.Fatalf("Can't get dir \"dirwith\" after initial scan")
 	}
 	dir.Deleted = true
 	dir.Version = dir.Version.Update(device1.Short()).Update(device1.Short())
 
-	file, ok := m.testCurrentFolderFile("default", content)
+	file, ok := m.testCurrentFolderFile(fcfg.ID, content)
 	if !ok {
 		t.Fatalf("Can't get file \"%v\" after initial scan", content)
 	}
 	file.Deleted = true
 	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
 
-	must(t, m.IndexUpdate(device1, "default", []protocol.FileInfo{dir, file}))
+	must(t, m.IndexUpdate(device1, fcfg.ID, []protocol.FileInfo{dir, file}))
 
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
 	for {
-		dir, ok := m.testCurrentFolderFile("default", "dirwith")
+		dir, ok := m.testCurrentFolderFile(fcfg.ID, "dirwith")
 		if !ok {
 			t.Fatalf("Can't get dir \"dirwith\" after index update")
 		}
-		file, ok := m.testCurrentFolderFile("default", content)
+		file, ok := m.testCurrentFolderFile(fcfg.ID, content)
 		if !ok {
 			t.Fatalf("Can't get file \"%v\" after index update", content)
 		}
@@ -3766,14 +3767,14 @@ func TestAddFolderCompletion(t *testing.T) {
 }
 
 func TestScanDeletedROChangedOnSR(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
-	defer wCancel()
-	fcfg.Type = config.FolderTypeReceiveOnly
-	setFolder(t, w, fcfg)
-	m := setupModel(t, w)
-	defer cleanupModel(m)
-	name := "foo"
+	m, _, fcfg, wCancel := setupModelWithConnection(t)
 	ffs := fcfg.Filesystem()
+	defer wCancel()
+	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	fcfg.Type = config.FolderTypeReceiveOnly
+	setFolder(t, m.cfg, fcfg)
+
+	name := "foo"
 
 	must(t, writeFile(ffs, name, []byte(name), 0644))
 	m.ScanFolders()
@@ -3794,7 +3795,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 
 	fcfg.Type = config.FolderTypeSendReceive
-	setFolder(t, w, fcfg)
+	setFolder(t, m.cfg, fcfg)
 	m.ScanFolders()
 
 	if receiveOnlyChangedSize(t, m, fcfg.ID).Deleted != 0 {
@@ -3889,6 +3890,8 @@ func TestIssue6961(t *testing.T) {
 	}
 	m.ServeBackground()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
+	addFakeConn(m, device1, fcfg.ID)
+	addFakeConn(m, device2, fcfg.ID)
 	m.ScanFolders()
 
 	name := "foo"
@@ -3937,9 +3940,8 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	m := setupModel(t, wcfg)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
 	m.fmut.Lock()
@@ -3960,6 +3962,8 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 	addDevice2(t, w, fcfg)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Path)
+	addFakeConn(m, device1, fcfg.ID)
+	addFakeConn(m, device2, fcfg.ID)
 
 	var seq int64 = 1
 	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(device1.Short()), Sequence: seq}}
@@ -4097,7 +4101,7 @@ func TestCcCheckEncryption(t *testing.T) {
 			dcfg.EncryptionPassword = pw
 		}
 
-		deviceInfos := &indexSenderStartInfo{
+		deviceInfos := &clusterConfigDeviceInfo{
 			remote: protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenRemote},
 			local:  protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenLocal},
 		}

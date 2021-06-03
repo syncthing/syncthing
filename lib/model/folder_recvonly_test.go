@@ -29,6 +29,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -110,6 +111,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -199,6 +201,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -268,6 +271,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -332,6 +336,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
