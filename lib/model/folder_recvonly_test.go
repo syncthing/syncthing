@@ -427,6 +427,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
+	addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
