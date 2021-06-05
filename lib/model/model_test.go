@@ -2358,7 +2358,7 @@ func TestIssue3496(t *testing.T) {
 	t.Log(comp)
 
 	// Check that NeedSize does the correct thing
-	need := needSize(t, m, "default")
+	need := needSizeLocal(t, m, "default")
 	if need.Files != 1 || need.Bytes != 1234 {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)

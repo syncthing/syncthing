@@ -139,7 +139,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
@@ -168,7 +168,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the new file to be reflected: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
@@ -189,7 +189,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the local size to remain: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files != 1 || size.Bytes != int64(len(oldData)) {
 		t.Fatalf("Local: expected to need the old file data: %+v", size)
 	}
@@ -229,7 +229,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
@@ -299,7 +299,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
@@ -364,7 +364,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSize(t, m, "ro")
+	size = needSizeLocal(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
