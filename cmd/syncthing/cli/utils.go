@@ -48,6 +48,9 @@ func indexDumpOutput(url string) cli.ActionFunc {
 			return err
 		}
 		response, err := client.Get(url)
+		if errors.Is(err, errNotFound) {
+			return errors.New("not found (debugging disabled or folder/file not in database)")
+		}
 		if err != nil {
 			return err
 		}
