@@ -70,6 +70,10 @@ type Lowlevel struct {
 	recheckInterval    time.Duration
 	oneFileSetCreated  chan struct{}
 	evLogger           events.Logger
+
+	blockFilter   *bloomFilter
+	versionFilter *bloomFilter
+	filtersMut    sync.Mutex
 }
 
 func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option) (*Lowlevel, error) {
@@ -85,6 +89,7 @@ func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option
 		recheckInterval:    recheckDefaultInterval,
 		oneFileSetCreated:  make(chan struct{}),
 		evLogger:           evLogger,
+		filtersMut:         sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(db)
@@ -686,27 +691,29 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 	// Indirection GC needs to run when there are no modifications to the
 	// FileInfos or indirected items.
 
-	db.gcMut.Lock()
-	defer db.gcMut.Unlock()
+	l.Debugln("Starting database GC")
 
-	l.Debugln("Started database GC")
+	// Create a new set of bloom filters, while holding the gcMut which
+	// guarantees that no other modifications are happening concurrently.
+
+	db.gcMut.Lock()
+	capacity := indirectGCBloomCapacity
+	if db.gcKeyCount > capacity {
+		capacity = db.gcKeyCount
+	}
+	db.blockFilter = newBloomFilter(capacity)
+	db.versionFilter = newBloomFilter(capacity)
+	db.gcMut.Unlock()
+
+	defer func() {
+		// Forget the bloom filters on the way out.
+		db.gcMut.Lock()
+		db.blockFilter = nil
+		db.versionFilter = nil
+		db.gcMut.Unlock()
+	}()
 
 	var discardedBlocks, matchedBlocks, discardedVersions, matchedVersions int
-
-	// Only print something if the process takes more than "a moment".
-	logWait := make(chan struct{})
-	logTimer := time.AfterFunc(10*time.Second, func() {
-		l.Infoln("Database GC started - many Syncthing operations will be unresponsive until it's finished")
-		close(logWait)
-	})
-	defer func() {
-		if logTimer.Stop() || err != nil {
-			return
-		}
-		<-logWait // Make sure messages are sent in order.
-		l.Infof("Database GC done (discarded/remaining: %v/%v blocks, %v/%v versions)",
-			discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
-	}()
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -719,15 +726,12 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 	// items. For simplicity's sake we track just one count, which is the
 	// highest of the various indirected items.
 
-	capacity := indirectGCBloomCapacity
-	if db.gcKeyCount > capacity {
-		capacity = db.gcKeyCount
-	}
-	blockFilter := newBloomFilter(capacity)
-	versionFilter := newBloomFilter(capacity)
-
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
+
+	// This happens concurrently with normal database modifications, though
+	// those modifications will now also add their blocks and versions to
+	// the bloom filters.
 
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
@@ -745,17 +749,19 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 		if err := hashes.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		if len(hashes.BlocksHash) > 0 {
-			blockFilter.add(hashes.BlocksHash)
-		}
-		if len(hashes.VersionHash) > 0 {
-			versionFilter.add(hashes.VersionHash)
-		}
+		db.recordIndirectionHashes(hashes)
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
 		return err
 	}
+
+	// For the next phase we grab the GC lock again and hold it for the rest
+	// of the method call. Now there can't be any further modifications to
+	// the database or the bloom filters.
+
+	db.gcMut.Lock()
+	defer db.gcMut.Unlock()
 
 	// Iterate over block lists, removing keys with hashes that don't match
 	// the filter.
@@ -773,7 +779,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.has(key.Hash()) {
+		if db.blockFilter.has(key.Hash()) {
 			matchedBlocks++
 			continue
 		}
@@ -802,7 +808,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 		}
 
 		key := versionKey(it.Key())
-		if versionFilter.has(key.Hash()) {
+		if db.versionFilter.has(key.Hash()) {
 			matchedVersions++
 			continue
 		}
@@ -826,16 +832,31 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 		return err
 	}
 
-	l.Debugf("Finished GC, starting compaction (discarded/remaining: %v/%v blocks, %v/%v versions)", discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
+	l.Debugf("Finished GC (discarded/remaining: %v/%v blocks, %v/%v versions)", discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
 
-	return db.Compact()
+	return nil
 }
 
-func newBloomFilter(capacity int) bloomFilter {
+func (db *Lowlevel) recordIndirectionHashesForFile(f *protocol.FileInfo) {
+	db.recordIndirectionHashes(IndirectionHashesOnly{BlocksHash: f.BlocksHash, VersionHash: f.VersionHash})
+}
+
+func (db *Lowlevel) recordIndirectionHashes(hs IndirectionHashesOnly) {
+	db.filtersMut.Lock()
+	if db.blockFilter != nil && len(hs.BlocksHash) > 0 {
+		db.blockFilter.add(hs.BlocksHash)
+	}
+	if db.versionFilter != nil && len(hs.VersionHash) > 0 {
+		db.versionFilter.add(hs.VersionHash)
+	}
+	db.filtersMut.Unlock()
+}
+
+func newBloomFilter(capacity int) *bloomFilter {
 	var buf [16]byte
 	io.ReadFull(rand.Reader, buf[:])
 
-	return bloomFilter{
+	return &bloomFilter{
 		f: blobloom.NewOptimized(blobloom.Config{
 			Capacity: uint64(capacity),
 			FPRate:   indirectGCBloomFalsePositiveRate,
