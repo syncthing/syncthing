@@ -763,6 +763,21 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
 
+	// Only print something if the process takes more than "a moment".
+	logWait := make(chan struct{})
+	logTimer := time.AfterFunc(10*time.Second, func() {
+		l.Infoln("Database GC in progress - many Syncthing operations will be unresponsive until it's finished")
+		close(logWait)
+	})
+	defer func() {
+		if logTimer.Stop() {
+			return
+		}
+		<-logWait // Make sure messages are sent in order.
+		l.Infof("Database GC complete (discarded/remaining: %v/%v blocks, %v/%v versions)",
+			discardedBlocks, matchedBlocks, discardedVersions, matchedVersions)
+	}()
+
 	// Iterate over block lists, removing keys with hashes that don't match
 	// the filter.
 
