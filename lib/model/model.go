@@ -1306,7 +1306,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			if err := m.db.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
-			indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
+			if !folder.Paused {
+				indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
+			}
 			updatedPending = append(updatedPending, updatedPendingFolder{
 				FolderID:         folder.ID,
 				FolderLabel:      folder.Label,
