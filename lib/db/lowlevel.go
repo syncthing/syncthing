@@ -857,14 +857,17 @@ func (db *Lowlevel) recordIndirectionHashesForFile(f *protocol.FileInfo) {
 }
 
 func (db *Lowlevel) recordIndirectionHashes(hs IndirectionHashesOnly) {
-	db.filtersMut.Lock()
+	// must be called with gcMut held (at least read-held)
 	if db.blockFilter != nil && len(hs.BlocksHash) > 0 {
+		db.filtersMut.Lock()
 		db.blockFilter.add(hs.BlocksHash)
+		db.filtersMut.Unlock()
 	}
 	if db.versionFilter != nil && len(hs.VersionHash) > 0 {
+		db.filtersMut.Lock()
 		db.versionFilter.add(hs.VersionHash)
+		db.filtersMut.Unlock()
 	}
-	db.filtersMut.Unlock()
 }
 
 func newBloomFilter(capacity int) *bloomFilter {
