@@ -73,7 +73,6 @@ type Lowlevel struct {
 
 	blockFilter   *bloomFilter
 	versionFilter *bloomFilter
-	filtersMut    sync.Mutex
 }
 
 func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option) (*Lowlevel, error) {
@@ -89,7 +88,6 @@ func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option
 		recheckInterval:    recheckDefaultInterval,
 		oneFileSetCreated:  make(chan struct{}),
 		evLogger:           evLogger,
-		filtersMut:         sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(db)
@@ -859,14 +857,10 @@ func (db *Lowlevel) recordIndirectionHashesForFile(f *protocol.FileInfo) {
 func (db *Lowlevel) recordIndirectionHashes(hs IndirectionHashesOnly) {
 	// must be called with gcMut held (at least read-held)
 	if db.blockFilter != nil && len(hs.BlocksHash) > 0 {
-		db.filtersMut.Lock()
 		db.blockFilter.add(hs.BlocksHash)
-		db.filtersMut.Unlock()
 	}
 	if db.versionFilter != nil && len(hs.VersionHash) > 0 {
-		db.filtersMut.Lock()
 		db.versionFilter.add(hs.VersionHash)
-		db.filtersMut.Unlock()
 	}
 }
 
@@ -875,7 +869,7 @@ func newBloomFilter(capacity int) *bloomFilter {
 	io.ReadFull(rand.Reader, buf[:])
 
 	return &bloomFilter{
-		f: blobloom.NewOptimized(blobloom.Config{
+		f: blobloom.NewSyncOptimized(blobloom.Config{
 			Capacity: uint64(capacity),
 			FPRate:   indirectGCBloomFalsePositiveRate,
 			MaxBits:  8 * indirectGCBloomMaxBytes,
@@ -887,7 +881,7 @@ func newBloomFilter(capacity int) *bloomFilter {
 }
 
 type bloomFilter struct {
-	f      *blobloom.Filter
+	f      *blobloom.SyncFilter
 	k0, k1 uint64 // Random key for SipHash.
 }
 
