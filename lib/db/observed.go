@@ -28,11 +28,7 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 
 func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) error {
 	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
-	if err := db.Delete(key); err != nil {
-		l.Warnf("Failed to remove pending device entry: %v", err)
-		return err
-	}
-	return nil
+	return db.Delete(key)
 }
 
 // PendingDevices enumerates all entries.  Invalid ones are dropped from the database
@@ -86,30 +82,26 @@ func (db *Lowlevel) RemovePendingFolderForDevice(id string, device protocol.Devi
 	if err != nil {
 		return err
 	}
-	if err := db.Delete(key); err != nil {
-		l.Warnf("Failed to remove pending folder entry: %v", err)
-		return err
-	}
-	return nil
+	return db.Delete(key)
 }
 
 // RemovePendingFolder removes all entries matching a specific folder ID.
 func (db *Lowlevel) RemovePendingFolder(id string) error {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
-		l.Infof("Could not iterate through pending folder entries: %v", err)
 		return err
 	}
 	defer iter.Release()
+	var iterErr error
 	for iter.Next() {
 		if id != string(db.keyer.FolderFromPendingFolderKey(iter.Key())) {
 			continue
 		}
 		if err = db.Delete(iter.Key()); err != nil {
-			l.Warnf("Failed to remove pending folder entry: %v", err)
+			iterErr = err
 		}
 	}
-	return err
+	return iterErr
 }
 
 // Consolidated information about a pending folder
@@ -122,7 +114,7 @@ func (db *Lowlevel) PendingFolders() (map[string]PendingFolder, error) {
 }
 
 // PendingFoldersForDevice enumerates only entries matching the given device ID, unless it
-// is EmptyDeviceID.  Invalid ones are dropped from the database after a warning log
+// is EmptyDeviceID.  Invalid ones are dropped from the database after a info log
 // message, as a side-effect.
 func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[string]PendingFolder, error) {
 	var err error
