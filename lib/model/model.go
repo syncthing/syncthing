@@ -107,6 +107,8 @@ type Model interface {
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+	DismissPendingDevice(device protocol.DeviceID) error
+	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
@@ -1374,17 +1376,18 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexHandlers.RemoveAllExcept(seenFolders)
+	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
-		m.db.RemovePendingFolderForDevice(folder, deviceID)
-	}
-	if len(updatedPending) > 0 || len(expiredPending) > 0 {
-		expiredPendingList := make([]map[string]string, 0, len(expiredPending))
-		for folderID := range expiredPending {
-			expiredPendingList = append(expiredPendingList, map[string]string{
-				"folderID": folderID,
-				"deviceID": deviceID.String(),
-			})
+		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
+			// Nothing we can fix; logged from DB already
+			continue
 		}
+		expiredPendingList = append(expiredPendingList, map[string]string{
+			"folderID": folder,
+			"deviceID": deviceID.String(),
+		})
+	}
+	if len(updatedPending) > 0 || len(expiredPendingList) > 0 {
 		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
 			"added":   updatedPending,
 			"removed": expiredPendingList,
@@ -2947,10 +2950,13 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
-			m.db.RemovePendingFolder(folderID)
-			removedPendingFolders = append(removedPendingFolders, map[string]string{
-				"folderID": folderID,
-			})
+			if err := m.db.RemovePendingFolder(folderID); err != nil {
+				// Nothing we can fix; logged from DB already
+			} else {
+				removedPendingFolders = append(removedPendingFolders, map[string]string{
+					"folderID": folderID,
+				})
+			}
 			continue
 		}
 		for deviceID := range pf.OfferedBy {
@@ -2969,7 +2975,10 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			}
 			continue
 		removeFolderForDevice:
-			m.db.RemovePendingFolderForDevice(folderID, deviceID)
+			if err := m.db.RemovePendingFolderForDevice(folderID, deviceID); err != nil {
+				// Nothing we can fix; logged from DB already
+				continue
+			}
 			removedPendingFolders = append(removedPendingFolders, map[string]string{
 				"folderID": folderID,
 				"deviceID": deviceID.String(),
@@ -2999,7 +3008,10 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		}
 		continue
 	removeDevice:
-		m.db.RemovePendingDevice(deviceID)
+		if err := m.db.RemovePendingDevice(deviceID); err != nil {
+			// Nothing we can fix; logged from DB already
+			continue
+		}
 		removedPendingDevices = append(removedPendingDevices, map[string]string{
 			"deviceID": deviceID.String(),
 		})
@@ -3039,6 +3051,57 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return m.db.PendingFoldersForDevice(device)
+}
+
+// DismissPendingDevices removes the record of a specific pending device.
+func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
+	l.Debugf("Discarding pending device %v", device)
+	err := m.db.RemovePendingDevice(device)
+	if err != nil {
+		return err
+	}
+	removedPendingDevices := []map[string]string{
+		{"deviceID": device.String()},
+	}
+	m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+		"removed": removedPendingDevices,
+	})
+	return nil
+}
+
+// DismissPendingFolders removes records of pending folders.  Either a specific folder /
+// device combination, or all matching a specific folder ID if the device argument is
+// specified as EmptyDeviceID.
+func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) error {
+	var removedPendingFolders []map[string]string
+	if device == protocol.EmptyDeviceID {
+		l.Debugf("Discarding pending removed folder %s from all devices", folder)
+		err := m.db.RemovePendingFolder(folder)
+		if err != nil {
+			return err
+		}
+		removedPendingFolders = []map[string]string{
+			{"folderID": folder},
+		}
+	} else {
+		l.Debugf("Discarding pending folder %s from device %v", folder, device)
+		err := m.db.RemovePendingFolderForDevice(folder, device)
+		if err != nil {
+			return err
+		}
+		removedPendingFolders = []map[string]string{
+			{
+				"folderID": folder,
+				"deviceID": device.String(),
+			},
+		}
+	}
+	if len(removedPendingFolders) > 0 {
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+			"removed": removedPendingFolders,
+		})
+	}
+	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
