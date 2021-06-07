@@ -3,7 +3,7 @@ module github.com/syncthing/syncthing
 require (
 	github.com/AudriusButkevicius/pfilter v0.0.0-20210511165305-e9aaf99ab213
 	github.com/AudriusButkevicius/recli v0.0.6
-	github.com/alecthomas/kong v0.2.16
+	github.com/alecthomas/kong v0.2.17
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.3
@@ -19,7 +19,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/protobuf v1.5.2
 	github.com/greatroar/blobloom v0.7.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jackpal/gateway v1.0.7
@@ -52,7 +52,6 @@ require (
 	golang.org/x/text v0.3.6
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	golang.org/x/tools v0.1.0
-	google.golang.org/protobuf v1.26.0
 )
 
 go 1.14
