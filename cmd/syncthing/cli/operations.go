@@ -8,8 +8,10 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/urfave/cli"
 )
 
@@ -87,10 +89,12 @@ func setDefaultIgnores(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	ignores, err := config.IgnoresFromFile(c.Args()[0])
+	dir, file := filepath.Split(c.Args()[0])
+	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	lines, err := fs.ReadLines(filesystem, file)
 	if err != nil {
 		return err
 	}
-	_, err = client.PutJSON("config/defaults/ignores", ignores)
+	_, err = client.PutJSON("config/defaults/ignores", config.Ignores{Lines: lines})
 	return err
 }

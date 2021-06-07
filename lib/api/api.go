@@ -1298,12 +1298,14 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) readIgnores(w http.ResponseWriter, r *http.Request) {
-	ignores, err := config.IgnoresFromFile(r.URL.Query().Get("path"))
-	if err != nil && !os.IsNotExist(err) {
+	dir, file := filepath.Split(r.URL.Query().Get("path"))
+	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	lines, err := fs.ReadLines(filesystem, file)
+	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	sendJSON(w, ignores)
+	sendJSON(w, config.Ignores{Lines: lines})
 }
 
 func deserializeIgnores(body io.ReadCloser) ([]string, error) {
