@@ -1375,8 +1375,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
 	}
 
-
-	indexHandlers.removeAllExcept(seenFolders)
+	indexHandlers.RemoveAllExcept(seenFolders)
 	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
