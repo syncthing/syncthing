@@ -16,15 +16,15 @@ type Connection struct {
 	closeArgsForCall []struct {
 		arg1 error
 	}
-	ClosedStub        func() bool
+	ClosedStub        func() <-chan struct{}
 	closedMutex       sync.RWMutex
 	closedArgsForCall []struct {
 	}
 	closedReturns struct {
-		result1 bool
+		result1 <-chan struct{}
 	}
 	closedReturnsOnCall map[int]struct {
-		result1 bool
+		result1 <-chan struct{}
 	}
 	ClusterConfigStub        func(protocol.ClusterConfig)
 	clusterConfigMutex       sync.RWMutex
@@ -220,7 +220,7 @@ func (fake *Connection) CloseArgsForCall(i int) error {
 	return argsForCall.arg1
 }
 
-func (fake *Connection) Closed() bool {
+func (fake *Connection) Closed() <-chan struct{} {
 	fake.closedMutex.Lock()
 	ret, specificReturn := fake.closedReturnsOnCall[len(fake.closedArgsForCall)]
 	fake.closedArgsForCall = append(fake.closedArgsForCall, struct {
@@ -244,32 +244,32 @@ func (fake *Connection) ClosedCallCount() int {
 	return len(fake.closedArgsForCall)
 }
 
-func (fake *Connection) ClosedCalls(stub func() bool) {
+func (fake *Connection) ClosedCalls(stub func() <-chan struct{}) {
 	fake.closedMutex.Lock()
 	defer fake.closedMutex.Unlock()
 	fake.ClosedStub = stub
 }
 
-func (fake *Connection) ClosedReturns(result1 bool) {
+func (fake *Connection) ClosedReturns(result1 <-chan struct{}) {
 	fake.closedMutex.Lock()
 	defer fake.closedMutex.Unlock()
 	fake.ClosedStub = nil
 	fake.closedReturns = struct {
-		result1 bool
+		result1 <-chan struct{}
 	}{result1}
 }
 
-func (fake *Connection) ClosedReturnsOnCall(i int, result1 bool) {
+func (fake *Connection) ClosedReturnsOnCall(i int, result1 <-chan struct{}) {
 	fake.closedMutex.Lock()
 	defer fake.closedMutex.Unlock()
 	fake.ClosedStub = nil
 	if fake.closedReturnsOnCall == nil {
 		fake.closedReturnsOnCall = make(map[int]struct {
-			result1 bool
+			result1 <-chan struct{}
 		})
 	}
 	fake.closedReturnsOnCall[i] = struct {
-		result1 bool
+		result1 <-chan struct{}
 	}{result1}
 }
 

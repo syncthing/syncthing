@@ -2245,8 +2245,10 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("not shared with device2")
 	}
 
-	if conn2.Closed() {
+	select {
+	case <-conn2.Closed():
 		t.Error("conn already closed")
+	default:
 	}
 
 	if _, err := wcfg.RemoveDevice(device2); err != nil {
@@ -2271,7 +2273,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		}
 	}
 
-	if !conn2.Closed() {
+	select {
+	case <-conn2.Closed():
+	default:
 		t.Error("connection not closed")
 	}
 

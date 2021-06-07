@@ -142,10 +142,13 @@ type service struct {
 	natService           *nat.Service
 	evLogger             events.Logger
 
-	deviceAddressesChanged chan struct{}
-	listenersMut           sync.RWMutex
-	listeners              map[string]genericListener
-	listenerTokens         map[string]suture.ServiceToken
+	dialNow           chan struct{}
+	dialNowDevices    map[protocol.DeviceID]struct{}
+	dialNowDevicesMut sync.Mutex
+
+	listenersMut   sync.RWMutex
+	listeners      map[string]genericListener
+	listenerTokens map[string]suture.ServiceToken
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -166,10 +169,13 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
 
-		deviceAddressesChanged: make(chan struct{}, 1),
-		listenersMut:           sync.NewRWMutex(),
-		listeners:              make(map[string]genericListener),
-		listenerTokens:         make(map[string]suture.ServiceToken),
+		dialNowDevicesMut: sync.NewMutex(),
+		dialNow:           make(chan struct{}, 1),
+		dialNowDevices:    make(map[protocol.DeviceID]struct{}),
+
+		listenersMut:   sync.NewRWMutex(),
+		listeners:      make(map[string]genericListener),
+		listenerTokens: make(map[string]suture.ServiceToken),
 	}
 	cfg.Subscribe(service)
 
@@ -324,6 +330,13 @@ func (s *service) handle(ctx context.Context) error {
 		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID))
+		go func() {
+			<-protoConn.Closed()
+			s.dialNowDevicesMut.Lock()
+			s.dialNowDevices[remoteID] = struct{}{}
+			s.scheduleDialNow()
+			s.dialNowDevicesMut.Unlock()
+		}()
 
 		l.Infof("Established secure connection to %s at %s", remoteID, c)
 
@@ -334,7 +347,7 @@ func (s *service) handle(ctx context.Context) error {
 
 func (s *service) connect(ctx context.Context) error {
 	// Map of when to earliest dial each given device + address again
-	nextDialAt := make(map[string]time.Time)
+	nextDialAt := make(nextDialRegistry)
 
 	// Used as delay for the first few connection attempts (adjusted up to
 	// minConnectionLoopSleep), increased exponentially until it reaches
@@ -380,7 +393,14 @@ func (s *service) connect(ctx context.Context) error {
 		l.Debugln("Next connection loop in", sleep)
 
 		select {
-		case <-s.deviceAddressesChanged:
+		case <-s.dialNow:
+			// Remove affected devices from nextDialAt to dial immediately,
+			// regardless of when we last dialed it.
+			s.dialNowDevicesMut.Lock()
+			for device := range s.dialNowDevices {
+				delete(nextDialAt, device)
+			}
+			s.dialNowDevicesMut.Unlock()
 		case <-time.After(sleep):
 		case <-ctx.Done():
 			return ctx.Err()
@@ -401,7 +421,7 @@ func (s *service) bestDialerPriority(cfg config.Configuration) int {
 	return bestDialerPriority
 }
 
-func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Configuration, bestDialerPriority int, nextDialAt map[string]time.Time, initial bool) {
+func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Configuration, bestDialerPriority int, nextDialAt nextDialRegistry, initial bool) {
 	// Figure out current connection limits up front to see if there's any
 	// point in resolving devices and such at all.
 	allowAdditional := 0 // no limit
@@ -477,7 +497,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	}
 }
 
-func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg config.Configuration, deviceCfg config.DeviceConfiguration, nextDialAt map[string]time.Time, initial bool, priorityCutoff int) []dialTarget {
+func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg config.Configuration, deviceCfg config.DeviceConfiguration, nextDialAt nextDialRegistry, initial bool, priorityCutoff int) []dialTarget {
 	deviceID := deviceCfg.DeviceID
 
 	addrs := s.resolveDeviceAddrs(ctx, deviceCfg)
@@ -485,10 +505,9 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 
 	dialTargets := make([]dialTarget, 0, len(addrs))
 	for _, addr := range addrs {
-		// Use a special key that is more than just the address, as you
-		// might have two devices connected to the same relay
-		nextDialKey := deviceID.String() + "/" + addr
-		when, ok := nextDialAt[nextDialKey]
+		// Use both device and address, as you might have two devices connected
+		// to the same relay
+		when, ok := nextDialAt.get(deviceID, addr)
 		if ok && !initial && when.After(now) {
 			l.Debugf("Not dialing %s via %v as it's not time yet", deviceID, addr)
 			continue
@@ -496,7 +515,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 
 		// If we fail at any step before actually getting the dialer
 		// retry in a minute
-		nextDialAt[nextDialKey] = now.Add(time.Minute)
+		nextDialAt.set(deviceID, addr, now.Add(time.Minute))
 
 		uri, err := url.Parse(addr)
 		if err != nil {
@@ -532,7 +551,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		}
 
 		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
-		nextDialAt[nextDialKey] = now.Add(dialer.RedialFrequency())
+		nextDialAt.set(deviceID, addr, now.Add(dialer.RedialFrequency()))
 
 		// For LAN addresses, increase the priority so that we
 		// try these first.
@@ -735,21 +754,21 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
-	oldDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(from.Devices))
-	for _, dev := range from.Devices {
-		oldDevices[dev.DeviceID] = dev
-	}
-
+	oldDevices := from.DeviceMap()
 	for _, dev := range to.Devices {
 		oldDev, ok := oldDevices[dev.DeviceID]
 		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
-			select {
-			case s.deviceAddressesChanged <- struct{}{}:
-			default:
-				// channel is blocked - a config update is already pending for the connection loop.
-			}
+			s.scheduleDialNow()
 			break
 		}
+	}
+}
+
+func (s *service) scheduleDialNow() {
+	select {
+	case s.dialNow <- struct{}{}:
+	default:
+		// channel is blocked - a config update is already pending for the connection loop.
 	}
 }
 
@@ -877,16 +896,18 @@ func getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory
 	return listenerFactory, nil
 }
 
-func filterAndFindSleepDuration(nextDialAt map[string]time.Time, now time.Time) time.Duration {
+func filterAndFindSleepDuration(nextDialAt nextDialRegistry, now time.Time) time.Duration {
 	sleep := stdConnectionLoopSleep
-	for key, next := range nextDialAt {
-		if next.Before(now) {
-			// Expired entry, address was not seen in last pass(es)
-			delete(nextDialAt, key)
-			continue
-		}
-		if cur := next.Sub(now); cur < sleep {
-			sleep = cur
+	for device := range nextDialAt {
+		for address, next := range nextDialAt[device] {
+			if next.Before(now) {
+				// Expired entry, address was not seen in last pass(es)
+				nextDialAt.remove(device, address)
+				continue
+			}
+			if cur := next.Sub(now); cur < sleep {
+				sleep = cur
+			}
 		}
 	}
 	return sleep
@@ -1049,4 +1070,33 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	}
 
 	return nil
+}
+
+type nextDialRegistry map[protocol.DeviceID]map[string]time.Time
+
+func (r nextDialRegistry) get(device protocol.DeviceID, addr string) (time.Time, bool) {
+	if _, ok := r[device]; !ok {
+		return time.Time{}, false
+	}
+	if _, ok := r[device][addr]; !ok {
+		return time.Time{}, false
+	}
+	return r[device][addr], true
+}
+
+func (r nextDialRegistry) remove(device protocol.DeviceID, addr string) {
+	if _, ok := r[device]; !ok {
+		return
+	}
+	delete(r[device], addr)
+	if len(r[device]) == 0 {
+		delete(r, device)
+	}
+}
+
+func (r nextDialRegistry) set(device protocol.DeviceID, addr string, next time.Time) {
+	if _, ok := r[device]; !ok {
+		r[device] = make(map[string]time.Time)
+	}
+	r[device][addr] = next
 }
