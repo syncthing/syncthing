@@ -471,22 +471,30 @@ angular.module('syncthing.core')
                 }
 
                 var listenersFailed = [];
+                var listenersRunning = [];
                 for (var address in data.connectionServiceStatus) {
                     if (data.connectionServiceStatus[address].error) {
                         listenersFailed.push(address + ": " + data.connectionServiceStatus[address].error);
+                    } else {
+                        listenersRunning.push(address);
                     }
                 }
                 $scope.listenersFailed = listenersFailed;
+                $scope.listenersRunning = listenersRunning;
                 $scope.listenersTotal = $scope.sizeOf(data.connectionServiceStatus);
 
-                $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
-                for (var disco in data.discoveryErrors) {
-                    if (data.discoveryErrors[disco]) {
-                        discoveryFailed.push(disco + ": " + data.discoveryErrors[disco]);
+                var discoveryRunning = [];
+                for (var disco in data.discoveryStatus) {
+                    if (data.discoveryStatus[disco] && data.discoveryStatus[disco].error) {
+                        discoveryFailed.push(disco + ": " + data.discoveryStatus[disco].error);
+                    } else {
+                        discoveryRunning.push(disco);
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
+                $scope.discoveryRunning = discoveryRunning;
+                $scope.discoveryTotal = $scope.sizeOf(data.discoveryStatus);
 
                 refreshNoAuthWarning();
 
@@ -1249,8 +1257,34 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.showDiscoveryFailures = function () {
-            $('#discovery-failures').modal();
+        $scope.showListenerStatus = function () {
+            var params = {
+                type: 'listeners',
+            };
+            if ($scope.listenersFailed.length > 0) {
+                params.status = 'danger';
+                params.heading = $translate.instant("Listener Failures");
+            } else {
+                params.status = 'default';
+                params.heading = $translate.instant("Listener Status");
+            }
+            $scope.connectivityStatusParams = params;
+            $('#connectivity-status').modal();
+        };
+
+        $scope.showDiscoveryStatus = function () {
+            var params = {
+                type: 'discovery',
+            };
+            if ($scope.discoveryFailed.length > 0) {
+                params.status = 'danger';
+                params.heading = $translate.instant("Discovery Failures");
+            } else {
+                params.status = 'default';
+                params.heading = $translate.instant("Discovery Status");
+            }
+            $scope.connectivityStatusParams = params;
+            $('#connectivity-status').modal();
         };
 
         $scope.logging = {
