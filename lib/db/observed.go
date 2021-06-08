@@ -7,6 +7,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -89,7 +90,7 @@ func (db *Lowlevel) RemovePendingFolderForDevice(id string, device protocol.Devi
 func (db *Lowlevel) RemovePendingFolder(id string) error {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
-		return err
+		return fmt.Errorf("creating iterator: %w", err)
 	}
 	defer iter.Release()
 	var iterErr error
@@ -98,7 +99,11 @@ func (db *Lowlevel) RemovePendingFolder(id string) error {
 			continue
 		}
 		if err = db.Delete(iter.Key()); err != nil {
-			iterErr = err
+			if iterErr != nil {
+				l.Debugf("Repeat error removing pending folder: %v", err)
+			} else {
+				iterErr = err
+			}
 		}
 	}
 	return iterErr
