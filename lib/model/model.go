@@ -2956,7 +2956,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			if err := m.db.RemovePendingFolder(folderID); err != nil {
 				msg := "Failed to remove pending folder entry"
-				l.Warnf("%v (%v): %v", folderID, msg, err)
+				l.Warnf("%v (%v): %v", msg, folderID, err)
 				m.evLogger.Log(events.Failure, msg)
 			} else {
 				removedPendingFolders = append(removedPendingFolders, map[string]string{
