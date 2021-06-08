@@ -58,14 +58,15 @@ var (
 )
 
 const (
-	perDeviceWarningIntv          = 15 * time.Minute
-	tlsHandshakeTimeout           = 10 * time.Second
-	minConnectionReplaceAge       = 10 * time.Second
-	minConnectionLoopSleep        = 5 * time.Second
-	stdConnectionLoopSleep        = time.Minute
-	worstDialerPriority           = math.MaxInt32
-	recentlySeenCutoff            = 7 * 24 * time.Hour
-	shortLivedConnectionThreshold = 5 * time.Second
+	perDeviceWarningIntv             = 15 * time.Minute
+	tlsHandshakeTimeout              = 10 * time.Second
+	minConnectionReplaceAge          = 10 * time.Second
+	minConnectionLoopSleep           = 5 * time.Second
+	stdConnectionLoopSleep           = time.Minute
+	worstDialerPriority              = math.MaxInt32
+	recentlySeenCutoff               = 7 * 24 * time.Hour
+	shortLivedConnectionThreshold    = 5 * time.Second
+	closedConnectionRedialMinimumAge = time.Minute
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -331,7 +332,10 @@ func (s *service) handle(ctx context.Context) error {
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID))
 		go func() {
+			// Don't immedately redial if the connection is dropped quickly.
+			delay := time.NewTimer(closedConnectionRedialMinimumAge)
 			<-protoConn.Closed()
+			<-delay.C
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
 			s.scheduleDialNow()
