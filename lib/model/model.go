@@ -1380,7 +1380,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
 			msg := "Failed to remove pending folder-device entry"
-			l.Warnf("%v (%v, %v): %v", folder, deviceID, msg, err)
+			l.Warnf("%v (%v, %v): %v", msg, folder, deviceID, err)
 			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
