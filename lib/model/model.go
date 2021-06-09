@@ -1379,7 +1379,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
-			// Nothing we can fix; logged from DB already
+			msg := "Failed to remove pending folder-device entry"
+			l.Warnf("%v (%v, %v): %v", msg, folder, deviceID, err)
+			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
 		expiredPendingList = append(expiredPendingList, map[string]string{
@@ -2941,7 +2943,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingFolders []map[string]string
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
-		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+		msg := "Could not iterate through pending folder entries for cleanup"
+		l.Warnf("%v: %v", msg, err)
+		m.evLogger.Log(events.Failure, msg)
 		// Continue with pending devices below, loop is skipped.
 	}
 	for folderID, pf := range pendingFolders {
@@ -2951,7 +2955,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			if err := m.db.RemovePendingFolder(folderID); err != nil {
-				// Nothing we can fix; logged from DB already
+				msg := "Failed to remove pending folder entry"
+				l.Warnf("%v (%v): %v", msg, folderID, err)
+				m.evLogger.Log(events.Failure, msg)
 			} else {
 				removedPendingFolders = append(removedPendingFolders, map[string]string{
 					"folderID": folderID,
@@ -2976,7 +2982,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			continue
 		removeFolderForDevice:
 			if err := m.db.RemovePendingFolderForDevice(folderID, deviceID); err != nil {
-				// Nothing we can fix; logged from DB already
+				msg := "Failed to remove pending folder-device entry"
+				l.Warnf("%v (%v, %v): %v", msg, folderID, deviceID, err)
+				m.evLogger.Log(events.Failure, msg)
 				continue
 			}
 			removedPendingFolders = append(removedPendingFolders, map[string]string{
@@ -2994,7 +3002,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
-		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
+		msg := "Could not iterate through pending device entries for cleanup"
+		l.Warnf("%v: %v", msg, err)
+		m.evLogger.Log(events.Failure, msg)
 		return
 	}
 	for deviceID := range pendingDevices {
@@ -3009,7 +3019,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		continue
 	removeDevice:
 		if err := m.db.RemovePendingDevice(deviceID); err != nil {
-			// Nothing we can fix; logged from DB already
+			msg := "Failed to remove pending device entry"
+			l.Warnf("%v: %v", msg, err)
+			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
 		removedPendingDevices = append(removedPendingDevices, map[string]string{
