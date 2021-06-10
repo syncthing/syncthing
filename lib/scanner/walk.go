@@ -109,7 +109,7 @@ type walker struct {
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *walker) walk(ctx context.Context) chan ScanResult {
-	l.Debugln("Walk", w.Subs, w.Matcher)
+	l.Debugln(w, "Walk", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan ScanResult)
@@ -162,13 +162,13 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			for {
 				select {
 				case <-done:
-					l.Debugln("Walk progress done", w.Folder, w.Subs, w.Matcher)
+					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
 					current := progress.Total()
 					rate := progress.Rate()
-					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
 					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -184,7 +184,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 
 	loop:
 		for _, file := range filesToHash {
-			l.Debugln("real to hash:", file.Name)
+			l.Debugln(w, "real to hash:", file.Name)
 			select {
 			case realToHashChan <- file:
 			case <-ctx.Done():
@@ -198,7 +198,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 }
 
 func (w *walker) walkWithoutHashing(ctx context.Context) chan ScanResult {
-	l.Debugln("Walk without hashing", w.Subs, w.Matcher)
+	l.Debugln(w, "Walk without hashing", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan ScanResult)
@@ -224,7 +224,7 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 	} else {
 		for _, sub := range w.Subs {
 			if err := osutil.TraversesSymlink(w.Filesystem, filepath.Dir(sub)); err != nil {
-				l.Debugf("Skip walking %v as it is below a symlink", sub)
+				l.Debugf("%v: Skip walking %v as it is below a symlink", w, sub)
 				continue
 			}
 			w.Filesystem.Walk(sub, hashFiles)
@@ -258,21 +258,21 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if fs.IsTemporary(path) {
-			l.Debugln("temporary:", path, "err:", err)
+			l.Debugln(w, "temporary:", path, "err:", err)
 			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				w.Filesystem.Remove(path)
-				l.Debugln("removing temporary:", path, info.ModTime())
+				l.Debugln(w, "removing temporary:", path, info.ModTime())
 			}
 			return nil
 		}
 
 		if fs.IsInternal(path) {
-			l.Debugln("ignored (internal):", path)
+			l.Debugln(w, "ignored (internal):", path)
 			return skip
 		}
 
 		if w.Matcher.Match(path).IsIgnored() {
-			l.Debugln("ignored (patterns):", path)
+			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
 			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
 				return skip
@@ -285,7 +285,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if err != nil {
-			handleError(ctx, "scan", path, err, finishedChan)
+			// No need reporting errors for files that don't exist (e.g. scan
+			// due to filesystem watcher)
+			if !fs.IsNotExist(err) {
+				handleError(ctx, "scan", path, err, finishedChan)
+			}
 			return skip
 		}
 
@@ -384,6 +388,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -394,10 +399,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln("rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+		l.Debugln(w, "rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
 
-	l.Debugln("to hash:", relPath, f)
+	l.Debugln(w, "to hash:", relPath, f)
 
 	select {
 	case toHashChan <- f:
@@ -417,6 +422,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -429,7 +435,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		}
 	}
 
-	l.Debugln("dir:", relPath, f)
+	l.Debugln(w, "dir:", relPath, f)
 
 	select {
 	case finishedChan <- ScanResult{File: f}:
@@ -461,6 +467,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -473,7 +480,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	l.Debugln("symlink changedb:", relPath, f)
+	l.Debugln(w, "symlink changedb:", relPath, f)
 
 	select {
 	case finishedChan <- ScanResult{File: f}:
@@ -557,10 +564,6 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 }
 
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
-	// Ignore missing items, as deletions are not handled by the scanner.
-	if fs.IsNotExist(err) {
-		return
-	}
 	select {
 	case finishedChan <- ScanResult{
 		Err:  fmt.Errorf("%s: %w", context, err),

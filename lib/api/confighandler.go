@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type configMuxBuilder struct {
@@ -63,10 +64,15 @@ func (c *configMuxBuilder) registerFolders(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		var folders []config.FolderConfiguration
-		if err := unmarshalTo(r.Body, &folders); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		data, err := unmarshalToRawMessages(r.Body)
+		folders := make([]config.FolderConfiguration, len(data))
+		defaultFolder := c.cfg.DefaultFolder()
+		for i, bs := range data {
+			folders[i] = defaultFolder.Copy()
+			if err := json.Unmarshal(bs, &folders[i]); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetFolders(folders)
@@ -79,7 +85,7 @@ func (c *configMuxBuilder) registerFolders(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustFolder(w, r, config.FolderConfiguration{}, false)
+		c.adjustFolder(w, r, c.cfg.DefaultFolder(), false)
 	})
 }
 
@@ -89,10 +95,15 @@ func (c *configMuxBuilder) registerDevices(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		var devices []config.DeviceConfiguration
-		if err := unmarshalTo(r.Body, &devices); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		data, err := unmarshalToRawMessages(r.Body)
+		devices := make([]config.DeviceConfiguration, len(data))
+		defaultDevice := c.cfg.DefaultDevice()
+		for i, bs := range data {
+			devices[i] = defaultDevice.Copy()
+			if err := json.Unmarshal(bs, &devices[i]); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetDevices(devices)
@@ -105,19 +116,7 @@ func (c *configMuxBuilder) registerDevices(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
-		var device config.DeviceConfiguration
-		if err := unmarshalTo(r.Body, &device); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-			cfg.SetDevice(device)
-		})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		c.finish(w, waiter)
+		c.adjustDevice(w, r, c.cfg.DefaultDevice(), false)
 	})
 }
 
@@ -132,7 +131,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 	})
 
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustFolder(w, r, config.FolderConfiguration{}, false)
+		c.adjustFolder(w, r, c.cfg.DefaultFolder(), false)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -176,7 +175,7 @@ func (c *configMuxBuilder) registerDevice(path string) {
 	})
 
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustDevice(w, r, config.DeviceConfiguration{}, false)
+		c.adjustDevice(w, r, c.cfg.DefaultDevice(), false)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -206,7 +205,9 @@ func (c *configMuxBuilder) registerDefaultFolder(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustFolder(w, r, config.FolderConfiguration{}, true)
+		var cfg config.FolderConfiguration
+		util.SetDefaults(&cfg)
+		c.adjustFolder(w, r, cfg, true)
 	})
 
 	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +221,9 @@ func (c *configMuxBuilder) registerDefaultDevice(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustDevice(w, r, config.DeviceConfiguration{}, true)
+		var cfg config.DeviceConfiguration
+		util.SetDefaults(&cfg)
+		c.adjustDevice(w, r, cfg, true)
 	})
 
 	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +259,9 @@ func (c *configMuxBuilder) registerOptions(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustOptions(w, r, config.OptionsConfiguration{})
+		var cfg config.OptionsConfiguration
+		util.SetDefaults(&cfg)
+		c.adjustOptions(w, r, cfg)
 	})
 
 	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +275,9 @@ func (c *configMuxBuilder) registerLDAP(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustLDAP(w, r, config.LDAPConfiguration{})
+		var cfg config.LDAPConfiguration
+		util.SetDefaults(&cfg)
+		c.adjustLDAP(w, r, cfg)
 	})
 
 	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +291,9 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
-		c.adjustGUI(w, r, config.GUIConfiguration{})
+		var cfg config.GUIConfiguration
+		util.SetDefaults(&cfg)
+		c.adjustGUI(w, r, cfg)
 	})
 
 	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
@@ -423,6 +432,12 @@ func unmarshalTo(body io.ReadCloser, to interface{}) error {
 		return err
 	}
 	return json.Unmarshal(bs, to)
+}
+
+func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
+	var data []json.RawMessage
+	err := unmarshalTo(body, &data)
+	return data, err
 }
 
 func checkGUIPassword(oldPassword, newPassword string) (string, error) {

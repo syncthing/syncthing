@@ -534,6 +534,11 @@ func (t *readOnlyTransaction) withNeedLocal(folder []byte, truncate bool, fn Ite
 type readWriteTransaction struct {
 	backend.WriteTransaction
 	readOnlyTransaction
+	indirectionTracker
+}
+
+type indirectionTracker interface {
+	recordIndirectionHashesForFile(f *protocol.FileInfo)
 }
 
 func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
@@ -547,6 +552,7 @@ func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWr
 			ReadTransaction: tran,
 			keyer:           db.keyer,
 		},
+		indirectionTracker: db,
 	}, nil
 }
 
@@ -605,6 +611,8 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 	} else {
 		fi.VersionHash = nil
 	}
+
+	t.indirectionTracker.recordIndirectionHashesForFile(&fi)
 
 	fiBs := mustMarshal(&fi)
 	return t.Put(fkey, fiBs)

@@ -1,8 +1,8 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/pfilter v0.0.0-20210218141631-7468b85d810a
-	github.com/AudriusButkevicius/recli v0.0.5
+	github.com/AudriusButkevicius/pfilter v0.0.0-20210511165305-e9aaf99ab213
+	github.com/AudriusButkevicius/recli v0.0.6
 	github.com/alecthomas/kong v0.2.16
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/xdr v1.1.0
@@ -30,7 +30,6 @@ require (
 	github.com/lib/pq v1.10.1
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.6.1
-	github.com/mattn/go-isatty v0.0.12
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/minio/sha256-simd v1.0.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
@@ -44,7 +43,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.21.4
 	github.com/syncthing/notify v0.0.0-20210308121556-f45149b04939
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
-	github.com/thejerf/suture/v4 v4.0.0
+	github.com/thejerf/suture/v4 v4.0.1
 	github.com/urfave/cli v1.22.5
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b

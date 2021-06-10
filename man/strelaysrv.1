@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "Apr 26, 2021" "v1" "Syncthing"
+.TH "STRELAYSRV" "1" "May 28, 2021" "v1" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -50,7 +50,7 @@ strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-ke
 Syncthing relies on a network of community\-contributed relay servers. Anyone
 can run a relay server, and it will automatically join the relay pool and be
 available to Syncthing users. The current list of relays can be found at
-\fI\%http://relays.syncthing.net/\fP\&.
+\fI\%https://relays.syncthing.net/\fP\&.
 .SH OPTIONS
 .INDENT 0.0
 .TP
@@ -127,7 +127,7 @@ How often pings are sent (default 1m0s).
 .TP
 .B \-pools=<pool addresses>
 Comma separated list of relay pool addresses to join (default
-“\fI\%http://relays.syncthing.net/endpoint\fP”). Blank to disable announcement to
+“\fI\%https://relays.syncthing.net/endpoint\fP”). Blank to disable announcement to
 a pool, thereby remaining a private relay.
 .UNINDENT
 .INDENT 0.0
@@ -150,9 +150,9 @@ Status service is used by the relay pool server UI for displaying stats (data tr
 .sp
 Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/relaysrv/releases\fP> and
 download the file appropriate for your operating system. Unpacking it will
-yield a binary called \fBrelaysrv\fP (or \fBrelaysrv.exe\fP on Windows).
+yield a binary called \fBstrelaysrv\fP (or \fBstrelaysrv.exe\fP on Windows).
 Start this in whatever way you are most comfortable with; double clicking
-should work in any graphical environment. At first start, relaysrv will
+should work in any graphical environment. At first start, strelaysrv will
 generate certificate files and database in the current directory unless
 given flags to the contrary. It will also join the default pools of relays,
 which means that it is publicly visible and any client can connect to it.
@@ -176,16 +176,16 @@ system:
 .sp
 .nf
 .ft C
-$ sudo useradd relaysrv
-$ sudo mkdir /etc/relaysrv
-$ sudo chown relaysrv /etc/relaysrv
-$ sudo \-u relaysrv /usr/local/bin/relaysrv \-keys /etc/relaysrv
+$ sudo useradd strelaysrv
+$ sudo mkdir /etc/strelaysrv
+$ sudo chown strelaysrv /etc/strelaysrv
+$ sudo \-u strelaysrv /usr/local/bin/strelaysrv \-keys /etc/strelaysrv
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-This creates a user \fBrelaysrv\fP and a directory \fB/etc/relaysrv\fP to store
+This creates a user \fBstrelaysrv\fP and a directory \fB/etc/strelaysrv\fP to store
 the keys. The keys are generated on first startup. The relay will join the
 global relay pool, unless a \fB\-pools=""\fP argument is given.
 .sp
@@ -247,8 +247,8 @@ COMMIT
 .UNINDENT
 .UNINDENT
 .sp
-You will need to start \fBrelaysrv\fP with \fB\-ext\-address ":443"\fP\&. This tells
-\fBrelaysrv\fP that it can be contacted on port 443, even though it is listening
+You will need to start \fBstrelaysrv\fP with \fB\-ext\-address ":443"\fP\&. This tells
+\fBstrelaysrv\fP that it can be contacted on port 443, even though it is listening
 on port 22067. You will also need to let both port 443 and 22067 through your
 firewall.
 .sp
@@ -257,7 +257,7 @@ although your mileage may vary.
 .SH FIREWALL CONSIDERATIONS
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
-for providing public statistics at \fI\%http://relays.syncthing.net/\fP\&.  The firewall, such as
+for providing public statistics at \fI\%https://relays.syncthing.net/\fP\&.  The firewall, such as
 \fBiptables\fP, must permit incoming TCP connections to the following ports:
 .INDENT 0.0
 .IP \(bu 2

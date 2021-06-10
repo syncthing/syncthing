@@ -479,22 +479,30 @@ angular.module('syncthing.core')
                 }
 
                 var listenersFailed = [];
+                var listenersRunning = [];
                 for (var address in data.connectionServiceStatus) {
                     if (data.connectionServiceStatus[address].error) {
                         listenersFailed.push(address + ": " + data.connectionServiceStatus[address].error);
+                    } else {
+                        listenersRunning.push(address);
                     }
                 }
                 $scope.listenersFailed = listenersFailed;
+                $scope.listenersRunning = listenersRunning;
                 $scope.listenersTotal = $scope.sizeOf(data.connectionServiceStatus);
 
-                $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
-                for (var disco in data.discoveryErrors) {
-                    if (data.discoveryErrors[disco]) {
-                        discoveryFailed.push(disco + ": " + data.discoveryErrors[disco]);
+                var discoveryRunning = [];
+                for (var disco in data.discoveryStatus) {
+                    if (data.discoveryStatus[disco] && data.discoveryStatus[disco].error) {
+                        discoveryFailed.push(disco + ": " + data.discoveryStatus[disco].error);
+                    } else {
+                        discoveryRunning.push(disco);
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
+                $scope.discoveryRunning = discoveryRunning;
+                $scope.discoveryTotal = $scope.sizeOf(data.discoveryStatus);
 
                 refreshNoAuthWarning();
 
@@ -1209,13 +1217,20 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceName = function (deviceCfg) {
-            if (typeof deviceCfg === 'undefined' || typeof deviceCfg.deviceID === 'undefined') {
+            if (typeof deviceCfg === 'undefined') {
                 return "";
             }
             if (deviceCfg.name) {
                 return deviceCfg.name;
             }
-            return deviceCfg.deviceID.substr(0, 6);
+            return $scope.deviceShortID(deviceCfg.deviceID);
+        };
+
+        $scope.deviceShortID = function (deviceID) {
+            if (typeof deviceID === 'undefined') {
+                return "";
+            }
+            return deviceID.substr(0, 6);
         };
 
         $scope.thisDeviceName = function () {
@@ -1227,6 +1242,11 @@ angular.module('syncthing.core')
                 return device.name;
             }
             return device.deviceID.substr(0, 6);
+        };
+
+        $scope.showDeviceIdentification = function (deviceCfg) {
+            $scope.currentDevice = deviceCfg;
+            $('#idqr').modal();
         };
 
         $scope.setDevicePause = function (device, pause) {
@@ -1244,8 +1264,34 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.showDiscoveryFailures = function () {
-            $('#discovery-failures').modal();
+        $scope.showListenerStatus = function () {
+            var params = {
+                type: 'listeners',
+            };
+            if ($scope.listenersFailed.length > 0) {
+                params.status = 'danger';
+                params.heading = $translate.instant("Listener Failures");
+            } else {
+                params.status = 'default';
+                params.heading = $translate.instant("Listener Status");
+            }
+            $scope.connectivityStatusParams = params;
+            $('#connectivity-status').modal();
+        };
+
+        $scope.showDiscoveryStatus = function () {
+            var params = {
+                type: 'discovery',
+            };
+            if ($scope.discoveryFailed.length > 0) {
+                params.status = 'danger';
+                params.heading = $translate.instant("Discovery Failures");
+            } else {
+                params.status = 'default';
+                params.heading = $translate.instant("Discovery Status");
+            }
+            $scope.connectivityStatusParams = params;
+            $('#connectivity-status').modal();
         };
 
         $scope.logging = {
@@ -1710,6 +1756,10 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
+        $scope.dismissPendingDevice = function (deviceID) {
+            $http.delete(urlbase + '/cluster/pending/devices?device=' + encodeURIComponent(deviceID));
+        };
+
         $scope.unignoreDeviceFromTemporaryConfig = function (ignoredDevice) {
             $scope.tmpRemoteIgnoredDevices = $scope.tmpRemoteIgnoredDevices.filter(function (existingIgnoredDevice) {
                 return ignoredDevice.deviceID !== existingIgnoredDevice.deviceID;
@@ -2154,7 +2204,7 @@ angular.module('syncthing.core')
                 folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
                 break;
             default:
-                delete folderCfg.versioning;
+                folderCfg.versioning = {type: ''};
             }
             delete folderCfg._guiVersioning;
 
@@ -2207,6 +2257,11 @@ angular.module('syncthing.core')
                 $scope.devices[device].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
+        };
+
+        $scope.dismissPendingFolder = function (folderID, deviceID) {
+            $http.delete(urlbase + '/cluster/pending/folders?folder=' + encodeURIComponent(folderID)
+                         + '&device=' + encodeURIComponent(deviceID));
         };
 
         $scope.sharesFolder = function (folderCfg) {

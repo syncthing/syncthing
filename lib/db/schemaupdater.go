@@ -20,7 +20,7 @@ import (
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
-	dbMigrationVersion    = 17
+	dbMigrationVersion    = 18
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -102,6 +102,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{14, 14, "v1.9.0", db.updateSchemaTo14},
 		{14, 16, "v1.9.0", db.checkRepairMigration},
 		{14, 17, "v1.9.0", db.migration17},
+		{14, 18, "v1.9.0", db.dropIndexIDsMigration},
 	}
 
 	for _, m := range migrations {
@@ -829,6 +830,10 @@ func (db *schemaUpdater) migration17(prev int) error {
 		}
 	}
 	return nil
+}
+
+func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
+	return db.dropIndexIDs()
 }
 
 func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {

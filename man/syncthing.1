@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Apr 26, 2021" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "May 28, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -55,6 +55,14 @@ machine will automatically be replicated to your other devices. We believe your
 data is your data alone and you deserve to choose where it is stored. Therefore
 Syncthing does not upload your data to the cloud but exchanges your data across
 your machines as soon as they are online at the same time.
+.sp
+The \fBsyncthing\fP core application is a command\-line program which usually runs
+in the background and handles the synchronization. It provides a built\-in, HTML
+and JavaScript based user interface to be controlled from a web browser. This
+frontend communicates with the core application through some HTTP APIs, which
+other apps like graphical system integration helpers can use as well, for
+greatest flexibility. A link to reach the GUI and API is printed among the first
+few log messages.
 .SH OPTIONS
 .INDENT 0.0
 .TP

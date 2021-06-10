@@ -451,19 +451,10 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 	}
 	opStr := "DropDeltaIndexIDs"
 	l.Debugf(opStr)
-	dbi, err := db.NewPrefixIterator([]byte{KeyTypeIndexID})
+	err := db.dropIndexIDs()
 	if backend.IsClosed(err) {
 		return
 	} else if err != nil {
-		fatalError(err, opStr, db)
-	}
-	defer dbi.Release()
-	for dbi.Next() {
-		if err := db.Delete(dbi.Key()); err != nil && !backend.IsClosed(err) {
-			fatalError(err, opStr, db)
-		}
-	}
-	if err := dbi.Error(); err != nil && !backend.IsClosed(err) {
 		fatalError(err, opStr, db)
 	}
 }

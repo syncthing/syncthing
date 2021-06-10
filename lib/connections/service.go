@@ -146,7 +146,6 @@ type service struct {
 	listenersMut           sync.RWMutex
 	listeners              map[string]genericListener
 	listenerTokens         map[string]suture.ServiceToken
-	listenerSupervisor     *suture.Supervisor
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -171,19 +170,6 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		listenersMut:           sync.NewRWMutex(),
 		listeners:              make(map[string]genericListener),
 		listenerTokens:         make(map[string]suture.ServiceToken),
-
-		// A listener can fail twice, rapidly. Any more than that and it
-		// will be put on suspension for ten minutes. Restarts and changes
-		// due to config are done by removing and adding services, so are
-		// not subject to these limitations.
-		listenerSupervisor: suture.New("c.S.listenerSupervisor", suture.Spec{
-			EventHook: func(e suture.Event) {
-				l.Infoln(e)
-			},
-			FailureThreshold:  2,
-			FailureBackoff:    600 * time.Second,
-			PassThroughPanics: true,
-		}),
 	}
 	cfg.Subscribe(service)
 
@@ -201,7 +187,6 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 
 	service.Add(svcutil.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
 	service.Add(svcutil.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
-	service.Add(service.listenerSupervisor)
 	service.Add(service.natService)
 
 	svcutil.OnSupervisorDone(service.Supervisor, func() {
@@ -648,8 +633,18 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 
 	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
+
+	// Retrying a listener many times in rapid succession is unlikely to help,
+	// thus back off quickly. A listener may soon be functional again, e.g. due
+	// to a network interface coming back online - retry every minute.
+	spec := svcutil.SpecWithInfoLogger(l)
+	spec.FailureThreshold = 2
+	spec.FailureBackoff = time.Minute
+	sup := suture.New(fmt.Sprintf("listenerSupervisor@%v", listener), spec)
+	sup.Add(listener)
+
 	s.listeners[uri.String()] = listener
-	s.listenerTokens[uri.String()] = s.listenerSupervisor.Add(listener)
+	s.listenerTokens[uri.String()] = s.Add(sup)
 	return true
 }
 
@@ -729,7 +724,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	for addr, listener := range s.listeners {
 		if _, ok := seen[addr]; !ok || listener.Factory().Valid(to) != nil {
 			l.Debugln("Stopping listener", addr)
-			s.listenerSupervisor.Remove(s.listenerTokens[addr])
+			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
 			delete(s.listeners, addr)
 		}

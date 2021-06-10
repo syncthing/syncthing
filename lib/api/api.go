@@ -292,6 +292,10 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
+	// The DELETE handlers
+	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
+	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
+
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
@@ -634,6 +638,21 @@ func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, devices)
 }
 
+func (s *service) deletePendingDevices(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := s.model.DismissPendingDevice(deviceID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
@@ -650,6 +669,22 @@ func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, folders)
+}
+
+func (s *service) deletePendingFolders(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	folderID := qs.Get("folder")
+
+	if err := s.model.DismissPendingFolder(deviceID, folderID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -1025,16 +1060,16 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["tilde"] = tilde
 	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
-		discoErrors := make(map[string]string)
-		discoMethods := 0
-		for disco, err := range s.discoverer.ChildErrors() {
-			discoMethods++
-			if err != nil {
-				discoErrors[disco] = err.Error()
+		discoStatus := s.discoverer.ChildErrors()
+		res["discoveryStatus"] = discoveryStatusMap(discoStatus)
+		res["discoveryMethods"] = len(discoStatus) // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
+		discoErrors := make(map[string]*string, len(discoStatus))
+		for s, e := range discoStatus {
+			if e != nil {
+				discoErrors[s] = errorString(e)
 			}
 		}
-		res["discoveryMethods"] = discoMethods
-		res["discoveryErrors"] = discoErrors
+		res["discoveryErrors"] = discoErrors // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
 	}
 
 	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
@@ -1923,6 +1958,20 @@ func errorString(err error) *string {
 		return &msg
 	}
 	return nil
+}
+
+type discoveryStatusEntry struct {
+	Error *string `json:"error"`
+}
+
+func discoveryStatusMap(errs map[string]error) map[string]discoveryStatusEntry {
+	out := make(map[string]discoveryStatusEntry, len(errs))
+	for s, e := range errs {
+		out[s] = discoveryStatusEntry{
+			Error: errorString(e),
+		}
+	}
+	return out
 }
 
 // sanitizedHostname returns the given name in a suitable form for use as

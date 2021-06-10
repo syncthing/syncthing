@@ -10,12 +10,16 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
-func UnicodeLowercase(s string) string {
+// UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
+// having also normalized it to normalization form C.
+func UnicodeLowercaseNormalized(s string) string {
 	i := firstCaseChange(s)
 	if i == -1 {
-		return s
+		return norm.NFC.String(s)
 	}
 
 	var rs strings.Builder
@@ -28,7 +32,7 @@ func UnicodeLowercase(s string) string {
 	for _, r := range s[i:] {
 		rs.WriteRune(unicode.ToLower(unicode.ToUpper(r)))
 	}
-	return rs.String()
+	return norm.NFC.String(rs.String())
 }
 
 // Byte index of the first rune r s.t. lower(upper(r)) != r.

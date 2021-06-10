@@ -1280,6 +1280,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
+	addFakeConn(m, device1, f.ID)
 
 	name := "foo"
 	if fd, err := f.mtimefs.Create(name); err != nil {
@@ -1297,7 +1298,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	if !ok {
 		t.Fatal("file missing")
 	}
-	m.Index(device1, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}})
+	must(t, m.Index(device1, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}}))
 
 	scanChan := make(chan string)
 

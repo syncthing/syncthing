@@ -117,3 +117,30 @@ func isV4Local(ip net.IP) bool {
 	}
 	return false
 }
+
+func maybeReplacePort(uri *url.URL, laddr net.Addr) *url.URL {
+	if laddr == nil {
+		return uri
+	}
+
+	host, portStr, err := net.SplitHostPort(uri.Host)
+	if err != nil {
+		return uri
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return uri
+	}
+	if port != 0 {
+		return uri
+	}
+
+	_, lportStr, err := net.SplitHostPort(laddr.String())
+	if err != nil {
+		return uri
+	}
+
+	uriCopy := *uri
+	uriCopy.Host = net.JoinHostPort(host, lportStr)
+	return &uriCopy
+}

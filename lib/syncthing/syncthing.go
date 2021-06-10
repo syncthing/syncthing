@@ -110,7 +110,8 @@ func (a *App) Start() error {
 	a.stopped = make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mainServiceCancel = cancel
-	go a.run(ctx)
+	errChan := a.mainService.ServeBackground(ctx)
+	go a.wait(errChan)
 
 	if err := a.startup(); err != nil {
 		a.stopWithErr(svcutil.ExitError, err)
@@ -334,8 +335,8 @@ func (a *App) startup() error {
 	return nil
 }
 
-func (a *App) run(ctx context.Context) {
-	err := a.mainService.Serve(ctx)
+func (a *App) wait(errChan <-chan error) {
+	err := <-errChan
 	a.handleMainServiceError(err)
 
 	done := make(chan struct{})

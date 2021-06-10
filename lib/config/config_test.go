@@ -1346,3 +1346,30 @@ func TestInternalVersioningConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestReceiveEncryptedFolderFixed(t *testing.T) {
+	cfg := Configuration{
+		Folders: []FolderConfiguration{
+			{
+				ID:                 "foo",
+				Path:               "testdata",
+				Type:               FolderTypeReceiveEncrypted,
+				DisableTempIndexes: false,
+				IgnorePerms:        false,
+			},
+		},
+	}
+
+	cfg.prepare(device1)
+
+	if len(cfg.Folders) != 1 {
+		t.Fatal("Expected one folder")
+	}
+	f := cfg.Folders[0]
+	if !f.DisableTempIndexes {
+		t.Error("DisableTempIndexes should be true")
+	}
+	if !f.IgnorePerms {
+		t.Error("IgnorePerms should be true")
+	}
+}
