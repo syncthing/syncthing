@@ -443,3 +443,9 @@ ul.three-columns li, ul.two-columns li {
     background-color: #eeeeee;
     opacity: 1;
 }
+
+/* Make a "well" look more like a readonly text input when grouped with a button */
+.input-group .well-sm {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
