@@ -4,7 +4,7 @@ angular.module('syncthing.core')
             require: 'ngModel',
             link: function (scope, elm, attrs, ctrl) {
                 ctrl.$parsers.unshift(function (viewValue) {
-                    if (scope.editingExisting) {
+                    if (scope.currentDevice._editing != "add") {
                         // we shouldn't validate
                         ctrl.$setValidity('validDeviceid', true);
                     } else {

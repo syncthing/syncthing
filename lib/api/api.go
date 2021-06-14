@@ -272,7 +272,6 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/readignores", s.readIgnores)            // path
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
@@ -1317,45 +1316,27 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	ignores, err := deserializeIgnores(r.Body)
+	bs, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	err = s.model.SetIgnores(qs.Get("folder"), ignores)
+	var data map[string][]string
+	err = json.Unmarshal(bs, &data)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = s.model.SetIgnores(qs.Get("folder"), data["ignore"])
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
 	s.getDBIgnores(w, r)
-}
-
-func (s *service) readIgnores(w http.ResponseWriter, r *http.Request) {
-	dir, file := filepath.Split(r.URL.Query().Get("path"))
-	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	lines, err := fs.ReadLines(filesystem, file)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	sendJSON(w, config.Ignores{Lines: lines})
-}
-
-func deserializeIgnores(body io.ReadCloser) ([]string, error) {
-	bs, err := ioutil.ReadAll(body)
-	body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	var data map[string][]string
-	err = json.Unmarshal(bs, &data)
-	if err != nil {
-		return nil, err
-	}
-	return data["ignore"], nil
 }
 
 func (s *service) getIndexEvents(w http.ResponseWriter, r *http.Request) {
