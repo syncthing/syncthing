@@ -332,10 +332,7 @@ func (s *service) handle(ctx context.Context) error {
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID))
 		go func() {
-			// Don't immedately redial if the connection is dropped quickly.
-			delay := time.NewTimer(closedConnectionRedialMinimumAge)
 			<-protoConn.Closed()
-			<-delay.C
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
 			s.scheduleDialNow()
@@ -349,9 +346,28 @@ func (s *service) handle(ctx context.Context) error {
 	}
 }
 
+const (
+	dialCooldownInterval   = 2 * time.Minute
+	dialCooldownDelay      = 5 * time.Minute
+	dialCooldownMaxAttemps = 3
+)
+
+type dialCooldownEntry struct {
+	first    time.Time
+	attempts int
+}
+
 func (s *service) connect(ctx context.Context) error {
 	// Map of when to earliest dial each given device + address again
 	nextDialAt := make(nextDialRegistry)
+
+	// We do want to re-dial closed connections immediately, but not if the
+	// remote keeps dropping established connections. Thus we keep track of when
+	// the first forced re-dial happened, and how many attempts happen in the
+	// dialCooldownInterval after that. If it's more than
+	// dialCooldownMaxAttempts, don't force-redial that device for
+	// dialCooldownDelay (regular dials still happen).
+	dialCooldown := make(map[protocol.DeviceID]dialCooldownEntry)
 
 	// Used as delay for the first few connection attempts (adjusted up to
 	// minConnectionLoopSleep), increased exponentially until it reaches
@@ -400,10 +416,29 @@ func (s *service) connect(ctx context.Context) error {
 		case <-s.dialNow:
 			// Remove affected devices from nextDialAt to dial immediately,
 			// regardless of when we last dialed it.
+			// Check devices with recent immediat dials and remove them
+			// from cooldown if they don't exceed the set limits for dials.
+			for device, e := range dialCooldown {
+				if now.Before(e.first.Add(dialCooldownInterval)) {
+					continue
+				}
+				if e.attempts < dialCooldownMaxAttemps || now.After(e.first.Add(dialCooldownDelay)) {
+					delete(dialCooldown, device)
+				}
+			}
 			s.dialNowDevicesMut.Lock()
 			for device := range s.dialNowDevices {
-				delete(nextDialAt, device)
+				if e, ok := dialCooldown[device]; ok {
+					if e.attempts >= dialCooldownMaxAttemps {
+						continue
+					}
+					e.attempts++
+				} else {
+					dialCooldown[device] = dialCooldownEntry{first: now}
+				}
+				nextDialAt.removeDevice(device)
 			}
+			s.dialNowDevices = make(map[protocol.DeviceID]struct{})
 			s.dialNowDevicesMut.Unlock()
 		case <-time.After(sleep):
 		case <-ctx.Done():
@@ -511,8 +546,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 	for _, addr := range addrs {
 		// Use both device and address, as you might have two devices connected
 		// to the same relay
-		when, ok := nextDialAt.get(deviceID, addr)
-		if ok && !initial && when.After(now) {
+		if !initial && nextDialAt.get(deviceID, addr).After(now) {
 			l.Debugf("Not dialing %s via %v as it's not time yet", deviceID, addr)
 			continue
 		}
@@ -906,7 +940,7 @@ func filterAndFindSleepDuration(nextDialAt nextDialRegistry, now time.Time) time
 		for address, next := range nextDialAt[device] {
 			if next.Before(now) {
 				// Expired entry, address was not seen in last pass(es)
-				nextDialAt.remove(device, address)
+				nextDialAt.removeAddr(device, address)
 				continue
 			}
 			if cur := next.Sub(now); cur < sleep {
@@ -1078,17 +1112,15 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 
 type nextDialRegistry map[protocol.DeviceID]map[string]time.Time
 
-func (r nextDialRegistry) get(device protocol.DeviceID, addr string) (time.Time, bool) {
-	if _, ok := r[device]; !ok {
-		return time.Time{}, false
-	}
-	if _, ok := r[device][addr]; !ok {
-		return time.Time{}, false
-	}
-	return r[device][addr], true
+func (r nextDialRegistry) get(device protocol.DeviceID, addr string) time.Time {
+	return r[device][addr]
 }
 
-func (r nextDialRegistry) remove(device protocol.DeviceID, addr string) {
+func (r nextDialRegistry) removeDevice(device protocol.DeviceID) {
+	delete(r, device)
+}
+
+func (r nextDialRegistry) removeAddr(device protocol.DeviceID, addr string) {
 	if _, ok := r[device]; !ok {
 		return
 	}

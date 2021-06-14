@@ -28,7 +28,6 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 		id:         id,
 		model:      model,
 		closed:     make(chan struct{}),
-		closeOnce:  sync.Once{},
 	}
 	f.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 		return f.fileData[name], nil
