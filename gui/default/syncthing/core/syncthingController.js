@@ -2198,26 +2198,28 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._editing == "defaults") {
                 $scope.config.defaults.ignores.lines = ignoresArray();
                 $scope.config.defaults.folder = folderCfg;
-                promises.push($scope.saveConfig());
             } else {
                 $scope.folders[folderCfg.id] = folderCfg;
                 $scope.config.folders = folderList($scope.folders);
 
                 if ($scope.currentFolder._editing == "existing") {
-                    promises.push($q.when(saveFolderExisting(folderCfg)));
-                    promises.push($scope.saveConfig());
-                } else if ($scope.currentFolder._addIgnores) {
-                    // Setting ignores after adding the folder
-                    promises.push($scope.saveConfig().then(editFolderLoadIgnores).then(function() {
-                        if (!$scope.ignores.error && !$scope.ignores.text) {
-                            editFolderInitIgnoresDefault();
-                        };
-                    }));
-                    $scope.currentFolder._editing = "add-ignores";
-                    $('.nav-tabs a[href="#folder-ignores"]').tab('show');
-                    done = false;
-                };
+                    promises.push($q.when(saveFolderIgnoresExisting(folderCfg)));
+                }
             }
+
+            if ($scope.currentFolder._addIgnores) {
+                // Set ignores after adding the folder
+                promises.push($scope.saveConfig().then(editFolderLoadIgnores).then(function() {
+                    if (!$scope.ignores.error && !$scope.ignores.text) {
+                        editFolderInitIgnoresDefault();
+                    };
+                }));
+                $scope.currentFolder._editing = "add-ignores";
+                $('.nav-tabs a[href="#folder-ignores"]').tab('show');
+                done = false;
+            } else {
+                promises.push($scope.saveConfig());
+            };
 
             $q.all(promises).then(function() {
                 if (done) {
@@ -2226,7 +2228,7 @@ angular.module('syncthing.core')
             });
         };
 
-        function saveFolderExisting(folderCfg) {
+        function saveFolderIgnoresExisting(folderCfg) {
             if ($scope.ignores.disabled) {
                 return;
             }
