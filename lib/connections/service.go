@@ -58,15 +58,14 @@ var (
 )
 
 const (
-	perDeviceWarningIntv             = 15 * time.Minute
-	tlsHandshakeTimeout              = 10 * time.Second
-	minConnectionReplaceAge          = 10 * time.Second
-	minConnectionLoopSleep           = 5 * time.Second
-	stdConnectionLoopSleep           = time.Minute
-	worstDialerPriority              = math.MaxInt32
-	recentlySeenCutoff               = 7 * 24 * time.Hour
-	shortLivedConnectionThreshold    = 5 * time.Second
-	closedConnectionRedialMinimumAge = time.Minute
+	perDeviceWarningIntv          = 15 * time.Minute
+	tlsHandshakeTimeout           = 10 * time.Second
+	minConnectionReplaceAge       = 10 * time.Second
+	minConnectionLoopSleep        = 5 * time.Second
+	stdConnectionLoopSleep        = time.Minute
+	worstDialerPriority           = math.MaxInt32
+	recentlySeenCutoff            = 7 * 24 * time.Hour
+	shortLivedConnectionThreshold = 5 * time.Second
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -346,28 +345,9 @@ func (s *service) handle(ctx context.Context) error {
 	}
 }
 
-const (
-	dialCooldownInterval   = 2 * time.Minute
-	dialCooldownDelay      = 5 * time.Minute
-	dialCooldownMaxAttemps = 3
-)
-
-type dialCooldownEntry struct {
-	first    time.Time
-	attempts int
-}
-
 func (s *service) connect(ctx context.Context) error {
 	// Map of when to earliest dial each given device + address again
 	nextDialAt := make(nextDialRegistry)
-
-	// We do want to re-dial closed connections immediately, but not if the
-	// remote keeps dropping established connections. Thus we keep track of when
-	// the first forced re-dial happened, and how many attempts happen in the
-	// dialCooldownInterval after that. If it's more than
-	// dialCooldownMaxAttempts, don't force-redial that device for
-	// dialCooldownDelay (regular dials still happen).
-	dialCooldown := make(map[protocol.DeviceID]dialCooldownEntry)
 
 	// Used as delay for the first few connection attempts (adjusted up to
 	// minConnectionLoopSleep), increased exponentially until it reaches
@@ -402,7 +382,7 @@ func (s *service) connect(ctx context.Context) error {
 			// The sleep time is until the next dial scheduled in nextDialAt,
 			// clamped by stdConnectionLoopSleep as we don't want to sleep too
 			// long (config changes might happen).
-			sleep = filterAndFindSleepDuration(nextDialAt, now)
+			sleep = nextDialAt.sleepDurationAndCleanup(now)
 		}
 
 		// ... while making sure not to loop too quickly either.
@@ -412,38 +392,23 @@ func (s *service) connect(ctx context.Context) error {
 
 		l.Debugln("Next connection loop in", sleep)
 
+		timeout := time.NewTimer(sleep)
 		select {
 		case <-s.dialNow:
 			// Remove affected devices from nextDialAt to dial immediately,
-			// regardless of when we last dialed it.
-			// Check devices with recent immediat dials and remove them
-			// from cooldown if they don't exceed the set limits for dials.
-			for device, e := range dialCooldown {
-				if now.Before(e.first.Add(dialCooldownInterval)) {
-					continue
-				}
-				if e.attempts < dialCooldownMaxAttemps || now.After(e.first.Add(dialCooldownDelay)) {
-					delete(dialCooldown, device)
-				}
-			}
+			// regardless of when we last dialed it (there's cool down in the
+			// registry for too many repeat dials).
 			s.dialNowDevicesMut.Lock()
 			for device := range s.dialNowDevices {
-				if e, ok := dialCooldown[device]; ok {
-					if e.attempts >= dialCooldownMaxAttemps {
-						continue
-					}
-					e.attempts++
-				} else {
-					dialCooldown[device] = dialCooldownEntry{first: now}
-				}
-				nextDialAt.removeDevice(device)
+				nextDialAt.redialDevice(device, now)
 			}
 			s.dialNowDevices = make(map[protocol.DeviceID]struct{})
 			s.dialNowDevicesMut.Unlock()
-		case <-time.After(sleep):
+		case <-timeout.C:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+		timeout.Stop()
 	}
 }
 
@@ -934,23 +899,6 @@ func getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory
 	return listenerFactory, nil
 }
 
-func filterAndFindSleepDuration(nextDialAt nextDialRegistry, now time.Time) time.Duration {
-	sleep := stdConnectionLoopSleep
-	for device := range nextDialAt {
-		for address, next := range nextDialAt[device] {
-			if next.Before(now) {
-				// Expired entry, address was not seen in last pass(es)
-				nextDialAt.removeAddr(device, address)
-				continue
-			}
-			if cur := next.Sub(now); cur < sleep {
-				sleep = cur
-			}
-		}
-	}
-	return sleep
-}
-
 func urlsToStrings(urls []*url.URL) []string {
 	strings := make([]string, len(urls))
 	for i, url := range urls {
@@ -1110,29 +1058,88 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	return nil
 }
 
-type nextDialRegistry map[protocol.DeviceID]map[string]time.Time
+type nextDialRegistry map[protocol.DeviceID]nextDialDevice
+
+type nextDialDevice struct {
+	nextDial              map[string]time.Time
+	coolDownIntervalStart time.Time
+	attempts              int
+}
 
 func (r nextDialRegistry) get(device protocol.DeviceID, addr string) time.Time {
-	return r[device][addr]
+	return r[device].nextDial[addr]
 }
 
-func (r nextDialRegistry) removeDevice(device protocol.DeviceID) {
-	delete(r, device)
-}
+const (
+	dialCoolDownInterval   = 2 * time.Minute
+	dialCoolDownDelay      = 5 * time.Minute
+	dialCoolDownMaxAttemps = 3
+)
 
-func (r nextDialRegistry) removeAddr(device protocol.DeviceID, addr string) {
-	if _, ok := r[device]; !ok {
+// redialDevice marks the device for immediate redial, unless the remote keeps
+// dropping established connections. Thus we keep track of when the first forced
+// re-dial happened, and how many attempts happen in the dialCoolDownInterval
+// after that. If it's more than dialCoolDownMaxAttempts, don't force-redial
+// that device for dialCoolDownDelay (regular dials still happen).
+func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) {
+	dev, ok := r[device]
+	if !ok {
+		r[device] = nextDialDevice{
+			coolDownIntervalStart: now,
+			attempts:              1,
+		}
 		return
 	}
-	delete(r[device], addr)
-	if len(r[device]) == 0 {
-		delete(r, device)
+	if dev.attempts == 0 || now.Before(dev.coolDownIntervalStart.Add(dialCoolDownInterval)) {
+		if dev.attempts >= dialCoolDownMaxAttemps {
+			// Device has been force redialed too often - let it cool down.
+			return
+		}
+		if dev.attempts == 0 {
+			dev.coolDownIntervalStart = now
+		}
+		dev.attempts++
+		dev.nextDial = make(map[string]time.Time)
+		return
 	}
+	if dev.attempts >= dialCoolDownMaxAttemps && now.Before(dev.coolDownIntervalStart.Add(dialCoolDownDelay)) {
+		return // Still cooling down
+	}
+	delete(r, device)
 }
 
 func (r nextDialRegistry) set(device protocol.DeviceID, addr string, next time.Time) {
 	if _, ok := r[device]; !ok {
-		r[device] = make(map[string]time.Time)
+		r[device] = nextDialDevice{nextDial: make(map[string]time.Time)}
 	}
-	r[device][addr] = next
+	r[device].nextDial[addr] = next
+}
+
+func (r nextDialRegistry) sleepDurationAndCleanup(now time.Time) time.Duration {
+	sleep := stdConnectionLoopSleep
+	for id, dev := range r {
+		for address, next := range dev.nextDial {
+			if next.Before(now) {
+				// Expired entry, address was not seen in last pass(es)
+				delete(dev.nextDial, address)
+				continue
+			}
+			if cur := next.Sub(now); cur < sleep {
+				sleep = cur
+			}
+		}
+		if len(dev.nextDial) == 0 {
+			delete(r, id)
+		}
+		if dev.attempts > 0 {
+			interval := dialCoolDownInterval
+			if dev.attempts >= dialCoolDownMaxAttemps {
+				interval = dialCoolDownDelay
+			}
+			if now.Before(dev.coolDownIntervalStart.Add(interval)) {
+				dev.attempts = 0
+			}
+		}
+	}
+	return sleep
 }
