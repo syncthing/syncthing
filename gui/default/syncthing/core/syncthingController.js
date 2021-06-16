@@ -109,46 +109,49 @@ angular.module('syncthing.core')
 
             console.log('UIOnline');
 
-            refreshSystem();
-            refreshDiscoveryCache();
-            refreshConfig();
-            refreshCluster();
-            refreshConnectionStats();
             refreshDeviceStats();
             refreshFolderStats();
             refreshGlobalChanges();
             refreshThemes();
 
-            $http.get(urlbase + '/system/version').success(function (data) {
-                console.log("version", data);
-                if ($scope.version.version && $scope.version.version !== data.version) {
-                    // We already have a version response, but it differs from
-                    // the new one. Reload the full GUI in case it's changed.
-                    document.location.reload(true);
-                }
+            $q.all([
+                refreshSystem(),
+                refreshDiscoveryCache(),
+                refreshConfig(),
+                refreshCluster(),
+                refreshConnectionStats(),
+            ]).then(function() {
+                $http.get(urlbase + '/system/version').success(function (data) {
+                    console.log("version", data);
+                    if ($scope.version.version && $scope.version.version !== data.version) {
+                        // We already have a version response, but it differs from
+                        // the new one. Reload the full GUI in case it's changed.
+                        document.location.reload(true);
+                    }
 
-                $scope.version = data;
-            }).error($scope.emitHTTPError);
+                    $scope.version = data;
+                }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/svc/report').success(function (data) {
-                $scope.reportData = data;
-                if ($scope.system && $scope.config.options.urAccepted > -1 && $scope.config.options.urSeen < $scope.system.urVersionMax && $scope.config.options.urAccepted < $scope.system.urVersionMax) {
-                    // Usage reporting format has changed, prompt the user to re-accept.
-                    $('#ur').modal();
-                }
-            }).error($scope.emitHTTPError);
+                $http.get(urlbase + '/svc/report').success(function (data) {
+                    $scope.reportData = data;
+                    if ($scope.system && $scope.config.options.urAccepted > -1 && $scope.config.options.urSeen < $scope.system.urVersionMax && $scope.config.options.urAccepted < $scope.system.urVersionMax) {
+                        // Usage reporting format has changed, prompt the user to re-accept.
+                        $('#ur').modal();
+                    }
+                }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/system/upgrade').success(function (data) {
-                $scope.upgradeInfo = data;
-            }).error(function () {
-                $scope.upgradeInfo = null;
-            });
+                $http.get(urlbase + '/system/upgrade').success(function (data) {
+                    $scope.upgradeInfo = data;
+                }).error(function () {
+                    $scope.upgradeInfo = null;
+                });
 
-            online = true;
-            restarting = false;
-            $('#networkError').modal('hide');
-            $('#restarting').modal('hide');
-            $('#shutdown').modal('hide');
+                online = true;
+                restarting = false;
+                $('#networkError').modal('hide');
+                $('#restarting').modal('hide');
+                $('#shutdown').modal('hide');
+            }).catch($scope.emitHTTPError);
         });
 
         $scope.$on(Events.OFFLINE, function () {
@@ -462,7 +465,7 @@ angular.module('syncthing.core')
         }
 
         function refreshSystem() {
-            $http.get(urlbase + '/system/status').success(function (data) {
+            return $http.get(urlbase + '/system/status').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
 
@@ -526,18 +529,20 @@ angular.module('syncthing.core')
         }
 
         function refreshCluster() {
-            $http.get(urlbase + '/cluster/pending/devices').success(function (data) {
-                $scope.pendingDevices = data;
-                console.log("refreshCluster devices", data);
-            }).error($scope.emitHTTPError);
-            $http.get(urlbase + '/cluster/pending/folders').success(function (data) {
-                $scope.pendingFolders = data;
-                console.log("refreshCluster folders", data);
-            }).error($scope.emitHTTPError);
+            return $q.all([
+                $http.get(urlbase + '/cluster/pending/devices').success(function (data) {
+                    $scope.pendingDevices = data;
+                    console.log("refreshCluster devices", data);
+                }).error($scope.emitHTTPError),
+                $http.get(urlbase + '/cluster/pending/folders').success(function (data) {
+                    $scope.pendingFolders = data;
+                    console.log("refreshCluster folders", data);
+                }).error($scope.emitHTTPError),
+            ]);
         }
 
         function refreshDiscoveryCache() {
-            $http.get(urlbase + '/system/discovery').success(function (data) {
+            return $http.get(urlbase + '/system/discovery').success(function (data) {
                 for (var device in data) {
                     for (var i = 0; i < data[device].addresses.length; i++) {
                         // Relay addresses are URLs with
@@ -618,7 +623,7 @@ angular.module('syncthing.core')
         }
 
         function refreshConnectionStats() {
-            $http.get(urlbase + '/system/connections').success(function (data) {
+            return $http.get(urlbase + '/system/connections').success(function (data) {
                 var now = Date.now(),
                     td = (now - prevDate) / 1000,
                     id;
@@ -660,14 +665,15 @@ angular.module('syncthing.core')
         }
 
         function refreshConfig() {
-            $http.get(urlbase + '/config').success(function (data) {
-                updateLocalConfig(data);
-                console.log("refreshConfig", data);
-            }).error($scope.emitHTTPError);
-
-            $http.get(urlbase + '/config/insync').success(function (data) {
-                $scope.configInSync = data.configInSync;
-            }).error($scope.emitHTTPError);
+            return $q.all([
+                $http.get(urlbase + '/config').success(function (data) {
+                    updateLocalConfig(data);
+                    console.log("refreshConfig", data);
+                }),
+                $http.get(urlbase + '/config/insync').success(function (data) {
+                    $scope.configInSync = data.configInSync;
+                }),
+            ]);
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1413,16 +1419,11 @@ angular.module('syncthing.core')
                     'Content-Type': 'application/json'
                 }
             };
-            $http.put(urlbase + '/config', cfg, opts).success(function () {
-                refreshConfig();
-
+            $http.put(urlbase + '/config', cfg, opts).finally(refreshConfig).then(function() {
                 if (callback) {
                     callback();
                 }
-            }).error(function (data, status, headers, config) {
-                refreshConfig();
-                $scope.emitHTTPError(data, status, headers, config);
-            });
+            }, $scope.emitHTTPError);
         };
 
         $scope.urVersions = function () {
