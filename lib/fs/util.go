@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -227,4 +228,23 @@ func isVolumeNameOnly(parts []string) bool {
 	isNormalVolumeName := len(parts) == 1 && strings.HasSuffix(parts[0], ":")
 	isUNCVolumeName := len(parts) == 4 && strings.HasSuffix(parts[3], ":")
 	return isNormalVolumeName || isUNCVolumeName
+}
+
+// ReadLines is a utility to read a file at path in filesystem and returns
+// returns its contents as a string-slice of lines.
+func ReadLines(filesystem Filesystem, path string) ([]string, error) {
+	fd, err := filesystem.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	scanner := bufio.NewScanner(fd)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return lines, nil
 }

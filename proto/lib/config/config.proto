@@ -24,6 +24,11 @@ message Configuration {
 }
 
 message Defaults {
-    FolderConfiguration folder = 1;
-    DeviceConfiguration device = 2;
+    FolderConfiguration folder  = 1;
+    DeviceConfiguration device  = 2;
+    Ignores             ignores = 3;
+}
+
+message Ignores {
+    repeated string lines = 1;
 }

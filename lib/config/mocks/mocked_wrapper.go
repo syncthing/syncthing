@@ -40,6 +40,16 @@ type Wrapper struct {
 	defaultFolderReturnsOnCall map[int]struct {
 		result1 config.FolderConfiguration
 	}
+	DefaultIgnoresStub        func() config.Ignores
+	defaultIgnoresMutex       sync.RWMutex
+	defaultIgnoresArgsForCall []struct {
+	}
+	defaultIgnoresReturns struct {
+		result1 config.Ignores
+	}
+	defaultIgnoresReturnsOnCall map[int]struct {
+		result1 config.Ignores
+	}
 	DeviceStub        func(protocol.DeviceID) (config.DeviceConfiguration, bool)
 	deviceMutex       sync.RWMutex
 	deviceArgsForCall []struct {
@@ -446,6 +456,59 @@ func (fake *Wrapper) DefaultFolderReturnsOnCall(i int, result1 config.FolderConf
 	}
 	fake.defaultFolderReturnsOnCall[i] = struct {
 		result1 config.FolderConfiguration
+	}{result1}
+}
+
+func (fake *Wrapper) DefaultIgnores() config.Ignores {
+	fake.defaultIgnoresMutex.Lock()
+	ret, specificReturn := fake.defaultIgnoresReturnsOnCall[len(fake.defaultIgnoresArgsForCall)]
+	fake.defaultIgnoresArgsForCall = append(fake.defaultIgnoresArgsForCall, struct {
+	}{})
+	stub := fake.DefaultIgnoresStub
+	fakeReturns := fake.defaultIgnoresReturns
+	fake.recordInvocation("DefaultIgnores", []interface{}{})
+	fake.defaultIgnoresMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Wrapper) DefaultIgnoresCallCount() int {
+	fake.defaultIgnoresMutex.RLock()
+	defer fake.defaultIgnoresMutex.RUnlock()
+	return len(fake.defaultIgnoresArgsForCall)
+}
+
+func (fake *Wrapper) DefaultIgnoresCalls(stub func() config.Ignores) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = stub
+}
+
+func (fake *Wrapper) DefaultIgnoresReturns(result1 config.Ignores) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = nil
+	fake.defaultIgnoresReturns = struct {
+		result1 config.Ignores
+	}{result1}
+}
+
+func (fake *Wrapper) DefaultIgnoresReturnsOnCall(i int, result1 config.Ignores) {
+	fake.defaultIgnoresMutex.Lock()
+	defer fake.defaultIgnoresMutex.Unlock()
+	fake.DefaultIgnoresStub = nil
+	if fake.defaultIgnoresReturnsOnCall == nil {
+		fake.defaultIgnoresReturnsOnCall = make(map[int]struct {
+			result1 config.Ignores
+		})
+	}
+	fake.defaultIgnoresReturnsOnCall[i] = struct {
+		result1 config.Ignores
 	}{result1}
 }
 
@@ -1752,6 +1815,8 @@ func (fake *Wrapper) Invocations() map[string][][]interface{} {
 	defer fake.defaultDeviceMutex.RUnlock()
 	fake.defaultFolderMutex.RLock()
 	defer fake.defaultFolderMutex.RUnlock()
+	fake.defaultIgnoresMutex.RLock()
+	defer fake.defaultIgnoresMutex.RUnlock()
 	fake.deviceMutex.RLock()
 	defer fake.deviceMutex.RUnlock()
 	fake.deviceListMutex.RLock()
