@@ -174,11 +174,10 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	return err
 }
 
+// resume might be called because the folder was actually resumed, or just
+// because the folder config changed (and thus the runner and potentially fset).
 func (s *indexHandler) resume(fset *db.FileSet, runner service) {
 	s.cond.L.Lock()
-	if !s.paused {
-		s.evLogger.Log(events.Failure, "index handler got resumed while not paused")
-	}
 	s.paused = false
 	s.fset = fset
 	s.runner = runner
@@ -474,7 +473,7 @@ func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfigura
 	if folder.Paused {
 		r.folderPausedLocked(folder.ID)
 	} else {
-		r.folderStartedLocked(folder, fset, runner)
+		r.folderRunningLocked(folder, fset, runner)
 	}
 	r.mut.Unlock()
 }
@@ -492,10 +491,10 @@ func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
 	}
 }
 
-// folderStartedLocked resumes an already running index handler or starts it, if it
+// folderRunningLocked resumes an already running index handler or starts it, if it
 // was added while paused.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) folderStartedLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
+func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
 	r.folderStates[folder.ID] = &indexHandlerFolderState{
 		cfg:    folder,
 		fset:   fset,
