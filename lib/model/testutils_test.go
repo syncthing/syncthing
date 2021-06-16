@@ -194,7 +194,7 @@ func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.
 }
 
 func (m *testModel) testCompletion(device protocol.DeviceID, folder string) FolderCompletion {
-	comp, err := m.Completion(protocol.LocalDeviceID, "default")
+	comp, err := m.Completion(device, folder)
 	must(m.t, err)
 	return comp
 }
@@ -276,7 +276,7 @@ func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
 	return snap.ReceiveOnlyChangedSize()
 }
 
-func needSize(t *testing.T, m Model, folder string) db.Counts {
+func needSizeLocal(t *testing.T, m Model, folder string) db.Counts {
 	t.Helper()
 	snap := dbSnapshot(t, m, folder)
 	defer snap.Release()

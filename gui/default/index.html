@@ -102,7 +102,7 @@
             </a>
             <ul class="dropdown-menu">
               <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-              <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
               <li class="divider" aria-hidden="true"></li>
               <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
               <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
@@ -209,10 +209,13 @@
               </div>
               <div class="panel-footer clearfix">
                 <div class="pull-right">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingDevice(deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recurr.' | translate}}">
+                    <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
+                  </button>
                   <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(deviceID, pendingDevice.name)">
                     <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(deviceID, pendingDevice)">
+                  <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(deviceID, pendingDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                     <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                   </button>
                 </div>
@@ -250,13 +253,16 @@
                 </div>
                 <div class="panel-footer clearfix">
                   <div class="pull-right">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingFolder(folderID, deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recurr.' | translate}}">
+                      <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(folderID, pendingFolder, deviceID)" ng-if="!folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(folderID, deviceID)" ng-if="folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Share</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(deviceID, folderID, offeringDevice)">
+                    <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(deviceID, folderID, offeringDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                       <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                     </button>
                   </div>
@@ -649,32 +655,34 @@
                     <tr>
                       <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                       <td class="text-right">
-                        <span ng-if="listenersFailed.length == 0" class="data text-success">
-                          <span>{{listenersTotal}}/{{listenersTotal}}</span>
-                        </span>
-                        <span ng-if="listenersFailed.length != 0" class="data" ng-class="{'text-danger': listenersFailed.length == listenersTotal}">
-                          <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{listenersFailed.join('<br>\n')}}">
-                            {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
-                          </span>
+                        <span class="data" tooltip data-original-title="{{'Show detailed listener status' | translate}}.">
+                          <a href="" style="color:inherit" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
+			    {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
+			  </a>
                         </span>
                       </td>
                     </tr>
                     <tr ng-if="system.discoveryEnabled">
                       <th><span class="fas fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                       <td class="text-right">
-                        <span ng-if="discoveryFailed.length == 0" class="data text-success">
-                          <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
-                        </span>
-                        <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                          <span popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery failures' | translate}}.">
-                            <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
-                          </span>
+                        <span class="data" tooltip data-original-title="{{'Show detailed discovery status' | translate}}.">
+                          <a href="" style="color:inherit" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
+			    {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+			  </a>
                         </span>
                       </td>
                     </tr>
                     <tr>
                       <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Uptime</span></th>
                       <td class="text-right">{{system.uptime | duration:"m"}}</td>
+                    </tr>
+                    <tr>
+                      <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
+                      <td class="text-right">
+                        <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
+                          <a href="" ng-click="showDeviceIdentification(thisDevice())">{{deviceShortID(deviceCfg.deviceID)}}</a>
+                        </span>
+                      </td>
                     </tr>
                     <tr>
                       <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
@@ -800,6 +808,14 @@
                         <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
                         <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                       </tr>
+                      <tr>
+                        <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
+                        <td class="text-right">
+                          <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
+                            <a href="" ng-click="showDeviceIdentification(deviceCfg)">{{deviceShortID(deviceCfg.deviceID)}}</a>
+                          </span>
+                        </td>
+                      </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                         <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                         <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
@@ -899,7 +915,7 @@
   <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/connectivityStatusModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/folder/revertOverrideView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>

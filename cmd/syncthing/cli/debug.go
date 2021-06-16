@@ -8,6 +8,7 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/urfave/cli"
 )
@@ -35,7 +36,10 @@ var debugCommand = cli.Command{
 
 func debugFile() cli.ActionFunc {
 	return func(c *cli.Context) error {
-		return indexDumpOutput(fmt.Sprintf("debug/file?folder=%v&file=%v", c.Args()[0], normalizePath(c.Args()[1])))(c)
+		query := make(url.Values)
+		query.Set("folder", c.Args()[0])
+		query.Set("file", normalizePath(c.Args()[1]))
+		return indexDumpOutput("debug/file?" + query.Encode())(c)
 	}
 }
 

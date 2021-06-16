@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "May 24, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jun 14, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -54,7 +54,7 @@ Syncthing also has a database, which is often stored in this directory too.
 The config location defaults to \fB$HOME/.config/syncthing\fP
 (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
 or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can be changed at runtime
-using the \fB\-config\fP flag. In this directory the following files are
+using the \fB\-\-config\fP flag. In this directory the following files are
 located:
 .INDENT 0.0
 .TP
@@ -89,8 +89,8 @@ If \fB~/.local/share/syncthing\fP exists, use that location.
 Use the old default location (same as config).
 .UNINDENT
 .sp
-The location of the database can be changed using the \fB\-data\fP flag. The
-\fB\-home\fP flag sets both config and database locations at the same time.
+The location of the database can be changed using the \fB\-\-data\fP flag. The
+\fB\-\-home\fP flag sets both config and database locations at the same time.
 The database contains the following files:
 .INDENT 0.0
 .TP

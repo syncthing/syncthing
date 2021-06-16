@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -445,6 +446,61 @@ func TestWatchModTime(t *testing.T) {
 		}
 	}
 
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
+}
+
+func TestModifyFile(t *testing.T) {
+	name := "modify"
+
+	old := createTestFile(name, "file")
+	modifyTestFile(name, old, "syncthing")
+
+	testCase := func() {
+		modifyTestFile(name, old, "modified")
+	}
+
+	expectedEvents := []Event{
+		{old, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	sleepMs(1000)
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, false)
+}
+
+func TestTruncateFileOnly(t *testing.T) {
+	name := "truncate"
+
+	file := createTestFile(name, "file")
+	modifyTestFile(name, file, "syncthing")
+
+	// modified the content to empty use os.WriteFile will first truncate the file
+	// (/os/file.go:696) then write nothing. This logic is also used in many editors,
+	// such as when emptying a file in VSCode or JetBrain
+	//
+	// darwin will only modified the inode's metadata, such us mtime, file size, etc.
+	// but would not modified the file directly, so FSEvent 'FSEventsModified' will not
+	// be received
+	//
+	// we should watch the FSEvent 'FSEventsInodeMetaMod' to watch the Inode metadata,
+	// and that should be considered as an NonRemove Event
+	//
+	// notify also considered FSEventsInodeMetaMod as Write Event
+	// /watcher_fsevents.go:89
+	testCase := func() {
+		modifyTestFile(name, file, "")
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+	}
+	allowedEvents := []Event{
+		{file, NonRemove},
+	}
+
+	sleepMs(1000)
 	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{}, true)
 }
 
@@ -467,6 +523,15 @@ func renameTestFile(name string, old string, new string) {
 	new = filepath.Join(name, new)
 	if err := testFs.Rename(old, new); err != nil {
 		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new, err))
+	}
+}
+
+func modifyTestFile(name string, file string, content string) {
+	joined := filepath.Join(testDirAbs, name, file)
+
+	err := ioutil.WriteFile(joined, []byte(content), 0755)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to modify test file %s: %s", joined, err))
 	}
 }
 

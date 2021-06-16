@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "May 24, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Jun 14, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -356,6 +356,28 @@ been started for that file/folder, where disappearing implies that the
 downloads have been finished or failed for that file/folder. There is
 always a last event emitted with no data, which implies all downloads
 have finished/failed.
+.SS Failure
+.sp
+Generated for specific errors that will also be sent to the usage
+reporting server, if enabled in the configuration.  These are usually
+of special interest to the developers to troubleshoot complex errors.
+The \fBdata\fP field contains a textual error message.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 93,
+  "globalID": 93,
+  "type": "Failure",
+  "time": "2021\-06\-07T21:22:03.414609034+02:00",
+  "data": "index handler got paused while already paused"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS FolderCompletion
 .sp
 The \fBFolderCompletion\fP event is emitted when the local or remote
@@ -422,6 +444,29 @@ New in version 0.11.12.
 The statechanged event.
 .UNINDENT
 .UNINDENT
+.SS FolderPaused
+.sp
+Generated when the configuration changes regarding the “paused” state
+of a folder.  Sent repeatedly for each changed folder.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 93,
+  "globalID": 93,
+  "type": "FolderPaused",
+  "time": "2021\-06\-07T23:45:03.414609034+02:00",
+  "data": {
+    "id": "abcde\-fghij",
+    "label": "My folder"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS FolderRejected
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
@@ -450,7 +495,30 @@ have, or have but do not share with the device in question.
 .fi
 .UNINDENT
 .UNINDENT
-.SS Folder Scan Progress
+.SS FolderResumed
+.sp
+Generated when the configuration changes regarding the “paused” state
+of a folder.  Sent repeatedly for each changed folder.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 93,
+  "globalID": 93,
+  "type": "FolderResumed",
+  "time": "2021\-06\-07T23:45:03.414609034+02:00",
+  "data": {
+    "id": "abcde\-fghij",
+    "label": "My folder"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS FolderScanProgress
 .sp
 Emitted in regular intervals (folder setting ProgressIntervalS, 2s by default)
 during scans giving the amount of bytes already scanned and to be scanned in
@@ -600,7 +668,7 @@ The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP
 .sp
 New in version 0.11.10: The \fBmetadata\fP action.
 
-.SS Listen Addresses Changed
+.SS ListenAddressesChanged
 .sp
 This event is emitted when a listen address changes.
 .INDENT 0.0
@@ -709,7 +777,7 @@ changes during a scan.
 .fi
 .UNINDENT
 .UNINDENT
-.SS Login Attempt
+.SS LoginAttempt
 .sp
 When authentication is enabled for the GUI, this event is emitted on every
 login attempt. If either the username or password are incorrect, \fBsuccess\fP
@@ -742,7 +810,7 @@ New in version 1.14.0.
 
 .sp
 Emitted when pending devices were added / updated (connection from
-unknown ID) or removed (device is ignored or added).
+unknown ID) or removed (device is ignored, dismissed or added).
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -756,13 +824,13 @@ unknown ID) or removed (device is ignored or added).
     "added": [
       {
         "address": "127.0.0.1:51807",
-        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
+        "deviceID": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
         "name": "My dusty computer"
       }
     ],
     "removed": [
       {
-        "device": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
+        "deviceID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
       }
     ]
   }
@@ -777,8 +845,10 @@ New in version 1.14.0.
 
 .sp
 Emitted when pending folders were added / updated (offered by some
-device, but not shared to them) or removed (folder ignored or added or
-no longer offered from the remote device).
+device, but not shared to them) or removed (folder ignored, dismissed
+or added or no longer offered from the remote device).  A removed
+entry without a \fBdeviceID\fP attribute means that the folder is no
+longer pending for any device.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -791,15 +861,18 @@ no longer offered from the remote device).
   "data": {
     "added": [
       {
-        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
-        "folder": "GXWxf\-3zgnU",
+        "deviceID": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
+        "folderID": "GXWxf\-3zgnU",
         "folderLabel": "My Pictures"
       }
     ],
     "removed": [
       {
-        "device": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
-        "folder": "neyfh\-sa2nu"
+        "deviceID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
+        "folderID": "neyfh\-sa2nu"
+      },
+      {
+        "folderID": "abcde\-fghij"
       }
     ]
   }
@@ -835,7 +908,7 @@ Files that are updated locally produce a local\-change\-detected event.
 .fi
 .UNINDENT
 .UNINDENT
-.SS Remote Download Progress
+.SS RemoteDownloadProgress
 .sp
 This event is emitted when a download\-progress message is
 received. It returns a map \fBdata\fP of filenames with a count of

@@ -163,17 +163,42 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	var cfg Configuration
-
-	util.SetDefaults(&cfg)
-
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
 		return Configuration{}, err
 	}
 
+	var cfg Configuration
+
+	util.SetDefaults(&cfg)
+
 	if err := json.Unmarshal(bs, &cfg); err != nil {
 		return Configuration{}, err
+	}
+
+	// Unmarshal list of devices and folders separately to set defaults
+	var rawFoldersDevices struct {
+		Folders []json.RawMessage
+		Devices []json.RawMessage
+	}
+	if err := json.Unmarshal(bs, &rawFoldersDevices); err != nil {
+		return Configuration{}, err
+	}
+
+	cfg.Folders = make([]FolderConfiguration, len(rawFoldersDevices.Folders))
+	for i, bs := range rawFoldersDevices.Folders {
+		cfg.Folders[i] = cfg.Defaults.Folder.Copy()
+		if err := json.Unmarshal(bs, &cfg.Folders[i]); err != nil {
+			return Configuration{}, err
+		}
+	}
+
+	cfg.Devices = make([]DeviceConfiguration, len(rawFoldersDevices.Devices))
+	for i, bs := range rawFoldersDevices.Devices {
+		cfg.Devices[i] = cfg.Defaults.Device.Copy()
+		if err := json.Unmarshal(bs, &cfg.Devices[i]); err != nil {
+			return Configuration{}, err
+		}
 	}
 
 	if err := cfg.prepare(myID); err != nil {

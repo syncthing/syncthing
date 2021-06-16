@@ -1278,6 +1278,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
+	addFakeConn(m, device1, f.ID)
 
 	name := "foo"
 	if fd, err := f.mtimefs.Create(name); err != nil {

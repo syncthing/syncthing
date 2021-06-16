@@ -398,12 +398,16 @@ func (t *readOnlyTransaction) withBlocksHash(folder, hash []byte, iterator Itera
 		f.Name = osutil.NativeFilename(f.Name)
 
 		if !bytes.Equal(f.BlocksHash, hash) {
-			l.Warnf("Mismatching block map list hashes: got %x expected %x", f.BlocksHash, hash)
+			msg := "Mismatching block map list hashes"
+			t.evLogger.Log(events.Failure, fmt.Sprintln(msg, "in withBlocksHash"))
+			l.Warnf("%v: got %x expected %x", msg, f.BlocksHash, hash)
 			continue
 		}
 
 		if f.IsDeleted() || f.IsInvalid() || f.IsDirectory() || f.IsSymlink() {
-			l.Warnf("Found something of unexpected type in block list map: %s", f)
+			msg := "Found something of unexpected type in block list map"
+			t.evLogger.Log(events.Failure, fmt.Sprintln(msg, "in withBlocksHash"))
+			l.Warnf("%v: %s", msg, f)
 			continue
 		}
 
@@ -534,6 +538,11 @@ func (t *readOnlyTransaction) withNeedLocal(folder []byte, truncate bool, fn Ite
 type readWriteTransaction struct {
 	backend.WriteTransaction
 	readOnlyTransaction
+	indirectionTracker
+}
+
+type indirectionTracker interface {
+	recordIndirectionHashesForFile(f *protocol.FileInfo)
 }
 
 func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
@@ -547,6 +556,7 @@ func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWr
 			ReadTransaction: tran,
 			keyer:           db.keyer,
 		},
+		indirectionTracker: db,
 	}, nil
 }
 
@@ -605,6 +615,8 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 	} else {
 		fi.VersionHash = nil
 	}
+
+	t.indirectionTracker.recordIndirectionHashesForFile(&fi)
 
 	fiBs := mustMarshal(&fi)
 	return t.Put(fkey, fiBs)

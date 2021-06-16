@@ -1450,6 +1450,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	})
 	must(t, err)
 	waiter.Wait()
+	addFakeConn(m, device2, fcfg.ID)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
