@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jun 07, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jun 14, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -603,6 +603,32 @@ Returns information about current system status and resource usage. The CPU perc
     "global@https://discovery\-v6\-2.syncthing.net/v2/": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host",
     "global@https://discovery\-v6\-3.syncthing.net/v2/": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
   },
+  "discoveryStatus": {
+    "IPv4 local": {
+      "error": null
+    },
+    "IPv6 local": {
+      "error": null
+    },
+    "global@https://discovery\-v4\-1.syncthing.net/v2/": {
+      "error": "500 Internal Server Error"
+    },
+    "global@https://discovery\-v4\-2.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    },
+    "global@https://discovery\-v4\-3.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    },
+    "global@https://discovery\-v6\-1.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host"
+    },
+    "global@https://discovery\-v6\-2.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host"
+    },
+    "global@https://discovery\-v6\-3.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
+    }
+  },
   "discoveryMethods": 8,
   "goroutines": 49,
   "lastDialStatus": {
@@ -640,6 +666,14 @@ success) for each peer address that Syncthing has attempted to contact.
 The \fBconnectionServiceStatus\fP entries gained \fB"error": null\fP
 attributes where previously there would be no \fBerror\fP attribute at all
 in the success case.
+
+.sp
+New in version 1.18.0: The \fBdiscoveryStatus\fP dictionary lists all configured discovery methods, not
+only failed ones like the now deprecated \fBdiscoveryErrors\fP\&.  Each entry is
+an object itself (for consistency with other fields), where a \fBnull\fP value
+for the \fBerror\fP attribute means the method is running successfully.  This
+effectively deprecates the \fBdiscoveryMethods\fP attribute as well, which now
+always matches the number of entries in \fBdiscoveryStatus\fP\&.
 
 .SS GET /rest/system/upgrade
 .sp
@@ -724,6 +758,31 @@ and \fBPATCH\fP replaces only the given child objects.
 .SH CLUSTER ENDPOINTS
 .sp
 Concerns the mesh network structure.
+.SS DELETE /rest/cluster/pending/devices
+.sp
+New in version 1.18.0.
+
+.sp
+Remove records about a pending remote device which tried to connect.
+Valid values for the \fBdevice\fP parameter are those from the
+corresponding /rest/cluster\-pending\-devices\-get endpoint.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/devices?device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Returns status 200 and no content upon success, or status 500 and a
+plain text error on failure.  A /events/pendingdeviceschanged
+event will be generated in response.
+.sp
+For a more permanent effect, also for future connections from the same
+device ID, the device should be ignored in the configuration instead.
 .SS GET /rest/cluster/pending/devices
 .sp
 New in version 1.13.0.
@@ -747,6 +806,34 @@ configured in our instance.
 .fi
 .UNINDENT
 .UNINDENT
+.SS DELETE /rest/cluster/pending/folders
+.sp
+New in version 1.18.0.
+
+.sp
+Remove records about a pending folder announced from a remote device.
+Valid values for the \fBfolder\fP and \fBdevice\fP parameters are those
+from the corresponding /rest/cluster\-pending\-folders\-get
+endpoint.  The \fBdevice\fP parameter is optional and affects
+announcements of this folder from the given device, or from \fIany\fP
+device if omitted.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/folders?folder=cpkn4\-57ysy&device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Returns status 200 and no content upon success, or status 500 and a
+plain text error on failure.  A /events/pendingfolderschanged
+event will be generated in response.
+.sp
+For a more permanent effect, also for future announcements of the same
+folder ID, the folder should be ignored in the configuration instead.
 .SS GET /rest/cluster/pending/folders
 .sp
 New in version 1.13.0.
