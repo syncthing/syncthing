@@ -814,6 +814,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 	}
 
 	oldGlobalFV, haveOldGlobal := fl.GetGlobal()
+	oldGlobalFV = oldGlobalFV.copy()
 
 	if !haveOldGlobal {
 		// Shouldn't ever happen, but doesn't hurt to handle.

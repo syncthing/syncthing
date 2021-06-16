@@ -331,15 +331,12 @@ func (vl *VersionList) pop(device, name []byte) (FileVersion, bool, bool, error)
 	oldFV := vl.RawVersions[i].copy()
 	if invDevice {
 		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
-	} else {
-		vl.RawVersions[i].Devices = popDeviceAt(vl.RawVersions[i].Devices, j)
+		return oldFV, true, false, nil
 	}
+	vl.RawVersions[i].Devices = popDeviceAt(vl.RawVersions[i].Devices, j)
 	// If the last valid device of the previous global was removed above,
-	// the next entry is now the global entry (unless all entries are invalid).
-	if len(vl.RawVersions[i].Devices) == 0 && globalPos == i {
-		return oldFV, true, globalPos == vl.findGlobal(), nil
-	}
-	return oldFV, true, false, nil
+	// the global changed.
+	return oldFV, true, len(vl.RawVersions[i].Devices) == 0 && globalPos == i, nil
 }
 
 // Get returns a FileVersion that contains the given device and whether it has
