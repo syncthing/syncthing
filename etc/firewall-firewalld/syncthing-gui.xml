@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Syncthing-GUI</short>
+  <description>Syncthing web gui</description>
+  <port protocol="tcp" port="8384"/>
+</service>
+
