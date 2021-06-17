@@ -151,7 +151,7 @@ type Connection interface {
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
-	Closed() bool
+	Closed() <-chan struct{}
 	ConnectionInfo
 }
 
@@ -380,13 +380,8 @@ func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 	}
 }
 
-func (c *rawConnection) Closed() bool {
-	select {
-	case <-c.closed:
-		return true
-	default:
-		return false
-	}
+func (c *rawConnection) Closed() <-chan struct{} {
+	return c.closed
 }
 
 // DownloadProgress sends the progress updates for the files that are currently being downloaded.
