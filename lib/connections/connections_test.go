@@ -231,6 +231,71 @@ func TestConnectionStatus(t *testing.T) {
 	check(nil, nil)
 }
 
+func TestNextDialRegistryCleanup(t *testing.T) {
+	now := time.Now()
+	firsts := []time.Time{
+		now.Add(time.Second),
+		now.Add(time.Second + dialCoolDownInterval),
+		now.Add(time.Second + dialCoolDownDelay),
+	}
+
+	r := make(nextDialRegistry)
+
+	// Cases where the device should be cleaned up
+
+	r[protocol.LocalDeviceID] = nextDialDevice{}
+	r.sleepDurationAndCleanup(now)
+	if l := len(r); l > 0 {
+		t.Errorf("Expected empty to be cleaned up, got length %v", l)
+	}
+	for _, dev := range []nextDialDevice{
+		// attempts below threshold, outside of interval
+		{
+			attempts:              1,
+			coolDownIntervalStart: firsts[1],
+		},
+		{
+			attempts:              1,
+			coolDownIntervalStart: firsts[2],
+		},
+		// Threshold reached, but outside of cooldown delay
+		{
+			attempts:              dialCoolDownMaxAttemps,
+			coolDownIntervalStart: firsts[2],
+		},
+	} {
+		r[protocol.LocalDeviceID] = dev
+		r.sleepDurationAndCleanup(now)
+		if l := len(r); l > 0 {
+			t.Errorf("attempts: %v, start: %v: Expected all cleaned up, got length %v", dev.attempts, dev.coolDownIntervalStart, l)
+		}
+	}
+
+	// Cases where the device should stay monitored
+	for _, dev := range []nextDialDevice{
+		// attempts below threshold, inside of interval
+		{
+			attempts:              1,
+			coolDownIntervalStart: firsts[0],
+		},
+		// attempts at threshold, inside delay
+		{
+			attempts:              dialCoolDownMaxAttemps,
+			coolDownIntervalStart: firsts[0],
+		},
+		{
+			attempts:              dialCoolDownMaxAttemps,
+			coolDownIntervalStart: firsts[1],
+		},
+	} {
+		r[protocol.LocalDeviceID] = dev
+		r.sleepDurationAndCleanup(now)
+		if l := len(r); l != 1 {
+			t.Errorf("attempts: %v, start: %v: Expected device still tracked, got length %v", dev.attempts, dev.coolDownIntervalStart, l)
+		}
+	}
+}
+
 func BenchmarkConnections(pb *testing.B) {
 	addrs := []string{
 		"tcp://127.0.0.1:0",
