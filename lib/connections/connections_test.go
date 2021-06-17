@@ -234,9 +234,9 @@ func TestConnectionStatus(t *testing.T) {
 func TestNextDialRegistryCleanup(t *testing.T) {
 	now := time.Now()
 	firsts := []time.Time{
-		now.Add(time.Second),
-		now.Add(time.Second + dialCoolDownInterval),
-		now.Add(time.Second + dialCoolDownDelay),
+		now.Add(-dialCoolDownInterval + time.Second),
+		now.Add(-dialCoolDownDelay + time.Second),
+		now.Add(-2 * dialCoolDownDelay),
 	}
 
 	r := make(nextDialRegistry)

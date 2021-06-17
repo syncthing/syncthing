@@ -404,11 +404,11 @@ func (s *service) connect(ctx context.Context) error {
 			}
 			s.dialNowDevices = make(map[protocol.DeviceID]struct{})
 			s.dialNowDevicesMut.Unlock()
+			timeout.Stop()
 		case <-timeout.C:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		timeout.Stop()
 	}
 }
 
@@ -1128,17 +1128,17 @@ func (r nextDialRegistry) sleepDurationAndCleanup(now time.Time) time.Duration {
 				sleep = cur
 			}
 		}
-		if len(dev.nextDial) == 0 {
-			delete(r, id)
-		}
 		if dev.attempts > 0 {
 			interval := dialCoolDownInterval
 			if dev.attempts >= dialCoolDownMaxAttemps {
 				interval = dialCoolDownDelay
 			}
-			if now.Before(dev.coolDownIntervalStart.Add(interval)) {
+			if now.After(dev.coolDownIntervalStart.Add(interval)) {
 				dev.attempts = 0
 			}
+		}
+		if len(dev.nextDial) == 0 && dev.attempts == 0 {
+			delete(r, id)
 		}
 	}
 	return sleep
