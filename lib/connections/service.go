@@ -1085,6 +1085,7 @@ func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) 
 	dev, ok := r[device]
 	if !ok {
 		r[device] = nextDialDevice{
+			nextDial:              make(map[string]time.Time),
 			coolDownIntervalStart: now,
 			attempts:              1,
 		}
