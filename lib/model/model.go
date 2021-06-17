@@ -1305,6 +1305,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			delete(expiredPending, folder.ID)
 			of.Label = folder.Label
 			of.ReceiveEncrypted = len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			of.RemoteEncrypted = len(ccDeviceInfos[folder.ID].remote.EncryptionPasswordToken) > 0
 			if err := m.db.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
@@ -1316,6 +1317,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				FolderLabel:      folder.Label,
 				DeviceID:         deviceID,
 				ReceiveEncrypted: of.ReceiveEncrypted,
+				RemoteEncrypted:  of.RemoteEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -3265,6 +3267,7 @@ type updatedPendingFolder struct {
 	FolderLabel      string            `json:"folderLabel"`
 	DeviceID         protocol.DeviceID `json:"deviceID"`
 	ReceiveEncrypted bool              `json:"receiveEncrypted"`
+	RemoteEncrypted  bool              `json:"remoteEncrypted"`
 }
 
 // redactPathError checks if the error is actually a os.PathError, and if yes

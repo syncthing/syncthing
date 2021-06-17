@@ -458,13 +458,9 @@ func (cfg *Configuration) FolderMap() map[string]FolderConfiguration {
 // folders that have an encryption password set.
 func (cfg Configuration) FolderPasswords(device protocol.DeviceID) map[string]string {
 	res := make(map[string]string, len(cfg.Folders))
-nextFolder:
 	for _, folder := range cfg.Folders {
-		for _, dev := range folder.Devices {
-			if dev.DeviceID == device && dev.EncryptionPassword != "" {
-				res[folder.ID] = dev.EncryptionPassword
-				continue nextFolder
-			}
+		if dev, ok := folder.Device(device); ok && dev.EncryptionPassword != "" {
+			res[folder.ID] = dev.EncryptionPassword
 		}
 	}
 	return res
