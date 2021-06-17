@@ -1939,17 +1939,20 @@ angular.module('syncthing.core')
             $('#globalChanges').modal();
         };
 
-        function editFolderModal() {
+        function editFolderModal(initialTab) {
             initVersioningEditing();
             $scope.currentFolder._recvEnc = $scope.currentFolder.type === 'receiveencrypted';
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
+            if (!initialTab) {
+                initialTab = "#folder-general";
+            }
+            $('.nav-tabs a[href="' + initialTab + '"]').tab('show');
             $('#editFolder').modal().one('shown.bs.tab', function (e) {
                 if (e.target.attributes.href.value === "#folder-ignores") {
                     $('#folder-ignores textarea').focus();
                 }
             }).one('hidden.bs.modal', function () {
-                $('.nav-tabs a[href="#folder-general"]').tab('show');
                 window.location.hash = "";
                 $scope.currentFolder = {};
             });
@@ -1978,7 +1981,7 @@ angular.module('syncthing.core')
             return 'fas fa-folder';
         };
 
-        function editFolder() {
+        function editFolder(initialTab) {
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             } else if (!$scope.currentFolder.path) {
@@ -1986,7 +1989,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.path = '';
             }
             initShareEditing('folder');
-            editFolderModal();
+            editFolderModal(initialTab);
         }
 
         $scope.internalVersioningEnabled = function(guiVersioning) {
@@ -2027,7 +2030,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editFolderExisting = function(folderCfg) {
+        $scope.editFolderExisting = function(folderCfg, initialTab) {
             $scope.editingExisting = true;
             $scope.editingDefaults = false;
             $scope.currentFolder = angular.copy(folderCfg);
@@ -2047,7 +2050,7 @@ angular.module('syncthing.core')
                     $scope.emitHTTPError(err);
                 });
 
-            editFolder();
+            editFolder(initialTab);
         };
 
         $scope.editFolderDefaults = function() {
@@ -2131,9 +2134,8 @@ angular.module('syncthing.core')
                 $scope.saveConfig();
             } else {
                 // Open edit folder dialog to enter encryption password
-                $scope.editFolderExisting(folderCfg);
+                $scope.editFolderExisting(folderCfg, "#folder-sharing");
                 $scope.currentSharing.selected[device] = true;
-                $('.nav-tabs a[href="#folder-sharing"]').tab('show');
             }
         };
 
