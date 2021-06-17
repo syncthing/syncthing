@@ -954,7 +954,7 @@ func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, er
 		}
 	}
 
-	if err := db.checkSequencesUnchanged([]byte(folder), oldMeta, meta); err != nil {
+	if err := db.checkSequencesUnchanged(folder, oldMeta, meta); err != nil {
 		return nil, fmt.Errorf("checking for changed sequences: %w", err)
 	}
 
@@ -1288,7 +1288,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 
 // checkSequencesUnchanged resets delta indexes for any device where the
 // sequence changed.
-func (db *Lowlevel) checkSequencesUnchanged(folder []byte, oldMeta, meta *metadataTracker) error {
+func (db *Lowlevel) checkSequencesUnchanged(folder string, oldMeta, meta *metadataTracker) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -1297,7 +1297,7 @@ func (db *Lowlevel) checkSequencesUnchanged(folder []byte, oldMeta, meta *metada
 
 	var key []byte
 	deleteIndexID := func(devID protocol.DeviceID) error {
-		key, err = db.keyer.GenerateIndexIDKey(key, devID[:], folder)
+		key, err = db.keyer.GenerateIndexIDKey(key, devID[:], []byte(folder))
 		if err != nil {
 			return err
 		}
@@ -1308,7 +1308,7 @@ func (db *Lowlevel) checkSequencesUnchanged(folder []byte, oldMeta, meta *metada
 		if err := deleteIndexID(protocol.LocalDeviceID); err != nil {
 			return err
 		}
-		l.Infoln("Local sequence changed while repairing - dropping delta indexes")
+		l.Infof("Local sequence for folder %v changed while repairing - dropping delta indexes", folder)
 	}
 
 	oldDevices := oldMeta.devices()
@@ -1319,19 +1319,24 @@ func (db *Lowlevel) checkSequencesUnchanged(folder []byte, oldMeta, meta *metada
 	for _, devID := range meta.devices() {
 		oldSeq := oldSequences[devID]
 		delete(oldSequences, devID)
-		if oldSeq == meta.Sequence(devID) {
+		// A lower sequence number just means we will receive some indexes again.
+		if oldSeq >= meta.Sequence(devID) {
+			if oldSeq > meta.Sequence(devID) {
+				db.evLogger.Log(events.Failure, "lower remote sequence after recalculating metadata")
+			}
 			continue
 		}
+		db.evLogger.Log(events.Failure, "higher remote sequence after recalculating metadata")
 		if err := deleteIndexID(devID); err != nil {
 			return err
 		}
-		l.Infof("Sequence of device %v changed while repairing - dropping delta indexes", devID.Short())
+		l.Infof("Sequence of device %v for folder %v changed while repairing - dropping delta indexes", devID.Short(), folder)
 	}
 	for devID := range oldSequences {
 		if err := deleteIndexID(devID); err != nil {
 			return err
 		}
-		l.Debugf("Removed indexID of device %v which isn't present anymore", devID.Short())
+		l.Debugf("Removed indexID of device %v for folder %v which isn't present anymore", devID.Short(), folder)
 	}
 
 	return t.Commit()
