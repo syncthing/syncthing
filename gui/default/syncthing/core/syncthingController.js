@@ -592,10 +592,10 @@ angular.module('syncthing.core')
                 $scope.completion[device]._needItems = items + deletes;
             }
 
-            if (needed == 0 && deletes > 0) {
-                // We don't need any data, but we have deletes that we need
-                // to do. Drop down the completion percentage to indicate
-                // that we have stuff to do.
+            if (needed == 0 && deletes + items > 0 ) {
+                // We don't need any data, but we have deletes or
+                // dirs/links/empty files that we need to do. Drop down the
+                // completion percentage to indicate that we have stuff to do.
                 $scope.completion[device]._total = 95;
             }
 
