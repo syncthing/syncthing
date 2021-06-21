@@ -662,7 +662,7 @@
                       <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed listener status' | translate}}.">
-                          <a href="" style="color:inherit" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
+                          <a href="" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
 			    {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
 			  </a>
                         </span>
@@ -672,7 +672,7 @@
                       <th><span class="fas fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed discovery status' | translate}}.">
-                          <a href="" style="color:inherit" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
+                          <a href="" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
 			    {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
 			  </a>
                         </span>
