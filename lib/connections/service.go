@@ -490,15 +490,43 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// Perform dials according to the queue, stopping when we've reached the
 	// allowed additional number of connections (if limited).
 	numConns := 0
-	for _, entry := range queue {
-		if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
-			s.conns <- conn
-			numConns++
-			if allowAdditional > 0 && numConns >= allowAdditional {
+	numDials := 0
+	dialCond := stdsync.NewCond(new(stdsync.Mutex))
+	dialWG := new(stdsync.WaitGroup)
+	for i := range queue {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
+		if allowAdditional > 0 {
+			done := false
+			dialCond.L.Lock()
+			for numDials+numConns >= allowAdditional && !done {
+				dialCond.Wait()
+				done = numConns >= allowAdditional
+			}
+			dialCond.L.Unlock()
+			if done {
 				break
 			}
 		}
+		numDials++
+		dialWG.Add(1)
+		go func(entry dialQueueEntry) {
+			if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
+				select {
+				case s.conns <- conn:
+					numConns++
+				case <-ctx.Done():
+				}
+			}
+			numDials--
+			dialWG.Done()
+			dialCond.Broadcast()
+		}(queue[i])
 	}
+	dialWG.Wait()
 }
 
 func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg config.Configuration, deviceCfg config.DeviceConfiguration, nextDialAt nextDialRegistry, initial bool, priorityCutoff int) []dialTarget {
