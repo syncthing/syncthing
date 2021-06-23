@@ -13,55 +13,93 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ur"
 )
 
 type Holdable interface {
 	Holders() string
 }
 
-func newDeadlockDetector(timeout time.Duration) *deadlockDetector {
+func newDeadlockDetector(timeout time.Duration, evLogger events.Logger, fatal func(error)) *deadlockDetector {
 	return &deadlockDetector{
-		timeout: timeout,
-		lockers: make(map[string]sync.Locker),
+		warnTimeout:  timeout,
+		fatalTimeout: 10 * timeout,
+		lockers:      make(map[string]sync.Locker),
+		evLogger:     evLogger,
+		fatal:        fatal,
 	}
 }
 
 type deadlockDetector struct {
-	timeout time.Duration
-	lockers map[string]sync.Locker
+	warnTimeout, fatalTimeout time.Duration
+	lockers                   map[string]sync.Locker
+	evLogger                  events.Logger
+	fatal                     func(error)
 }
 
 func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 	d.lockers[name] = mut
 	go func() {
 		for {
-			time.Sleep(d.timeout / 4)
-			ok := make(chan bool, 2)
+			time.Sleep(d.warnTimeout / 4)
+			done := make(chan struct{}, 1)
 
 			go func() {
 				mut.Lock()
 				_ = 1 // empty critical section
 				mut.Unlock()
-				ok <- true
+				done <- struct{}{}
 			}()
 
-			go func() {
-				time.Sleep(d.timeout)
-				ok <- false
-			}()
+			warn := time.NewTimer(d.warnTimeout)
+			fatal := time.NewTimer(d.fatalTimeout)
 
-			if r := <-ok; !r {
-				msg := fmt.Sprintf("deadlock detected at %s", name)
-				for otherName, otherMut := range d.lockers {
-					if otherHolder, ok := otherMut.(Holdable); ok {
-						msg += "\n===" + otherName + "===\n" + otherHolder.Holders()
-					}
+			select {
+			case <-warn.C:
+				failure := ur.FailureDataWithGoroutines(fmt.Sprintf("potential deadlock detected at %s (short timeout)", name))
+				failure.Extra["timeout"] = d.warnTimeout.String()
+				d.evLogger.Log(events.Failure, failure)
+			case <-done:
+				warn.Stop()
+				fatal.Stop()
+				continue
+			}
+
+			select {
+			case <-fatal.C:
+				err := fmt.Errorf("potential deadlock detected at %s (long timeout)", name)
+				failure := ur.FailureDataWithGoroutines(err.Error())
+				failure.Extra["timeout"] = d.fatalTimeout.String()
+				var others string
+				for otherName, otherHolder := range d.otherHolders() {
+					others += "===" + otherName + "===\n" + otherHolder + "\n"
 				}
-				panic(msg)
+				others = others[:len(others)-1]
+				failure.Extra["other-holders"] = others
+				d.otherHolders()
+				d.evLogger.Log(events.Failure, failure)
+				d.fatal(err)
+				// Give it a minute to shut down gracefully, maybe shutting down
+				// can get out of the deadlock (or it's not really a deadlock).
+				time.Sleep(time.Minute)
+				panic(fmt.Sprintf("%v:\n%v", err, others))
+			case <-done:
+				fatal.Stop()
 			}
 		}
 	}()
+}
+
+func (d *deadlockDetector) otherHolders() map[string]string {
+	m := make(map[string]string, len(d.lockers))
+	for otherName, otherMut := range d.lockers {
+		if otherHolder, ok := otherMut.(Holdable); ok {
+			m[otherName] = otherHolder.Holders()
+		}
+	}
+	return m
 }
 
 // inWritableDir calls fn(path), while making sure that the directory

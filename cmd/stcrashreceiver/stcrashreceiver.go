@@ -7,7 +7,6 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
@@ -45,7 +44,7 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// The location of the report on disk, compressed
-	fullPath := filepath.Join(r.dir, r.dirFor(reportID), reportID) + ".gz"
+	fullPath := fullPathCompressed(r.dir, reportID)
 
 	switch req.Method {
 	case http.MethodGet:
@@ -103,16 +102,9 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 		return
 	}
 
-	// Compress the report for storage
-	buf := new(bytes.Buffer)
-	gw := gzip.NewWriter(buf)
-	_, _ = gw.Write(bs) // can't fail
-	gw.Close()
-
-	// Create an output file with the compressed report
-	err = ioutil.WriteFile(fullPath, buf.Bytes(), 0644)
+	err = compressAndWrite(bs, fullPath)
 	if err != nil {
-		log.Println("Saving report:", err)
+		log.Println("Saving crash report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -134,9 +126,4 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 			}
 		}()
 	}
-}
-
-// 01234567890abcdef... => 01/23
-func (r *crashReceiver) dirFor(base string) string {
-	return filepath.Join(base[0:2], base[2:4])
 }

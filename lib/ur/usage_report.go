@@ -23,8 +23,8 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -38,15 +38,20 @@ const Version = 3
 
 var StartTime = time.Now().Truncate(time.Second)
 
+type Model interface {
+	DBSnapshot(folder string) (*db.Snapshot, error)
+	UsageReportingStats(report *contract.Report, version int, preview bool)
+}
+
 type Service struct {
 	cfg                config.Wrapper
-	model              model.Model
+	model              Model
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
 }
 
-func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
+func New(cfg config.Wrapper, m Model, connectionsService connections.Service, noUpgrade bool) *Service {
 	return &Service{
 		cfg:                cfg,
 		model:              m,
