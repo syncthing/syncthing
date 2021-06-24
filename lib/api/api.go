@@ -1185,7 +1185,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if r, err := s.urService.ReportData(context.TODO()); err != nil {
+	if r, err := s.urService.ReportDataPreview(r.Context(), ur.Version); err != nil {
 		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
 	} else {
 		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {
