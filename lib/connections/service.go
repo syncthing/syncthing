@@ -514,15 +514,15 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 				return
 			}
 			numConnsMut.Lock()
-			if allowAdditional > 0 && numConns >= allowAdditional {
-				dialCancel()
-				numConnsMut.Unlock()
-				return
-			}
-			select {
-			case s.conns <- conn:
-				numConns++
-			case <-dialCtx.Done():
+			if allowAdditional == 0 || numConns < allowAdditional {
+				select {
+				case s.conns <- conn:
+					numConns++
+				case <-dialCtx.Done():
+				}
+				if allowAdditional > 0 && numConns >= allowAdditional {
+					dialCancel()
+				}
 			}
 			numConnsMut.Unlock()
 		}(queue[i])
@@ -1007,11 +1007,15 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	for _, prio := range priorities {
 		tgts := dialTargetBuckets[prio]
 		res := make(chan internalConn, len(tgts))
-		sema.Take(1)
 		wg := stdsync.WaitGroup{}
 		for _, tgt := range tgts {
+			sema.Take(1)
 			wg.Add(1)
 			go func(tgt dialTarget) {
+				defer func() {
+					wg.Done()
+					sema.Give(1)
+				}()
 				conn, err := tgt.Dial(ctx)
 				if err == nil {
 					// Closes the connection on error
@@ -1024,8 +1028,6 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 					l.Debugln("dialing", deviceID, tgt.uri, "success:", conn)
 					res <- conn
 				}
-				wg.Done()
-				sema.Give(1)
 			}(tgt)
 		}
 
