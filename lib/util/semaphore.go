@@ -91,13 +91,13 @@ func (s *Semaphore) Give(size int) {
 	s.mut.Unlock()
 }
 
-func (s *Semaphore) SetCapacity(cap int) {
-	if cap < 0 {
-		cap = 0
+func (s *Semaphore) SetCapacity(capacity int) {
+	if capacity < 0 {
+		capacity = 0
 	}
 	s.mut.Lock()
-	diff := cap - s.max
-	s.max = cap
+	diff := capacity - s.max
+	s.max = capacity
 	s.available += diff
 	if s.available < 0 {
 		s.available = 0

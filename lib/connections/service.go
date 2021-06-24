@@ -496,10 +496,14 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	dialSemaphore := util.NewSemaphore(dialMaxParallel)
 	dialWG := new(stdsync.WaitGroup)
 	dialCtx, dialCancel := context.WithCancel(ctx)
+	defer func() {
+		dialWG.Wait()
+		dialCancel()
+	}()
 	for i := range queue {
 		select {
-		case <-ctx.Done():
-			break
+		case <-dialCtx.Done():
+			return
 		default:
 		}
 		dialWG.Add(1)
@@ -523,8 +527,6 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			numConnsMut.Unlock()
 		}(queue[i])
 	}
-	dialWG.Wait()
-	dialCancel()
 }
 
 func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg config.Configuration, deviceCfg config.DeviceConfiguration, nextDialAt nextDialRegistry, initial bool, priorityCutoff int) []dialTarget {
