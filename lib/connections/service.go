@@ -518,10 +518,10 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 				select {
 				case s.conns <- conn:
 					numConns++
+					if allowAdditional > 0 && numConns >= allowAdditional {
+						dialCancel()
+					}
 				case <-dialCtx.Done():
-				}
-				if allowAdditional > 0 && numConns >= allowAdditional {
-					dialCancel()
 				}
 			}
 			numConnsMut.Unlock()
