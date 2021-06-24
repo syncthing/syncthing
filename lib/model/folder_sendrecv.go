@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -123,17 +124,17 @@ type sendReceiveFolder struct {
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
-	writeLimiter       *byteSemaphore
+	writeLimiter       *util.Semaphore
 
 	tempPullErrors map[string]string // pull errors that might be just transient
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *byteSemaphore) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *util.Semaphore) service {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
+		writeLimiter:       util.NewSemaphore(cfg.MaxConcurrentWrites),
 	}
 	f.folder.puller = f
 
@@ -1435,7 +1436,7 @@ func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) e
 }
 
 func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
+	requestLimiter := util.NewSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
@@ -1453,7 +1454,7 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 		state := state
 		bytes := int(state.block.Size)
 
-		if err := requestLimiter.takeWithContext(f.ctx, bytes); err != nil {
+		if err := requestLimiter.TakeWithContext(f.ctx, bytes); err != nil {
 			state.fail(err)
 			out <- state.sharedPullerState
 			continue
@@ -1463,7 +1464,7 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 
 		go func() {
 			defer wg.Done()
-			defer requestLimiter.give(bytes)
+			defer requestLimiter.Give(bytes)
 
 			f.pullBlock(state, snap, out)
 		}()
@@ -2085,10 +2086,10 @@ func (f *sendReceiveFolder) limitedWriteAt(fd io.WriterAt, data []byte, offset i
 }
 
 func (f *sendReceiveFolder) withLimiter(fn func() error) error {
-	if err := f.writeLimiter.takeWithContext(f.ctx, 1); err != nil {
+	if err := f.writeLimiter.TakeWithContext(f.ctx, 1); err != nil {
 		return err
 	}
-	defer f.writeLimiter.give(1)
+	defer f.writeLimiter.Give(1)
 	return fn()
 }
 

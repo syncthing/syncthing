@@ -38,6 +38,7 @@ import (
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -3319,14 +3320,14 @@ func TestDeviceWasSeen(t *testing.T) {
 }
 
 func TestNewLimitedRequestResponse(t *testing.T) {
-	l0 := newByteSemaphore(0)
-	l1 := newByteSemaphore(1024)
-	l2 := (*byteSemaphore)(nil)
+	l0 := util.NewSemaphore(0)
+	l1 := util.NewSemaphore(1024)
+	l2 := (*util.Semaphore)(nil)
 
 	// Should take 500 bytes from any non-unlimited non-nil limiters.
 	res := newLimitedRequestResponse(500, l0, l1, l2)
 
-	if l1.available != 1024-500 {
+	if l1.Available() != 1024-500 {
 		t.Error("should have taken bytes from limited limiter")
 	}
 
@@ -3336,7 +3337,7 @@ func TestNewLimitedRequestResponse(t *testing.T) {
 	// Try to take 1024 bytes to make sure the bytes were returned.
 	done := make(chan struct{})
 	go func() {
-		l1.take(1024)
+		l1.Take(1024)
 		close(done)
 	}()
 	select {
