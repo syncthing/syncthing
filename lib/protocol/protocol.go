@@ -741,10 +741,20 @@ func (c *rawConnection) writeMessage(msg message) error {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
 	if c.shouldCompressMessage(msg) {
-		return c.writeCompressedMessage(msg)
+		err := c.writeCompressedMessage(msg)
+		if err != errNotCompressible {
+			return err
+		}
 	}
 	return c.writeUncompressedMessage(msg)
 }
+
+type notCompressibleError struct{}
+
+func (*notCompressibleError) Error() string { return "not compressible" }
+
+// errNotCompressible indicates no gains from compression.
+var errNotCompressible = &notCompressibleError{}
 
 func (c *rawConnection) writeCompressedMessage(msg message) error {
 	size := msg.ProtoSize()
@@ -759,6 +769,10 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 		BufferPool.Put(buf)
 		return errors.Wrap(err, "compressing message")
 	}
+	compressedSize := len(compressed)
+	if compressedSize >= size {
+		return errNotCompressible
+	}
 
 	hdr := Header{
 		Type:        c.typeOf(msg),
@@ -769,7 +783,6 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 		panic("impossibly large header")
 	}
 
-	compressedSize := len(compressed)
 	totSize := 2 + hdrSize + 4 + compressedSize
 	buf = BufferPool.Upgrade(buf, totSize)
 

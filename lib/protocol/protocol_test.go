@@ -439,6 +439,41 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	return true
 }
 
+func TestWriteCompressed(t *testing.T) {
+	for _, random := range []bool{false, true} {
+		buf := new(bytes.Buffer)
+		c := &rawConnection{
+			cr:          &countingReader{Reader: buf},
+			cw:          &countingWriter{Writer: buf},
+			compression: CompressionAlways,
+		}
+
+		msg := &Response{Data: make([]byte, 10240)}
+		if random {
+			// This should make the message uncompressible.
+			rand.Read(msg.Data)
+		}
+
+		if err := c.writeMessage(msg); err != nil {
+			t.Fatal(err)
+		}
+		got, err := c.readMessage(make([]byte, 4))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got.(*Response).Data, msg.Data) {
+			t.Error("received the wrong message")
+		}
+
+		hdr := Header{Type: c.typeOf(msg)}
+		size := int64(2 + hdr.ProtoSize() + 4 + msg.ProtoSize())
+		if c.cr.tot > size {
+			t.Errorf("compression enlarged message from %d to %d",
+				size, c.cr.tot)
+		}
+	}
+}
+
 func TestLZ4Compression(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		dataLen := 150 + rand.Intn(150)
