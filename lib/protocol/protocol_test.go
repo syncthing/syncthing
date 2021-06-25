@@ -17,6 +17,7 @@ import (
 	"testing/quick"
 	"time"
 
+	lz4 "github.com/bkaradzic/go-lz4"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 )
@@ -482,13 +483,15 @@ func TestLZ4Compression(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		comp, err := lz4Compress(data)
+
+		comp := make([]byte, lz4.CompressBound(dataLen))
+		compLen, err := lz4Compress(data, comp)
 		if err != nil {
 			t.Errorf("compressing %d bytes: %v", dataLen, err)
 			continue
 		}
 
-		res, err := lz4Decompress(comp)
+		res, err := lz4Decompress(comp[:compLen])
 		if err != nil {
 			t.Errorf("decompressing %d bytes to %d: %v", len(comp), dataLen, err)
 			continue
@@ -500,37 +503,6 @@ func TestLZ4Compression(t *testing.T) {
 			t.Error("Incorrect decompressed data")
 		}
 		t.Logf("OK #%d, %d -> %d -> %d", i, dataLen, len(comp), dataLen)
-	}
-}
-
-func TestStressLZ4CompressGrows(t *testing.T) {
-	success := 0
-	for i := 0; i < 100; i++ {
-		// Create a slize that is precisely one min block size, fill it with
-		// random data. This shouldn't compress at all, so will in fact
-		// become larger when LZ4 does its thing.
-		data := make([]byte, MinBlockSize)
-		if _, err := rand.Reader.Read(data); err != nil {
-			t.Fatal("randomness failure")
-		}
-
-		comp, err := lz4Compress(data)
-		if err != nil {
-			t.Fatal("unexpected compression error: ", err)
-		}
-		if len(comp) < len(data) {
-			// data size should grow. We must have been really unlucky in
-			// the random generation, try again.
-			continue
-		}
-
-		// Putting it into the buffer pool shouldn't panic because the block
-		// should come from there to begin with.
-		BufferPool.Put(comp)
-		success++
-	}
-	if success == 0 {
-		t.Fatal("unable to find data that grows when compressed")
 	}
 }
 

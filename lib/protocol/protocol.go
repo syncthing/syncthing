@@ -737,84 +737,14 @@ func (c *rawConnection) writerLoop() {
 	}
 }
 
-func (c *rawConnection) writeMessage(msg message) error {
+func (c *rawConnection) writeMessage(msg message) (err error) {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
-	if c.shouldCompressMessage(msg) {
-		err := c.writeCompressedMessage(msg)
-		if err != errNotCompressible {
-			return err
-		}
-	}
-	return c.writeUncompressedMessage(msg)
-}
 
-type notCompressibleError struct{}
-
-func (*notCompressibleError) Error() string { return "not compressible" }
-
-// errNotCompressible indicates no gains from compression.
-var errNotCompressible = &notCompressibleError{}
-
-func (c *rawConnection) writeCompressedMessage(msg message) error {
 	size := msg.ProtoSize()
-	buf := BufferPool.Get(size)
-	if _, err := msg.MarshalTo(buf); err != nil {
-		BufferPool.Put(buf)
-		return errors.Wrap(err, "marshalling message")
-	}
-
-	compressed, err := lz4Compress(buf)
-	if err != nil {
-		BufferPool.Put(buf)
-		return errors.Wrap(err, "compressing message")
-	}
-	compressedSize := len(compressed)
-	if compressedSize >= size {
-		return errNotCompressible
-	}
-
 	hdr := Header{
 		Type:        c.typeOf(msg),
-		Compression: MessageCompressionLZ4,
-	}
-	hdrSize := hdr.ProtoSize()
-	if hdrSize > 1<<16-1 {
-		panic("impossibly large header")
-	}
-
-	totSize := 2 + hdrSize + 4 + compressedSize
-	buf = BufferPool.Upgrade(buf, totSize)
-
-	// Header length
-	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
-	// Header
-	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		BufferPool.Put(buf)
-		BufferPool.Put(compressed)
-		return errors.Wrap(err, "marshalling header")
-	}
-	// Message length
-	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(compressedSize))
-	// Message
-	copy(buf[2+hdrSize+4:], compressed)
-	BufferPool.Put(compressed)
-
-	n, err := c.cw.Write(buf)
-	BufferPool.Put(buf)
-
-	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, compressedSize, size, err)
-	if err != nil {
-		return errors.Wrap(err, "writing message")
-	}
-	return nil
-}
-
-func (c *rawConnection) writeUncompressedMessage(msg message) error {
-	size := msg.ProtoSize()
-
-	hdr := Header{
-		Type: c.typeOf(msg),
+		Compression: MessageCompressionNone,
 	}
 	hdrSize := hdr.ProtoSize()
 	if hdrSize > 1<<16-1 {
@@ -823,26 +753,63 @@ func (c *rawConnection) writeUncompressedMessage(msg message) error {
 
 	totSize := 2 + hdrSize + 4 + size
 	buf := BufferPool.Get(totSize)
+	defer BufferPool.Put(buf)
 
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		BufferPool.Put(buf)
 		return errors.Wrap(err, "marshalling header")
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
 	// Message
 	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
-		BufferPool.Put(buf)
 		return errors.Wrap(err, "marshalling message")
 	}
 
-	n, err := c.cw.Write(buf[:totSize])
-	BufferPool.Put(buf)
+	var compressedSize int
+	if c.shouldCompressMessage(msg) {
+		chdr := Header{
+			Type:        c.typeOf(msg),
+			Compression: MessageCompressionLZ4,
+		}
+		chdrSize := chdr.ProtoSize()
+		if chdrSize > 1<<16-1 {
+			panic("impossibly large header")
+		}
 
-	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
+		overhead := 2 + chdrSize + 4
+		maxCompressed := overhead + lz4.CompressBound(size)
+		cbuf := BufferPool.Get(maxCompressed)
+		defer BufferPool.Put(cbuf)
+
+		compressedSize, err = lz4Compress(buf[2+hdrSize+4:], cbuf[overhead:])
+		if err != nil || compressedSize+overhead >= totSize {
+			goto write
+		}
+
+		buf, hdr, hdrSize = cbuf, chdr, chdrSize
+		totSize = compressedSize + overhead
+
+		// Header length
+		binary.BigEndian.PutUint16(buf, uint16(hdrSize))
+		// Header
+		if _, err := hdr.MarshalTo(buf[2:]); err != nil {
+			return errors.Wrap(err, "marshalling header")
+		}
+		// Message length
+		binary.BigEndian.PutUint32(buf[2+chdrSize:], uint32(compressedSize))
+	}
+
+write:
+	n, err := c.cw.Write(buf[:totSize])
+
+	if hdr.Compression == MessageCompressionLZ4 {
+		l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, compressedSize, size, err)
+	} else {
+		l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
+	}
 	if err != nil {
 		return errors.Wrap(err, "writing message")
 	}
@@ -1031,20 +998,17 @@ func (c *rawConnection) Statistics() Statistics {
 	}
 }
 
-func lz4Compress(src []byte) ([]byte, error) {
-	var err error
-	buf := BufferPool.Get(lz4.CompressBound(len(src)))
+func lz4Compress(src, buf []byte) (int, error) {
 	compressed, err := lz4.Encode(buf, src)
 	if err != nil {
-		BufferPool.Put(buf)
-		return nil, err
+		return -1, err
 	}
 	if &compressed[0] != &buf[0] {
 		panic("bug: lz4.Compress allocated, which it must not (should use buffer pool)")
 	}
 
 	binary.BigEndian.PutUint32(compressed, binary.LittleEndian.Uint32(compressed))
-	return compressed, nil
+	return len(compressed), nil
 }
 
 func lz4Decompress(src []byte) ([]byte, error) {
