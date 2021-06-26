@@ -35,11 +35,15 @@ func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
 	if err != nil {
 		return readOnlyTransaction{}, err
 	}
+	return db.readOnlyTransactionFromBackendTransaction(tran), nil
+}
+
+func (db *Lowlevel) readOnlyTransactionFromBackendTransaction(tran backend.ReadTransaction) readOnlyTransaction {
 	return readOnlyTransaction{
 		ReadTransaction: tran,
 		keyer:           db.keyer,
 		evLogger:        db.evLogger,
-	}, nil
+	}
 }
 
 func (t readOnlyTransaction) close() {
@@ -551,12 +555,9 @@ func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWr
 		return readWriteTransaction{}, err
 	}
 	return readWriteTransaction{
-		WriteTransaction: tran,
-		readOnlyTransaction: readOnlyTransaction{
-			ReadTransaction: tran,
-			keyer:           db.keyer,
-		},
-		indirectionTracker: db,
+		WriteTransaction:    tran,
+		readOnlyTransaction: db.readOnlyTransactionFromBackendTransaction(tran),
+		indirectionTracker:  db,
 	}, nil
 }
 
