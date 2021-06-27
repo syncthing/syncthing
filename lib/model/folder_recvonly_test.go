@@ -434,7 +434,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	must(t, ffs.MkdirAll(".stfolder", 0755))
 	data := []byte("hello\n")
 	name := "foo"
-	must(t, writeFile(ffs, name, data, 0644))
+	writeFilePerm(t, ffs, name, data, 0644)
 
 	// Make sure the file is scanned and locally changed
 	must(t, m.ScanFolder("ro"))

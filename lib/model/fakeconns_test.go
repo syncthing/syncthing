@@ -27,14 +27,18 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 		Connection: new(protocolmocks.Connection),
 		id:         id,
 		model:      model,
+		closed:     make(chan struct{}),
 	}
 	f.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 		return f.fileData[name], nil
 	})
 	f.IDReturns(id)
 	f.CloseCalls(func(err error) {
+		f.closeOnce.Do(func() {
+			close(f.closed)
+		})
 		model.Closed(id, err)
-		f.ClosedReturns(true)
+		f.ClosedReturns(f.closed)
 	})
 	return f
 }
@@ -47,6 +51,8 @@ type fakeConnection struct {
 	fileData                 map[string][]byte
 	folder                   string
 	model                    Model
+	closed                   chan struct{}
+	closeOnce                sync.Once
 	mut                      sync.Mutex
 }
 

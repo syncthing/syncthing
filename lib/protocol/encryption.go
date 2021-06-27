@@ -224,7 +224,7 @@ func (e encryptedConnection) Close(err error) {
 	e.conn.Close(err)
 }
 
-func (e encryptedConnection) Closed() bool {
+func (e encryptedConnection) Closed() <-chan struct{} {
 	return e.conn.Closed()
 }
 

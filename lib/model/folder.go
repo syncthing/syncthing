@@ -38,7 +38,7 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
-	ioLimiter *byteSemaphore
+	ioLimiter *util.Semaphore
 
 	localFlags uint32
 
@@ -91,7 +91,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *util.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -375,10 +375,10 @@ func (f *folder) pull() (success bool, err error) {
 	if f.Type != config.FolderTypeSendOnly {
 		f.setState(FolderSyncWaiting)
 
-		if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		if err := f.ioLimiter.TakeWithContext(f.ctx, 1); err != nil {
 			return true, err
 		}
-		defer f.ioLimiter.give(1)
+		defer f.ioLimiter.Give(1)
 	}
 
 	startTime := time.Now()
@@ -439,10 +439,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.setState(FolderScanWaiting)
 	defer f.setState(FolderIdle)
 
-	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+	if err := f.ioLimiter.TakeWithContext(f.ctx, 1); err != nil {
 		return err
 	}
-	defer f.ioLimiter.give(1)
+	defer f.ioLimiter.Give(1)
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
@@ -568,10 +568,6 @@ func (b *scanBatch) FlushIfFull() error {
 // Update adds the fileinfo to the batch for updating, and does a few checks.
 // It returns false if the checks result in the file not going to be updated or removed.
 func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
-	if !fi.IsReceiveOnlyChanged() {
-		b.updateBatch.Append(fi)
-		return true
-	}
 	// Check for a "virtual" parent directory of encrypted files. We don't track
 	// it, but check if anything still exists within and delete it otherwise.
 	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
@@ -904,10 +900,10 @@ func (f *folder) versionCleanupTimerFired() {
 	f.setState(FolderCleanWaiting)
 	defer f.setState(FolderIdle)
 
-	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+	if err := f.ioLimiter.TakeWithContext(f.ctx, 1); err != nil {
 		return
 	}
-	defer f.ioLimiter.give(1)
+	defer f.ioLimiter.Give(1)
 
 	f.setState(FolderCleaning)
 
