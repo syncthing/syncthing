@@ -63,8 +63,7 @@ func privPctString(n, total int) string {
 func privPctPctString(pct float64, private bool) string {
 	pct = privPctPct(pct, private)
 	precision := int(math.Max(0, 2-math.Max(0, math.Log10(pct))))
-	fmtPct := fmt.Sprintf("%%.0%df%%%%", precision)
-	s := fmt.Sprintf(fmtPct, pct)
+	s := fmt.Sprintf("%.*f", precision, pct)
 	if private {
 		s = "< " + s
 	}
