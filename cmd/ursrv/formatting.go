@@ -112,16 +112,17 @@ func commatize(sep, s string) string {
 	return b.String()
 }
 
-func proportion(m map[string]int, count int) float64 {
+func proportion(m map[string]intString, count int) float64 {
 	total := 0
 	isMax := true
-	for _, n := range m {
+	for _, x := range m {
+		n := x.N
 		total += n
 		if n > count {
 			isMax = false
 		}
 	}
-	pct := (100 * float64(count)) / float64(total)
+	pct := privPct(count, total)
 	// To avoid rounding errors in the template, surpassing 100% and breaking
 	// the progress bars.
 	if isMax && len(m) > 1 && count != total {

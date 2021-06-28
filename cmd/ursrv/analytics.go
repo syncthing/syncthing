@@ -16,7 +16,9 @@ import (
 type analytic struct {
 	Key        string
 	Count      int
+	CntStr     string
 	Percentage float64
+	PctStr     string
 	Items      []analytic `json:",omitempty"`
 }
 
@@ -54,7 +56,9 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 		l = append(l, analytic{
 			Key:        k,
 			Count:      c,
-			Percentage: 100 * float64(c) / float64(t),
+			CntStr:     privCountString(c),
+			Percentage: privPct(c, t),
+			PctStr:     privPctString(c, t),
 		})
 	}
 
@@ -68,7 +72,9 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 		l = append(l[:cutoff], analytic{
 			Key:        "Others",
 			Count:      c,
-			Percentage: 100 * float64(c) / float64(t),
+			CntStr:     privCountString(c),
+			Percentage: privPct(c, t),
+			PctStr:     privPctString(c, t),
 		})
 	}
 
@@ -110,7 +116,7 @@ func statsForInts(data []int) [4]float64 {
 	res[0] = float64(data[int(float64(len(data))*0.05)])
 	res[1] = float64(data[len(data)/2])
 	res[2] = float64(data[int(float64(len(data))*0.95)])
-	res[3] = float64(data[len(data)-1])
+	res[3] = float64(data[int(float64(len(data))*0.99)])
 	return res
 }
 
@@ -127,7 +133,7 @@ func statsForInt64s(data []int64) [4]float64 {
 	res[0] = float64(data[int(float64(len(data))*0.05)])
 	res[1] = float64(data[len(data)/2])
 	res[2] = float64(data[int(float64(len(data))*0.95)])
-	res[3] = float64(data[len(data)-1])
+	res[3] = float64(data[int(float64(len(data))*0.99)])
 	return res
 }
 
@@ -141,7 +147,7 @@ func statsForFloats(data []float64) [4]float64 {
 	res[0] = data[int(float64(len(data))*0.05)]
 	res[1] = data[len(data)/2]
 	res[2] = data[int(float64(len(data))*0.95)]
-	res[3] = data[len(data)-1]
+	res[3] = data[int(float64(len(data))*0.99)]
 	return res
 }
 
@@ -163,8 +169,10 @@ next:
 		}
 		res = append(res, analytic{
 			Key:        group,
-			Count:      a.Count,
-			Percentage: a.Percentage,
+			Count:      privCount(a.Count),
+			CntStr:     privCountString(a.Count),
+			Percentage: privPctPct(a.Percentage, isPrivate(a.Count)),
+			PctStr:     privPctPctString(a.Percentage, isPrivate(a.Count)),
 			Items:      []analytic{a},
 		})
 	}

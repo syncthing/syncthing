@@ -318,8 +318,8 @@ found in the LICENSE file.
                       {{range .contries | slice 2 1}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
-                        <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
-                        <td style="width: 5%" class="text-right">{{.Count}}</td>
+                        <td style="width: 5%" class="text-right">{{.PctStr}}</td>
+                        <td style="width: 5%" class="text-right">{{.CntStr}}</td>
                         <td>
                             <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px"></div>
                         </td>
@@ -334,8 +334,8 @@ found in the LICENSE file.
                       {{range .contries | slice 2 2}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
-                        <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
-                        <td style="width: 5%" class="text-right">{{.Count}}</td>
+												<td style="width: 5%" class="text-right">{{.PctStr}}</td>
+                        <td style="width: 5%" class="text-right">{{.CntStr}}</td>
                         <td>
                             <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px"></div>
                         </td>
@@ -362,7 +362,7 @@ found in the LICENSE file.
               <th class="text-right">5%</th>
               <th class="text-right">50%</th>
               <th class="text-right">95%</th>
-              <th class="text-right">100%</th>
+              <th class="text-right">99%</th>
             </tr>
           </thead>
           <tbody>
@@ -393,15 +393,15 @@ found in the LICENSE file.
               {{if gt .Percentage 0.1}}
                 <tr class="main">
                   <td>{{.Key}}</td>
-                  <td class="text-right">{{.Count}}</td>
-                  <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                  <td class="text-right">{{.CntStr}}</td>
+                  <td class="text-right">{{.PctStr}}</td>
                 </tr>
                 {{range .Items}}
                   {{if gt .Percentage 0.1}}
                     <tr class="child">
                       <td class="first">{{.Key}}</td>
-                      <td class="text-right">{{.Count}}</td>
-                      <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                      <td class="text-right">{{.CntStr}}</td>
+                      <td class="text-right">{{.PctStr}}</td>
                     </tr>
                   {{end}}
                 {{end}}
@@ -422,7 +422,7 @@ found in the LICENSE file.
             <tr>
                 <td>{{.Count}}%</td>
                 <td>&ge; {{.Key}}</td>
-              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+              <td class="text-right">{{.PctStr}}</td>
             </tr>
             {{end}}
           </tbody>
@@ -442,14 +442,14 @@ found in the LICENSE file.
             {{range .platforms}}
               <tr class="main">
                 <td>{{.Key}}</td>
-                <td class="text-right">{{.Count}}</td>
-                <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                <td class="text-right">{{.CntStr}}</td>
+                <td class="text-right">{{.PctStr}}</td>
               </tr>
               {{range .Items}}
                 <tr class="child">
                   <td class="first">{{.Key}}</td>
-                  <td class="text-right">{{.Count}}</td>
-                  <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                  <td class="text-right">{{.CntStr}}</td>
+                  <td class="text-right">{{.PctStr}}</td>
                 </tr>
               {{end}}
             {{end}}
@@ -473,15 +473,15 @@ found in the LICENSE file.
             {{range .compilers}}
               <tr class="main">
                 <td>{{.Key}}</td>
-                <td class="text-right">{{.Count}}</td>
-                <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                <td class="text-right">{{.CntStr}}</td>
+                <td class="text-right">{{.PctStr}}</td>
               </tr>
               {{range .Items}}
                 {{if or (gt .Percentage 0.1) (eq .Key "Others")}}
                   <tr class="child">
                     <td class="first">{{.Key}}</td>
-                    <td class="text-right">{{.Count}}</td>
-                    <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                    <td class="text-right">{{.CntStr}}</td>
+                    <td class="text-right">{{.PctStr}}</td>
                   </tr>
                 {{end}}
               {{end}}
@@ -503,8 +503,8 @@ found in the LICENSE file.
             {{range .builders}}
             <tr>
               <td>{{.Key}}</td>
-              <td class="text-right">{{.Count}}</td>
-              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+              <td class="text-right">{{.CntStr}}</td>
+              <td class="text-right">{{.PctStr}}</td>
             </tr>
             {{end}}
           </tbody>
@@ -524,8 +524,8 @@ found in the LICENSE file.
             {{range .distributions}}
             <tr>
               <td>{{.Key}}</td>
-              <td class="text-right">{{.Count}}</td>
-              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+              <td class="text-right">{{.CntStr}}</td>
+              <td class="text-right">{{.PctStr}}</td>
             </tr>
             {{end}}
           </tbody>
@@ -563,9 +563,9 @@ found in the LICENSE file.
                   {{range $featureValues}}
                   <tr>
                       <td style="width: 50%">{{.Key}} ({{.Version}})</td>
-                      <td style="width: 10%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
-                      <td style="width: 40%" {{if lt .Pct 5.0}}data-toggle="tooltip" title='{{.Count}}'{{end}}>
-                          <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px" {{if ge .Pct 5.0}}data-toggle="tooltip" title='{{.Count}}'{{end}}></div>
+											<td style="width: 10%" class="text-right">{{.PctStr}}</td>
+                      <td style="width: 40%" {{if lt .Pct 5.0}}data-toggle="tooltip" title='{{.CntStr}}'{{end}}>
+                          <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px" {{if ge .Pct 5.0}}data-toggle="tooltip" title='{{.CntStr}}'{{end}}></div>
                       </td>
                   </tr>
                   {{end}}
@@ -603,7 +603,7 @@ found in the LICENSE file.
                   {{$counts := .Counts}}
                   <tr>
                       <td style="width: 50%">
-                          <div data-toggle="tooltip" title='{{range $key, $value := .Counts}}{{$key}} ({{$value | proportion $counts | printf "%.02f"}}% - {{$value}})</br>{{end}}'>
+                          <div data-toggle="tooltip" title='{{range $key, $value := .Counts}}{{$key}} ({{$value.N | proportion $counts | printf "%.02f"}}% - {{$value.S}})</br>{{end}}'>
                               {{.Key}} ({{.Version}})
                           </div>
                       </td>
@@ -611,8 +611,8 @@ found in the LICENSE file.
                           <div class="progress" role="progressbar" style="width: 100%">
                           {{$j := counter}}
                           {{range $key, $value := .Counts}}
-                              {{with $valuePct := $value | proportion $counts}}
-                              <div class="progress-bar {{ $j.Current | progressBarClassByIndex }}" style='width: {{$valuePct | printf "%.02f"}}%' data-toggle="tooltip" title='{{$key}} ({{$valuePct | printf "%.02f"}}% - {{$value}})'>
+                              {{with $valuePct := $value.N | proportion $counts}}
+                              <div class="progress-bar {{ $j.Current | progressBarClassByIndex }}" style='width: {{$valuePct | printf "%.02f"}}%' data-toggle="tooltip" title='{{$key}} ({{$valuePct | printf "%.02f"}}% - {{$value.S}})'>
                                   {{if ge $valuePct 30.0}}{{$key}}{{end}}
                               </div>
                               {{end}}

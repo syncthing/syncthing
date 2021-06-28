@@ -447,13 +447,20 @@ type feature struct {
 	Key     string
 	Version string
 	Count   int
+	CntStr  string
 	Pct     float64
+	PctStr  string
+}
+
+type intString struct {
+	N  int
+	S  string
 }
 
 type featureGroup struct {
 	Key     string
 	Version string
-	Counts  map[string]int
+	Counts  map[string]intString
 }
 
 // Used in the templates
@@ -869,8 +876,10 @@ func getReport(db *sql.DB) map[string]interface{} {
 				featureList = append(featureList, feature{
 					Key:     key,
 					Version: version,
-					Count:   count,
-					Pct:     (100 * float64(count)) / float64(total),
+					Count:   privCount(count),
+					CntStr:  privCountString(count),
+					Pct:     privPct(count, total),
+					PctStr:  privPctString(count, total),
 				})
 			}
 		}
@@ -886,7 +895,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 				featureList = append(featureList, featureGroup{
 					Key:     key,
 					Version: version,
-					Counts:  counts,
+					Counts:  privCounts(counts),
 				})
 			}
 		}
@@ -896,9 +905,11 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var countryList []feature
 	for country, count := range countries {
 		countryList = append(countryList, feature{
-			Key:   country,
-			Count: count,
-			Pct:   (100 * float64(count)) / float64(countriesTotal),
+			Key:    country,
+			Count:  privCount(count),
+			CntStr: privCountString(count),
+			Pct:    privPct(count, countriesTotal),
+			PctStr: privPctString(count, countriesTotal),
 		})
 		sort.Sort(sort.Reverse(sortableFeatureList(countryList)))
 	}
