@@ -453,8 +453,8 @@ type feature struct {
 }
 
 type intString struct {
-	N  int
-	S  string
+	N int
+	S string
 }
 
 type featureGroup struct {

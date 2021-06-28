@@ -37,7 +37,7 @@ func privCountString(n int) string {
 func privCounts(x map[string]int) map[string]intString {
 	fGroup := make(map[string]intString)
 	for key, counts := range x {
-		fGroup[key] = intString {
+		fGroup[key] = intString{
 			privCount(counts),
 			privCountString(counts),
 		}
