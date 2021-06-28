@@ -22,7 +22,7 @@ func isPrivate(n int) bool {
 
 func privCount(x int) int {
 	if isPrivate(x) {
-		x = privMin
+		return privMin
 	}
 	return x
 }
