@@ -792,11 +792,10 @@ func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Conf
 		if dev.Paused {
 			continue
 		}
-		oldDev, ok := oldDevices[dev.DeviceID]
-		if !ok || oldDev.Paused || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
-			if !ok || oldDev.Paused {
-				s.dialNowDevices[dev.DeviceID] = struct{}{}
-			}
+		if oldDev, ok := oldDevices[dev.DeviceID]; !ok || oldDev.Paused {
+			s.dialNowDevices[dev.DeviceID] = struct{}{}
+			dial = true
+		} else if !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
 			dial = true
 		}
 	}
