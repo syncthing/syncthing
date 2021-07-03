@@ -111,5 +111,6 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapsh
 		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
+		scanChan <- dir
 	}
 }
