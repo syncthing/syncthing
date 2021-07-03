@@ -2767,6 +2767,13 @@ func (m *model) String() string {
 }
 
 func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+	toFolders := to.FolderMap()
+	for _, from := range from.Folders {
+		to, ok := toFolders[from.ID]
+		if ok && from.Type != to.Type && (from.Type == config.FolderTypeReceiveEncrypted || to.Type == config.FolderTypeReceiveEncrypted) {
+			return errors.New("folder type must not be changed from/to receive-encrypted")
+		}
+	}
 	return nil
 }
 
