@@ -13,7 +13,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -46,7 +45,7 @@ type quicDialer struct {
 func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
-	network := strings.ReplaceAll(uri.Scheme, "quic", "udp")
+	network := quicNetwork(uri)
 
 	addr, err := net.ResolveUDPAddr(network, uri.Host)
 	if err != nil {
