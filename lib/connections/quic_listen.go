@@ -13,7 +13,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -81,7 +80,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 }
 
 func (t *quicListener) serve(ctx context.Context) error {
-	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
+	network := quicNetwork(t.uri)
 
 	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
@@ -204,7 +203,7 @@ func (t *quicListener) LANAddresses() []*url.URL {
 	uri := maybeReplacePort(t.uri, t.laddr)
 	t.mut.Unlock()
 	addrs := []*url.URL{uri}
-	network := strings.ReplaceAll(uri.Scheme, "quic", "udp")
+	network := quicNetwork(uri)
 	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, uri)...)
 	return addrs
 }
