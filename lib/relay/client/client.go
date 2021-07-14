@@ -11,58 +11,43 @@ import (
 
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture/v4"
-)
-
-type relayClientFactory func(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient
-
-var (
-	supportedSchemes = map[string]relayClientFactory{
-		"relay":         newStaticClient,
-		"dynamic+http":  newDynamicClient,
-		"dynamic+https": newDynamicClient,
-	}
 )
 
 type RelayClient interface {
 	suture.Service
 	Error() error
-	Latency() time.Duration
 	String() string
-	Invitations() chan protocol.SessionInvitation
+	Invitations() <-chan protocol.SessionInvitation
 	URI() *url.URL
 }
 
 func NewClient(uri *url.URL, certs []tls.Certificate, timeout time.Duration) (RelayClient, error) {
-	factory, ok := supportedSchemes[uri.Scheme]
-	if !ok {
+	invitations := make(chan protocol.SessionInvitation)
+
+	switch uri.Scheme {
+	case "relay":
+		return newStaticClient(uri, certs, invitations, timeout), nil
+	case "dynamic+http", "dynamic+https":
+		return newDynamicClient(uri, certs, invitations, timeout), nil
+	default:
 		return nil, fmt.Errorf("unsupported scheme: %s", uri.Scheme)
 	}
-
-	invitations := make(chan protocol.SessionInvitation)
-	return factory(uri, certs, invitations, timeout), nil
 }
 
 type commonClient struct {
 	svcutil.ServiceWithError
-
 	invitations chan protocol.SessionInvitation
-	mut         sync.RWMutex
 }
 
 func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error, creator string) commonClient {
-	c := commonClient{
-		invitations: invitations,
-		mut:         sync.NewRWMutex(),
+	return commonClient{
+		ServiceWithError: svcutil.AsService(serve, creator),
+		invitations:      invitations,
 	}
-	c.ServiceWithError = svcutil.AsService(serve, creator)
-	return c
 }
 
-func (c *commonClient) Invitations() chan protocol.SessionInvitation {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (c *commonClient) Invitations() <-chan protocol.SessionInvitation {
 	return c.invitations
 }
