@@ -144,6 +144,22 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
+func (s *FileSet) RemoveLocalItems(items []string) {
+	opStr := fmt.Sprintf("%s RemoveLocalItems([%d])", s.folder, len(items))
+	l.Debugf(opStr)
+
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
+	for i := range items {
+		items[i] = osutil.NormalizedFilename(items[i])
+	}
+
+	if err := s.db.removeLocalFiles([]byte(s.folder), items, s.meta); err != nil && !backend.IsClosed(err) {
+		fatalError(err, opStr, s.db)
+	}
+}
+
 type Snapshot struct {
 	folder     string
 	t          readOnlyTransaction

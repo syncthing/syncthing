@@ -162,6 +162,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 
 func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConnection {
 	fc := newFakeConnection(dev, m)
+	fc.folder = folderID
 	m.AddConnection(fc, protocol.Hello{})
 
 	m.ClusterConfig(dev, protocol.ClusterConfig{

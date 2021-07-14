@@ -299,7 +299,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	mustRemove(b, defaultFs.RemoveAll("request"))
 	defer func() { mustRemove(b, defaultFs.RemoveAll("request")) }()
 	must(b, defaultFs.MkdirAll("request/for/a/file/in/a/couple/of/dirs", 0755))
-	writeFile(defaultFs, "request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
+	writeFile(b, defaultFs, "request/for/a/file/in/a/couple/of/dirs/128k", buf)
 
 	b.ResetTimer()
 
@@ -1489,7 +1489,7 @@ func TestIgnores(t *testing.T) {
 	// Assure a clean start state
 	mustRemove(t, defaultFs.RemoveAll(config.DefaultMarkerName))
 	mustRemove(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0644))
-	writeFile(defaultFs, ".stignore", []byte(".*\nquux\n"), 0644)
+	writeFile(t, defaultFs, ".stignore", []byte(".*\nquux\n"))
 
 	m := setupModel(t, defaultCfgWrapper)
 	defer cleanupModel(m)
@@ -2030,8 +2030,8 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 func TestIssue3028(t *testing.T) {
 	// Create two files that we'll delete, one with a name that is a prefix of the other.
 
-	must(t, writeFile(defaultFs, "testrm", []byte("Hello"), 0644))
-	must(t, writeFile(defaultFs, "testrm2", []byte("Hello"), 0644))
+	writeFile(t, defaultFs, "testrm", []byte("Hello"))
+	writeFile(t, defaultFs, "testrm2", []byte("Hello"))
 	defer func() {
 		mustRemove(t, defaultFs.Remove("testrm"))
 		mustRemove(t, defaultFs.Remove("testrm2"))
@@ -3403,7 +3403,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	ffs := fcfg.Filesystem()
 	for i := 0; i < numFiles; i++ {
 		v := fmt.Sprintf("%d", i)
-		must(t, writeFile(ffs, v, []byte(v), 0644))
+		writeFile(t, ffs, v, []byte(v))
 	}
 
 	m.ScanFolders()
@@ -3426,7 +3426,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 			continue
 		}
 		v := fmt.Sprintf("%d", i)
-		must(t, writeFile(ffs, v, []byte(v+"-new"), 0644))
+		writeFile(t, ffs, v, []byte(v+"-new"))
 	}
 	// Rename
 	must(t, ffs.Rename("3", "17"))
@@ -3470,7 +3470,7 @@ func TestRenameSameFile(t *testing.T) {
 	defer cleanupModel(m)
 
 	ffs := fcfg.Filesystem()
-	must(t, writeFile(ffs, "file", []byte("file"), 0644))
+	writeFile(t, ffs, "file", []byte("file"))
 
 	m.ScanFolders()
 
@@ -3522,8 +3522,8 @@ func TestRenameEmptyFile(t *testing.T) {
 
 	ffs := fcfg.Filesystem()
 
-	must(t, writeFile(ffs, "file", []byte("data"), 0644))
-	must(t, writeFile(ffs, "empty", nil, 0644))
+	writeFile(t, ffs, "file", []byte("data"))
+	writeFile(t, ffs, "empty", nil)
 
 	m.ScanFolders()
 
@@ -3598,11 +3598,11 @@ func TestBlockListMap(t *testing.T) {
 	defer cleanupModel(m)
 
 	ffs := fcfg.Filesystem()
-	must(t, writeFile(ffs, "one", []byte("content"), 0644))
-	must(t, writeFile(ffs, "two", []byte("content"), 0644))
-	must(t, writeFile(ffs, "three", []byte("content"), 0644))
-	must(t, writeFile(ffs, "four", []byte("content"), 0644))
-	must(t, writeFile(ffs, "five", []byte("content"), 0644))
+	writeFile(t, ffs, "one", []byte("content"))
+	writeFile(t, ffs, "two", []byte("content"))
+	writeFile(t, ffs, "three", []byte("content"))
+	writeFile(t, ffs, "four", []byte("content"))
+	writeFile(t, ffs, "five", []byte("content"))
 
 	m.ScanFolders()
 
@@ -3631,7 +3631,7 @@ func TestBlockListMap(t *testing.T) {
 
 	// Modify
 	must(t, ffs.Remove("two"))
-	must(t, writeFile(ffs, "two", []byte("mew-content"), 0644))
+	writeFile(t, ffs, "two", []byte("mew-content"))
 
 	// Rename
 	must(t, ffs.Rename("three", "new-three"))
@@ -3667,7 +3667,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 
 	ffs := fcfg.Filesystem()
 	name := "foo"
-	must(t, writeFile(ffs, name, []byte("contents"), 0644))
+	writeFile(t, ffs, name, []byte("contents"))
 
 	m.ScanFolders()
 
@@ -3791,7 +3791,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 
 	name := "foo"
 
-	must(t, writeFile(ffs, name, []byte(name), 0644))
+	writeFile(t, ffs, name, []byte(name))
 	m.ScanFolders()
 
 	file, ok := m.testCurrentFolderFile(fcfg.ID, name)
@@ -4252,6 +4252,46 @@ func TestPendingFolder(t *testing.T) {
 		t.Fatal(err)
 	} else if _, ok := deviceFolders[pfolder]; ok {
 		t.Errorf("folder %v still pending after local removal", pfolder)
+	}
+}
+
+func TestDeletedNotLocallyChangedReceiveOnly(t *testing.T) {
+	deletedNotLocallyChanged(t, config.FolderTypeReceiveOnly)
+}
+
+func TestDeletedNotLocallyChangedReceiveEncrypted(t *testing.T) {
+	deletedNotLocallyChanged(t, config.FolderTypeReceiveEncrypted)
+}
+
+func deletedNotLocallyChanged(t *testing.T, ft config.FolderType) {
+	w, fcfg, wCancel := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	fcfg.Type = ft
+	setFolder(t, w, fcfg)
+	defer wCancel()
+	m := setupModel(t, w)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	name := "foo"
+	writeFile(t, tfs, name, nil)
+	must(t, m.ScanFolder(fcfg.ID))
+
+	fi, ok, err := m.CurrentFolderFile(fcfg.ID, name)
+	must(t, err)
+	if !ok {
+		t.Fatal("File hasn't been added")
+	}
+	if !fi.IsReceiveOnlyChanged() {
+		t.Fatal("File isn't receive-only-changed")
+	}
+
+	must(t, tfs.Remove(name))
+	must(t, m.ScanFolder(fcfg.ID))
+
+	_, ok, err = m.CurrentFolderFile(fcfg.ID, name)
+	must(t, err)
+	if ok {
+		t.Error("Expected file to be removed from db")
 	}
 }
 
