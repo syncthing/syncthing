@@ -93,7 +93,8 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 			c.client = client
 			c.mut.Unlock()
 
-			c.client.Serve(ctx)
+			err = c.client.Serve(ctx)
+			l.Debugf("Disconnected from %s://%s: %v", c.client.URI().Scheme, c.client.URI().Host, err)
 
 			c.mut.Lock()
 			c.client = nil

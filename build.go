@@ -30,27 +30,31 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
 var (
-	goarch        string
-	goos          string
-	noupgrade     bool
-	version       string
-	goCmd         string
-	race          bool
-	debug         = os.Getenv("BUILDDEBUG") != ""
-	extraTags     string
-	installSuffix string
-	pkgdir        string
-	cc            string
-	run           string
-	benchRun      string
-	debugBinary   bool
-	coverage      bool
-	timeout       = "120s"
-	numVersions   = 5
+	goarch         string
+	goos           string
+	noupgrade      bool
+	version        string
+	goCmd          string
+	race           bool
+	debug          = os.Getenv("BUILDDEBUG") != ""
+	extraTags      string
+	installSuffix  string
+	pkgdir         string
+	cc             string
+	run            string
+	benchRun       string
+	debugBinary    bool
+	coverage       bool
+	long           bool
+	timeout        = "120s"
+	longTimeout    = "600s"
+	numVersions    = 5
+	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
 )
 
 type target struct {
@@ -58,12 +62,11 @@ type target struct {
 	debname           string
 	debdeps           []string
 	debpre            string
-	debpost           string
 	description       string
 	buildPkgs         []string
 	binaryName        string
 	archiveFiles      []archiveFile
-	systemdServices   []string
+	systemdService    string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -85,7 +88,6 @@ var targets = map[string]target{
 		name:        "syncthing",
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
-		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
@@ -96,6 +98,7 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
+		systemdService: "syncthing@*.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
@@ -114,6 +117,7 @@ var targets = map[string]target{
 			{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
 			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
 			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+			{src: "etc/linux-sysctl/30-syncthing.conf", dst: "deb/usr/lib/sysctl.d/30-syncthing.conf", perm: 0644},
 			{src: "etc/firewall-ufw/syncthing", dst: "deb/etc/ufw/applications.d/syncthing", perm: 0644},
 			{src: "etc/linux-desktop/syncthing-start.desktop", dst: "deb/usr/share/applications/syncthing-start.desktop", perm: 0644},
 			{src: "etc/linux-desktop/syncthing-ui.desktop", dst: "deb/usr/share/applications/syncthing-ui.desktop", perm: 0644},
@@ -139,9 +143,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
-		},
+		systemdService: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
@@ -168,9 +170,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdServices: []string{
-			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
-		},
+		systemdService: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -204,25 +204,16 @@ var targets = map[string]target{
 	},
 }
 
-// These are repos we need to clone to run "go generate"
-
-type dependencyRepo struct {
-	path   string
-	repo   string
-	commit string
-}
-
-var dependencyRepos = []dependencyRepo{
-	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
-}
-
-func init() {
+func initTargets() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
 	for _, pkg := range pkgs {
 		pkg = filepath.Base(pkg)
 		if strings.HasPrefix(pkg, ".") {
 			// ignore dotfiles
+			continue
+		}
+		if noupgrade && pkg == "stupgrades" {
 			continue
 		}
 		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
@@ -255,6 +246,8 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
+
+	initTargets()
 
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
@@ -309,6 +302,9 @@ func runCommand(cmd string, target target) {
 
 	case "proto":
 		proto()
+
+	case "testmocks":
+		testmocks()
 
 	case "translate":
 		translate()
@@ -369,9 +365,11 @@ func parseFlags() {
 	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
+	flag.BoolVar(&long, "long", long, "Run tests without the -short flag")
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
+	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.Parse()
 }
 
@@ -379,7 +377,13 @@ func test(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
 
 	tags = append(tags, "purego")
-	args := []string{"test", "-short", "-timeout", timeout, "-tags", strings.Join(tags, " ")}
+	args := []string{"test", "-tags", strings.Join(tags, " ")}
+	if long {
+		timeout = longTimeout
+	} else {
+		args = append(args, "-short")
+	}
+	args = append(args, "-timeout", timeout)
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
@@ -438,6 +442,10 @@ func benchArgs() []string {
 }
 
 func install(target target, tags []string) {
+	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
+		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
+	}
+
 	lazyRebuildAssets()
 
 	tags = append(target.tags, tags...)
@@ -461,12 +469,16 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v", "-trimpath"}
+	args := []string{"install", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
+	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
+		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
+	}
+
 	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
 
@@ -489,7 +501,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v", "-trimpath"}
+	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -523,13 +535,13 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags(tags))
+		args = append(args, "-trimpath", "-ldflags", ldflags(tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
 		// offset 0x0: too short` on 'dlv exec ...' see
 		// https://github.com/go-delve/delve/issues/79
-		args = append(args, "-gcflags", "-N -l")
+		args = append(args, "-gcflags", "all=-N -l")
 	}
 
 	return append(args, pkgs...)
@@ -635,16 +647,40 @@ func buildDeb(target target) {
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
 	}
-	for _, service := range target.systemdServices {
-		args = append(args, "--deb-systemd", service)
-	}
-	if target.debpost != "" {
-		args = append(args, "--after-upgrade", target.debpost)
+	if target.systemdService != "" {
+		debpost, err := createPostInstScript(target)
+		defer os.Remove(debpost)
+		if err != nil {
+			log.Fatal(err)
+		}
+		args = append(args, "--after-upgrade", debpost)
 	}
 	if target.debpre != "" {
 		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
+}
+
+func createPostInstScript(target target) (string, error) {
+	scriptname := filepath.Join("script", "deb-post-inst.template")
+	t, err := template.ParseFiles(scriptname)
+	if err != nil {
+		return "", err
+	}
+	scriptname = strings.TrimSuffix(scriptname, ".template")
+	w, err := os.Create(scriptname)
+	if err != nil {
+		return "", err
+	}
+	defer w.Close()
+	if err = t.Execute(w, struct {
+		Service, Command string
+	}{
+		target.systemdService, target.binaryName,
+	}); err != nil {
+		return "", err
+	}
+	return scriptname, nil
 }
 
 func shouldBuildSyso(dir string) (string, error) {
@@ -666,11 +702,14 @@ func shouldBuildSyso(dir string) (string, error) {
 			},
 		},
 		"StringFileInfo": M{
-			"FileDescription": "Open Source Continuous File Synchronization",
-			"LegalCopyright":  "The Syncthing Authors",
-			"FileVersion":     version,
-			"ProductVersion":  version,
-			"ProductName":     "Syncthing",
+			"CompanyName":      "The Syncthing Authors",
+			"FileDescription":  "Syncthing - Open Source Continuous File Synchronization",
+			"FileVersion":      version,
+			"InternalName":     "syncthing",
+			"LegalCopyright":   "The Syncthing Authors",
+			"OriginalFilename": "syncthing",
+			"ProductName":      "Syncthing",
+			"ProductVersion":   version,
 		},
 		"IconPath": "assets/logo.ico",
 	})
@@ -761,9 +800,44 @@ func rebuildAssets() {
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui") {
+	shouldRebuild := shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") ||
+		shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui")
+
+	if withNextGenGUI {
+		shouldRebuild = buildNextGenGUI() || shouldRebuild
+	}
+
+	if shouldRebuild {
 		rebuildAssets()
 	}
+}
+
+func buildNextGenGUI() bool {
+	// Check if we need to run the npm process, and if so also set the flag
+	// to rebuild Go assets afterwards. The index.html is regenerated every
+	// time by the build process. This assumes the new GUI ends up in
+	// next-gen-gui/dist/next-gen-gui.
+
+	if !shouldRebuildAssets("gui/next-gen-gui/index.html", "next-gen-gui") {
+		// The GUI is up to date.
+		return false
+	}
+
+	runPrintInDir("next-gen-gui", "npm", "install")
+	runPrintInDir("next-gen-gui", "npm", "run", "build", "--", "--prod", "--subresource-integrity")
+
+	rmr("gui/tech-ui")
+
+	for _, src := range listFiles("next-gen-gui/dist") {
+		rel, _ := filepath.Rel("next-gen-gui/dist", src)
+		dst := filepath.Join("gui", rel)
+		if err := copyFile(src, dst, 0644); err != nil {
+			fmt.Println("copy:", err)
+			os.Exit(1)
+		}
+	}
+
+	return true
 }
 
 func shouldRebuildAssets(target, srcdir string) bool {
@@ -794,23 +868,35 @@ func shouldRebuildAssets(target, srcdir string) bool {
 
 func proto() {
 	pv := protobufVersion()
-	dependencyRepos = append(dependencyRepos,
-		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
-	)
+	repo := "https://github.com/gogo/protobuf.git"
+	path := filepath.Join("repos", "protobuf")
 
 	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
-	for _, dep := range dependencyRepos {
-		path := filepath.Join("repos", dep.path)
-		if _, err := os.Stat(path); err != nil {
-			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
-		} else {
-			runPrintInDir(path, "git", "fetch")
-		}
-		runPrintInDir(path, "git", "checkout", dep.commit)
+
+	if _, err := os.Stat(path); err != nil {
+		runPrint("git", "clone", repo, path)
+	} else {
+		runPrintInDir(path, "git", "fetch")
 	}
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrintInDir(path, "git", "checkout", pv)
+
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 	runPrint(goCmd, "generate", "proto/generate.go")
+}
+
+func testmocks() {
+	args := []string{
+		"generate",
+		"github.com/syncthing/syncthing/lib/config",
+		"github.com/syncthing/syncthing/lib/connections",
+		"github.com/syncthing/syncthing/lib/discover",
+		"github.com/syncthing/syncthing/lib/events",
+		"github.com/syncthing/syncthing/lib/logger",
+		"github.com/syncthing/syncthing/lib/model",
+		"github.com/syncthing/syncthing/lib/protocol",
+	}
+	runPrint(goCmd, args...)
 }
 
 func translate() {

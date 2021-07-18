@@ -251,6 +251,62 @@ func TestNormalization(t *testing.T) {
 	}
 }
 
+func TestNormalizationDarwinCaseFS(t *testing.T) {
+	// This tests that normalization works on Darwin, through a CaseFS.
+
+	if runtime.GOOS != "darwin" {
+		t.Skip("Normalization test not possible on non-Darwin")
+		return
+	}
+
+	testFs := fs.NewCaseFilesystem(testFs)
+
+	testFs.RemoveAll("normalization")
+	defer testFs.RemoveAll("normalization")
+	testFs.MkdirAll("normalization", 0755)
+
+	const (
+		inNFC = "\xC3\x84"
+		inNFD = "\x41\xCC\x88"
+	)
+
+	// Create dir in NFC
+	if err := testFs.Mkdir(filepath.Join("normalization", "dir-"+inNFC), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create file in NFC
+	fd, err := testFs.Create(filepath.Join("normalization", "dir-"+inNFC, "file-"+inNFC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// Walk, which should normalize and return
+	walkDir(testFs, "normalization", nil, nil, 0)
+	tmp := walkDir(testFs, "normalization", nil, nil, 0)
+	if len(tmp) != 3 {
+		t.Error("Expected one file and one dir scanned")
+	}
+
+	// Verify we see the normalized entries in the result
+	foundFile := false
+	foundDir := false
+	for _, f := range tmp {
+		if f.Name == filepath.Join("normalization", "dir-"+inNFD) {
+			foundDir = true
+			continue
+		}
+		if f.Name == filepath.Join("normalization", "dir-"+inNFD, "file-"+inNFD) {
+			foundFile = true
+			continue
+		}
+	}
+	if !foundFile || !foundDir {
+		t.Error("Didn't find expected normalization form")
+	}
+}
+
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
 	w.Matcher = ignore.New(w.Filesystem)
@@ -551,7 +607,7 @@ func (l testfileList) String() string {
 var initOnce sync.Once
 
 const (
-	testdataSize = 17 << 20
+	testdataSize = 17<<20 + 1
 	testdataName = "_random.data"
 )
 

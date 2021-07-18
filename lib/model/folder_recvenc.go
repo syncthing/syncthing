@@ -32,26 +32,29 @@ func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.M
 }
 
 func (f *receiveEncryptedFolder) Revert() {
-	f.doInSync(func() error { f.revert(); return nil })
+	f.doInSync(f.revert)
 }
 
-func (f *receiveEncryptedFolder) revert() {
+func (f *receiveEncryptedFolder) revert() error {
 	l.Infof("Reverting unexpected items in folder %v (receive-encrypted)", f.Description())
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
 		return nil
 	})
 
-	snap := f.fset.Snapshot()
+	snap, err := f.dbSnapshot()
+	if err != nil {
+		return err
+	}
 	defer snap.Release()
 	var iterErr error
 	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		if iterErr = batch.flushIfFull(); iterErr != nil {
+		if iterErr = batch.FlushIfFull(); iterErr != nil {
 			return false
 		}
 
@@ -78,19 +81,17 @@ func (f *receiveEncryptedFolder) revert() {
 		// item should still not be sent in index updates. However being
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
-		batch.append(fi)
+		batch.Append(fi)
 
 		return true
 	})
 
 	f.revertHandleDirs(dirs, snap)
 
-	if iterErr == nil {
-		iterErr = batch.flush()
-	}
 	if iterErr != nil {
-		l.Infoln("Failed to delete unexpected items:", iterErr)
+		return iterErr
 	}
+	return batch.Flush()
 }
 
 func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {

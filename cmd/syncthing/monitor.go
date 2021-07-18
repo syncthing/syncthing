@@ -36,20 +36,21 @@ var (
 )
 
 const (
-	countRestarts         = 4
-	loopThreshold         = 60 * time.Second
+	restartCounts         = 4
+	restartPause          = 1 * time.Second
+	restartLoopThreshold  = 60 * time.Second
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
 	panicUploadMaxWait    = 30 * time.Second
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func MonitorMain(runtimeOptions RuntimeOptions) int {
+func MonitorMain(options serveOptions) int {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
 
-	logFile := runtimeOptions.logFile
+	logFile := options.LogFile
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
@@ -59,8 +60,8 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 		open := func(name string) (io.WriteCloser, error) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
-		if runtimeOptions.logMaxSize > 0 {
-			fileDst, err = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
+		if options.LogMaxSize > 0 {
+			fileDst, err = newRotatedFile(logFile, open, int64(options.LogMaxSize), options.LogMaxFiles)
 		} else {
 			fileDst, err = open(logFile)
 		}
@@ -84,7 +85,7 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 	}
 
 	args := os.Args
-	var restarts [countRestarts]time.Time
+	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
@@ -97,8 +98,8 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 	for {
 		maybeReportPanics()
 
-		if t := time.Since(restarts[0]); t < loopThreshold {
-			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
+		if t := time.Since(restarts[0]); t < restartLoopThreshold {
+			l.Warnf("%d restarts in %v; not retrying further", restartCounts, t)
 			return svcutil.ExitError.AsInt()
 		}
 
@@ -174,7 +175,7 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			exitCode := exiterr.ExitCode()
-			if stopped || runtimeOptions.noRestart {
+			if stopped || options.NoRestart {
 				return exitCode
 			}
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
@@ -188,12 +189,12 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 			}
 		}
 
-		if runtimeOptions.noRestart {
+		if options.NoRestart {
 			return svcutil.ExitError.AsInt()
 		}
 
 		l.Infoln("Syncthing exited:", err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(restartPause)
 
 		if first {
 			// Let the next child process know that this is not the first time
@@ -563,7 +564,7 @@ func childEnv() []string {
 // panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
 	if err != nil {
 		l.Warnln("Couldn't load config; not reporting crash")
 		return

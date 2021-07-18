@@ -1,8 +1,5 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STDISCOSRV" "1" "Dec 30, 2020" "v1" "Syncthing"
-.SH NAME
-stdiscosrv \- Syncthing Discovery Server
 .
 .nr rst2man-indent-level 0
 .
@@ -30,6 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.TH "STDISCOSRV" "1" "Jun 14, 2021" "v1" "Syncthing"
+.SH NAME
+stdiscosrv \- Syncthing Discovery Server
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -124,6 +124,11 @@ Start this in whatever way you are most comfortable with; double clicking
 should work in any graphical environment. At first start, stdiscosrv will
 generate certificate files and database in the current directory unless
 given flags to the contrary.
+.sp
+The discovery server can also be obtained through apt, the Debian/Ubuntu package
+manager. Recent releases can be found at syncthing’s
+\fI\%apt repository\fP <\fBhttps://apt.syncthing.net/\fP>\&. The name of the package is
+syncthing\-discosrv.
 .SS Configuring
 .sp
 \fBNOTE:\fP

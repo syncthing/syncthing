@@ -39,24 +39,10 @@ var (
 
 const (
 	DefaultMarkerName          = ".stfolder"
+	EncryptionTokenName        = "syncthing-encryption_password_token"
 	maxConcurrentWritesDefault = 2
 	maxConcurrentWritesLimit   = 64
 )
-
-func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
-	f := FolderConfiguration{
-		ID:             id,
-		Label:          label,
-		Devices:        []FolderDeviceConfiguration{{DeviceID: myID}},
-		FilesystemType: fsType,
-		Path:           path,
-	}
-
-	util.SetDefaults(&f)
-
-	f.prepare(myID, nil)
-	return f
-}
 
 func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
@@ -71,7 +57,7 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// cfg.Folders["default"].Filesystem() should be valid.
 	var opts []fs.Option
 	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
-		opts = append(opts, fs.WithJunctionsAsDirs())
+		opts = append(opts, new(fs.OptionJunctionsAsDirs))
 	}
 	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
@@ -235,6 +221,11 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.MaxConcurrentWrites = maxConcurrentWritesDefault
 	} else if f.MaxConcurrentWrites > maxConcurrentWritesLimit {
 		f.MaxConcurrentWrites = maxConcurrentWritesLimit
+	}
+
+	if f.Type == FolderTypeReceiveEncrypted {
+		f.DisableTempIndexes = true
+		f.IgnorePerms = true
 	}
 }
 

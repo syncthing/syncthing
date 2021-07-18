@@ -1,6 +1,6 @@
 ## Reporting Bugs
 
-Please file bugs in the [Github Issue
+Please file bugs in the [GitHub Issue
 Tracker](https://github.com/syncthing/syncthing/issues). Include at
 least the following:
 

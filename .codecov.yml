@@ -1,5 +1,20 @@
+comment: false
+
 coverage:
   range: "40...100"
+  precision: 1
+  status:
+    patch:
+      default:
+        informational: true
+    project:
+      default:
+        informational: true
+
+github_checks:
+  annotations: false
 
 ignore:
   - "**.pb.go"
+  - "**_mocked.go"
+  - "**/mocks/*"

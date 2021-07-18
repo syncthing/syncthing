@@ -122,7 +122,7 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 		}
 	}
 
-	pkt := packet(version)
+	pkt := packet(version, "crash")
 	pkt.Message = string(subjectLine)
 	pkt.Extra = raven.Extra{
 		"url": reportServer + path,
@@ -229,7 +229,7 @@ func parseVersion(line string) (version, error) {
 	return v, nil
 }
 
-func packet(version version) *raven.Packet {
+func packet(version version, reportType string) *raven.Packet {
 	pkt := &raven.Packet{
 		Platform:    "go",
 		Release:     version.tag,
@@ -242,6 +242,7 @@ func packet(version version) *raven.Packet {
 			raven.Tag{Key: "goos", Value: version.goos},
 			raven.Tag{Key: "goarch", Value: version.goarch},
 			raven.Tag{Key: "builder", Value: version.builder},
+			raven.Tag{Key: "report_type", Value: reportType},
 		},
 	}
 	if version.commit != "" {

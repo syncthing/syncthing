@@ -18,6 +18,7 @@ extend google.protobuf.FieldOptions {
     optional bool   device_id = 75009;
     optional string goname    = 75010;
     optional string gotype    = 75011;
+    optional bool   nodefault = 75012;
 }
 
 extend google.protobuf.EnumValueOptions {

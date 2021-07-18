@@ -92,6 +92,15 @@ func newFileSet(t testing.TB, folder string, fs fs.Filesystem, db *Lowlevel) *Fi
 	return fset
 }
 
+func snapshot(t testing.TB, fset *FileSet) *Snapshot {
+	t.Helper()
+	snap, err := fset.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
 // The following commented tests were used to generate jsons files to stdout for
 // future tests and are kept here for reference (reuse).
 

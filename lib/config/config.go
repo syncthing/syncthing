@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 33
+	CurrentVersion       = 35
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -175,17 +175,42 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	var cfg Configuration
-
-	util.SetDefaults(&cfg)
-
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
 		return Configuration{}, err
 	}
 
+	var cfg Configuration
+
+	util.SetDefaults(&cfg)
+
 	if err := json.Unmarshal(bs, &cfg); err != nil {
 		return Configuration{}, err
+	}
+
+	// Unmarshal list of devices and folders separately to set defaults
+	var rawFoldersDevices struct {
+		Folders []json.RawMessage
+		Devices []json.RawMessage
+	}
+	if err := json.Unmarshal(bs, &rawFoldersDevices); err != nil {
+		return Configuration{}, err
+	}
+
+	cfg.Folders = make([]FolderConfiguration, len(rawFoldersDevices.Folders))
+	for i, bs := range rawFoldersDevices.Folders {
+		cfg.Folders[i] = cfg.Defaults.Folder.Copy()
+		if err := json.Unmarshal(bs, &cfg.Folders[i]); err != nil {
+			return Configuration{}, err
+		}
+	}
+
+	cfg.Devices = make([]DeviceConfiguration, len(rawFoldersDevices.Devices))
+	for i, bs := range rawFoldersDevices.Devices {
+		cfg.Devices[i] = cfg.Defaults.Device.Copy()
+		if err := json.Unmarshal(bs, &cfg.Devices[i]); err != nil {
+			return Configuration{}, err
+		}
 	}
 
 	if err := cfg.prepare(myID); err != nil {
@@ -246,6 +271,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 
 	cfg.prepareIgnoredDevices(existingDevices)
 
+	cfg.Defaults.prepare(myID, existingDevices)
+
 	cfg.removeDeprecatedProtocols()
 
 	util.FillNilExceptDeprecated(cfg)
@@ -257,7 +284,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 }
 
 func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
-	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
 		if device.DeviceID == myID {
 			return
@@ -384,6 +410,15 @@ func (cfg *Configuration) applyMigrations() {
 	migrationsMut.Unlock()
 }
 
+func (cfg *Configuration) Device(id protocol.DeviceID) (DeviceConfiguration, int, bool) {
+	for i, device := range cfg.Devices {
+		if device.DeviceID == id {
+			return device, i, true
+		}
+	}
+	return DeviceConfiguration{}, 0, false
+}
+
 // DeviceMap returns a map of device ID to device configuration for the given configuration.
 func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
 	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
@@ -393,20 +428,74 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 	return m
 }
 
+func (cfg *Configuration) SetDevice(device DeviceConfiguration) {
+	cfg.SetDevices([]DeviceConfiguration{device})
+}
+
+func (cfg *Configuration) SetDevices(devices []DeviceConfiguration) {
+	inds := make(map[protocol.DeviceID]int, len(cfg.Devices))
+	for i, device := range cfg.Devices {
+		inds[device.DeviceID] = i
+	}
+	filtered := devices[:0]
+	for _, device := range devices {
+		if i, ok := inds[device.DeviceID]; ok {
+			cfg.Devices[i] = device
+		} else {
+			filtered = append(filtered, device)
+		}
+	}
+	cfg.Devices = append(cfg.Devices, filtered...)
+}
+
+func (cfg *Configuration) Folder(id string) (FolderConfiguration, int, bool) {
+	for i, folder := range cfg.Folders {
+		if folder.ID == id {
+			return folder, i, true
+		}
+	}
+	return FolderConfiguration{}, 0, false
+}
+
+// FolderMap returns a map of folder ID to folder configuration for the given configuration.
+func (cfg *Configuration) FolderMap() map[string]FolderConfiguration {
+	m := make(map[string]FolderConfiguration, len(cfg.Folders))
+	for _, folder := range cfg.Folders {
+		m[folder.ID] = folder
+	}
+	return m
+}
+
 // FolderPasswords returns the folder passwords set for this device, for
 // folders that have an encryption password set.
 func (cfg Configuration) FolderPasswords(device protocol.DeviceID) map[string]string {
 	res := make(map[string]string, len(cfg.Folders))
-nextFolder:
 	for _, folder := range cfg.Folders {
-		for _, dev := range folder.Devices {
-			if dev.DeviceID == device && dev.EncryptionPassword != "" {
-				res[folder.ID] = dev.EncryptionPassword
-				continue nextFolder
-			}
+		if dev, ok := folder.Device(device); ok && dev.EncryptionPassword != "" {
+			res[folder.ID] = dev.EncryptionPassword
 		}
 	}
 	return res
+}
+
+func (cfg *Configuration) SetFolder(folder FolderConfiguration) {
+	cfg.SetFolders([]FolderConfiguration{folder})
+}
+
+func (cfg *Configuration) SetFolders(folders []FolderConfiguration) {
+	inds := make(map[string]int, len(cfg.Folders))
+	for i, folder := range cfg.Folders {
+		inds[folder.ID] = i
+	}
+	filtered := folders[:0]
+	for _, folder := range folders {
+		if i, ok := inds[folder.ID]; ok {
+			cfg.Folders[i] = folder
+		} else {
+			filtered = append(filtered, folder)
+		}
+	}
+	cfg.Folders = append(cfg.Folders, filtered...)
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
@@ -530,4 +619,20 @@ func getFreePort(host string, ports ...int) (int, error) {
 	addr := c.Addr().(*net.TCPAddr)
 	c.Close()
 	return addr.Port, nil
+}
+
+func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+	ensureZeroForNodefault(&FolderConfiguration{}, &defaults.Folder)
+	ensureZeroForNodefault(&DeviceConfiguration{}, &defaults.Device)
+	defaults.Folder.prepare(myID, existingDevices)
+	defaults.Device.prepare(nil)
+}
+
+func ensureZeroForNodefault(empty interface{}, target interface{}) {
+	util.CopyMatchingTag(empty, target, "nodefault", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+		}
+		return len(v) > 0
+	})
 }

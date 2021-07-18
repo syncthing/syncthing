@@ -44,13 +44,16 @@ var caseCases = [][2]string{
 	{"チャーハン", "チャーハン"},
 	// Some special Unicode characters, however, are folded by OSes.
 	{"\u212A", "k"},
+	// Folding renormalizes to NFC
+	{"A\xCC\x88", "\xC3\xA4"}, // ä
+	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
-func TestUnicodeLowercase(t *testing.T) {
+func TestUnicodeLowercaseNormalized(t *testing.T) {
 	for _, tc := range caseCases {
-		res := UnicodeLowercase(tc[0])
+		res := UnicodeLowercaseNormalized(tc[0])
 		if res != tc[1] {
-			t.Errorf("UnicodeLowercase(%q) => %q, expected %q", tc[0], res, tc[1])
+			t.Errorf("UnicodeLowercaseNormalized(%q) => %q, expected %q", tc[0], res, tc[1])
 		}
 	}
 }
@@ -60,7 +63,7 @@ func BenchmarkUnicodeLowercaseMaybeChange(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, s := range caseCases {
-			UnicodeLowercase(s[0])
+			UnicodeLowercaseNormalized(s[0])
 		}
 	}
 }
@@ -70,7 +73,7 @@ func BenchmarkUnicodeLowercaseNoChange(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, s := range caseCases {
-			UnicodeLowercase(s[1])
+			UnicodeLowercaseNormalized(s[1])
 		}
 	}
 }

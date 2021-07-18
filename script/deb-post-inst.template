@@ -1,0 +1,14 @@
+#!/bin/sh
+
+command -v deb-systemd-invoke > /dev/null
+has_systemd=$?
+
+if [ $has_systemd -eq 0 ]; then
+    systemctl daemon-reload
+fi
+
+if [ $has_systemd -eq 0 ] && [ -n "$(systemctl list-units --plain --no-legend {{.Service}})" ]; then
+    deb-systemd-invoke try-restart "{{.Service}}"
+else
+    pkill -HUP -x {{.Command}} || :
+fi

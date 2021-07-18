@@ -91,8 +91,10 @@ message VersionListDeprecated {
 }
 
 message ObservedFolder {
-    google.protobuf.Timestamp time  = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-    string                    label = 2;
+    google.protobuf.Timestamp time              = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    string                    label             = 2;
+    bool                      receive_encrypted = 3;
+    bool                      remote_encrypted  = 4;
 }
 
 message ObservedDevice {

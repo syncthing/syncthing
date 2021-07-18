@@ -15,8 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/thejerf/suture/v4"
 )
 
 type defaultParser interface {
@@ -119,16 +117,14 @@ func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 	}
 }
 
-// UniqueTrimmedStrings returns a list on unique strings, trimming at the same time.
+// UniqueTrimmedStrings returns a list of all unique strings in ss,
+// in the order in which they first appear in ss, after trimming away
+// leading and trailing spaces.
 func UniqueTrimmedStrings(ss []string) []string {
-	// Trim all first
-	for i, v := range ss {
-		ss[i] = strings.Trim(v, " ")
-	}
-
 	var m = make(map[string]struct{}, len(ss))
 	var us = make([]string, 0, len(ss))
 	for _, v := range ss {
+		v = strings.Trim(v, " ")
 		if _, ok := m[v]; ok {
 			continue
 		}
@@ -254,70 +250,6 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 	return aIsUnspecified
 }
 
-type FatalErr struct {
-	Err    error
-	Status ExitStatus
-}
-
-func (e *FatalErr) Error() string {
-	return e.Err.Error()
-}
-
-func (e *FatalErr) Unwrap() error {
-	return e.Err
-}
-
-func (e *FatalErr) Is(target error) bool {
-	return target == suture.ErrTerminateSupervisorTree
-}
-
-// NoRestartErr wraps the given error err (which may be nil) to make sure that
-// `errors.Is(err, suture.ErrDoNotRestart) == true`.
-func NoRestartErr(err error) error {
-	if err == nil {
-		return suture.ErrDoNotRestart
-	}
-	return &noRestartErr{err}
-}
-
-type noRestartErr struct {
-	err error
-}
-
-func (e *noRestartErr) Error() string {
-	return e.err.Error()
-}
-
-func (e *noRestartErr) Unwrap() error {
-	return e.err
-}
-
-func (e *noRestartErr) Is(target error) bool {
-	return target == suture.ErrDoNotRestart
-}
-
-type ExitStatus int
-
-const (
-	ExitSuccess            ExitStatus = 0
-	ExitError              ExitStatus = 1
-	ExitNoUpgradeAvailable ExitStatus = 2
-	ExitRestart            ExitStatus = 3
-	ExitUpgrade            ExitStatus = 4
-)
-
-func (s ExitStatus) AsInt() int {
-	return int(s)
-}
-
-// OnDone calls fn when ctx is cancelled.
-func OnDone(ctx context.Context, fn func()) {
-	go func() {
-		<-ctx.Done()
-		fn()
-	}()
-}
-
 func CallWithContext(ctx context.Context, fn func() error) error {
 	var err error
 	done := make(chan struct{})
@@ -347,4 +279,16 @@ func NiceDurationString(d time.Duration) string {
 		d = d.Round(time.Microsecond)
 	}
 	return d.String()
+}
+
+func EqualStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

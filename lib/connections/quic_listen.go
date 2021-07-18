@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.16
+// +build go1.14,!noquic,!go1.17
 
 package connections
 
@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -47,6 +48,7 @@ type quicListener struct {
 	factory listenerFactory
 
 	address *url.URL
+	laddr   net.Addr
 	mut     sync.Mutex
 }
 
@@ -79,34 +81,63 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 }
 
 func (t *quicListener) serve(ctx context.Context) error {
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+	network := strings.ReplaceAll(t.uri.Scheme, "quic", "udp")
 
-	packetConn, err := net.ListenPacket(network, t.uri.Host)
+	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = packetConn.Close() }()
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
-	defer func() { _ = conn.Close() }()
+	udpConn, err := net.ListenUDP(network, udpAddr)
+	if err != nil {
+		l.Infoln("Listen (BEP/quic):", err)
+		return err
+	}
+	defer func() { _ = udpConn.Close() }()
+
+	svc, conn := stun.New(t.cfg, t, udpConn)
+	defer conn.Close()
+
+	quicWrapper := quicWrapper{
+		PacketConn: conn,
+		underlying: udpConn,
+	}
+	var wrapped net.PacketConn = &quicWrapper
+
+	if oobConn, ok := conn.(oobConn); ok {
+		l.Debugf("wrapping in oob conn")
+		wrapped = &oobConnWrapper{
+			quicWrapper, oobConn,
+		}
+	}
 
 	go svc.Serve(ctx)
 
-	registry.Register(t.uri.Scheme, conn)
-	defer registry.Unregister(t.uri.Scheme, conn)
+	registry.Register(t.uri.Scheme, wrapped)
+	defer registry.Unregister(t.uri.Scheme, wrapped)
 
-	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	t.notifyAddressesChanged(t)
 	defer listener.Close()
+
+	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
+	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
+
+	t.mut.Lock()
+	t.laddr = udpConn.LocalAddr()
+	t.mut.Unlock()
+	defer func() {
+		t.mut.Lock()
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -159,8 +190,8 @@ func (t *quicListener) URI() *url.URL {
 }
 
 func (t *quicListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
 	t.mut.Lock()
+	uris := []*url.URL{maybeReplacePort(t.uri, t.laddr)}
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
@@ -169,9 +200,12 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
+	t.mut.Lock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.Unlock()
+	addrs := []*url.URL{uri}
+	network := strings.ReplaceAll(uri.Scheme, "quic", "udp")
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, uri)...)
 	return addrs
 }
 
@@ -212,4 +246,34 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 
 func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
+}
+
+// quicWrapper provides methods used by quic
+// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
+type quicWrapper struct {
+	net.PacketConn
+	underlying *net.UDPConn
+}
+
+// SetReadBuffer is required by QUIC
+func (s *quicWrapper) SetReadBuffer(size int) error {
+	return s.underlying.SetReadBuffer(size)
+}
+
+// SyscallConn is required by QUIC
+func (s *quicWrapper) SyscallConn() (syscall.RawConn, error) {
+	return s.underlying.SyscallConn()
+}
+
+// oobConn is used to assert that stun package returned a net.PacketConn that implements this interface.
+// If it does, we then wrap quicWrapper in oobConnWrapper, to expose those methods to QUIC package.
+type oobConn interface {
+	ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error)
+	WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error)
+}
+
+// See: https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
+type oobConnWrapper struct {
+	quicWrapper
+	oobConn
 }

@@ -9,6 +9,7 @@ package versioner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
@@ -35,7 +36,7 @@ func newExternal(cfg config.FolderConfiguration) Versioner {
 	command := cfg.Versioning.Params["command"]
 
 	if runtime.GOOS == "windows" {
-		command = strings.Replace(command, `\`, `\\`, -1)
+		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 
 	s := external{
@@ -64,12 +65,12 @@ func (v external) Archive(filePath string) error {
 	l.Debugln("archiving", filePath)
 
 	if v.command == "" {
-		return errors.New("Versioner: command is empty, please enter a valid command")
+		return errors.New("command is empty, please enter a valid command")
 	}
 
 	words, err := shellquote.Split(v.command)
 	if err != nil {
-		return errors.New("Versioner: command is invalid: " + err.Error())
+		return fmt.Errorf("command is invalid: %w", err)
 	}
 
 	context := map[string]string{
@@ -80,7 +81,7 @@ func (v external) Archive(filePath string) error {
 
 	for i, word := range words {
 		for key, val := range context {
-			word = strings.Replace(word, key, val, -1)
+			word = strings.ReplaceAll(word, key, val)
 		}
 
 		words[i] = word
@@ -99,6 +100,9 @@ func (v external) Archive(filePath string) error {
 	combinedOutput, err := cmd.CombinedOutput()
 	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
+		if eerr, ok := err.(*exec.ExitError); ok && len(eerr.Stderr) > 0 {
+			return fmt.Errorf("%v: %v", err, string(eerr.Stderr))
+		}
 		return err
 	}
 
@@ -106,7 +110,7 @@ func (v external) Archive(filePath string) error {
 	if _, err = v.filesystem.Lstat(filePath); fs.IsNotExist(err) {
 		return nil
 	}
-	return errors.New("Versioner: file was not removed by external script")
+	return errors.New("file was not removed by external script")
 }
 
 func (v external) GetVersions() (map[string][]FileVersion, error) {

@@ -57,7 +57,7 @@ type Options struct {
 	AuditWriter      io.Writer
 	DeadlockTimeoutS int
 	NoUpgrade        bool
-	ProfilerURL      string
+	ProfilerAddr     string
 	ResetDeltaIdxs   bool
 	Verbose          bool
 	// null duration means use default value
@@ -115,7 +115,8 @@ func (a *App) Start() error {
 	a.stopped = make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mainServiceCancel = cancel
-	go a.run(ctx)
+	errChan := a.mainService.ServeBackground(ctx)
+	go a.wait(errChan)
 
 	if err := a.startup(); err != nil {
 		a.stopWithErr(svcutil.ExitError, err)
@@ -174,11 +175,11 @@ func (a *App) startup() error {
 		return err
 	}
 
-	if len(a.opts.ProfilerURL) > 0 {
+	if len(a.opts.ProfilerAddr) > 0 {
 		go func() {
-			l.Debugln("Starting profiler on", a.opts.ProfilerURL)
+			l.Debugln("Starting profiler on", a.opts.ProfilerAddr)
 			runtime.SetBlockProfileRate(1)
-			err := http.ListenAndServe(a.opts.ProfilerURL, nil)
+			err := http.ListenAndServe(a.opts.ProfilerAddr, nil)
 			if err != nil {
 				l.Warnln(err)
 				return
@@ -261,7 +262,13 @@ func (a *App) startup() error {
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
 
-	tlsCfg := tlsutil.SecureDefault()
+	var tlsCfg *tls.Config
+	if a.cfg.Options().InsecureAllowOldTLSVersions {
+		l.Infoln("TLS 1.2 is allowed on sync connections. This is less than optimally secure.")
+		tlsCfg = tlsutil.SecureDefaultWithTLS12()
+	} else {
+		tlsCfg = tlsutil.SecureDefaultTLS13()
+	}
 	tlsCfg.Certificates = []tls.Certificate{a.cert}
 	tlsCfg.NextProtos = []string{bepProtocolName}
 	tlsCfg.ClientAuth = tls.RequestClientCert
@@ -283,24 +290,21 @@ func (a *App) startup() error {
 	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
 
-	// Candidate builds always run with usage reporting.
-
-	if opts := a.cfg.Options(); build.IsCandidate {
-		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != ur.Version {
-			opts.URAccepted = ur.Version
-			a.cfg.SetOptions(opts)
-			a.cfg.Save()
-			// Unique ID will be set and config saved below if necessary.
+	a.cfg.Modify(func(cfg *config.Configuration) {
+		// Candidate builds always run with usage reporting.
+		if build.IsCandidate {
+			l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+			if cfg.Options.URAccepted != ur.Version {
+				cfg.Options.URAccepted = ur.Version
+				// Unique ID will be set and config saved below if necessary.
+			}
 		}
-	}
 
-	// If we are going to do usage reporting, ensure we have a valid unique ID.
-	if opts := a.cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
-		opts.URUniqueID = rand.String(8)
-		a.cfg.SetOptions(opts)
-		a.cfg.Save()
-	}
+		// If we are going to do usage reporting, ensure we have a valid unique ID.
+		if cfg.Options.URAccepted > 0 && cfg.Options.URUniqueID == "" {
+			cfg.Options.URUniqueID = rand.String(8)
+		}
+	})
 
 	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
 	a.mainService.Add(usageReportingSvc)
@@ -337,8 +341,8 @@ func (a *App) startup() error {
 	return nil
 }
 
-func (a *App) run(ctx context.Context) {
-	err := a.mainService.Serve(ctx)
+func (a *App) wait(errChan <-chan error) {
+	err := <-errChan
 	a.handleMainServiceError(err)
 
 	done := make(chan struct{})

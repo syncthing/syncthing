@@ -148,10 +148,9 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 		// the metadatatracker, even if there's no change to the need
 		// bucket itself.
 		nkey := metaKey{dev, needFlag}
-		nidx, ok := m.indexes[nkey]
-		if !ok {
+		if _, ok := m.indexes[nkey]; !ok {
 			// Initially a new device needs everything, except deletes
-			nidx = len(m.counts.Counts)
+			nidx := len(m.counts.Counts)
 			m.counts.Counts = append(m.counts.Counts, m.allNeededCounts(dev))
 			m.indexes[nkey] = nidx
 		}

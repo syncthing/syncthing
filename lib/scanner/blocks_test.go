@@ -195,17 +195,17 @@ func BenchmarkValidate(b *testing.B) {
 	for i := 0; i < blocksPerType; i++ {
 		var b block
 		b.data = make([]byte, 128<<10)
-		r.Read(b.data[:])
-		b.hash = sha256.Sum256(b.data[:])
-		b.weakhash = origAdler32.Checksum(b.data[:])
+		r.Read(b.data)
+		b.hash = sha256.Sum256(b.data)
+		b.weakhash = origAdler32.Checksum(b.data)
 		blocks = append(blocks, b)
 	}
 	// Blocks where the hash matches, but the weakhash doesn't.
 	for i := 0; i < blocksPerType; i++ {
 		var b block
 		b.data = make([]byte, 128<<10)
-		r.Read(b.data[:])
-		b.hash = sha256.Sum256(b.data[:])
+		r.Read(b.data)
+		b.hash = sha256.Sum256(b.data)
 		b.weakhash = 1 // Zeros causes Validate to skip the weakhash.
 		blocks = append(blocks, b)
 	}
@@ -215,7 +215,7 @@ func BenchmarkValidate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, b := range blocks {
-			Validate(b.data[:], b.hash[:], b.weakhash)
+			Validate(b.data, b.hash[:], b.weakhash)
 		}
 	}
 }

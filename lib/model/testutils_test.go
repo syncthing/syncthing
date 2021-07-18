@@ -24,12 +24,13 @@ import (
 )
 
 var (
-	myID, device1, device2 protocol.DeviceID
-	defaultCfgWrapper      config.Wrapper
-	defaultFolderConfig    config.FolderConfiguration
-	defaultFs              fs.Filesystem
-	defaultCfg             config.Configuration
-	defaultAutoAcceptCfg   config.Configuration
+	myID, device1, device2  protocol.DeviceID
+	defaultCfgWrapper       config.Wrapper
+	defaultCfgWrapperCancel context.CancelFunc
+	defaultFolderConfig     config.FolderConfiguration
+	defaultFs               fs.Filesystem
+	defaultCfg              config.Configuration
+	defaultAutoAcceptCfg    config.Configuration
 )
 
 func init() {
@@ -37,15 +38,17 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
+	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
+
 	defaultFolderConfig = testFolderConfig("testdata")
 	defaultFs = defaultFolderConfig.Filesystem()
 
-	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
-	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
-	opts := defaultCfgWrapper.Options()
-	opts.KeepTemporariesH = 1
-	_, _ = defaultCfgWrapper.SetOptions(opts)
+	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
+		cfg.SetFolder(defaultFolderConfig)
+		cfg.Options.KeepTemporariesH = 1
+	})
+	waiter.Wait()
 
 	defaultCfg = defaultCfgWrapper.RawCopy()
 
@@ -64,17 +67,33 @@ func init() {
 				AutoAcceptFolders: true,
 			},
 		},
-		Options: config.OptionsConfiguration{
-			DefaultFolderPath: ".",
+		Defaults: config.Defaults{
+			Folder: config.FolderConfiguration{
+				Path: ".",
+			},
 		},
 	}
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	if err != nil {
+		panic(err)
+	}
+	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
+	tmpFile.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	go wrapper.Serve(ctx)
+	return wrapper, cancel
+}
+
+func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg := testFolderConfigTmp()
-	_, _ = w.SetFolder(fcfg)
-	return w, fcfg
+	_, _ = w.Modify(func(cfg *config.Configuration) {
+		cfg.SetFolder(fcfg)
+	})
+	return w, fcfg, cancel
 }
 
 func testFolderConfigTmp() config.FolderConfiguration {
@@ -83,31 +102,31 @@ func testFolderConfigTmp() config.FolderConfiguration {
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, path)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
 func testFolderConfigFake() config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
-func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration) {
+func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, cancel := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
-	return m, fc, fcfg
+	return m, fc, fcfg, cancel
 }
 
 func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testModel, *fakeConnection) {
 	t.Helper()
 	m := setupModel(t, w)
 
-	fc := addFakeConn(m, device1)
+	fc := addFakeConn(m, device1, "default")
 	fc.folder = "default"
 
 	_ = m.ScanFolder("default")
@@ -128,6 +147,7 @@ func setupModel(t testing.TB, w config.Wrapper) *testModel {
 
 type testModel struct {
 	*model
+	t        testing.TB
 	cancel   context.CancelFunc
 	evCancel context.CancelFunc
 	stopped  chan struct{}
@@ -147,6 +167,7 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName
 		model:    m,
 		evCancel: cancel,
 		stopped:  make(chan struct{}),
+		t:        t,
 	}
 }
 
@@ -158,6 +179,24 @@ func (m *testModel) ServeBackground() {
 		close(m.stopped)
 	}()
 	<-m.started
+}
+
+func (m *testModel) testAvailability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+	av, err := m.model.Availability(folder, file, block)
+	must(m.t, err)
+	return av
+}
+
+func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
+	f, ok, err := m.model.CurrentFolderFile(folder, file)
+	must(m.t, err)
+	return f, ok
+}
+
+func (m *testModel) testCompletion(device protocol.DeviceID, folder string) FolderCompletion {
+	comp, err := m.Completion(device, folder)
+	must(m.t, err)
+	return comp
 }
 
 func cleanupModel(m *testModel) {
@@ -237,7 +276,7 @@ func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
 	return snap.ReceiveOnlyChangedSize()
 }
 
-func needSize(t *testing.T, m Model, folder string) db.Counts {
+func needSizeLocal(t *testing.T, m Model, folder string) db.Counts {
 	t.Helper()
 	snap := dbSnapshot(t, m, folder)
 	defer snap.Release()
@@ -247,6 +286,15 @@ func needSize(t *testing.T, m Model, folder string) db.Counts {
 func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 	t.Helper()
 	snap, err := m.DBSnapshot(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
+func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
+	t.Helper()
+	snap, err := fset.Snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,6 +353,13 @@ func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	})
 }
 
+func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.DeviceID, name string) config.DeviceConfiguration {
+	cfg := defaultCfg.Copy()
+	cfg.DeviceID = id
+	cfg.Name = name
+	return cfg
+}
+
 func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
 	t.Helper()
 	fset, err := db.NewFileSet(folder, fs, ldb)
@@ -312,4 +367,71 @@ func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel)
 		t.Fatal(err)
 	}
 	return fset
+}
+
+func replace(t testing.TB, w config.Wrapper, to config.Configuration) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		*cfg = to
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
+func pauseFolder(t testing.TB, w config.Wrapper, id string, paused bool) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		_, i, _ := cfg.Folder(id)
+		cfg.Folders[i].Paused = paused
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
+func setFolder(t testing.TB, w config.Wrapper, fcfg config.FolderConfiguration) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		cfg.SetFolder(fcfg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
+func pauseDevice(t testing.TB, w config.Wrapper, id protocol.DeviceID, paused bool) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		_, i, _ := cfg.Device(id)
+		cfg.Devices[i].Paused = paused
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
+func setDevice(t testing.TB, w config.Wrapper, device config.DeviceConfiguration) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		cfg.SetDevice(device)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
+func addDevice2(t testing.TB, w config.Wrapper, fcfg config.FolderConfiguration) {
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
+		fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+		cfg.SetFolder(fcfg)
+	})
+	must(t, err)
+	waiter.Wait()
 }

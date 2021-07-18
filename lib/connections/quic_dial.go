@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.16
+// +build go1.14,!noquic,!go1.17
 
 package connections
 
@@ -90,14 +90,18 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil
 }
 
-type quicDialerFactory struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
-}
+type quicDialerFactory struct{}
 
 func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	// So the idea is that we should probably try dialing every 20 seconds.
+	// However it would still be nice if this was adjustable/proportional to ReconnectIntervalS
+	// But prevent something silly like 1/3 = 0 etc.
+	quicInterval := opts.ReconnectIntervalS / 3
+	if quicInterval < 10 {
+		quicInterval = 10
+	}
 	return &quicDialer{commonDialer{
-		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		reconnectInterval: time.Duration(quicInterval) * time.Second,
 		tlsCfg:            tlsCfg,
 	}}
 }

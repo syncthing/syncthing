@@ -57,7 +57,7 @@ func main() {
 
 	if join {
 		log.Println("Creating client")
-		relay, err := client.NewClient(uri, []tls.Certificate{cert}, nil, 10*time.Second)
+		relay, err := client.NewClient(uri, []tls.Certificate{cert}, 10*time.Second)
 		if err != nil {
 			log.Fatal(err)
 		}

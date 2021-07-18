@@ -9,9 +9,9 @@ package ur
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
+	"math/rand"
 	"net"
 	"net/http"
 	"runtime"
@@ -36,7 +36,7 @@ import (
 // are prompted for acceptance of the new report.
 const Version = 3
 
-var StartTime = time.Now()
+var StartTime = time.Now().Truncate(time.Second)
 
 type Service struct {
 	cfg                config.Wrapper
@@ -71,6 +71,7 @@ func (s *Service) ReportDataPreview(ctx context.Context, urVersion int) (*contra
 
 func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (*contract.Report, error) {
 	opts := s.cfg.Options()
+	defaultFolder := s.cfg.DefaultFolder()
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
@@ -212,7 +213,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.CacheIgnoredFiles = opts.CacheIgnoredFiles
 		report.OverwriteRemoteDeviceNames = opts.OverwriteRemoteDevNames
 		report.ProgressEmitterEnabled = opts.ProgressUpdateIntervalS > -1
-		report.CustomDefaultFolderPath = opts.DefaultFolderPath != "~"
+		report.CustomDefaultFolderPath = defaultFolder.Path != "~"
 		report.CustomTrafficClass = opts.TrafficClass != 0
 		report.CustomTempIndexMinBlocks = opts.TempIndexMinBlocks != 10
 		report.TemporariesDisabled = opts.KeepTemporariesH == 0
@@ -265,6 +266,9 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			report.FolderUsesV3.CopyRangeMethod[cfg.CopyRangeMethod.String()]++
 			if cfg.CaseSensitiveFS {
 				report.FolderUsesV3.CaseSensitiveFS++
+			}
+			if cfg.Type == config.FolderTypeReceiveEncrypted {
+				report.FolderUsesV3.ReceiveEncrypted++
 			}
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
@@ -413,7 +417,8 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
-	rand.Reader.Read(bs)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
@@ -421,7 +426,12 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 			perf = v
 		}
 	}
-	blocksResult = nil
+	// not looking at the blocksResult makes it unused from a static
+	// analysis / compiler standpoint...
+	// blocksResult may be nil at this point if the context is cancelled
+	if blocksResult != nil {
+		blocksResult = nil
+	}
 	return perf
 }
 

@@ -40,6 +40,7 @@ type tcpListener struct {
 
 	natService *nat.Service
 	mapping    *nat.Mapping
+	laddr      net.Addr
 
 	mut sync.RWMutex
 }
@@ -60,25 +61,37 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/tcp):", err)
 		return err
 	}
-	t.notifyAddressesChanged(t)
-	registry.Register(t.uri.Scheme, tcaddr)
-
 	defer listener.Close()
+
+	// We might bind to :0, so use the port we've been given.
+	tcaddr = listener.Addr().(*net.TCPAddr)
+
+	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
+
+	registry.Register(t.uri.Scheme, tcaddr)
 	defer registry.Unregister(t.uri.Scheme, tcaddr)
 
-	l.Infof("TCP listener (%v) starting", listener.Addr())
-	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
+	l.Infof("TCP listener (%v) starting", tcaddr)
+	defer l.Infof("TCP listener (%v) shutting down", tcaddr)
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
 		t.notifyAddressesChanged(t)
 	})
+	// Should be called after t.mapping is nil'ed out.
 	defer t.natService.RemoveMapping(mapping)
 
 	t.mut.Lock()
 	t.mapping = mapping
+	t.laddr = tcaddr
 	t.mut.Unlock()
+	defer func() {
+		t.mut.Lock()
+		t.mapping = nil
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -94,9 +107,6 @@ func (t *tcpListener) serve(ctx context.Context) error {
 			if err == nil {
 				conn.Close()
 			}
-			t.mut.Lock()
-			t.mapping = nil
-			t.mut.Unlock()
 			return nil
 		default:
 		}
@@ -146,8 +156,10 @@ func (t *tcpListener) URI() *url.URL {
 }
 
 func (t *tcpListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
 	t.mut.RLock()
+	uris := []*url.URL{
+		maybeReplacePort(t.uri, t.laddr),
+	}
 	if t.mapping != nil {
 		addrs := t.mapping.ExternalAddresses()
 		for _, addr := range addrs {
@@ -179,8 +191,11 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 }
 
 func (t *tcpListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(t.uri.Scheme, t.uri)...)
+	t.mut.RLock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.RUnlock()
+	addrs := []*url.URL{uri}
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(uri.Scheme, uri)...)
 	return addrs
 }
 

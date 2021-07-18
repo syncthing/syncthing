@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build !linux,!windows,!dragonfly,!freebsd,!netbsd,!openbsd,!solaris,!ios
-// +build !darwin darwin,cgo
+// +build !linux,!windows,!dragonfly,!freebsd,!netbsd,!openbsd,!solaris,!darwin,!cgo,!ios
 
 // Catch all platforms that are not specifically handled to use the generic
 // event types.

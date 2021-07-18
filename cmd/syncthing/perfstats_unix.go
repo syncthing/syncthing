@@ -18,10 +18,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func init() {
-	if innerProcess && os.Getenv("STPERFSTATS") != "" {
-		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
-	}
+func startPerfStats() {
+	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
 }
 
 func savePerfStats(file string) {

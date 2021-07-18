@@ -47,7 +47,7 @@ func main() {
 	mux.Handle("/", cr)
 
 	if *dsn != "" {
-		mux.HandleFunc("/failure", handleFailureFn(*dsn))
+		mux.HandleFunc("/newcrash/failure", handleFailureFn(*dsn))
 	}
 
 	log.SetOutput(os.Stdout)
@@ -84,7 +84,7 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 		for _, r := range reports {
-			pkt := packet(version)
+			pkt := packet(version, "failure")
 			pkt.Message = r.Description
 			pkt.Extra = raven.Extra{
 				"count": r.Count,

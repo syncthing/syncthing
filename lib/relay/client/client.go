@@ -35,21 +35,21 @@ type RelayClient interface {
 	URI() *url.URL
 }
 
-func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) (RelayClient, error) {
+func NewClient(uri *url.URL, certs []tls.Certificate, timeout time.Duration) (RelayClient, error) {
 	factory, ok := supportedSchemes[uri.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("unsupported scheme: %s", uri.Scheme)
 	}
 
+	invitations := make(chan protocol.SessionInvitation)
 	return factory(uri, certs, invitations, timeout), nil
 }
 
 type commonClient struct {
 	svcutil.ServiceWithError
 
-	invitations              chan protocol.SessionInvitation
-	closeInvitationsOnFinish bool
-	mut                      sync.RWMutex
+	invitations chan protocol.SessionInvitation
+	mut         sync.RWMutex
 }
 
 func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error, creator string) commonClient {
@@ -57,24 +57,8 @@ func newCommonClient(invitations chan protocol.SessionInvitation, serve func(con
 		invitations: invitations,
 		mut:         sync.NewRWMutex(),
 	}
-	newServe := func(ctx context.Context) error {
-		defer c.cleanup()
-		return serve(ctx)
-	}
-	c.ServiceWithError = svcutil.AsService(newServe, creator)
-	if c.invitations == nil {
-		c.closeInvitationsOnFinish = true
-		c.invitations = make(chan protocol.SessionInvitation)
-	}
+	c.ServiceWithError = svcutil.AsService(serve, creator)
 	return c
-}
-
-func (c *commonClient) cleanup() {
-	c.mut.Lock()
-	if c.closeInvitationsOnFinish {
-		close(c.invitations)
-	}
-	c.mut.Unlock()
 }
 
 func (c *commonClient) Invitations() chan protocol.SessionInvitation {

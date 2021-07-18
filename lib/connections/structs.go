@@ -89,7 +89,7 @@ func newInternalConn(tc tlsConn, connType connType, priority int) internalConn {
 		tlsConn:       tc,
 		connType:      connType,
 		priority:      priority,
-		establishedAt: time.Now(),
+		establishedAt: time.Now().Truncate(time.Second),
 	}
 }
 

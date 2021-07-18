@@ -1,8 +1,5 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Dec 30, 2020" "v1" "Syncthing"
-.SH NAME
-syncthing-faq \- Frequently Asked Questions
 .
 .nr rst2man-indent-level 0
 .
@@ -30,6 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.TH "SYNCTHING-FAQ" "7" "Jun 14, 2021" "v1" "Syncthing"
+.SH NAME
+syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
 .IP \(bu 2
 \fI\%General\fP
@@ -331,14 +331,14 @@ ensures that we get a nice log file to help us narrow down the cause for
 crashes and other bugs.
 .SS How can I view the history of changes?
 .sp
-The web GUI contains a \fBGlobal Changes\fP button under the device list which
+The web GUI contains a \fBRecent Changes\fP button under the device list which
 displays changes since the last (re)start of Syncthing. With the \fB\-audit\fP
 option you can enable a persistent, detailed log of changes and most
 activities, which contains a \fBJSON\fP formatted  sequence of events in the
 \fB~/.config/syncthing/audit\-_date_\-_time_.log\fP file.
 .SS Does the audit log contain every change?
 .sp
-The audit log (and the \fBGlobal Changes\fP window) sees the changes that your
+The audit log (and the \fBRecent Changes\fP window) sees the changes that your
 Syncthing sees. When Syncthing is continuously connected it usually sees every change
 happening immediately and thus knows which node initiated the change.
 When topology gets complex or when your node reconnects after some time offline,

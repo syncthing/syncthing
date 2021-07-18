@@ -1,0 +1,6 @@
+<div mat-dialog-content fxLayout="column" fxLayoutAlign="space-between center">
+    <mat-list>
+        <mat-list-item *ngFor='let message of messageService.messages'>{{message}}</mat-list-item>
+    </mat-list>
+    <button mat-stroked-button [mat-dialog-close] cdkFocusInitial>Close</button>
+</div>

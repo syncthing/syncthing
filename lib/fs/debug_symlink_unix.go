@@ -18,7 +18,8 @@ import (
 // reason for existence is the Windows version, which allows creating
 // symlinks when non-elevated.
 func DebugSymlinkForTestsOnly(oldFs, newFs Filesystem, oldname, newname string) error {
-	if caseFs, ok := unwrapFilesystem(newFs).(*caseFilesystem); ok {
+	if fs, ok := unwrapFilesystem(newFs, filesystemWrapperTypeCase); ok {
+		caseFs := fs.(*caseFilesystem)
 		if err := caseFs.checkCase(newname); err != nil {
 			return err
 		}
