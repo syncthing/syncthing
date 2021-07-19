@@ -10,6 +10,7 @@ import "lib/config/blockpullorder.proto";
 
 import "lib/fs/types.proto";
 import "lib/fs/copyrangemethod.proto";
+import "lib/fs/encoders.proto";
 
 import "ext.proto";
 
@@ -54,6 +55,7 @@ message FolderConfiguration {
     fs.CopyRangeMethod                 copy_range_method          = 32 [(ext.default) = "standard"];
     bool                               case_sensitive_fs          = 33 [(ext.goname) = "CaseSensitiveFS", (ext.xml) = "caseSensitiveFS", (ext.json) = "caseSensitiveFS"];
     bool                               follow_junctions           = 34 [(ext.goname) = "JunctionsAsDirs", (ext.xml) = "junctionsAsDirs", (ext.json) = "junctionsAsDirs"];
+    fs.FilesystemEncoderType           filesystem_encoder_type    = 35;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];

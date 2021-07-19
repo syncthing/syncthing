@@ -25,6 +25,7 @@ const (
 	filesystemWrapperTypeError
 	filesystemWrapperTypeWalk
 	filesystemWrapperTypeLog
+	filesystemWrapperTypeEncoder
 )
 
 // The Filesystem interface abstracts access to the file system.

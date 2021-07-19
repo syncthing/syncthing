@@ -544,15 +544,16 @@ func TestWalkReceiveOnly(t *testing.T) {
 	}
 }
 
-func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
+func walkDir(filesystem fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	cfg, cancel := testConfig()
 	defer cancel()
-	cfg.Filesystem = fs
+	cfg.Filesystem = filesystem
 	cfg.Subs = []string{dir}
 	cfg.AutoNormalize = true
 	cfg.CurrentFiler = cfiler
 	cfg.Matcher = matcher
 	cfg.LocalFlags = localFlags
+	cfg.FilesystemEncoderType = fs.FilesystemEncoderTypeDefault
 	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo

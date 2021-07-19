@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package fs;
+
+import "repos/protobuf/gogoproto/gogo.proto";
+
+enum FilesystemEncoderType {
+    option (gogoproto.goproto_enum_stringer) = false;
+
+    FILESYSTEM_ENCODER_TYPE_DEFAULT = 0;
+    FILESYSTEM_ENCODER_TYPE_AUTO    = 1;
+    FILESYSTEM_ENCODER_TYPE_WINDOWS = 2;
+    FILESYSTEM_ENCODER_TYPE_ANDROID = 3;
+    FILESYSTEM_ENCODER_TYPE_IOS     = 4;
+    FILESYSTEM_ENCODER_TYPE_PLAN9   = 5;
+    FILESYSTEM_ENCODER_TYPE_SAFE    = 6;
+    FILESYSTEM_ENCODER_TYPE_CUSTOM  = 7;
+}

@@ -59,6 +59,8 @@ type Config struct {
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
 	EventLogger events.Logger
+	// Encoder type for reserved characters (default, windows, android, ios, etc.)
+	FilesystemEncoderType fs.FilesystemEncoderType
 }
 
 type CurrentFiler interface {

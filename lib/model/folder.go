@@ -596,6 +596,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
+		FilesystemEncoderType: f.FilesystemEncoderType,
 	}
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {

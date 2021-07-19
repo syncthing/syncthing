@@ -270,6 +270,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.Type == config.FolderTypeReceiveEncrypted {
 				report.FolderUsesV3.ReceiveEncrypted++
 			}
+			report.FolderUsesV3.FilesystemEncoderType[cfg.FilesystemEncoderType.String()]++
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 

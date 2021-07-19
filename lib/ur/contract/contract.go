@@ -130,6 +130,7 @@ type Report struct {
 		CopyRangeMethod         map[string]int `json:"copyRangeMethod,omitempty" since:"3"`
 		CaseSensitiveFS         int            `json:"caseSensitiveFS,omitempty" since:"3"`
 		ReceiveEncrypted        int            `json:"receiveencrypted,omitempty" since:"3"`
+		FilesystemEncoderType   map[string]int `json:"filesystemEncoderType,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
 	DeviceUsesV3 struct {
@@ -241,7 +242,7 @@ func (r *Report) FieldPointers() []interface{} {
 		&r.FolderUsesV3.ConflictsUnlimited, &r.FolderUsesV3.ConflictsOther,
 		&r.FolderUsesV3.DisableSparseFiles, &r.FolderUsesV3.DisableTempIndexes,
 		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
-		&r.FolderUsesV3.FsWatcherEnabled,
+		&r.FolderUsesV3.FsWatcherEnabled, &r.FolderUsesV3.FilesystemEncoderType,
 
 		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
 		&r.GUIStats.InsecureAdminAccess,
@@ -344,6 +345,7 @@ func (r *Report) FieldNames() []string {
 		"FolderAlwaysWeakHash",
 		"FolderCustomWeakHashThreshold",
 		"FolderFsWatcherEnabled",
+		"FolderFilesystemEncoderType",
 
 		"GUIEnabled",
 		"GUIUseTLS",

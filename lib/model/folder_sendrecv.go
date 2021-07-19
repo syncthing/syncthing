@@ -126,15 +126,17 @@ type sendReceiveFolder struct {
 	blockPullReorderer blockPullReorderer
 	writeLimiter       *util.Semaphore
 
-	tempPullErrors map[string]string // pull errors that might be just transient
+	tempPullErrors        map[string]string // pull errors that might be just transient
+	filesystemEncoderType fs.FilesystemEncoderType
 }
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *util.Semaphore) service {
 	f := &sendReceiveFolder{
-		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
-		queue:              newJobQueue(),
-		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       util.NewSemaphore(cfg.MaxConcurrentWrites),
+		folder:                newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
+		queue:                 newJobQueue(),
+		blockPullReorderer:    newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
+		writeLimiter:          util.NewSemaphore(cfg.MaxConcurrentWrites),
+		filesystemEncoderType: cfg.FilesystemEncoderType,
 	}
 	f.folder.puller = f
 
@@ -343,7 +345,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
-		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name) != nil:
+		case f.filesystemEncoderType != fs.FilesystemEncoderTypeWindows && runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name) != nil:
 			if file.IsDeleted() {
 				// Just pretend we deleted it, no reason to create an error
 				// about a deleted file that we can't have anyway.

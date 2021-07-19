@@ -53,6 +53,15 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	if !f.CaseSensitiveFS {
 		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
+	encoderType := f.FilesystemEncoderType
+	if encoderType == fs.FilesystemEncoderTypeAuto {
+		// Ignore the error, as GetFilesystemEncoderType will return the 'default' encoder
+		encoderType, _ = fs.GetFilesystemEncoderType(f.Path)
+	}
+	encoderFunc := fs.NewEncoderFilesystemFunction(encoderType)
+	if encoderFunc != nil {
+		filesystem = encoderFunc(filesystem)
+	}
 	return filesystem
 }
 
