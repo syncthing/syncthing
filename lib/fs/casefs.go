@@ -29,7 +29,7 @@ type ErrCaseConflict struct {
 }
 
 func (e *ErrCaseConflict) Error() string {
-	return fmt.Sprintf(`remote "%v" uses different upper or lowercase than local "%v"; change the casing on either side to fix`, e.Given, e.Real)
+	return fmt.Sprintf(`remote "%v" uses different upper or lowercase characters than local "%v"; change the casing on either side to fix`, e.Given, e.Real)
 }
 
 func IsErrCaseConflict(err error) bool {
