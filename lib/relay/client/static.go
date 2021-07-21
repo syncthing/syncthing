@@ -28,12 +28,9 @@ type staticClient struct {
 	connectTimeout time.Duration
 
 	conn *tls.Conn
-
-	connected bool
-	latency   time.Duration
 }
 
-func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
+func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *staticClient {
 	c := &staticClient{
 		uri: uri,
 
@@ -66,10 +63,6 @@ func (c *staticClient) serve(ctx context.Context) error {
 	}
 
 	l.Infof("Joined relay %s://%s", c.uri.Scheme, c.uri.Host)
-
-	c.mut.Lock()
-	c.connected = true
-	c.mut.Unlock()
 
 	messages := make(chan interface{})
 	errorsc := make(chan error, 1)
@@ -128,20 +121,6 @@ func (c *staticClient) serve(ctx context.Context) error {
 	}
 }
 
-func (c *staticClient) StatusOK() bool {
-	c.mut.RLock()
-	con := c.connected
-	c.mut.RUnlock()
-	return con
-}
-
-func (c *staticClient) Latency() time.Duration {
-	c.mut.RLock()
-	lat := c.latency
-	c.mut.RUnlock()
-	return lat
-}
-
 func (c *staticClient) String() string {
 	return fmt.Sprintf("StaticClient:%p@%s", c, c.URI())
 }
@@ -155,17 +134,12 @@ func (c *staticClient) connect(ctx context.Context) error {
 		return fmt.Errorf("unsupported relay scheme: %v", c.uri.Scheme)
 	}
 
-	t0 := time.Now()
 	timeoutCtx, cancel := context.WithTimeout(ctx, c.connectTimeout)
 	defer cancel()
 	tcpConn, err := dialer.DialContext(timeoutCtx, "tcp", c.uri.Host)
 	if err != nil {
 		return err
 	}
-
-	c.mut.Lock()
-	c.latency = time.Since(t0)
-	c.mut.Unlock()
 
 	conn := tls.Client(tcpConn, c.config)
 
@@ -185,10 +159,6 @@ func (c *staticClient) connect(ctx context.Context) error {
 
 func (c *staticClient) disconnect() {
 	l.Debugln(c, "disconnecting")
-	c.mut.Lock()
-	c.connected = false
-	c.mut.Unlock()
-
 	c.conn.Close()
 }
 

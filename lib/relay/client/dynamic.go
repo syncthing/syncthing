@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -25,10 +26,11 @@ type dynamicClient struct {
 	certs    []tls.Certificate
 	timeout  time.Duration
 
-	client RelayClient
+	mut    sync.RWMutex // Protects client.
+	client *staticClient
 }
 
-func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
+func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *dynamicClient {
 	c := &dynamicClient{
 		pooladdr: uri,
 		certs:    certs,
@@ -112,15 +114,6 @@ func (c *dynamicClient) Error() error {
 		return c.commonClient.Error()
 	}
 	return c.client.Error()
-}
-
-func (c *dynamicClient) Latency() time.Duration {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	if c.client == nil {
-		return time.Hour
-	}
-	return c.client.Latency()
 }
 
 func (c *dynamicClient) String() string {
