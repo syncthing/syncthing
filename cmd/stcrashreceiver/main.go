@@ -89,7 +89,8 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 			pkt.Extra = raven.Extra{
 				"count": r.Count,
 			}
-			pkt.Fingerprint = []string{r.Description}
+			message := sanitizeMessageLDB(r.Description)
+			pkt.Fingerprint = []string{message}
 
 			if err := sendReport(dsn, pkt, userIDFor(req)); err != nil {
 				log.Println("Failed to send failure report:", err)
