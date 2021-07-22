@@ -1343,12 +1343,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
+			m.fmut.Lock()
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
 			} else {
 				m.folderEncryptionFailures[folder.ID] = make(map[protocol.DeviceID]error)
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
+			m.fmut.Unlock()
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
 			if sameError {
 				l.Debugln(msg)
@@ -1361,6 +1363,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			return tempIndexFolders, paused, err
 		}
+		m.fmut.Lock()
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
 				delete(m.folderEncryptionFailures, folder.ID)
@@ -1368,6 +1371,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				delete(m.folderEncryptionFailures[folder.ID], deviceID)
 			}
 		}
+		m.fmut.Unlock()
 
 		// Handle indexes
 
