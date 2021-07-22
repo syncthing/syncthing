@@ -20,12 +20,12 @@ import (
 )
 
 var trans = make(map[string]string)
-var attrRe = regexp.MustCompile(`\{\{'([^']+)'\s+\|\s+translate\}\}`)
-var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\}\}`)
+var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
+var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
-	`^((\W*\{\{.*?\}\} ?.?\/?.?(bps)?\W*)+(\.stignore)?|[^a-zA-Z]+.?[^a-zA-Z]*|[kMGT]?B|Twitter|JS\W?|DEV|https?://\S+)$`)
+	`^((\W*\{\{.*?\}\} ?.?\/?.?(bps)?\W*)+(\.stignore)?|[^a-zA-Z]+.?[^a-zA-Z]*|[kMGT]?B|Twitter|JS\W?|DEV|https?://\S+|TechUi)$`)
 
 // exceptions to the untranslated text warning specific to aboutModalView.html
 var aboutRe = regexp.MustCompile(`^([^/]+/[^/]+|(The Go Pro|Font Awesome ).+|Build \{\{.+\}\}|Copyright .+ the Syncthing Authors\.)$`)
