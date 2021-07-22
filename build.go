@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -1380,32 +1379,6 @@ func metalint() {
 func metalintShort() {
 	lazyRebuildAssets()
 	runPrint(goCmd, "test", "-short", "-run", "Metalint", "./meta")
-}
-
-func temporaryBuildDir() (string, error) {
-	// The base of our temp dir is "syncthing-xxxxxxxx" where the x:es
-	// are eight bytes from the sha256 of our working directory. We do
-	// this because we want a name in the global temp dir that doesn't
-	// conflict with someone else building syncthing on the same
-	// machine, yet is persistent between runs from the same source
-	// directory.
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	hash := sha256.Sum256([]byte(wd))
-	base := fmt.Sprintf("syncthing-%x", hash[:4])
-
-	// The temp dir is taken from $STTMPDIR if set, otherwise the system
-	// default (potentially infrluenced by $TMPDIR on unixes).
-	var tmpDir string
-	if t := os.Getenv("STTMPDIR"); t != "" {
-		tmpDir = t
-	} else {
-		tmpDir = os.TempDir()
-	}
-
-	return filepath.Join(tmpDir, base), nil
 }
 
 func (t target) BinaryName() string {

@@ -66,6 +66,8 @@ const (
 	worstDialerPriority           = math.MaxInt32
 	recentlySeenCutoff            = 7 * 24 * time.Hour
 	shortLivedConnectionThreshold = 5 * time.Second
+	dialMaxParallel               = 64
+	dialMaxParallelPerDevice      = 8
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -490,14 +492,40 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// Perform dials according to the queue, stopping when we've reached the
 	// allowed additional number of connections (if limited).
 	numConns := 0
-	for _, entry := range queue {
-		if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
-			s.conns <- conn
-			numConns++
-			if allowAdditional > 0 && numConns >= allowAdditional {
-				break
-			}
+	var numConnsMut stdsync.Mutex
+	dialSemaphore := util.NewSemaphore(dialMaxParallel)
+	dialWG := new(stdsync.WaitGroup)
+	dialCtx, dialCancel := context.WithCancel(ctx)
+	defer func() {
+		dialWG.Wait()
+		dialCancel()
+	}()
+	for i := range queue {
+		select {
+		case <-dialCtx.Done():
+			return
+		default:
 		}
+		dialWG.Add(1)
+		go func(entry dialQueueEntry) {
+			defer dialWG.Done()
+			conn, ok := s.dialParallel(dialCtx, entry.id, entry.targets, dialSemaphore)
+			if !ok {
+				return
+			}
+			numConnsMut.Lock()
+			if allowAdditional == 0 || numConns < allowAdditional {
+				select {
+				case s.conns <- conn:
+					numConns++
+					if allowAdditional > 0 && numConns >= allowAdditional {
+						dialCancel()
+					}
+				case <-dialCtx.Done():
+				}
+			}
+			numConnsMut.Unlock()
+		}(queue[i])
 	}
 }
 
@@ -758,13 +786,23 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
 	oldDevices := from.DeviceMap()
+	dial := false
+	s.dialNowDevicesMut.Lock()
 	for _, dev := range to.Devices {
-		oldDev, ok := oldDevices[dev.DeviceID]
-		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
-			s.scheduleDialNow()
-			break
+		if dev.Paused {
+			continue
+		}
+		if oldDev, ok := oldDevices[dev.DeviceID]; !ok || oldDev.Paused {
+			s.dialNowDevices[dev.DeviceID] = struct{}{}
+			dial = true
+		} else if !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
+			dial = true
 		}
 	}
+	if dial {
+		s.scheduleDialNow()
+	}
+	s.dialNowDevicesMut.Unlock()
 }
 
 func (s *service) scheduleDialNow() {
@@ -959,7 +997,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget, parentSema *util.Semaphore) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -975,13 +1013,19 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	// Sort the priorities so that we dial lowest first (which means highest...)
 	sort.Ints(priorities)
 
+	sema := util.MultiSemaphore{util.NewSemaphore(dialMaxParallelPerDevice), parentSema}
 	for _, prio := range priorities {
 		tgts := dialTargetBuckets[prio]
 		res := make(chan internalConn, len(tgts))
 		wg := stdsync.WaitGroup{}
 		for _, tgt := range tgts {
+			sema.Take(1)
 			wg.Add(1)
 			go func(tgt dialTarget) {
+				defer func() {
+					wg.Done()
+					sema.Give(1)
+				}()
 				conn, err := tgt.Dial(ctx)
 				if err == nil {
 					// Closes the connection on error
@@ -994,7 +1038,6 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 					l.Debugln("dialing", deviceID, tgt.uri, "success:", conn)
 					res <- conn
 				}
-				wg.Done()
 			}(tgt)
 		}
 

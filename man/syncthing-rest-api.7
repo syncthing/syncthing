@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jun 14, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jul 17, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -749,8 +749,9 @@ it’s replaced, otherwise a new one is added.
 .SS /rest/config/folders/*id*, /rest/config/devices/*id*
 .sp
 Put the desired folder\- respectively device\-ID in place of *id*. \fBGET\fP
-returns the folder/device for the given ID, \fBPUT\fP replaces the entire config
-and \fBPATCH\fP replaces only the given child objects.
+returns the folder/device for the given ID, \fBPUT\fP replaces the entire config,
+\fBPATCH\fP replaces only the given child objects and \fBDELETE\fP removes the
+folder/device.
 .SS /rest/config/options, /rest/config/ldap, /rest/config/gui
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and

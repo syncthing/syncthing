@@ -11,6 +11,7 @@ package connections
 import (
 	"crypto/tls"
 	"net"
+	"net/url"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/syncthing/syncthing/lib/util"
@@ -22,6 +23,17 @@ var (
 		KeepAlive:          true,
 	}
 )
+
+func quicNetwork(uri *url.URL) string {
+	switch uri.Scheme {
+	case "quic4":
+		return "udp4"
+	case "quic6":
+		return "udp6"
+	default:
+		return "udp"
+	}
+}
 
 type quicTlsConn struct {
 	quic.Session

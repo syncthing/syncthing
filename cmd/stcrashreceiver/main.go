@@ -100,7 +100,8 @@ func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *ht
 				}
 				pkt.Extra["goroutinesURL"] = url
 			}
-			pkt.Fingerprint = []string{r.Description}
+			message := sanitizeMessageLDB(r.Description)
+			pkt.Fingerprint = []string{message}
 
 			if err := sendReport(dsn, pkt, userIDFor(req)); err != nil {
 				log.Println("Failed to send failure report:", err)
