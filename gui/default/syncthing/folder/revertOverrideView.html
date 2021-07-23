@@ -1,24 +1,24 @@
-<modal id="revert-override-confirmation" status="danger" icon="fas fa-question-circle" heading="{{revertOverrideParams.heading}}" large="no" closeable="yes">
-  <div class="modal-body" ng-switch="revertOverrideParams.type">
+<modal id="revert-override-confirmation" status="danger" icon="{{revertOverrideParams.icon}}" heading="{{revertOverrideParams.heading}}" large="no" closeable="yes">
+  <div class="modal-body text-danger" ng-switch="revertOverrideParams.type">
+    <p>
+      <strong><span translate>Warning</span>!</strong>
+    </p>
+    <div ng-switch-default>
+      <p ng-switch="revertOverrideParams.type">
+        <span ng-switch-when="override" translate>The folder content on other devices will be overwritten to become identical with this device. Files not present here will be deleted on other devices.</span>
+        <span ng-switch-default translate>The folder content on this device will be overwritten to become identical with other devices. Files newly added here will be deleted.</span>
+      </p>
+      <p translate>
+        Are you sure you want to continue?
+      </p>
+    </div>
     <div ng-switch-when="deleteEnc">
       <p>
-        <span translate>Unexpected items have been found in this folder.</span></br>
+        <span translate>Unexpected items have been found in this folder.</span>
         <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
       </p>
       <p translate>
         Are you sure you want to permanently delete all these files?
-      </p>
-    </div>
-    <div ng-switch-default>
-      <p>
-        <span translate>Warning</span>:</br>
-        <span ng-switch="revertOverrideParams.type">
-          <span ng-switch-when="override" translate>The folder content on other devices will be overwritten to become identical with this device. Files not present here will be deleted on other devices.</span>
-          <span ng-switch-default translate>The folder content on this device will be overwritten to become identical with other devices. Files newly added here will be deleted.</span>
-        </span>
-      </p>
-      <p translate>
-        Are you sure you want to continue?
       </p>
     </div>
   </div>

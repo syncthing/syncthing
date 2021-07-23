@@ -2635,15 +2635,18 @@ angular.module('syncthing.core')
             };
             switch (type) {
                 case "override":
-                    params.heading = $translate.instant("Override");
+                    params.heading = $translate.instant("Override Changes");
+                    params.icon = "fas fa-arrow-circle-up"
                     params.operation = "override";
                     break;
                 case "revert":
-                    params.heading = $translate.instant("Revert");
+                    params.heading = $translate.instant("Revert Local Changes");
+                    params.icon = "fas fa-arrow-circle-down"
                     params.operation = "revert";
                     break;
                 case "deleteEnc":
                     params.heading = $translate.instant("Delete Unexpected Items");
+                    params.icon = "fas fa-minus-circle"
                     params.operation = "revert";
                     break;
             }
