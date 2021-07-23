@@ -9,6 +9,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"log"
 	"os"
@@ -22,6 +23,7 @@ import (
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
+var jsRe = regexp.MustCompile(`\$translate.instant\("([^"]+)"\)`)
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
@@ -108,17 +110,27 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			return err
 		}
 
-		if filepath.Ext(name) == ".html" && info.Mode().IsRegular() {
-			fd, err := os.Open(name)
-			if err != nil {
-				log.Fatal(err)
-			}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		fd, err := os.Open(name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer fd.Close()
+		switch filepath.Ext(name) {
+		case ".html":
 			doc, err := html.Parse(fd)
 			if err != nil {
 				log.Fatal(err)
 			}
-			fd.Close()
 			generalNode(doc, filepath.Base(name))
+		case ".js":
+			for s := bufio.NewScanner(fd); s.Scan(); {
+				for _, matches := range jsRe.FindAllStringSubmatch(s.Text(), -1) {
+					translation(matches[1])
+				}
+			}
 		}
 
 		return nil
