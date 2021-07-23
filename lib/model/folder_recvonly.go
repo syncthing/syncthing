@@ -112,7 +112,10 @@ func (f *receiveOnlyFolder) revert() error {
 			// The global file is our own. A revert then means to delete it.
 			// We'll delete files directly, directories get queued and
 			// handled below.
-
+			if fi.Deleted {
+				fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
+				break
+			}
 			handled, err := delQueue.handle(fi, snap)
 			if err != nil {
 				l.Infof("Revert: deleting %s: %v\n", fi.Name, err)
