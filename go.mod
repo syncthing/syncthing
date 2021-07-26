@@ -34,12 +34,11 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.5.0
-	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sasha-s/go-deadlock v0.2.0
+	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/shirou/gopsutil/v3 v3.21.4
 	github.com/syncthing/notify v0.0.0-20210308121556-f45149b04939
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
