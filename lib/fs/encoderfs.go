@@ -195,7 +195,7 @@ func (f *EncoderFilesystem) Walk(root string, walkFn WalkFunc) error {
 	decodingWalkFunc := func(path string, info FileInfo, err error) error {
 		decodedInfo := decodedFileInfo{
 			FileInfo: info,
-      decodedName: decodedPath(info.Name()),
+			decodedName: decodedPath(info.Name()),
 		}
 		return walkFn(decodedPath(path), decodedInfo, err)
 	}
