@@ -90,6 +90,6 @@ func GetFilesystemEncoderType(name string) (FilesystemEncoderType, error) {
 		l.Debugf(unknownFilesystem, fsType, name, encoderType)
 		return encoderType, nil
 	}
-	l.Debugf(determinedFilesystem, name, fsType, encoderType)
+	l.Debugf(determinedFilesystem, name, fsType, encType)
 	return encType, nil
 }
