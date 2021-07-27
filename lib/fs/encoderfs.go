@@ -194,7 +194,7 @@ func (f *EncoderFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// to pick up external changes, for which caching is undesirable.
 	decodingWalkFunc := func(path string, info FileInfo, err error) error {
 		decodedInfo := decodedFileInfo{
-			FileInfo: info,
+			FileInfo:    info,
 			decodedName: decodedPath(info.Name()),
 		}
 		return walkFn(decodedPath(path), decodedInfo, err)
