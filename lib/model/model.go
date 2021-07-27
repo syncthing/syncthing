@@ -324,7 +324,7 @@ func (m *model) fatal(err error) {
 // period.
 func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	detector := newDeadlockDetector(timeout)
+	detector := newDeadlockDetector(timeout, m.evLogger, m.fatal)
 	detector.Watch("fmut", m.fmut)
 	detector.Watch("pmut", m.pmut)
 }
