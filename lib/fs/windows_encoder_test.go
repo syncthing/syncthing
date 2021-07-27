@@ -95,6 +95,9 @@ func testEncoderSetup(t *testing.T) (*WindowsEncoderFilesystem, string) {
 }
 
 func TestEncoderInvalidName(t *testing.T) {
+	if pathSeparatorString != `\` {
+		t.Skip("Path separator is " + pathSeparatorString)
+	}
 	fs, dir := testEncoderSetup(t)
 	defer os.RemoveAll(dir)
 
@@ -118,6 +121,9 @@ func TestEncoderInvalidName(t *testing.T) {
 var sep string = pathSeparatorString
 
 func TestEncoderInvalidPath(t *testing.T) {
+	if pathSeparatorString != `\` {
+		t.Skip("Path separator is " + pathSeparatorString)
+	}
 	fs, dir := testEncoderSetup(t)
 	defer os.RemoveAll(dir)
 
