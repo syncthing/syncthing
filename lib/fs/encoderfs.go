@@ -233,7 +233,7 @@ func (f *EncoderFilesystem) _encodedPath(path string) string {
 	var encodedPart string
 
 	for i, part := range PathComponents(path) {
-		if len(part) == 0 {
+		if part == "" {
 			if i > 0 {
 				encodedPath += pathSeparatorString
 			}
@@ -298,16 +298,6 @@ func (f *EncoderFilesystem) encodedName(name string) string {
 	return string(runes)
 }
 
-func (f *EncoderFilesystem) encodedPattern(pattern string) string {
-	runes := []rune(pattern)
-	for i, r := range runes {
-		if c, ok := f.patternMap[r]; ok {
-			runes[i] = c
-		}
-	}
-	return string(runes)
-}
-
 func decodedPath(path string) string {
 	if !strings.ContainsAny(path, privateUseChars) {
 		return path
@@ -321,6 +311,19 @@ func decodedPath(path string) string {
 	return string(runes)
 }
 
+/* 
+// Not currently used:
+func (f *EncoderFilesystem) encodedPattern(pattern string) string {
+	runes := []rune(pattern)
+	for i, r := range runes {
+		if c, ok := f.patternMap[r]; ok {
+			runes[i] = c
+		}
+	}
+	return string(runes)
+}
+
 func isEncoded(path string) bool {
 	return strings.ContainsAny(path, privateUseChars)
 }
+*/
