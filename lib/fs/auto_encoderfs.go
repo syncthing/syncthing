@@ -30,12 +30,14 @@ func init() {
 	// See https://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits
 	// See https://en.wikipedia.org/wiki/Filename#Reserved_characters_and_words
 	fstypeEncoderMap["hfs"] = FilesystemEncoderTypeIos // No unicode?
-	// fstypeEncoderMap["HFSPLUS"] = FilesystemEncoderTypeIos // ?
+	// fstypeEncoderMap["hfsplus"] = FilesystemEncoderTypeIos // ?
 
 	fstypeEncoderMap["cifs"] = FilesystemEncoderTypeWindows
 	fstypeEncoderMap["exfat"] = FilesystemEncoderTypeWindows
 	fstypeEncoderMap["fat"] = FilesystemEncoderTypeWindows // No unicode?
-	fstypeEncoderMap["fat32"] = FilesystemEncoderTypeWindows
+	fstypeEncoderMap["fat12"] = FilesystemEncoderTypeWindows // No unicode?
+	fstypeEncoderMap["fat16"] = FilesystemEncoderTypeWindows // No unicode?
+	fstypeEncoderMap["fat32"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["hpfs"] = FilesystemEncoderTypeWindows  // No unicode?
 	fstypeEncoderMap["msdos"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["ntfs"] = FilesystemEncoderTypeWindows

@@ -32,8 +32,7 @@ const safeReservedEndChars = windowsReservedEndChars
 // const safeReservedNames = windowsDisallowedNames
 
 // A NewSafeEncoderFilesystem ensures that paths that contain characters
-// that are reserved in  iOS filesystem (<>:"|?*) can be safety
-// stored.
+// that are reserved in several filesystems can be safety stored.
 func NewSafeEncoderFilesystem(fs Filesystem) Filesystem {
 	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
 		efs := EncoderFilesystem{

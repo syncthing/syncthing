@@ -27,8 +27,7 @@ const plan9ReservedStartChars = "" // '-' is strong suggested but not required b
 const plan9ReservedEndChars = ""
 
 // A NewPlan9EncoderFilesystem ensures that paths that contain characters
-// that are reserved in the iOS filesystem (<>:"|?*) can be safety
-// stored.
+// that are reserved in the Plan 9 filesystem can be safety stored.
 func NewPlan9EncoderFilesystem(fs Filesystem) Filesystem {
 	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
 		efs := EncoderFilesystem{

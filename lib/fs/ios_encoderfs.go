@@ -16,16 +16,18 @@ var iosReservedChars = string([]rune{
 	0x3a, // ":"
 })
 
+const iosReservedStartChars = "."
+const iosReservedEndChars = ""
+
 // A NewIosEncoderFilesystem ensures that paths that contain characters
-// that are reserved in the iOS filesystem (<>:"|?*) can be safety
-// stored.
+// that are reserved in the iOS filesystem can be safety stored.
 func NewIosEncoderFilesystem(fs Filesystem) Filesystem {
 	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
 		efs := EncoderFilesystem{
 			Filesystem:         underlying,
 			reservedChars:      iosReservedChars,
-			reservedStartChars: ".",
-			reservedEndChars:   "",
+			reservedStartChars: iosReservedStartChars,
+			reservedEndChars:   iosReservedEndChars,
 		}
 		efs.init()
 		return &IosEncoderFilesystem{efs}
