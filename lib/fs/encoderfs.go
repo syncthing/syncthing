@@ -114,11 +114,12 @@ func (f *EncoderFilesystem) MkdirAll(path string, perm FileMode) error {
 
 type decodedFileInfo struct {
 	FileInfo
+	decodedName string
 }
 
 func (fi decodedFileInfo) Name() string {
 	// Return the "normal" (non-encoded) ASCII filename to the caller.
-	return decodedPath(fi.FileInfo.Name())
+	return fi.decodedName
 }
 
 func (f *EncoderFilesystem) Lstat(name string) (FileInfo, error) {
@@ -127,7 +128,8 @@ func (f *EncoderFilesystem) Lstat(name string) (FileInfo, error) {
 		return nil, err
 	}
 	decodedInfo := decodedFileInfo{
-		FileInfo: info,
+		FileInfo:    info,
+		decodedName: decodedPath(info.Name()),
 	}
 	return decodedInfo, nil
 }
@@ -150,7 +152,8 @@ func (f *EncoderFilesystem) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 	decodedInfo := decodedFileInfo{
-		FileInfo: info,
+		FileInfo:    info,
+		decodedName: decodedPath(info.Name()),
 	}
 	return decodedInfo, nil
 }
@@ -192,6 +195,7 @@ func (f *EncoderFilesystem) Walk(root string, walkFn WalkFunc) error {
 	decodingWalkFunc := func(path string, info FileInfo, err error) error {
 		decodedInfo := decodedFileInfo{
 			FileInfo: info,
+      decodedName: decodedPath(info.Name()),
 		}
 		return walkFn(decodedPath(path), decodedInfo, err)
 	}
@@ -309,8 +313,8 @@ func decodedPath(path string) string {
 		return path
 	}
 	runes := []rune(path)
-	for i := 0; i < len(runes); i++ {
-		if strings.ContainsRune(privateUseChars, runes[i]) {
+	for i, r := range runes {
+		if strings.ContainsRune(privateUseChars, r) {
 			runes[i] &^= firstPrivateUseRune
 		}
 	}
