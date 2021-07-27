@@ -34,7 +34,7 @@ func init() {
 
 	fstypeEncoderMap["cifs"] = FilesystemEncoderTypeWindows
 	fstypeEncoderMap["exfat"] = FilesystemEncoderTypeWindows
-	fstypeEncoderMap["fat"] = FilesystemEncoderTypeWindows // No unicode?
+	fstypeEncoderMap["fat"] = FilesystemEncoderTypeWindows   // No unicode?
 	fstypeEncoderMap["fat12"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["fat16"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["fat32"] = FilesystemEncoderTypeWindows // No unicode?
@@ -47,6 +47,8 @@ func init() {
 }
 
 const cannotDetermineFilesystem = "The filesystem for %q cannot be determined, will use the %q filesystem encoder by default"
+const unknownFilesystem = "Unknown filesystem type %q for %q, will use the %q filesystem encoder by default"
+const determinedFilesystem = "%q is formatted as %q, so the %q filesystem encoder will be used to process it"
 
 func GetFilesystemEncoderType(name string) (FilesystemEncoderType, error) {
 	encoderType, ok := osEncoderMap[runtime.GOOS]
@@ -75,7 +77,7 @@ func GetFilesystemEncoderType(name string) (FilesystemEncoderType, error) {
 				for _, partition := range partitions {
 					device := strings.ToLower(partition.Device)
 					if strings.HasPrefix(device, volumeName) {
-						fsType = partition.Fstype
+						fsType = strings.ToLower(partition.Fstype)
 						break
 					}
 				}
@@ -85,9 +87,9 @@ func GetFilesystemEncoderType(name string) (FilesystemEncoderType, error) {
 
 	encType, ok := fstypeEncoderMap[fsType]
 	if !ok {
-		l.Debugf(cannotDetermineFilesystem, name, encoderType)
+		l.Debugf(unknownFilesystem, fsType, name, encoderType)
 		return encoderType, nil
 	}
-	l.Debugf("%q is formatted as %q, and will use the %q filesystem encoder", name, fsType, encoderType)
+	l.Debugf(determinedFilesystem, name, fsType, encoderType)
 	return encType, nil
 }
