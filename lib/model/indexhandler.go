@@ -111,20 +111,42 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	}
 }
 
-func (s *indexHandler) Serve(ctx context.Context) (err error) {
-	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
-	defer func() {
-		err = svcutil.NoRestartErr(err)
-		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
-	}()
-
-	// We need to send one index, regardless of whether there is something to send or not
+// waitForFileset waits for the handler to resume and fetches the current fileset.
+func (s *indexHandler) waitForFileset(ctx context.Context) *db.FileSet {
 	s.cond.L.Lock()
-	for s.paused {
+	defer s.cond.L.Unlock()
+
+	for s.paused && ctx.Err() == nil {
 		s.cond.Wait()
 	}
 	fset := s.fset
-	s.cond.L.Unlock()
+
+	return fset
+}
+
+func (s *indexHandler) Serve(ctx context.Context) (err error) {
+	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
+	stop := make(chan struct{})
+
+	defer func() {
+		err = svcutil.NoRestartErr(err)
+		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+		close(stop)
+	}()
+
+	// Broadcast the pause cond when the context quits
+	go func() {
+		select {
+		case <-ctx.Done():
+			s.cond.L.Lock()
+			s.cond.Broadcast()
+			s.cond.L.Unlock()
+		case <-stop:
+		}
+	}()
+
+	// We need to send one index, regardless of whether there is something to send or not
+	fset := s.waitForFileset(ctx)
 	err = s.sendIndexTo(ctx, fset)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
@@ -138,12 +160,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	defer ticker.Stop()
 
 	for err == nil {
-		s.cond.L.Lock()
-		for s.paused {
-			s.cond.Wait()
-		}
-		fset := s.fset
-		s.cond.L.Unlock()
+		fset = s.waitForFileset(ctx)
 
 		// While we have sent a sequence at least equal to the one
 		// currently in the database, wait for the local index to update. The
@@ -181,6 +198,7 @@ func (s *indexHandler) resume(fset *db.FileSet, runner service) {
 	s.paused = false
 	s.fset = fset
 	s.runner = runner
+	s.cond.Broadcast()
 	s.cond.L.Unlock()
 }
 
@@ -192,6 +210,7 @@ func (s *indexHandler) pause() {
 	s.paused = true
 	s.fset = nil
 	s.runner = nil
+	s.cond.Broadcast()
 	s.cond.L.Unlock()
 }
 
