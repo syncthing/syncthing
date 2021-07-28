@@ -47,9 +47,11 @@ func NewSafeEncoderFilesystem(fs Filesystem) Filesystem {
 	})
 }
 
+/* Not currently used:
 func newSafeEncoderFilesystem(fs Filesystem) *SafeEncoderFilesystem {
 	return NewSafeEncoderFilesystem(fs).(*SafeEncoderFilesystem)
 }
+*/
 
 func (f *SafeEncoderFilesystem) EncoderType() FilesystemEncoderType {
 	return FilesystemEncoderTypeSafe

@@ -40,9 +40,11 @@ func NewAndroidEncoderFilesystem(fs Filesystem) Filesystem {
 	})
 }
 
+/* Not currently used:
 func newAndroidEncoderFilesystem(fs Filesystem) *AndroidEncoderFilesystem {
 	return NewAndroidEncoderFilesystem(fs).(*AndroidEncoderFilesystem)
 }
+*/
 
 func (f *AndroidEncoderFilesystem) EncoderType() FilesystemEncoderType {
 	return FilesystemEncoderTypeAndroid

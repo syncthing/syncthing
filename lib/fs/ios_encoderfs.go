@@ -34,9 +34,11 @@ func NewIosEncoderFilesystem(fs Filesystem) Filesystem {
 	})
 }
 
+/* Not currently used:
 func newIosEncoderFilesystem(fs Filesystem) *IosEncoderFilesystem {
 	return NewIosEncoderFilesystem(fs).(*IosEncoderFilesystem)
 }
+*/
 
 func (f *IosEncoderFilesystem) EncoderType() FilesystemEncoderType {
 	return FilesystemEncoderTypeIos

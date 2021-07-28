@@ -311,7 +311,7 @@ func decodedPath(path string) string {
 	return string(runes)
 }
 
-/* 
+/*
 // Not currently used:
 func (f *EncoderFilesystem) encodedPattern(pattern string) string {
 	runes := []rune(pattern)

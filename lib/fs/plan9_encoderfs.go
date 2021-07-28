@@ -41,9 +41,11 @@ func NewPlan9EncoderFilesystem(fs Filesystem) Filesystem {
 	})
 }
 
+/* Not currently used:
 func newPlan9EncoderFilesystem(fs Filesystem) *Plan9EncoderFilesystem {
 	return NewPlan9EncoderFilesystem(fs).(*Plan9EncoderFilesystem)
 }
+*/
 
 func (f *Plan9EncoderFilesystem) EncoderType() FilesystemEncoderType {
 	return FilesystemEncoderTypePlan9
