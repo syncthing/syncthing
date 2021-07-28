@@ -19,7 +19,6 @@ var androidReservedChars = string([]rune{
 	//'"' '*'   ':'   '<'   '>'   '?'   '|'
 	0x22, 0x2a, 0x3a, 0x3c, 0x3e, 0x3f, 0x7c,
 	// 0x2f (/) is disallowed, but we never see it in a filename
-	// 0x2f (/) is disallowed, but we never see it in a filename
 })
 
 const androidReservedStartChars = ""
