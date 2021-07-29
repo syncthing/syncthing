@@ -36,8 +36,9 @@ type EncoderFilesystem struct {
 const privateUseBase = 0xf000
 const firstPrivateUseRune = rune(privateUseBase)
 
-// We map 0xf000 to 0xf07f
-const privateUseCharsToMap = 128
+// We map 0xf000 to 0xf09f (plan9 & safe)
+// Cygwin, etc., only map from 0xf000 to 0xf07f 
+const privateUseCharsToMap = 0xa0
 
 var privateUseRunes []rune
 var privateUseChars string
