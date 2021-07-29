@@ -112,16 +112,20 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 }
 
 // waitForFileset waits for the handler to resume and fetches the current fileset.
-func (s *indexHandler) waitForFileset(ctx context.Context) *db.FileSet {
+func (s *indexHandler) waitForFileset(ctx context.Context) (*db.FileSet, error) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
-	for s.paused && ctx.Err() == nil {
-		s.cond.Wait()
+	for s.paused {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			s.cond.Wait()
+		}
 	}
-	fset := s.fset
 
-	return fset
+	return s.fset, nil
 }
 
 func (s *indexHandler) Serve(ctx context.Context) (err error) {
@@ -138,15 +142,16 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	go func() {
 		select {
 		case <-ctx.Done():
-			s.cond.L.Lock()
 			s.cond.Broadcast()
-			s.cond.L.Unlock()
 		case <-stop:
 		}
 	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
-	fset := s.waitForFileset(ctx)
+	fset, err := s.waitForFileset(ctx)
+	if err != nil {
+		return err
+	}
 	err = s.sendIndexTo(ctx, fset)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
@@ -160,7 +165,10 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	defer ticker.Stop()
 
 	for err == nil {
-		fset = s.waitForFileset(ctx)
+		fset, err = s.waitForFileset(ctx)
+		if err != nil {
+			return err
+		}
 
 		// While we have sent a sequence at least equal to the one
 		// currently in the database, wait for the local index to update. The
