@@ -37,7 +37,7 @@ func init() {
 	fstypeEncoderMap["fat"] = FilesystemEncoderTypeWindows   // No unicode?
 	fstypeEncoderMap["fat12"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["fat16"] = FilesystemEncoderTypeWindows // No unicode?
-	fstypeEncoderMap["fat32"] = FilesystemEncoderTypeWindows // No unicode?
+	fstypeEncoderMap["fat32"] = FilesystemEncoderTypeWindows
 	fstypeEncoderMap["hpfs"] = FilesystemEncoderTypeWindows  // No unicode?
 	fstypeEncoderMap["msdos"] = FilesystemEncoderTypeWindows // No unicode?
 	fstypeEncoderMap["ntfs"] = FilesystemEncoderTypeWindows
