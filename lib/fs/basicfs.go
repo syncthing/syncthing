@@ -283,7 +283,7 @@ func (f *BasicFilesystem) Glob(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	files, err := filepath.Glob(pattern)
+	files, err := f.glob(pattern)
 	unrooted := make([]string, len(files))
 	for i := range files {
 		unrooted[i] = f.unrooted(files[i])
@@ -336,6 +336,10 @@ func (f *BasicFilesystem) underlying() (Filesystem, bool) {
 
 func (f *BasicFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
+}
+
+func (f *BasicFilesystem) glob(pattern string) ([]string, error) {
+	return filepath.Glob(pattern)
 }
 
 // basicFile implements the fs.File interface on top of an os.File

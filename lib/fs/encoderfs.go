@@ -8,6 +8,7 @@ package fs
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -37,7 +38,7 @@ const privateUseBase = 0xf000
 const firstPrivateUseRune = rune(privateUseBase)
 
 // We map 0xf000 to 0xf09f (plan9 & safe)
-// Cygwin, etc., only map from 0xf000 to 0xf07f 
+// Cygwin, etc., only map from 0xf000 to 0xf07f
 const privateUseCharsToMap = 0xa0
 
 var privateUseRunes []rune
@@ -202,6 +203,17 @@ func (f *EncoderFilesystem) Walk(root string, walkFn WalkFunc) error {
 	}
 
 	return f.Filesystem.Walk(f.encodedPath(root), decodingWalkFunc)
+}
+
+func (f *EncoderFilesystem) glob(pattern string) ([]string, error) {
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return files, err
+	}
+	for i, file := range files {
+		files[i] = decodedPath(file)
+	}
+	return files, nil
 }
 
 func (f *EncoderFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {

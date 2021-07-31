@@ -60,3 +60,5 @@ func (fs *errorFilesystem) underlying() (Filesystem, bool) {
 func (fs *errorFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeError
 }
+
+func (fs *errorFilesystem) glob(pattern string) ([]string, error) { return nil, fs.err }

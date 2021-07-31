@@ -65,6 +65,7 @@ type Filesystem interface {
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
 	wrapperType() filesystemWrapperType
+	glob(pattern string) ([]string, error)
 }
 
 // The File interface abstracts access to a regular file, being a somewhat

@@ -667,6 +667,11 @@ func (fs *fakeFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
 }
 
+func (fs *fakeFS) glob(pattern string) ([]string, error) {
+	// gnnh we don't seem to actually require this in practice
+	return nil, errors.New("not implemented")
+}
+
 func (fs *fakeFS) resetCounters() {
 	fs.mut.Lock()
 	fs.counters = fakeFSCounters{}
