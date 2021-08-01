@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -35,9 +37,24 @@ var (
 )
 
 type FailureReport struct {
+	FailureData
+	Count   int
+	Version string
+}
+
+type FailureData struct {
 	Description string
-	Count       int
-	Version     string
+	Goroutines  string
+	Extra       map[string]string
+}
+
+func FailureDataWithGoroutines(description string) FailureData {
+	var buf *strings.Builder
+	pprof.NewProfile("goroutine").WriteTo(buf, 1)
+	return FailureData{
+		Description: description,
+		Goroutines:  buf.String(),
+	}
 }
 
 type FailureHandler interface {
@@ -64,6 +81,7 @@ type failureHandler struct {
 type failureStat struct {
 	first, last time.Time
 	count       int
+	data        FailureData
 }
 
 func (h *failureHandler) Serve(ctx context.Context) error {
@@ -82,23 +100,28 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 			if !ok {
 				// Just to be safe - shouldn't ever happen, as
 				// evChan is set to nil when unsubscribing.
-				h.addReport(evChanClosed, time.Now())
+				h.addReport(FailureData{Description: evChanClosed}, time.Now())
 				evChan = nil
 				continue
 			}
-			descr, ok := e.Data.(string)
-			if !ok {
+			var data FailureData
+			switch d := e.Data.(type) {
+			case string:
+				data.Description = d
+			case FailureData:
+				data = d
+			default:
 				// Same here, shouldn't ever happen.
-				h.addReport(invalidEventDataType, time.Now())
+				h.addReport(FailureData{Description: invalidEventDataType}, time.Now())
 				continue
 			}
-			h.addReport(descr, e.Time)
+			h.addReport(data, e.Time)
 		case <-timer.C:
 			reports := make([]FailureReport, 0, len(h.buf))
 			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
-					reports = append(reports, newFailureReport(descr, stat.count))
+					reports = append(reports, newFailureReport(stat))
 					delete(h.buf, descr)
 				}
 			}
@@ -125,8 +148,8 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 		sub.Unsubscribe()
 		if len(h.buf) > 0 {
 			reports := make([]FailureReport, 0, len(h.buf))
-			for descr, stat := range h.buf {
-				reports = append(reports, newFailureReport(descr, stat.count))
+			for _, stat := range h.buf {
+				reports = append(reports, newFailureReport(stat))
 			}
 			timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
 			defer cancel()
@@ -151,16 +174,17 @@ func (h *failureHandler) applyOpts(opts config.OptionsConfiguration, sub events.
 	return url, nil, nil
 }
 
-func (h *failureHandler) addReport(descr string, evTime time.Time) {
-	if stat, ok := h.buf[descr]; ok {
+func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
+	if stat, ok := h.buf[data.Description]; ok {
 		stat.last = evTime
 		stat.count++
 		return
 	}
-	h.buf[descr] = &failureStat{
+	h.buf[data.Description] = &failureStat{
 		first: evTime,
 		last:  evTime,
 		count: 1,
+		data:  data,
 	}
 }
 
@@ -210,10 +234,10 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	return
 }
 
-func newFailureReport(descr string, count int) FailureReport {
+func newFailureReport(stat *failureStat) FailureReport {
 	return FailureReport{
-		Description: descr,
-		Count:       count,
+		FailureData: stat.data,
+		Count:       stat.count,
 		Version:     build.LongVersion,
 	}
 }

@@ -111,20 +111,47 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	}
 }
 
+// waitForFileset waits for the handler to resume and fetches the current fileset.
+func (s *indexHandler) waitForFileset(ctx context.Context) (*db.FileSet, error) {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+
+	for s.paused {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			s.cond.Wait()
+		}
+	}
+
+	return s.fset, nil
+}
+
 func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
+	stop := make(chan struct{})
+
 	defer func() {
 		err = svcutil.NoRestartErr(err)
 		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+		close(stop)
+	}()
+
+	// Broadcast the pause cond when the context quits
+	go func() {
+		select {
+		case <-ctx.Done():
+			s.cond.Broadcast()
+		case <-stop:
+		}
 	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
-	s.cond.L.Lock()
-	for s.paused {
-		s.cond.Wait()
+	fset, err := s.waitForFileset(ctx)
+	if err != nil {
+		return err
 	}
-	fset := s.fset
-	s.cond.L.Unlock()
 	err = s.sendIndexTo(ctx, fset)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
@@ -138,12 +165,10 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	defer ticker.Stop()
 
 	for err == nil {
-		s.cond.L.Lock()
-		for s.paused {
-			s.cond.Wait()
+		fset, err = s.waitForFileset(ctx)
+		if err != nil {
+			return err
 		}
-		fset := s.fset
-		s.cond.L.Unlock()
 
 		// While we have sent a sequence at least equal to the one
 		// currently in the database, wait for the local index to update. The
@@ -174,14 +199,14 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	return err
 }
 
+// resume might be called because the folder was actually resumed, or just
+// because the folder config changed (and thus the runner and potentially fset).
 func (s *indexHandler) resume(fset *db.FileSet, runner service) {
 	s.cond.L.Lock()
-	if !s.paused {
-		s.evLogger.Log(events.Failure, "index handler got resumed while not paused")
-	}
 	s.paused = false
 	s.fset = fset
 	s.runner = runner
+	s.cond.Broadcast()
 	s.cond.L.Unlock()
 }
 
@@ -193,6 +218,7 @@ func (s *indexHandler) pause() {
 	s.paused = true
 	s.fset = nil
 	s.runner = nil
+	s.cond.Broadcast()
 	s.cond.L.Unlock()
 }
 
@@ -474,7 +500,7 @@ func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfigura
 	if folder.Paused {
 		r.folderPausedLocked(folder.ID)
 	} else {
-		r.folderStartedLocked(folder, fset, runner)
+		r.folderRunningLocked(folder, fset, runner)
 	}
 	r.mut.Unlock()
 }
@@ -492,10 +518,10 @@ func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
 	}
 }
 
-// folderStartedLocked resumes an already running index handler or starts it, if it
+// folderRunningLocked resumes an already running index handler or starts it, if it
 // was added while paused.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) folderStartedLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
+func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
 	r.folderStates[folder.ID] = &indexHandlerFolderState{
 		cfg:    folder,
 		fset:   fset,

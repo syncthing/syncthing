@@ -45,7 +45,9 @@ type quicDialer struct {
 func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
-	addr, err := net.ResolveUDPAddr("udp", uri.Host)
+	network := quicNetwork(uri)
+
+	addr, err := net.ResolveUDPAddr(network, uri.Host)
 	if err != nil {
 		return internalConn{}, err
 	}

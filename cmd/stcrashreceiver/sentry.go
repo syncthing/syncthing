@@ -143,15 +143,20 @@ var (
 	ldbPathRe        = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
 )
 
-func crashReportFingerprint(message string) []string {
-	// Do not fingerprint on the stack in case of db corruption or fatal
-	// db io error - where it occurs doesn't matter.
-	orig := message
+func sanitizeMessageLDB(message string) string {
 	message = ldbPosRe.ReplaceAllString(message, "${1}x)")
 	message = ldbFileRe.ReplaceAllString(message, "${1}x${3}")
 	message = ldbChecksumRe.ReplaceAllString(message, "${1}X${3}X")
 	message = ldbInternalKeyRe.ReplaceAllString(message, "${1}x${2}x")
 	message = ldbPathRe.ReplaceAllString(message, "$1 x: ")
+	return message
+}
+
+func crashReportFingerprint(message string) []string {
+	// Do not fingerprint on the stack in case of db corruption or fatal
+	// db io error - where it occurs doesn't matter.
+	orig := message
+	message = sanitizeMessageLDB(message)
 	if message != orig {
 		return []string{message}
 	}

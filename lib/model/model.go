@@ -40,6 +40,7 @@ import (
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -132,10 +133,10 @@ type model struct {
 	shortID         protocol.ShortID
 	// globalRequestLimiter limits the amount of data in concurrent incoming
 	// requests
-	globalRequestLimiter *byteSemaphore
+	globalRequestLimiter *util.Semaphore
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
-	folderIOLimiter *byteSemaphore
+	folderIOLimiter *util.Semaphore
 	fatalChan       chan error
 	started         chan struct{}
 
@@ -155,7 +156,7 @@ type model struct {
 	// fields protected by pmut
 	pmut                sync.RWMutex
 	conn                map[protocol.DeviceID]protocol.Connection
-	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
+	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
@@ -166,7 +167,7 @@ type model struct {
 	foldersRunning int32
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *byteSemaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -220,8 +221,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
 		shortID:              id.Short(),
-		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
-		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
+		globalRequestLimiter: util.NewSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
+		folderIOLimiter:      util.NewSemaphore(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 
@@ -240,7 +241,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
 		conn:                make(map[protocol.DeviceID]protocol.Connection),
-		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
+		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
@@ -323,7 +324,7 @@ func (m *model) fatal(err error) {
 // period.
 func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	detector := newDeadlockDetector(timeout)
+	detector := newDeadlockDetector(timeout, m.evLogger, m.fatal)
 	detector.Watch("fmut", m.fmut)
 	detector.Watch("pmut", m.pmut)
 }
@@ -1305,6 +1306,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			delete(expiredPending, folder.ID)
 			of.Label = folder.Label
 			of.ReceiveEncrypted = len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			of.RemoteEncrypted = len(ccDeviceInfos[folder.ID].remote.EncryptionPasswordToken) > 0
 			if err := m.db.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
@@ -1316,6 +1318,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				FolderLabel:      folder.Label,
 				DeviceID:         deviceID,
 				ReceiveEncrypted: of.ReceiveEncrypted,
+				RemoteEncrypted:  of.RemoteEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1340,12 +1343,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
+			m.fmut.Lock()
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
 			} else {
 				m.folderEncryptionFailures[folder.ID] = make(map[protocol.DeviceID]error)
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
+			m.fmut.Unlock()
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
 			if sameError {
 				l.Debugln(msg)
@@ -1358,6 +1363,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			return tempIndexFolders, paused, err
 		}
+		m.fmut.Lock()
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
 				delete(m.folderEncryptionFailures, folder.ID)
@@ -1365,6 +1371,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				delete(m.folderEncryptionFailures[folder.ID], deviceID)
 			}
 		}
+		m.fmut.Unlock()
 
 		// Handle indexes
 
@@ -1379,7 +1386,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
-			// Nothing we can fix; logged from DB already
+			msg := "Failed to remove pending folder-device entry"
+			l.Warnf("%v (%v, %v): %v", msg, folder, deviceID, err)
+			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
 		expiredPendingList = append(expiredPendingList, map[string]string{
@@ -1907,23 +1916,15 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 // skipping nil limiters, then returns a requestResponse of the given size.
 // When the requestResponse is closed the limiters are given back the bytes,
 // in reverse order.
-func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestResponse {
-	for _, limiter := range limiters {
-		if limiter != nil {
-			limiter.take(size)
-		}
-	}
+func newLimitedRequestResponse(size int, limiters ...*util.Semaphore) *requestResponse {
+	multi := util.MultiSemaphore(limiters)
+	multi.Take(size)
 
 	res := newRequestResponse(size)
 
 	go func() {
 		res.Wait()
-		for i := range limiters {
-			limiter := limiters[len(limiters)-1-i]
-			if limiter != nil {
-				limiter.give(size)
-			}
-		}
+		multi.Give(size)
 	}()
 
 	return res
@@ -2231,9 +2232,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	// 0: default, <0: no limiting
 	switch {
 	case device.MaxRequestKiB > 0:
-		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
+		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * device.MaxRequestKiB)
 	case device.MaxRequestKiB == 0:
-		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * defaultPullerPendingKiB)
+		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
 	}
 
 	m.helloMessages[deviceID] = hello
@@ -2775,6 +2776,13 @@ func (m *model) String() string {
 }
 
 func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+	toFolders := to.FolderMap()
+	for _, from := range from.Folders {
+		to, ok := toFolders[from.ID]
+		if ok && from.Type != to.Type && (from.Type == config.FolderTypeReceiveEncrypted || to.Type == config.FolderTypeReceiveEncrypted) {
+			return errors.New("folder type must not be changed from/to receive-encrypted")
+		}
+	}
 	return nil
 }
 
@@ -2928,8 +2936,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
 
-	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
-	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
+	m.globalRequestLimiter.SetCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
+	m.folderIOLimiter.SetCapacity(to.Options.MaxFolderConcurrency())
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
@@ -2946,7 +2954,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingFolders []map[string]string
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
-		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+		msg := "Could not iterate through pending folder entries for cleanup"
+		l.Warnf("%v: %v", msg, err)
+		m.evLogger.Log(events.Failure, msg)
 		// Continue with pending devices below, loop is skipped.
 	}
 	for folderID, pf := range pendingFolders {
@@ -2956,7 +2966,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			if err := m.db.RemovePendingFolder(folderID); err != nil {
-				// Nothing we can fix; logged from DB already
+				msg := "Failed to remove pending folder entry"
+				l.Warnf("%v (%v): %v", msg, folderID, err)
+				m.evLogger.Log(events.Failure, msg)
 			} else {
 				removedPendingFolders = append(removedPendingFolders, map[string]string{
 					"folderID": folderID,
@@ -2981,7 +2993,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			continue
 		removeFolderForDevice:
 			if err := m.db.RemovePendingFolderForDevice(folderID, deviceID); err != nil {
-				// Nothing we can fix; logged from DB already
+				msg := "Failed to remove pending folder-device entry"
+				l.Warnf("%v (%v, %v): %v", msg, folderID, deviceID, err)
+				m.evLogger.Log(events.Failure, msg)
 				continue
 			}
 			removedPendingFolders = append(removedPendingFolders, map[string]string{
@@ -2999,7 +3013,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
-		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
+		msg := "Could not iterate through pending device entries for cleanup"
+		l.Warnf("%v: %v", msg, err)
+		m.evLogger.Log(events.Failure, msg)
 		return
 	}
 	for deviceID := range pendingDevices {
@@ -3014,7 +3030,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		continue
 	removeDevice:
 		if err := m.db.RemovePendingDevice(deviceID); err != nil {
-			// Nothing we can fix; logged from DB already
+			msg := "Failed to remove pending device entry"
+			l.Warnf("%v: %v", msg, err)
+			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
 		removedPendingDevices = append(removedPendingDevices, map[string]string{
@@ -3258,6 +3276,7 @@ type updatedPendingFolder struct {
 	FolderLabel      string            `json:"folderLabel"`
 	DeviceID         protocol.DeviceID `json:"deviceID"`
 	ReceiveEncrypted bool              `json:"receiveEncrypted"`
+	RemoteEncrypted  bool              `json:"remoteEncrypted"`
 }
 
 // redactPathError checks if the error is actually a os.PathError, and if yes
