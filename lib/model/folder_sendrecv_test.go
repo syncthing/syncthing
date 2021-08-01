@@ -1203,7 +1203,7 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	}
 	if errStr, ok := f.tempPullErrors[remote.Name]; !ok {
 		t.Error("missing error for", remote.Name)
-	} else if !strings.Contains(errStr, "differs from name") {
+	} else if !strings.Contains(errStr, "uses different upper or lowercase") {
 		t.Error("unexpected error", errStr, "for", remote.Name)
 	}
 }
