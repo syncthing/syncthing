@@ -114,14 +114,14 @@ func (f *EncoderFilesystem) MkdirAll(path string, perm FileMode) error {
 	return f.Filesystem.MkdirAll(f.encodedPath(path), perm)
 }
 
-type decodedFileInfo struct {
+type encoderFileInfo struct {
 	FileInfo
-	decodedName string
+	name string // original non-encoded name
 }
 
-func (fi decodedFileInfo) Name() string {
-	// Return the "normal" (non-encoded) ASCII filename to the caller.
-	return fi.decodedName
+func (e encoderFileInfo) Name() string {
+	// Return the original non-encoded filename to the caller.
+	return e.name
 }
 
 func (f *EncoderFilesystem) Lstat(name string) (FileInfo, error) {
@@ -129,11 +129,13 @@ func (f *EncoderFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	decodedInfo := decodedFileInfo{
-		FileInfo:    info,
-		decodedName: decodedPath(info.Name()),
+	if info != nil {
+		info = encoderFileInfo{
+			FileInfo: info,
+			name:     decodedPath(info.Name()),
+		}
 	}
-	return decodedInfo, nil
+	return info, nil
 }
 
 func (f *EncoderFilesystem) Remove(name string) error {
@@ -153,11 +155,13 @@ func (f *EncoderFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	decodedInfo := decodedFileInfo{
-		FileInfo:    info,
-		decodedName: decodedPath(info.Name()),
+	if info != nil {
+		info = encoderFileInfo{
+			FileInfo: info,
+			name:     decodedPath(info.Name()),
+		}
 	}
-	return decodedInfo, nil
+	return info, nil
 }
 
 func (f *EncoderFilesystem) DirNames(name string) ([]string, error) {
@@ -195,11 +199,13 @@ func (f *EncoderFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// Walking the filesystem is likely (in Syncthing's fix certainly) done
 	// to pick up external changes, for which caching is undesirable.
 	decodingWalkFunc := func(path string, info FileInfo, err error) error {
-		decodedInfo := decodedFileInfo{
-			FileInfo:    info,
-			decodedName: decodedPath(info.Name()),
+		if info != nil {
+			info = encoderFileInfo{
+				FileInfo: info,
+				name:     decodedPath(info.Name()),
+			}
 		}
-		return walkFn(decodedPath(path), decodedInfo, err)
+		return walkFn(decodedPath(path), info, err)
 	}
 
 	return f.Filesystem.Walk(f.encodedPath(root), decodingWalkFunc)
