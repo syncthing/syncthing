@@ -4,24 +4,26 @@
       <span translate>Warning</span>!
     </p>
     <div ng-switch="revertOverrideParams.type">
-      <div ng-switch-when="deleteEnc">
-        <p>
-          <span translate>Unexpected items have been found in this folder.</span>
-          <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
-        </p>
-        <p translate>
-          Are you sure you want to permanently delete all these files?
-        </p>
-      </div>
-      <div ng-switch-default>
-        <p ng-switch="revertOverrideParams.type">
-          <span ng-switch-when="override" translate>The folder content on other devices will be overwritten to become identical with this device. Files not present here will be deleted on other devices.</span>
-          <span ng-switch-default translate>The folder content on this device will be overwritten to become identical with other devices. Files newly added here will be deleted.</span>
-        </p>
-        <p translate>
-          Are you sure you want to continue?
-        </p>
-      </div>
+      <p ng-switch-when="deleteEnc" translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">
+        Unexpected items have been found in this folder. You should never add or change anything locally in a "{%receiveEncrypted%}" folder.
+      </p>
+      <p ng-switch-when="override" translate>
+        The folder content on other devices will be overwritten to become identical with this device. Files not present here will be deleted on other devices.
+      </p>
+      <p ng-switch-default translate>
+        The folder content on this device will be overwritten to become identical with other devices. Files newly added here will be deleted.
+      </p>
+    </div>
+    <div ng-switch="revertOverrideParams.type">
+      <p ng-switch-when="deleteEnc" translate>
+        Are you sure you want to permanently delete all these files?
+      </p>
+      <p ng-switch-when="override" translate>
+        Are you sure you want to permanently override all these files?
+      </p>
+      <p ng-switch-default translate>
+        Are you sure you want to permanently revert all these files?
+      </p>
     </div>
   </div>
   <div class="modal-footer">
