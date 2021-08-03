@@ -1075,57 +1075,27 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
-	have, _ := blockDiff(curFile.Blocks, file.Blocks)
-
 	tempName := fs.TempName(file.Name)
 
 	populateOffsets(file.Blocks)
 
-	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
-	reused := make([]int, 0, len(file.Blocks))
+	have := 0
+	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
+	var reused []int
 
-	// Check for an old temporary file which might have some blocks we could
-	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-	if err != nil {
-		var caseErr *fs.ErrCaseConflict
-		if errors.As(err, &caseErr) {
-			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-			}
-		}
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		haveBlocks, _ := blockDiff(curFile.Blocks, file.Blocks)
+		have = len(haveBlocks)
+		blocks, reused = f.reuseBlocks(blocks, file, tempName)
 	}
-	if err == nil {
-		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
 
-		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
-		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = struct{}{}
-		}
-
-		// Since the blocks are already there, we don't need to get them.
-		for i, block := range file.Blocks {
-			_, ok := existingBlocks[block.String()]
-			if !ok {
-				blocks = append(blocks, block)
-			} else {
-				reused = append(reused, i)
-			}
-		}
-
-		// The sharedpullerstate will know which flags to use when opening the
-		// temp file depending if we are reusing any blocks or not.
-		if len(reused) == 0 {
-			// Otherwise, discard the file ourselves in order for the
-			// sharedpuller not to panic when it fails to exclusively create a
-			// file which already exists
-			f.inWritableDir(f.mtimefs.Remove, tempName)
-		}
-	} else {
-		// Copy the blocks, as we don't want to shuffle them on the FileInfo
-		blocks = append(blocks, file.Blocks...)
+	// The sharedpullerstate will know which flags to use when opening the
+	// temp file depending if we are reusing any blocks or not.
+	if len(reused) == 0 {
+		// Otherwise, discard the file ourselves in order for the
+		// sharedpuller not to panic when it fails to exclusively create a
+		// file which already exists
+		f.inWritableDir(f.mtimefs.Remove, tempName)
 	}
 
 	// Reorder blocks
@@ -1145,9 +1115,49 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	cs := copyBlocksState{
 		sharedPullerState: s,
 		blocks:            blocks,
-		have:              len(have),
+		have:              have,
 	}
 	copyChan <- cs
+}
+
+func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
+	// Check for an old temporary file which might have some blocks we could
+	// reuse.
+	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+	if err != nil {
+		var caseErr *fs.ErrCaseConflict
+		if errors.As(err, &caseErr) {
+			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
+				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+			}
+		}
+	}
+	if err != nil {
+		return blocks, nil
+	}
+
+	// Check for any reusable blocks in the temp file
+	tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
+
+	// block.String() returns a string unique to the block
+	existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
+	for _, block := range tempCopyBlocks {
+		existingBlocks[block.String()] = struct{}{}
+	}
+
+	// Since the blocks are already there, we don't need to get them.
+	reused := make([]int, 0, len(file.Blocks))
+	blocks = blocks[:0]
+	for i, block := range file.Blocks {
+		_, ok := existingBlocks[block.String()]
+		if !ok {
+			blocks = append(blocks, block)
+		} else {
+			reused = append(reused, i)
+		}
+	}
+
+	return blocks, reused
 }
 
 // blockDiff returns lists of common and missing (to transform src into tgt)
