@@ -142,6 +142,9 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	if bytes.Equal(enc.Blocks[0].Hash, enc.Blocks[1].Hash) {
 		t.Error("block hashes should not repeat when on different offsets")
 	}
+	if enc.RawBlockSize < MinBlockSize {
+		t.Error("Too small raw block size:", enc.RawBlockSize)
+	}
 	again := encryptFileInfo(fi, &key)
 	if !bytes.Equal(enc.Blocks[0].Hash, again.Blocks[0].Hash) {
 		t.Error("block hashes should remain stable (0)")
