@@ -1075,18 +1075,17 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
+	have, _ := blockDiff(curFile.Blocks, file.Blocks)
+
 	tempName := fs.TempName(file.Name)
 
 	populateOffsets(file.Blocks)
 
-	have := 0
 	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
-	var reused []int
+	reused := make([]int, 0, len(file.Blocks))
 
 	if f.Type != config.FolderTypeReceiveEncrypted {
-		haveBlocks, _ := blockDiff(curFile.Blocks, file.Blocks)
-		have = len(haveBlocks)
-		blocks, reused = f.reuseBlocks(blocks, file, tempName)
+		blocks, reused = f.reuseBlocks(blocks, reused, file, tempName)
 	}
 
 	// The sharedpullerstate will know which flags to use when opening the
@@ -1115,12 +1114,12 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	cs := copyBlocksState{
 		sharedPullerState: s,
 		blocks:            blocks,
-		have:              have,
+		have:              len(have),
 	}
 	copyChan <- cs
 }
 
-func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
+func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
 	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
@@ -1133,7 +1132,7 @@ func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, file protoc
 		}
 	}
 	if err != nil {
-		return blocks, nil
+		return blocks, reused
 	}
 
 	// Check for any reusable blocks in the temp file
@@ -1146,7 +1145,6 @@ func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, file protoc
 	}
 
 	// Since the blocks are already there, we don't need to get them.
-	reused := make([]int, 0, len(file.Blocks))
 	blocks = blocks[:0]
 	for i, block := range file.Blocks {
 		_, ok := existingBlocks[block.String()]
