@@ -142,12 +142,12 @@ type errNotFound struct{}
 func (*errNotFound) Error() string { return "key not found" }
 
 func IsClosed(err error) bool {
-	var e *errClosed
+	e := &errClosed{}
 	return errors.As(err, &e)
 }
 
 func IsNotFound(err error) bool {
-	var e *errNotFound
+	e := &errNotFound{}
 	return errors.As(err, &e)
 }
 
