@@ -59,21 +59,7 @@ func (q *quicTlsConn) Close() error {
 }
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
-	qcs := q.Session.ConnectionState()
-	return tls.ConnectionState{
-		Version:                     qcs.Version,
-		HandshakeComplete:           qcs.HandshakeComplete,
-		DidResume:                   qcs.DidResume,
-		CipherSuite:                 qcs.CipherSuite,
-		NegotiatedProtocol:          qcs.NegotiatedProtocol,
-		NegotiatedProtocolIsMutual:  qcs.NegotiatedProtocolIsMutual,
-		ServerName:                  qcs.ServerName,
-		PeerCertificates:            qcs.PeerCertificates,
-		VerifiedChains:              qcs.VerifiedChains,
-		SignedCertificateTimestamps: qcs.SignedCertificateTimestamps,
-		OCSPResponse:                qcs.OCSPResponse,
-		TLSUnique:                   qcs.TLSUnique,
-	}
+	return q.Session.ConnectionState().TLS.ConnectionState
 }
 
 // Sort available packet connections by ip address, preferring unspecified local address.

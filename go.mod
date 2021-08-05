@@ -1,7 +1,7 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/pfilter v0.0.0-20210511165305-e9aaf99ab213
+	github.com/AudriusButkevicius/pfilter v0.0.10
 	github.com/AudriusButkevicius/recli v0.0.6
 	github.com/alecthomas/kong v0.2.16
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
@@ -28,7 +28,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lib/pq v1.10.1
-	github.com/lucas-clemente/quic-go v0.19.3
+	github.com/lucas-clemente/quic-go v0.22.0
 	github.com/maruel/panicparse v1.6.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/minio/sha256-simd v1.0.0
@@ -46,12 +46,12 @@ require (
 	github.com/thejerf/suture/v4 v4.0.1
 	github.com/urfave/cli v1.22.5
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/net v0.0.0-20210716203947-853a461950ff
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 	golang.org/x/text v0.3.6
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	golang.org/x/tools v0.1.0
+	golang.org/x/tools v0.1.5
 )
 
 go 1.14
