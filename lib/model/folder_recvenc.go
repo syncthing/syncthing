@@ -94,7 +94,14 @@ func (f *receiveEncryptedFolder) revert() error {
 	if iterErr != nil {
 		return iterErr
 	}
-	return batch.Flush()
+	if err := batch.Flush(); err != nil {
+		return err
+	}
+
+	// We might need to pull items if the local changes were on valid, global files.
+	f.SchedulePull()
+
+	return nil
 }
 
 func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
