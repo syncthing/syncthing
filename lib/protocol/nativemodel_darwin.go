@@ -1,5 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:build darwin
 // +build darwin
 
 package protocol
