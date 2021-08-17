@@ -50,6 +50,7 @@ type service interface {
 	Override()
 	Revert()
 	DelayScan(d time.Duration)
+	ScheduleScan()
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
@@ -2115,7 +2116,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if ok {
-		return runner.Scan(nil)
+		runner.ScheduleScan()
 	}
 	return nil
 }
