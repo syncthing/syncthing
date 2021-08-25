@@ -49,7 +49,7 @@ type FailureData struct {
 }
 
 func FailureDataWithGoroutines(description string) FailureData {
-	var buf *strings.Builder
+	var buf strings.Builder
 	pprof.Lookup("goroutine").WriteTo(buf, 1)
 	return FailureData{
 		Description: description,
