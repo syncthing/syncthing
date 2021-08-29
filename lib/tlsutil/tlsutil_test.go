@@ -60,9 +60,8 @@ func TestUnionedConnection(t *testing.T) {
 				if n != 1 {
 					t.Errorf("%d: first read returned %d bytes, not 1", i, n)
 				}
-				// Check that we've nilled out the "first" thing
-				if conn.(*UnionedConnection).first != nil {
-					t.Errorf("%d: expected first read to clear out the `first` attribute", i)
+				if !conn.(*UnionedConnection).firstDone {
+					t.Errorf("%d: expected first read to set the `firstDone` attribute", i)
 				}
 			}
 			bs = append(bs, buf[:n]...)
