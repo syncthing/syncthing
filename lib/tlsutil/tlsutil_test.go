@@ -129,8 +129,8 @@ func (f *fakeAccepter) Accept() (net.Conn, error) {
 	return &fakeConn{f.data}, nil
 }
 
-func (f *fakeAccepter) Addr() net.Addr { return nil }
-func (f *fakeAccepter) Close() error   { return nil }
+func (*fakeAccepter) Addr() net.Addr { return nil }
+func (*fakeAccepter) Close() error   { return nil }
 
 type fakeConn struct {
 	data []byte
@@ -145,13 +145,13 @@ func (f *fakeConn) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (f *fakeConn) Write(b []byte) (int, error) {
+func (*fakeConn) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (f *fakeConn) Close() error                     { return nil }
-func (f *fakeConn) LocalAddr() net.Addr              { return nil }
-func (f *fakeConn) RemoteAddr() net.Addr             { return nil }
-func (f *fakeConn) SetDeadline(time.Time) error      { return nil }
-func (f *fakeConn) SetReadDeadline(time.Time) error  { return nil }
-func (f *fakeConn) SetWriteDeadline(time.Time) error { return nil }
+func (*fakeConn) Close() error                     { return nil }
+func (*fakeConn) LocalAddr() net.Addr              { return nil }
+func (*fakeConn) RemoteAddr() net.Addr             { return nil }
+func (*fakeConn) SetDeadline(time.Time) error      { return nil }
+func (*fakeConn) SetReadDeadline(time.Time) error  { return nil }
+func (*fakeConn) SetWriteDeadline(time.Time) error { return nil }
