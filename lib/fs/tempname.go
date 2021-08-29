@@ -20,43 +20,40 @@ const (
 	UnixTempPrefix    = ".syncthing."
 )
 
-var TempPrefix string
+func tempPrefix() string {
+	if runtime.GOOS == "windows" {
+		return WindowsTempPrefix
+	} else {
+		return UnixTempPrefix
+	}
+}
 
 // Real filesystems usually handle 255 bytes. encfs has varying and
 // confusing file name limits. We take a safe way out and switch to hashing
 // quite early.
 const maxFilenameLength = 160 - len(UnixTempPrefix) - len(".tmp")
 
-func init() {
-	if runtime.GOOS == "windows" {
-		TempPrefix = WindowsTempPrefix
-	} else {
-		TempPrefix = UnixTempPrefix
-	}
-}
-
 // IsTemporary is true if the file name has the temporary prefix. Regardless
 // of the normally used prefix, the standard Windows and Unix temp prefixes
 // are always recognized as temp files.
 func IsTemporary(name string) bool {
 	name = filepath.Base(name)
-	if strings.HasPrefix(name, WindowsTempPrefix) ||
-		strings.HasPrefix(name, UnixTempPrefix) {
-		return true
-	}
-	return false
+	return strings.HasPrefix(name, WindowsTempPrefix) ||
+		strings.HasPrefix(name, UnixTempPrefix)
 }
 
 func TempNameWithPrefix(name, prefix string) string {
 	tdir := filepath.Dir(name)
 	tbase := filepath.Base(name)
+	var tname string
 	if len(tbase) > maxFilenameLength {
-		tbase = fmt.Sprintf("%x", sha256.Sum256([]byte(name)))
+		tname = fmt.Sprintf("%s%x.tmp", prefix, sha256.Sum256([]byte(tbase)))
+	} else {
+		tname = prefix + tbase + ".tmp"
 	}
-	tname := fmt.Sprintf("%s%s.tmp", prefix, tbase)
 	return filepath.Join(tdir, tname)
 }
 
 func TempName(name string) string {
-	return TempNameWithPrefix(name, TempPrefix)
+	return TempNameWithPrefix(name, tempPrefix())
 }
