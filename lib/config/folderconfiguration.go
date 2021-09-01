@@ -96,8 +96,10 @@ func (f *FolderConfiguration) CreateMarker() error {
 	}
 	if dir, err := fs.Open("."); err != nil {
 		l.Debugln("folder marker: open . failed:", err)
-	} else if err := dir.Sync(); err != nil {
-		l.Debugln("folder marker: fsync . failed:", err)
+	} else if runtime.GOOS != "windows" {
+		if err := dir.Sync(); err != nil {
+			l.Debugln("folder marker: fsync . failed:", err)
+		}
 	}
 	fs.Hide(DefaultMarkerName)
 

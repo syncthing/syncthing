@@ -116,9 +116,11 @@ func (w *AtomicWriter) Close() error {
 	}
 
 	// fsync the directory too
-	if fd, err := w.fs.Open(filepath.Dir(w.next.Name())); err == nil {
-		fd.Sync()
-		fd.Close()
+	if runtime.GOOS != "windows" {
+		if fd, err := w.fs.Open(filepath.Dir(w.next.Name())); err == nil {
+			fd.Sync()
+			fd.Close()
+		}
 	}
 
 	// Set w.err to return appropriately for any future operations.
