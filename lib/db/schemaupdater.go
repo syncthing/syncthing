@@ -244,8 +244,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			if err != nil && !backend.IsNotFound(err) {
 				return err
 			}
-			i := 0
-			i = sort.Search(len(fl.Versions), func(j int) bool {
+			i := sort.Search(len(fl.Versions), func(j int) bool {
 				return fl.Versions[j].Invalid
 			})
 			for ; i < len(fl.Versions); i++ {
@@ -759,7 +758,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 			if err != nil {
 				return err
 			}
-			key, _, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
+			key, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
 			if err != nil {
 				return err
 			}
@@ -909,11 +908,9 @@ outer:
 			switch nfv.Version.Compare(fv.Version) {
 			case protocol.Equal:
 				newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
-				lastVersion = fv.Version
 				continue outer
 			case protocol.Lesser:
 				newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-				lastVersion = fv.Version
 				continue outer
 			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
 				// The version is invalid, i.e. it looses anyway,
@@ -923,7 +920,6 @@ outer:
 		}
 		// Couldn't insert into any existing versions
 		newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-		lastVersion = fv.Version
 		newPos++
 	}
 

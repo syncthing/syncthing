@@ -207,17 +207,17 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return nil, nil, false, err
 	}
 	var fi protocol.FileIntf
-	keyBuf, fi, _, err = t.getGlobalFromVersionList(keyBuf, folder, file, truncate, vl)
+	keyBuf, fi, err = t.getGlobalFromVersionList(keyBuf, folder, file, truncate, vl)
 	return keyBuf, fi, true, err
 }
 
-func (t readOnlyTransaction) getGlobalFromVersionList(keyBuf, folder, file []byte, truncate bool, vl VersionList) ([]byte, protocol.FileIntf, FileVersion, error) {
+func (t readOnlyTransaction) getGlobalFromVersionList(keyBuf, folder, file []byte, truncate bool, vl VersionList) ([]byte, protocol.FileIntf, error) {
 	fv, ok := vl.GetGlobal()
 	if !ok {
-		return keyBuf, nil, FileVersion{}, errEmptyGlobal
+		return keyBuf, nil, errEmptyGlobal
 	}
 	keyBuf, fi, err := t.getGlobalFromFileVersion(keyBuf, folder, file, truncate, fv)
-	return keyBuf, fi, fv, err
+	return keyBuf, fi, err
 }
 
 func (t readOnlyTransaction) getGlobalFromFileVersion(keyBuf, folder, file []byte, truncate bool, fv FileVersion) ([]byte, protocol.FileIntf, error) {
@@ -363,7 +363,7 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 		}
 
 		var f protocol.FileIntf
-		dk, f, _, err = t.getGlobalFromVersionList(dk, folder, name, truncate, vl)
+		dk, f, err = t.getGlobalFromVersionList(dk, folder, name, truncate, vl)
 		if err != nil {
 			return err
 		}
@@ -626,29 +626,29 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool, error) {
+func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, error) {
 	deviceID, err := protocol.DeviceIDFromBytes(device)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, deviceID, file.Name, file.Version, file.IsInvalid())
 
 	fl, err := t.getGlobalVersionsByKey(gk)
 	if err != nil && !backend.IsNotFound(err) {
-		return nil, false, err
+		return nil, err
 	}
 
 	globalFV, oldGlobalFV, removedFV, haveOldGlobal, haveRemoved, globalChanged, err := fl.update(folder, device, file, t.readOnlyTransaction)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	name := []byte(file.Name)
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	if err := t.Put(gk, mustMarshal(&fl)); err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	// Only load those from db if actually needed
@@ -664,26 +664,26 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	needNow := Need(globalFV, true, file.Version)
 	if needBefore {
 		if keyBuf, oldGlobal, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, oldGlobalFV); err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		gotOldGlobal = true
 		meta.removeNeeded(deviceID, oldGlobal)
 		if !needNow && bytes.Equal(device, protocol.LocalDeviceID[:]) {
 			if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, false); err != nil {
-				return nil, false, err
+				return nil, err
 			}
 		}
 	}
 	if needNow {
 		keyBuf, global, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, globalFV)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		gotGlobal = true
 		meta.addNeeded(deviceID, global)
 		if !needBefore && bytes.Equal(device, protocol.LocalDeviceID[:]) {
 			if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, true); err != nil {
-				return nil, false, err
+				return nil, err
 			}
 		}
 	}
@@ -693,16 +693,15 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	if !globalChanged {
 		// Neither the global state nor the needs of any devices, except
 		// the one updated, changed.
-		return keyBuf, true, nil
+		return keyBuf, nil
 	}
 
 	// Remove the old global from the global size counter
 	if haveOldGlobal {
 		if !gotOldGlobal {
 			if keyBuf, oldGlobal, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, oldGlobalFV); err != nil {
-				return nil, false, err
+				return nil, err
 			}
-			gotOldGlobal = true
 		}
 		// Remove the old global from the global size counter
 		meta.removeFile(protocol.GlobalDeviceID, oldGlobal)
@@ -714,7 +713,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			// The inserted file is the global file
 			global = file
 		} else {
-			keyBuf, global, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, globalFV)
+			keyBuf, global, _ = t.getGlobalFromFileVersion(keyBuf, folder, name, true, globalFV)
 		}
 		gotGlobal = true
 	}
@@ -729,7 +728,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			meta.removeNeeded(protocol.LocalDeviceID, oldGlobal)
 			if !needNow {
 				if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, false); err != nil {
-					return nil, false, err
+					return nil, err
 				}
 			}
 		}
@@ -737,7 +736,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			meta.addNeeded(protocol.LocalDeviceID, global)
 			if !needBefore {
 				if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, true); err != nil {
-					return nil, false, err
+					return nil, err
 				}
 			}
 		}
@@ -757,7 +756,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		}
 	}
 
-	return keyBuf, true, nil
+	return keyBuf, nil
 }
 
 func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, add bool) ([]byte, error) {
@@ -838,7 +837,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 	globalFV, haveGlobal := fl.GetGlobal()
 	// Add potential needs of the removed device
 	if haveGlobal && !globalFV.IsInvalid() && Need(globalFV, false, protocol.Vector{}) && !Need(oldGlobalFV, haveRemoved, removedFV.Version) {
-		keyBuf, global, _, err = t.getGlobalFromVersionList(keyBuf, folder, file, true, fl)
+		keyBuf, global, err = t.getGlobalFromVersionList(keyBuf, folder, file, true, fl)
 		if err != nil {
 			return nil, err
 		}
@@ -900,7 +899,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 
 	// Add to global
 	if !gotGlobal {
-		keyBuf, global, _, err = t.getGlobalFromVersionList(keyBuf, folder, file, true, fl)
+		keyBuf, global, err = t.getGlobalFromVersionList(keyBuf, folder, file, true, fl)
 		if err != nil {
 			return nil, err
 		}
