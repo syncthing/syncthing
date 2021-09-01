@@ -743,7 +743,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	if f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+	if err = f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
 	}
