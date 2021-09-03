@@ -528,7 +528,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	}
 	defer t.close()
 
-	if err := db.rewriteFiles(t); err != nil {
+	if err := rewriteFiles(t); err != nil {
 		return err
 	}
 
@@ -537,7 +537,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
+func rewriteFiles(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
@@ -695,12 +695,12 @@ func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 	defer t.close()
 
 	if prev < 12 {
-		if err := db.rewriteFiles(t); err != nil {
+		if err := rewriteFiles(t); err != nil {
 			return err
 		}
 	}
 
-	if err := db.rewriteGlobals(t); err != nil {
+	if err := rewriteGlobals(t); err != nil {
 		return err
 	}
 
@@ -835,7 +835,7 @@ func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
 	return db.dropIndexIDs()
 }
 
-func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
+func rewriteGlobals(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeGlobal})
 	if err != nil {
 		return err
