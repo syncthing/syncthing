@@ -506,6 +506,8 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerToken, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
+	delete(m.folderEncryptionPasswordTokens, cfg.ID)
+	delete(m.folderEncryptionFailures, cfg.ID)
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
