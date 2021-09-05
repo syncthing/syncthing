@@ -516,7 +516,11 @@ func checkUpgrade() (upgrade.Release, error) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	if err != nil {
+		return err
+	}
+
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err

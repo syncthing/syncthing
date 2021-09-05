@@ -713,7 +713,10 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			// The inserted file is the global file
 			global = file
 		} else {
-			keyBuf, global, _ = t.getGlobalFromFileVersion(keyBuf, folder, name, true, globalFV)
+			keyBuf, global, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, globalFV)
+			if err != nil {
+				return nil, err
+			}
 		}
 		gotGlobal = true
 	}
