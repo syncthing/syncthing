@@ -90,7 +90,7 @@ func writeHello(c io.Writer, h HelloIntf) error {
 		panic("bug: attempting to serialize too large hello message")
 	}
 
-	header := make([]byte, 6)
+	header := make([]byte, 6, 6+len(msg))
 	binary.BigEndian.PutUint32(header[:4], h.Magic())
 	binary.BigEndian.PutUint16(header[4:], uint16(len(msg)))
 
