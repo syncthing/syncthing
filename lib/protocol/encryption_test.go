@@ -205,6 +205,31 @@ func TestIsEncryptedParent(t *testing.T) {
 	}
 }
 
+func TestEscapeWindowsReserved(t *testing.T) {
+	cases := []struct {
+		path    string
+		escaped string
+	}{
+		{"foo/bar", "foo/bar"},
+		{"foo/BAR", "foo/BAR"},
+		{"foo/CON", "foo/xCON"},
+		{"foo/LPT1", "foo/xLPT1"},
+		{"foo/LPT12", "foo/LPT12"},
+	}
+
+	for _, tc := range cases {
+		esc := escapeWindowsReserved(tc.path)
+		if esc != tc.escaped {
+			t.Error("Expected", tc.escaped, "got", esc)
+		}
+
+		unesc := unescapeWindowsReserved(esc)
+		if unesc != tc.path {
+			t.Error("Expected", tc.path, "got", unesc)
+		}
+	}
+}
+
 var benchmarkFileKey struct {
 	key [keySize]byte
 	sync.Once

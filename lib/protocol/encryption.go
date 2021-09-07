@@ -375,12 +375,12 @@ var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key, nil)
-	return slashify(base32Hex.EncodeToString(enc))
+	return escapeWindowsReserved(slashify(base32Hex.EncodeToString(enc)))
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
-	name, err := deslashify(name)
+	name, err := deslashify(UnescapeWindowsReserved(name))
 	if err != nil {
 		return "", err
 	}
@@ -540,6 +540,44 @@ func slashify(s string) string {
 	return strings.Join(comps, "/")
 }
 
+func escapeWindowsReserved(s string) string {
+	lastSlash := strings.LastIndex(s, "/")
+	lastComp := s[lastSlash+1:]
+	if len(lastComp) < 3 || len(lastComp) > 4 {
+		// There can be no complication here.
+		return s
+	}
+	for _, n := range windowsDisallowedNames {
+		// This is a reserved file name; escape it. Adding an "x" is an
+		// adequate escape because that character is not part of our
+		// filename encoding, and no reserved names start with an x.
+		if lastComp == n {
+			return s[:lastSlash+1] + "x" + s[lastSlash+1:]
+		}
+	}
+	return s
+}
+
+// Remove escaping of Windows reserved filenames in an encrypted filename.
+func UnescapeWindowsReserved(s string) string {
+	// If the last path component is an escaped reserved name, remove the
+	// "x" that escapes it. As an extra bonus, be case insensitive here if
+	// for some reason the filename case has been mangled by non-Syncthing
+	// transferring or odd filesystems.
+	lastSlash := strings.LastIndex(s, "/")
+	lastComp := s[lastSlash+1:]
+	if lastComp[0] == 'x' || lastComp[0] == 'X' {
+		return s[:lastSlash+1] + lastComp[1:]
+	}
+	return s
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+var windowsDisallowedNames = []string{"CON", "PRN", "AUX", "NUL",
+	"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+	"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+}
+
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
 func deslashify(s string) (string, error) {
@@ -547,7 +585,9 @@ func deslashify(s string) (string, error) {
 		return "", fmt.Errorf("invalid encrypted path: %q", s)
 	}
 	s = s[:1] + s[1+len(encryptedDirExtension):]
-	return strings.ReplaceAll(s, "/", ""), nil
+	s = strings.Replace(s, "/x", "", 1) // remove "x" escaping in last component; we could simply remove any an all "x"s, but this seems safer
+	s = strings.ReplaceAll(s, "/", "")  // remove all other slashes
+	return s, nil
 }
 
 type rawResponse struct {

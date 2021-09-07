@@ -1879,7 +1879,22 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		// file has finished downloading.
 	}
 
-	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
+	info, err := folderFs.Lstat(name)
+	if fs.IsNotExist(err) && folderCfg.Type == config.FolderTypeReceiveEncrypted {
+		// This might be a request for an encrypted file name with a Windows
+		// reserved path component that we've escaped on the other side, but
+		// the file we have on disk predates that escaping.
+		if unesc := protocol.UnescapeWindowsReserved(name); unesc != name {
+			if unescInfo, unescEerr := folderFs.Lstat(unesc); unescEerr == nil {
+				// The file exists under the old filename encoding. Rename
+				// it and carry on from there.
+				_ = folderFs.Rename(unesc, name)
+				info = unescInfo
+				err = nil
+			}
+		}
+	}
+	if err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
 		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
