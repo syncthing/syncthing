@@ -554,7 +554,7 @@ func escapeWindowsReserved(s string) string {
 			// This is a reserved file name; escape it. Adding an "x" is an
 			// adequate escape because that character is not part of our
 			// filename encoding, and no reserved names start with an x.
-			return s[:lastSlash+1] + "x" + s[lastSlash+1:]
+			return s[:lastSlash+1] + "x" + lastComp
 		}
 	}
 	return s
