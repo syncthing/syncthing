@@ -540,6 +540,8 @@ func slashify(s string) string {
 	return strings.Join(comps, "/")
 }
 
+// Escape a filename that contains Windows badness, e.g. ASDF/GHJK/CON =>
+// ASDF/GHJK/xCON
 func escapeWindowsReserved(s string) string {
 	lastSlash := strings.LastIndex(s, "/")
 	lastComp := s[lastSlash+1:]

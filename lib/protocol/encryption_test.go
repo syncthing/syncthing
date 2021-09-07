@@ -223,7 +223,7 @@ func TestEscapeWindowsReserved(t *testing.T) {
 			t.Error("Expected", tc.escaped, "got", esc)
 		}
 
-		unesc := unescapeWindowsReserved(esc)
+		unesc := UnescapeWindowsReserved(esc)
 		if unesc != tc.path {
 			t.Error("Expected", tc.path, "got", unesc)
 		}
