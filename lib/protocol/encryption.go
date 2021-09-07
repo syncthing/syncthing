@@ -587,9 +587,7 @@ func deslashify(s string) (string, error) {
 		return "", fmt.Errorf("invalid encrypted path: %q", s)
 	}
 	s = s[:1] + s[1+len(encryptedDirExtension):]
-	s = strings.Replace(s, "/x", "", 1) // remove "x" escaping in last component; we could simply remove any an all "x"s, but this seems safer
-	s = strings.ReplaceAll(s, "/", "")  // remove all other slashes
-	return s, nil
+	return strings.ReplaceAll(s, "/", ""), nil
 }
 
 type rawResponse struct {
