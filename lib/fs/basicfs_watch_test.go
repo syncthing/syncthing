@@ -126,18 +126,17 @@ func TestWatchRename(t *testing.T) {
 	name := "rename"
 
 	old := createTestFile(name, "oldfile")
-	// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
-	new := "newfile"
+	new_ := "newfile"
 
 	testCase := func() {
-		renameTestFile(name, old, new)
+		renameTestFile(name, old, new_)
 	}
 
-	destEvent := Event{new, Remove}
+	destEvent := Event{new_, Remove}
 	// Only on these platforms the removed file can be differentiated from
 	// the created file during renaming
 	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" || runtime.GOOS == "freebsd" {
-		destEvent = Event{new, NonRemove}
+		destEvent = Event{new_, NonRemove}
 	}
 	expectedEvents := []Event{
 		{old, Remove},
@@ -520,12 +519,11 @@ func createTestFile(name string, file string) string {
 	return file
 }
 
-// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
-func renameTestFile(name string, old string, new string) {
+func renameTestFile(name string, old string, new_ string) {
 	old = filepath.Join(name, old)
-	new = filepath.Join(name, new)
-	if err := testFs.Rename(old, new); err != nil {
-		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new, err))
+	new_ = filepath.Join(name, new_)
+	if err := testFs.Rename(old, new_); err != nil {
+		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new_, err))_
 	}
 }
 
