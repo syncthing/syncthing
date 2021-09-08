@@ -223,8 +223,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// skipcq: GSC-G302 : Expect file permissions to be 0600 or less
-	fd, err := os.OpenFile(name, OptReadOnly, 0777)
+	fd, err := os.OpenFile(name, OptReadOnly, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -274,8 +273,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	return basicFile{fd, name}, err
 }
 
-// skipcq: RVV-B0012 : parameter 'root' seems to be unused, consider removing or renaming it as _
-func (*BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {
 	// implemented in WalkFilesystem
 	return errors.New("not implemented")
 }
