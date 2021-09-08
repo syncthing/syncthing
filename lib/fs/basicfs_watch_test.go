@@ -523,7 +523,7 @@ func renameTestFile(name string, old string, new_ string) {
 	old = filepath.Join(name, old)
 	new_ = filepath.Join(name, new_)
 	if err := testFs.Rename(old, new_); err != nil {
-		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new_, err))_
+		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new_, err))
 	}
 }
 
