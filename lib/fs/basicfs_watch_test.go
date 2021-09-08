@@ -126,6 +126,7 @@ func TestWatchRename(t *testing.T) {
 	name := "rename"
 
 	old := createTestFile(name, "oldfile")
+	// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
 	new := "newfile"
 
 	testCase := func() {
@@ -519,6 +520,7 @@ func createTestFile(name string, file string) string {
 	return file
 }
 
+// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
 func renameTestFile(name string, old string, new string) {
 	old = filepath.Join(name, old)
 	new = filepath.Join(name, new)
@@ -628,10 +630,10 @@ func (e fakeEventInfo) Path() string {
 	return string(e)
 }
 
-func (e fakeEventInfo) Event() notify.Event {
+func (fakeEventInfo) Event() notify.Event {
 	return notify.Write
 }
 
-func (e fakeEventInfo) Sys() interface{} {
+func (fakeEventInfo) Sys() interface{} {
 	return nil
 }

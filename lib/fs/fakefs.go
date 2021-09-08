@@ -130,6 +130,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 		// *look* like file I/O, but they are not. Do not worry that they
 		// might fail.
 
+		// skipcq: GSC-G404 : Use of weak random number generator (math/rand instead of crypto/rand)
 		rng := rand.New(rand.NewSource(int64(seed)))
 		var createdFiles int
 		var writtenData int64
@@ -237,6 +238,7 @@ func (fs *fakeFS) Lchown(name string, uid, gid int) error {
 	return nil
 }
 
+// skipcq: RVV-B0012 : parameter 'atime' seems to be unused, consider removing or renaming it as _
 func (fs *fakeFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
@@ -278,6 +280,7 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	if entry == nil {
 		return nil, os.ErrNotExist
 	}
+	// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
 	new := &fakeEntry{
 		name:  base,
 		mode:  0666,
@@ -296,6 +299,7 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	return new, nil
 }
 
+// skipcq: RVV-B0001 : Method 'Create' differs only by capitalization to method 'create' in the same source file
 func (fs *fakeFS) Create(name string) (File, error) {
 	entry, err := fs.create(name)
 	if err != nil {
@@ -408,6 +412,7 @@ func (fs *fakeFS) MkdirAll(name string, perm FileMode) error {
 		next, ok := entry.children[key]
 
 		if !ok {
+			// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
 			new := &fakeEntry{
 				name:      comp,
 				entryType: fakeEntryTypeDir,
@@ -599,40 +604,46 @@ func (fs *fakeFS) Stat(name string) (FileInfo, error) {
 	return fs.Lstat(name)
 }
 
-func (fs *fakeFS) SymlinksSupported() bool {
+func (*fakeFS) SymlinksSupported() bool {
 	return false
 }
 
-func (fs *fakeFS) Walk(name string, walkFn WalkFunc) error {
+// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
+func (*fakeFS) Walk(name string, walkFn WalkFunc) error {
 	return errors.New("not implemented")
 }
 
-func (fs *fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+// skipcq: RVV-B0012,  RVV-A0002 : parameter 'path' seems to be unused, consider removing or renaming it as _ / context.Context should be the first parameter of a function
+func (*fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, ErrWatchNotSupported
 }
 
-func (fs *fakeFS) Hide(name string) error {
+// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
+func (*fakeFS) Hide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) Unhide(name string) error {
+// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
+func (*fakeFS) Unhide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) Glob(pattern string) ([]string, error) {
+// skipcq: RVV-B0012 : parameter 'pattern' seems to be unused, consider removing or renaming it as _
+func (*fakeFS) Glob(pattern string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
 }
 
-func (fs *fakeFS) Roots() ([]string, error) {
+func (*fakeFS) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 
-func (fs *fakeFS) Usage(name string) (Usage, error) {
+// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
+func (*fakeFS) Usage(name string) (Usage, error) {
 	return Usage{}, errors.New("not implemented")
 }
 
-func (fs *fakeFS) Type() FilesystemType {
+func (*fakeFS) Type() FilesystemType {
 	return FilesystemTypeFake
 }
 
@@ -640,10 +651,11 @@ func (fs *fakeFS) URI() string {
 	return fs.uri
 }
 
-func (fs *fakeFS) Options() []Option {
+func (*fakeFS) Options() []Option {
 	return nil
 }
 
+// skipcq: RVV-B0012 : parameter 'fi1' seems to be unused, consider removing or renaming it as _
 func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	// BUG: real systems base file sameness on path, inodes, etc
 	// we try our best, but FileInfo just doesn't have enough data
@@ -659,11 +671,11 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
-func (fs *fakeFS) underlying() (Filesystem, bool) {
+func (*fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *fakeFS) wrapperType() filesystemWrapperType {
+func (*fakeFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
 }
 
@@ -696,7 +708,7 @@ type fakeFile struct {
 	presentedName string // present (i.e. != "") on insensitive fs only
 }
 
-func (f *fakeFile) Close() error {
+func (*fakeFile) Close() error {
 	return nil
 }
 
@@ -782,6 +794,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	nextBlockOffs := (seedNo + 1) << randomBlockShift
 	if f.rng == nil || f.offset != offs || seedNo != f.seedOffs {
 		// This is not a straight read continuing from a previous one
+		// skipcq: GSC-G404 : Use of weak random number generator (math/rand instead of crypto/rand)
 		f.rng = rand.New(rand.NewSource(f.seed + seedNo))
 
 		// If the read is not at the start of the block, discard data
@@ -910,7 +923,7 @@ func (f *fakeFile) Stat() (FileInfo, error) {
 	return info, nil
 }
 
-func (f *fakeFile) Sync() error {
+func (*fakeFile) Sync() error {
 	return nil
 }
 

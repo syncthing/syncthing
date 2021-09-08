@@ -222,6 +222,7 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 // RequiresRestartOnly returns a copy with only the attributes that require
 // restart on change.
 func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
+	// skipcq: CRT-A0001 : shadowing of predeclared identifier: copy
 	copy := f
 
 	// Manual handling for things that are not taken care of by the tag

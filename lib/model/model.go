@@ -279,6 +279,7 @@ func (m *model) serve(ctx context.Context) error {
 	}
 }
 
+// skipcq: CRT-P0003 : cfg is heavy (1528 bytes); consider passing it by pointer
 func (m *model) initFolders(cfg config.Configuration) error {
 	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
 	for _, folderCfg := range cfg.Folders {
@@ -2773,6 +2774,7 @@ func (m *model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }
 
+// skipcq: CRT-P0003 : from is heavy (1528 bytes); consider passing it by pointer / to is heavy (1528 bytes); consider passing it by pointer
 func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 	toFolders := to.FolderMap()
 	for _, from := range from.Folders {
@@ -2784,6 +2786,7 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
+// skipcq: CRT-P0003 : from is heavy (1528 bytes); consider passing it by pointer / to is heavy (1528 bytes); consider passing it by pointer
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 

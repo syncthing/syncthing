@@ -232,11 +232,11 @@ func (f *folder) Serve(ctx context.Context) error {
 	}
 }
 
-func (f *folder) BringToFront(string) {}
+func (*folder) BringToFront(string) {}
 
-func (f *folder) Override() {}
+func (*folder) Override() {}
 
-func (f *folder) Revert() {}
+func (*folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	select {
@@ -270,7 +270,7 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+func (*folder) Jobs(_, _ int) ([]string, []string, int) {
 	return nil, nil, 0
 }
 
@@ -300,6 +300,7 @@ func (f *folder) Reschedule() {
 		return
 	}
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	// skipcq: GSC-G404 : Use of weak random number generator (math/rand instead of crypto/rand)
 	sleepNanos := (f.scanInterval.Nanoseconds()*3 + rand.Int63n(2*f.scanInterval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
 	l.Debugln(f, "next rescan in", interval)
@@ -999,8 +1000,10 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			}
 			aggrCancel()
 			errChan = nil
+			// skipcq: VET-V0011 : the aggrCancel function is not used on all paths (possible context leak)
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
 		case <-ctx.Done():
+			// skipcq: VET-V0011 : this return statement may be reached without using the aggrCancel var defined on line 1003
 			return
 		}
 	}

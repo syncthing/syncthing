@@ -223,6 +223,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// skipcq: GSC-G302 : Expect file permissions to be 0600 or less
 	fd, err := os.OpenFile(name, OptReadOnly, 0777)
 	if err != nil {
 		return nil, err
@@ -273,6 +274,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	return basicFile{fd, name}, err
 }
 
+// skipcq: RVV-B0012 : parameter 'root' seems to be unused, consider removing or renaming it as _
 func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// implemented in WalkFilesystem
 	return errors.New("not implemented")
@@ -318,7 +320,7 @@ func (f *BasicFilesystem) Options() []Option {
 	return f.options
 }
 
-func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
+func (*BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	// Like os.SameFile, we always return false unless fi1 and fi2 were created
 	// by this package's Stat/Lstat method.
 	f1, ok1 := fi1.(basicFileInfo)
@@ -330,11 +332,11 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	return os.SameFile(f1.osFileInfo(), f2.osFileInfo())
 }
 
-func (f *BasicFilesystem) underlying() (Filesystem, bool) {
+func (*BasicFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (f *BasicFilesystem) wrapperType() filesystemWrapperType {
+func (*BasicFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
 }
 

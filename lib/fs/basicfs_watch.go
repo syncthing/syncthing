@@ -21,6 +21,7 @@ import (
 // Not meant to be changed, but must be changeable for tests
 var backendBuffer = 500
 
+// skipcq: RVV-A0005 : parameter 'ignorePerms' seems to be a control flag, avoid control coupling
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	watchPath, roots, err := f.watchPaths(name)
 	if err != nil {

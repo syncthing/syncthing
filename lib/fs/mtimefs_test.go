@@ -19,6 +19,7 @@ import (
 func TestMtimeFS(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
+	// skipcq: GSC-G301 : Expect directory permissions to be 0750 or less
 	os.Mkdir("testdata", 0755)
 	ioutil.WriteFile("testdata/exists0", []byte("hello"), 0644)
 	ioutil.WriteFile("testdata/exists1", []byte("hello"), 0644)
@@ -199,6 +200,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 	theTest := func(t *testing.T, fs *mtimeFS, shouldSucceed bool) {
 		os.RemoveAll("testdata")
 		defer os.RemoveAll("testdata")
+		// skipcq: GSC-G301 : Expect directory permissions to be 0750 or less
 		os.Mkdir("testdata", 0755)
 		ioutil.WriteFile("testdata/FiLe", []byte("hello"), 0644)
 
@@ -252,6 +254,7 @@ func (s mapStore) Delete(key string) error {
 }
 
 // failChtimes does nothing, and fails
+// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
 func failChtimes(name string, mtime, atime time.Time) error {
 	return errors.New("no")
 }
