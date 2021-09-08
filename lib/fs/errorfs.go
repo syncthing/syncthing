@@ -88,7 +88,7 @@ func (fs *errorFilesystem) Roots() ([]string, error)  { return nil, fs.err }
 func (fs *errorFilesystem) Usage(name string) (Usage, error) { return Usage{}, fs.err }
 func (fs *errorFilesystem) Type() FilesystemType             { return fs.fsType }
 func (fs *errorFilesystem) URI() string                      { return fs.uri }
-func (fs *errorFilesystem) Options() []Option {
+func (*errorFilesystem) Options() []Option {
 	return nil
 }
 

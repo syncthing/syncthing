@@ -28,7 +28,7 @@ var (
 
 type OptionJunctionsAsDirs struct{}
 
-func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
+func (*OptionJunctionsAsDirs) apply(fs Filesystem) {
 	if basic, ok := fs.(*BasicFilesystem); !ok {
 		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
 	} else {
@@ -36,7 +36,7 @@ func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
 	}
 }
 
-func (o *OptionJunctionsAsDirs) String() string {
+func (*OptionJunctionsAsDirs) String() string {
 	return "junctionsAsDirs"
 }
 
@@ -275,7 +275,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 }
 
 // skipcq: RVV-B0012 : parameter 'root' seems to be unused, consider removing or renaming it as _
-func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (*BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// implemented in WalkFilesystem
 	return errors.New("not implemented")
 }
@@ -308,7 +308,7 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	}, nil
 }
 
-func (f *BasicFilesystem) Type() FilesystemType {
+func (*BasicFilesystem) Type() FilesystemType {
 	return FilesystemTypeBasic
 }
 
