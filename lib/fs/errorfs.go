@@ -18,33 +18,33 @@ type errorFilesystem struct {
 }
 
 func (fs *errorFilesystem) Chmod(_ string, _ FileMode) error { return fs.err }
-func (fs *errorFilesystem) Lchown(_ string, _, _ int) error { return fs.err }
+func (fs *errorFilesystem) Lchown(_ string, _, _ int) error  { return fs.err }
 func (fs *errorFilesystem) Chtimes(_ string, _ time.Time, _ time.Time) error {
 	return fs.err
 }
-func (fs *errorFilesystem) Create(_ string) (File, error) { return nil, fs.err }
-func (fs *errorFilesystem) CreateSymlink(_, _ string) error { return fs.err }
-func (fs *errorFilesystem) DirNames(_ string) ([]string, error) { return nil, fs.err }
-func (fs *errorFilesystem) Lstat(_ string) (FileInfo, error) { return nil, fs.err }
-func (fs *errorFilesystem) Mkdir(_ string, _ FileMode) error { return fs.err }
-func (fs *errorFilesystem) MkdirAll(_ string, _ FileMode) error { return fs.err }
-func (fs *errorFilesystem) Open(_ string) (File, error) { return nil, fs.err }
+func (fs *errorFilesystem) Create(_ string) (File, error)                { return nil, fs.err }
+func (fs *errorFilesystem) CreateSymlink(_, _ string) error              { return fs.err }
+func (fs *errorFilesystem) DirNames(_ string) ([]string, error)          { return nil, fs.err }
+func (fs *errorFilesystem) Lstat(_ string) (FileInfo, error)             { return nil, fs.err }
+func (fs *errorFilesystem) Mkdir(_ string, _ FileMode) error             { return fs.err }
+func (fs *errorFilesystem) MkdirAll(_ string, _ FileMode) error          { return fs.err }
+func (fs *errorFilesystem) Open(_ string) (File, error)                  { return nil, fs.err }
 func (fs *errorFilesystem) OpenFile(string, int, FileMode) (File, error) { return nil, fs.err }
-func (fs *errorFilesystem) ReadSymlink(_ string) (string, error) { return "", fs.err }
-func (fs *errorFilesystem) Remove(_ string) error { return fs.err }
-func (fs *errorFilesystem) RemoveAll(_ string) error { return fs.err }
-func (fs *errorFilesystem) Rename(_, _ string) error { return fs.err }
-func (fs *errorFilesystem) Stat(_ string) (FileInfo, error) { return nil, fs.err }
-func (*errorFilesystem) SymlinksSupported() bool               { return false }
-func (fs *errorFilesystem) Walk(_ string, _ WalkFunc) error { return fs.err }
-func (fs *errorFilesystem) Unhide(_ string) error { return fs.err }
-func (fs *errorFilesystem) Hide(_ string) error { return fs.err }
-func (fs *errorFilesystem) Glob(_ string) ([]string, error) { return nil, fs.err }
-func (fs *errorFilesystem) SyncDir(_ string) error { return fs.err }
-func (fs *errorFilesystem) Roots() ([]string, error)  { return nil, fs.err }
-func (fs *errorFilesystem) Usage(_ string) (Usage, error) { return Usage{}, fs.err }
-func (fs *errorFilesystem) Type() FilesystemType             { return fs.fsType }
-func (fs *errorFilesystem) URI() string                      { return fs.uri }
+func (fs *errorFilesystem) ReadSymlink(_ string) (string, error)         { return "", fs.err }
+func (fs *errorFilesystem) Remove(_ string) error                        { return fs.err }
+func (fs *errorFilesystem) RemoveAll(_ string) error                     { return fs.err }
+func (fs *errorFilesystem) Rename(_, _ string) error                     { return fs.err }
+func (fs *errorFilesystem) Stat(_ string) (FileInfo, error)              { return nil, fs.err }
+func (*errorFilesystem) SymlinksSupported() bool                         { return false }
+func (fs *errorFilesystem) Walk(_ string, _ WalkFunc) error              { return fs.err }
+func (fs *errorFilesystem) Unhide(_ string) error                        { return fs.err }
+func (fs *errorFilesystem) Hide(_ string) error                          { return fs.err }
+func (fs *errorFilesystem) Glob(_ string) ([]string, error)              { return nil, fs.err }
+func (fs *errorFilesystem) SyncDir(_ string) error                       { return fs.err }
+func (fs *errorFilesystem) Roots() ([]string, error)                     { return nil, fs.err }
+func (fs *errorFilesystem) Usage(_ string) (Usage, error)                { return Usage{}, fs.err }
+func (fs *errorFilesystem) Type() FilesystemType                         { return fs.fsType }
+func (fs *errorFilesystem) URI() string                                  { return fs.uri }
 func (*errorFilesystem) Options() []Option {
 	return nil
 }
