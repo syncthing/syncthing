@@ -33,8 +33,7 @@ func TestChmodFile(t *testing.T) {
 	path := filepath.Join(dir, "file")
 	defer os.RemoveAll(dir)
 
-	// skipcq: GSC-G302 : Expect file permissions to be 0600 or less
-	defer os.Chmod(path, 0666)
+	defer os.Chmod(path, 0666) #skipcq
 
 	fd, err := os.Create(path)
 	if err != nil {
@@ -42,8 +41,7 @@ func TestChmodFile(t *testing.T) {
 	}
 	fd.Close()
 
-	// skipcq: GSC-G302 : Expect file permissions to be 0600 or less
-	if err := os.Chmod(path, 0666); err != nil {
+	if err := os.Chmod(path, 0666); err != nil { #skipcq
 		t.Error(err)
 	}
 
@@ -229,8 +227,7 @@ func TestDirNames(t *testing.T) {
 	sort.Strings(testCases)
 
 	for _, sub := range testCases {
-		// skipcq: GSC-G301 : Expect directory permissions to be 0750 or less
-		if err := os.Mkdir(filepath.Join(dir, sub), 0777); err != nil {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0750); err != nil {
 			t.Error(err)
 		}
 	}
