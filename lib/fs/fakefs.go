@@ -130,8 +130,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 		// *look* like file I/O, but they are not. Do not worry that they
 		// might fail.
 
-		// skipcq: GSC-G404 : Use of weak random number generator (math/rand instead of crypto/rand)
-		rng := rand.New(rand.NewSource(int64(seed)))
+		rng := rand.New(rand.NewSource(int64(seed))) //skipcq
 		var createdFiles int
 		var writtenData int64
 		for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
@@ -238,8 +237,7 @@ func (fs *fakeFS) Lchown(name string, uid, gid int) error {
 	return nil
 }
 
-// skipcq: RVV-B0012 : parameter 'atime' seems to be unused, consider removing or renaming it as _
-func (fs *fakeFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
+func (fs *fakeFS) Chtimes(name string, _ time.Time, mtime time.Time) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 	fs.counters.Chtimes++
@@ -280,8 +278,7 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	if entry == nil {
 		return nil, os.ErrNotExist
 	}
-	// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
-	new := &fakeEntry{
+	new_ := &fakeEntry{
 		name:  base,
 		mode:  0666,
 		mtime: time.Now(),
@@ -292,15 +289,14 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	}
 
 	if fs.withContent {
-		new.content = make([]byte, 0)
+		new_.content = make([]byte, 0)
 	}
 
-	entry.children[base] = new
-	return new, nil
+	entry.children[base] = new_
+	return new_, nil
 }
 
-// skipcq: RVV-B0001 : Method 'Create' differs only by capitalization to method 'create' in the same source file
-func (fs *fakeFS) Create(name string) (File, error) {
+func (fs *fakeFS) Create(name string) (File, error) { //skipcq
 	entry, err := fs.create(name)
 	if err != nil {
 		return nil, err
@@ -412,16 +408,15 @@ func (fs *fakeFS) MkdirAll(name string, perm FileMode) error {
 		next, ok := entry.children[key]
 
 		if !ok {
-			// skipcq: CRT-A0001 : shadowing of predeclared identifier: new
-			new := &fakeEntry{
+			new_ := &fakeEntry{
 				name:      comp,
 				entryType: fakeEntryTypeDir,
 				mode:      perm,
 				mtime:     time.Now(),
 				children:  make(map[string]*fakeEntry),
 			}
-			entry.children[key] = new
-			next = new
+			entry.children[key] = new_
+			next = new_
 		} else if next.entryType != fakeEntryTypeDir {
 			return errors.New("not a directory")
 		}
@@ -608,28 +603,23 @@ func (*fakeFS) SymlinksSupported() bool {
 	return false
 }
 
-// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
-func (*fakeFS) Walk(name string, walkFn WalkFunc) error {
+func (*fakeFS) Walk(_ string, _ WalkFunc) error {
 	return errors.New("not implemented")
 }
 
-// skipcq: RVV-B0012,  RVV-A0002 : parameter 'path' seems to be unused, consider removing or renaming it as _ / context.Context should be the first parameter of a function
-func (*fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+func (*fakeFS) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, ErrWatchNotSupported
 }
 
-// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
-func (*fakeFS) Hide(name string) error {
+func (*fakeFS) Hide(_ string) error {
 	return nil
 }
 
-// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
-func (*fakeFS) Unhide(name string) error {
+func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
-// skipcq: RVV-B0012 : parameter 'pattern' seems to be unused, consider removing or renaming it as _
-func (*fakeFS) Glob(pattern string) ([]string, error) {
+func (*fakeFS) Glob(_ string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
 }
@@ -638,8 +628,7 @@ func (*fakeFS) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 
-// skipcq: RVV-B0012 : parameter 'name' seems to be unused, consider removing or renaming it as _
-func (*fakeFS) Usage(name string) (Usage, error) {
+func (*fakeFS) Usage(_ string) (Usage, error) {
 	return Usage{}, errors.New("not implemented")
 }
 
@@ -655,7 +644,6 @@ func (*fakeFS) Options() []Option {
 	return nil
 }
 
-// skipcq: RVV-B0012 : parameter 'fi1' seems to be unused, consider removing or renaming it as _
 func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	// BUG: real systems base file sameness on path, inodes, etc
 	// we try our best, but FileInfo just doesn't have enough data
@@ -794,8 +782,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	nextBlockOffs := (seedNo + 1) << randomBlockShift
 	if f.rng == nil || f.offset != offs || seedNo != f.seedOffs {
 		// This is not a straight read continuing from a previous one
-		// skipcq: GSC-G404 : Use of weak random number generator (math/rand instead of crypto/rand)
-		f.rng = rand.New(rand.NewSource(f.seed + seedNo))
+		f.rng = rand.New(rand.NewSource(f.seed + seedNo)) //skipcq
 
 		// If the read is not at the start of the block, discard data
 		// accordingly.
