@@ -222,20 +222,19 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 // RequiresRestartOnly returns a copy with only the attributes that require
 // restart on change.
 func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
-	// skipcq: CRT-A0001 : shadowing of predeclared identifier: copy
-	copy := f
+	cpy := f
 
 	// Manual handling for things that are not taken care of by the tag
 	// copier, yet should not cause a restart.
 
 	blank := FolderConfiguration{}
-	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+	util.CopyMatchingTag(&blank, &cpy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "false" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "false"`, v))
 		}
 		return v == "false"
 	})
-	return copy
+	return cpy
 }
 
 func (f *FolderConfiguration) Device(device protocol.DeviceID) (FolderDeviceConfiguration, bool) {
