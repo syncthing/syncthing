@@ -162,8 +162,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 		t.Error("wrong number of bytes:", len(buf1))
 	}
 
-	// skipcq: CRT-D0001 : append result not assigned to the same slice
-	bs1 := append(buf0, buf1...)
+	bs1 := append(buf0, buf1...) //skipcq
 	if !bytes.Equal(bs0, bs1) {
 		t.Error("data mismatch")
 	}
@@ -297,8 +296,7 @@ func runTests(t *testing.T, tests []test, filesystems []testFS) {
 	}
 }
 
-// skipcq: RVV-B0001 : Method 'testFakeFSCaseInsensitive' differs only by capitalization to function 'TestFakeFSCaseInsensitive' in the same source file
-func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
+func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) { //skipcq
 	bs1 := []byte("test")
 
 	err := fs.Mkdir("/fUbar", 0755)
@@ -851,7 +849,6 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 	}
 }
 
-// skipcq: RVV-A0005 : parameter 'want' seems to be a control flag, avoid control coupling
 func assertSameFile(t *testing.T, fs Filesystem, f1, f2 string, want bool) {
 	t.Helper()
 
