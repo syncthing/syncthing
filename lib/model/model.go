@@ -2764,7 +2764,37 @@ func (m *model) BringToFront(folder, file string) {
 
 func (m *model) ResetFolder(folder string) {
 	l.Infof("Cleaning data for folder %q", folder)
+	m.fmut.RLock()
+	token, ok := m.folderRunnerToken[folder]
+	fcfg := m.folderCfgs[folder]
+	if !ok {
+		// Do it under lock to prevent the folder being started at the same time
+		db.DropFolder(m.db, folder)
+	}
+	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
+
+	// Stop the folder holding restart mutex to prevent any other concurrent
+	// changes from interfering.
+	restartMut := m.folderRestartMuts.Get(folder)
+	restartMut.Lock()
+	defer restartMut.Unlock()
+
+	m.RemoveAndWait(token, 0)
+
 	db.DropFolder(m.db, folder)
+
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+
+	m.cleanupFolderLocked(fcfg)
+	fset, err := db.NewFileSet(folder, fcfg.Filesystem(), m.db)
+	if err != nil {
+		m.fatal(err)
+	}
+	m.addAndStartFolderLocked(fcfg, fset, m.cfg.Options().CacheIgnoredFiles)
 }
 
 func (m *model) String() string {
