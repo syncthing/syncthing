@@ -2765,7 +2765,7 @@ func (m *model) BringToFront(folder, file string) {
 }
 
 func (m *model) ResetFolder(folder string) {
-	l.Infof("Cleaning data for folder %q", folder)
+	l.Infof("Cleaning metadata for reset folder %q", folder)
 	db.DropFolder(m.db, folder)
 }
 
