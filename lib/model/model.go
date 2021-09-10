@@ -2766,15 +2766,13 @@ func (m *model) BringToFront(folder, file string) {
 
 func (m *model) ResetFolder(folder string) error {
 	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	_, ok := m.folderRunners[folder]
-	if !ok {
-		l.Infof("Cleaning metadata for reset folder %q", folder)
-		db.DropFolder(m.db, folder)
-	}
-	m.fmut.RUnlock()
 	if ok {
 		return errors.New("folder must be paused when resetting")
 	}
+	l.Infof("Cleaning metadata for reset folder %q", folder)
+	db.DropFolder(m.db, folder)
 	return nil
 }
 
