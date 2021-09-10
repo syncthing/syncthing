@@ -54,7 +54,7 @@ func indexDumpOutput(url string) cli.ActionFunc {
 		if err != nil {
 			return err
 		}
-		return prettyPrintResponse(c, response)
+		return prettyPrintResponse(response)
 	}
 }
 
@@ -130,7 +130,7 @@ func prettyPrintJSON(data interface{}) error {
 	return enc.Encode(data)
 }
 
-func prettyPrintResponse(c *cli.Context, response *http.Response) error {
+func prettyPrintResponse(response *http.Response) error {
 	bytes, err := responseToBArray(response)
 	if err != nil {
 		return err

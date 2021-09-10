@@ -387,7 +387,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.shortcutFile(file, curFile, dbUpdateChan)
+				f.shortcutFile(file, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
 				f.queue.Push(file.Name, file.Size, file.ModTime())
@@ -743,7 +743,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	if f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+	if err = f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
 	}
@@ -1199,7 +1199,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{

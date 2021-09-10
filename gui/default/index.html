@@ -209,14 +209,14 @@
               </div>
               <div class="panel-footer clearfix">
                 <div class="pull-right">
-                  <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingDevice(deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
-                    <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
-                  </button>
                   <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(deviceID, pendingDevice.name)">
                     <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(deviceID, pendingDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                     <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingDevice(deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
+                    <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
                   </button>
                 </div>
               </div>
@@ -253,9 +253,6 @@
                 </div>
                 <div class="panel-footer clearfix">
                   <div class="pull-right">
-                    <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingFolder(folderID, deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
-                      <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
-                    </button>
                     <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(folderID, pendingFolder, deviceID)" ng-if="!folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
                     </button>
@@ -264,6 +261,9 @@
                     </button>
                     <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(deviceID, folderID, offeringDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                       <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingFolder(folderID, deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
+                      <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
                     </button>
                   </div>
                 </div>

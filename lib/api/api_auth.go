@@ -108,10 +108,22 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		sessionsMut.Lock()
 		sessions[sessionid] = true
 		sessionsMut.Unlock()
+
+		// Best effort detection of whether the connection is HTTPS --
+		// either directly to us, or as used by the client towards a reverse
+		// proxy who sends us headers.
+		connectionIsHTTPS := r.TLS != nil ||
+			strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
+			strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+		// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+		// bit in cookies.
+		useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
+
 		http.SetCookie(w, &http.Cookie{
 			Name:   cookieName,
 			Value:  sessionid,
 			MaxAge: 0,
+			Secure: useSecureCookie,
 		})
 
 		emitLoginAttempt(true, username, r.RemoteAddr, evLogger)

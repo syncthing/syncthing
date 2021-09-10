@@ -206,7 +206,7 @@ func (a *App) startup() error {
 	folders := a.cfg.Folders()
 	for _, folder := range a.ll.ListFolders() {
 		if _, ok := folders[folder]; !ok {
-			l.Infof("Cleaning data for dropped folder %q", folder)
+			l.Infof("Cleaning metadata for dropped folder %q", folder)
 			db.DropFolder(a.ll, folder)
 		}
 	}

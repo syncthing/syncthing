@@ -180,7 +180,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 		if err != nil {
 			return err
 		}
@@ -272,7 +272,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
 		if err != nil {
 			return err
 		}
