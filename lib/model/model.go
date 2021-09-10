@@ -168,6 +168,8 @@ type model struct {
 	foldersRunning int32
 }
 
+var _ config.Verifier = &model{}
+
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
 
 var (

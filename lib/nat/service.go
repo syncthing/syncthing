@@ -45,10 +45,6 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
