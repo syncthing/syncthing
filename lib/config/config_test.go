@@ -1370,3 +1370,29 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 		t.Error("IgnorePerms should be true")
 	}
 }
+
+func TestFolderMarkerValid(t *testing.T) {
+	folder := FolderConfiguration{
+		ID:   "foo",
+		Path: "testdata",
+	}
+
+	tcs := []struct {
+		in, out string
+	}{
+		{"", DefaultMarkerName},
+		{".", DefaultMarkerName},
+		{"..", DefaultMarkerName},
+		{"../.somemarker", DefaultMarkerName},
+		{".somemarker", ".somemarker"},
+		{DefaultMarkerName, DefaultMarkerName},
+	}
+
+	for _, tc := range tcs {
+		folder.MarkerName = tc.in
+		folder.prepare(device1, nil)
+		if folder.MarkerName != tc.out {
+			t.Errorf("Got %v for %v, expected %v", folder.MarkerName, tc.in, tc.out)
+		}
+	}
+}

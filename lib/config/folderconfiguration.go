@@ -9,6 +9,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -204,6 +205,15 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	}
 
 	if f.MarkerName == "" {
+		f.MarkerName = DefaultMarkerName
+	}
+	if f.MarkerName == "." {
+		l.Warnf(`Setting the folder marker name to "." is not allowed, reverting to default "%v"`, DefaultMarkerName)
+		f.MarkerName = DefaultMarkerName
+	}
+	markerPath := filepath.Join(f.Path, f.MarkerName)
+	if s := strings.TrimPrefix(markerPath, f.Path); s == markerPath || s == "" {
+		l.Warnf(`The folder marker name "%v" is not located inside the folder path, reverting to default "%v"`, f.MarkerName, DefaultMarkerName)
 		f.MarkerName = DefaultMarkerName
 	}
 
