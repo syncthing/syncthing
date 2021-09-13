@@ -207,14 +207,12 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
-	if f.MarkerName == "." {
-		l.Warnf(`Setting the folder marker name to "." is not allowed, reverting to default "%v"`, DefaultMarkerName)
-		f.MarkerName = DefaultMarkerName
-	}
 	markerPath := filepath.Join(f.Path, f.MarkerName)
-	if s := strings.TrimPrefix(markerPath, f.Path); s == markerPath || s == "" {
+	if s := strings.TrimPrefix(markerPath, f.Path); s == markerPath {
 		l.Warnf(`The folder marker name "%v" is not located inside the folder path, reverting to default "%v"`, f.MarkerName, DefaultMarkerName)
 		f.MarkerName = DefaultMarkerName
+	} else if s == "" {
+		l.Warnln(`Setting the folder marker name to "." is dangerous, as Syncthing will mark the entire folder as deleted if the contents disappear (e.g. when unmounted)`)
 	}
 
 	if f.MaxConcurrentWrites <= 0 {

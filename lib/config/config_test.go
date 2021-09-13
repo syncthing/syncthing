@@ -1381,11 +1381,11 @@ func TestFolderMarkerValid(t *testing.T) {
 		in, out string
 	}{
 		{"", DefaultMarkerName},
-		{".", DefaultMarkerName},
 		{"..", DefaultMarkerName},
 		{"../.somemarker", DefaultMarkerName},
-		{"./.", DefaultMarkerName},
-		{".somemarker/..", DefaultMarkerName},
+		{".somemarker/..", ".somemarker/.."},
+		{"./.", "./."},
+		{".", "."},
 		{".somemarker", ".somemarker"},
 		{DefaultMarkerName, DefaultMarkerName},
 	}
