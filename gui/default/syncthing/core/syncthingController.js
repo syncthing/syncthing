@@ -799,6 +799,7 @@ angular.module('syncthing.core')
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
+            $scope.currentSharing.shared.sort(deviceCompare);
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
             });
