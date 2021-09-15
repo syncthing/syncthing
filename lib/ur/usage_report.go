@@ -276,7 +276,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 				report.FolderUsesV3.ReceiveEncrypted++
 			}
 		}
-		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
+		sort.Slice(report.FolderUsesV3.FsWatcherDelays, func(i, j int) bool { return report.FolderUsesV3.FsWatcherDelays[i] < report.FolderUsesV3.FsWatcherDelays[j] })
 
 		for _, cfg := range s.cfg.Devices() {
 			if cfg.Untrusted {

@@ -73,9 +73,9 @@ func migrate(db *sql.DB) error {
 		for i := range rescanIntvs {
 			rep.RescanIntvs[i] = int(rescanIntvs[i])
 		}
-		rep.FolderUsesV3.FsWatcherDelays = make([]int, len(fsWatcherDelay))
+		rep.FolderUsesV3.FsWatcherDelays = make([]float32, len(fsWatcherDelay))
 		for i := range fsWatcherDelay {
-			rep.FolderUsesV3.FsWatcherDelays[i] = int(fsWatcherDelay[i])
+			rep.FolderUsesV3.FsWatcherDelays[i] = float32(fsWatcherDelay[i])
 		}
 		rep.FolderUsesV3.PullOrder = pullOrder
 		rep.FolderUsesV3.FilesystemType = fileSystemType
