@@ -733,7 +733,13 @@ func shouldBuildSyso(dir string) (string, error) {
 
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
-	if _, err := runError("goversioninfo", "-o", sysoPath); err != nil {
+	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
+	armOption := ""
+	if strings.Contains(goarch, "arm") {
+		armOption = "-arm=true"
+	}
+
+	if _, err := runError("goversioninfo", "-o", sysoPath, armOption); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 
