@@ -11,7 +11,6 @@ require (
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/d4l3k/messagediff v1.2.1
-	github.com/dchest/siphash v1.2.2
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-asn1-ber/asn1-ber v1.5.3 // indirect
