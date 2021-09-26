@@ -265,6 +265,11 @@ code.ng-binding{
     color: #222;
 }
 
-.fancytree-title {
-    color: #aaa !important;
+/*
+ * Fancytree tweaks
+ */
+
+.fancytree-container tr:hover,
+.fancytree-focused {
+    background-color: #222;
 }
