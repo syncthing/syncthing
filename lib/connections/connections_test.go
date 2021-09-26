@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/url"
@@ -470,12 +469,12 @@ func withConnectionPair(b *testing.B, connUri string, h func(client, server inte
 }
 
 func mustGetCert(b *testing.B) tls.Certificate {
-	f1, err := ioutil.TempFile("", "")
+	f1, err := os.CreateTemp("", "")
 	if err != nil {
 		b.Fatal(err)
 	}
 	f1.Close()
-	f2, err := ioutil.TempFile("", "")
+	f2, err := os.CreateTemp("", "")
 	if err != nil {
 		b.Fatal(err)
 	}

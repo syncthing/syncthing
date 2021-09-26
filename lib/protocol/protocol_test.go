@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -432,8 +432,8 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	bs1, _ := json.MarshalIndent(m1, "", "  ")
 	bs2, _ := json.MarshalIndent(m2, "", "  ")
 	if !bytes.Equal(bs1, bs2) {
-		ioutil.WriteFile(prefix+"-1.txt", bs1, 0644)
-		ioutil.WriteFile(prefix+"-2.txt", bs2, 0644)
+		os.WriteFile(prefix+"-1.txt", bs1, 0644)
+		os.WriteFile(prefix+"-2.txt", bs2, 0644)
 		return false
 	}
 

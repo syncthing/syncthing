@@ -9,7 +9,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -80,7 +80,7 @@ func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]b
 			fmt.Println("Loading source:", resp.Status)
 			return nil, 0
 		}
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if err != nil {
 			fmt.Println("Loading source:", err.Error())

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
@@ -789,7 +788,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 		diff := offs - minOffs
 		if diff > 0 {
 			lr := io.LimitReader(f.rng, diff)
-			io.Copy(ioutil.Discard, lr)
+			io.Copy(io.Discard, lr)
 		}
 
 		f.offset = offs

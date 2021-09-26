@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -88,7 +87,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Read
-	bs0, err := ioutil.ReadAll(fd)
+	bs0, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +100,7 @@ func TestFakeFS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs1, err := ioutil.ReadAll(fd)
+	bs1, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +138,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 
 	// Read
 	fd.Seek(0, io.SeekStart)
-	bs0, err := ioutil.ReadAll(fd)
+	bs0, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +153,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 	if n != len(buf0) {
 		t.Fatal("short read")
 	}
-	buf1, err := ioutil.ReadAll(fd)
+	buf1, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +251,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 func createTestDir(t *testing.T) (string, bool) {
 	t.Helper()
 
-	testDir, err := ioutil.TempDir("", "")
+	testDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatalf("could not create temporary dir for testing: %s", err)
 	}
@@ -328,7 +327,7 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	bs2, err := ioutil.ReadAll(fd2)
+	bs2, err := io.ReadAll(fd2)
 	if err != nil {
 		t.Fatal(err)
 	}

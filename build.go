@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -723,7 +722,7 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	err = ioutil.WriteFile(jsonPath, bs, 0644)
+	err = os.WriteFile(jsonPath, bs, 0644)
 	if err != nil {
 		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
 	}
@@ -762,12 +761,12 @@ func shouldCleanupSyso(sysoFilePath string) {
 // exists. The permission bits are copied as well. If dst already exists and
 // the contents are identical to src the modification time is not updated.
 func copyFile(src, dst string, perm os.FileMode) error {
-	in, err := ioutil.ReadFile(src)
+	in, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	out, err := ioutil.ReadFile(dst)
+	out, err := os.ReadFile(dst)
 	if err != nil {
 		// The destination probably doesn't exist, we should create
 		// it.
@@ -783,7 +782,7 @@ func copyFile(src, dst string, perm os.FileMode) error {
 
 copy:
 	os.MkdirAll(filepath.Dir(dst), 0777)
-	if err := ioutil.WriteFile(dst, in, perm); err != nil {
+	if err := os.WriteFile(dst, in, perm); err != nil {
 		return err
 	}
 
@@ -958,7 +957,7 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
-	bs, err := ioutil.ReadFile("RELEASE")
+	bs, err := os.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
 	}
@@ -1290,7 +1289,7 @@ func zipFile(out string, files []archiveFile) {
 
 		if strings.HasSuffix(f.dst, ".txt") {
 			// Text file. Read it and convert line endings.
-			bs, err := ioutil.ReadAll(sf)
+			bs, err := io.ReadAll(sf)
 			if err != nil {
 				log.Fatal(err)
 			}

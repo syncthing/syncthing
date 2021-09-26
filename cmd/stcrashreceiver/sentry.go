@@ -9,7 +9,7 @@ package main
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"strings"
 	"sync"
@@ -93,7 +93,7 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 	}
 
 	r := bytes.NewReader(report)
-	ctx, err := stack.ParseDump(r, ioutil.Discard, false)
+	ctx, err := stack.ParseDump(r, io.Discard, false)
 	if err != nil {
 		return nil, err
 	}

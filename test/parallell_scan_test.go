@@ -10,8 +10,8 @@
 package integration
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +31,7 @@ func TestRescanInParallel(t *testing.T) {
 	}
 
 	log.Println("Generating .stignore...")
-	err = ioutil.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
+	err = os.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

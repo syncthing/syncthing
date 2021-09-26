@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -173,7 +172,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 		return nil, err
 	}
 
-	bs, err := ioutil.ReadAll(resp.Body)
+	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

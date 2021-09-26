@@ -12,7 +12,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -163,7 +162,7 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	bs, err := ioutil.ReadAll(r)
+	bs, err := io.ReadAll(r)
 	if err != nil {
 		return Configuration{}, err
 	}

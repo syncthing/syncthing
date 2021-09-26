@@ -7,7 +7,6 @@
 package syncthing
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +22,7 @@ import (
 
 func tempCfgFilename(t *testing.T) string {
 	t.Helper()
-	f, err := ioutil.TempFile("", "syncthing-testConfig-")
+	f, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +56,7 @@ func TestShortIDCheck(t *testing.T) {
 }
 
 func TestStartupFail(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "syncthing-TestStartupFail-")
+	tmpDir, err := os.MkdirTemp("", "syncthing-TestStartupFail-")
 	if err != nil {
 		t.Fatal(err)
 	}
