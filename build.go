@@ -302,6 +302,9 @@ func runCommand(cmd string, target target) {
 	case "assets":
 		rebuildAssets()
 
+	case "update-deps":
+		updateDependencies()
+
 	case "proto":
 		proto()
 
@@ -874,12 +877,20 @@ func shouldRebuildAssets(target, srcdir string) bool {
 	return assetsAreNewer
 }
 
+func updateDependencies() {
+	runPrint(goCmd, "get", "-u", "./cmd/...")
+	runPrint(goCmd, "mod", "tidy", "-go=1.16", "-compat=1.16")
+
+	// We might have updated the protobuf package and should regenerate to match.
+	proto()
+}
+
 func proto() {
 	pv := protobufVersion()
 	repo := "https://github.com/gogo/protobuf.git"
 	path := filepath.Join("repos", "protobuf")
 
-	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
+	runPrint(goCmd, "install", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
 
 	if _, err := os.Stat(path); err != nil {
