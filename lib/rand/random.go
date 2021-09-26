@@ -12,6 +12,7 @@ import (
 	"io"
 	mathRand "math/rand"
 	"reflect"
+	"strings"
 )
 
 // Reader is the standard crypto/rand.Reader with added buffering.
@@ -37,11 +38,13 @@ var (
 // (taken from randomCharset) of the specified length. The returned string
 // contains ~5.8 bits of entropy per character, due to the character set used.
 func String(l int) string {
-	bs := make([]byte, l)
-	for i := range bs {
-		bs[i] = randomCharset[defaultSecureRand.Intn(len(randomCharset))]
+	var sb strings.Builder
+	sb.Grow(l)
+
+	for i := 0; i < l; i++ {
+		sb.WriteByte(randomCharset[defaultSecureRand.Intn(len(randomCharset))])
 	}
-	return string(bs)
+	return sb.String()
 }
 
 // Int63 returns a cryptographically secure random int63.

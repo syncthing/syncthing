@@ -44,3 +44,10 @@ func TestRandomUint64(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkString(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		String(32)
+	}
+}
