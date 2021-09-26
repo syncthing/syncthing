@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Jul 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Sep 15, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -130,12 +130,13 @@ single pair of parentheses (not “(?di)”).
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Include patterns (that begin with \fB!\fP) cause Syncthing to traverse and
-watch the entire directory tree regardless of other
-ignore patterns.
+Include patterns (that begin with \fB!\fP) cause Syncthing to traverse
+the entire directory tree regardless of other ignore patterns.
+If the watcher is enabled, the entire directory
+tree will be watched as well.
 .sp
 Top\-level include patterns are treated as special cases and will not force Syncthing to
-scan the entire directory tree. For example: \fB!/foo\fP is a top\-level include
+scan (or watch) the entire directory tree. For example: \fB!/foo\fP is a top\-level include
 pattern, while \fB!/foo/bar\fP is not.
 .UNINDENT
 .UNINDENT

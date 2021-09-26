@@ -1,4 +1,4 @@
-<modal id="connectivity-status" status="{{connectivityStatusParams.status}}" icon="fas fa-fw {{connectivityStatusParams.type == 'listeners' ? 'fa-sitemap' : 'fa-map-signs'}}" heading="{{connectivityStatusParams.heading}}" large="no" closeable="yes">
+<modal id="connectivity-status" status="{{connectivityStatusParams.status}}" icon="fas fa-fw {{connectivityStatusParams.type == 'listeners' ? 'fa-sitemap' : 'fa-map-signs'}}" heading="{{connectivityStatusParams.heading}}" large="yes" closeable="yes">
   <div class="modal-body" ng-switch="connectivityStatusParams.type">
     <div ng-switch-when="listeners">
       <p translate ng-if="listenersRunning.length == 0">

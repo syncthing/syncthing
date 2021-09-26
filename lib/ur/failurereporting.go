@@ -49,8 +49,8 @@ type FailureData struct {
 }
 
 func FailureDataWithGoroutines(description string) FailureData {
-	var buf *strings.Builder
-	pprof.NewProfile("goroutine").WriteTo(buf, 1)
+	var buf strings.Builder
+	pprof.Lookup("goroutine").WriteTo(&buf, 1)
 	return FailureData{
 		Description: description,
 		Goroutines:  buf.String(),

@@ -468,10 +468,16 @@ type Model struct {
 		result1 protocol.RequestResponse
 		result2 error
 	}
-	ResetFolderStub        func(string)
+	ResetFolderStub        func(string) error
 	resetFolderMutex       sync.RWMutex
 	resetFolderArgsForCall []struct {
 		arg1 string
+	}
+	resetFolderReturns struct {
+		result1 error
+	}
+	resetFolderReturnsOnCall map[int]struct {
+		result1 error
 	}
 	RestoreFolderVersionsStub        func(string, map[string]time.Time) (map[string]error, error)
 	restoreFolderVersionsMutex       sync.RWMutex
@@ -2737,17 +2743,23 @@ func (fake *Model) RequestReturnsOnCall(i int, result1 protocol.RequestResponse,
 	}{result1, result2}
 }
 
-func (fake *Model) ResetFolder(arg1 string) {
+func (fake *Model) ResetFolder(arg1 string) error {
 	fake.resetFolderMutex.Lock()
+	ret, specificReturn := fake.resetFolderReturnsOnCall[len(fake.resetFolderArgsForCall)]
 	fake.resetFolderArgsForCall = append(fake.resetFolderArgsForCall, struct {
 		arg1 string
 	}{arg1})
 	stub := fake.ResetFolderStub
+	fakeReturns := fake.resetFolderReturns
 	fake.recordInvocation("ResetFolder", []interface{}{arg1})
 	fake.resetFolderMutex.Unlock()
 	if stub != nil {
-		fake.ResetFolderStub(arg1)
+		return stub(arg1)
 	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
 }
 
 func (fake *Model) ResetFolderCallCount() int {
@@ -2756,7 +2768,7 @@ func (fake *Model) ResetFolderCallCount() int {
 	return len(fake.resetFolderArgsForCall)
 }
 
-func (fake *Model) ResetFolderCalls(stub func(string)) {
+func (fake *Model) ResetFolderCalls(stub func(string) error) {
 	fake.resetFolderMutex.Lock()
 	defer fake.resetFolderMutex.Unlock()
 	fake.ResetFolderStub = stub
@@ -2767,6 +2779,29 @@ func (fake *Model) ResetFolderArgsForCall(i int) string {
 	defer fake.resetFolderMutex.RUnlock()
 	argsForCall := fake.resetFolderArgsForCall[i]
 	return argsForCall.arg1
+}
+
+func (fake *Model) ResetFolderReturns(result1 error) {
+	fake.resetFolderMutex.Lock()
+	defer fake.resetFolderMutex.Unlock()
+	fake.ResetFolderStub = nil
+	fake.resetFolderReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Model) ResetFolderReturnsOnCall(i int, result1 error) {
+	fake.resetFolderMutex.Lock()
+	defer fake.resetFolderMutex.Unlock()
+	fake.ResetFolderStub = nil
+	if fake.resetFolderReturnsOnCall == nil {
+		fake.resetFolderReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.resetFolderReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *Model) RestoreFolderVersions(arg1 string, arg2 map[string]time.Time) (map[string]error, error) {

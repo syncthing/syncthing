@@ -107,8 +107,14 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service
 	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
 
 	// Return the service and the other conn to the client
+	name := "Stun@"
+	if local := conn.LocalAddr(); local != nil {
+		name += local.Network() + "://" + local.String()
+	} else {
+		name += "unknown"
+	}
 	s := &Service{
-		name: "Stun@" + conn.LocalAddr().Network() + "://" + conn.LocalAddr().String(),
+		name: name,
 
 		cfg:        cfg,
 		subscriber: subscriber,

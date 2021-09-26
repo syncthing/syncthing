@@ -185,9 +185,10 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 		return nil, false, err
 	}
 
-	var first [1]byte
+	union := &UnionedConnection{Conn: conn}
+
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	n, err := conn.Read(first[:])
+	n, err := conn.Read(union.first[:])
 	conn.SetReadDeadline(time.Time{})
 	if err != nil || n == 0 {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
@@ -196,22 +197,23 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 		return conn, false, ErrIdentificationFailed
 	}
 
-	return &UnionedConnection{&first, conn}, first[0] == 0x16, nil
+	return union, union.first[0] == 0x16, nil
 }
 
 type UnionedConnection struct {
-	first *[1]byte
+	first     [1]byte
+	firstDone bool
 	net.Conn
 }
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {
-	if c.first != nil {
+	if !c.firstDone {
 		if len(b) == 0 {
 			// this probably doesn't happen, but handle it anyway
 			return 0, nil
 		}
 		b[0] = c.first[0]
-		c.first = nil
+		c.firstDone = true
 		return 1, nil
 	}
 	return c.Conn.Read(b)

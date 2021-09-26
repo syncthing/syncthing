@@ -12,18 +12,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"hash/maphash"
 	"os"
 	"regexp"
 	"time"
 
-	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -180,7 +178,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 		if err != nil {
 			return err
 		}
@@ -272,7 +270,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
 		if err != nil {
 			return err
 		}
@@ -865,38 +863,36 @@ func (db *Lowlevel) recordIndirectionHashes(hs IndirectionHashesOnly) {
 }
 
 func newBloomFilter(capacity int) *bloomFilter {
-	var buf [16]byte
-	io.ReadFull(rand.Reader, buf[:])
-
 	return &bloomFilter{
 		f: blobloom.NewSyncOptimized(blobloom.Config{
 			Capacity: uint64(capacity),
 			FPRate:   indirectGCBloomFalsePositiveRate,
 			MaxBits:  8 * indirectGCBloomMaxBytes,
 		}),
-
-		k0: binary.LittleEndian.Uint64(buf[:8]),
-		k1: binary.LittleEndian.Uint64(buf[8:]),
+		seed: maphash.MakeSeed(),
 	}
 }
 
 type bloomFilter struct {
-	f      *blobloom.SyncFilter
-	k0, k1 uint64 // Random key for SipHash.
+	f    *blobloom.SyncFilter
+	seed maphash.Seed
 }
 
 func (b *bloomFilter) add(id []byte)      { b.f.Add(b.hash(id)) }
 func (b *bloomFilter) has(id []byte) bool { return b.f.Has(b.hash(id)) }
 
-// Hash function for the bloomfilter: SipHash of the SHA-256.
+// Hash function for the bloomfilter: maphash of the SHA-256.
 //
-// The randomization in SipHash means we get different collisions across
-// runs and colliding keys are not kept indefinitely.
+// The randomization in maphash should ensure that we get different collisions
+// across runs, so colliding keys are not kept indefinitely.
 func (b *bloomFilter) hash(id []byte) uint64 {
 	if len(id) != sha256.Size {
 		panic("bug: bloomFilter.hash passed something not a SHA256 hash")
 	}
-	return siphash.Hash(b.k0, b.k1, id)
+	var h maphash.Hash
+	h.SetSeed(b.seed)
+	h.Write(id)
+	return h.Sum64()
 }
 
 // checkRepair checks folder metadata and sequences for miscellaneous errors.
