@@ -62,7 +62,7 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
-		} else if strings.Contains(strings.ToLower(usage.Fstype), "ext2") || strings.Contains(strings.ToLower(usage.Fstype), "ext3") || strings.Contains(strings.ToLower(usage.Fstype), "ext4") {
+		} else if strings.HasPrefix(strings.ToLower(usage.Fstype), "ext2") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext3") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext4") {
 			l.Debugf(`Detecting FS at %v on android: Leaving mtime window at 0: usage.Fstype == "%v"`, f.Path, usage.Fstype)
 		} else {
 			dur = 2 * time.Second
