@@ -11775,7 +11775,8 @@ var uniqueId = $.fn.extend( {
 		// }
 		if (typeof icon === "string") {
 			// #883: remove inner html that may be added by prev. mode
-			span.innerHTML = "";
+			// #1081: keep inner html to fix childcounter issues in IE11
+			// span.innerHTML = "";
 			$span.attr("class", setClass + " " + icon).append($counter);
 		} else if (icon) {
 			if (icon.text) {
