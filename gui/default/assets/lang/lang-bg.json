@@ -125,7 +125,7 @@
     "Enter up to three octal digits.": "Въведете до три осмични цифри.",
     "Error": "Грешка",
     "External File Versioning": "Външно управление на версии",
-    "Failed Items": "Failed Items",
+    "Failed Items": "Елементи с грешка",
     "Failed to load ignore patterns.": "Грешка при зареждане на шаблони за пренебрегване.",
     "Failed to setup, retrying": "Грешка при настройване, извършва се повторен опит",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Неуспешна връзка към сървъри на IPv6 може да се очаква ако няма свързаност по IPv6.",
