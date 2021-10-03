@@ -9,6 +9,8 @@ package protocol
 
 import "golang.org/x/text/unicode/norm"
 
+func makeNative(m Model) Model { return nativeModel{m} }
+
 type nativeModel struct {
 	Model
 }
