@@ -383,12 +383,10 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
-			if hasCurFile && f.Type != config.FolderTypeReceiveEncrypted && file.BlocksEqual(curFile) {
+			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				// We can't shortcut files on receive-encrypted folders, as we
-				// need to update the encrypted fileinfo appended to the file.
 				f.shortcutFile(file, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
@@ -1230,6 +1228,26 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+
+	// Still need to re-write the trailer with the new encrypted fileinfo.
+	if f.Type == config.FolderTypeReceiveEncrypted {
+		err = inWritableDir(func(path string) error {
+			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0666)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			trailerSize, err := writeEncryptionTrailer(file, fd)
+			if err != nil {
+				return err
+			}
+			return fd.Truncate(file.Size + trailerSize)
+		}, f.mtimefs, file.Name, true)
+		if err != nil {
+			f.newPullError(file.Name, err)
+			return
+		}
+	}
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
