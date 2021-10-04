@@ -71,6 +71,26 @@ func TestEnDecryptName(t *testing.T) {
 	}
 }
 
+func TestKeyDerivation(t *testing.T) {
+	folderKey := KeyFromPassword("my folder", "my password")
+	encryptedName := encryptDeterministic([]byte("filename.txt"), folderKey, nil)
+	if base32Hex.EncodeToString(encryptedName) != "3T5957I4IOA20VEIEER6JSQG0PEPIRV862II3K7LOF75Q" {
+		t.Error("encrypted name mismatch")
+	}
+
+	fileKey := FileKey("filename.txt", folderKey)
+	// fmt.Println(base32Hex.EncodeToString(encryptBytes([]byte("hello world"), fileKey))) => A1IPD...
+	const encrypted = `A1IPD28ISL7VNPRSSSQM2L31L3IJPC08283RO89J5UG0TI9P38DO9RFGK12DK0KD7PKQP6U51UL2B6H96O`
+	bs, _ := base32Hex.DecodeString(encrypted)
+	dec, err := DecryptBytes(bs, fileKey)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(dec) != "hello world" {
+		t.Error("decryption mismatch")
+	}
+}
+
 func TestDecryptNameInvalid(t *testing.T) {
 	key := new([32]byte)
 	for _, c := range []string{
