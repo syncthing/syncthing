@@ -422,8 +422,8 @@
                           <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
                             <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
                             <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B<!-- get rid of the annoying trailing whitespace
-                            --><span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
+                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B<br/>
+                            <a href="" class="small text-italic" ng-if="model[folder.id].ignorePatterns" ng-click="editFolderExisting(folder, '#folder-ignores')" translate>Reduced by ignore patterns</a>
                           </span>
                         </td>
                       </tr>
