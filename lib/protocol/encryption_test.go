@@ -139,6 +139,7 @@ func encFileInfo() FileInfo {
 		Size:        45,
 		Permissions: 0755,
 		ModifiedS:   8080,
+		Sequence:    1000,
 		Blocks: []BlockInfo{
 			{
 				Offset: 0,
@@ -165,6 +166,9 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	if enc.RawBlockSize < MinBlockSize {
 		t.Error("Too small raw block size:", enc.RawBlockSize)
 	}
+	if enc.Sequence != fi.Sequence {
+		t.Error("encrypted fileinfo didn't maintain sequence number")
+	}
 	again := encryptFileInfo(fi, &key)
 	if !bytes.Equal(enc.Blocks[0].Hash, again.Blocks[0].Hash) {
 		t.Error("block hashes should remain stable (0)")
@@ -173,10 +177,17 @@ func TestEnDecryptFileInfo(t *testing.T) {
 		t.Error("block hashes should remain stable (1)")
 	}
 
+	// Simulate the remote setting the sequence number when writing to db
+	enc.Sequence = 10
+
 	dec, err := DecryptFileInfo(enc, &key)
 	if err != nil {
 		t.Error(err)
 	}
+	if dec.Sequence != enc.Sequence {
+		t.Error("decrypted fileinfo didn't maintain sequence number")
+	}
+	dec.Sequence = fi.Sequence
 	if !reflect.DeepEqual(fi, dec) {
 		t.Error("mismatch after decryption")
 	}
