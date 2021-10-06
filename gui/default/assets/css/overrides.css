@@ -56,10 +56,6 @@ ul+h5 {
     word-wrap:break-word;
 }
 
-.text-italic {
-    font-style: italic;
-}
-
 .text-monospace {
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
