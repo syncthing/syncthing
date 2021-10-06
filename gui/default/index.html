@@ -426,7 +426,7 @@
                             <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
                           </div>
                           <div ng-if="model[folder.id].ignorePatterns">
-                            <a href="" class="small" style="font-style: italic;" ng-click="editFolderExisting(folder, '#folder-ignores')" translate>Reduced by ignore patterns</a>
+                            <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
                           </div>
                         </td>
                       </tr>
