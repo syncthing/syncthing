@@ -2822,9 +2822,7 @@ angular.module('syncthing.core')
         };
 
         $scope.themeName = function (theme) {
-            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
-                return a.toUpperCase();
-            });
+            return $translate.instant("theme-name-" + theme);
         };
 
         $scope.modalLoaded = function () {
