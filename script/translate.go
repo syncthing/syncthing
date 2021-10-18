@@ -147,7 +147,7 @@ func collectThemes(basePath string) {
 		if f.IsDir() {
 			key := "theme-name-" + f.Name()
 			if _, ok := trans[key]; !ok {
- 				name := strings.Title(f.Name())
+				name := strings.Title(f.Name())
 				trans[key] = name
 			}
 		}
