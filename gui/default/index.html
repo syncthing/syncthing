@@ -419,12 +419,15 @@
                       <tr ng-if="!folder.paused">
                         <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
                         <td class="text-right">
-                          <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
+                          <div>
+                            <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
                             <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
                             <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B<!-- get rid of the annoying trailing whitespace
-                            --><span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
-                          </span>
+                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                          </div>
+                          <div ng-if="model[folder.id].ignorePatterns">
+                            <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
+                          </div>
                         </td>
                       </tr>
                       <tr ng-if="model[folder.id].needTotalItems > 0">
