@@ -24,7 +24,7 @@
     "Alphabetic": "Alfabet",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Perintah eksternal menangani pemversian. Ia harus menghapus berkas dari folder yang dibagi. Jika lokasi aplikasi terdapat spasi, itu harus dikutip.",
     "Anonymous Usage Reporting": "Pelaporan Penggunaan Anonim",
-    "Anonymous usage report format has changed. Would you like to move to the new format?": "Format pelaporan penggunaan anonoim telah berubah. Maukah anda pindah menggunakan format yang baru?",
+    "Anonymous usage report format has changed. Would you like to move to the new format?": "Format pelaporan penggunaan anonim telah berubah. Maukah anda pindah menggunakan format yang baru?",
     "Are you sure you want to continue?": "Apakah anda yakin ingin lanjut?",
     "Are you sure you want to override all remote changes?": "Apakah anda yakin ingin menimpa semua perubahan jarak jauh?",
     "Are you sure you want to permanently delete all these files?": "Apakah anda yakin ingin menghapus semua berkas berikut secara permanen?",
