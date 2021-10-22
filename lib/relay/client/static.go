@@ -145,12 +145,13 @@ func (c *staticClient) connect(ctx context.Context) error {
 	// many cases this will be an IP address, in which case it's a no-op. In
 	// other cases it will be a hostname, which will cause the TLS stack to
 	// send SNI.
-	cfg := *c.config
+	cfg := c.config
 	if host, _, err := net.SplitHostPort(c.uri.Host); err == nil {
+		cfg = cfg.Clone()
 		cfg.ServerName = host
 	}
 
-	conn := tls.Client(tcpConn, &cfg)
+	conn := tls.Client(tcpConn, cfg)
 
 	if err := conn.SetDeadline(time.Now().Add(c.connectTimeout)); err != nil {
 		conn.Close()
