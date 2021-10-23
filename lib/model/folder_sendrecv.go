@@ -1227,8 +1227,6 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		}
 	}
 
-	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
-
 	// Still need to re-write the trailer with the new encrypted fileinfo.
 	if f.Type == config.FolderTypeReceiveEncrypted {
 		err = inWritableDir(func(path string) error {
@@ -1248,6 +1246,8 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			return
 		}
 	}
+
+	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
