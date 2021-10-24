@@ -8,6 +8,7 @@ stdiscosrv.exe
 *.deb
 .*.swp
 .*.swo
+*.orig
 .jshintrc
 coverage.out
 files/pidx
