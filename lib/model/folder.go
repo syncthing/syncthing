@@ -341,7 +341,7 @@ func SetExternallyDisabled(isDisabled bool) {
 	externallyDisabledMut.Unlock()
 }
 
-unc (f *folder) pull() (success bool, err error) {
+func (f *folder) pull() (success bool, err error) {
 	f.pullFailTimer.Stop()
 	select {
 	case <-f.pullFailTimer.C:

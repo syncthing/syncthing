@@ -296,7 +296,7 @@ func (options serveOptions) Run() error {
 	err := cmdutil.SetConfigDataLocationsFromFlags(options.HomeDir, options.ConfDir, options.DataDir)
 	if err != nil {
 		l.Warnln("Command line options:", err)
-		return svcutil.ExitError.AsInt()
+		return err
 	}
 
 	if options.LogFile == "default" || options.LogFile == "" {
@@ -328,7 +328,7 @@ func (options serveOptions) Run() error {
 		)
 		if err != nil {
 			l.Warnln("Error reading device ID:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
@@ -338,7 +338,7 @@ func (options serveOptions) Run() error {
 	if options.BrowserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 		return nil
 	}
@@ -346,7 +346,7 @@ func (options serveOptions) Run() error {
 	if options.GenerateDir != "" {
 		if err := generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 		return nil
 	}
@@ -354,14 +354,14 @@ func (options serveOptions) Run() error {
 	// Ensure that our home directory exists.
 	if err := EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		return svcutil.ExitError.AsInt()
+		return err
 	}
 
 	if options.UpgradeTo != "" {
 		err := upgrade.ToURL(options.UpgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 		l.Infoln("Upgraded from", options.UpgradeTo)
 		return nil
@@ -370,7 +370,7 @@ func (options serveOptions) Run() error {
 	if options.UpgradeCheck {
 		if _, err := checkUpgrade(); err != nil {
 			l.Warnln("Checking for upgrade:", err)
-			return exitCodeForUpgrade(err)
+			return err
 		}
 		return nil
 	}
@@ -390,7 +390,7 @@ func (options serveOptions) Run() error {
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
-			return exitCodeForUpgrade(err)
+			return err
 		}
 		l.Infof("Upgraded to %q", release.Tag)
 		return svcutil.ExitUpgrade.AsInt()
