@@ -157,6 +157,7 @@ func (a *App) startup() error {
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 	l.Infoln("My ID:", a.myID)
+	l.Infoln("runtime.GOOS:", runtime.GOOS, "runtime.GOARCH:", runtime.GOARCH)
 
 	// Select SHA256 implementation and report. Affected by the
 	// STHASHING environment variable.

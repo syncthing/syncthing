@@ -23,7 +23,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
@@ -102,14 +101,14 @@ func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
 
-	if !build.IsIOS() {
+	if runtime.GOOS != "ios" {
 		// FIXME
 		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 	}
 
 	util.SetDefaults(&cfg)
 
-	if build.IsIOS() {
+	if runtime.GOOS == "ios" {
 		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
 		cfg.Options.DeprecatedDefaultFolderPath = "."
 		// FIXME Find better solution than blank user and password, but suppress this notification for now

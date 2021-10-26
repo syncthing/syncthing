@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/shirou/gopsutil/v3/disk"
 )
 
@@ -64,7 +63,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	sep := string(filepath.Separator)
 	root = filepath.Dir(root + sep)
 
-	if build.IsIOS() && !filepath.IsAbs(root) && root[0] != '~' {
+	if runtime.GOOS == "ios" && !filepath.IsAbs(root) && root[0] != '~' {
 	  newroot, err2 := rooted(root, "~/Documents")
 		if err2 == nil {
 		  root = newroot

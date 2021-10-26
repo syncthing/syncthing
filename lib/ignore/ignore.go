@@ -35,7 +35,7 @@ const (
 var defaultResult Result = resultInclude
 
 func init() {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "ios" || runtime.GOOS == "windows" {
 		defaultResult |= resultFoldCase
 	}
 }
