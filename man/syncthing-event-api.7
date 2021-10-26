@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Jun 14, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Sep 15, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -98,11 +98,14 @@ itself.
     "type": "ConfigSaved",
     "time": "2014\-12\-13T00:09:13.5166486Z",
     "data": {
-        "Version": 7,
-        "Options": {"..."},
-        "GUI": {"..."},
-        "Devices": [{"..."}],
-        "Folders": [{"..."}]
+        "version": 7,
+        "folders": [{"..."}],
+        "devices": [{"..."}],
+        "gui": {"..."},
+        "ldap": {"..."},
+        "options": {"..."},
+        "remoteIgnoredDevices": [{"..."}],
+        "defaults": {"..."}
     }
 }
 .ft P
@@ -864,6 +867,8 @@ longer pending for any device.
         "deviceID": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
         "folderID": "GXWxf\-3zgnU",
         "folderLabel": "My Pictures"
+        "receiveEncrypted": "false"
+        "remoteEncrypted": "false"
       }
     ],
     "removed": [

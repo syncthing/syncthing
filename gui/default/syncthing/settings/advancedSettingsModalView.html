@@ -9,10 +9,10 @@
     <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
 
       <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer;">
+        <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="false" aria-controls="guiConfig" style="cursor: pointer;">
           <h4 class="panel-title" translate tabindex="0">GUI</h4>
         </div>
-        <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
+        <div id="guiConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="guiHeading">
           <div class="panel-body">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in advancedConfig.gui" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">

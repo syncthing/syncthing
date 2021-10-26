@@ -1058,12 +1058,18 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	if len(folder) == 0 {
 		// Reset all folders.
 		for folder := range s.cfg.Folders() {
-			s.model.ResetFolder(folder)
+			if err := s.model.ResetFolder(folder); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
 		// Reset a specific folder, assuming it's supposed to exist.
-		s.model.ResetFolder(folder)
+		if err := s.model.ResetFolder(folder); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
@@ -1230,7 +1236,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if r, err := s.urService.ReportData(context.TODO()); err != nil {
+	if r, err := s.urService.ReportDataPreview(r.Context(), ur.Version); err != nil {
 		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
 	} else {
 		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {

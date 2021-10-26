@@ -94,7 +94,7 @@ binaries are also properly code signed.
 
 ## Documentation
 
-Please see the [Syncthing documentation site][6].
+Please see the Syncthing [documentation site][6] [[source]][17].
 
 All code is licensed under the [MPLv2 License][7].
 
@@ -112,4 +112,4 @@ All code is licensed under the [MPLv2 License][7].
 [14]: assets/logo-text-128.png
 [15]: https://syncthing.net/
 [16]: https://github.com/syncthing/syncthing/blob/main/README-Docker.md
-
+[17]: https://github.com/syncthing/docs

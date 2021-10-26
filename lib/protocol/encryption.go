@@ -317,18 +317,20 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 		typ = FileInfoTypeDirectory
 	}
 	enc := FileInfo{
-		Name:         encryptName(fi.Name, folderKey),
-		Type:         typ,
-		Size:         offset, // new total file size
-		Permissions:  0644,
-		ModifiedS:    1234567890, // Sat Feb 14 00:31:30 CET 2009
-		Deleted:      fi.Deleted,
-		RawInvalid:   fi.IsInvalid(),
-		Version:      version,
-		Sequence:     fi.Sequence,
-		RawBlockSize: fi.RawBlockSize + blockOverhead,
-		Blocks:       blocks,
-		Encrypted:    encryptedFI,
+		Name:        encryptName(fi.Name, folderKey),
+		Type:        typ,
+		Permissions: 0644,
+		ModifiedS:   1234567890, // Sat Feb 14 00:31:30 CET 2009
+		Deleted:     fi.Deleted,
+		RawInvalid:  fi.IsInvalid(),
+		Version:     version,
+		Sequence:    fi.Sequence,
+		Encrypted:   encryptedFI,
+	}
+	if typ == FileInfoTypeFile {
+		enc.Size = offset // new total file size
+		enc.Blocks = blocks
+		enc.RawBlockSize = fi.BlockSize() + blockOverhead
 	}
 
 	return enc

@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -27,8 +28,10 @@ type receiveEncryptedFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *byteSemaphore) service {
-	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *util.Semaphore) service {
+	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+	f.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
+	return f
 }
 
 func (f *receiveEncryptedFolder) Revert() {
@@ -91,7 +94,14 @@ func (f *receiveEncryptedFolder) revert() error {
 	if iterErr != nil {
 		return iterErr
 	}
-	return batch.Flush()
+	if err := batch.Flush(); err != nil {
+		return err
+	}
+
+	// We might need to pull items if the local changes were on valid, global files.
+	f.SchedulePull()
+
+	return nil
 }
 
 func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
@@ -108,5 +118,6 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapsh
 		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
+		scanChan <- dir
 	}
 }

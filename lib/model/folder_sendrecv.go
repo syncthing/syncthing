@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -124,17 +125,17 @@ type sendReceiveFolder struct {
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
-	writeLimiter       *byteSemaphore
+	writeLimiter       *util.Semaphore
 
 	tempPullErrors map[string]string // pull errors that might be just transient
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *byteSemaphore) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *util.Semaphore) service {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
+		writeLimiter:       util.NewSemaphore(cfg.MaxConcurrentWrites),
 	}
 	f.folder.puller = f
 
@@ -401,7 +402,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.shortcutFile(file, curFile, dbUpdateChan)
+				f.shortcutFile(file, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
 				f.queue.Push(file.Name, file.Size, file.ModTime())
@@ -757,7 +758,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	if f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+	if err = f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
 	}
@@ -1095,51 +1096,20 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 
 	populateOffsets(file.Blocks)
 
-	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
+	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
 	reused := make([]int, 0, len(file.Blocks))
 
-	// Check for an old temporary file which might have some blocks we could
-	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-	if err != nil {
-		var caseErr *fs.ErrCaseConflict
-		if errors.As(err, &caseErr) {
-			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-			}
-		}
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		blocks, reused = f.reuseBlocks(blocks, reused, file, tempName)
 	}
-	if err == nil {
-		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
 
-		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
-		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = struct{}{}
-		}
-
-		// Since the blocks are already there, we don't need to get them.
-		for i, block := range file.Blocks {
-			_, ok := existingBlocks[block.String()]
-			if !ok {
-				blocks = append(blocks, block)
-			} else {
-				reused = append(reused, i)
-			}
-		}
-
-		// The sharedpullerstate will know which flags to use when opening the
-		// temp file depending if we are reusing any blocks or not.
-		if len(reused) == 0 {
-			// Otherwise, discard the file ourselves in order for the
-			// sharedpuller not to panic when it fails to exclusively create a
-			// file which already exists
-			f.inWritableDir(f.mtimefs.Remove, tempName)
-		}
-	} else {
-		// Copy the blocks, as we don't want to shuffle them on the FileInfo
-		blocks = append(blocks, file.Blocks...)
+	// The sharedpullerstate will know which flags to use when opening the
+	// temp file depending if we are reusing any blocks or not.
+	if len(reused) == 0 {
+		// Otherwise, discard the file ourselves in order for the
+		// sharedpuller not to panic when it fails to exclusively create a
+		// file which already exists
+		f.inWritableDir(f.mtimefs.Remove, tempName)
 	}
 
 	// Reorder blocks
@@ -1162,6 +1132,45 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		have:              len(have),
 	}
 	copyChan <- cs
+}
+
+func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
+	// Check for an old temporary file which might have some blocks we could
+	// reuse.
+	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+	if err != nil {
+		var caseErr *fs.ErrCaseConflict
+		if errors.As(err, &caseErr) {
+			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
+				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+			}
+		}
+	}
+	if err != nil {
+		return blocks, reused
+	}
+
+	// Check for any reusable blocks in the temp file
+	tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
+
+	// block.String() returns a string unique to the block
+	existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
+	for _, block := range tempCopyBlocks {
+		existingBlocks[block.String()] = struct{}{}
+	}
+
+	// Since the blocks are already there, we don't need to get them.
+	blocks = blocks[:0]
+	for i, block := range file.Blocks {
+		_, ok := existingBlocks[block.String()]
+		if !ok {
+			blocks = append(blocks, block)
+		} else {
+			reused = append(reused, i)
+		}
+	}
+
+	return blocks, reused
 }
 
 // blockDiff returns lists of common and missing (to transform src into tgt)
@@ -1205,7 +1214,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
@@ -1450,7 +1459,7 @@ func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) e
 }
 
 func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
+	requestLimiter := util.NewSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
@@ -1468,7 +1477,7 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 		state := state
 		bytes := int(state.block.Size)
 
-		if err := requestLimiter.takeWithContext(f.ctx, bytes); err != nil {
+		if err := requestLimiter.TakeWithContext(f.ctx, bytes); err != nil {
 			state.fail(err)
 			out <- state.sharedPullerState
 			continue
@@ -1478,7 +1487,7 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 
 		go func() {
 			defer wg.Done()
-			defer requestLimiter.give(bytes)
+			defer requestLimiter.Give(bytes)
 
 			f.pullBlock(state, snap, out)
 		}()
@@ -2100,10 +2109,10 @@ func (f *sendReceiveFolder) limitedWriteAt(fd io.WriterAt, data []byte, offset i
 }
 
 func (f *sendReceiveFolder) withLimiter(fn func() error) error {
-	if err := f.writeLimiter.takeWithContext(f.ctx, 1); err != nil {
+	if err := f.writeLimiter.TakeWithContext(f.ctx, 1); err != nil {
 		return err
 	}
-	defer f.writeLimiter.give(1)
+	defer f.writeLimiter.Give(1)
 	return fn()
 }
 

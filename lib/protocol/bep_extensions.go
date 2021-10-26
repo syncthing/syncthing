@@ -122,10 +122,10 @@ func (f FileInfo) FileSize() int64 {
 }
 
 func (f FileInfo) BlockSize() int {
-	if f.RawBlockSize == 0 {
+	if f.RawBlockSize < MinBlockSize {
 		return MinBlockSize
 	}
-	return int(f.RawBlockSize)
+	return f.RawBlockSize
 }
 
 func (f FileInfo) FileName() string {

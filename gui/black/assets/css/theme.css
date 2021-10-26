@@ -42,7 +42,7 @@ a:hover,a:focus,a.focus{
 .nav-tabs > li > a:hover,
 .nav-tabs > li > a:focus {
   background-color: #222222 !important;
-  border: none !important;
+  border-color: transparent !important;
 }
 
 .navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {

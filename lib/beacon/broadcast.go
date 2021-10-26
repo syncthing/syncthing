@@ -103,7 +103,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		}
 
 		if success == 0 {
-			l.Debugln("couldn't send any braodcasts")
+			l.Debugln("couldn't send any broadcasts")
 			return err
 		}
 	}

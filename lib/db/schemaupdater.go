@@ -244,8 +244,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			if err != nil && !backend.IsNotFound(err) {
 				return err
 			}
-			i := 0
-			i = sort.Search(len(fl.Versions), func(j int) bool {
+			i := sort.Search(len(fl.Versions), func(j int) bool {
 				return fl.Versions[j].Invalid
 			})
 			for ; i < len(fl.Versions); i++ {
@@ -529,7 +528,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	}
 	defer t.close()
 
-	if err := db.rewriteFiles(t); err != nil {
+	if err := rewriteFiles(t); err != nil {
 		return err
 	}
 
@@ -538,7 +537,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
+func rewriteFiles(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
@@ -696,12 +695,12 @@ func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 	defer t.close()
 
 	if prev < 12 {
-		if err := db.rewriteFiles(t); err != nil {
+		if err := rewriteFiles(t); err != nil {
 			return err
 		}
 	}
 
-	if err := db.rewriteGlobals(t); err != nil {
+	if err := rewriteGlobals(t); err != nil {
 		return err
 	}
 
@@ -759,7 +758,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 			if err != nil {
 				return err
 			}
-			key, _, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
+			key, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
 			if err != nil {
 				return err
 			}
@@ -836,7 +835,7 @@ func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
 	return db.dropIndexIDs()
 }
 
-func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
+func rewriteGlobals(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeGlobal})
 	if err != nil {
 		return err
@@ -909,11 +908,9 @@ outer:
 			switch nfv.Version.Compare(fv.Version) {
 			case protocol.Equal:
 				newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
-				lastVersion = fv.Version
 				continue outer
 			case protocol.Lesser:
 				newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-				lastVersion = fv.Version
 				continue outer
 			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
 				// The version is invalid, i.e. it looses anyway,
@@ -923,7 +920,6 @@ outer:
 		}
 		// Couldn't insert into any existing versions
 		newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-		lastVersion = fv.Version
 		newPos++
 	}
 
