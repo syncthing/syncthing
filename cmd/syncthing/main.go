@@ -137,13 +137,13 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
+	Serve   ServeOptions `cmd:"" help:"Run Syncthing"`
 	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
 	Cli     struct{}     `cmd:"" help:"Command line interface for Syncthing"`
 }
 
-// serveOptions are the options for the `syncthing serve` command.
-type serveOptions struct {
+// ServeOptions are the options for the `syncthing serve` command.
+type ServeOptions struct {
 	buildServeOptions
 	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
 	Audit            bool   `help:"Write events to audit file"`
@@ -275,8 +275,8 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	return nil
 }
 
-// serveOptions.Run() is the entrypoint for `syncthing serve`
-func (options serveOptions) Run() error {
+// ServeOptions.Run() is the entrypoint for `syncthing serve`
+func (options ServeOptions) Run() error {
 	l.SetFlags(options.LogFlags)
 
 	if options.GUIAddress != "" {
@@ -393,24 +393,24 @@ func (options serveOptions) Run() error {
 			return err
 		}
 		l.Infof("Upgraded to %q", release.Tag)
-		return svcutil.ExitUpgrade.AsInt()
+		return nil
 	}
 
 	if options.DebugResetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return nil
 	}
 
 	if options.InternalInnerProcess {
-		syncthingMain(options)
+		return SyncthingMain(options)
 	} else {
-		return MonitorMain(options)
+		MonitorMain(options)
+	  return nil
 	}
-	return nil
 }
 
 func openGUI(myID protocol.DeviceID) error {
@@ -553,7 +553,7 @@ func upgradeViaRest() error {
 	return err
 }
 
-func SyncthingMain(options serveOptions) {
+func SyncthingMain(options ServeOptions) error {
 	if options.DebugProfileBlock {
 		startBlockProfiler()
 	}
@@ -579,7 +579,7 @@ func SyncthingMain(options serveOptions) {
 	)
 	if err != nil {
 		l.Warnln("Failed to load/generate certificate:", err)
-		return 1
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -597,7 +597,7 @@ func SyncthingMain(options serveOptions) {
 	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
-		return svcutil.ExitError.AsInt()
+		return err
 	}
 	earlyService.Add(cfgWrapper)
 
@@ -622,7 +622,7 @@ func SyncthingMain(options serveOptions) {
 	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
-		return 1
+		return err
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
@@ -644,7 +644,7 @@ func SyncthingMain(options serveOptions) {
 			}
 		} else {
 			l.Infof("Upgraded to %q, exiting now.", release.Tag)
-			return svcutil.ExitUpgrade.AsInt()
+			return nil
 		}
 	}
 
@@ -698,18 +698,18 @@ func SyncthingMain(options serveOptions) {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			l.Warnln("Starting profile:", err)
-			return svcutil.ExitError.AsInt()
+			return err
 		}
 	}
 
 	go standbyMonitor(app, cfgWrapper)
 
 	if err := app.Start(); err != nil {
-		return svcutil.ExitError.AsInt()
+		return err
 	}
 
 	RunningApp = app
@@ -733,7 +733,11 @@ func SyncthingMain(options serveOptions) {
 		pprof.StopCPUProfile()
 	}
 
-	return int(status)
+	if status == svcutil.ExitError {
+		return app.Error()
+	} else {
+	  return nil
+	}
 }
 
 func clearRunningApp() {
@@ -851,7 +855,7 @@ func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 	}
 }
 
-func autoUpgradePossible(options serveOptions) bool {
+func autoUpgradePossible(options ServeOptions) bool {
 	if upgrade.DisabledByCompilation {
 		return false
 	}
@@ -982,7 +986,7 @@ func cleanConfigDirectory() {
 	}
 }
 
-func showPaths(options serveOptions) {
+func showPaths(options ServeOptions) {
 	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
 	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
