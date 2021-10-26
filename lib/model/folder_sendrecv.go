@@ -343,20 +343,6 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
-		case runtime.GOOS == "ios" && fs.IosInvalidFilename(file.Name) != nil:
-			if file.IsDeleted() {
-				// Just pretend we deleted it, no reason to create an error
-				// about a deleted file that we can't have anyway.
-				// Reason we need it in the first place is, that it was
-				// ignored at some point.
-				dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-			} else {
-				// We can't pull an invalid file. Grab the error again since
-				// we couldn't assign it directly in the case clause.
-				f.newPullError(file.Name, fs.IosInvalidFilename(file.Name))
-				// No reason to retry for this
-				changed--
-			}
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name) != nil:
 			if file.IsDeleted() {
 				// Just pretend we deleted it, no reason to create an error

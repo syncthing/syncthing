@@ -61,20 +61,6 @@ var (
 	}
 )
 
-func IosInvalidFilename(name string) error {
-	for _, part := range strings.Split(name, `\`) {
-		if len(part) == 0 {
-			continue
-		}
-		
-		if part[0] == '.' {
-			return errInvalidFilenameIosDotFile
-		}
-	}
-
-	return nil
-}
-
 func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
 	// reserved name. COM0 and LPT0 are missing from the Microsoft docs,
