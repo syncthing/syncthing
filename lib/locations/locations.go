@@ -41,8 +41,8 @@ type BaseDirEnum string
 
 const (
 	// Overridden by -home flag
-	ConfigBaseDir   BaseDirEnum = "config"
-	DataBaseDir     BaseDirEnum = "data"
+	ConfigBaseDir BaseDirEnum = "config"
+	DataBaseDir   BaseDirEnum = "data"
 	// User's home directory, *not* -home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
@@ -145,7 +145,7 @@ func defaultConfigDir(userHome string) string {
 		}
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
-	case "darwin":
+	case "darwin", "ios":
 		return filepath.Join(userHome, "Library/Application Support/Syncthing")
 
 	default:
