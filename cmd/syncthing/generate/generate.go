@@ -9,17 +9,47 @@ package generate
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
 )
+
+type CLI struct {
+	cmdutil.CommonOptions
+}
+
+func (c *CLI) Run() error {
+	log.SetFlags(0)
+
+	if c.HideConsole {
+		osutil.HideConsole()
+	}
+
+	if c.HomeDir != "" {
+		if c.ConfDir != "" {
+			return fmt.Errorf("--home must not be used together with --config")
+		}
+		c.ConfDir = c.HomeDir
+	}
+	if c.ConfDir == "" {
+		c.ConfDir = locations.GetBaseDir(locations.ConfigBaseDir)
+	}
+
+	if err := Generate(c.ConfDir, c.NoDefaultFolder); err != nil {
+		return errors.Wrap(err, "Failed to generate config and keys")
+	}
+	return nil
+}
 
 func Generate(confDir string, noDefaultFolder bool) error {
 	dir, err := fs.ExpandTilde(confDir)

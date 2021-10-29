@@ -133,9 +133,10 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
-	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli     struct{}     `cmd:"" help:"Command line interface for Syncthing"`
+	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
+	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
+	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli      struct{}     `cmd:"" help:"Command line interface for Syncthing"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -147,7 +148,7 @@ type serveOptions struct {
 	BrowserOnly      bool   `help:"Open GUI in browser"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`
+	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` //DEPRECATED: replaced by subcommand!
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
