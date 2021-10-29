@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
+	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -336,7 +337,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.GenerateDir != "" {
-		if err := generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
+		if err := generate.Generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
@@ -416,46 +417,6 @@ func openGUI(myID protocol.DeviceID) error {
 		}
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
-	}
-	return nil
-}
-
-func generate(generateDir string, noDefaultFolder bool) error {
-	dir, err := fs.ExpandTilde(generateDir)
-	if err != nil {
-		return err
-	}
-
-	if err := syncthing.EnsureDir(dir, 0700); err != nil {
-		return err
-	}
-	locations.SetBaseDir(locations.ConfigBaseDir, dir)
-
-	var myID protocol.DeviceID
-	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err == nil {
-		log.Println("WARNING: Key exists; will not overwrite.")
-	} else {
-		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
-		if err != nil {
-			return errors.Wrap(err, "create certificate")
-		}
-	}
-	myID = protocol.NewDeviceID(cert.Certificate[0])
-	log.Println("Device ID:", myID)
-
-	cfgFile := locations.Get(locations.ConfigFile)
-	if _, err := os.Stat(cfgFile); err == nil {
-		log.Println("WARNING: Config exists; will not overwrite.")
-		return nil
-	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
-	if err != nil {
-		return err
-	}
-	if err := cfg.Save(); err != nil {
-		return errors.Wrap(err, "save config")
 	}
 	return nil
 }
