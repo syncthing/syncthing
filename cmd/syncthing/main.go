@@ -49,15 +49,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/syncthing"
-	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	tlsDefaultCommonName   = "syncthing"
-	deviceCertLifetimeDays = 20 * 365
 	sigTerm                = syscall.Signal(15)
 )
 
@@ -442,7 +439,7 @@ func generate(generateDir string, noDefaultFolder bool) error {
 	if err == nil {
 		l.Warnln("Key exists; will not overwrite.")
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
+		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
 		if err != nil {
 			return errors.Wrap(err, "create certificate")
 		}
