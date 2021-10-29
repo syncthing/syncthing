@@ -347,7 +347,7 @@ func (options serveOptions) Run() error {
 	}
 
 	// Ensure that our home directory exists.
-	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
@@ -429,7 +429,7 @@ func generate(generateDir string, noDefaultFolder bool) error {
 		return err
 	}
 
-	if err := ensureDir(dir, 0700); err != nil {
+	if err := syncthing.EnsureDir(dir, 0700); err != nil {
 		return err
 	}
 
@@ -798,29 +798,6 @@ func auditWriter(auditFile string) io.Writer {
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
-}
-
-func ensureDir(dir string, mode fs.FileMode) error {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	err := fs.MkdirAll(".", mode)
-	if err != nil {
-		return err
-	}
-
-	if fi, err := fs.Stat("."); err == nil {
-		// Apprently the stat may fail even though the mkdirall passed. If it
-		// does, we'll just assume things are in order and let other things
-		// fail (like loading or creating the config...).
-		currentMode := fi.Mode() & 0777
-		if currentMode != mode {
-			err := fs.Chmod(".", mode)
-			// This can fail on crappy filesystems, nothing we can do about it.
-			if err != nil {
-				l.Warnln(err)
-			}
-		}
-	}
-	return nil
 }
 
 func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
