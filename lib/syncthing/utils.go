@@ -27,14 +27,18 @@ import (
 func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		return tlsutil.NewCertificate(
-			certFile, keyFile,
-			tlsDefaultCommonName,
-			deviceCertLifetimeDays,
-		)
+		return GenerateCertificate(certFile, keyFile)
 	}
 	return cert, nil
+}
+
+func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
+	l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
+	return tlsutil.NewCertificate(
+		certFile, keyFile,
+		tlsDefaultCommonName,
+		deviceCertLifetimeDays,
+	)
 }
 
 func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
