@@ -23,7 +23,7 @@ type jobQueue struct {
 type jobQueueEntry struct {
 	name     string
 	size     int64
-	modified time.Time
+	modified int64
 }
 
 func newJobQueue() *jobQueue {
@@ -34,7 +34,8 @@ func newJobQueue() *jobQueue {
 
 func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 	q.mut.Lock()
-	q.queued = append(q.queued, jobQueueEntry{file, size, modified})
+	// The range of UnixNano covers a range of reasonable timestamps.
+	q.queued = append(q.queued, jobQueueEntry{file, size, modified.UnixNano()})
 	q.mut.Unlock()
 }
 
@@ -191,5 +192,5 @@ func (q smallestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
 type oldestFirst []jobQueueEntry
 
 func (q oldestFirst) Len() int           { return len(q) }
-func (q oldestFirst) Less(a, b int) bool { return q[a].modified.Before(q[b].modified) }
+func (q oldestFirst) Less(a, b int) bool { return q[a].modified < q[b].modified }
 func (q oldestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
