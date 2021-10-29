@@ -429,9 +429,10 @@ func generate(generateDir string, noDefaultFolder bool) error {
 	if err := syncthing.EnsureDir(dir, 0700); err != nil {
 		return err
 	}
+	locations.SetBaseDir(locations.ConfigBaseDir, dir)
 
 	var myID protocol.DeviceID
-	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
 		l.Warnln("Key exists; will not overwrite.")
@@ -444,7 +445,7 @@ func generate(generateDir string, noDefaultFolder bool) error {
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.Infoln("Device ID:", myID)
 
-	cfgFile := filepath.Join(dir, "config.xml")
+	cfgFile := locations.Get(locations.ConfigFile)
 	if _, err := os.Stat(cfgFile); err == nil {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
@@ -453,8 +454,7 @@ func generate(generateDir string, noDefaultFolder bool) error {
 	if err != nil {
 		return err
 	}
-	err = cfg.Save()
-	if err != nil {
+	if err := cfg.Save(); err != nil {
 		return errors.Wrap(err, "save config")
 	}
 	return nil
