@@ -55,7 +55,7 @@ import (
 )
 
 const (
-	sigTerm                = syscall.Signal(15)
+	sigTerm = syscall.Signal(15)
 )
 
 const (
