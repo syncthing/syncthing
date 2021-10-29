@@ -140,24 +140,22 @@ var entrypoint struct {
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
 	buildServeOptions
+	cmdutil.CommonOptions
 	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
 	Audit            bool   `help:"Write events to audit file"`
 	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
 	BrowserOnly      bool   `help:"Open GUI in browser"`
-	ConfDir          string `name:"config" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
 	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
 	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
 	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
 	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
 	NoBrowser        bool   `help:"Do not start browser"`
 	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
-	NoDefaultFolder  bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
 	NoUpgrade        bool   `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
 	Paths            bool   `help:"Show configuration paths"`
 	Paused           bool   `help:"Start with all devices and folders paused"`
