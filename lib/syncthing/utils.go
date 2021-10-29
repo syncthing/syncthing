@@ -25,15 +25,11 @@ import (
 )
 
 func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
 		return tlsutil.NewCertificate(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
+			certFile, keyFile,
 			tlsDefaultCommonName,
 			deviceCertLifetimeDays,
 		)
