@@ -435,7 +435,7 @@ func generate(generateDir string, noDefaultFolder bool) error {
 	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
-		l.Warnln("Key exists; will not overwrite.")
+		log.Println("WARNING: Key exists; will not overwrite.")
 	} else {
 		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
 		if err != nil {
@@ -443,11 +443,11 @@ func generate(generateDir string, noDefaultFolder bool) error {
 		}
 	}
 	myID = protocol.NewDeviceID(cert.Certificate[0])
-	l.Infoln("Device ID:", myID)
+	log.Println("Device ID:", myID)
 
 	cfgFile := locations.Get(locations.ConfigFile)
 	if _, err := os.Stat(cfgFile); err == nil {
-		l.Warnln("Config exists; will not overwrite.")
+		log.Println("WARNING: Config exists; will not overwrite.")
 		return nil
 	}
 	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
