@@ -119,7 +119,7 @@ func (c GUIConfiguration) URL() string {
 // copy of the updated hash bytes is returned as well.
 func (c *GUIConfiguration) SetHashedPassword(password string) ([]byte, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
-	if err != nil {
+	if err == nil {
 		c.Password = string(hash)
 	}
 	return hash, err
