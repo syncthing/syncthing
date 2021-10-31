@@ -993,7 +993,7 @@ func TestIssue4219(t *testing.T) {
 	}`))
 
 	myID := protocol.LocalDeviceID
-	cfg, err := ReadJSON(r, myID)
+	cfg, err := unmarshalAndPrepare(r, myID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1062,7 +1062,7 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		_, err = unmarshalAndPrepare(bytes.NewReader(invalidJSON), device1)
 		if tc.ok && err != nil {
 			t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
 		} else if !tc.ok && err == nil {
@@ -1101,7 +1101,7 @@ func TestInvalidFolderIDRejected(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		_, err = unmarshalAndPrepare(bytes.NewReader(invalidJSON), device1)
 		if tc.ok && err != nil {
 			t.Errorf("unexpected error for folder ID %q: %v", tc.id, err)
 		} else if !tc.ok && err == nil {
@@ -1369,4 +1369,19 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 	if !f.IgnorePerms {
 		t.Error("IgnorePerms should be true")
 	}
+}
+
+func unmarshalAndPrepare(data io.Reader, myID protocol.DeviceID) (Configuration, error) {
+	bs, err := ioutil.ReadAll(data)
+	if err != nil {
+		return Configuration{}, err
+	}
+	var cfg Configuration
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		return Configuration{}, err
+	}
+	if err := cfg.prepare(myID); err != nil {
+		return Configuration{}, err
+	}
+	return cfg, nil
 }

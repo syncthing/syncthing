@@ -65,14 +65,14 @@ func (c *configMuxBuilder) registerFolders(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		data, err := unmarshalToRawMessages(r.Body)
-		folders := make([]config.FolderConfiguration, len(data))
-		defaultFolder := c.cfg.DefaultFolder()
-		for i, bs := range data {
-			folders[i] = defaultFolder.Copy()
-			if err := json.Unmarshal(bs, &folders[i]); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		folders, err := unmarshalFoldersWithDefaults(data, c.cfg.DefaultFolder())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetFolders(folders)
@@ -96,14 +96,14 @@ func (c *configMuxBuilder) registerDevices(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		data, err := unmarshalToRawMessages(r.Body)
-		devices := make([]config.DeviceConfiguration, len(data))
-		defaultDevice := c.cfg.DefaultDevice()
-		for i, bs := range data {
-			devices[i] = defaultDevice.Copy()
-			if err := json.Unmarshal(bs, &devices[i]); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		devices, err := unmarshalDevicesWithDefaults(data, c.cfg.DefaultDevice())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetDevices(devices)
@@ -280,13 +280,41 @@ func (c *configMuxBuilder) registerGUI(path string) {
 }
 
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
-	to, err := config.ReadJSON(r.Body, c.id)
+	bs, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		l.Warnln("Decoding posted config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var to config.Configuration
+	util.SetDefaults(&to)
+	if err := json.Unmarshal(bs, &to); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Unmarshal list of devices and folders separately to set defaults
+	var rawFoldersDevices struct {
+		Folders []json.RawMessage
+		Devices []json.RawMessage
+	}
+	if err := json.Unmarshal(bs, &rawFoldersDevices); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	to.Folders, err = unmarshalFoldersWithDefaults(rawFoldersDevices.Folders, c.cfg.DefaultFolder())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	to.Devices, err = unmarshalDevicesWithDefaults(rawFoldersDevices.Devices, c.cfg.DefaultDevice())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
@@ -301,7 +329,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	if errMsg != "" {
 		http.Error(w, errMsg, status)
 	} else if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	c.finish(w, waiter)
@@ -416,6 +444,28 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	err := unmarshalTo(body, &data)
 	return data, err
+}
+
+func unmarshalFoldersWithDefaults(data []json.RawMessage, defaultFolder config.FolderConfiguration) ([]config.FolderConfiguration, error) {
+	folders := make([]config.FolderConfiguration, len(data))
+	for i, bs := range data {
+		folders[i] = defaultFolder.Copy()
+		if err := json.Unmarshal(bs, &folders[i]); err != nil {
+			return nil, err
+		}
+	}
+	return folders, nil
+}
+
+func unmarshalDevicesWithDefaults(data []json.RawMessage, defaultDevice config.DeviceConfiguration) ([]config.DeviceConfiguration, error) {
+	devices := make([]config.DeviceConfiguration, len(data))
+	for i, bs := range data {
+		devices[i] = defaultDevice.Copy()
+		if err := json.Unmarshal(bs, &devices[i]); err != nil {
+			return nil, err
+		}
+	}
+	return devices, nil
 }
 
 func checkGUIPassword(oldPassword, newPassword string) (string, error) {

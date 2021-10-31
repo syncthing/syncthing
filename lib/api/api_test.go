@@ -808,7 +808,20 @@ func TestConfigPostDupFolder(t *testing.T) {
 }
 
 func testConfigPost(data io.Reader) (*http.Response, error) {
-	baseURL, cancel, err := startHTTP(apiCfg)
+	cfg := config.Configuration{
+		GUI: config.GUIConfiguration{APIKey: "foobarbaz"},
+	}
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
+	ctx, cancel := context.WithCancel(context.Background())
+	go w.Serve(ctx)
+	defer cancel()
+
+	baseURL, cancel, err := startHTTP(w)
 	if err != nil {
 		return nil, err
 	}
