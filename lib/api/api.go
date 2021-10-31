@@ -744,7 +744,7 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
-		"os":          build.OS,
+		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 		"isBeta":      build.IsBeta,
 		"isCandidate": build.IsCandidate,
@@ -1098,7 +1098,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	tilde := "."
-	if !build.IsIOS() {
+	if runtime.GOOS == "ios" {
 		tilde, _ = fs.ExpandTilde("~")
 	}
 	res := make(map[string]interface{})
@@ -1227,7 +1227,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
-		"os":          build.OS,
+		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	}, "", "  "); err == nil {
 		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
@@ -1249,14 +1249,14 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	runtime.GC()
 	if err := pprof.WriteHeapProfile(&heapBuffer); err == nil {
 		files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
 	}
 
 	const duration = 4 * time.Second
-	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	if err := pprof.StartCPUProfile(&cpuBuffer); err == nil {
 		time.Sleep(duration)
 		pprof.StopCPUProfile()
@@ -1794,7 +1794,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 		duration = 30 * time.Second
 	}
 
-	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
@@ -1806,7 +1806,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)

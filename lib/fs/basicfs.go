@@ -15,13 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/shirou/gopsutil/v3/disk"
 )
 
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
-	errInvalidFilenameIosDotFile          = errors.New("name is invalid, must not start with period on iOS")
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
 	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name (NUL, COM1, etc.)")
 	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character (?, *, etc.)")
@@ -64,7 +62,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	sep := string(filepath.Separator)
 	root = filepath.Dir(root + sep)
 
-	if build.IsIOS() && !filepath.IsAbs(root) && root[0] != '~' {
+	if runtime.GOOS == "ios" && !filepath.IsAbs(root) && root[0] != '~' {
 	  newroot, err2 := rooted(root, "~/Documents")
 		if err2 == nil {
 		  root = newroot
