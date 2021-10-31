@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -111,6 +113,21 @@ func (c GUIConfiguration) URL() string {
 	}
 
 	return u.String()
+}
+
+// SetHashedPassword hashes the given plaintext password and stores the new hash.  A raw
+// copy of the updated hash bytes is returned as well.
+func (c *GUIConfiguration) SetHashedPassword(password string) ([]byte, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
+	c.Password = string(hash)
+	return hash, err
+}
+
+// CompareHashedPassword returns nil when the given plaintext password matches the stored hash.
+func (c GUIConfiguration) CompareHashedPassword(password string) error {
+	configPasswordBytes := []byte(c.Password)
+	passwordBytes := []byte(password)
+	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes)
 }
 
 // IsValidAPIKey returns true when the given API key is valid, including both

@@ -21,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -135,14 +134,12 @@ func auth(username string, password string, guiCfg config.GUIConfiguration, ldap
 	if guiCfg.AuthMode == config.AuthModeLDAP {
 		return authLDAP(username, password, ldapCfg)
 	} else {
-		return authStatic(username, password, guiCfg.User, guiCfg.Password)
+		return authStatic(username, password, guiCfg)
 	}
 }
 
-func authStatic(username string, password string, configUser string, configPassword string) bool {
-	configPasswordBytes := []byte(configPassword)
-	passwordBytes := []byte(password)
-	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
+func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {
+	return guiCfg.CompareHashedPassword(password) == nil && username == guiCfg.User
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {

@@ -739,6 +739,25 @@ func TestGUIConfigURL(t *testing.T) {
 	}
 }
 
+func TestGUIPasswordHash(t *testing.T) {
+	var c GUIConfiguration
+
+	testPass := "pass"
+	_, err := c.SetHashedPassword(testPass)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.CompareHashedPassword(testPass); err != nil {
+		t.Errorf("No match on same password: %v", err)
+	}
+
+	failPass := "different"
+	if err := c.CompareHashedPassword(failPass); err == nil {
+		t.Errorf("Match on different password: %v", err)
+	}
+}
+
 func TestDuplicateDevices(t *testing.T) {
 	// Duplicate devices should be removed
 

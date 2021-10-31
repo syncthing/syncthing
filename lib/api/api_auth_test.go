@@ -9,19 +9,20 @@ package api
 import (
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/syncthing/syncthing/lib/config"
 )
 
-var passwordHashBytes []byte
+var guiCfg config.GUIConfiguration
 
 func init() {
-	passwordHashBytes, _ = bcrypt.GenerateFromPassword([]byte("pass"), 0)
+	guiCfg.User = "user"
+	guiCfg.SetHashedPassword("pass")
 }
 
 func TestStaticAuthOK(t *testing.T) {
 	t.Parallel()
 
-	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("user", "pass", guiCfg)
 	if !ok {
 		t.Fatalf("should pass auth")
 	}
@@ -30,7 +31,7 @@ func TestStaticAuthOK(t *testing.T) {
 func TestSimpleAuthUsernameFail(t *testing.T) {
 	t.Parallel()
 
-	ok := authStatic("userWRONG", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("userWRONG", "pass", guiCfg)
 	if ok {
 		t.Fatalf("should fail auth")
 	}
@@ -39,7 +40,7 @@ func TestSimpleAuthUsernameFail(t *testing.T) {
 func TestStaticAuthPasswordFail(t *testing.T) {
 	t.Parallel()
 
-	ok := authStatic("user", "passWRONG", "user", string(passwordHashBytes))
+	ok := authStatic("user", "passWRONG", guiCfg)
 	if ok {
 		t.Fatalf("should fail auth")
 	}
