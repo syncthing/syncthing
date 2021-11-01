@@ -743,7 +743,7 @@ func TestGUIPasswordHash(t *testing.T) {
 	var c GUIConfiguration
 
 	testPass := "pass"
-	if err := c.SetHashedPassword(testPass); err != nil {
+	if err := c.HashAndSetPassword(testPass); err != nil {
 		t.Fatal(err)
 	}
 
