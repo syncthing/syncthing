@@ -83,7 +83,6 @@
               <option value="trashcan" translate>Trash Can File Versioning</option>
               <option value="simple" translate>Simple File Versioning</option>
               <option value="staggered" translate>Staggered File Versioning</option>
-              <option value="external" translate>External File Versioning</option>
             </select>
           </div>
           <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='trashcan' || currentFolder._guiVersioning.selector=='simple'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
