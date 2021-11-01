@@ -412,8 +412,8 @@ func openGUI(myID protocol.DeviceID) error {
 	if err != nil {
 		return err
 	}
-	if cfg.GUI().Enabled {
-		if err := openURL(cfg.GUI().URL()); err != nil {
+	if guiCfg := cfg.GUI(); guiCfg.Enabled {
+		if err := openURL(guiCfg.URL()); err != nil {
 			return err
 		}
 	} else {
