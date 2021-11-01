@@ -365,6 +365,10 @@ func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
 	if err := proto.Unmarshal(dec, &decFI); err != nil {
 		return FileInfo{}, err
 	}
+
+	// Preserve sequence, which is legitimately controlled by the untrusted device
+	decFI.Sequence = fi.Sequence
+
 	return decFI, nil
 }
 

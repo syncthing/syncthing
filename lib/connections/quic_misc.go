@@ -15,7 +15,6 @@ import (
 	"net/url"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -63,7 +62,10 @@ func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 	return q.Session.ConnectionState().TLS.ConnectionState
 }
 
-// Sort available packet connections by ip address, preferring unspecified local address.
-func packetConnLess(i interface{}, j interface{}) bool {
-	return util.AddressUnspecifiedLess(i.(net.PacketConn).LocalAddr(), j.(net.PacketConn).LocalAddr())
+func packetConnUnspecified(conn interface{}) bool {
+	// Since QUIC connections are wrapped, we can't do a simple typecheck
+	// on *net.UDPAddr here.
+	addr := conn.(net.PacketConn).LocalAddr()
+	host, _, err := net.SplitHostPort(addr.String())
+	return err == nil && net.ParseIP(host).IsUnspecified()
 }

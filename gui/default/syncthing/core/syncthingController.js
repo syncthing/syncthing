@@ -2455,6 +2455,14 @@ angular.module('syncthing.core')
                                 debugLevel: 2,
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
+                                    // Case insensitive sort with folders on top.
+                                    var cmp = function(a, b) {
+                                        var x = (a.isFolder() ? "0" : "1") + a.title.toLowerCase(),
+                                            y = (b.isFolder() ? "0" : "1") + b.title.toLowerCase();
+                                        return x === y ? 0 : x > y ? 1 : -1;
+                                    };
+                                    data.tree.getRootNode().sortChildren(cmp, true);
+
                                     var node = data.node,
                                         $tdList = $(node.tr).find(">td"),
                                         template;
@@ -2878,9 +2886,14 @@ angular.module('syncthing.core')
         };
 
         $scope.themeName = function (theme) {
-            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
-                return a.toUpperCase();
-            });
+            var translation = $translate.instant("theme-name-" + theme);
+            if (translation.startsWith("theme-name-")) {
+                // Fall back to simple Title Casing on missing translation
+                translation = theme.toLowerCase().replace(/(?:^|\s)\S/g, function (a) {
+                    return a.toUpperCase();
+                });
+            }
+            return translation;
         };
 
         $scope.modalLoaded = function () {

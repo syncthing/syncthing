@@ -8,6 +8,7 @@ package model
 
 import (
 	"encoding/binary"
+	"io"
 	"time"
 
 	"github.com/pkg/errors"
@@ -347,29 +348,36 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
 func (s *sharedPullerState) finalizeEncrypted() error {
-	// Here the file is in native format, while encryption happens in
-	// wire format (always slashes).
-	wireFile := s.file
-	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
-
-	bs := make([]byte, encryptionTrailerSize(wireFile))
-	n, err := wireFile.MarshalTo(bs)
-	if err != nil {
-		return err
-	}
-	binary.BigEndian.PutUint32(bs[n:], uint32(n))
-	bs = bs[:n+4]
-
 	if s.writer == nil {
 		if err := s.addWriterLocked(); err != nil {
 			return err
 		}
 	}
-	if _, err := s.writer.WriteAt(bs, wireFile.Size); err != nil {
-		return err
+	_, err := writeEncryptionTrailer(s.file, s.writer)
+	return err
+}
+
+// Returns the size of the written trailer.
+func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, error) {
+	// Here the file is in native format, while encryption happens in
+	// wire format (always slashes).
+	wireFile := file
+	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
+
+	trailerSize := encryptionTrailerSize(wireFile)
+	bs := make([]byte, trailerSize)
+	n, err := wireFile.MarshalTo(bs)
+	if err != nil {
+		return 0, err
+	}
+	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	bs = bs[:n+4]
+
+	if _, err := writer.WriteAt(bs, wireFile.Size); err != nil {
+		return 0, err
 	}
 
-	return nil
+	return trailerSize, nil
 }
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
