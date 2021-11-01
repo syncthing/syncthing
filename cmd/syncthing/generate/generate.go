@@ -8,6 +8,8 @@
 package generate
 
 import (
+	"bufio"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -16,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -26,6 +29,8 @@ import (
 
 type CLI struct {
 	cmdutil.CommonOptions
+	GUIUser     string `placeholder:"STRING" help:"Override GUI authentication user name"`
+	GUIPassword string `placeholder:"STRING" help:"Override GUI authentication password (use - to read from standard input)"`
 }
 
 func (c *CLI) Run() error {
@@ -45,13 +50,23 @@ func (c *CLI) Run() error {
 		c.ConfDir = locations.GetBaseDir(locations.ConfigBaseDir)
 	}
 
-	if err := Generate(c.ConfDir, c.NoDefaultFolder); err != nil {
+	// Support reading the password from a pipe or similar
+	if c.GUIPassword == "-" {
+		reader := bufio.NewReader(os.Stdin)
+		password, _, err := reader.ReadLine()
+		if err != nil {
+			return fmt.Errorf("Failed reading GUI password: %w", err)
+		}
+		c.GUIPassword = string(password)
+	}
+
+	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder); err != nil {
 		return errors.Wrap(err, "Failed to generate config and keys")
 	}
 	return nil
 }
 
-func Generate(confDir string, noDefaultFolder bool) error {
+func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error {
 	dir, err := fs.ExpandTilde(confDir)
 	if err != nil {
 		return err
@@ -77,16 +92,58 @@ func Generate(confDir string, noDefaultFolder bool) error {
 	log.Println("Device ID:", myID)
 
 	cfgFile := locations.Get(locations.ConfigFile)
+	var cfg config.Wrapper
 	if _, err := os.Stat(cfgFile); err == nil {
-		log.Println("WARNING: Config exists; will not overwrite.")
-		return nil
+		if guiUser == "" && guiPassword == "" {
+			log.Println("WARNING: Config exists; will not overwrite.")
+			return nil
+		}
+
+		if cfg, _, err = config.Load(cfgFile, myID, events.NoopLogger); err != nil {
+			return errors.Wrap(err, "load config")
+		}
+	} else {
+		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder); err != nil {
+			return errors.Wrap(err, "create config")
+		}
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go cfg.Serve(ctx)
+	defer cancel()
+
+	guiCfg := cfg.GUI()
+	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
+		if changed := overrideGUIAuthentication(&guiCfg, guiUser, guiPassword); changed {
+			cfg.GUI = guiCfg
+		}
+	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "modify config")
 	}
+
+	waiter.Wait()
 	if err := cfg.Save(); err != nil {
 		return errors.Wrap(err, "save config")
 	}
 	return nil
+}
+
+func overrideGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) bool {
+	changed := false
+	if guiUser != "" && guiCfg.User != guiUser {
+		guiCfg.User = guiUser
+		log.Println("Overriding GUI authentication user name:", guiUser)
+		changed = true
+	}
+
+	if guiPassword != "" && guiCfg.Password != guiPassword {
+		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
+			log.Fatal("Failed to set GUI authentication password.")
+		} else {
+			log.Println("Overriding GUI authentication password.")
+			changed = true
+		}
+	}
+	return changed
 }

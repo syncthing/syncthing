@@ -338,7 +338,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.GenerateDir != "" {
-		if err := generate.Generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
+		if err := generate.Generate(options.GenerateDir, "", "", options.NoDefaultFolder); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
