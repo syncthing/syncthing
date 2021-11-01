@@ -746,6 +746,9 @@ func TestGUIPasswordHash(t *testing.T) {
 	if err := c.HashAndSetPassword(testPass); err != nil {
 		t.Fatal(err)
 	}
+	if c.Password == testPass {
+		t.Error("Password hashing resulted in plaintext")
+	}
 
 	if err := c.CompareHashedPassword(testPass); err != nil {
 		t.Errorf("No match on same password: %v", err)
