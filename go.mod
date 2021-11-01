@@ -22,7 +22,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/greatroar/blobloom v0.7.0
+	github.com/greatroar/blobloom v0.7.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jackpal/gateway v1.0.7
 	github.com/jackpal/go-nat-pmp v1.0.2
