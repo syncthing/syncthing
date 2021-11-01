@@ -117,12 +117,12 @@ func (c GUIConfiguration) URL() string {
 
 // SetHashedPassword hashes the given plaintext password and stores the new hash.  A raw
 // copy of the updated hash bytes is returned as well.
-func (c *GUIConfiguration) SetHashedPassword(password string) ([]byte, error) {
+func (c *GUIConfiguration) SetHashedPassword(password string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
 	if err == nil {
 		c.Password = string(hash)
 	}
-	return hash, err
+	return err
 }
 
 // CompareHashedPassword returns nil when the given plaintext password matches the stored hash.
