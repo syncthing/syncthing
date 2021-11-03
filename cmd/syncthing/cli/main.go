@@ -75,7 +75,7 @@ func Run() error {
 			Usage: "Set configuration and data directory",
 		},
 		cli.StringFlag{
-			Name:  "conf",
+			Name:  "config",
 			Value: "PATH",
 			Usage: "Set configuration directory (config and keys)",
 		},
