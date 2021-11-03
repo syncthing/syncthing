@@ -1098,7 +1098,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	tilde := "."
-	if runtime.GOOS == "ios" {
+	if runtime.GOOS != "ios" {
 		tilde, _ = fs.ExpandTilde("~")
 	}
 	res := make(map[string]interface{})
