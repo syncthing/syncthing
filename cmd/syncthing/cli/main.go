@@ -75,6 +75,10 @@ func Run() error {
 			Name:  "config",
 			Usage: "Set configuration directory (config and keys) to `PATH`",
 		},
+		cli.StringFlag{
+			Name:  "data",
+			Usage: "Set data directory (database and logs) to `PATH`",
+		},
 	}
 
 	// Construct the actual CLI
