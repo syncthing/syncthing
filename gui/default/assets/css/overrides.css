@@ -41,6 +41,12 @@ ul+h5 {
     float: none; /* issue #1197 */
 }
 
+#advancedAccordion input.form-control[type="checkbox"] {
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+}
+
 .popover {
     max-width: none;
     min-width: 250px;
@@ -114,7 +120,8 @@ table.table-dynamic {
     word-break: break-all;
 }
 
-table.table-condensed td {
+table.table-condensed td,
+table.table-condensed th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -357,7 +364,8 @@ ul.three-columns li, ul.two-columns li {
         overflow-y: scroll;
     }
 
-    table.table-condensed td {
+    table.table-condensed td,
+    table.table-condensed th {
         /* for mobile phones to allow linebreaks in long repro folder/shared with
         * columns. */
         white-space: normal;
@@ -428,4 +436,16 @@ ul.three-columns li, ul.two-columns li {
 
 .form-horizontal {
     margin-bottom: 10px;
+}
+
+/* Use the same style as Bootstrap uses for disabled <select>. */
+.form-control option[disabled] {
+    background-color: #eeeeee;
+    opacity: 1;
+}
+
+/* Make a "well" look more like a readonly text input when grouped with a button */
+.input-group .well-sm {
+  padding-top: 6px;
+  padding-bottom: 6px;
 }

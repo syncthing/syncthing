@@ -23,18 +23,21 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/julienschmidt/httprouter"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -56,9 +59,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
-// matches a bcrypt hash and not too much else
-var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
-
 var GetSuppressedSpec = ""
 var PostSuppressedSpec = ""
 
@@ -71,7 +71,6 @@ const (
 	EventSubBufferSize    = 1000
 	defaultEventTimeout   = time.Minute
 	httpsCertLifetimeDays = 820
-	featureFlagUntrusted  = "untrusted"
 )
 
 type service struct {
@@ -111,7 +110,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 	return &service{
 		id:      id,
 		cfg:     cfg,
-		statics: newStaticsServer(cfg.GUI().Theme, assetDir, cfg.Options().FeatureFlag(featureFlagUntrusted)),
+		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:   m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			DefaultEventMask: defaultSub,
@@ -159,13 +158,17 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		if err != nil {
 			name = s.tlsDefaultCommonName
 		}
+		name, err = sanitizedHostname(name)
+		if err != nil {
+			name = s.tlsDefaultCommonName
+		}
 
 		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
 	}
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg := tlsutil.SecureDefaultWithTLS12()
 	tlsCfg.Certificates = []tls.Certificate{cert}
 
 	if guiCfg.Network() == "unix" {
@@ -296,21 +299,27 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
+	// The DELETE handlers
+	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
+	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
+
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
 		Router: restMux,
 		id:     s.id,
 		cfg:    s.cfg,
-		mut:    sync.NewMutex(),
 	}
 
 	configBuilder.registerConfig("/rest/config")
-	configBuilder.registerConfigInsync("/rest/config/insync")
+	configBuilder.registerConfigInsync("/rest/config/insync") // deprecated
+	configBuilder.registerConfigRequiresRestart("/rest/config/restart-required")
 	configBuilder.registerFolders("/rest/config/folders")
 	configBuilder.registerDevices("/rest/config/devices")
 	configBuilder.registerFolder("/rest/config/folders/:id")
 	configBuilder.registerDevice("/rest/config/devices/:id")
+	configBuilder.registerDefaultFolder("/rest/config/defaults/folder")
+	configBuilder.registerDefaultDevice("/rest/config/defaults/device")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
 	configBuilder.registerGUI("/rest/config/gui")
@@ -464,10 +473,6 @@ func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
-
-	if untrusted := to.Options.FeatureFlag(featureFlagUntrusted); untrusted != from.Options.FeatureFlag(featureFlagUntrusted) {
-		s.statics.setUntrusted(untrusted)
-	}
 
 	if to.GUI == from.GUI {
 		// No GUI changes, we're done here.
@@ -673,6 +678,21 @@ func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, devices)
 }
 
+func (s *service) deletePendingDevices(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := s.model.DismissPendingDevice(deviceID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
@@ -689,6 +709,22 @@ func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, folders)
+}
+
+func (s *service) deletePendingFolders(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	folderID := qs.Get("folder")
+
+	if err := s.model.DismissPendingFolder(deviceID, folderID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -708,7 +744,7 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
-		"os":          build.OS,
+		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 		"isBeta":      build.IsBeta,
 		"isCandidate": build.IsCandidate,
@@ -753,14 +789,19 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	prefix := qs.Get("prefix")
-	dirsonly := qs.Get("dirsonly") != ""
+	dirsOnly := qs.Get("dirsonly") != ""
 
 	levels, err := strconv.Atoi(qs.Get("levels"))
 	if err != nil {
 		levels = -1
 	}
+	result, err := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsOnly)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	sendJSON(w, s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly))
+	sendJSON(w, result)
 }
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
@@ -781,7 +822,15 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sendJSON(w, s.model.Completion(device, folder).Map())
+	if comp, err := s.model.Completion(device, folder); err != nil {
+		status := http.StatusInternalServerError
+		if isFolderNotFound(err) {
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
+	} else {
+		sendJSON(w, comp.Map())
+	}
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
@@ -913,8 +962,25 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
-	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+
+	errStatus := http.StatusInternalServerError
+	gf, gfOk, err := s.model.CurrentGlobalFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
+
+	lf, lfOk, err := s.model.CurrentFolderFile(folder, file)
+	if err != nil {
+		if isFolderNotFound(err) {
+			errStatus = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), errStatus)
+		return
+	}
 
 	if !(gfOk || lfOk) {
 		// This file for sure does not exist.
@@ -922,11 +988,20 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	av, err := s.model.Availability(folder, gf, protocol.BlockInfo{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
+
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": mtimeMapping,
+		},
 	})
 }
 
@@ -941,6 +1016,8 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
+
 	lf, _ := snap.Get(protocol.LocalDeviceID, file)
 	gf, _ := snap.GetGlobal(file)
 	av := snap.Availability(file)
@@ -951,6 +1028,10 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 		"local":          jsonFileInfo(lf),
 		"availability":   av,
 		"globalVersions": vl.String(),
+		"mtime": map[string]interface{}{
+			"err":   mtimeErr,
+			"value": mtimeMapping,
+		},
 	})
 }
 
@@ -977,12 +1058,18 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	if len(folder) == 0 {
 		// Reset all folders.
 		for folder := range s.cfg.Folders() {
-			s.model.ResetFolder(folder)
+			if err := s.model.ResetFolder(folder); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
 		// Reset a specific folder, assuming it's supposed to exist.
-		s.model.ResetFolder(folder)
+		if err := s.model.ResetFolder(folder); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
@@ -1011,7 +1098,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	tilde := "."
-	if !build.IsIOS() {
+	if runtime.GOOS != "ios" {
 		tilde, _ = fs.ExpandTilde("~")
 	}
 	res := make(map[string]interface{})
@@ -1022,16 +1109,16 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["tilde"] = tilde
 	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
-		discoErrors := make(map[string]string)
-		discoMethods := 0
-		for disco, err := range s.discoverer.ChildErrors() {
-			discoMethods++
-			if err != nil {
-				discoErrors[disco] = err.Error()
+		discoStatus := s.discoverer.ChildErrors()
+		res["discoveryStatus"] = discoveryStatusMap(discoStatus)
+		res["discoveryMethods"] = len(discoStatus) // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
+		discoErrors := make(map[string]*string, len(discoStatus))
+		for s, e := range discoStatus {
+			if e != nil {
+				discoErrors[s] = errorString(e)
 			}
 		}
-		res["discoveryMethods"] = discoMethods
-		res["discoveryErrors"] = discoErrors
+		res["discoveryErrors"] = discoErrors // DEPRECATED: Redundant, only for backwards compatibility, should be removed.
 	}
 
 	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
@@ -1140,7 +1227,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
-		"os":          build.OS,
+		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	}, "", "  "); err == nil {
 		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
@@ -1149,7 +1236,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if r, err := s.urService.ReportData(context.TODO()); err != nil {
+	if r, err := s.urService.ReportDataPreview(r.Context(), ur.Version); err != nil {
 		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
 	} else {
 		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {
@@ -1162,14 +1249,14 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	runtime.GC()
 	if err := pprof.WriteHeapProfile(&heapBuffer); err == nil {
 		files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
 	}
 
 	const duration = 4 * time.Second
-	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	if err := pprof.StartCPUProfile(&cpuBuffer); err == nil {
 		time.Sleep(duration)
 		pprof.StopCPUProfile()
@@ -1263,7 +1350,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	lines, patterns, err := s.model.GetIgnores(folder)
+	lines, patterns, err := s.model.LoadIgnores(folder)
 	if err != nil && !ignore.IsParseError(err) {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1447,31 +1534,36 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		var qs = r.URL.Query()
 		var deviceStr = qs.Get("device")
 
-		var cfgs []config.DeviceConfiguration
-
-		if deviceStr == "" {
-			for _, cfg := range s.cfg.Devices() {
-				cfg.Paused = paused
-				cfgs = append(cfgs, cfg)
+		var msg string
+		var status int
+		_, err := s.cfg.Modify(func(cfg *config.Configuration) {
+			if deviceStr == "" {
+				for i := range cfg.Devices {
+					cfg.Devices[i].Paused = paused
+				}
+				return
 			}
-		} else {
+
 			device, err := protocol.DeviceIDFromString(deviceStr)
 			if err != nil {
-				http.Error(w, err.Error(), 500)
+				msg = err.Error()
+				status = 500
 				return
 			}
 
-			cfg, ok := s.cfg.Devices()[device]
+			_, i, ok := cfg.Device(device)
 			if !ok {
-				http.Error(w, "not found", http.StatusNotFound)
+				msg = "not found"
+				status = http.StatusNotFound
 				return
 			}
 
-			cfg.Paused = paused
-			cfgs = append(cfgs, cfg)
-		}
+			cfg.Devices[i].Paused = paused
+		})
 
-		if _, err := s.cfg.SetDevices(cfgs); err != nil {
+		if msg != "" {
+			http.Error(w, msg, status)
+		} else if err != nil {
 			http.Error(w, err.Error(), 500)
 		}
 	}
@@ -1531,7 +1623,12 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if _, ok := s.model.Connection(device); ok {
-				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
+				comp, err := s.model.Completion(device, folder.ID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				tot[deviceStr] += comp.CompletionPct
 			} else {
 				tot[deviceStr] = 0
 			}
@@ -1579,7 +1676,7 @@ func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	sendJSON(w, ferr)
+	sendJSON(w, errorStringMap(ferr))
 }
 
 func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
@@ -1697,7 +1794,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 		duration = 30 * time.Second
 	}
 
-	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
@@ -1709,7 +1806,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", build.OS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
@@ -1805,8 +1902,13 @@ func addressIsLocalhost(addr string) bool {
 		// There was no port, so we assume the address was just a hostname
 		host = addr
 	}
-	switch strings.ToLower(host) {
-	case "localhost", "localhost.":
+	host = strings.ToLower(host)
+	switch {
+	case host == "localhost":
+		return true
+	case host == "localhost.":
+		return true
+	case strings.HasSuffix(host, ".localhost"):
 		return true
 	default:
 		ip := net.ParseIP(host)
@@ -1873,10 +1975,77 @@ func shouldRegenerateCertificate(cert tls.Certificate) error {
 	return nil
 }
 
+func errorStringMap(errs map[string]error) map[string]*string {
+	out := make(map[string]*string, len(errs))
+	for s, e := range errs {
+		out[s] = errorString(e)
+	}
+	return out
+}
+
 func errorString(err error) *string {
 	if err != nil {
 		msg := err.Error()
 		return &msg
 	}
 	return nil
+}
+
+type discoveryStatusEntry struct {
+	Error *string `json:"error"`
+}
+
+func discoveryStatusMap(errs map[string]error) map[string]discoveryStatusEntry {
+	out := make(map[string]discoveryStatusEntry, len(errs))
+	for s, e := range errs {
+		out[s] = discoveryStatusEntry{
+			Error: errorString(e),
+		}
+	}
+	return out
+}
+
+// sanitizedHostname returns the given name in a suitable form for use as
+// the common name in a certificate, or an error.
+func sanitizedHostname(name string) (string, error) {
+	// Remove diacritics and non-alphanumerics. This works by first
+	// transforming into normalization form D (things with diacriticals are
+	// split into the base character and the mark) and then removing
+	// undesired characters.
+	t := transform.Chain(
+		// Split runes with diacritics into base character and mark.
+		norm.NFD,
+		// Leave only [A-Za-z0-9-.].
+		runes.Remove(runes.Predicate(func(r rune) bool {
+			return r > unicode.MaxASCII ||
+				!unicode.IsLetter(r) && !unicode.IsNumber(r) &&
+					r != '.' && r != '-'
+		})))
+	name, _, err := transform.String(t, name)
+	if err != nil {
+		return "", err
+	}
+
+	// Name should not start or end with a dash or dot.
+	name = strings.Trim(name, "-.")
+
+	// Name should not be empty.
+	if name == "" {
+		return "", errors.New("no suitable name")
+	}
+
+	return strings.ToLower(name), nil
+}
+
+func isFolderNotFound(err error) bool {
+	for _, target := range []error{
+		model.ErrFolderMissing,
+		model.ErrFolderPaused,
+		model.ErrFolderNotRunning,
+	} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
 }

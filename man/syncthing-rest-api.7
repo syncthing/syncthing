@@ -1,8 +1,5 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Dec 30, 2020" "v1" "Syncthing"
-.SH NAME
-syncthing-rest-api \- REST API
 .
 .nr rst2man-indent-level 0
 .
@@ -30,6 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.TH "SYNCTHING-REST-API" "7" "Oct 17, 2021" "v1" "Syncthing"
+.SH NAME
+syncthing-rest-api \- REST API
 .sp
 Syncthing exposes a REST interface over HTTP on the GUI port. This is used by
 the GUI (from Javascript) and can be used by other processes wishing to control
@@ -165,13 +165,6 @@ Returns the current configuration.
       "maxSendKbps": 0,
       "maxRecvKbps": 0,
       "ignoredFolders": [],
-      "pendingFolders": [
-        {
-          "time": "2019\-06\-05T10:21:22+02:00",
-          "id": "cpkn4\-57ysy",
-          "label": "SomeonesFolder"
-        }
-      ],
       "maxRequestKiB": 0
     }
   ],
@@ -252,8 +245,7 @@ Returns the current configuration.
     "databaseTuning": "auto",
     "maxConcurrentIncomingRequestKiB": 0
   },
-  "remoteIgnoredDevices": [],
-  "pendingDevices": []
+  "remoteIgnoredDevices": []
 }
 .ft P
 .fi
@@ -551,7 +543,7 @@ information for that folder will be erased:
 .sp
 .nf
 .ft C
-$ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=default
+$ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
 .ft P
 .fi
 .UNINDENT
@@ -611,6 +603,32 @@ Returns information about current system status and resource usage. The CPU perc
     "global@https://discovery\-v6\-2.syncthing.net/v2/": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host",
     "global@https://discovery\-v6\-3.syncthing.net/v2/": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
   },
+  "discoveryStatus": {
+    "IPv4 local": {
+      "error": null
+    },
+    "IPv6 local": {
+      "error": null
+    },
+    "global@https://discovery\-v4\-1.syncthing.net/v2/": {
+      "error": "500 Internal Server Error"
+    },
+    "global@https://discovery\-v4\-2.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    },
+    "global@https://discovery\-v4\-3.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    },
+    "global@https://discovery\-v6\-1.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host"
+    },
+    "global@https://discovery\-v6\-2.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host"
+    },
+    "global@https://discovery\-v6\-3.syncthing.net/v2/": {
+      "error": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
+    }
+  },
   "discoveryMethods": 8,
   "goroutines": 49,
   "lastDialStatus": {
@@ -648,6 +666,14 @@ success) for each peer address that Syncthing has attempted to contact.
 The \fBconnectionServiceStatus\fP entries gained \fB"error": null\fP
 attributes where previously there would be no \fBerror\fP attribute at all
 in the success case.
+
+.sp
+New in version 1.18.0: The \fBdiscoveryStatus\fP dictionary lists all configured discovery methods, not
+only failed ones like the now deprecated \fBdiscoveryErrors\fP\&.  Each entry is
+an object itself (for consistency with other fields), where a \fBnull\fP value
+for the \fBerror\fP attribute means the method is running successfully.  This
+effectively deprecates the \fBdiscoveryMethods\fP attribute as well, which now
+always matches the number of entries in \fBdiscoveryStatus\fP\&.
 
 .SS GET /rest/system/upgrade
 .sp
@@ -699,22 +725,22 @@ New in version 1.12.0.
 These endpoints facilitate access and modification of the configuration in a granular way. Config sent to the endpoints must be in the same
 format as returned by the corresponding GET request. When posting the
 configuration succeeds, the posted configuration is immediately applied, except
-for changes that require a restart. Query \fI\%/rest/system/config/insync\fP to check if
+for changes that require a restart. Query \fI\%/rest/config/restart\-required\fP to check if
 a restart is required.
 .sp
 For all endpoints supporting \fBPATCH\fP, it takes the existing config and
 unmarshals the given JSON object on top of it. This means all child objects will
 replace the existing objects, not extend them. For example for
-\fBRawListenAddresses\(ga in options, which is an array of strings, sending
-\(ga\(ga{RawListenAddresses: ["tcp://10.0.0.2"]\fP will replace all existing listen
+\fBRawListenAddresses\fP in options, which is an array of strings, sending
+\fB{RawListenAddresses: ["tcp://10.0.0.2"]}\fP will replace all existing listen
 addresses.
 .SS /rest/config
 .sp
 \fBGET\fP returns the entire config and \fBPUT\fP replaces it.
-.SS /rest/system/config/insync
+.SS /rest/config/restart\-required
 .sp
-\fBGET\fP returns whether the config is in sync, i.e. whether the running configuration is
-the same as that on disk or if a restart is required.
+\fBGET\fP returns whether a restart of Syncthing is required for the current
+config to take effect.
 .SS /rest/config/folders, /rest/config/devices
 .sp
 \fBGET\fP returns all folders respectively devices as an array. \fBPUT\fP takes an array and
@@ -723,12 +749,138 @@ it’s replaced, otherwise a new one is added.
 .SS /rest/config/folders/*id*, /rest/config/devices/*id*
 .sp
 Put the desired folder\- respectively device\-ID in place of *id*. \fBGET\fP
-returns the folder/device for the given ID, \fBPUT\fP replaces the entire config
-and \fBPATCH\fP replaces only the given child objects.
+returns the folder/device for the given ID, \fBPUT\fP replaces the entire config,
+\fBPATCH\fP replaces only the given child objects and \fBDELETE\fP removes the
+folder/device.
 .SS /rest/config/options, /rest/config/ldap, /rest/config/gui
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and
 \fBPATCH\fP replaces only the given child objects.
+.SH CLUSTER ENDPOINTS
+.sp
+Concerns the mesh network structure.
+.SS DELETE /rest/cluster/pending/devices
+.sp
+New in version 1.18.0.
+
+.sp
+Remove records about a pending remote device which tried to connect.
+Valid values for the \fBdevice\fP parameter are those from the
+corresponding /rest/cluster\-pending\-devices\-get endpoint.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/devices?device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Returns status 200 and no content upon success, or status 500 and a
+plain text error on failure.  A /events/pendingdeviceschanged
+event will be generated in response.
+.sp
+For a more permanent effect, also for future connections from the same
+device ID, the device should be ignored in the configuration instead.
+.SS GET /rest/cluster/pending/devices
+.sp
+New in version 1.13.0.
+
+.sp
+Lists remote devices which have tried to connect, but are not yet
+configured in our instance.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+    "time": "2020\-03\-18T11:43:07Z",
+    "name": "Friend Joe",
+    "address": "192.168.1.2:22000"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS DELETE /rest/cluster/pending/folders
+.sp
+New in version 1.18.0.
+
+.sp
+Remove records about a pending folder announced from a remote device.
+Valid values for the \fBfolder\fP and \fBdevice\fP parameters are those
+from the corresponding /rest/cluster\-pending\-folders\-get
+endpoint.  The \fBdevice\fP parameter is optional and affects
+announcements of this folder from the given device, or from \fIany\fP
+device if omitted.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/folders?folder=cpkn4\-57ysy&device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Returns status 200 and no content upon success, or status 500 and a
+plain text error on failure.  A /events/pendingfolderschanged
+event will be generated in response.
+.sp
+For a more permanent effect, also for future announcements of the same
+folder ID, the folder should be ignored in the configuration instead.
+.SS GET /rest/cluster/pending/folders
+.sp
+New in version 1.13.0.
+
+.sp
+Lists folders which remote devices have offered to us, but are not yet
+shared from our instance to them.  Takes the optional \fBdevice\fP
+parameter to only return folders offered by a specific remote device.
+Other offering devices are also omitted from the result.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "cpkn4\-57ysy": {
+    "offeredBy": {
+      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+        "time": "2020\-03\-18T11:43:07Z",
+        "label": "Joe\(aqs folder",
+        "receiveEncrypted": true,
+        "remoteEncrypted": false
+      },
+      "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA": {
+        "time": "2020\-03\-01T10:12:13Z",
+        "label": "Jane\(aqs and Joe\(aqs folder",
+        "receiveEncrypted": false,
+        "remoteEncrypted": false
+      }
+    }
+  },
+  "abcde\-fghij": {
+    "offeredBy": {
+      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+        "time": "2020\-03\-18T11:43:07Z",
+        "label": "MyPics",
+        "receiveEncrypted": false,
+        "remoteEncrypted": false
+      }
+    }
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH DATABASE ENDPOINTS
 .SS GET /rest/db/browse
 .sp
@@ -747,42 +899,53 @@ start building the structure.
 .sp
 .nf
 .ft C
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default | json_pp
-{
-   "directory": {
-      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-      "subdirectory": {
-         "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
-      }
-   },
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=0 | json_pp
-{
-   "directory": {},
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&levels=1 | json_pp
-{
-   "directory": {
-      "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-      "subdirectory": {}
-   },
-   "rootfile": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory/subdirectory | json_pp
-{
-   "another file": ["2015\-04\-20T22:20:45+09:00", 130940928]
-}
-
-$ curl \-s http://localhost:8384/rest/db/browse?folder=default&prefix=directory&levels=0 | json_pp
-{
-   "file": ["2015\-04\-20T22:20:45+09:00", 130940928],
-   "subdirectory": {}
-}
+$ curl \-s http://localhost:8384/rest/db/browse?folder=j663y\-3ct3e&prefix=DCIM&levels=2
+[
+    {
+        "modTime" : "2020\-10\-02T23:48:52.076996974+02:00",
+        "name" : "100ANDRO",
+        "size" : 128,
+        "type" : "FILE_INFO_TYPE_DIRECTORY"
+    },
+    {
+        "children" : [
+            {
+                "modTime" : "2020\-12\-16T23:31:34.5009668+01:00",
+                "name" : "IMG_20201114_124821.jpg",
+                "size" : 10682189,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-16T23:31:35.0106367+01:00",
+                "name" : "IMG_20201213_122451.jpg",
+                "size" : 7936351,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:25:05.017097469+01:00",
+                "name" : "IMG_20201213_122504.jpg",
+                "size" : 8406507,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:25:06.127097469+01:00",
+                "name" : "IMG_20201213_122505.jpg",
+                "size" : 8381931,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+            {
+                "modTime" : "2020\-12\-13T12:53:29.707298401+01:00",
+                "name" : "IMG_20201213_125329.jpg",
+                "size" : 4388331,
+                "type" : "FILE_INFO_TYPE_FILE"
+            },
+        ],
+        "modTime" : "2020\-10\-09T13:04:42.4410738+02:00",
+        "name" : "Camera",
+        "size" : 128,
+        "type" : "FILE_INFO_TYPE_DIRECTORY"
+    },
+]
 .ft P
 .fi
 .UNINDENT

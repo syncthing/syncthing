@@ -8,6 +8,7 @@ stdiscosrv.exe
 *.deb
 .*.swp
 .*.swo
+*.orig
 .jshintrc
 coverage.out
 files/pidx
@@ -20,3 +21,5 @@ deb
 *.bz2
 /repos
 /proto/scripts/protoc-gen-gosyncthing
+/gui/next-gen-gui
+.idea

@@ -4,9 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../proto/scripts/protofmt.go local.proto
-//go:generate protoc -I ../../ -I . --gogofast_out=. local.proto
-
 package discover
 
 import (
@@ -117,19 +114,18 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 		return msg, false
 	}
 
-	if cap(msg) >= 4 {
-		msg = msg[:4]
-	} else {
-		msg = make([]byte, 4)
-	}
-	binary.BigEndian.PutUint32(msg, Magic)
-
 	pkt := Announce{
 		ID:         c.myID,
 		Addresses:  addrs,
 		InstanceID: instanceID,
 	}
 	bs, _ := pkt.Marshal()
+
+	if pktLen := 4 + len(bs); cap(msg) < pktLen {
+		msg = make([]byte, 0, pktLen)
+	}
+	msg = msg[:4]
+	binary.BigEndian.PutUint32(msg, Magic)
 	msg = append(msg, bs...)
 
 	return msg, true

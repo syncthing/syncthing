@@ -36,7 +36,7 @@ const (
 	// KeyTypeFolderStatistic <folder ID as string> <some string> = some value
 	KeyTypeFolderStatistic byte = 4
 
-	// KeyTypeVirtualMtime <int32 folder ID> <file name> = dbMtime
+	// KeyTypeVirtualMtime <int32 folder ID> <file name> = mtimeMapping
 	KeyTypeVirtualMtime byte = 5
 
 	// KeyTypeFolderIdx <int32 id> = string value

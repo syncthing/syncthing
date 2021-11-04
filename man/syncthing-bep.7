@@ -1,8 +1,5 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "Dec 30, 2020" "v1" "Syncthing"
-.SH NAME
-syncthing-bep \- Block Exchange Protocol v1
 .
 .nr rst2man-indent-level 0
 .
@@ -30,6 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.TH "SYNCTHING-BEP" "7" "Oct 17, 2021" "v1" "Syncthing"
+.SH NAME
+syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
 .sp
 The Block Exchange Protocol (BEP) is used between two or more \fIdevices\fP thus
@@ -302,6 +302,7 @@ message Device {
     bool            introducer                 = 7;
     uint64          index_id                   = 8;
     bool            skip_introduction_removals = 9;
+    bytes           encryption_password_token  = 10;
 }
 
 enum Compression {
@@ -383,6 +384,12 @@ index data. See \fI\%Delta Index Exchange\fP for the usage of this field.
 The \fBskip introduction removals\fP field signifies if the remote device has
 opted to ignore introduction removals for the given device. This setting is
 copied across as we are being introduced to a new device.
+.sp
+The \fBenc pw token\fP field contains a token derived from the password, that is
+used to encrypt data sent to this device. If the device is the same as the
+device sending the message, it signifies that the device itself has encrypted
+data that was encrypted with the given token. It is empty or missing if there is
+no encryption. See untrusted for details on the encryption scheme.
 .SS Index and Index Update
 .sp
 The Index and Index Update messages define the contents of the senders

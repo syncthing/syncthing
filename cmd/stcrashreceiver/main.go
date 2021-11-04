@@ -19,10 +19,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
-	"time"
+	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/ur"
@@ -33,7 +32,7 @@ import (
 const maxRequestSize = 1 << 20 // 1 MiB
 
 func main() {
-	dir := flag.String("dir", ".", "Directory to store reports in")
+	dir := flag.String("dir", ".", "Parent directory to store crash and failure reports in")
 	dsn := flag.String("dsn", "", "Sentry DSN")
 	listen := flag.String("listen", ":22039", "HTTP listen address")
 	flag.Parse()
@@ -41,13 +40,13 @@ func main() {
 	mux := http.NewServeMux()
 
 	cr := &crashReceiver{
-		dir: *dir,
+		dir: filepath.Join(*dir, "crash_reports"),
 		dsn: *dsn,
 	}
 	mux.Handle("/", cr)
 
 	if *dsn != "" {
-		mux.HandleFunc("/failure", handleFailureFn(*dsn))
+		mux.HandleFunc("/newcrash/failure", handleFailureFn(*dsn, filepath.Join(*dir, "failure_reports")))
 	}
 
 	log.SetOutput(os.Stdout)
@@ -56,7 +55,7 @@ func main() {
 	}
 }
 
-func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) {
+func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		lr := io.LimitReader(req.Body, maxRequestSize)
 		bs, err := ioutil.ReadAll(lr)
@@ -84,12 +83,25 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 		for _, r := range reports {
-			pkt := packet(version)
+			pkt := packet(version, "failure")
 			pkt.Message = r.Description
 			pkt.Extra = raven.Extra{
 				"count": r.Count,
 			}
-			pkt.Fingerprint = []string{r.Description}
+			for k, v := range r.Extra {
+				pkt.Extra[k] = v
+			}
+			if len(r.Goroutines) != 0 {
+				url, err := saveFailureWithGoroutines(r.FailureData, failureDir)
+				if err != nil {
+					log.Println("Saving failure report:", err)
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+					return
+				}
+				pkt.Extra["goroutinesURL"] = url
+			}
+			message := sanitizeMessageLDB(r.Description)
+			pkt.Fingerprint = []string{message}
 
 			if err := sendReport(dsn, pkt, userIDFor(req)); err != nil {
 				log.Println("Failed to send failure report:", err)
@@ -100,19 +112,15 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-// userIDFor returns a string we can use as the user ID for the purpose of
-// counting affected users. It's the truncated hash of a salt, the user
-// remote IP, and the current month.
-func userIDFor(req *http.Request) string {
-	addr := req.RemoteAddr
-	if fwd := req.Header.Get("x-forwarded-for"); fwd != "" {
-		addr = fwd
+func saveFailureWithGoroutines(data ur.FailureData, failureDir string) (string, error) {
+	bs := make([]byte, len(data.Description)+len(data.Goroutines))
+	copy(bs, data.Description)
+	copy(bs[len(data.Description):], data.Goroutines)
+	id := fmt.Sprintf("%x", sha256.Sum256(bs))
+	path := fullPathCompressed(failureDir, id)
+	err := compressAndWrite(bs, path)
+	if err != nil {
+		return "", err
 	}
-	if host, _, err := net.SplitHostPort(addr); err == nil {
-		addr = host
-	}
-	now := time.Now().Format("200601")
-	salt := "stcrashreporter"
-	hash := sha256.Sum256([]byte(salt + addr + now))
-	return fmt.Sprintf("%x", hash[:8])
+	return reportServer + path, nil
 }

@@ -225,50 +225,6 @@ func TestCopyMatching(t *testing.T) {
 	}
 }
 
-type mockedAddr struct {
-	network string
-	addr    string
-}
-
-func (a mockedAddr) Network() string {
-	return a.network
-}
-
-func (a mockedAddr) String() string {
-	return a.addr
-}
-
-func TestInspecifiedAddressLess(t *testing.T) {
-	cases := []struct {
-		netA  string
-		addrA string
-		netB  string
-		addrB string
-	}{
-		// B is assumed the winner.
-		{"tcp", "127.0.0.1:1234", "tcp", ":1235"},
-		{"tcp", "127.0.0.1:1234", "tcp", "0.0.0.0:1235"},
-		{"tcp4", "0.0.0.0:1234", "tcp", "0.0.0.0:1235"}, // tcp4 on the first one
-	}
-
-	for i, testCase := range cases {
-		addrs := []mockedAddr{
-			{testCase.netA, testCase.addrA},
-			{testCase.netB, testCase.addrB},
-		}
-
-		if AddressUnspecifiedLess(addrs[0], addrs[1]) {
-			t.Error(i, "unexpected")
-		}
-		if !AddressUnspecifiedLess(addrs[1], addrs[0]) {
-			t.Error(i, "unexpected")
-		}
-		if AddressUnspecifiedLess(addrs[0], addrs[0]) || AddressUnspecifiedLess(addrs[1], addrs[1]) {
-			t.Error(i, "unexpected")
-		}
-	}
-}
-
 func TestFillNil(t *testing.T) {
 	type A struct {
 		Slice []int

@@ -11,14 +11,17 @@ import (
 	"encoding/xml"
 	"sort"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
 // internalVersioningConfiguration is used in XML serialization
 type internalVersioningConfiguration struct {
-	Type             string          `xml:"type,attr,omitempty"`
-	Params           []internalParam `xml:"param"`
-	CleanupIntervalS int             `xml:"cleanupIntervalS" default:"3600"`
+	Type             string            `xml:"type,attr,omitempty"`
+	Params           []internalParam   `xml:"param"`
+	CleanupIntervalS int               `xml:"cleanupIntervalS" default:"3600"`
+	FSPath           string            `xml:"fsPath"`
+	FSType           fs.FilesystemType `xml:"fsType"`
 }
 
 type internalParam struct {
@@ -52,7 +55,7 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 	return nil
 }
 
-func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+func (c VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Using EncodeElement instead of plain Encode ensures that we use the
 	// outer tag name from the VersioningConfiguration (i.e.,
 	// `<versioning>`) rather than whatever the internal representation
@@ -64,6 +67,8 @@ func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
 	var tmp internalVersioningConfiguration
 	tmp.Type = c.Type
 	tmp.CleanupIntervalS = c.CleanupIntervalS
+	tmp.FSPath = c.FSPath
+	tmp.FSType = c.FSType
 	for k, v := range c.Params {
 		tmp.Params = append(tmp.Params, internalParam{k, v})
 	}
@@ -76,6 +81,8 @@ func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
 func (c *VersioningConfiguration) fromInternal(intCfg internalVersioningConfiguration) {
 	c.Type = intCfg.Type
 	c.CleanupIntervalS = intCfg.CleanupIntervalS
+	c.FSPath = intCfg.FSPath
+	c.FSType = intCfg.FSType
 	c.Params = make(map[string]string, len(intCfg.Params))
 	for _, p := range intCfg.Params {
 		c.Params[p.Key] = p.Val

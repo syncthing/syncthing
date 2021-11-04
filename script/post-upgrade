@@ -1,3 +1,0 @@
-#!/bin/sh
-
-pkill -HUP -x syncthing || true

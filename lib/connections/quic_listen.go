@@ -4,7 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.16
+//go:build go1.15 && !noquic
+// +build go1.15,!noquic
 
 package connections
 
@@ -13,7 +14,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,6 +47,7 @@ type quicListener struct {
 	factory listenerFactory
 
 	address *url.URL
+	laddr   net.Addr
 	mut     sync.Mutex
 }
 
@@ -79,17 +80,23 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 }
 
 func (t *quicListener) serve(ctx context.Context) error {
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+	network := quicNetwork(t.uri)
 
-	packetConn, err := net.ListenPacket(network, t.uri.Host)
+	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = packetConn.Close() }()
 
-	svc, conn := stun.New(t.cfg, t, packetConn)
-	defer func() { _ = conn.Close() }()
+	udpConn, err := net.ListenUDP(network, udpAddr)
+	if err != nil {
+		l.Infoln("Listen (BEP/quic):", err)
+		return err
+	}
+	defer func() { _ = udpConn.Close() }()
+
+	svc, conn := stun.New(t.cfg, t, udpConn)
+	defer conn.Close()
 
 	go svc.Serve(ctx)
 
@@ -101,12 +108,22 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	t.notifyAddressesChanged(t)
 	defer listener.Close()
+
+	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
+	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
+	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
+
+	t.mut.Lock()
+	t.laddr = udpConn.LocalAddr()
+	t.mut.Unlock()
+	defer func() {
+		t.mut.Lock()
+		t.laddr = nil
+		t.mut.Unlock()
+	}()
 
 	acceptFailures := 0
 	const maxAcceptFailures = 10
@@ -159,8 +176,8 @@ func (t *quicListener) URI() *url.URL {
 }
 
 func (t *quicListener) WANAddresses() []*url.URL {
-	uris := []*url.URL{t.uri}
 	t.mut.Lock()
+	uris := []*url.URL{maybeReplacePort(t.uri, t.laddr)}
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
@@ -169,9 +186,12 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	addrs := []*url.URL{t.uri}
-	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
-	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
+	t.mut.Lock()
+	uri := maybeReplacePort(t.uri, t.laddr)
+	t.mut.Unlock()
+	addrs := []*url.URL{uri}
+	network := quicNetwork(uri)
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, uri)...)
 	return addrs
 }
 

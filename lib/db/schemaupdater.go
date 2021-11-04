@@ -8,7 +8,6 @@ package db
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -21,7 +20,7 @@ import (
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
-	dbMigrationVersion    = 15
+	dbMigrationVersion    = 19
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -31,8 +30,6 @@ type migration struct {
 	minSyncthingVersion string
 	migration           func(prevSchema int) error
 }
-
-var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
 
 type databaseDowngradeError struct {
 	minSyncthingVersion string
@@ -103,7 +100,9 @@ func (db *schemaUpdater) updateSchema() error {
 		{11, 11, "v1.6.0", db.updateSchemaTo11},
 		{13, 13, "v1.7.0", db.updateSchemaTo13},
 		{14, 14, "v1.9.0", db.updateSchemaTo14},
-		{14, 15, "v1.9.0", db.migration15},
+		{14, 16, "v1.9.0", db.checkRepairMigration},
+		{14, 17, "v1.9.0", db.migration17},
+		{14, 19, "v1.9.0", db.dropIndexIDsMigration},
 	}
 
 	for _, m := range migrations {
@@ -245,8 +244,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			if err != nil && !backend.IsNotFound(err) {
 				return err
 			}
-			i := 0
-			i = sort.Search(len(fl.Versions), func(j int) bool {
+			i := sort.Search(len(fl.Versions), func(j int) bool {
 				return fl.Versions[j].Invalid
 			})
 			for ; i < len(fl.Versions); i++ {
@@ -530,7 +528,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	}
 	defer t.close()
 
-	if err := db.rewriteFiles(t); err != nil {
+	if err := rewriteFiles(t); err != nil {
 		return err
 	}
 
@@ -539,7 +537,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
+func rewriteFiles(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
@@ -697,12 +695,12 @@ func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 	defer t.close()
 
 	if prev < 12 {
-		if err := db.rewriteFiles(t); err != nil {
+		if err := rewriteFiles(t); err != nil {
 			return err
 		}
 	}
 
-	if err := db.rewriteGlobals(t); err != nil {
+	if err := rewriteGlobals(t); err != nil {
 		return err
 	}
 
@@ -729,6 +727,9 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		defer t.close()
 
 		key, err = t.keyer.GenerateDeviceFileKey(key, folder, protocol.LocalDeviceID[:], nil)
+		if err != nil {
+			return err
+		}
 		it, err := t.NewPrefixIterator(key)
 		if err != nil {
 			return err
@@ -748,7 +749,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 				continue
 			}
 
-			fi.SetMustRescan(protocol.LocalDeviceID.Short())
+			fi.SetMustRescan()
 			if err = t.putFile(it.Key(), fi); err != nil {
 				return err
 			}
@@ -757,7 +758,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 			if err != nil {
 				return err
 			}
-			key, _, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
+			key, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
 			if err != nil {
 				return err
 			}
@@ -773,16 +774,68 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 	return nil
 }
 
-func (db *schemaUpdater) migration15(_ int) error {
+func (db *schemaUpdater) checkRepairMigration(_ int) error {
 	for _, folder := range db.ListFolders() {
-		if _, err := db.recalcMeta(folder); err != nil {
+		_, err := db.getMetaAndCheckGCLocked(folder)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
+// migration17 finds all files that were pulled as invalid from an invalid
+// global and make sure they get scanned/pulled again.
+func (db *schemaUpdater) migration17(prev int) error {
+	if prev < 16 {
+		// Issue was introduced in migration to 16
+		return nil
+	}
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		meta, err := db.loadMetadataTracker(folderStr)
+		if err != nil {
+			return err
+		}
+		batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+			return db.updateLocalFiles(folder, fs, meta)
+		})
+		var innerErr error
+		err = t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(fi protocol.FileIntf) bool {
+			if fi.IsInvalid() && fi.FileLocalFlags() == 0 {
+				f := fi.(protocol.FileInfo)
+				f.SetMustRescan()
+				f.Version = protocol.Vector{}
+				batch.Append(f)
+				innerErr = batch.FlushIfFull()
+				return innerErr == nil
+			}
+			return true
+		})
+		if innerErr != nil {
+			return innerErr
+		}
+		if err != nil {
+			return err
+		}
+		if err := batch.Flush(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
+	return db.dropIndexIDs()
+}
+
+func rewriteGlobals(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeGlobal})
 	if err != nil {
 		return err
@@ -855,11 +908,9 @@ outer:
 			switch nfv.Version.Compare(fv.Version) {
 			case protocol.Equal:
 				newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
-				lastVersion = fv.Version
 				continue outer
 			case protocol.Lesser:
 				newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-				lastVersion = fv.Version
 				continue outer
 			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
 				// The version is invalid, i.e. it looses anyway,
@@ -869,7 +920,6 @@ outer:
 		}
 		// Couldn't insert into any existing versions
 		newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-		lastVersion = fv.Version
 		newPos++
 	}
 

@@ -38,6 +38,11 @@ func AsFatalErr(err error, status ExitStatus) *FatalErr {
 	}
 }
 
+func IsFatal(err error) bool {
+	ferr := &FatalErr{}
+	return errors.As(err, &ferr)
+}
+
 func (e *FatalErr) Error() string {
 	return e.Err.Error()
 }
@@ -93,11 +98,10 @@ type ServiceWithError interface {
 	suture.Service
 	fmt.Stringer
 	Error() error
-	SetError(error)
 }
 
 // AsService wraps the given function to implement suture.Service. In addition
-// it keeps track of the returned error and allows querying and setting that error.
+// it keeps track of the returned error and allows querying that error.
 func AsService(fn func(ctx context.Context) error, creator string) ServiceWithError {
 	return &service{
 		creator: creator,
@@ -133,30 +137,22 @@ func (s *service) Error() error {
 	return s.err
 }
 
-func (s *service) SetError(err error) {
-	s.mut.Lock()
-	s.err = err
-	s.mut.Unlock()
-}
-
 func (s *service) String() string {
 	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
 
 }
 
-type doneService struct {
-	fn func()
-}
+type doneService func()
 
-func (s *doneService) Serve(ctx context.Context) error {
+func (fn doneService) Serve(ctx context.Context) error {
 	<-ctx.Done()
-	s.fn()
+	fn()
 	return nil
 }
 
 // OnSupervisorDone calls fn when sup is done.
 func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
-	sup.Add(&doneService{fn})
+	sup.Add(doneService(fn))
 }
 
 func SpecWithDebugLogger(l logger.Logger) suture.Spec {
@@ -164,7 +160,7 @@ func SpecWithDebugLogger(l logger.Logger) suture.Spec {
 }
 
 func SpecWithInfoLogger(l logger.Logger) suture.Spec {
-	return spec(func(e suture.Event) { l.Infoln(e) })
+	return spec(infoEventHook(l))
 }
 
 func spec(eventHook suture.EventHook) suture.Spec {
@@ -173,5 +169,37 @@ func spec(eventHook suture.EventHook) suture.Spec {
 		Timeout:                  ServiceTimeout,
 		PassThroughPanics:        true,
 		DontPropagateTermination: false,
+	}
+}
+
+// infoEventHook prints service failures and failures to stop services at level
+// info. All other events and identical, consecutive failures are logged at
+// debug only.
+func infoEventHook(l logger.Logger) suture.EventHook {
+	var prevTerminate suture.EventServiceTerminate
+	return func(ei suture.Event) {
+		switch e := ei.(type) {
+		case suture.EventStopTimeout:
+			l.Infof("%s: Service %s failed to terminate in a timely manner", e.SupervisorName, e.ServiceName)
+		case suture.EventServicePanic:
+			l.Warnln("Caught a service panic, which shouldn't happen")
+			l.Infoln(e)
+		case suture.EventServiceTerminate:
+			msg := fmt.Sprintf("%s: service %s failed: %s", e.SupervisorName, e.ServiceName, e.Err)
+			if e.ServiceName == prevTerminate.ServiceName && e.Err == prevTerminate.Err {
+				l.Debugln(msg)
+			} else {
+				l.Infoln(msg)
+			}
+			prevTerminate = e
+			l.Debugln(e) // Contains some backoff statistics
+		case suture.EventBackoff:
+			l.Debugf("%s: exiting the backoff state.", e.SupervisorName)
+		case suture.EventResume:
+			l.Debugf("%s: too many service failures - entering the backoff state.", e.SupervisorName)
+		default:
+			l.Warnln("Unknown suture supervisor event type", e.Type())
+			l.Infoln(e)
+		}
 	}
 }

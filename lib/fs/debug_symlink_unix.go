@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build !windows && !ios
 // +build !windows,!ios
 
 package fs
@@ -18,7 +19,8 @@ import (
 // reason for existence is the Windows version, which allows creating
 // symlinks when non-elevated.
 func DebugSymlinkForTestsOnly(oldFs, newFs Filesystem, oldname, newname string) error {
-	if caseFs, ok := unwrapFilesystem(newFs).(*caseFilesystem); ok {
+	if fs, ok := unwrapFilesystem(newFs, filesystemWrapperTypeCase); ok {
+		caseFs := fs.(*caseFilesystem)
 		if err := caseFs.checkCase(newname); err != nil {
 			return err
 		}

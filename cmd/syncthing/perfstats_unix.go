@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build !solaris && !windows
 // +build !solaris,!windows
 
 package toplevel
@@ -18,10 +19,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func init() {
-	if innerProcess && os.Getenv("STPERFSTATS") != "" {
-		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
-	}
+func startPerfStats() {
+	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
 }
 
 func savePerfStats(file string) {

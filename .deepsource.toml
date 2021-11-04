@@ -1,0 +1,12 @@
+version = 1
+
+exclude_patterns = ["**/*.pb.go"]
+test_patterns = ["**/*_test.go"]
+
+[[analyzers]]
+name = "go"
+enabled = true
+
+  [analyzers.meta]
+  import_paths = ["github.com/syncthing/syncthing"]
+  build_tags = ["noassets"]

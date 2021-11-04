@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"time"
 )
 
@@ -69,14 +70,14 @@ func (f *mtimeFS) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual, err := f.load(name)
+	mtimeMapping, err := f.load(name)
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if mtimeMapping.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    mtimeMapping.Virtual,
 		}
 	}
 
@@ -89,14 +90,14 @@ func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual, err := f.load(name)
+	mtimeMapping, err := f.load(name)
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if mtimeMapping.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    mtimeMapping.Virtual,
 		}
 	}
 
@@ -106,15 +107,15 @@ func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 func (f *mtimeFS) Walk(root string, walkFn WalkFunc) error {
 	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
 		if info != nil {
-			real, virtual, loadErr := f.load(path)
+			mtimeMapping, loadErr := f.load(path)
 			if loadErr != nil && err == nil {
 				// The iterator gets to deal with the error
 				err = loadErr
 			}
-			if real == info.ModTime() {
+			if mtimeMapping.Real == info.ModTime() {
 				info = mtimeFileInfo{
 					FileInfo: info,
-					mtime:    virtual,
+					mtime:    mtimeMapping.Virtual,
 				}
 			}
 		}
@@ -146,12 +147,17 @@ func (f *mtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	return mtimeFile{fd, f}, nil
 }
 
-// "real" is the on disk timestamp
-// "virtual" is what want the timestamp to be
+func (f *mtimeFS) underlying() (Filesystem, bool) {
+	return f.Filesystem, true
+}
+
+func (f *mtimeFS) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeMtime
+}
 
 func (f *mtimeFS) save(name string, real, virtual time.Time) {
 	if f.caseInsensitive {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	if real.Equal(virtual) {
@@ -161,32 +167,31 @@ func (f *mtimeFS) save(name string, real, virtual time.Time) {
 		return
 	}
 
-	mtime := dbMtime{
-		real:    real,
-		virtual: virtual,
+	mtime := MtimeMapping{
+		Real:    real,
+		Virtual: virtual,
 	}
 	bs, _ := mtime.Marshal() // Can't fail
 	f.db.PutBytes(name, bs)
 }
 
-func (f *mtimeFS) load(name string) (real, virtual time.Time, err error) {
+func (f *mtimeFS) load(name string) (MtimeMapping, error) {
 	if f.caseInsensitive {
-		name = UnicodeLowercase(name)
+		name = UnicodeLowercaseNormalized(name)
 	}
 
 	data, exists, err := f.db.Bytes(name)
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return MtimeMapping{}, err
 	} else if !exists {
-		return time.Time{}, time.Time{}, nil
+		return MtimeMapping{}, nil
 	}
 
-	var mtime dbMtime
+	var mtime MtimeMapping
 	if err := mtime.Unmarshal(data); err != nil {
-		return time.Time{}, time.Time{}, err
+		return MtimeMapping{}, err
 	}
-
-	return mtime.real, mtime.virtual, nil
+	return mtime, nil
 }
 
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
@@ -211,43 +216,57 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual, err := f.fs.load(f.Name())
+	mtimeMapping, err := f.fs.load(f.Name())
 	if err != nil {
 		return nil, err
 	}
-	if real == info.ModTime() {
+	if mtimeMapping.Real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    virtual,
+			mtime:    mtimeMapping.Virtual,
 		}
 	}
 
 	return info, nil
 }
 
+// Used by copyRange to unwrap to the real file and access SyscallConn
 func (f mtimeFile) unwrap() File {
 	return f.File
 }
 
-// The dbMtime is our database representation
-
-type dbMtime struct {
-	real    time.Time
-	virtual time.Time
+// MtimeMapping represents the mapping as stored in the database
+type MtimeMapping struct {
+	// "Real" is the on disk timestamp
+	Real time.Time `json:"real"`
+	// "Virtual" is what want the timestamp to be
+	Virtual time.Time `json:"virtual"`
 }
 
-func (t *dbMtime) Marshal() ([]byte, error) {
-	bs0, _ := t.real.MarshalBinary()
-	bs1, _ := t.virtual.MarshalBinary()
+func (t *MtimeMapping) Marshal() ([]byte, error) {
+	bs0, _ := t.Real.MarshalBinary()
+	bs1, _ := t.Virtual.MarshalBinary()
 	return append(bs0, bs1...), nil
 }
 
-func (t *dbMtime) Unmarshal(bs []byte) error {
-	if err := t.real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
+func (t *MtimeMapping) Unmarshal(bs []byte) error {
+	if err := t.Real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
 		return err
 	}
-	if err := t.virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
+	if err := t.Virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
 		return err
 	}
 	return nil
+}
+
+func GetMtimeMapping(fs Filesystem, file string) (MtimeMapping, error) {
+	fs, ok := unwrapFilesystem(fs, filesystemWrapperTypeMtime)
+	if !ok {
+		return MtimeMapping{}, errors.New("failed to unwrap")
+	}
+	mtimeFs, ok := fs.(*mtimeFS)
+	if !ok {
+		return MtimeMapping{}, errors.New("unwrapping failed")
+	}
+	return mtimeFs.load(file)
 }

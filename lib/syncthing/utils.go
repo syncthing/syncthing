@@ -52,7 +52,12 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 		return config.Wrap(path, newCfg, myID, evLogger), nil
 	}
 
-	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.GetRelative(locations.DefFolder)))
+	fcfg := newCfg.Defaults.Folder.Copy()
+	fcfg.ID = "default"
+	fcfg.Label = "Default Folder"
+	fcfg.FilesystemType = fs.FilesystemTypeBasic
+	fcfg.Path = locations.GetRelative(locations.DefFolder)
+	newCfg.Folders = append(newCfg.Folders, fcfg)
 	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(path, newCfg, myID, evLogger), nil
 }

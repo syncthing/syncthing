@@ -20,10 +20,10 @@ message FolderDeviceConfiguration {
 }
 
 message FolderConfiguration {
-    string                             id                         = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr"];
+    string                             id                         = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr", (ext.nodefault) = true];
     string                             label                      = 2 [(ext.xml) = "label,attr", (ext.restart) = false];
     fs.FilesystemType                  filesystem_type            = 3;
-    string                             path                       = 4 [(ext.xml) = "path,attr"];
+    string                             path                       = 4 [(ext.xml) = "path,attr", (ext.default) = "~"];
     FolderType                         type                       = 5 [(ext.xml) = "type,attr"];
     repeated FolderDeviceConfiguration devices                    = 6;
     int32                              rescan_interval_s          = 7 [(ext.xml) = "rescanIntervalS,attr", (ext.default) = "60"];
@@ -31,7 +31,7 @@ message FolderConfiguration {
     int32                              fs_watcher_delay_s         = 9 [(ext.goname) = "FSWatcherDelayS", (ext.xml) = "fsWatcherDelayS,attr", (ext.default) = "10"];
     bool                               ignore_perms               = 10 [(ext.xml) = "ignorePerms,attr"];
     bool                               auto_normalize             = 11 [(ext.xml) = "autoNormalize,attr", (ext.default) = "true"];
-    Size                               min_disk_free              = 12;
+    Size                               min_disk_free              = 12 [(ext.default) = "1 %"];
     VersioningConfiguration            versioning                 = 13;
     int32                              copiers                    = 14;
     int32                              puller_max_pending_kib     = 15 [(ext.goname) = "PullerMaxPendingKiB", (ext.xml) = "pullerMaxPendingKiB", (ext.json) = "pullerMaxPendingKiB"];
@@ -40,7 +40,7 @@ message FolderConfiguration {
     bool                               ignore_delete              = 18;
     int32                              scan_progress_interval_s   = 19;
     int32                              puller_pause_s             = 20;
-    int32                              max_conflicts              = 21 [(ext.default) = "-1"];
+    int32                              max_conflicts              = 21 [(ext.default) = "10"];
     bool                               disable_sparse_files       = 22;
     bool                               disable_temp_indexes       = 23;
     bool                               paused                     = 24;

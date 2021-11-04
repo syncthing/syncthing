@@ -114,16 +114,20 @@ func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (ne
 
 func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) error {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
-	invs := make(chan protocol.SessionInvitation, 1)
-	c, err := NewClient(uri, certs, invs, timeout)
+	c, err := NewClient(uri, certs, timeout)
 	if err != nil {
-		close(invs)
 		return fmt.Errorf("creating client: %w", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	go c.Serve(ctx)
 	go func() {
-		c.Serve(ctx)
-		close(invs)
+		for {
+			select {
+			case <-c.Invitations():
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
 	defer cancel()
 

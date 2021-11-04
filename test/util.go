@@ -4,12 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
-	"crypto/md5"
 	cr "crypto/rand"
 	"errors"
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"unicode"
 
 	"github.com/syncthing/syncthing/lib/rc"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 func init() {
@@ -395,7 +396,7 @@ type fileInfo struct {
 	name string
 	mode os.FileMode
 	mod  int64
-	hash [16]byte
+	hash [sha256.Size]byte
 	size int64
 }
 
@@ -442,11 +443,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 			if err != nil {
 				return err
 			}
-			h := md5.New()
-			h.Write([]byte(tgt))
-			hash := h.Sum(nil)
-
-			copy(f.hash[:], hash)
+			f.hash = sha256.Sum256([]byte(tgt))
 		} else if info.IsDir() {
 			f = fileInfo{
 				name: rn,
@@ -463,7 +460,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				mod:  info.ModTime().Unix(),
 				size: info.Size(),
 			}
-			sum, err := md5file(path)
+			sum, err := sha256file(path)
 			if err != nil {
 				return err
 			}
@@ -490,14 +487,14 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 	return errc
 }
 
-func md5file(fname string) (hash [16]byte, err error) {
+func sha256file(fname string) (hash [sha256.Size]byte, err error) {
 	f, err := os.Open(fname)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 
-	h := md5.New()
+	h := sha256.New()
 	io.Copy(h, f)
 	hb := h.Sum(nil)
 	copy(hash[:], hb)

@@ -60,9 +60,8 @@ func TestUnionedConnection(t *testing.T) {
 				if n != 1 {
 					t.Errorf("%d: first read returned %d bytes, not 1", i, n)
 				}
-				// Check that we've nilled out the "first" thing
-				if conn.(*UnionedConnection).first != nil {
-					t.Errorf("%d: expected first read to clear out the `first` attribute", i)
+				if !conn.(*UnionedConnection).firstDone {
+					t.Errorf("%d: expected first read to set the `firstDone` attribute", i)
 				}
 			}
 			bs = append(bs, buf[:n]...)
@@ -98,7 +97,7 @@ func TestCheckCipherSuites(t *testing.T) {
 		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 	}
 
-	suites := buildCipherSuites()
+	suites := SecureDefaultWithTLS12().CipherSuites
 
 	if len(suites) != len(allSuites) {
 		t.Fatal("should get a list representing all suites")
@@ -130,8 +129,8 @@ func (f *fakeAccepter) Accept() (net.Conn, error) {
 	return &fakeConn{f.data}, nil
 }
 
-func (f *fakeAccepter) Addr() net.Addr { return nil }
-func (f *fakeAccepter) Close() error   { return nil }
+func (*fakeAccepter) Addr() net.Addr { return nil }
+func (*fakeAccepter) Close() error   { return nil }
 
 type fakeConn struct {
 	data []byte
@@ -146,13 +145,13 @@ func (f *fakeConn) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (f *fakeConn) Write(b []byte) (int, error) {
+func (*fakeConn) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (f *fakeConn) Close() error                     { return nil }
-func (f *fakeConn) LocalAddr() net.Addr              { return nil }
-func (f *fakeConn) RemoteAddr() net.Addr             { return nil }
-func (f *fakeConn) SetDeadline(time.Time) error      { return nil }
-func (f *fakeConn) SetReadDeadline(time.Time) error  { return nil }
-func (f *fakeConn) SetWriteDeadline(time.Time) error { return nil }
+func (*fakeConn) Close() error                     { return nil }
+func (*fakeConn) LocalAddr() net.Addr              { return nil }
+func (*fakeConn) RemoteAddr() net.Addr             { return nil }
+func (*fakeConn) SetDeadline(time.Time) error      { return nil }
+func (*fakeConn) SetReadDeadline(time.Time) error  { return nil }
+func (*fakeConn) SetWriteDeadline(time.Time) error { return nil }

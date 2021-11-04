@@ -16,6 +16,17 @@ import (
 	"time"
 )
 
+type filesystemWrapperType int32
+
+const (
+	filesystemWrapperTypeNone filesystemWrapperType = iota
+	filesystemWrapperTypeMtime
+	filesystemWrapperTypeCase
+	filesystemWrapperTypeError
+	filesystemWrapperTypeWalk
+	filesystemWrapperTypeLog
+)
+
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
@@ -47,7 +58,12 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
+
+	// Used for unwrapping things
+	underlying() (Filesystem, bool)
+	wrapperType() filesystemWrapperType
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -178,7 +194,16 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-type Option func(Filesystem)
+// Option modifies a filesystem at creation. An option might be specific
+// to a filesystem-type.
+//
+// String is used to detect options with the same effect, i.e. must be different
+// for options with different effects. Meaning if an option has parameters, a
+// representation of those must be part of the returned string.
+type Option interface {
+	String() string
+	apply(Filesystem)
+}
 
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var fs Filesystem
@@ -242,8 +267,7 @@ func Canonicalize(file string) (string, error) {
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.
-	switch file {
-	case "..":
+	if file == ".." {
 		return "", errNotRelative
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {
@@ -275,18 +299,16 @@ func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesyste
 	return fs
 }
 
-// unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
-func unwrapFilesystem(fs Filesystem) Filesystem {
+// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
+func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesystem, bool) {
+	var ok bool
 	for {
-		switch sfs := fs.(type) {
-		case *logFilesystem:
-			fs = sfs.Filesystem
-		case *walkFilesystem:
-			fs = sfs.Filesystem
-		case *mtimeFS:
-			fs = sfs.Filesystem
-		default:
-			return sfs
+		if fs.wrapperType() == wrapperType {
+			return fs, true
+		}
+		fs, ok = fs.underlying()
+		if !ok {
+			return nil, false
 		}
 	}
 }

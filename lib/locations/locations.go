@@ -41,13 +41,12 @@ type BaseDirEnum string
 
 const (
 	// Overridden by -home flag
-	ConfigBaseDir   BaseDirEnum = "config"
-	DataBaseDir     BaseDirEnum = "data"
+	ConfigBaseDir BaseDirEnum = "config"
+	DataBaseDir   BaseDirEnum = "data"
 	// User's home directory, *not* -home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
 	LevelDBDir = "index-v0.14.0.db"
-	BadgerDir  = "indexdb.badger"
 )
 
 // Platform dependent directories
@@ -68,6 +67,13 @@ func init() {
 }
 
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
+	if !filepath.IsAbs(path) {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
 	_, ok := baseDirs[baseDirName]
 	if !ok {
 		return fmt.Errorf("unknown base dir: %s", baseDirName)
@@ -120,7 +126,7 @@ func expandLocations() error {
 	newLocations := make(map[LocationEnum]string)
 	for key, dir := range locationTemplates {
 		for varName, value := range baseDirs {
-			dir = strings.Replace(dir, "${"+string(varName)+"}", value, -1)
+			dir = strings.ReplaceAll(dir, "${"+string(varName)+"}", value)
 		}
 		newLocations[key] = filepath.Clean(dir)
 	}
@@ -139,7 +145,7 @@ func defaultConfigDir(userHome string) string {
 		}
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
-	case "darwin":
+	case "darwin", "ios":
 		return filepath.Join(userHome, "Library/Application Support/Syncthing")
 
 	default:
@@ -159,14 +165,7 @@ func defaultDataDir(userHome, config string) string {
 
 	default:
 		// If a database exists at the "normal" location, use that anyway.
-		// We look for both LevelDB and Badger variants here regardless of
-		// what we're currently configured to use, because we might be
-		// starting up in Badger mode with only a LevelDB database present
-		// (will be converted), or vice versa.
 		if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
-			return config
-		}
-		if _, err := os.Lstat(filepath.Join(config, BadgerDir)); err == nil {
 			return config
 		}
 		// Always use this env var, as it's explicitly set by the user
@@ -194,5 +193,5 @@ func GetTimestamped(key LocationEnum) string {
 	// 2006 replaced by 2015...
 	tpl := locations[key]
 	now := time.Now().Format("20060102-150405")
-	return strings.Replace(tpl, "${timestamp}", now, -1)
+	return strings.ReplaceAll(tpl, "${timestamp}", now)
 }

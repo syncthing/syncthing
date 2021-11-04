@@ -1,0 +1,140 @@
+// Custom Theming for Angular Material
+// For more information: https://material.angular.io/guide/theming
+@import '~@angular/material/theming';
+@import './app/card/card.component.scss';
+@import './app/charts/chart-item/chart-item.component.scss';
+@import './app/lists/status-list/status-list.component.scss';
+
+
+// Custom typography
+$tech-ui-typography: mat-typography-config(
+    $font-family: '"Lucida Console", Monaco, monospace',
+    $display-4:     mat-typography-level(112px, 112px, 300),
+    $display-3:     mat-typography-level(56px, 56px, 400),
+    $display-2:     mat-typography-level(45px, 48px, 400),
+    $display-1:     mat-typography-level(34px, 40px, 400),
+    $headline:      mat-typography-level(24px, 32px, 400),
+    $title:         mat-typography-level(20px, 32px, 500),
+    $subheading-2:  mat-typography-level(16px, 28px, 400),
+    $subheading-1:  mat-typography-level(15px, 24px, 400),
+    $body-2:        mat-typography-level(14px, 24px, 500),
+    $body-1:        mat-typography-level(14px, 20px, 400),
+    $caption:       mat-typography-level(12px, 20px, 400),
+    $button:        mat-typography-level(14px, 14px, 500),
+      // Line-height must be unit-less fraction of the font-size.
+    $input:         mat-typography-level(16px, 1.25, 400)
+);
+
+// Include the common styles for Angular Material. We include this here so that you only
+// have to load a single css file for Angular Material in your app.
+// Be sure that you only ever include this mixin once!
+@include mat-core($tech-ui-typography);
+
+// Define the palettes for your theme using the Material Design palettes available in palette.scss
+// (imported above). For each palette, you can optionally specify a default, lighter, and darker
+// hue. Available color palettes: https://material.io/design/color/
+$tech-ui-blue: (
+  50: #a5e0fc,
+  100: #8fd5f7,
+  200: #74c7ef,
+  300: #51beed,
+  400: #3eafe3,
+  500: #0891D1,
+  600: #0891D1,
+  700: #0891D1,
+  800: #0891D1,
+  900: #0891D1,
+  A100: #0891D1,
+  A200: #0891D1,
+  A400: #0891D1,
+  A700: #0891D1,
+  contrast: (
+    50: $dark-primary-text,
+    100: $dark-primary-text,
+    200: $dark-primary-text,
+    300: $dark-primary-text,
+    400: $dark-primary-text,
+    500: $light-primary-text,
+    600: $light-primary-text,
+    700: $light-primary-text,
+    800: $light-primary-text,
+    900: $light-primary-text,
+    A100: $dark-primary-text,
+    A200: $light-primary-text,
+    A400: $light-primary-text,
+    A700: $light-primary-text,
+  )
+);
+
+$tech-ui-primary: mat-palette($tech-ui-blue);
+$tech-ui-accent: mat-palette($tech-ui-blue, A200, A100, A400);
+
+// The warn palette is optional (defaults to red).
+$tech-ui-warn: mat-palette($mat-red);
+
+// Create the theme object (a Sass map containing all of the palettes).
+$tech-ui-theme: mat-light-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-warn);
+$tech-ui-dark-theme: mat-dark-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-warn);
+    
+// Include theme styles for core and each component used in your app.
+// Alternatively, you can import and @include the theme mixins for each component
+// that you are using.
+@include angular-material-theme($tech-ui-theme);
+@include tui-card-theme($tech-ui-theme);
+@include chart-item-theme($tech-ui-theme);
+   
+html, body { 
+    height: 100%; 
+    background-color: #eeeeee;
+    font-size: mat-font-size($tech-ui-typography, body-1);
+    font-family: mat-font-family($tech-ui-typography);
+    line-height: mat-line-height($tech-ui-typography, body-1);
+    color: #303030;
+}
+
+a {
+    text-decoration: underline;
+    color: #303030;
+}
+
+@media (prefers-color-scheme: dark) {
+    @include angular-material-theme($tech-ui-dark-theme);
+    @include tui-card-theme($tech-ui-dark-theme);
+    @include chart-item-theme($tech-ui-dark-theme);
+    
+    html, body {
+        background-color: #303030;
+        color: white; 
+    }
+
+    a {
+        color: white; 
+    }
+} 
+
+.status-list .tui-card .tui-card-content {
+    padding-top: 0;
+}
+
+// Chart.js styles
+#chartjs-tooltip {
+    /* max z-index value */
+    z-index: 2147483647;
+    opacity: 0;
+    position: absolute;
+    background: rgba(0, 0, 0, .7);
+    color: white;
+    border-radius: 3px;
+    -webkit-transition: opacity .3s ease;
+    transition: opacity .3s ease;
+    pointer-events: none;
+    -webkit-transform: translate(-50%, 0);
+    transform: translate(-50%, 0);
+}
+
+.chartjs-tooltip-key {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 10px;
+}

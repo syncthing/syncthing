@@ -7,30 +7,14 @@
 package main
 
 import (
-	"bytes"
-	"crypto/md5"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sha256"
 )
-
-func getmd5(filePath string) ([]byte, error) {
-	var result []byte
-	file, err := os.Open(filePath)
-	if err != nil {
-		return result, err
-	}
-	defer file.Close()
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return result, err
-	}
-
-	return hash.Sum(result), nil
-}
 
 func main() {
 	period := flag.Duration("period", 200*time.Millisecond, "Sleep period between checks")
@@ -46,7 +30,7 @@ func main() {
 	exists := true
 	size := int64(0)
 	mtime := time.Time{}
-	hash := []byte{}
+	var hash [sha256.Size]byte
 
 	for {
 		time.Sleep(*period)
@@ -72,7 +56,7 @@ func main() {
 		if !exists {
 			size = 0
 			mtime = time.Time{}
-			hash = []byte{}
+			hash = [sha256.Size]byte{}
 			continue
 		}
 
@@ -83,16 +67,31 @@ func main() {
 		newSize := fi.Size()
 		newMtime := fi.ModTime()
 
-		newHash, err := getmd5(file)
+		newHash, err := sha256file(file)
 		if err != nil {
-			fmt.Println("getmd5:", err)
+			fmt.Println("sha256file:", err)
 		}
 
-		if newSize != size || newMtime != mtime || !bytes.Equal(newHash, hash) {
+		if newSize != size || newMtime != mtime || newHash != hash {
 			fmt.Println(file, "Size:", newSize, "Mtime:", newMtime, "Hash:", fmt.Sprintf("%x", newHash))
 			hash = newHash
 			size = newSize
 			mtime = newMtime
 		}
 	}
+}
+
+func sha256file(fname string) (hash [sha256.Size]byte, err error) {
+	f, err := os.Open(fname)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	io.Copy(h, f)
+	hb := h.Sum(nil)
+	copy(hash[:], hb)
+
+	return
 }

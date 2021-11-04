@@ -9,7 +9,6 @@ package ignore
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -35,7 +35,7 @@ const (
 var defaultResult Result = resultInclude
 
 func init() {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "ios" || runtime.GOOS == "windows" {
 		defaultResult |= resultFoldCase
 	}
 }
@@ -189,7 +189,7 @@ func (m *Matcher) Load(file string) error {
 		return nil
 	}
 
-	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
+	fd, info, err := loadIgnoreFile(m.fs, file)
 	if err != nil {
 		m.parseLocked(&bytes.Buffer{}, file)
 		return err
@@ -373,7 +373,7 @@ func (m *Matcher) SkipIgnoredDirs() bool {
 }
 
 func hashPatterns(patterns []Pattern) string {
-	h := md5.New()
+	h := sha256.New()
 	for _, pat := range patterns {
 		h.Write([]byte(pat.String()))
 		h.Write([]byte("\n"))
@@ -381,7 +381,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, fs.FileInfo, error) {
+func loadIgnoreFile(fs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
 	fd, err := fs.Open(file)
 	if err != nil {
 		return fd, nil, err
@@ -411,7 +411,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 		return nil, parseError(fmt.Errorf("multiple include of ignore file %q", file))
 	}
 
-	fd, info, err := loadIgnoreFile(filesystem, file, cd)
+	fd, info, err := loadIgnoreFile(filesystem, file)
 	if err != nil {
 		return nil, err
 	}

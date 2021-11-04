@@ -47,5 +47,37 @@ func New(cfg config.FolderConfiguration) (Versioner, error) {
 		return nil, fmt.Errorf("requested versioning type %q does not exist", cfg.Type)
 	}
 
-	return fac(cfg), nil
+	return &versionerWithErrorContext{
+		Versioner: fac(cfg),
+		vtype:     cfg.Versioning.Type,
+	}, nil
+}
+
+type versionerWithErrorContext struct {
+	Versioner
+	vtype string
+}
+
+func (v *versionerWithErrorContext) wrapError(err error, op string) error {
+	if err != nil {
+		return fmt.Errorf("%s versioner: %v: %w", v.vtype, op, err)
+	}
+	return nil
+}
+
+func (v *versionerWithErrorContext) Archive(filePath string) error {
+	return v.wrapError(v.Versioner.Archive(filePath), "archive")
+}
+
+func (v *versionerWithErrorContext) GetVersions() (map[string][]FileVersion, error) {
+	versions, err := v.Versioner.GetVersions()
+	return versions, v.wrapError(err, "get versions")
+}
+
+func (v *versionerWithErrorContext) Restore(filePath string, versionTime time.Time) error {
+	return v.wrapError(v.Versioner.Restore(filePath, versionTime), "restore")
+}
+
+func (v *versionerWithErrorContext) Clean(ctx context.Context) error {
+	return v.wrapError(v.Versioner.Clean(ctx), "clean")
 }

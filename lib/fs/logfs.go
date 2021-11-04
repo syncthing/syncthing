@@ -163,3 +163,11 @@ func (fs *logFilesystem) Usage(name string) (Usage, error) {
 	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Usage", name, usage, err)
 	return usage, err
 }
+
+func (fs *logFilesystem) underlying() (Filesystem, bool) {
+	return fs.Filesystem, true
+}
+
+func (fs *logFilesystem) wrapperType() filesystemWrapperType {
+	return filesystemWrapperTypeLog
+}

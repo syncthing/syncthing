@@ -4,6 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
+//go:generate counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
+
 // Package events provides event subscription and polling functionality.
 package events
 
@@ -28,7 +31,8 @@ const (
 	DeviceDiscovered
 	DeviceConnected
 	DeviceDisconnected
-	DeviceRejected
+	DeviceRejected // DEPRECATED, superseded by PendingDevicesChanged
+	PendingDevicesChanged
 	DevicePaused
 	DeviceResumed
 	LocalChangeDetected
@@ -38,7 +42,8 @@ const (
 	ItemStarted
 	ItemFinished
 	StateChanged
-	FolderRejected
+	FolderRejected // DEPRECATED, superseded by PendingFoldersChanged
+	PendingFoldersChanged
 	ConfigSaved
 	DownloadProgress
 	RemoteDownloadProgress
@@ -77,6 +82,8 @@ func (t EventType) String() string {
 		return "DeviceDisconnected"
 	case DeviceRejected:
 		return "DeviceRejected"
+	case PendingDevicesChanged:
+		return "PendingDevicesChanged"
 	case LocalChangeDetected:
 		return "LocalChangeDetected"
 	case RemoteChangeDetected:
@@ -93,6 +100,8 @@ func (t EventType) String() string {
 		return "StateChanged"
 	case FolderRejected:
 		return "FolderRejected"
+	case PendingFoldersChanged:
+		return "PendingFoldersChanged"
 	case ConfigSaved:
 		return "ConfigSaved"
 	case DownloadProgress:
@@ -158,6 +167,8 @@ func UnmarshalEventType(s string) EventType {
 		return DeviceDisconnected
 	case "DeviceRejected":
 		return DeviceRejected
+	case "PendingDevicesChanged":
+		return PendingDevicesChanged
 	case "LocalChangeDetected":
 		return LocalChangeDetected
 	case "RemoteChangeDetected":
@@ -174,6 +185,8 @@ func UnmarshalEventType(s string) EventType {
 		return StateChanged
 	case "FolderRejected":
 		return FolderRejected
+	case "PendingFoldersChanged":
+		return PendingFoldersChanged
 	case "ConfigSaved":
 		return ConfigSaved
 	case "DownloadProgress":
@@ -225,7 +238,6 @@ type logger struct {
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
-	stop                chan struct{}
 }
 
 type Event struct {
@@ -305,7 +317,7 @@ loop:
 
 func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
-		Time: time.Now(),
+		Time: time.Now(), // intentionally high precision
 		Type: t,
 		Data: data,
 		// SubscriptionID and GlobalID are set in sendEvent

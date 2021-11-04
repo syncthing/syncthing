@@ -8,11 +8,13 @@ package model
 
 import (
 	"encoding/binary"
+	"io"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -346,24 +348,36 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
 func (s *sharedPullerState) finalizeEncrypted() error {
-	bs := make([]byte, encryptionTrailerSize(s.file))
-	n, err := s.file.MarshalTo(bs)
-	if err != nil {
-		return err
-	}
-	binary.BigEndian.PutUint32(bs[n:], uint32(n))
-	bs = bs[:n+4]
-
 	if s.writer == nil {
 		if err := s.addWriterLocked(); err != nil {
 			return err
 		}
 	}
-	if _, err := s.writer.WriteAt(bs, s.file.Size); err != nil {
-		return err
+	_, err := writeEncryptionTrailer(s.file, s.writer)
+	return err
+}
+
+// Returns the size of the written trailer.
+func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, error) {
+	// Here the file is in native format, while encryption happens in
+	// wire format (always slashes).
+	wireFile := file
+	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
+
+	trailerSize := encryptionTrailerSize(wireFile)
+	bs := make([]byte, trailerSize)
+	n, err := wireFile.MarshalTo(bs)
+	if err != nil {
+		return 0, err
+	}
+	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	bs = bs[:n+4]
+
+	if _, err := writer.WriteAt(bs, wireFile.Size); err != nil {
+		return 0, err
 	}
 
-	return nil
+	return trailerSize, nil
 }
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
@@ -376,6 +390,7 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
+	file := len(s.file.Blocks)
 	return &pullerProgress{
 		Total:               total,
 		Reused:              s.reused,
@@ -383,8 +398,8 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
-		BytesTotal:          blocksToSize(s.file.BlockSize(), total),
-		BytesDone:           blocksToSize(s.file.BlockSize(), done),
+		BytesTotal:          blocksToSize(total, file, s.file.BlockSize(), s.file.Size),
+		BytesDone:           blocksToSize(done, file, s.file.BlockSize(), s.file.Size),
 	}
 }
 
@@ -412,9 +427,12 @@ func (s *sharedPullerState) Available() []int {
 	return blocks
 }
 
-func blocksToSize(size int, num int) int64 {
-	if num < 2 {
-		return int64(size / 2)
+func blocksToSize(blocks, blocksInFile, blockSize int, fileSize int64) int64 {
+	// The last/only block has somewhere between 1 and blockSize bytes. We do
+	// not know whether the smaller block is part of the blocks and use an
+	// estimate assuming a random chance that the small block is contained.
+	if blocksInFile == 0 {
+		return 0
 	}
-	return int64(num-1)*int64(size) + int64(size/2)
+	return int64(blocks)*int64(blockSize) - (int64(blockSize)-fileSize%int64(blockSize))*int64(blocks)/int64(blocksInFile)
 }

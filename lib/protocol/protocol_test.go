@@ -17,6 +17,7 @@ import (
 	"testing/quick"
 	"time"
 
+	lz4 "github.com/bkaradzic/go-lz4"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 )
@@ -31,10 +32,10 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, newTestModel(), &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, newTestModel(), &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutils.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil))
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -57,10 +58,10 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionAlways, nil))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, &testutils.FakeConnectionInfo{"name"}, CompressionAlways)
+	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, nil)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -102,7 +103,7 @@ func TestCloseOnBlockingSend(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutils.NewBlockingRW()
-	c := NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -153,10 +154,10 @@ func TestCloseRace(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, &testutils.FakeConnectionInfo{"c0"}, CompressionNever).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionNever, nil))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, &testutils.FakeConnectionInfo{"c1"}, CompressionNever)
+	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, nil)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -193,7 +194,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutils.NewBlockingRW()
-	c := NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := getRawConnection(NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -245,7 +246,7 @@ func TestCloseTimeout(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutils.NewBlockingRW()
-	c := NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -439,9 +440,42 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	return true
 }
 
-func TestLZ4Compression(t *testing.T) {
-	c := new(rawConnection)
+func TestWriteCompressed(t *testing.T) {
+	for _, random := range []bool{false, true} {
+		buf := new(bytes.Buffer)
+		c := &rawConnection{
+			cr:          &countingReader{Reader: buf},
+			cw:          &countingWriter{Writer: buf},
+			compression: CompressionAlways,
+		}
 
+		msg := &Response{Data: make([]byte, 10240)}
+		if random {
+			// This should make the message uncompressible.
+			rand.Read(msg.Data)
+		}
+
+		if err := c.writeMessage(msg); err != nil {
+			t.Fatal(err)
+		}
+		got, err := c.readMessage(make([]byte, 4))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got.(*Response).Data, msg.Data) {
+			t.Error("received the wrong message")
+		}
+
+		hdr := Header{Type: c.typeOf(msg)}
+		size := int64(2 + hdr.ProtoSize() + 4 + msg.ProtoSize())
+		if c.cr.tot > size {
+			t.Errorf("compression enlarged message from %d to %d",
+				size, c.cr.tot)
+		}
+	}
+}
+
+func TestLZ4Compression(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		dataLen := 150 + rand.Intn(150)
 		data := make([]byte, dataLen)
@@ -449,13 +483,15 @@ func TestLZ4Compression(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		comp, err := c.lz4Compress(data)
+
+		comp := make([]byte, lz4.CompressBound(dataLen))
+		compLen, err := lz4Compress(data, comp)
 		if err != nil {
 			t.Errorf("compressing %d bytes: %v", dataLen, err)
 			continue
 		}
 
-		res, err := c.lz4Decompress(comp)
+		res, err := lz4Decompress(comp[:compLen])
 		if err != nil {
 			t.Errorf("decompressing %d bytes to %d: %v", len(comp), dataLen, err)
 			continue
@@ -467,38 +503,6 @@ func TestLZ4Compression(t *testing.T) {
 			t.Error("Incorrect decompressed data")
 		}
 		t.Logf("OK #%d, %d -> %d -> %d", i, dataLen, len(comp), dataLen)
-	}
-}
-
-func TestStressLZ4CompressGrows(t *testing.T) {
-	c := new(rawConnection)
-	success := 0
-	for i := 0; i < 100; i++ {
-		// Create a slize that is precisely one min block size, fill it with
-		// random data. This shouldn't compress at all, so will in fact
-		// become larger when LZ4 does its thing.
-		data := make([]byte, MinBlockSize)
-		if _, err := rand.Reader.Read(data); err != nil {
-			t.Fatal("randomness failure")
-		}
-
-		comp, err := c.lz4Compress(data)
-		if err != nil {
-			t.Fatal("unexpected compression error: ", err)
-		}
-		if len(comp) < len(data) {
-			// data size should grow. We must have been really unlucky in
-			// the random generation, try again.
-			continue
-		}
-
-		// Putting it into the buffer pool shouldn't panic because the block
-		// should come from there to begin with.
-		BufferPool.Put(comp)
-		success++
-	}
-	if success == 0 {
-		t.Fatal("unable to find data that grows when compressed")
 	}
 }
 
@@ -635,17 +639,17 @@ func TestLocalFlagBits(t *testing.T) {
 		t.Error("file should have no weird bits set by default")
 	}
 
-	f.SetIgnored(42)
+	f.SetIgnored()
 	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
 		t.Error("file should be ignored and invalid")
 	}
 
-	f.SetMustRescan(42)
+	f.SetMustRescan()
 	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() {
 		t.Error("file should be must-rescan and invalid")
 	}
 
-	f.SetUnsupported(42)
+	f.SetUnsupported()
 	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
 		t.Error("file should be invalid")
 	}
@@ -865,7 +869,7 @@ func TestClusterConfigAfterClose(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutils.NewBlockingRW()
-	c := NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -889,7 +893,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	// the model callbacks (ClusterConfig).
 	m := newTestModel()
 	rw := testutils.NewBlockingRW()
-	c := NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, &testutils.FakeConnectionInfo{"name"}, CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := getRawConnection(NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
 	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
 		c.Close(errManual)
 	}
@@ -962,17 +966,28 @@ func TestIndexIDString(t *testing.T) {
 	}
 }
 
-func closeAndWait(c Connection, closers ...io.Closer) {
+func closeAndWait(c interface{}, closers ...io.Closer) {
 	for _, closer := range closers {
 		closer.Close()
 	}
 	var raw *rawConnection
 	switch i := c.(type) {
-	case wireFormatConnection:
-		raw = i.Connection.(*rawConnection)
 	case *rawConnection:
 		raw = i
+	default:
+		raw = getRawConnection(c.(Connection))
 	}
 	raw.internalClose(ErrClosed)
 	raw.loopWG.Wait()
+}
+
+func getRawConnection(c Connection) *rawConnection {
+	var raw *rawConnection
+	switch i := c.(type) {
+	case wireFormatConnection:
+		raw = i.Connection.(encryptedConnection).conn
+	case encryptedConnection:
+		raw = i.conn
+	}
+	return raw
 }

@@ -44,38 +44,39 @@ type relayListener struct {
 }
 
 func (t *relayListener) serve(ctx context.Context) error {
-	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
+	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
 		l.Infoln("Listen (BEP/relay):", err)
 		return err
 	}
-	invitations := clnt.Invitations()
 
 	t.mut.Lock()
 	t.client = clnt
-	go clnt.Serve(ctx)
 	t.mut.Unlock()
-
-	// Start with nil, so that we send a addresses changed notification as soon as we connect somewhere.
-	var oldURI *url.URL
 
 	l.Infof("Relay listener (%v) starting", t)
 	defer l.Infof("Relay listener (%v) shutting down", t)
 	defer t.clearAddresses(t)
 
+	invitationCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go t.handleInvitations(invitationCtx, clnt)
+
+	return clnt.Serve(ctx)
+}
+
+func (t *relayListener) handleInvitations(ctx context.Context, clnt client.RelayClient) {
+	invitations := clnt.Invitations()
+
+	// Start with nil, so that we send a addresses changed notification as soon as we connect somewhere.
+	var oldURI *url.URL
+
 	for {
 		select {
-		case inv, ok := <-invitations:
-			if !ok {
-				if err := clnt.Error(); err != nil {
-					l.Infoln("Listen (BEP/relay):", err)
-				}
-				return err
-			}
-
+		case inv := <-invitations:
 			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
-				if errors.Cause(err) != context.Canceled {
+				if !errors.Is(err, context.Canceled) {
 					l.Infoln("Listen (BEP/relay): joining session:", err)
 				}
 				continue
@@ -119,7 +120,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 			}
 
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		}
 	}
 }

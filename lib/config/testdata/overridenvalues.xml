@@ -1,4 +1,4 @@
-<configuration version="31">
+<configuration version="34">
     <options>
         <listenAddress>tcp://:23000</listenAddress>
         <allowDelete>false</allowDelete>
@@ -36,7 +36,6 @@
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
-        <defaultFolderPath>/media/syncthing</defaultFolderPath>
         <setLowPriority>false</setLowPriority>
         <crashReportingURL>https://localhost/newcrash</crashReportingURL>
         <crashReportingEnabled>false</crashReportingEnabled>
@@ -47,4 +46,45 @@
         <announceLANAddresses>false</announceLANAddresses>
         <featureFlag>feature</featureFlag>
     </options>
+    <defaults>
+        <folder id="" label="" path="/media/syncthing" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+            <filesystemType>basic</filesystemType>
+            <minDiskFree unit="%">1</minDiskFree>
+            <versioning type="trashcan">
+                <param key="cleanoutDays" val="0"></param>
+                <cleanupIntervalS>3600</cleanupIntervalS>
+            </versioning>
+            <copiers>0</copiers>
+            <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+            <hashers>0</hashers>
+            <order>random</order>
+            <ignoreDelete>false</ignoreDelete>
+            <scanProgressIntervalS>0</scanProgressIntervalS>
+            <pullerPauseS>0</pullerPauseS>
+            <maxConflicts>10</maxConflicts>
+            <disableSparseFiles>false</disableSparseFiles>
+            <disableTempIndexes>false</disableTempIndexes>
+            <paused>false</paused>
+            <weakHashThresholdPct>25</weakHashThresholdPct>
+            <markerName>.stfolder</markerName>
+            <copyOwnershipFromParent>false</copyOwnershipFromParent>
+            <modTimeWindowS>0</modTimeWindowS>
+            <maxConcurrentWrites>2</maxConcurrentWrites>
+            <disableFsync>false</disableFsync>
+            <blockPullOrder>standard</blockPullOrder>
+            <copyRangeMethod>standard</copyRangeMethod>
+            <caseSensitiveFS>false</caseSensitiveFS>
+            <junctionsAsDirs>false</junctionsAsDirs>
+        </folder>
+        <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+            <address>dynamic</address>
+            <paused>false</paused>
+            <autoAcceptFolders>false</autoAcceptFolders>
+            <maxSendKbps>0</maxSendKbps>
+            <maxRecvKbps>0</maxRecvKbps>
+            <maxRequestKiB>0</maxRequestKiB>
+            <untrusted>false</untrusted>
+            <remoteGUIPort>0</remoteGUIPort>
+        </device>
+    </defaults>
 </configuration>

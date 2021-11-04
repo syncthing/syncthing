@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	errDirectory         = errors.New("cannot restore on top of a directory")
+	ErrDirectory         = errors.New("cannot restore on top of a directory")
 	errNotFound          = errors.New("version not found")
 	errFileAlreadyExists = errors.New("file already exists")
 )
@@ -196,7 +196,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 	if info, err := dst.Lstat(filePath); err == nil {
 		switch {
 		case info.IsDir():
-			return errDirectory
+			return ErrDirectory
 		case info.IsSymlink():
 			// Remove existing symlinks (as we don't want to archive them)
 			if err := dst.Remove(filePath); err != nil {
@@ -256,23 +256,15 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 }
 
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
-	params := cfg.Versioning.Params
 	folderFs := cfg.Filesystem()
-	if params["fsType"] == "" && params["fsPath"] == "" {
+	if cfg.Versioning.FSPath == "" {
 		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
-
-	} else if params["fsType"] == "" {
-		uri := params["fsPath"]
+	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {
 		// We only know how to deal with relative folders for basic filesystems, as that's the only one we know
 		// how to check if it's absolute or relative.
-		if folderFs.Type() == fs.FilesystemTypeBasic && !filepath.IsAbs(params["fsPath"]) {
-			uri = filepath.Join(folderFs.URI(), params["fsPath"])
-		}
-		versionsFs = fs.NewFilesystem(folderFs.Type(), uri)
+		versionsFs = fs.NewFilesystem(cfg.Versioning.FSType, filepath.Join(folderFs.URI(), cfg.Versioning.FSPath))
 	} else {
-		var fsType fs.FilesystemType
-		_ = fsType.UnmarshalText([]byte(params["fsType"]))
-		versionsFs = fs.NewFilesystem(fsType, params["fsPath"])
+		versionsFs = fs.NewFilesystem(cfg.Versioning.FSType, cfg.Versioning.FSPath)
 	}
 	l.Debugf("%s (%s) folder using %s (%s) versioner dir", folderFs.URI(), folderFs.Type(), versionsFs.URI(), versionsFs.Type())
 	return

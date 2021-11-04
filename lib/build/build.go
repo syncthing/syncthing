@@ -30,7 +30,6 @@ var (
 	Codename = "Fermium Flea"
 
 	// Set by init()
-	OS          string
 	Date        time.Time
 	IsRelease   bool
 	IsCandidate bool
@@ -48,11 +47,6 @@ var (
 )
 
 func init() {
-	if IsIOS() {
-		OS = "ios"
-	} else {
-		OS = runtime.GOOS
-	}
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
 		if !allowedVersionExp.MatchString(Version) {

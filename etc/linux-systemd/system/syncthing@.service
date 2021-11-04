@@ -2,12 +2,14 @@
 Description=Syncthing - Open Source Continuous File Synchronization for %I
 Documentation=man:syncthing(1)
 After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=4
 
 [Service]
 User=%i
-ExecStart=/usr/bin/syncthing -no-browser -no-restart -logflags=0
+ExecStart=/usr/bin/syncthing serve --no-browser --no-restart --logflags=0
 Restart=on-failure
-RestartSec=5
+RestartSec=1
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
 

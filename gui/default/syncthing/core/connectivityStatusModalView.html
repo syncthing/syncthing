@@ -1,0 +1,60 @@
+<modal id="connectivity-status" status="{{connectivityStatusParams.status}}" icon="fas fa-fw {{connectivityStatusParams.type == 'listeners' ? 'fa-sitemap' : 'fa-map-signs'}}" heading="{{connectivityStatusParams.heading}}" large="yes" closeable="yes">
+  <div class="modal-body" ng-switch="connectivityStatusParams.type">
+    <div ng-switch-when="listeners">
+      <p translate ng-if="listenersRunning.length == 0">
+        Syncthing is not listening for connection attempts from other devices on any address.  Only outgoing connections from this device may work.
+      </p>
+      <div ng-if="listenersRunning.length > 0">
+        <p translate>
+          Syncthing is listening on the following network addresses for connection attempts from other devices:
+        </p>
+        <ul>
+          <li ng-repeat="listener in listenersRunning">{{listener}}</li>
+        </ul>
+      </div>
+      <div ng-if="listenersFailed.length > 0">
+        <p translate>
+          Some listening addresses could not be enabled to accept connections:
+        </p>
+        <ul>
+          <li ng-repeat="listener in listenersFailed">{{listener}}</li>
+        </ul>
+      </div>
+    </div>
+    <div ng-switch-default><!-- discovery methods -->
+      <p translate ng-if="discoveryRunning.length == 0">
+        This device cannot automatically discover other devices or announce its own address to be found by others.  Only devices with statically configured addresses can connect.
+      </p>
+      <div ng-if="discoveryRunning.length > 0">
+        <p translate>
+          The following methods are used to discover other devices on the network and announce this device to be found by others:
+        </p>
+        <ul>
+          <li ng-repeat="discovery in discoveryRunning">{{discovery}}</li>
+        </ul>
+      </div>
+      <div ng-if="discoveryFailed.length > 0">
+        <p translate>
+          Some discovery methods could not be established for finding other devices or announcing this device:
+        </p>
+        <ul>
+          <li ng-repeat="discovery in discoveryFailed">{{discovery}}</li>
+        </ul>
+      </div>
+      <div class="row">
+        <div class="col-md-offset-2 col-md-8">
+          <div class="panel panel-default">
+            <div translate class="panel-body">
+              Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

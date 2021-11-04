@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build windows
 // +build windows
 
 package fs
@@ -121,7 +122,7 @@ func wrapError(err error) error {
 }
 
 // call FSCTL_DUPLICATE_EXTENTS_TO_FILE IOCTL
-// see https://docs.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_duplicate_extents_to_file
+// see https://docs.microsoft.com/windows/win32/api/winioctl/ni-winioctl-fsctl_duplicate_extents_to_file
 //
 // memo: Overflow (cloneRegionSize is greater than file ends) is safe and just ignored by windows.
 func callDuplicateExtentsToFile(src, dst uintptr, srcOffset, dstOffset int64, cloneRegionSize int64) error {

@@ -7,11 +7,11 @@
 package sha256
 
 import (
-	"crypto/rand"
 	cryptoSha256 "crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"math/rand"
 	"os"
 	"time"
 
@@ -111,7 +111,8 @@ func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
 	chunkSize := 100 * 1 << 10
 	h := newFn()
 	bs := make([]byte, chunkSize)
-	rand.Reader.Read(bs)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Read(bs)
 
 	t0 := time.Now()
 	b := 0

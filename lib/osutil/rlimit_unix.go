@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build !windows
 // +build !windows
 
 package osutil
@@ -36,7 +37,7 @@ func MaximizeOpenFileLimit() (int, error) {
 	// macOS doesn't like a soft limit greater then OPEN_MAX
 	// See also: man setrlimit
 	if runtime.GOOS == "darwin" && lim.Max > darwinOpenMax {
-		lim.Cur = darwinOpenMax
+		lim.Max = darwinOpenMax
 	}
 
 	// Try to increase the limit to the max.

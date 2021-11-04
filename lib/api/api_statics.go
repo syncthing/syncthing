@@ -30,17 +30,15 @@ type staticsServer struct {
 	mut             sync.RWMutex
 	theme           string
 	lastThemeChange time.Time
-	untrusted       bool
 }
 
-func newStaticsServer(theme, assetDir string, untrusted bool) *staticsServer {
+func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
 		assetDir:        assetDir,
 		assets:          auto.Assets(),
 		mut:             sync.NewRWMutex(),
 		theme:           theme,
 		lastThemeChange: time.Now().UTC(),
-		untrusted:       untrusted,
 	}
 
 	seen := make(map[string]struct{})
@@ -62,17 +60,13 @@ func newStaticsServer(theme, assetDir string, untrusted bool) *staticsServer {
 		}
 	}
 
-	if untrusted {
-		l.Infoln(`Feature flag "untrusted":`, untrusted)
-	}
-
 	return s
 }
 
 func (s *staticsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/themes.json":
-		s.serveThemes(w, r)
+		s.serveThemes(w)
 	default:
 		s.serveAsset(w, r)
 	}
@@ -94,7 +88,6 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	s.mut.RLock()
 	theme := s.theme
 	modificationTime := s.lastThemeChange
-	untrusted := s.untrusted
 	s.mut.RUnlock()
 
 	// If path starts with special prefix, get theme and file from path
@@ -112,37 +105,21 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for an override for the current theme.
-	if untrusted && s.serveFromAssetDir(file, theme+"/untrusted", w, r) {
-		l.Debugln("serving", file, "from override untrusted")
-		return
-	}
 	if s.serveFromAssetDir(file, theme, w, r) {
 		return
 	}
 
 	// Check for a compiled in asset for the current theme.
-	if untrusted && s.serveFromAssets(file, theme+"/untrusted", modificationTime, w, r) {
-		l.Debugln("serving", file, "from compiled untrusted")
-		return
-	}
 	if s.serveFromAssets(file, theme, modificationTime, w, r) {
 		return
 	}
 
 	// Check for an overridden default asset.
-	if untrusted && s.serveFromAssetDir(file, config.DefaultTheme+"/untrusted", w, r) {
-		l.Debugln("serving", file, "from override untrusted")
-		return
-	}
 	if s.serveFromAssetDir(file, config.DefaultTheme, w, r) {
 		return
 	}
 
 	// Check for a compiled in default asset.
-	if untrusted && s.serveFromAssets(file, config.DefaultTheme+"/untrusted", modificationTime, w, r) {
-		l.Debugln("serving", file, "from compiled untrusted")
-		return
-	}
 	if s.serveFromAssets(file, config.DefaultTheme, modificationTime, w, r) {
 		return
 	}
@@ -176,7 +153,7 @@ func (s *staticsServer) serveFromAssets(file, theme string, modificationTime tim
 	return true
 }
 
-func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
+func (s *staticsServer) serveThemes(w http.ResponseWriter) {
 	sendJSON(w, map[string][]string{
 		"themes": s.availableThemes,
 	})
@@ -186,13 +163,6 @@ func (s *staticsServer) setTheme(theme string) {
 	s.mut.Lock()
 	s.theme = theme
 	s.lastThemeChange = time.Now().UTC()
-	s.mut.Unlock()
-}
-
-func (s *staticsServer) setUntrusted(enabled bool) {
-	s.mut.Lock()
-	l.Infoln(`Feature flag "untrusted":`, enabled)
-	s.untrusted = enabled
 	s.mut.Unlock()
 }
 

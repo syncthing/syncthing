@@ -4,7 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.16
+//go:build go1.15 && !noquic
+// +build go1.15,!noquic
 
 package connections
 
@@ -45,7 +46,9 @@ type quicDialer struct {
 func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
-	addr, err := net.ResolveUDPAddr("udp", uri.Host)
+	network := quicNetwork(uri)
+
+	addr, err := net.ResolveUDPAddr(network, uri.Host)
 	if err != nil {
 		return internalConn{}, err
 	}
@@ -55,7 +58,8 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	// Given we always pass the connection to quic, it assumes it's a remote connection it never closes it,
 	// So our wrapper around it needs to close it, but it only needs to close it if it's not the listening connection.
 	var createdConn net.PacketConn
-	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
+	listenConn := registry.Get(uri.Scheme, packetConnUnspecified)
+	if listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
@@ -90,14 +94,18 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil
 }
 
-type quicDialerFactory struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
-}
+type quicDialerFactory struct{}
 
 func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	// So the idea is that we should probably try dialing every 20 seconds.
+	// However it would still be nice if this was adjustable/proportional to ReconnectIntervalS
+	// But prevent something silly like 1/3 = 0 etc.
+	quicInterval := opts.ReconnectIntervalS / 3
+	if quicInterval < 10 {
+		quicInterval = 10
+	}
 	return &quicDialer{commonDialer{
-		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		reconnectInterval: time.Duration(quicInterval) * time.Second,
 		tlsCfg:            tlsCfg,
 	}}
 }

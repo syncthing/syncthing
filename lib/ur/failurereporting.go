@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -35,9 +37,24 @@ var (
 )
 
 type FailureReport struct {
+	FailureData
+	Count   int
+	Version string
+}
+
+type FailureData struct {
 	Description string
-	Count       int
-	Version     string
+	Goroutines  string
+	Extra       map[string]string
+}
+
+func FailureDataWithGoroutines(description string) FailureData {
+	var buf strings.Builder
+	pprof.Lookup("goroutine").WriteTo(&buf, 1)
+	return FailureData{
+		Description: description,
+		Goroutines:  buf.String(),
+	}
 }
 
 type FailureHandler interface {
@@ -64,61 +81,47 @@ type failureHandler struct {
 type failureStat struct {
 	first, last time.Time
 	count       int
+	data        FailureData
 }
 
 func (h *failureHandler) Serve(ctx context.Context) error {
-	go func() {
-		select {
-		case h.optsChan <- h.cfg.Options():
-		case <-ctx.Done():
-		}
-	}()
-	h.cfg.Subscribe(h)
+	cfg := h.cfg.Subscribe(h)
 	defer h.cfg.Unsubscribe(h)
+	url, sub, evChan := h.applyOpts(cfg.Options, nil)
 
-	var url string
 	var err error
-	var sub events.Subscription
-	var evChan <-chan events.Event
 	timer := time.NewTimer(minDelay)
 	resetTimer := make(chan struct{})
-outer:
-	for {
+	for err == nil {
 		select {
 		case opts := <-h.optsChan:
-			// Sub nil checks just for safety - config updates can be racy.
-			if opts.URAccepted > 0 {
-				if sub == nil {
-					sub = h.evLogger.Subscribe(events.Failure)
-					evChan = sub.C()
-				}
-			} else if sub != nil {
-				sub.Unsubscribe()
-				sub = nil
-				evChan = nil
-			}
-			url = opts.CRURL + "/failure"
+			url, sub, evChan = h.applyOpts(opts, sub)
 		case e, ok := <-evChan:
 			if !ok {
 				// Just to be safe - shouldn't ever happen, as
 				// evChan is set to nil when unsubscribing.
-				h.addReport(evChanClosed, time.Now())
+				h.addReport(FailureData{Description: evChanClosed}, time.Now())
 				evChan = nil
 				continue
 			}
-			descr, ok := e.Data.(string)
-			if !ok {
+			var data FailureData
+			switch d := e.Data.(type) {
+			case string:
+				data.Description = d
+			case FailureData:
+				data = d
+			default:
 				// Same here, shouldn't ever happen.
-				h.addReport(invalidEventDataType, time.Now())
+				h.addReport(FailureData{Description: invalidEventDataType}, time.Now())
 				continue
 			}
-			h.addReport(descr, e.Time)
+			h.addReport(data, e.Time)
 		case <-timer.C:
 			reports := make([]FailureReport, 0, len(h.buf))
 			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
-					reports = append(reports, newFailureReport(descr, stat.count))
+					reports = append(reports, newFailureReport(stat))
 					delete(h.buf, descr)
 				}
 			}
@@ -137,33 +140,51 @@ outer:
 		case <-resetTimer:
 			timer.Reset(minDelay)
 		case <-ctx.Done():
-			break outer
+			err = ctx.Err()
 		}
 	}
 
 	if sub != nil {
 		sub.Unsubscribe()
-		reports := make([]FailureReport, 0, len(h.buf))
-		for descr, stat := range h.buf {
-			reports = append(reports, newFailureReport(descr, stat.count))
+		if len(h.buf) > 0 {
+			reports := make([]FailureReport, 0, len(h.buf))
+			for _, stat := range h.buf {
+				reports = append(reports, newFailureReport(stat))
+			}
+			timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
+			defer cancel()
+			sendFailureReports(timeout, reports, url)
 		}
-		timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
-		defer cancel()
-		sendFailureReports(timeout, reports, url)
 	}
 	return err
 }
 
-func (h *failureHandler) addReport(descr string, evTime time.Time) {
-	if stat, ok := h.buf[descr]; ok {
+func (h *failureHandler) applyOpts(opts config.OptionsConfiguration, sub events.Subscription) (string, events.Subscription, <-chan events.Event) {
+	// Sub nil checks just for safety - config updates can be racy.
+	url := opts.CRURL + "/failure"
+	if opts.URAccepted > 0 {
+		if sub == nil {
+			sub = h.evLogger.Subscribe(events.Failure)
+		}
+		return url, sub, sub.C()
+	}
+	if sub != nil {
+		sub.Unsubscribe()
+	}
+	return url, nil, nil
+}
+
+func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
+	if stat, ok := h.buf[data.Description]; ok {
 		stat.last = evTime
 		stat.count++
 		return
 	}
-	h.buf[descr] = &failureStat{
+	h.buf[data.Description] = &failureStat{
 		first: evTime,
 		last:  evTime,
 		count: 1,
+		data:  data,
 	}
 }
 
@@ -197,7 +218,7 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, &b)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, &b)
 	if err != nil {
 		l.Infoln("Failed to send failure report:", err)
 		return
@@ -213,10 +234,10 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	return
 }
 
-func newFailureReport(descr string, count int) FailureReport {
+func newFailureReport(stat *failureStat) FailureReport {
 	return FailureReport{
-		Description: descr,
-		Count:       count,
+		FailureData: stat.data,
+		Count:       stat.count,
 		Version:     build.LongVersion,
 	}
 }
