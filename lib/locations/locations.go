@@ -40,10 +40,10 @@ const (
 type BaseDirEnum string
 
 const (
-	// Overridden by -home flag
+	// Overridden by --home flag
 	ConfigBaseDir BaseDirEnum = "config"
 	DataBaseDir   BaseDirEnum = "data"
-	// User's home directory, *not* -home flag
+	// User's home directory, *not* --home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
 	LevelDBDir = "index-v0.14.0.db"
@@ -98,7 +98,7 @@ var locationTemplates = map[LocationEnum]string{
 	HTTPSCertFile: "${config}/https-cert.pem",
 	HTTPSKeyFile:  "${config}/https-key.pem",
 	Database:      "${data}/" + LevelDBDir,
-	LogFile:       "${data}/syncthing.log", // -logfile on Windows
+	LogFile:       "${data}/syncthing.log", // --logfile on Windows
 	CsrfTokens:    "${data}/csrftokens.txt",
 	PanicLog:      "${data}/panic-${timestamp}.log",
 	AuditLog:      "${data}/audit-${timestamp}.log",
