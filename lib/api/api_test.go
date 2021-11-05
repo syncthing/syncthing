@@ -1209,15 +1209,9 @@ func TestPrefixMatch(t *testing.T) {
 }
 
 func TestShouldRegenerateCertificate(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
 	// Self signed certificates expiring in less than a month are errored so we
 	// can regenerate in time.
-	crt, err := tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 29)
+	crt, err := tlsutil.NewCertificate("", "", "foo.example.com", 29)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1226,7 +1220,7 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 	}
 
 	// Certificates with at least 31 days of life left are fine.
-	crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 31)
+	crt, err = tlsutil.NewCertificate("", "", "foo.example.com", 31)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1236,7 +1230,7 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 
 	if runtime.GOOS == "darwin" {
 		// Certificates with too long an expiry time are not allowed on macOS
-		crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 1000)
+		crt, err = tlsutil.NewCertificate("", "", "foo.example.com", 1000)
 		if err != nil {
 			t.Fatal(err)
 		}

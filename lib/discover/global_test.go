@@ -107,13 +107,8 @@ func TestGlobalOverHTTP(t *testing.T) {
 }
 
 func TestGlobalOverHTTPS(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificate("", "", "syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,13 +167,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 }
 
 func TestGlobalAnnounce(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificate("", "", "syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}

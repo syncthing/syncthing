@@ -9,7 +9,6 @@ package syncthing
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -57,13 +56,7 @@ func TestShortIDCheck(t *testing.T) {
 }
 
 func TestStartupFail(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "syncthing-TestStartupFail-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	cert, err := tlsutil.NewCertificate(filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key"), "syncthing", 365)
+	cert, err := tlsutil.NewCertificate("", "", "syncthing", 365)
 	if err != nil {
 		t.Fatal(err)
 	}
