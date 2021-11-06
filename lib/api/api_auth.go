@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -66,27 +64,11 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
 		}
 
-		hdr := r.Header.Get("Authorization")
-		if !strings.HasPrefix(hdr, "Basic ") {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			error()
 			return
 		}
-
-		hdr = hdr[6:]
-		bs, err := base64.StdEncoding.DecodeString(hdr)
-		if err != nil {
-			error()
-			return
-		}
-
-		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
-
-		username := string(fields[0])
-		password := string(fields[1])
 
 		authOk := auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
