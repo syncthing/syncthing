@@ -468,7 +468,7 @@ func withConnectionPair(b *testing.B, connUri string, h func(client, server inte
 }
 
 func mustGetCert(b *testing.B) tls.Certificate {
-	cert, err := tlsutil.NewCertificate("", "", "bench", 10)
+	cert, err := tlsutil.NewCertificateInMemory("bench", 10)
 	if err != nil {
 		b.Fatal(err)
 	}

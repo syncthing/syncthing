@@ -56,7 +56,7 @@ func TestShortIDCheck(t *testing.T) {
 }
 
 func TestStartupFail(t *testing.T) {
-	cert, err := tlsutil.NewCertificate("", "", "syncthing", 365)
+	cert, err := tlsutil.NewCertificateInMemory("syncthing", 365)
 	if err != nil {
 		t.Fatal(err)
 	}

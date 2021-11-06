@@ -129,37 +129,43 @@ func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.
 	return certBlock, keyBlock, nil
 }
 
-// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.  If any file name is empty, the contents are kept only in memory.
+// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.
 func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int) (tls.Certificate, error) {
 	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
 
-	if certFile != "" {
-		certOut, err := os.Create(certFile)
-		if err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save cert")
-		}
-		if err = pem.Encode(certOut, certBlock); err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save cert")
-		}
-		if err = certOut.Close(); err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save cert")
-		}
+	certOut, err := os.Create(certFile)
+	if err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
+	}
+	if err = pem.Encode(certOut, certBlock); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
+	}
+	if err = certOut.Close(); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 
-	if keyFile != "" {
-		keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save key")
-		}
-		if err = pem.Encode(keyOut, keyBlock); err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save key")
-		}
-		if err = keyOut.Close(); err != nil {
-			return tls.Certificate{}, errors.Wrap(err, "save key")
-		}
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save key")
+	}
+	if err = pem.Encode(keyOut, keyBlock); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save key")
+	}
+	if err = keyOut.Close(); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save key")
+	}
+
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+}
+
+// NewCertificateInMemory generates and returns a new TLS certificate, kept only in memory.
+func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
