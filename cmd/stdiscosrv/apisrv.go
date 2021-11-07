@@ -419,7 +419,7 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 
 			// If zero port was specified, use remote port.
 			if port == "0" && remote.Port > 0 {
-				port = fmt.Sprintf("%d", remote.Port)
+				port = strconv.Itoa(remote.Port)
 			}
 		}
 
