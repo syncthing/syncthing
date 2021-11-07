@@ -391,7 +391,7 @@ func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 	// multireader. This ensures that it is not only a bonafide syncthing
 	// binary, but it is also of exactly the platform and version we expect.
 
-	mr := io.MultiReader(bytes.NewBufferString(archiveName+"\n"), fd)
+	mr := io.MultiReader(strings.NewReader(archiveName+"\n"), fd)
 	err = signature.Verify(SigningKey, sig, mr)
 	fd.Close()
 
