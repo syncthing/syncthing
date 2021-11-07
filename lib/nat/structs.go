@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-type MappingChangeSubscriber func(*Mapping, []Address, []Address)
+type MappingChangeSubscriber func()
 
 type Mapping struct {
 	protocol Protocol
@@ -26,53 +26,39 @@ type Mapping struct {
 	mut          sync.RWMutex
 }
 
-func (m *Mapping) setAddress(id string, address Address) {
-	m.mut.Lock()
-	if existing, ok := m.extAddresses[id]; !ok || !existing.Equal(address) {
-		l.Infof("New NAT port mapping: external %s address %s to local address %s.", m.protocol, address, m.address)
-		m.extAddresses[id] = address
-	}
-	m.mut.Unlock()
+func (m *Mapping) setAddressLocked(id string, address Address) {
+	l.Infof("New NAT port mapping: external %s address %s to local address %s.", m.protocol, address, m.address)
+	m.extAddresses[id] = address
 }
 
-func (m *Mapping) removeAddress(id string) {
-	m.mut.Lock()
+func (m *Mapping) removeAddressLocked(id string) {
 	addr, ok := m.extAddresses[id]
 	if ok {
 		l.Infof("Removing NAT port mapping: external %s address %s, NAT %s is no longer available.", m.protocol, addr, id)
 		delete(m.extAddresses, id)
 	}
-	m.mut.Unlock()
 }
 
 func (m *Mapping) clearAddresses() {
 	m.mut.Lock()
-	var removed []Address
+	change := len(m.extAddresses) > 0
 	for id, addr := range m.extAddresses {
 		l.Debugf("Clearing mapping %s: ID: %s Address: %s", m, id, addr)
-		removed = append(removed, addr)
 		delete(m.extAddresses, id)
 	}
 	m.expires = time.Time{}
 	m.mut.Unlock()
-	if len(removed) > 0 {
-		m.notify(nil, removed)
+	if change {
+		m.notify()
 	}
 }
 
-func (m *Mapping) notify(added, removed []Address) {
+func (m *Mapping) notify() {
 	m.mut.RLock()
 	for _, subscriber := range m.subscribers {
-		subscriber(m, added, removed)
+		subscriber()
 	}
 	m.mut.RUnlock()
-}
-
-func (m *Mapping) addressMap() map[string]Address {
-	m.mut.RLock()
-	addrMap := m.extAddresses
-	m.mut.RUnlock()
-	return addrMap
 }
 
 func (m *Mapping) Protocol() Protocol {
