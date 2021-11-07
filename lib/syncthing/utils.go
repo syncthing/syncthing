@@ -34,11 +34,7 @@ func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error
 
 func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-	return tlsutil.NewCertificate(
-		certFile, keyFile,
-		tlsDefaultCommonName,
-		deviceCertLifetimeDays,
-	)
+	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
 }
 
 func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
