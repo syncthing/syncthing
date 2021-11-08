@@ -15,8 +15,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/pkg/errors"
-
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -61,7 +59,7 @@ func (c *CLI) Run() error {
 	}
 
 	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder); err != nil {
-		return errors.Wrap(err, "Failed to generate config and keys")
+		return fmt.Errorf("Failed to generate config and keys: %w", err)
 	}
 	return nil
 }
@@ -85,7 +83,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	} else {
 		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
 		if err != nil {
-			return errors.Wrap(err, "create certificate")
+			return fmt.Errorf("create certificate: %w", err)
 		}
 	}
 	myID = protocol.NewDeviceID(cert.Certificate[0])
@@ -100,11 +98,11 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 		}
 
 		if cfg, _, err = config.Load(cfgFile, myID, events.NoopLogger); err != nil {
-			return errors.Wrap(err, "load config")
+			return fmt.Errorf("load config: %w", err)
 		}
 	} else {
 		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder); err != nil {
-			return errors.Wrap(err, "create config")
+			return fmt.Errorf("create config: %w", err)
 		}
 	}
 
@@ -119,12 +117,12 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 		}
 	})
 	if err != nil {
-		return errors.Wrap(err, "modify config")
+		return fmt.Errorf("modify config: %w", err)
 	}
 
 	waiter.Wait()
 	if err := cfg.Save(); err != nil {
-		return errors.Wrap(err, "save config")
+		return fmt.Errorf("save config: %w", err)
 	}
 	return nil
 }
