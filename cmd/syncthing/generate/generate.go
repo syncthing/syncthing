@@ -134,7 +134,7 @@ func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPasswo
 		log.Println("Updated GUI authentication user name:", guiUser)
 	}
 
-	if guiPassword != "" {
+	if guiPassword != "" && guiCfg.Password != guiPassword {
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
 			return fmt.Errorf("Failed to set GUI authentication password: %w", err)
 		}
