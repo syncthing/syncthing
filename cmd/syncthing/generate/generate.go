@@ -110,38 +110,35 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	go cfg.Serve(ctx)
 	defer cancel()
 
-	guiCfg := cfg.GUI()
+	var updateErr error
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
-		if changed := updateGUIAuthentication(&guiCfg, guiUser, guiPassword); changed {
-			cfg.GUI = guiCfg
-		}
+		updateErr = updateGUIAuthentication(&cfg.GUI, guiUser, guiPassword)
 	})
 	if err != nil {
 		return fmt.Errorf("modify config: %w", err)
 	}
 
 	waiter.Wait()
+	if updateErr != nil {
+		return updateErr
+	}
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}
 	return nil
 }
 
-func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) bool {
-	changed := false
+func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) error {
 	if guiUser != "" && guiCfg.User != guiUser {
 		guiCfg.User = guiUser
 		log.Println("Updated GUI authentication user name:", guiUser)
-		changed = true
 	}
 
-	if guiPassword != "" && guiCfg.Password != guiPassword {
+	if guiPassword != "" {
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
-			log.Fatal("Failed to set GUI authentication password.")
-		} else {
-			log.Println("Updated GUI authentication password.")
-			changed = true
+			return fmt.Errorf("Failed to set GUI authentication password: %w", err)
 		}
+		log.Println("Updated GUI authentication password.")
 	}
-	return changed
+	return nil
 }
