@@ -27,8 +27,8 @@ import (
 
 type CLI struct {
 	cmdutil.CommonOptions
-	GUIUser     string `placeholder:"STRING" help:"Override GUI authentication user name"`
-	GUIPassword string `placeholder:"STRING" help:"Override GUI authentication password (use - to read from standard input)"`
+	GUIUser     string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
+	GUIPassword string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
 }
 
 func (c *CLI) Run() error {
@@ -112,7 +112,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 
 	guiCfg := cfg.GUI()
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
-		if changed := overrideGUIAuthentication(&guiCfg, guiUser, guiPassword); changed {
+		if changed := updateGUIAuthentication(&guiCfg, guiUser, guiPassword); changed {
 			cfg.GUI = guiCfg
 		}
 	})
@@ -127,11 +127,11 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	return nil
 }
 
-func overrideGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) bool {
+func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) bool {
 	changed := false
 	if guiUser != "" && guiCfg.User != guiUser {
 		guiCfg.User = guiUser
-		log.Println("Overriding GUI authentication user name:", guiUser)
+		log.Println("Updated GUI authentication user name:", guiUser)
 		changed = true
 	}
 
@@ -139,7 +139,7 @@ func overrideGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPass
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
 			log.Fatal("Failed to set GUI authentication password.")
 		} else {
-			log.Println("Overriding GUI authentication password.")
+			log.Println("Updated GUI authentication password.")
 			changed = true
 		}
 	}
