@@ -66,7 +66,7 @@ func newStaticsServer(theme, assetDir string) *staticsServer {
 func (s *staticsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/themes.json":
-		s.serveThemes(w, r)
+		s.serveThemes(w)
 	default:
 		s.serveAsset(w, r)
 	}
@@ -153,7 +153,7 @@ func (s *staticsServer) serveFromAssets(file, theme string, modificationTime tim
 	return true
 }
 
-func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
+func (s *staticsServer) serveThemes(w http.ResponseWriter) {
 	sendJSON(w, map[string][]string{
 		"themes": s.availableThemes,
 	})

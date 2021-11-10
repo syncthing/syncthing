@@ -50,6 +50,7 @@ type service interface {
 	Override()
 	Revert()
 	DelayScan(d time.Duration)
+	ScheduleScan()
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
@@ -71,7 +72,7 @@ type Model interface {
 
 	connections.Model
 
-	ResetFolder(folder string)
+	ResetFolder(folder string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
@@ -324,7 +325,7 @@ func (m *model) fatal(err error) {
 // period.
 func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	detector := newDeadlockDetector(timeout)
+	detector := newDeadlockDetector(timeout, m.evLogger, m.fatal)
 	detector.Watch("fmut", m.fmut)
 	detector.Watch("pmut", m.pmut)
 }
@@ -505,6 +506,8 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerToken, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
+	delete(m.folderEncryptionPasswordTokens, cfg.ID)
+	delete(m.folderEncryptionFailures, cfg.ID)
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
@@ -1341,12 +1344,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
+			m.fmut.Lock()
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
 			} else {
 				m.folderEncryptionFailures[folder.ID] = make(map[protocol.DeviceID]error)
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
+			m.fmut.Unlock()
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
 			if sameError {
 				l.Debugln(msg)
@@ -1359,6 +1364,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			return tempIndexFolders, paused, err
 		}
+		m.fmut.Lock()
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
 				delete(m.folderEncryptionFailures, folder.ID)
@@ -1366,6 +1372,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				delete(m.folderEncryptionFailures[folder.ID], deviceID)
 			}
 		}
+		m.fmut.Unlock()
 
 		// Handle indexes
 
@@ -2109,7 +2116,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if ok {
-		return runner.Scan(nil)
+		runner.ScheduleScan()
 	}
 	return nil
 }
@@ -2394,7 +2401,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "android" {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1
@@ -2755,9 +2762,16 @@ func (m *model) BringToFront(folder, file string) {
 	}
 }
 
-func (m *model) ResetFolder(folder string) {
-	l.Infof("Cleaning data for folder %q", folder)
+func (m *model) ResetFolder(folder string) error {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	_, ok := m.folderRunners[folder]
+	if ok {
+		return errors.New("folder must be paused when resetting")
+	}
+	l.Infof("Cleaning metadata for reset folder %q", folder)
 	db.DropFolder(m.db, folder)
+	return nil
 }
 
 func (m *model) String() string {
@@ -2765,6 +2779,13 @@ func (m *model) String() string {
 }
 
 func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+	toFolders := to.FolderMap()
+	for _, from := range from.Folders {
+		to, ok := toFolders[from.ID]
+		if ok && from.Type != to.Type && (from.Type == config.FolderTypeReceiveEncrypted || to.Type == config.FolderTypeReceiveEncrypted) {
+			return errors.New("folder type must not be changed from/to receive-encrypted")
+		}
+	}
 	return nil
 }
 

@@ -412,7 +412,7 @@ func (options serveOptions) Run() error {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger, true)
+	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
 	if err != nil {
 		return err
 	}
@@ -497,7 +497,7 @@ func (e *errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	if err != nil {
 		return upgrade.Release{}, err
 	}
@@ -516,7 +516,11 @@ func checkUpgrade() (upgrade.Release, error) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	if err != nil {
+		return err
+	}
+
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -752,12 +756,12 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, evLogger)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
+		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, true)
 	}
 
 	return cfg, err

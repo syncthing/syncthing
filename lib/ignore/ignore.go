@@ -189,7 +189,7 @@ func (m *Matcher) Load(file string) error {
 		return nil
 	}
 
-	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
+	fd, info, err := loadIgnoreFile(m.fs, file)
 	if err != nil {
 		m.parseLocked(&bytes.Buffer{}, file)
 		return err
@@ -381,7 +381,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, fs.FileInfo, error) {
+func loadIgnoreFile(fs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
 	fd, err := fs.Open(file)
 	if err != nil {
 		return fd, nil, err
@@ -411,7 +411,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 		return nil, parseError(fmt.Errorf("multiple include of ignore file %q", file))
 	}
 
-	fd, info, err := loadIgnoreFile(filesystem, file, cd)
+	fd, info, err := loadIgnoreFile(filesystem, file)
 	if err != nil {
 		return nil, err
 	}

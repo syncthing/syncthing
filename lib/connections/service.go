@@ -786,13 +786,23 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
 	oldDevices := from.DeviceMap()
+	dial := false
+	s.dialNowDevicesMut.Lock()
 	for _, dev := range to.Devices {
-		oldDev, ok := oldDevices[dev.DeviceID]
-		if !ok || !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
-			s.scheduleDialNow()
-			break
+		if dev.Paused {
+			continue
+		}
+		if oldDev, ok := oldDevices[dev.DeviceID]; !ok || oldDev.Paused {
+			s.dialNowDevices[dev.DeviceID] = struct{}{}
+			dial = true
+		} else if !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
+			dial = true
 		}
 	}
+	if dial {
+		s.scheduleDialNow()
+	}
+	s.dialNowDevicesMut.Unlock()
 }
 
 func (s *service) scheduleDialNow() {

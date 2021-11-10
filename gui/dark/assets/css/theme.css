@@ -45,7 +45,7 @@ a:hover,a:focus,a.focus{
 .nav-tabs > li > a:hover,
 .nav-tabs > li > a:focus {
   background-color: #424242 !important;
-  border: none !important;
+  border-color: transparent !important;
 }
 
 

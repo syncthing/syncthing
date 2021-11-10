@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jun 21, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Oct 17, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -348,14 +348,14 @@ known state (before disconnect or network delay) and the current state at the
 neighbour, and if there were updates, deletes, creates, conflicts, which were
 overlapping we only see the \fIlatest change\fP for a given file or directory (and
 the node where that latest change occurred). When we connect to multiple neighbours
-Syncthing decides which neighbor has the latest state, or if the states conflict
+Syncthing decides which neighbour has the latest state, or if the states conflict
 it initiates the conflict resolution procedure, which in the end results in a consistent
 up\-to\-date state with all the neighbours.
 .SS Why does Syncthing connect to this unknown/suspicious address?
 .sp
 If you see outgoing connections to odd and unexpected addresses these are
 most likely connections to relay servers\&. Relay servers
-are run by volunteers all over the world. They usually listen on port 443 or
+are run by volunteers all over the world. They usually listen on ports 443 or
 22067, though this is controlled by the user running it. You can compare the
 address you are concernced about with \fI\%the current list of active relays\fP <\fBhttps://relays.syncthing.net\fP>\&. Relays do not and can not see the data
 transmitted via them.
@@ -417,26 +417,26 @@ programs to achieve this such as \fI\%rsync\fP <\fBhttps://rsync.samba.org/\fP> 
 \fI\%Unison\fP <\fBhttps://www.cis.upenn.edu/~bcpierce/unison\fP>\&.
 .SS When I do have two distinct Syncthing\-managed folders on two hosts, how does Syncthing handle moving files between them?
 .sp
-Syncthing does not specially handle this case, and most files most likely get
+Syncthing does not specially handle this case, and most files will most likely get
 re\-downloaded.
 .sp
-In detail, the behavior depends on the scan order. If you have folder A and B,
-and move files from A to B, if A gets scanned first, it will announce removal of
-the files to others who will remove the files. As you rescan B, B will
-announce addition of new files, and other peers will have nowhere to get
+In detail, the behavior depends on the scan order. If you have folders A and B,
+and move files from A to B, if A gets scanned first, it will announce the removal of
+the files to others who will then remove the files. As you rescan B, B will
+announce the addition of new files, and other peers will have nowhere to get
 them from apart from re\-downloading them.
 .sp
-If B gets rescanned first, B will announce additions first, remote
-peers will reconstruct the files (not rename, more like copy block by
-block) from A, and then as A gets rescanned remove the files from A.
+If B gets rescanned first, B will announce additions first, and remote
+peers will then reconstruct the files (not rename, more like copying block by
+block) from A, and then as A gets rescanned, it will remove the files from A.
 .sp
 A workaround would be to copy first from A to B, rescan B, wait for B to
-rebuild on remote ends, and then delete from A.
+copy the files on the remote side, and then delete from A.
 .SS Is Syncthing my ideal backup application?
 .sp
 No. Syncthing is not a great backup application because all changes to your
 files (modifications, deletions, etc.) will be propagated to all your
-devices. You can enable versioning, but we encourage the use of other tools
+devices. You can enable versioning, but we encourage you to use other tools
 to keep your data safe from your (or our) mistakes.
 .SS How can I exclude files with brackets (\fB[]\fP) in the name?
 .sp
@@ -448,13 +448,13 @@ To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to “escap
 the brackets, like so: \fBq\e[abc\e]x\fP\&.
 .sp
 On Windows, escaping special characters is not supported as the \fB\e\fP
-character is used as a path separator. On the other hand, special characters
-such as \fB[\fP and \fB?\fP are not allowed in file names on Windows.
+character is used as a path separator.
 .SS How do I access the web GUI from another computer?
 .sp
 The default listening address is 127.0.0.1:8384, so you can only access the
-GUI from the same machine. This is for security reasons. Change the \fBGUI
-listen address\fP through the web UI from \fB127.0.0.1:8384\fP to
+GUI from the same machine. This is for security reasons. To access the web
+GUI from another computer, change the \fBGUI listen address\fP through the web
+UI from \fB127.0.0.1:8384\fP to
 \fB0.0.0.0:8384\fP or change the config.xml:
 .INDENT 0.0
 .INDENT 3.5
@@ -544,7 +544,7 @@ to get an idea how to do that.
 .sp
 If you use a package manager such as Debian’s apt\-get, you should upgrade
 using the package manager. If you use the binary packages linked from
-Syncthing.net, you can use Syncthing built in automatic upgrades.
+Syncthing.net, you can use Syncthing’s built\-in automatic upgrade functionality.
 .INDENT 0.0
 .IP \(bu 2
 If automatic upgrades is enabled (which is the default), Syncthing will
@@ -556,7 +556,7 @@ released. Pressing it will perform an upgrade.
 To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
 .UNINDENT
 .sp
-Note that your system should have CA certificates installed which allow a
+Note that your system should have CA certificates installed which allows a
 secure connection to GitHub (e.g. FreeBSD requires \fBsudo pkg install
 ca_root_nss\fP). If \fBcurl\fP or \fBwget\fP works with normal HTTPS sites, then
 so should Syncthing.
@@ -577,7 +577,7 @@ of the command, not the package), look into the local documentation for that, it
 will almost certainly cover 100% of what you want to do.  If you don’t have
 \fBstart\-stop\-daemon\fP, there are a bunch of other software packages you could use
 to do this.  The most well known is called daemontools, and can be found in the
-standard package repositories for  almost every modern Linux distribution.
+standard package repositories for almost every modern Linux distribution.
 Other popular tools with similar functionality include S6 and the aforementioned
 runit.
 .SS How do I increase the inotify limit to get my filesystem watcher to work?
@@ -625,14 +625,14 @@ This only takes effect after a reboot. To adjust the limit immediately, run:
 .sp
 .nf
 .ft C
-sudo sh \-c \(aqecho 204800 > /proc/sys/fs/inotify/max_user_watches\(aq
+echo 204800 | sudo tee /proc/sys/fs/inotify/max_user_watches
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .SS How do I reset the GUI password?
 .sp
-If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on OS and is described in the configuration documentation.
+If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on the OS and is described in the configuration documentation.
 .sp
 For example, the two emphasized lines below would be removed from the file.
 .INDENT 0.0

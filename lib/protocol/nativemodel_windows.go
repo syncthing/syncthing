@@ -1,5 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:build windows
 // +build windows
 
 package protocol
@@ -11,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+func makeNative(m Model) Model { return nativeModel{m} }
 
 type nativeModel struct {
 	Model

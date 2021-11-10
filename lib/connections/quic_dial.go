@@ -4,7 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.17
+//go:build go1.15 && !noquic
+// +build go1.15,!noquic
 
 package connections
 
@@ -45,7 +46,9 @@ type quicDialer struct {
 func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
-	addr, err := net.ResolveUDPAddr("udp", uri.Host)
+	network := quicNetwork(uri)
+
+	addr, err := net.ResolveUDPAddr(network, uri.Host)
 	if err != nil {
 		return internalConn{}, err
 	}
@@ -55,7 +58,8 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	// Given we always pass the connection to quic, it assumes it's a remote connection it never closes it,
 	// So our wrapper around it needs to close it, but it only needs to close it if it's not the listening connection.
 	var createdConn net.PacketConn
-	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
+	listenConn := registry.Get(uri.Scheme, packetConnUnspecified)
+	if listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {

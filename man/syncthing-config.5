@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jun 21, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Oct 17, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -247,7 +247,7 @@ GUI.
 .B ignoredFolder
 Contains the ID of the folder that should be ignored. This folder will
 always be skipped when advertised from a remote device, i.e. this will be
-logged, but there will be no dialog about it in the web GUI.
+logged, but there will be no dialog shown in the web GUI.
 .UNINDENT
 .SH FOLDER ELEMENT
 .INDENT 0.0
@@ -291,7 +291,7 @@ element:
 .INDENT 0.0
 .TP
 .B id
-The folder ID, must be unique. (mandatory)
+The folder ID, which must be unique. (mandatory)
 .TP
 .B label
 The label of a folder is a human readable and descriptive local name. May
@@ -323,17 +323,17 @@ changes to other devices.
 .UNINDENT
 .TP
 .B rescanIntervalS
-The rescan interval, in seconds. Can be set to zero to disable when external
+The rescan interval, in seconds. Can be set to \fB0\fP to disable when external
 plugins are used to trigger rescans.
 .TP
 .B fsWatcherEnabled
-If enabled this detects changes to files in the folder and scans them.
+If set to \fBtrue\fP, this detects changes to files in the folder and scans them.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
-scheduled (only takes effect if \fBfsWatcherEnabled\fP is true).
+scheduled (only takes effect if \fBfsWatcherEnabled\fP is set to \fBtrue\fP).
 .TP
 .B ignorePerms
 True if the folder should ignore permissions.
@@ -374,8 +374,8 @@ versioning
 .INDENT 0.0
 .TP
 .B copiers, pullers, hashers
-The number of copier, puller and hasher routines to use, or zero for the
-system determined optimum. These are low level performance options for
+The number of copier, puller and hasher routines to use, or \fB0\fP for the
+system determined optimums. These are low level performance options for
 advanced users only; do not change unless requested to or you’ve actually
 read and understood the code yourself. :)
 .TP
@@ -409,29 +409,29 @@ the 1 KB becomes known to the pulling device.
 \fBWARNING:\fP
 .INDENT 7.0
 .INDENT 3.5
-Enabling this is highly not recommended \- use at your own risk.
+Enabling this is highly discouraged \- use at your own risk. You have been warned.
 .UNINDENT
 .UNINDENT
 .sp
-When set to true, this device will pretend not to see instructions to
+When set to \fBtrue\fP, this device will pretend not to see instructions to
 delete files from other devices.
 .TP
 .B scanProgressIntervalS
-The interval with which scan progress information is sent to the GUI. Zero
-means the default value (two seconds).
+The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
+will cause Syncthing to use the default value of two.
 .TP
 .B pullerPauseS
 Tweak for rate limiting the puller when it retries pulling files. Don’t
-change these unless you know what you’re doing.
+change this unless you know what you’re doing.
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
-The default, \-1, means an unlimited number. Setting this to zero disables
+The default, \fB\-1\fP, means an unlimited number. Setting this to \fB0\fP disables
 conflict copies altogether.
 .TP
 .B disableSparseFiles
-By default, blocks containing all zeroes are not written, causing files
-to be sparse on filesystems that support the concept. When set to true,
+By default, blocks containing all zeros are not written, causing files
+to be sparse on filesystems that support this feature. When set to \fBtrue\fP,
 sparse files will not be created.
 .TP
 .B disableTempIndexes
@@ -439,33 +439,33 @@ By default, devices exchange information about blocks available in
 transfers that are still in progress, which allows other devices to
 download parts of files that are not yet fully downloaded on your own
 device, essentially making transfers more torrent like. When set to
-true, such information is not exchanged for this folder.
+\fBtrue\fP, such information is not exchanged for this folder.
 .TP
 .B paused
 True if this folder is (temporarily) suspended.
 .TP
 .B weakHashThresholdPct
 Use weak hash if more than the given percentage of the file has changed. Set
-to \-1 to always use weak hash. Default value is 25.
+to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
-marker\-faq\&. Default is “.stfolder”.
+marker\-faq\&. Default is \fB\&.stfolder\fP\&.
 .TP
 .B copyOwnershipFromParent
 On Unix systems, tries to copy file/folder ownership from the parent directory (the directory it’s located in).
-Requires running Syncthing as privileged user, or granting it additional capabilities (e.g. CAP_CHOWN on Linux).
+Requires running Syncthing as a privileged user, or granting it additional capabilities (e.g. CAP_CHOWN on Linux).
 .TP
 .B modTimeWindowS
 Allowed modification timestamp difference when comparing files for
 equivalence. To be used on file systems which have unstable
 modification timestamps that might change after being recorded
-during the last write operation. Defaults to 2 on Android when the
-folder is located on a FAT partition, and always to 0 elsewhere.
+during the last write operation. Default is \fB2\fP on Android when the
+folder is located on a FAT partition, and \fB0\fP otherwise.
 .TP
 .B maxConcurrentWrites
-Maximum number of concurrent write operations while syncing. Defaults to 2. Increasing this might increase or
-decrease disk performance, depending on the underlying storage.
+Maximum number of concurrent write operations while syncing. Increasing this might increase or
+decrease disk performance, depending on the underlying storage. Default is \fB2\fP\&.
 .UNINDENT
 .sp
 disableFsync
@@ -494,7 +494,7 @@ Available options:
 .TP
 .B standard (default):
 The blocks of a file are split into N equal continuous sequences, where N is the number of connected
-devices. Each device starts downloading it’s own sequence, after which it picks other devices
+devices. Each device starts downloading its own sequence, after which it picks other devices
 sequences at random. Provides acceptable data distribution and minimal spinning disk strain.
 .TP
 .B random:
@@ -596,10 +596,10 @@ to even if the original introducer is no longer listing the remote device as kno
 Defines which device has introduced us to this device. Used only for following de\-introductions.
 .TP
 .B certName
-The device certificate common name, if it is not the default “syncthing”.
+The device certificate’s common name, if it is not the default “syncthing”.
 .UNINDENT
 .sp
-From following child elements at least one \fBaddress\fP child must exist.
+From the following child elements at least one \fBaddress\fP child must exist.
 .INDENT 0.0
 .TP
 .B address
@@ -706,8 +706,8 @@ If not \fBtrue\fP, the GUI and API will not be started.
 .TP
 .B tls
 If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
-be redirected to HTTPS. When this is set to \fBfalse\fP, TLS connections are
-still possible but it is not mandatory.
+be redirected to HTTPS. When set to \fBfalse\fP, TLS connections are
+still possible but not required.
 .TP
 .B debugging
 This enables profiling and additional debugging endpoints in the rest\-api\&.
@@ -721,10 +721,10 @@ Set the listen address. One address element must be present. Allowed address for
 .INDENT 7.0
 .TP
 .B IPv4 address and port (\fB127.0.0.1:8384\fP)
-The address and port is used as given.
+The address and port are used as given.
 .TP
 .B IPv6 address and port (\fB[::1]:8384\fP)
-The address and port is used as given. The address must be enclosed in
+The address and port are used as given. The address must be enclosed in
 square brackets.
 .TP
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
@@ -733,11 +733,11 @@ interfaces via both IPv4 and IPv6.
 .TP
 .B UNIX socket location (\fB/var/run/st.sock\fP)
 If the address is an absolute path it is interpreted as the path to a UNIX socket.
-(Added in v0.14.52.)
 .UNINDENT
 .TP
 .B unixSocketPermissions
-In the case that a UNIX socket location is used for \fBaddress\fP, set this to an octal to override the default permissions of the socket.
+When \fBaddress\fP is set to a UNIX socket location, set this to an octal value
+to override the default permissions of the socket.
 .TP
 .B user
 Set to require authentication.
@@ -756,8 +756,8 @@ without authorization. A warning will displayed about this setting on startup.
 The name of the theme to use.
 .TP
 .B authMode
-Authentication mode to use. If not present authentication mode (static)
-is controlled by presence of user/password fields for backward compatibility.
+Authentication mode to use. If not present, the authentication mode (static)
+is controlled by the presence of user/password fields for backward compatibility.
 .INDENT 7.0
 .TP
 .B static
@@ -792,7 +792,7 @@ LDAP server address (server:port).
 .TP
 .B bindDN
 BindDN for user authentication.
-Special %s variable should be used to pass username to LDAP.
+Special \fB%s\fP variable should be used to pass username to LDAP.
 .UNINDENT
 .sp
 transport
@@ -814,7 +814,7 @@ StartTLS connection mode.
 .INDENT 0.0
 .TP
 .B insecureSkipVerify
-Skip verification (true or false).
+Skip verification (\fBtrue\fP or \fBfalse\fP).
 .UNINDENT
 .SH OPTIONS ELEMENT
 .INDENT 0.0
@@ -878,12 +878,12 @@ The \fBoptions\fP element contains all other global configuration options.
 .TP
 .B listenAddress
 The listen address for incoming sync connections. See
-\fI\%Listen Addresses\fP for allowed syntax.
+\fI\%Listen Addresses\fP for the allowed syntax.
 .TP
 .B globalAnnounceServer
 A URI to a global announce (discovery) server, or the word \fBdefault\fP to
 include the default servers. Any number of globalAnnounceServer elements
-may be present. The syntax for non\-default entries is that of a HTTP or
+may be present. The syntax for non\-default entries is that of an HTTP or
 HTTPS URL. A number of options may be added as query options to the URL:
 \fBinsecure\fP to prevent certificate validation (required for HTTP URLs)
 and \fBid=<device ID>\fP to perform certificate pinning. The device ID to
@@ -914,7 +914,7 @@ The number of seconds to wait between each attempt to connect to currently
 unconnected devices.
 .TP
 .B relaysEnabled
-When true, relays will be connected to and potentially used for device to device connections.
+When \fBtrue\fP, relays will be connected to and potentially used for device to device connections.
 .TP
 .B relayReconnectIntervalM
 Sets the interval, in minutes, between relay reconnect attempts.
@@ -956,19 +956,19 @@ When true, the UR URL can be http instead of https, or have a self\-signed
 certificate. The default is \fBfalse\fP\&.
 .TP
 .B urInitialDelayS
-The time to wait from startup to the first usage report being sent. Allows
+The time to wait from startup for the first usage report to be sent. Allows
 the system to stabilize before reporting statistics.
 .TP
 .B restartOnWakeup
 Whether to perform a restart of Syncthing when it is detected that we are
-waking from sleep mode (i.e. a folded up laptop).
+waking from sleep mode (i.e. an unfolding laptop).
 .TP
 .B autoUpgradeIntervalH
-Check for a newer version after this many hours. Set to zero to disable
+Check for a newer version after this many hours. Set to \fB0\fP to disable
 automatic upgrades.
 .TP
 .B upgradeToPreReleases
-If true, automatic upgrades include release candidates (see
+If \fBtrue\fP, automatic upgrades include release candidates (see
 releases).
 .TP
 .B keepTemporariesH
@@ -1048,7 +1048,10 @@ as part of launching Syncthing, set this option to \fBfalse\fP\&.
 .UNINDENT
 .SS Listen Addresses
 .sp
-The following address types are accepted in sync protocol listen addresses. If you want Syncthing to listen on multiple addresses, you can either: add multiple \fB<listenAddress>\fP tags in the configuration file or enter several addresses separated by commas in the GUI.
+The following address types are accepted in sync protocol listen addresses.
+If you want Syncthing to listen on multiple addresses, you can either: add
+multiple \fB<listenAddress>\fP tags in the configuration file or enter several
+addresses separated by commas in the GUI.
 .INDENT 0.0
 .TP
 .B Default listen addresses (\fBdefault\fP)

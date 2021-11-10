@@ -142,37 +142,32 @@ type errNotFound struct{}
 func (*errNotFound) Error() string { return "key not found" }
 
 func IsClosed(err error) bool {
-	var e *errClosed
+	e := &errClosed{}
 	return errors.As(err, &e)
 }
 
 func IsNotFound(err error) bool {
-	var e *errNotFound
+	e := &errNotFound{}
 	return errors.As(err, &e)
 }
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
 	wg   *closeWaitGroup
-	once *sync.Once
+	once sync.Once
 }
 
 func newReleaser(wg *closeWaitGroup) (*releaser, error) {
 	if err := wg.Add(1); err != nil {
 		return nil, err
 	}
-	return &releaser{
-		wg:   wg,
-		once: new(sync.Once),
-	}, nil
+	return &releaser{wg: wg}, nil
 }
 
-func (r releaser) Release() {
+func (r *releaser) Release() {
 	// We use the Once because we may get called multiple times from
 	// Commit() and deferred Release().
-	r.once.Do(func() {
-		r.wg.Done()
-	})
+	r.once.Do(r.wg.Done)
 }
 
 // closeWaitGroup behaves just like a sync.WaitGroup, but does not require

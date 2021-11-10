@@ -55,6 +55,7 @@ type folder struct {
 	scanTimer              *time.Timer
 	scanDelay              chan time.Duration
 	initialScanFinished    chan struct{}
+	scanScheduled          chan struct{}
 	versionCleanupInterval time.Duration
 	versionCleanupTimer    *time.Timer
 
@@ -110,6 +111,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
 		scanDelay:              make(chan time.Duration),
 		initialScanFinished:    make(chan struct{}),
+		scanScheduled:          make(chan struct{}, 1),
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
 		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
@@ -204,6 +206,10 @@ func (f *folder) Serve(ctx context.Context) error {
 			l.Debugln(f, "Delaying scan")
 			f.scanTimer.Reset(next)
 
+		case <-f.scanScheduled:
+			l.Debugln(f, "Scan was scheduled")
+			f.scanTimer.Reset(0)
+
 		case fsEvents := <-f.watchChan:
 			l.Debugln(f, "Scan due to watcher")
 			err = f.scanSubdirs(fsEvents)
@@ -236,6 +242,14 @@ func (f *folder) DelayScan(next time.Duration) {
 	select {
 	case f.scanDelay <- next:
 	case <-f.done:
+	}
+}
+
+func (f *folder) ScheduleScan() {
+	// 1-buffered chan
+	select {
+	case f.scanScheduled <- struct{}{}:
+	default:
 	}
 }
 

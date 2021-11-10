@@ -7,53 +7,35 @@
 package cli
 
 import (
-	"container/heap"
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"github.com/urfave/cli"
 
 	"github.com/syncthing/syncthing/lib/db"
 )
 
-type SizedElement struct {
-	key  string
-	size int
-}
-
-type ElementHeap []SizedElement
-
-func (h ElementHeap) Len() int           { return len(h) }
-func (h ElementHeap) Less(i, j int) bool { return h[i].size > h[j].size }
-func (h ElementHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-
-func (h *ElementHeap) Push(x interface{}) {
-	*h = append(*h, x.(SizedElement))
-}
-
-func (h *ElementHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
-
 func indexDumpSize(*cli.Context) error {
+	type sizedElement struct {
+		key  string
+		size int
+	}
+
 	ldb, err := getDB()
 	if err != nil {
 		return err
 	}
 
-	h := &ElementHeap{}
-	heap.Init(h)
-
 	it, err := ldb.NewPrefixIterator(nil)
 	if err != nil {
 		return err
 	}
-	var ele SizedElement
+
+	var elems []sizedElement
 	for it.Next() {
+		var ele sizedElement
+
 		key := it.Key()
 		switch key[0] {
 		case db.KeyTypeDevice:
@@ -94,11 +76,13 @@ func indexDumpSize(*cli.Context) error {
 			ele.key = fmt.Sprintf("UNKNOWN:%x", key)
 		}
 		ele.size = len(it.Value())
-		heap.Push(h, ele)
+		elems = append(elems, ele)
 	}
 
-	for h.Len() > 0 {
-		ele = heap.Pop(h).(SizedElement)
+	sort.Slice(elems, func(i, j int) bool {
+		return elems[i].size > elems[j].size
+	})
+	for _, ele := range elems {
 		fmt.Println(ele.key, ele.size)
 	}
 
