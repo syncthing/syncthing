@@ -455,12 +455,6 @@
                           <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
-                      <tr ng-if="hasReceiveEncryptedItems(folder)">
-                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
-                        <td class="text-right">
-                          <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{receiveEncryptedItemsCount(folder) | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
-                        </td>
-                      </tr>
                       <tr ng-if="folder.type != 'sendreceive'">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                         <td class="text-right">

@@ -931,9 +931,9 @@ angular.module('syncthing.core')
                 return 'faileditems';
             }
             if ($scope.hasReceiveOnlyChanged(folderCfg)) {
-                return 'localadditions';
-            }
-            if ($scope.hasReceiveEncryptedItems(folderCfg)) {
+                if (folderCfg.type === "receiveonly") {
+                    return 'localadditions';
+                }
                 return 'localunencrypted';
             }
             if (folderCfg.devices.length <= 1) {
@@ -2609,27 +2609,12 @@ angular.module('syncthing.core')
         };
 
         $scope.hasReceiveOnlyChanged = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== "receiveonly") {
+            if (!folderCfg || folderCfg.type !== ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
                 return false;
             }
             var counts = $scope.model[folderCfg.id];
             return counts && counts.receiveOnlyTotalItems > 0;
         };
-
-        $scope.hasReceiveEncryptedItems = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== "receiveencrypted") {
-                return false;
-            }
-            return $scope.receiveEncryptedItemsCount(folderCfg) > 0;
-        };
-
-        $scope.receiveEncryptedItemsCount = function (folderCfg) {
-            var counts = $scope.model[folderCfg.id];
-            if (!counts) {
-                return 0;
-            }
-            return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes;
-        }
 
         $scope.revertOverride = function () {
             $http.post(
