@@ -351,29 +351,32 @@ func (db *Lowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte,
 		for _, block := range ef.Blocks {
 			keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 			if err != nil {
-				return keyBuf, err
+				return nil, err
 			}
 			if err := t.Delete(keyBuf); err != nil {
-				return keyBuf, err
+				return nil, err
 			}
 		}
 		if removeFromBlockListMap {
 			keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
 			if err != nil {
-				return keyBuf, err
+				return nil, err
 			}
 			if err = t.Delete(keyBuf); err != nil {
-				return keyBuf, err
+				return nil, err
 			}
 		}
 	}
 
 	keyBuf, err = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
 	if err != nil {
-		return keyBuf, err
+		return nil, err
+	}
+	if err := t.Delete(keyBuf); err != nil {
+		return nil, err
 	}
 	l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
-	return keyBuf, t.Delete(keyBuf)
+	return keyBuf, nil
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
