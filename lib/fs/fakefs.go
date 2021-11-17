@@ -89,11 +89,9 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 	fakeFSMut.Lock()
 	defer fakeFSMut.Unlock()
 
-	root := rootURI
 	var params url.Values
 	uri, err := url.Parse(rootURI)
 	if err == nil {
-		root = uri.Path
 		params = uri.Query()
 	}
 
@@ -157,7 +155,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 	// the filesystem initially.
 	fs.latency, _ = time.ParseDuration(params.Get("latency"))
 
-	fakeFSCache[root] = fs
+	fakeFSCache[rootURI] = fs
 	return fs
 }
 
