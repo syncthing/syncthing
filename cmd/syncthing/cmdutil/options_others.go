@@ -7,8 +7,8 @@
 //go:build !windows
 // +build !windows
 
-package main
+package cmdutil
 
-type buildServeOptions struct {
+type buildCommonOptions struct {
 	HideConsole bool `hidden:""`
 }

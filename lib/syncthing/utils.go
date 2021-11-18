@@ -24,6 +24,29 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
+func EnsureDir(dir string, mode fs.FileMode) error {
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	err := fs.MkdirAll(".", mode)
+	if err != nil {
+		return err
+	}
+
+	if fi, err := fs.Stat("."); err == nil {
+		// Apprently the stat may fail even though the mkdirall passed. If it
+		// does, we'll just assume things are in order and let other things
+		// fail (like loading or creating the config...).
+		currentMode := fi.Mode() & 0777
+		if currentMode != mode {
+			err := fs.Chmod(".", mode)
+			// This can fail on crappy filesystems, nothing we can do about it.
+			if err != nil {
+				l.Warnln(err)
+			}
+		}
+	}
+	return nil
+}
+
 func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {

@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
+	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -132,32 +133,30 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve   serveOptions `cmd:"" help:"Run Syncthing"`
-	Decrypt decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli     struct{}     `cmd:"" help:"Command line interface for Syncthing"`
+	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
+	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
+	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli      struct{}     `cmd:"" help:"Command line interface for Syncthing"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
-	buildServeOptions
+	cmdutil.CommonOptions
 	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
 	Audit            bool   `help:"Write events to audit file"`
 	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
 	BrowserOnly      bool   `help:"Open GUI in browser"`
-	ConfDir          string `name:"config" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"`
+	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` //DEPRECATED: replaced by subcommand!
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	HomeDir          string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
 	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
 	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
 	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
 	NoBrowser        bool   `help:"Do not start browser"`
 	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
-	NoDefaultFolder  bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
 	NoUpgrade        bool   `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
 	Paths            bool   `help:"Show configuration paths"`
 	Paused           bool   `help:"Start with all devices and folders paused"`
@@ -339,7 +338,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.GenerateDir != "" {
-		if err := generate(options.GenerateDir, options.NoDefaultFolder); err != nil {
+		if err := generate.Generate(options.GenerateDir, "", "", options.NoDefaultFolder); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
@@ -347,7 +346,7 @@ func (options serveOptions) Run() error {
 	}
 
 	// Ensure that our home directory exists.
-	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
@@ -413,52 +412,12 @@ func openGUI(myID protocol.DeviceID) error {
 	if err != nil {
 		return err
 	}
-	if cfg.GUI().Enabled {
-		if err := openURL(cfg.GUI().URL()); err != nil {
+	if guiCfg := cfg.GUI(); guiCfg.Enabled {
+		if err := openURL(guiCfg.URL()); err != nil {
 			return err
 		}
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
-	}
-	return nil
-}
-
-func generate(generateDir string, noDefaultFolder bool) error {
-	dir, err := fs.ExpandTilde(generateDir)
-	if err != nil {
-		return err
-	}
-
-	if err := ensureDir(dir, 0700); err != nil {
-		return err
-	}
-
-	var myID protocol.DeviceID
-	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err == nil {
-		l.Warnln("Key exists; will not overwrite.")
-	} else {
-		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
-		if err != nil {
-			return errors.Wrap(err, "create certificate")
-		}
-	}
-	myID = protocol.NewDeviceID(cert.Certificate[0])
-	l.Infoln("Device ID:", myID)
-
-	cfgFile := filepath.Join(dir, "config.xml")
-	if _, err := os.Stat(cfgFile); err == nil {
-		l.Warnln("Config exists; will not overwrite.")
-		return nil
-	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
-	if err != nil {
-		return err
-	}
-	err = cfg.Save()
-	if err != nil {
-		return errors.Wrap(err, "save config")
 	}
 	return nil
 }
@@ -798,29 +757,6 @@ func auditWriter(auditFile string) io.Writer {
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
-}
-
-func ensureDir(dir string, mode fs.FileMode) error {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	err := fs.MkdirAll(".", mode)
-	if err != nil {
-		return err
-	}
-
-	if fi, err := fs.Stat("."); err == nil {
-		// Apprently the stat may fail even though the mkdirall passed. If it
-		// does, we'll just assume things are in order and let other things
-		// fail (like loading or creating the config...).
-		currentMode := fi.Mode() & 0777
-		if currentMode != mode {
-			err := fs.Chmod(".", mode)
-			// This can fail on crappy filesystems, nothing we can do about it.
-			if err != nil {
-				l.Warnln(err)
-			}
-		}
-	}
-	return nil
 }
 
 func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
