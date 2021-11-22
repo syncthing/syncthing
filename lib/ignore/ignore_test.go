@@ -1201,7 +1201,7 @@ func TestWindowsLineEndings(t *testing.T) {
 
 	lines := "foo\nbar\nbaz\n"
 
-	ffs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
 	m := New(ffs)
 	if err := m.Parse(strings.NewReader(lines), ".stignore"); err != nil {
 		t.Fatal(err)
