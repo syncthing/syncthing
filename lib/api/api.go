@@ -94,6 +94,8 @@ type service struct {
 	systemLog logger.Recorder
 }
 
+var _ config.Verifier = &service{}
+
 type Service interface {
 	suture.Service
 	config.Committer

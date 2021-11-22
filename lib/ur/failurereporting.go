@@ -188,10 +188,6 @@ func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
 	}
 }
 
-func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
-	return nil
-}
-
 func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.CREnabled != to.Options.CREnabled || from.Options.CRURL != to.Options.CRURL {
 		h.optsChan <- to.Options
