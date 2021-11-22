@@ -280,7 +280,7 @@ func (c *configMuxBuilder) registerGUI(path string) {
 }
 
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
