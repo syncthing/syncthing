@@ -493,7 +493,7 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	if err := w.cfg.WriteXML(fd); err != nil {
+	if err := w.cfg.WriteXML(osutil.LineEndingsWriter(fd)); err != nil {
 		l.Debugln("WriteXML:", err)
 		fd.Close()
 		return err
