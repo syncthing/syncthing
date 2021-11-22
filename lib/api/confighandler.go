@@ -471,14 +471,6 @@ func unmarshalDevicesWithDefaults(data []json.RawMessage, defaultDevice config.D
 	return devices, nil
 }
 
-func checkGUIPassword(oldPassword, newPassword string) (string, error) {
-	if newPassword == oldPassword {
-		return newPassword, nil
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 0)
-	return string(hash), err
-}
-
 func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
 	waiter.Wait()
 	if err := c.cfg.Save(); err != nil {
