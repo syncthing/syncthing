@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -2152,7 +2151,7 @@ func TestIssue2782(t *testing.T) {
 	if err := os.MkdirAll(testDir+"/syncdir", 0755); err != nil {
 		t.Skip(err)
 	}
-	if err := ioutil.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
+	if err := os.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
 		t.Skip(err)
 	}
 	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
@@ -2763,7 +2762,7 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	must(t, err)
 	defer os.RemoveAll(dir)
 
@@ -2900,7 +2899,7 @@ func TestVersionRestore(t *testing.T) {
 		}
 		defer fd.Close()
 
-		content, err := ioutil.ReadAll(fd)
+		content, err := io.ReadAll(fd)
 		if err != nil {
 			t.Error(err)
 		}
@@ -2930,7 +2929,7 @@ func TestVersionRestore(t *testing.T) {
 				must(t, err)
 				defer fd.Close()
 
-				content, err := ioutil.ReadAll(fd)
+				content, err := io.ReadAll(fd)
 				if err != nil {
 					t.Error(err)
 				}

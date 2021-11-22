@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -56,7 +56,7 @@ func poolHandler(pool string, uri *url.URL, mapping mapping, ownCert tls.Certifi
 			continue
 		}
 
-		bs, err := ioutil.ReadAll(resp.Body)
+		bs, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			log.Printf("Error joining pool %v: reading response: %v", pool, err)

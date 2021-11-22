@@ -8,7 +8,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -59,7 +59,7 @@ func TestParseVersion(t *testing.T) {
 }
 
 func TestParseReport(t *testing.T) {
-	bs, err := ioutil.ReadFile("_testdata/panic.log")
+	bs, err := os.ReadFile("_testdata/panic.log")
 	if err != nil {
 		t.Fatal(err)
 	}

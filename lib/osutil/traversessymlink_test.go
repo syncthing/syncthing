@@ -7,7 +7,6 @@
 package osutil_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,7 +17,7 @@ import (
 )
 
 func TestTraversesSymlink(t *testing.T) {
-	tmpDir, err := ioutil.TempDir(".", ".test-TraversesSymlink-")
+	tmpDir, err := os.MkdirTemp(".", ".test-TraversesSymlink-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
@@ -71,7 +70,7 @@ func TestTraversesSymlink(t *testing.T) {
 }
 
 func TestIssue4875(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", ".test-Issue4875-")
+	tmpDir, err := os.MkdirTemp("", ".test-Issue4875-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}

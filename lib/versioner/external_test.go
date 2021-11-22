@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -85,7 +84,7 @@ func prepForRemoval(t *testing.T, file string) {
 	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 }

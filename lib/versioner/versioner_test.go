@@ -9,7 +9,6 @@ package versioner
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,7 +55,7 @@ func TestVersionerCleanOut(t *testing.T) {
 			oldTime := time.Now().Add(-8 * 24 * time.Hour)
 			for file, shouldRemove := range testcases {
 				os.MkdirAll(filepath.Dir(file), 0777)
-				if err := ioutil.WriteFile(file, []byte("data"), 0644); err != nil {
+				if err := os.WriteFile(file, []byte("data"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				if shouldRemove {

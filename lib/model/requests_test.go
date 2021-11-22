@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -236,7 +235,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
-	tmpdir, err := ioutil.TempDir("", "syncthing-test")
+	tmpdir, err := os.MkdirTemp("", "syncthing-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +680,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 }
 
 func equalContents(path string, contents []byte) error {
-	if bs, err := ioutil.ReadFile(path); err != nil {
+	if bs, err := os.ReadFile(path); err != nil {
 		return err
 	} else if !bytes.Equal(bs, contents) {
 		return errors.New("incorrect data")

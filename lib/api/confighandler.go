@@ -9,7 +9,6 @@ package api
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -407,7 +406,7 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 
 // Unmarshals the content of the given body and stores it in to (i.e. to must be a pointer).
 func unmarshalTo(body io.ReadCloser, to interface{}) error {
-	bs, err := ioutil.ReadAll(body)
+	bs, err := io.ReadAll(body)
 	body.Close()
 	if err != nil {
 		return err

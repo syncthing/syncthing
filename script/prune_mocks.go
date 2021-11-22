@@ -12,7 +12,6 @@ package main
 import (
 	"bufio"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -51,7 +50,7 @@ func pruneInterfaceCheck(path string, size int64) error {
 	}
 	defer fd.Close()
 
-	tmp, err := ioutil.TempFile(".", "")
+	tmp, err := os.CreateTemp(".", "")
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,8 @@
 package versioner
 
 import (
-	"io/ioutil"
+	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -19,12 +20,12 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 	// This tests that trashcan versioner restoration correctly archives existing file, because trashcan versioner
 	// files are untagged, archiving existing file to replace with a restored version technically should collide in
 	// in names.
-	tmpDir1, err := ioutil.TempDir("", "")
+	tmpDir1, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tmpDir2, err := ioutil.TempDir("", "")
+	tmpDir2, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +106,7 @@ func readFile(t *testing.T, filesystem fs.Filesystem, name string) string {
 		t.Fatal(err)
 	}
 	defer fd.Close()
-	buf, err := ioutil.ReadAll(fd)
+	buf, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
