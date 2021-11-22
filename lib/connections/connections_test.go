@@ -446,6 +446,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	}
 	natSvc := nat.NewService(deviceId, wcfg)
 	conns := make(chan internalConn, 1)
+	fmt.Println("listening", uri)
 	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc)
 	supervisor.Add(listenSvc)
 
@@ -468,7 +469,9 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	dialer := df.New(cfg.Options, tlsCfg)
 
 	// Relays might take some time to register the device, so dial multiple times
+	fmt.Println("dialing", addr)
 	clientConn, err := dialer.Dial(ctx, deviceId, addr)
+	fmt.Println("clientConn", clientConn.LocalAddr(), "->", clientConn.RemoteAddr())
 	if err != nil {
 		for i := 0; i < 10 && err != nil; i++ {
 			clientConn, err = dialer.Dial(ctx, deviceId, addr)
@@ -487,6 +490,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	}
 
 	serverConn := <-conns
+	fmt.Println("serverConn", serverConn.LocalAddr(), "->", serverConn.RemoteAddr())
 
 	recv := make([]byte, len(send))
 	if _, err := io.ReadFull(serverConn, recv); err != nil {
@@ -502,7 +506,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	_ = serverConn.Close()
 }
 
-func mustGetCert(b *testing.B) tls.Certificate {
+func mustGetCert(b interface{ Fatal(...interface{}) }) tls.Certificate {
 	cert, err := tlsutil.NewCertificateInMemory("bench", 10)
 	if err != nil {
 		b.Fatal(err)
