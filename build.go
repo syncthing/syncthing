@@ -1293,7 +1293,7 @@ func zipFile(out string, files []archiveFile) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\n', '\r'}, -1)
+			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\r', '\n'}, -1)
 			fh.UncompressedSize = uint32(len(bs))
 			fh.UncompressedSize64 = uint64(len(bs))
 
