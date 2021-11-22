@@ -814,8 +814,10 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(tmpFile.Name())
-	w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
+	tmpFileName := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpFileName)
+	w := config.Wrap(tmpFileName, cfg, protocol.LocalDeviceID, events.NoopLogger)
 	ctx, cancel := context.WithCancel(context.Background())
 	go w.Serve(ctx)
 	defer cancel()
