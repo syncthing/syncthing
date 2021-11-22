@@ -594,6 +594,41 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 }
 
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "config.xml")
+	os.Remove(path)
+	defer os.Remove(path)
+
+	intCfg := New(device1)
+	cfg := wrap(path, intCfg, device1)
+	defer cfg.stop()
+
+	if err := cfg.Save(); err != nil {
+		t.Error(err)
+	}
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 

@@ -595,8 +595,9 @@ func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error
 		return err
 	}
 
+	wr := osutil.LineEndingsWriter(fd)
 	for _, line := range content {
-		fmt.Fprintln(fd, line)
+		fmt.Fprintln(wr, line)
 	}
 
 	if err := fd.Close(); err != nil {

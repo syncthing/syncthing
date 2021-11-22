@@ -9,6 +9,7 @@ package osutil
 import (
 	"bytes"
 	"io"
+	"runtime"
 )
 
 type ReplacingWriter struct {
@@ -45,4 +46,17 @@ func (w ReplacingWriter) Write(bs []byte) (int, error) {
 	written += n
 
 	return written, err
+}
+
+// LineEndingsWriter returns a writer that writes platform-appropriate line
+// endings. (This is a no-op on non-Windows platforms.)
+func LineEndingsWriter(w io.Writer) io.Writer {
+	if runtime.GOOS != "windows" {
+		return w
+	}
+	return &ReplacingWriter{
+		Writer: w,
+		From:   '\n',
+		To:     []byte{'\r', '\n'},
+	}
 }
