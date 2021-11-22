@@ -783,7 +783,6 @@ func TestConfigPostOK(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Error("Expected 200 OK, not", resp.Status)
 	}
-	os.RemoveAll("TestConfigPostOK")
 }
 
 func TestConfigPostDupFolder(t *testing.T) {

@@ -8,6 +8,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -281,7 +282,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("readying request body: %s", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -329,7 +330,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	if errMsg != "" {
 		http.Error(w, errMsg, status)
 	} else if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("modifying config: %s", err), http.StatusBadRequest)
 		return
 	}
 	c.finish(w, waiter)
@@ -474,6 +475,6 @@ func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
 	waiter.Wait()
 	if err := c.cfg.Save(); err != nil {
 		l.Warnln("Saving config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("saving config: %s", err), http.StatusInternalServerError)
 	}
 }
