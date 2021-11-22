@@ -45,7 +45,7 @@ func (c *CLI) Run() error {
 	log.SetFlags(0)
 
 	if c.To == "" && !c.VerifyOnly {
-		return fmt.Errorf("must set --to or --verify")
+		return fmt.Errorf("must set --to or --verify-only")
 	}
 
 	if c.TokenPath == "" {

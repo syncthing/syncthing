@@ -58,7 +58,8 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	// Given we always pass the connection to quic, it assumes it's a remote connection it never closes it,
 	// So our wrapper around it needs to close it, but it only needs to close it if it's not the listening connection.
 	var createdConn net.PacketConn
-	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
+	listenConn := registry.Get(uri.Scheme, packetConnUnspecified)
+	if listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {

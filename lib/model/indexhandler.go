@@ -426,6 +426,9 @@ func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fs
 	is := newIndexHandler(r.conn, r.downloads, folder, fset, runner, startInfo, r.evLogger)
 	is.token = r.sup.Add(is)
 	r.indexHandlers[folder.ID] = is
+
+	// This new connection might help us get in sync.
+	runner.SchedulePull()
 }
 
 // AddIndexInfo starts an index handler for given folder, unless it is paused.

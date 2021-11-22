@@ -13,7 +13,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/util"
 	"golang.org/x/net/proxy"
 )
 
@@ -59,11 +58,6 @@ func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error)
 	}
 
 	return proxy.SOCKS5("tcp", u.Host, auth, forward)
-}
-
-// Sort available addresses, preferring unspecified address.
-func tcpAddrLess(i interface{}, j interface{}) bool {
-	return util.AddressUnspecifiedLess(i.(*net.TCPAddr), j.(*net.TCPAddr))
 }
 
 // dialerConn is needed because proxy dialed connections have RemoteAddr() pointing at the proxy,

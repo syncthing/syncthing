@@ -86,11 +86,11 @@ func SecureDefaultWithTLS12() *tls.Config {
 	}
 }
 
-// NewCertificate generates and returns a new TLS certificate.
-func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls.Certificate, error) {
+// generateCertificate generates a PEM formatted key pair and self-signed certificate in memory.
+func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.Block, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "generate key")
+		return nil, nil, errors.Wrap(err, "generate key")
 	}
 
 	notBefore := time.Now().Truncate(24 * time.Hour)
@@ -117,19 +117,33 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "create cert")
+		return nil, nil, errors.Wrap(err, "create cert")
+	}
+
+	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}
+	keyBlock, err := pemBlockForKey(priv)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "save key")
+	}
+
+	return certBlock, keyBlock, nil
+}
+
+// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.
+func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
-	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	if err != nil {
+	if err = pem.Encode(certOut, certBlock); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
-	err = certOut.Close()
-	if err != nil {
+	if err = certOut.Close(); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 
@@ -137,22 +151,24 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 	if err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
-
-	block, err := pemBlockForKey(priv)
-	if err != nil {
+	if err = pem.Encode(keyOut, keyBlock); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save key")
+	}
+	if err = keyOut.Close(); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 
-	err = pem.Encode(keyOut, block)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+}
+
+// NewCertificateInMemory generates and returns a new TLS certificate, kept only in memory.
+func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
-	}
-	err = keyOut.Close()
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, err
 	}
 
-	return tls.LoadX509KeyPair(certFile, keyFile)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 }
 
 type DowngradingListener struct {

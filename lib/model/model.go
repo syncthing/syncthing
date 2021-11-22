@@ -1053,7 +1053,6 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	cfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -1071,11 +1070,10 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.
 	}
 
 	p := newPager(page, perpage)
-	recvEnc := cfg.Type == config.FolderTypeReceiveEncrypted
 	files := make([]db.FileInfoTruncated, 0, perpage)
 
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
-		if !f.IsReceiveOnlyChanged() || (recvEnc && f.IsDeleted()) {
+		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
 		if p.skip() {
@@ -2403,7 +2401,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "android" {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1

@@ -13,6 +13,8 @@ import (
 	"strings"
 )
 
+func makeNative(m Model) Model { return nativeModel{m} }
+
 type nativeModel struct {
 	Model
 }

@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -66,27 +63,11 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
 		}
 
-		hdr := r.Header.Get("Authorization")
-		if !strings.HasPrefix(hdr, "Basic ") {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			error()
 			return
 		}
-
-		hdr = hdr[6:]
-		bs, err := base64.StdEncoding.DecodeString(hdr)
-		if err != nil {
-			error()
-			return
-		}
-
-		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
-
-		username := string(fields[0])
-		password := string(fields[1])
 
 		authOk := auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
@@ -135,14 +116,12 @@ func auth(username string, password string, guiCfg config.GUIConfiguration, ldap
 	if guiCfg.AuthMode == config.AuthModeLDAP {
 		return authLDAP(username, password, ldapCfg)
 	} else {
-		return authStatic(username, password, guiCfg.User, guiCfg.Password)
+		return authStatic(username, password, guiCfg)
 	}
 }
 
-func authStatic(username string, password string, configUser string, configPassword string) bool {
-	configPasswordBytes := []byte(configPassword)
-	passwordBytes := []byte(password)
-	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
+func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {
+	return guiCfg.CompareHashedPassword(password) == nil && username == guiCfg.User
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {

@@ -68,7 +68,7 @@ func (f *receiveOnlyFolder) Revert() {
 }
 
 func (f *receiveOnlyFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description)
+	l.Infof("Reverting folder %v", f.Description())
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

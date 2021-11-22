@@ -76,12 +76,10 @@ func setupFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
+func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 	t.Helper()
 
-	f, err := fs.Create(name)
-	must(t, err)
-	f.Close()
+	writeFile(t, fs, name, nil)
 	fi, err := fs.Stat(name)
 	must(t, err)
 	file, err := scanner.CreateFileInfo(fi, name, fs)
@@ -912,7 +910,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	name := "foo"
 
 	// create local file
-	file := createFile(t, name, ffs)
+	file := createEmptyFileInfo(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
@@ -944,7 +942,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	name := "foo"
 
 	// create local file
-	file := createFile(t, name, ffs)
+	file := createEmptyFileInfo(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
@@ -982,7 +980,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	file := filepath.Join(link, "file")
 
 	must(t, ffs.MkdirAll(link, 0755))
-	fi := createFile(t, file, ffs)
+	fi := createEmptyFileInfo(t, file, ffs)
 	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
 	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
@@ -1098,7 +1096,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 
 	name := "foo"
 	contents := []byte("contents")
-	must(t, writeFile(ffs, name, contents, 0644))
+	writeFile(t, ffs, name, contents)
 	must(t, f.scanSubdirs(nil))
 
 	var cur protocol.FileInfo
@@ -1121,7 +1119,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
 	temp := fs.TempName(remote.Name)
-	must(t, writeFile(ffs, temp, contents, 0644))
+	writeFile(t, ffs, temp, contents)
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 

@@ -12,7 +12,6 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -289,11 +288,13 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if to.GUI.Password, err = checkGUIPassword(cfg.GUI.Password, to.GUI.Password); err != nil {
-			l.Warnln("bcrypting password:", err)
-			errMsg = err.Error()
-			status = http.StatusInternalServerError
-			return
+		if to.GUI.Password != cfg.GUI.Password {
+			if err := to.GUI.HashAndSetPassword(to.GUI.Password); err != nil {
+				l.Warnln("hashing password:", err)
+				errMsg = err.Error()
+				status = http.StatusInternalServerError
+				return
+			}
 		}
 		*cfg = to
 	})
@@ -369,11 +370,13 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if gui.Password, err = checkGUIPassword(oldPassword, gui.Password); err != nil {
-			l.Warnln("bcrypting password:", err)
-			errMsg = err.Error()
-			status = http.StatusInternalServerError
-			return
+		if gui.Password != oldPassword {
+			if err := gui.HashAndSetPassword(gui.Password); err != nil {
+				l.Warnln("hashing password:", err)
+				errMsg = err.Error()
+				status = http.StatusInternalServerError
+				return
+			}
 		}
 		cfg.GUI = gui
 	})
@@ -415,14 +418,6 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	err := unmarshalTo(body, &data)
 	return data, err
-}
-
-func checkGUIPassword(oldPassword, newPassword string) (string, error) {
-	if newPassword == oldPassword {
-		return newPassword, nil
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 0)
-	return string(hash), err
 }
 
 func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
