@@ -595,6 +595,36 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 }
 
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	path := "testdata/temp.xml"
+	os.Remove(path)
+	defer os.Remove(path)
+
+	intCfg := New(device1)
+	cfg := wrap(path, intCfg, device1)
+	defer cfg.stop()
+
+	err := cfg.Save()
+	if err != nil {
+		t.Error(err)
+	}
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 

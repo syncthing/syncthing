@@ -1193,3 +1193,36 @@ func TestEmptyPatterns(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	lines := "foo\nbar\nbaz\n"
+
+	ffs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+	m := New(ffs)
+	if err := m.Parse(strings.NewReader(lines), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteIgnores(ffs, ".stignore", m.Lines()); err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := ffs.Open(".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs, err := io.ReadAll(fd)
+	fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
