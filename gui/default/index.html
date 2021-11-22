@@ -543,12 +543,18 @@
                           </span>
                         </td>
                       </tr>
-                      <tr ng-if="folder.ignoreDelete" class="text-danger">
-                        <th><span class="fas fa-fw fa-warning"></span>&nbsp;<span translate>Notice</span></th>
-                        <td class="text-right"><span translate>Folder option ignoreDelete enabled</span></td>
-                      </tr>
                     </tbody>
                   </table>
+                  <div ng-if="folder.ignoreDelete" class="panel panel-warning">
+                    <div class="panel-heading">
+                      <h4 class="panel-title"><span class="fas fa-fw fa-warning"></span>&nbsp;<span translate>Warnings</span></h4>
+                    </div>
+                    <div class="panel-body">
+                      <ul>
+                        <li ng-if="folder.ignoreDelete"><span translate>Folder option ignoreDelete is enabled.</span> <a href="https://docs.syncthing.net/advanced/folder-ignoredelete"><span translate>Usage of this is not advised.</span></a></li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
                 <div class="panel-footer">
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
