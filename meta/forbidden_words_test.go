@@ -1,4 +1,4 @@
-// Copyright (C) 2015 The Syncthing Authors.
+// Copyright (C) 2021 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -7,18 +7,21 @@
 package meta
 
 import (
+	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-var gofmtCheckDirs = []string{".", "../cmd", "../lib", "../test", "../script"}
+// Checks for forbidden words in all .go files
+func TestForbiddenWords(t *testing.T) {
+	checkDirs := []string{"../cmd", "../lib", "../test", "../script"}
+	forbiddenWords := []string{
+		`"io/ioutil"`, // deprecated and should not be imported
+	}
 
-// Checks that files are properly gofmt:ed.
-func TestCheckGoFmt(t *testing.T) {
-	for _, dir := range gofmtCheckDirs {
+	for _, dir := range checkDirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -29,13 +32,16 @@ func TestCheckGoFmt(t *testing.T) {
 			if filepath.Ext(path) != ".go" || strings.HasSuffix(path, ".pb.go") {
 				return nil
 			}
-			cmd := exec.Command("gofmt", "-s", "-d", path)
-			bs, err := cmd.CombinedOutput()
+
+			bs, err := os.ReadFile(path)
 			if err != nil {
-				return err
+				return nil
 			}
-			if len(bs) != 0 {
-				t.Errorf("File %s is not formatted correctly:\n\n%s", path, string(bs))
+
+			for _, word := range forbiddenWords {
+				if bytes.Contains(bs, []byte(word)) {
+					t.Errorf("%s: forbidden word %q", path, word)
+				}
 			}
 			return nil
 		})
