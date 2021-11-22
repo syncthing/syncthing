@@ -10,7 +10,6 @@
 package registry
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/sync"
@@ -46,7 +45,7 @@ func (r *Registry) Unregister(scheme string, item interface{}) {
 	candidates := r.available[scheme]
 	for i, existingItem := range candidates {
 		if existingItem == item {
-			copy(candidates[i:], candidates[i+1:])
+			candidates[i] = candidates[len(candidates)-1]
 			candidates[len(candidates)-1] = nil
 			r.available[scheme] = candidates[:len(candidates)-1]
 			break
@@ -54,26 +53,37 @@ func (r *Registry) Unregister(scheme string, item interface{}) {
 	}
 }
 
-func (r *Registry) Get(scheme string, less func(i, j interface{}) bool) interface{} {
+// Get returns an item for a schema compatible with the given scheme.
+// If any item satisfies preferred, that has precedence over other items.
+func (r *Registry) Get(scheme string, preferred func(interface{}) bool) interface{} {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	candidates := make([]interface{}, 0)
+	var (
+		best       interface{}
+		bestPref   bool
+		bestScheme string
+	)
 	for availableScheme, items := range r.available {
 		// quic:// should be considered ok for both quic4:// and quic6://
-		if strings.HasPrefix(scheme, availableScheme) {
-			candidates = append(candidates, items...)
+		if !strings.HasPrefix(scheme, availableScheme) {
+			continue
+		}
+		for _, item := range items {
+			better := best == nil
+			pref := preferred(item)
+			if !better {
+				// In case of a tie, prefer "quic" to "quic[46]" etc.
+				better = pref &&
+					(!bestPref || len(availableScheme) < len(bestScheme))
+			}
+			if !better {
+				continue
+			}
+			best, bestPref, bestScheme = item, pref, availableScheme
 		}
 	}
-
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	sort.Slice(candidates, func(i, j int) bool {
-		return less(candidates[i], candidates[j])
-	})
-	return candidates[0]
+	return best
 }
 
 func Register(scheme string, item interface{}) {
@@ -84,6 +94,6 @@ func Unregister(scheme string, item interface{}) {
 	Default.Unregister(scheme, item)
 }
 
-func Get(scheme string, less func(i, j interface{}) bool) interface{} {
-	return Default.Get(scheme, less)
+func Get(scheme string, preferred func(interface{}) bool) interface{} {
+	return Default.Get(scheme, preferred)
 }

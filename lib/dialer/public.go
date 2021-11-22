@@ -110,7 +110,9 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 		return DialContext(ctx, network, addr)
 	}
 
-	localAddrInterface := registry.Get(network, tcpAddrLess)
+	localAddrInterface := registry.Get(network, func(addr interface{}) bool {
+		return addr.(*net.TCPAddr).IP.IsUnspecified()
+	})
 	if localAddrInterface == nil {
 		// Nothing listening, nothing to reuse.
 		return DialContext(ctx, network, addr)

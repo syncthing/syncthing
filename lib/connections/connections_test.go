@@ -13,11 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -504,22 +502,10 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	_ = serverConn.Close()
 }
 
-func mustGetCert(b interface{ Fatal(...interface{}) }) tls.Certificate {
-	f1, err := ioutil.TempFile("", "")
+func mustGetCert(b *testing.B) tls.Certificate {
+	cert, err := tlsutil.NewCertificateInMemory("bench", 10)
 	if err != nil {
 		b.Fatal(err)
 	}
-	f1.Close()
-	f2, err := ioutil.TempFile("", "")
-	if err != nil {
-		b.Fatal(err)
-	}
-	f2.Close()
-	cert, err := tlsutil.NewCertificate(f1.Name(), f2.Name(), "bench", 10)
-	if err != nil {
-		b.Fatal(err)
-	}
-	_ = os.Remove(f1.Name())
-	_ = os.Remove(f2.Name())
 	return cert
 }
