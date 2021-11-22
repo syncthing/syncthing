@@ -25,7 +25,11 @@
               <p class="help-block" ng-if="discovery && discovery.length !== 0">
                 <span translate>You can also select one of these nearby devices:</span>
                 <ul>
-                  <li ng-repeat="id in discovery"><a href="#" ng-click="currentDevice.deviceID = id">{{id}}</a></li>
+                  <li ng-repeat="id in discovery" style="list-style-type: none;">
+                    <a href="#" ng-click="currentDevice.deviceID = id">
+                      <identicon data-value="id"></identicon>&nbsp;&nbsp;{{id}}
+                    </a>
+                  </li>
                 </ul>
               </p>
               <p class="help-block">

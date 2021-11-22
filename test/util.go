@@ -542,7 +542,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 
 	p := rc.NewProcess(addr)
 	p.LogTo(log)
-	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
+	if err := p.Start("../bin/syncthing", "--home", fmt.Sprintf("h%d", i), "--no-browser"); err != nil {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()

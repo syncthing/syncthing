@@ -223,35 +223,10 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
-				for _, block := range ef.Blocks {
-					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
-					if err != nil {
-						return err
-					}
-					if err := t.Delete(keyBuf); err != nil {
-						return err
-					}
-				}
-				if !blocksHashSame {
-					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
-					if err != nil {
-						return err
-					}
-					if err = t.Delete(keyBuf); err != nil {
-						return err
-					}
-				}
-			}
-
-			keyBuf, err = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+			keyBuf, err = db.removeLocalBlockAndSequenceInfo(keyBuf, folder, name, ef, !blocksHashSame, &t)
 			if err != nil {
 				return err
 			}
-			if err := t.Delete(keyBuf); err != nil {
-				return err
-			}
-			l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
 		}
 
 		f.Sequence = meta.nextLocalSeq()
@@ -312,6 +287,96 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	}
 
 	return t.Commit()
+}
+
+func (db *Lowlevel) removeLocalFiles(folder []byte, nameStrs []string, meta *metadataTracker) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var dk, gk, buf []byte
+	for _, nameStr := range nameStrs {
+		name := []byte(nameStr)
+		dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
+		if err != nil {
+			return err
+		}
+
+		ef, ok, err := t.getFileByKey(dk)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			l.Debugf("remove (local); folder=%q %v: file doesn't exist", folder, nameStr)
+			continue
+		}
+
+		buf, err = db.removeLocalBlockAndSequenceInfo(buf, folder, name, ef, true, &t)
+		if err != nil {
+			return err
+		}
+
+		meta.removeFile(protocol.LocalDeviceID, ef)
+
+		gk, err = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
+		if err != nil {
+			return err
+		}
+		buf, err = t.removeFromGlobal(gk, buf, folder, protocol.LocalDeviceID[:], name, meta)
+		if err != nil {
+			return err
+		}
+
+		err = t.Delete(dk)
+		if err != nil {
+			return err
+		}
+
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
+	}
+
+	return t.Commit()
+}
+
+func (db *Lowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte, ef protocol.FileInfo, removeFromBlockListMap bool, t *readWriteTransaction) ([]byte, error) {
+	var err error
+	if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
+		for _, block := range ef.Blocks {
+			keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+			if err != nil {
+				return nil, err
+			}
+			if err := t.Delete(keyBuf); err != nil {
+				return nil, err
+			}
+		}
+		if removeFromBlockListMap {
+			keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
+			if err != nil {
+				return nil, err
+			}
+			if err = t.Delete(keyBuf); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	keyBuf, err = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Delete(keyBuf); err != nil {
+		return nil, err
+	}
+	l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
+	return keyBuf, nil
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
