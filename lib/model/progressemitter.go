@@ -212,11 +212,6 @@ func (t *ProgressEmitter) computeProgressUpdates() []progressUpdate {
 	return progressUpdates
 }
 
-// VerifyConfiguration implements the config.Committer interface
-func (t *ProgressEmitter) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 // CommitConfiguration implements the config.Committer interface
 func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	t.mut.Lock()

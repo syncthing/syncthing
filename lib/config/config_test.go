@@ -13,7 +13,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -502,7 +501,7 @@ func TestFolderPath(t *testing.T) {
 }
 
 func TestFolderCheckPath(t *testing.T) {
-	n, err := ioutil.TempDir("", "")
+	n, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -643,8 +642,8 @@ func TestCopy(t *testing.T) {
 		t.Error("Config should have changed")
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
-		// ioutil.WriteFile("a", bsOrig, 0644)
-		// ioutil.WriteFile("b", bsCopy, 0644)
+		// os.WriteFile("a", bsOrig, 0644)
+		// os.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
 	}
 }
@@ -1266,7 +1265,7 @@ func copyToTmp(path string) (string, error) {
 		return "", err
 	}
 	defer orig.Close()
-	temp, err := ioutil.TempFile("", "syncthing-configTest-")
+	temp, err := os.CreateTemp("", "syncthing-configTest-")
 	if err != nil {
 		return "", err
 	}
@@ -1393,7 +1392,7 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 }
 
 func unmarshalAndPrepare(data io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	bs, err := ioutil.ReadAll(data)
+	bs, err := io.ReadAll(data)
 	if err != nil {
 		return Configuration{}, err
 	}

@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
@@ -500,7 +499,7 @@ func upgradeViaRest() error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		bs, err := ioutil.ReadAll(resp.Body)
+		bs, err := io.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		if err != nil {
 			return err

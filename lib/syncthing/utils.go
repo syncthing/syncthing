@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/pkg/errors"
@@ -133,12 +132,12 @@ func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 }
 
 func copyFile(src, dst string) error {
-	bs, err := ioutil.ReadFile(src)
+	bs, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(dst, bs, 0600); err != nil {
+	if err := os.WriteFile(dst, bs, 0600); err != nil {
 		// Attempt to clean up
 		os.Remove(dst)
 		return err

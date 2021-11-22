@@ -8,7 +8,6 @@ package fs
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,9 +19,9 @@ func TestMtimeFS(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 	os.Mkdir("testdata", 0755)
-	ioutil.WriteFile("testdata/exists0", []byte("hello"), 0644)
-	ioutil.WriteFile("testdata/exists1", []byte("hello"), 0644)
-	ioutil.WriteFile("testdata/exists2", []byte("hello"), 0644)
+	os.WriteFile("testdata/exists0", []byte("hello"), 0644)
+	os.WriteFile("testdata/exists1", []byte("hello"), 0644)
+	os.WriteFile("testdata/exists2", []byte("hello"), 0644)
 
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
@@ -83,7 +82,7 @@ func TestMtimeFS(t *testing.T) {
 }
 
 func TestMtimeFSWalk(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +92,7 @@ func TestMtimeFSWalk(t *testing.T) {
 	mtimefs := newMtimeFS(underlying, make(mapStore))
 	mtimefs.chtimes = failChtimes
 
-	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,7 +136,7 @@ func TestMtimeFSWalk(t *testing.T) {
 }
 
 func TestMtimeFSOpen(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +146,7 @@ func TestMtimeFSOpen(t *testing.T) {
 	mtimefs := newMtimeFS(underlying, make(mapStore))
 	mtimefs.chtimes = failChtimes
 
-	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,7 +199,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 		os.RemoveAll("testdata")
 		defer os.RemoveAll("testdata")
 		os.Mkdir("testdata", 0755)
-		ioutil.WriteFile("testdata/FiLe", []byte("hello"), 0644)
+		os.WriteFile("testdata/FiLe", []byte("hello"), 0644)
 
 		// a random time with nanosecond precision
 		testTime := time.Unix(1234567890, 123456789)

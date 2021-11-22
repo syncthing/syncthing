@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -223,7 +222,7 @@ func expectURLToContain(t *testing.T, url, exp string) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Error(err)
@@ -508,7 +507,7 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 		return
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Unexpected error reading %s: %v", tc.URL, err)
 		return
@@ -811,7 +810,7 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 	cfg := config.Configuration{
 		GUI: config.GUIConfiguration{APIKey: "foobarbaz"},
 	}
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -1150,7 +1149,7 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir, err := ioutil.TempDir("", "syncthing")
+	tmpDir, err := os.MkdirTemp("", "syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1159,7 +1158,7 @@ func TestBrowse(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
@@ -1264,7 +1263,7 @@ func TestConfigChanges(t *testing.T) {
 			APIKey:     testAPIKey,
 		},
 	}
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -1406,7 +1405,7 @@ func runningInContainer() bool {
 		return false
 	}
 
-	bs, err := ioutil.ReadFile("/proc/1/cgroup")
+	bs, err := os.ReadFile("/proc/1/cgroup")
 	if err != nil {
 		return false
 	}

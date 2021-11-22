@@ -12,8 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -112,7 +112,7 @@ func (c *CLI) withContinue(err error) error {
 // error.
 func (c *CLI) getFolderID() (string, error) {
 	tokenPath := filepath.Join(c.Path, c.TokenPath)
-	bs, err := ioutil.ReadFile(tokenPath)
+	bs, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return "", fmt.Errorf("reading folder token: %w", err)
 	}

@@ -38,7 +38,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -467,7 +467,7 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 		return resp, err
 	}
 
-	resp, _ = ioutil.ReadAll(r.Body)
+	resp, _ = io.ReadAll(r.Body)
 	l.Debugf("SOAP Response: %s\n\n%s\n\n", r.Status, resp)
 
 	r.Body.Close()

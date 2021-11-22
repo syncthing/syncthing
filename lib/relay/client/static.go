@@ -141,7 +141,17 @@ func (c *staticClient) connect(ctx context.Context) error {
 		return err
 	}
 
-	conn := tls.Client(tcpConn, c.config)
+	// Copy the TLS config and set the server name we're connecting to. In
+	// many cases this will be an IP address, in which case it's a no-op. In
+	// other cases it will be a hostname, which will cause the TLS stack to
+	// send SNI.
+	cfg := c.config
+	if host, _, err := net.SplitHostPort(c.uri.Host); err == nil {
+		cfg = cfg.Clone()
+		cfg.ServerName = host
+	}
+
+	conn := tls.Client(tcpConn, cfg)
 
 	if err := conn.SetDeadline(time.Now().Add(c.connectTimeout)); err != nil {
 		conn.Close()

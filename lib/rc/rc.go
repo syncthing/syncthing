@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -393,7 +392,7 @@ func (p *Process) Model(folder string) (Model, error) {
 }
 
 func (p *Process) readResponse(resp *http.Response) ([]byte, error) {
-	bs, err := ioutil.ReadAll(resp.Body)
+	bs, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return bs, err

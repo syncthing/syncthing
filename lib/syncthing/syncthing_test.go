@@ -7,7 +7,6 @@
 package syncthing
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ import (
 
 func tempCfgFilename(t *testing.T) string {
 	t.Helper()
-	f, err := ioutil.TempFile("", "syncthing-testConfig-")
+	f, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		t.Fatal(err)
 	}

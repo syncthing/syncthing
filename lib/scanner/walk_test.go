@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -376,7 +375,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 func TestWalkRootSymlink(t *testing.T) {
 	// Create a folder with a symlink in it
-	tmp, err := ioutil.TempDir("", "")
+	tmp, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -709,7 +708,7 @@ func TestStopWalk(t *testing.T) {
 }
 
 func TestIssue4799(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "")
+	tmp, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -771,7 +770,7 @@ func TestRecurseInclude(t *testing.T) {
 }
 
 func TestIssue4841(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "")
+	tmp, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}

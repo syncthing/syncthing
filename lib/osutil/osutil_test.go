@@ -7,7 +7,7 @@
 package osutil_test
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -83,7 +83,7 @@ func TestIsDeleted(t *testing.T) {
 func TestRenameOrCopy(t *testing.T) {
 	mustTempDir := func() string {
 		t.Helper()
-		tmpDir, err := ioutil.TempDir("", "")
+		tmpDir, err := os.MkdirTemp("", "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +131,7 @@ func TestRenameOrCopy(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			buf, err := ioutil.ReadAll(fd)
+			buf, err := io.ReadAll(fd)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -147,7 +147,7 @@ func TestRenameOrCopy(t *testing.T) {
 		if fd, err := test.dst.Open("new"); err != nil {
 			t.Fatal(err)
 		} else {
-			if buf, err := ioutil.ReadAll(fd); err != nil {
+			if buf, err := io.ReadAll(fd); err != nil {
 				t.Fatal(err)
 			} else if string(buf) != content {
 				t.Fatalf("expected %s got %s", content, string(buf))

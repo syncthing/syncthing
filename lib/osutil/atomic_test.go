@@ -8,7 +8,6 @@ package osutil
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,7 +34,7 @@ func TestCreateAtomicCreate(t *testing.T) {
 		t.Fatal("written bytes", n, "!= 5")
 	}
 
-	if _, err := ioutil.ReadFile("testdata/file"); err == nil {
+	if _, err := os.ReadFile("testdata/file"); err == nil {
 		t.Fatal("file should not exist")
 	}
 
@@ -43,7 +42,7 @@ func TestCreateAtomicCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bs, err := ioutil.ReadFile("testdata/file")
+	bs, err := os.ReadFile("testdata/file")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +61,7 @@ func TestCreateAtomicReplaceReadOnly(t *testing.T) {
 func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 	t.Helper()
 
-	testdir, err := ioutil.TempDir("", "syncthing")
+	testdir, err := os.MkdirTemp("", "syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +74,7 @@ func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 		t.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile(testfile, []byte("some old data"), oldPerms); err != nil {
+	if err := os.WriteFile(testfile, []byte("some old data"), oldPerms); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,7 +102,7 @@ func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 		t.Fatal(err)
 	}
 
-	bs, err := ioutil.ReadFile(testfile)
+	bs, err := os.ReadFile(testfile)
 	if err != nil {
 		t.Fatal(err)
 	}

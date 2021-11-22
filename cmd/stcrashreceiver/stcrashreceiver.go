@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -96,7 +95,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 	// Read at most maxRequestSize of report data.
 	log.Println("Receiving report", reportID)
 	lr := io.LimitReader(req.Body, maxRequestSize)
-	bs, err := ioutil.ReadAll(lr)
+	bs, err := io.ReadAll(lr)
 	if err != nil {
 		log.Println("Reading report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -110,7 +109,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 	gw.Close()
 
 	// Create an output file with the compressed report
-	err = ioutil.WriteFile(fullPath, buf.Bytes(), 0644)
+	err = os.WriteFile(fullPath, buf.Bytes(), 0644)
 	if err != nil {
 		log.Println("Saving report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

@@ -227,10 +227,6 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 	return res
 }
 
-func (m *manager) VerifyConfiguration(_, _ config.Configuration) error {
-	return nil
-}
-
 func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool) {
 	m.mut.Lock()
 	defer m.mut.Unlock()

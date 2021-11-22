@@ -17,7 +17,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -58,7 +57,7 @@ func main() {
 func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		lr := io.LimitReader(req.Body, maxRequestSize)
-		bs, err := ioutil.ReadAll(lr)
+		bs, err := io.ReadAll(lr)
 		req.Body.Close()
 		if err != nil {
 			http.Error(w, err.Error(), 500)

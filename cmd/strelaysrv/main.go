@@ -200,7 +200,7 @@ func main() {
 		go natSvc.Serve(ctx)
 		defer cancel()
 		found := make(chan struct{})
-		mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
+		mapping.OnChanged(func() {
 			select {
 			case found <- struct{}{}:
 			default:
