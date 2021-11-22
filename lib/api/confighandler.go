@@ -289,7 +289,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var to config.Configuration
 	util.SetDefaults(&to)
 	if err := json.Unmarshal(bs, &to); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("unmarshalling config: %s", err), http.StatusBadRequest)
 		return
 	}
 
