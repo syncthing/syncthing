@@ -1201,7 +1201,13 @@ func TestWindowsLineEndings(t *testing.T) {
 
 	lines := "foo\nbar\nbaz\n"
 
-	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	m := New(ffs)
 	if err := m.Parse(strings.NewReader(lines), ".stignore"); err != nil {
 		t.Fatal(err)

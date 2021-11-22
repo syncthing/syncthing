@@ -600,7 +600,13 @@ func TestWindowsLineEndings(t *testing.T) {
 		t.Skip("Windows specific")
 	}
 
-	path := "testdata/temp.xml"
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "config.xml")
 	os.Remove(path)
 	defer os.Remove(path)
 
@@ -608,8 +614,7 @@ func TestWindowsLineEndings(t *testing.T) {
 	cfg := wrap(path, intCfg, device1)
 	defer cfg.stop()
 
-	err := cfg.Save()
-	if err != nil {
+	if err := cfg.Save(); err != nil {
 		t.Error(err)
 	}
 
