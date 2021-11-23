@@ -547,11 +547,11 @@
                   </table>
                   <div ng-if="folder.ignoreDelete" class="panel panel-warning">
                     <div class="panel-heading">
-                      <h4 class="panel-title"><span class="fas fa-fw fa-warning"></span>&nbsp;<span translate>Warnings</span></h4>
+                      <h4 class="panel-title"><span class="fas fa-fw fa-warning"></span><span translate>Warnings</span></h4>
                     </div>
                     <div class="panel-body">
                       <ul>
-                        <li ng-if="folder.ignoreDelete"><span translate>Folder option ignoreDelete is enabled.</span> <a href="https://docs.syncthing.net/advanced/folder-ignoredelete"><span translate>Usage of this is not advised.</span></a></li>
+                        <li ng-if="folder.ignoreDelete"><a href="https://docs.syncthing.net/advanced/folder-ignoredelete">ignoreDelete</a> <span translate>is enabled in the folder's advanced settings. Usage if this is not advised.</span></li>
                       </ul>
                     </div>
                   </div>
