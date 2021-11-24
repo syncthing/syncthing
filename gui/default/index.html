@@ -429,9 +429,10 @@
                             <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
                           </div>
                           <div ng-if="folder.ignoreDelete">
-                            <i>
-                              <span class="small" translate>Altered by ignoring deletes. Sync status may be inconsistent.</span>
-                              <a class="small" href="https://docs.syncthing.net/advanced/folder-ignoredelete" target="_blank"><span class="fas fa-question-circle"></span><span translate>Help</span></a>
+                            <i class="small">
+                              <span translate style="white-space: normal;">Altered by ignoring deletes. In sync status may be inconsistent.</span>
+                              <br>
+                              <a href="https://docs.syncthing.net/advanced/folder-ignoredelete" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
                             </i>
                           </div>
                         </td>
