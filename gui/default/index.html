@@ -428,6 +428,12 @@
                           <div ng-if="model[folder.id].ignorePatterns">
                             <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
                           </div>
+                          <div ng-if="folder.ignoreDelete">
+                            <i>
+                              <span class="small" translate>Altered by ignoring deletes. Sync status may be inconsistent.</span>
+                              <a class="small" href="https://docs.syncthing.net/advanced/folder-ignoredelete" target="_blank"><span class="fas fa-question-circle"></span><span translate>Help</span></a>
+                            </i>
+                          </div>
                         </td>
                       </tr>
                       <tr ng-if="model[folder.id].needTotalItems > 0">
@@ -545,22 +551,6 @@
                       </tr>
                     </tbody>
                   </table>
-                  <div ng-if="folder.ignoreDelete" class="panel panel-warning">
-                    <div class="panel-heading">
-                      <h4 class="panel-title"><span class="fas fa-fw fa-warning"></span><span translate>Warnings</span></h4>
-                    </div>
-                    <div class="panel-body">
-                      <ul>
-                        <li ng-if="folder.ignoreDelete">
-                          <span translate>Ignore Delete is enabled in the folder's advanced settings. Usage of this is not advised.</span>
-                          <a href="https://docs.syncthing.net/advanced/folder-ignoredelete" target="_blank">
-                            <span class="fas fa-question-circle"></span>
-                            <span translate>Help</span>
-                          </a>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
                 </div>
                 <div class="panel-footer">
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">

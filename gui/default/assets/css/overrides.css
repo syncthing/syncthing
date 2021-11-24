@@ -193,11 +193,6 @@ table.table-auto td {
     margin-bottom: 0;
 }
 
-.panel-body>ul {
-    margin-bottom: 0px;
-    padding-left: 24px;
-}
-
 .dl-horizontal.dl-narrow dt {
     width: 40px;
 }
