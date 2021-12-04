@@ -26,4 +26,4 @@ var pendingCommand = cli.Command{
 			Action: expects(0, indexDumpOutput("cluster/pending/folders")),
 		},
 	},
-} 
+}
