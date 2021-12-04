@@ -94,6 +94,7 @@ func Run() error {
 		Subcommands: []cli.Command{
 			configCommand,
 			showCommand,
+			pendingCommand,
 			operationCommand,
 			errorsCommand,
 			debugCommand,
