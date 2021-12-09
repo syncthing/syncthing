@@ -13,7 +13,7 @@ import (
 var pendingCommand = cli.Command{
 	Name:     "pending",
 	HideHelp: true,
-	Usage:    "Pending command group",
+	Usage:    "Pending subcommand group",
 	Subcommands: []cli.Command{
 		{
 			Name:   "devices",

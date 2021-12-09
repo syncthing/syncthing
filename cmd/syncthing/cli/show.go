@@ -35,6 +35,7 @@ var showCommand = cli.Command{
 			Usage:  "Report about connections to other devices",
 			Action: expects(0, indexDumpOutput("system/connections")),
 		},
+        pendingCommand,
 		{
 			Name:   "usage",
 			Usage:  "Show usage report",
