@@ -21,10 +21,10 @@ var awaitInsyncCommand = cli.Command{
 	Name:     "await-insync",
 	HideHelp: true,
 	Usage:    "Block until the current dir finishes syncing",
-	Action:   expects(0, isyncAction),
+	Action:   expects(0, insyncAction),
 }
 
-func isyncAction(c *cli.Context) error {
+func insyncAction(c *cli.Context) error {
 	// v2:
 	// - read devices from the config
 	// - trigger Rescan on each device
