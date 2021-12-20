@@ -33,6 +33,7 @@ func (s *verboseService) Serve(ctx context.Context) error {
 		select {
 		case ev, ok := <-sub.C():
 			if !ok {
+				<-ctx.Done()
 				return ctx.Err()
 			}
 			formatted := s.formatEvent(ev)

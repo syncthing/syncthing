@@ -180,6 +180,7 @@ func (c *folderSummaryService) listenForUpdates(ctx context.Context) error {
 		select {
 		case ev, ok := <-sub.C():
 			if !ok {
+				<-ctx.Done()
 				return ctx.Err()
 			}
 			c.processUpdate(ev)
