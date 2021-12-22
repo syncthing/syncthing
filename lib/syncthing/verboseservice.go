@@ -31,7 +31,11 @@ func (s *verboseService) Serve(ctx context.Context) error {
 	defer sub.Unsubscribe()
 	for {
 		select {
-		case ev := <-sub.C():
+		case ev, ok := <-sub.C():
+			if !ok {
+				<-ctx.Done()
+				return ctx.Err()
+			}
 			formatted := s.formatEvent(ev)
 			if formatted != "" {
 				l.Verboseln(formatted)
