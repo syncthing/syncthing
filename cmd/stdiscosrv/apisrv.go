@@ -234,7 +234,7 @@ func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http
 	rawCert, err := certificateBytes(req)
 	if err != nil {
 		if debug {
-			log.Println(reqID, err.Error())
+			log.Println(reqID, fmt.Sprintf("no certificates: %s", err.Error()))
 		}
 		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
