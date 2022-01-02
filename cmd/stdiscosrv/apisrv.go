@@ -242,16 +242,6 @@ func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http
 		return
 	}
 
-	if rawCert == nil {
-		if debug {
-			log.Println(reqID, "no certificates")
-		}
-		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
-		w.Header().Set("Retry-After", errorRetryAfterString())
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
 	var ann announcement
 	if err := json.NewDecoder(req.Body).Decode(&ann); err != nil {
 		if debug {
@@ -351,6 +341,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 			}
 		}
 	} else if hdr := req.Header.Get("X-Tls-Client-Cert-Der-Base64"); hdr != "" {
+		// Caddy {tls_client_certificate_der_base64}
 		hdr, err := base64.StdEncoding.DecodeString(hdr)
 		if err != nil {
 			// Decoding failed
