@@ -1669,7 +1669,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 			} else {
 				ignores := m.cfg.DefaultIgnores()
-				if err := m.SetIgnores(fcfg.ID, ignores.Lines); err != nil {
+				if err := m.setIgnores(fcfg, ignores.Lines); err != nil {
 					l.Warnf("Failed to apply default ignores to auto-accepted folder %s at path %s: %v", folder.Description(), fcfg.Path, err)
 				}
 			}
@@ -2097,7 +2097,10 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
+	return m.setIgnores(cfg, content)
+}
 
+func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) error {
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
 		if err = cfg.CreateRoot(); err != nil {
@@ -2115,7 +2118,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	}
 
 	m.fmut.RLock()
-	runner, ok := m.folderRunners[folder]
+	runner, ok := m.folderRunners[cfg.ID]
 	m.fmut.RUnlock()
 	if ok {
 		runner.ScheduleScan()
