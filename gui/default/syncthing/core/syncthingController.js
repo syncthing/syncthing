@@ -1275,8 +1275,9 @@ angular.module('syncthing.core')
             if (cfg) {
                 cfg.paused = pause;
                 $scope.config.folders = folderList($scope.folders);
-                $scope.saveConfig();
+                return $scope.saveConfig();
             }
+            return $q.when();
         };
 
         $scope.showListenerStatus = function () {
@@ -1428,18 +1429,14 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.saveConfig = function (callback) {
+        $scope.saveConfig = function () {
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             };
-            return $http.put(urlbase + '/config', cfg, opts).finally(refreshConfig).then(function() {
-                if (callback) {
-                    callback();
-                }
-            }, $scope.emitHTTPError);
+            return $http.put(urlbase + '/config', cfg, opts).finally(refreshConfig).catch($scope.emitHTTPError);
         };
 
         $scope.urVersions = function () {
@@ -1519,7 +1516,7 @@ angular.module('syncthing.core')
                 // here as well...
                 $scope.devices = deviceMap($scope.config.devices);
 
-                $scope.saveConfig(function () {
+                $scope.saveConfig.then(function () {
                     if (themeChanged) {
                         document.location.reload(true);
                     }
@@ -1962,9 +1959,20 @@ angular.module('syncthing.core')
                     $('#folder-ignores textarea').focus();
                 }
             }).one('hidden.bs.modal', function () {
-                window.location.hash = "";
-                $scope.currentFolder = {};
-                $scope.ignores = {};
+                var p = $q.when();
+                // Adding folder was aborted in the second stage, when the
+                // folder was already created paused - clean up.
+                if ($scope.currentFolder._editing == "add-ignores" && !$scope.currentFolder._done) {
+                    delete $scope.folders[$scope.currentFolder.id];
+                    delete $scope.model[$scope.currentFolder.id];
+                    $scope.config.folders = folderList($scope.folders);
+                    p = saveFolderToConfig();
+                }
+                p.then(function () {
+                    window.location.hash = "";
+                    $scope.currentFolder = {};
+                    $scope.ignores = {};
+                });
             });
         };
 
@@ -2216,9 +2224,7 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._editing == "defaults") {
                 $scope.config.defaults.ignores.lines = ignoresArray();
                 $scope.config.defaults.folder = folderCfg;
-                $scope.saveConfig().then(function() {
-                    $('#editFolder').modal('hide');
-                });
+                saveFolderToConfig().then(hideFolderModal);
                 return;
             }
 
@@ -2232,18 +2238,15 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._editing == "existing") {
                 $q.all([
                     $q.when(saveFolderIgnoresExisting(folderCfg)),
-                    $scope.saveConfig(),
-                ]).then(function() {
-                    $('#editFolder').modal('hide');
-                });
+                    saveFolderToConfig(),
+                ]).then(hideFolderModal);
                 return;
             }
 
             // No ignores to be set on the new folder, save directly.
             if (!$scope.currentFolder._addIgnores) {
-                $scope.saveConfig().then(function() {
-                    $('#editFolder').modal('hide');
-                });
+                saveFolderToConfig().then(hideFolderModal);
+                return;
             }
 
             // Add folder (paused), load existing ignores and if there are none,
@@ -2256,6 +2259,16 @@ angular.module('syncthing.core')
             $scope.currentFolder._editing = "add-ignores";
             $('.nav-tabs a[href="#folder-ignores"]').tab('show');
         };
+
+        function saveFolderToConfig() {
+            return $scope.saveConfig().then(function() {
+                $scope.currentFolder._done = true;
+            });
+        }
+
+        function hideFolderModal() {
+            $('#editFolder').modal('hide');
+        }
 
         function saveFolderIgnoresExisting(folderCfg) {
             if ($scope.ignores.disabled) {
@@ -2273,8 +2286,10 @@ angular.module('syncthing.core')
 
         function saveFolderAddIgnores(folderID) {
             saveIgnores(ignoresArray(), function () {
-                $scope.setFolderPause(folderID, $scope.currentFolder.paused);
-                $('#editFolder').modal('hide');
+                $scope.setFolderPause(folderID, $scope.currentFolder.paused).then(function () {
+                    $scope.currentFolder._done = true;
+                    hideFolderModal();
+                });
             });
         };
 
@@ -2339,7 +2354,6 @@ angular.module('syncthing.core')
         };
 
         $scope.deleteFolder = function (id) {
-            $('#editFolder').modal('hide');
             if ($scope.currentFolder._editing != "existing") {
                 return;
             }
@@ -2349,7 +2363,7 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
             recalcLocalStateTotal();
 
-            $scope.saveConfig();
+            saveFolderToConfig().then(hideFolderModal);
         };
 
         function resetRestoreVersions() {
