@@ -1586,7 +1586,7 @@ angular.module('syncthing.core')
 
         $scope.editDeviceModalTitle = function() {
             var title = '';
-            switch ($scope.currentFolder._editing) {
+            switch ($scope.currentDevice._editing) {
             case "existing":
                 title += $translate.instant("Edit Device");
                 break;
@@ -2050,14 +2050,14 @@ angular.module('syncthing.core')
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
             editFolderLoadIgnores();
-            editFolder();
+            editFolder(initialTab);
         };
 
         function editFolderLoadIgnores() {
             $scope.ignores.text = 'Loading...';
             $scope.ignores.error = null;
             $scope.ignores.disabled = true;
-            return $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
+            var p = $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .then(function(r) {
                     editFolderInitIgnores(r.data.ignore);
                     $scope.ignores.error = r.data.error;
@@ -2066,19 +2066,18 @@ angular.module('syncthing.core')
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
                     $scope.emitHTTPError(response);
                 });
-            editFolder(initialTab);
+            editFolder();
+            return p;
         };
 
         $scope.editFolderDefaults = function() {
             $q.all([
                 $http.get(urlbase + '/config/defaults/folder').then(function (response) {
                     $scope.currentFolder = response.data;
+                    $scope.currentFolder._editing = "defaults";
                 }),
                 editFolderInitIgnoresDefault(),
-            ]).then(function() {
-                $scope.currentFolder._editing = "defaults";
-                editFolder();
-            }).catch($scope.emitHTTPError);
+            ]).then(editFolder).catch($scope.emitHTTPError);
         };
 
         function editFolderInitIgnoresDefault() {
@@ -2214,39 +2213,48 @@ angular.module('syncthing.core')
             }
             delete folderCfg._guiVersioning;
 
-            var done = true;
-            var promises = [];
             if ($scope.currentFolder._editing == "defaults") {
                 $scope.config.defaults.ignores.lines = ignoresArray();
                 $scope.config.defaults.folder = folderCfg;
-            } else {
-                $scope.folders[folderCfg.id] = folderCfg;
-                $scope.config.folders = folderList($scope.folders);
-
-                if ($scope.currentFolder._editing == "existing") {
-                    promises.push($q.when(saveFolderIgnoresExisting(folderCfg)));
-                }
+                $scope.saveConfig().then(function() {
+                    $('#editFolder').modal('hide');
+                });
+                return;
             }
 
+            // This is a new folder where ignores should apply before it first starts.
             if ($scope.currentFolder._addIgnores) {
-                // Set ignores after adding the folder
-                promises.push($scope.saveConfig().then(editFolderLoadIgnores).then(function() {
-                    if (!$scope.ignores.error && !$scope.ignores.text) {
-                        editFolderInitIgnoresDefault();
-                    };
-                }));
-                $scope.currentFolder._editing = "add-ignores";
-                $('.nav-tabs a[href="#folder-ignores"]').tab('show');
-                done = false;
-            } else {
-                promises.push($scope.saveConfig());
-            };
+                folderCfg.paused = true;
+            }
+            $scope.folders[folderCfg.id] = folderCfg;
+            $scope.config.folders = folderList($scope.folders);
 
-            $q.all(promises).then(function() {
-                if (done) {
+            if ($scope.currentFolder._editing == "existing") {
+                $q.all([
+                    $q.when(saveFolderIgnoresExisting(folderCfg)),
+                    $scope.saveConfig(),
+                ]).then(function() {
                     $('#editFolder').modal('hide');
-                }
+                });
+                return;
+            }
+
+            // No ignores to be set on the new folder, save directly.
+            if (!$scope.currentFolder._addIgnores) {
+                $scope.saveConfig().then(function() {
+                    $('#editFolder').modal('hide');
+                });
+            }
+
+            // Add folder (paused), load existing ignores and if there are none,
+            // load default ignores, then let the user edit them.
+            $scope.saveConfig().then(editFolderLoadIgnores).then(function() {
+                if (!$scope.ignores.error && !$scope.ignores.text) {
+                    editFolderInitIgnoresDefault();
+                };
             });
+            $scope.currentFolder._editing = "add-ignores";
+            $('.nav-tabs a[href="#folder-ignores"]').tab('show');
         };
 
         function saveFolderIgnoresExisting(folderCfg) {
@@ -2265,7 +2273,7 @@ angular.module('syncthing.core')
 
         function saveFolderAddIgnores(folderID) {
             saveIgnores(ignoresArray(), function () {
-                $scope.setFolderPause(folderID, false);
+                $scope.setFolderPause(folderID, $scope.currentFolder.paused);
                 $('#editFolder').modal('hide');
             });
         };
