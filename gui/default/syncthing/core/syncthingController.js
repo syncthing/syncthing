@@ -1712,13 +1712,13 @@ angular.module('syncthing.core')
                 return x.trim();
             });
             delete $scope.currentDevice._addressesStr;
-            if ($scope.currentFolder._editing == "defaults") {
+            if ($scope.currentDevice._editing == "defaults") {
                 $scope.config.defaults.device = $scope.currentDevice;
             } else {
                 setDeviceConfig();
             }
             delete $scope.currentSharing;
-            delete $scope.currentDevice;
+            $scope.currentDevice = {};
             $scope.saveConfig();
         };
 
