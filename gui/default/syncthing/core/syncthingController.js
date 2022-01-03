@@ -2065,7 +2065,7 @@ angular.module('syncthing.core')
             $scope.ignores.text = 'Loading...';
             $scope.ignores.error = null;
             $scope.ignores.disabled = true;
-            var p = $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
+            return $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .then(function(r) {
                     editFolderInitIgnores(r.data.ignore);
                     $scope.ignores.error = r.data.error;
@@ -2074,8 +2074,6 @@ angular.module('syncthing.core')
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
                     $scope.emitHTTPError(response);
                 });
-            editFolder();
-            return p;
         };
 
         $scope.editFolderDefaults = function() {
@@ -2251,13 +2249,15 @@ angular.module('syncthing.core')
 
             // Add folder (paused), load existing ignores and if there are none,
             // load default ignores, then let the user edit them.
-            $scope.saveConfig().then(editFolderLoadIgnores).then(function() {
+            $scope.saveConfig().then(function() {
+                $scope.currentFolder._editing = "add-ignores";
+                $('.nav-tabs a[href="#folder-ignores"]').tab('show');
+                return editFolderLoadIgnores();
+            }).then(function() {
                 if (!$scope.ignores.error && !$scope.ignores.text) {
                     editFolderInitIgnoresDefault();
                 };
             });
-            $scope.currentFolder._editing = "add-ignores";
-            $('.nav-tabs a[href="#folder-ignores"]').tab('show');
         };
 
         function saveFolderToConfig() {
