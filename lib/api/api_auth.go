@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -66,27 +63,11 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
 		}
 
-		hdr := r.Header.Get("Authorization")
-		if !strings.HasPrefix(hdr, "Basic ") {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			error()
 			return
 		}
-
-		hdr = hdr[6:]
-		bs, err := base64.StdEncoding.DecodeString(hdr)
-		if err != nil {
-			error()
-			return
-		}
-
-		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
-
-		username := string(fields[0])
-		password := string(fields[1])
 
 		authOk := auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
@@ -108,10 +89,22 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		sessionsMut.Lock()
 		sessions[sessionid] = true
 		sessionsMut.Unlock()
+
+		// Best effort detection of whether the connection is HTTPS --
+		// either directly to us, or as used by the client towards a reverse
+		// proxy who sends us headers.
+		connectionIsHTTPS := r.TLS != nil ||
+			strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
+			strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+		// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+		// bit in cookies.
+		useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
+
 		http.SetCookie(w, &http.Cookie{
 			Name:   cookieName,
 			Value:  sessionid,
 			MaxAge: 0,
+			Secure: useSecureCookie,
 		})
 
 		emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
@@ -123,14 +116,12 @@ func auth(username string, password string, guiCfg config.GUIConfiguration, ldap
 	if guiCfg.AuthMode == config.AuthModeLDAP {
 		return authLDAP(username, password, ldapCfg)
 	} else {
-		return authStatic(username, password, guiCfg.User, guiCfg.Password)
+		return authStatic(username, password, guiCfg)
 	}
 }
 
-func authStatic(username string, password string, configUser string, configPassword string) bool {
-	configPasswordBytes := []byte(configPassword)
-	passwordBytes := []byte(password)
-	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
+func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {
+	return guiCfg.CompareHashedPassword(password) == nil && username == guiCfg.User
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {

@@ -387,7 +387,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.shortcutFile(file, curFile, dbUpdateChan)
+				f.shortcutFile(file, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
 				f.queue.Push(file.Name, file.Size, file.ModTime())
@@ -743,7 +743,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	if f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+	if err = f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
 	}
@@ -1081,51 +1081,20 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 
 	populateOffsets(file.Blocks)
 
-	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
+	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
 	reused := make([]int, 0, len(file.Blocks))
 
-	// Check for an old temporary file which might have some blocks we could
-	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-	if err != nil {
-		var caseErr *fs.ErrCaseConflict
-		if errors.As(err, &caseErr) {
-			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
-			}
-		}
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		blocks, reused = f.reuseBlocks(blocks, reused, file, tempName)
 	}
-	if err == nil {
-		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
 
-		// block.String() returns a string unique to the block
-		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
-		for _, block := range tempCopyBlocks {
-			existingBlocks[block.String()] = struct{}{}
-		}
-
-		// Since the blocks are already there, we don't need to get them.
-		for i, block := range file.Blocks {
-			_, ok := existingBlocks[block.String()]
-			if !ok {
-				blocks = append(blocks, block)
-			} else {
-				reused = append(reused, i)
-			}
-		}
-
-		// The sharedpullerstate will know which flags to use when opening the
-		// temp file depending if we are reusing any blocks or not.
-		if len(reused) == 0 {
-			// Otherwise, discard the file ourselves in order for the
-			// sharedpuller not to panic when it fails to exclusively create a
-			// file which already exists
-			f.inWritableDir(f.mtimefs.Remove, tempName)
-		}
-	} else {
-		// Copy the blocks, as we don't want to shuffle them on the FileInfo
-		blocks = append(blocks, file.Blocks...)
+	// The sharedpullerstate will know which flags to use when opening the
+	// temp file depending if we are reusing any blocks or not.
+	if len(reused) == 0 {
+		// Otherwise, discard the file ourselves in order for the
+		// sharedpuller not to panic when it fails to exclusively create a
+		// file which already exists
+		f.inWritableDir(f.mtimefs.Remove, tempName)
 	}
 
 	// Reorder blocks
@@ -1148,6 +1117,45 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		have:              len(have),
 	}
 	copyChan <- cs
+}
+
+func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
+	// Check for an old temporary file which might have some blocks we could
+	// reuse.
+	tempBlocks, err := scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+	if err != nil {
+		var caseErr *fs.ErrCaseConflict
+		if errors.As(err, &caseErr) {
+			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
+				tempBlocks, err = scanner.HashFile(f.ctx, f.mtimefs, tempName, file.BlockSize(), nil, false)
+			}
+		}
+	}
+	if err != nil {
+		return blocks, reused
+	}
+
+	// Check for any reusable blocks in the temp file
+	tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
+
+	// block.String() returns a string unique to the block
+	existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
+	for _, block := range tempCopyBlocks {
+		existingBlocks[block.String()] = struct{}{}
+	}
+
+	// Since the blocks are already there, we don't need to get them.
+	blocks = blocks[:0]
+	for i, block := range file.Blocks {
+		_, ok := existingBlocks[block.String()]
+		if !ok {
+			blocks = append(blocks, block)
+		} else {
+			reused = append(reused, i)
+		}
+	}
+
+	return blocks, reused
 }
 
 // blockDiff returns lists of common and missing (to transform src into tgt)
@@ -1191,7 +1199,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
@@ -1214,6 +1222,26 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
+			f.newPullError(file.Name, err)
+			return
+		}
+	}
+
+	// Still need to re-write the trailer with the new encrypted fileinfo.
+	if f.Type == config.FolderTypeReceiveEncrypted {
+		err = inWritableDir(func(path string) error {
+			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0666)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			trailerSize, err := writeEncryptionTrailer(file, fd)
+			if err != nil {
+				return err
+			}
+			return fd.Truncate(file.Size + trailerSize)
+		}, f.mtimefs, file.Name, true)
+		if err != nil {
 			f.newPullError(file.Name, err)
 			return
 		}
@@ -1504,8 +1532,8 @@ loop:
 		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the
 		// file).
-		selected, found := activity.leastBusy(candidates)
-		if !found {
+		found := activity.leastBusy(candidates)
+		if found == -1 {
 			if lastError != nil {
 				state.fail(errors.Wrap(lastError, "pull"))
 			} else {
@@ -1514,7 +1542,9 @@ loop:
 			break
 		}
 
-		candidates = removeAvailability(candidates, selected)
+		selected := candidates[found]
+		candidates[found] = candidates[len(candidates)-1]
+		candidates = candidates[:len(candidates)-1]
 
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
@@ -1774,16 +1804,6 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 		return true
 	}
 	return false
-}
-
-func removeAvailability(availabilities []Availability, availability Availability) []Availability {
-	for i := range availabilities {
-		if availabilities[i] == availability {
-			availabilities[i] = availabilities[len(availabilities)-1]
-			return availabilities[:len(availabilities)-1]
-		}
-	}
-	return availabilities
 }
 
 func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {

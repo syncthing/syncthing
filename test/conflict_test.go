@@ -4,13 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
 	"bytes"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -188,7 +188,7 @@ func TestConflictsDefault(t *testing.T) {
 	if len(files) != 1 {
 		t.Errorf("Expected 1 conflicted files instead of %d", len(files))
 	}
-	bs, err := ioutil.ReadFile("s1/testfile.txt")
+	bs, err := os.ReadFile("s1/testfile.txt")
 	if err != nil {
 		t.Error("reading file:", err)
 	}
@@ -215,26 +215,26 @@ func TestConflictsInitialMerge(t *testing.T) {
 
 	// File 1 is a conflict
 
-	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = ioutil.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// File 2 exists on s1 only
 
-	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// File 3 exists on s2 only
 
-	err = ioutil.WriteFile("s2/file3", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file3", []byte("goodbye\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,15 +314,15 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// Three files on s1
 
-	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ioutil.WriteFile("s2/file3", []byte("hello\n"), 0644)
+	err = os.WriteFile("s2/file3", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +370,7 @@ func TestConflictsIndexReset(t *testing.T) {
 	// locally after we rest the index, unless we have a fix for that.
 
 	for i := 0; i < 5; i++ {
-		err = ioutil.WriteFile("s2/file2", []byte("hello1\n"), 0644)
+		err = os.WriteFile("s2/file2", []byte("hello1\n"), 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -392,7 +392,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s1/file1 (remote) changes while receiver is down
 
-	err = ioutil.WriteFile("s1/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("goodbye\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +405,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s2/file2 (local) changes while receiver is down
 
-	err = ioutil.WriteFile("s2/file2", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file2", []byte("goodbye\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,22 +467,22 @@ func TestConflictsSameContent(t *testing.T) {
 
 	// Two files on s1
 
-	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Two files on s2, content differs in file1 only, timestamps differ on both.
 
-	err = ioutil.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ioutil.WriteFile("s2/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s2/file2", []byte("hello\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

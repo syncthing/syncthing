@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,7 +20,7 @@ import (
 
 func setup(t *testing.T) (*BasicFilesystem, string) {
 	t.Helper()
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}

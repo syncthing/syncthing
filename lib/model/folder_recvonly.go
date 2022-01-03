@@ -26,7 +26,7 @@ func init() {
 /*
 receiveOnlyFolder is a folder that does not propagate local changes outward.
 It does this by the following general mechanism (not all of which is
-implemted in this file):
+implemented in this file):
 
 - Local changes are scanned and versioned as usual, but get the
   FlagLocalReceiveOnly bit set.
@@ -68,7 +68,7 @@ func (f *receiveOnlyFolder) Revert() {
 }
 
 func (f *receiveOnlyFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description)
+	l.Infof("Reverting folder %v", f.Description())
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

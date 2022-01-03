@@ -49,8 +49,8 @@ type FailureData struct {
 }
 
 func FailureDataWithGoroutines(description string) FailureData {
-	var buf *strings.Builder
-	pprof.NewProfile("goroutine").WriteTo(buf, 1)
+	var buf strings.Builder
+	pprof.Lookup("goroutine").WriteTo(&buf, 1)
 	return FailureData{
 		Description: description,
 		Goroutines:  buf.String(),
@@ -186,10 +186,6 @@ func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
 		count: 1,
 		data:  data,
 	}
-}
-
-func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
-	return nil
 }
 
 func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool {

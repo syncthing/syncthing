@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
@@ -89,11 +88,9 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 	fakeFSMut.Lock()
 	defer fakeFSMut.Unlock()
 
-	root := rootURI
 	var params url.Values
 	uri, err := url.Parse(rootURI)
 	if err == nil {
-		root = uri.Path
 		params = uri.Query()
 	}
 
@@ -157,7 +154,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 	// the filesystem initially.
 	fs.latency, _ = time.ParseDuration(params.Get("latency"))
 
-	fakeFSCache[root] = fs
+	fakeFSCache[rootURI] = fs
 	return fs
 }
 
@@ -789,7 +786,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 		diff := offs - minOffs
 		if diff > 0 {
 			lr := io.LimitReader(f.rng, diff)
-			io.Copy(ioutil.Discard, lr)
+			io.Copy(io.Discard, lr)
 		}
 
 		f.offset = offs

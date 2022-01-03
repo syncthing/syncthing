@@ -71,6 +71,26 @@ func TestEnDecryptName(t *testing.T) {
 	}
 }
 
+func TestKeyDerivation(t *testing.T) {
+	folderKey := KeyFromPassword("my folder", "my password")
+	encryptedName := encryptDeterministic([]byte("filename.txt"), folderKey, nil)
+	if base32Hex.EncodeToString(encryptedName) != "3T5957I4IOA20VEIEER6JSQG0PEPIRV862II3K7LOF75Q" {
+		t.Error("encrypted name mismatch")
+	}
+
+	fileKey := FileKey("filename.txt", folderKey)
+	// fmt.Println(base32Hex.EncodeToString(encryptBytes([]byte("hello world"), fileKey))) => A1IPD...
+	const encrypted = `A1IPD28ISL7VNPRSSSQM2L31L3IJPC08283RO89J5UG0TI9P38DO9RFGK12DK0KD7PKQP6U51UL2B6H96O`
+	bs, _ := base32Hex.DecodeString(encrypted)
+	dec, err := DecryptBytes(bs, fileKey)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(dec) != "hello world" {
+		t.Error("decryption mismatch")
+	}
+}
+
 func TestDecryptNameInvalid(t *testing.T) {
 	key := new([32]byte)
 	for _, c := range []string{
@@ -119,6 +139,7 @@ func encFileInfo() FileInfo {
 		Size:        45,
 		Permissions: 0755,
 		ModifiedS:   8080,
+		Sequence:    1000,
 		Blocks: []BlockInfo{
 			{
 				Offset: 0,
@@ -142,6 +163,12 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	if bytes.Equal(enc.Blocks[0].Hash, enc.Blocks[1].Hash) {
 		t.Error("block hashes should not repeat when on different offsets")
 	}
+	if enc.RawBlockSize < MinBlockSize {
+		t.Error("Too small raw block size:", enc.RawBlockSize)
+	}
+	if enc.Sequence != fi.Sequence {
+		t.Error("encrypted fileinfo didn't maintain sequence number")
+	}
 	again := encryptFileInfo(fi, &key)
 	if !bytes.Equal(enc.Blocks[0].Hash, again.Blocks[0].Hash) {
 		t.Error("block hashes should remain stable (0)")
@@ -150,10 +177,17 @@ func TestEnDecryptFileInfo(t *testing.T) {
 		t.Error("block hashes should remain stable (1)")
 	}
 
+	// Simulate the remote setting the sequence number when writing to db
+	enc.Sequence = 10
+
 	dec, err := DecryptFileInfo(enc, &key)
 	if err != nil {
 		t.Error(err)
 	}
+	if dec.Sequence != enc.Sequence {
+		t.Error("decrypted fileinfo didn't maintain sequence number")
+	}
+	dec.Sequence = fi.Sequence
 	if !reflect.DeepEqual(fi, dec) {
 		t.Error("mismatch after decryption")
 	}

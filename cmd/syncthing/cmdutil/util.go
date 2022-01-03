@@ -18,9 +18,9 @@ func SetConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {
 	dataSet := dataDir != ""
 	switch {
 	case dataSet != confSet:
-		return errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
+		return errors.New("either both or none of --config and --data must be given, use --home to set both at once")
 	case homeSet && dataSet:
-		return errors.New("-home must not be used together with -conf and -data")
+		return errors.New("--home must not be used together with --config and --data")
 	case homeSet:
 		confDir = homeDir
 		dataDir = homeDir

@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -15,7 +16,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -73,7 +73,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 		}
 
 		if info.Mode().IsRegular() {
-			data, err := ioutil.ReadFile(name)
+			data, err := os.ReadFile(name)
 			if err != nil {
 				return err
 			}

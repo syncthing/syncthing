@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -93,6 +92,8 @@ type service struct {
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
 }
+
+var _ config.Verifier = &service{}
 
 type Service interface {
 	suture.Service
@@ -381,7 +382,7 @@ func (s *service) Serve(ctx context.Context) error {
 		ReadTimeout: 15 * time.Second,
 		// Prevent the HTTP server from logging stuff on its own. The things we
 		// care about we log ourselves from the handlers.
-		ErrorLog: log.New(ioutil.Discard, "", 0),
+		ErrorLog: log.New(io.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
@@ -1017,12 +1018,18 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	if len(folder) == 0 {
 		// Reset all folders.
 		for folder := range s.cfg.Folders() {
-			s.model.ResetFolder(folder)
+			if err := s.model.ResetFolder(folder); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
 		// Reset a specific folder, assuming it's supposed to exist.
-		s.model.ResetFolder(folder)
+		if err := s.model.ResetFolder(folder); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
@@ -1091,7 +1098,7 @@ func (s *service) getSystemError(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) postSystemError(w http.ResponseWriter, r *http.Request) {
-	bs, _ := ioutil.ReadAll(r.Body)
+	bs, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	l.Warnln(string(bs))
 }
@@ -1158,7 +1165,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Panic files
 	if panicFiles, err := filepath.Glob(filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), "panic*")); err == nil {
 		for _, f := range panicFiles {
-			if panicFile, err := ioutil.ReadFile(f); err != nil {
+			if panicFile, err := os.ReadFile(f); err != nil {
 				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
 			} else {
 				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
@@ -1167,7 +1174,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Archived log (default on Windows)
-	if logFile, err := ioutil.ReadFile(locations.Get(locations.LogFile)); err == nil {
+	if logFile, err := os.ReadFile(locations.Get(locations.LogFile)); err == nil {
 		files = append(files, fileEntry{name: "log-ondisk.txt", data: logFile})
 	}
 
@@ -1226,7 +1233,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	zipFilePath := filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), zipFileName)
 
 	// Write buffer zip to local zip file (back up)
-	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
 		l.Warnln("Support bundle: support bundle zip could not be created:", err)
 	}
 
@@ -1316,7 +1323,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -1607,7 +1614,7 @@ func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
 func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)

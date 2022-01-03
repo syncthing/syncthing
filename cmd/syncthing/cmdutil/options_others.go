@@ -4,8 +4,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+//go:build !windows
+// +build !windows
 
-type buildServeOptions struct {
-	HideConsole bool `name:"no-console" help:"Hide console window"`
+package cmdutil
+
+type buildCommonOptions struct {
+	HideConsole bool `hidden:""`
 }

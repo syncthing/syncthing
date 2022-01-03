@@ -10,7 +10,6 @@ package logger
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -75,7 +74,7 @@ func New() Logger {
 	if os.Getenv("LOGGER_DISCARD") != "" {
 		// Hack to completely disable logging, for example when running
 		// benchmarks.
-		return newLogger(ioutil.Discard)
+		return newLogger(io.Discard)
 	}
 	return newLogger(controlStripper{os.Stdout})
 }

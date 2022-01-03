@@ -9,7 +9,7 @@ package discover
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -107,13 +107,8 @@ func TestGlobalOverHTTP(t *testing.T) {
 }
 
 func TestGlobalOverHTTPS(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificateInMemory("syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,13 +167,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 }
 
 func TestGlobalAnnounce(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificateInMemory("syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +232,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "POST" {
-		s.announce, _ = ioutil.ReadAll(r.Body)
+		s.announce, _ = io.ReadAll(r.Body)
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")

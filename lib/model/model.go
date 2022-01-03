@@ -50,6 +50,7 @@ type service interface {
 	Override()
 	Revert()
 	DelayScan(d time.Duration)
+	ScheduleScan()
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
@@ -71,7 +72,7 @@ type Model interface {
 
 	connections.Model
 
-	ResetFolder(folder string)
+	ResetFolder(folder string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
@@ -166,6 +167,8 @@ type model struct {
 	// for testing only
 	foldersRunning int32
 }
+
+var _ config.Verifier = &model{}
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
 
@@ -505,6 +508,8 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerToken, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
+	delete(m.folderEncryptionPasswordTokens, cfg.ID)
+	delete(m.folderEncryptionFailures, cfg.ID)
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
@@ -1050,7 +1055,6 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	cfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -1068,11 +1072,10 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.
 	}
 
 	p := newPager(page, perpage)
-	recvEnc := cfg.Type == config.FolderTypeReceiveEncrypted
 	files := make([]db.FileInfoTruncated, 0, perpage)
 
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
-		if !f.IsReceiveOnlyChanged() || (recvEnc && f.IsDeleted()) {
+		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
 		if p.skip() {
@@ -2120,7 +2123,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if ok {
-		return runner.Scan(nil)
+		runner.ScheduleScan()
 	}
 	return nil
 }
@@ -2405,7 +2408,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "android" {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1
@@ -2766,9 +2769,16 @@ func (m *model) BringToFront(folder, file string) {
 	}
 }
 
-func (m *model) ResetFolder(folder string) {
-	l.Infof("Cleaning data for folder %q", folder)
+func (m *model) ResetFolder(folder string) error {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	_, ok := m.folderRunners[folder]
+	if ok {
+		return errors.New("folder must be paused when resetting")
+	}
+	l.Infof("Cleaning metadata for reset folder %q", folder)
 	db.DropFolder(m.db, folder)
+	return nil
 }
 
 func (m *model) String() string {

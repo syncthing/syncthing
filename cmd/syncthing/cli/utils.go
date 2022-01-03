@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -23,7 +23,7 @@ import (
 )
 
 func responseToBArray(response *http.Response) ([]byte, error) {
-	bytes, err := ioutil.ReadAll(response.Body)
+	bytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func indexDumpOutput(url string) cli.ActionFunc {
 		if err != nil {
 			return err
 		}
-		return prettyPrintResponse(c, response)
+		return prettyPrintResponse(response)
 	}
 }
 
@@ -130,7 +130,7 @@ func prettyPrintJSON(data interface{}) error {
 	return enc.Encode(data)
 }
 
-func prettyPrintResponse(c *cli.Context, response *http.Response) error {
+func prettyPrintResponse(response *http.Response) error {
 	bytes, err := responseToBArray(response)
 	if err != nil {
 		return err

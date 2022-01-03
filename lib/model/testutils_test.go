@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -76,7 +75,7 @@ func init() {
 }
 
 func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -215,7 +214,7 @@ func cleanupModelAndRemoveDir(m *testModel, dir string) {
 }
 
 func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
+	tmpDir, err := os.MkdirTemp("", "syncthing_testFolder-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
@@ -434,4 +433,19 @@ func addDevice2(t testing.TB, w config.Wrapper, fcfg config.FolderConfiguration)
 	})
 	must(t, err)
 	waiter.Wait()
+}
+
+func writeFile(t testing.TB, filesystem fs.Filesystem, name string, data []byte) {
+	t.Helper()
+	fd, err := filesystem.Create(name)
+	must(t, err)
+	defer fd.Close()
+	_, err = fd.Write(data)
+	must(t, err)
+}
+
+func writeFilePerm(t testing.TB, filesystem fs.Filesystem, name string, data []byte, perm fs.FileMode) {
+	t.Helper()
+	writeFile(t, filesystem, name, data)
+	must(t, filesystem.Chmod(name, perm))
 }

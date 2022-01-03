@@ -1,5 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
+//go:build darwin
 // +build darwin
 
 package protocol
@@ -7,6 +8,8 @@ package protocol
 // Darwin uses NFD normalization
 
 import "golang.org/x/text/unicode/norm"
+
+func makeNative(m Model) Model { return nativeModel{m} }
 
 type nativeModel struct {
 	Model

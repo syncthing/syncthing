@@ -8,7 +8,6 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +17,7 @@ import (
 func TestRotatedFile(t *testing.T) {
 	// Verify that log rotation happens.
 
-	dir, err := ioutil.TempDir("", "syncthing")
+	dir, err := os.MkdirTemp("", "syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +178,7 @@ func TestAutoClosedFile(t *testing.T) {
 	}
 
 	// The file should have both writes in it.
-	bs, err := ioutil.ReadFile(file)
+	bs, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +198,7 @@ func TestAutoClosedFile(t *testing.T) {
 	}
 
 	// It should now contain three writes, as the file is always opened for appending
-	bs, err = ioutil.ReadFile(file)
+	bs, err = os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}

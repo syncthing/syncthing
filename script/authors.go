@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 // Generates the list of contributors in gui/index.html based on contents of
@@ -14,7 +15,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -107,7 +108,7 @@ func main() {
 	bs := readAll(htmlFile)
 	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n    </div>"))
 
-	if err := ioutil.WriteFile(htmlFile, bs, 0644); err != nil {
+	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
 	}
 
@@ -172,7 +173,7 @@ func readAll(path string) []byte {
 	}
 	defer fd.Close()
 
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		log.Fatal(err)
 	}

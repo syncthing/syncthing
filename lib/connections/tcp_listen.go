@@ -76,7 +76,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	defer l.Infof("TCP listener (%v) shutting down", tcaddr)
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
-	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
+	mapping.OnChanged(func() {
 		t.notifyAddressesChanged(t)
 	})
 	// Should be called after t.mapping is nil'ed out.

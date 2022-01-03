@@ -86,11 +86,11 @@ func SecureDefaultWithTLS12() *tls.Config {
 	}
 }
 
-// NewCertificate generates and returns a new TLS certificate.
-func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls.Certificate, error) {
+// generateCertificate generates a PEM formatted key pair and self-signed certificate in memory.
+func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.Block, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "generate key")
+		return nil, nil, errors.Wrap(err, "generate key")
 	}
 
 	notBefore := time.Now().Truncate(24 * time.Hour)
@@ -117,19 +117,33 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "create cert")
+		return nil, nil, errors.Wrap(err, "create cert")
+	}
+
+	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}
+	keyBlock, err := pemBlockForKey(priv)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "save key")
+	}
+
+	return certBlock, keyBlock, nil
+}
+
+// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.
+func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
-	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	if err != nil {
+	if err = pem.Encode(certOut, certBlock); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
-	err = certOut.Close()
-	if err != nil {
+	if err = certOut.Close(); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 
@@ -137,22 +151,24 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 	if err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
-
-	block, err := pemBlockForKey(priv)
-	if err != nil {
+	if err = pem.Encode(keyOut, keyBlock); err != nil {
+		return tls.Certificate{}, errors.Wrap(err, "save key")
+	}
+	if err = keyOut.Close(); err != nil {
 		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 
-	err = pem.Encode(keyOut, block)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+}
+
+// NewCertificateInMemory generates and returns a new TLS certificate, kept only in memory.
+func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
-	}
-	err = keyOut.Close()
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, err
 	}
 
-	return tls.LoadX509KeyPair(certFile, keyFile)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 }
 
 type DowngradingListener struct {
@@ -185,9 +201,10 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 		return nil, false, err
 	}
 
-	var first [1]byte
+	union := &UnionedConnection{Conn: conn}
+
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	n, err := conn.Read(first[:])
+	n, err := conn.Read(union.first[:])
 	conn.SetReadDeadline(time.Time{})
 	if err != nil || n == 0 {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
@@ -196,22 +213,23 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 		return conn, false, ErrIdentificationFailed
 	}
 
-	return &UnionedConnection{&first, conn}, first[0] == 0x16, nil
+	return union, union.first[0] == 0x16, nil
 }
 
 type UnionedConnection struct {
-	first *[1]byte
+	first     [1]byte
+	firstDone bool
 	net.Conn
 }
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {
-	if c.first != nil {
+	if !c.firstDone {
 		if len(b) == 0 {
 			// this probably doesn't happen, but handle it anyway
 			return 0, nil
 		}
 		b[0] = c.first[0]
-		c.first = nil
+		c.firstDone = true
 		return 1, nil
 	}
 	return c.Conn.Read(b)

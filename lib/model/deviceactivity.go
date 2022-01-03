@@ -26,20 +26,19 @@ func newDeviceActivity() *deviceActivity {
 	}
 }
 
-func (m *deviceActivity) leastBusy(availability []Availability) (Availability, bool) {
+// Returns the index of the least busy device, or -1 if all are too busy.
+func (m *deviceActivity) leastBusy(availability []Availability) int {
 	m.mut.Lock()
 	low := 2<<30 - 1
-	found := false
-	var selected Availability
-	for _, info := range availability {
-		if usage := m.act[info.ID]; usage < low {
+	best := -1
+	for i := range availability {
+		if usage := m.act[availability[i].ID]; usage < low {
 			low = usage
-			selected = info
-			found = true
+			best = i
 		}
 	}
 	m.mut.Unlock()
-	return selected, found
+	return best
 }
 
 func (m *deviceActivity) using(availability Availability) {

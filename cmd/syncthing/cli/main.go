@@ -9,7 +9,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -61,23 +61,23 @@ func Run() error {
 	fakeFlags := []cli.Flag{
 		cli.StringFlag{
 			Name:  "gui-address",
-			Value: "URL",
-			Usage: "Override GUI address (e.g. \"http://192.0.2.42:8443\")",
+			Usage: "Override GUI address to `URL` (e.g. \"http://192.0.2.42:8443\")",
 		},
 		cli.StringFlag{
 			Name:  "gui-apikey",
-			Value: "API-KEY",
-			Usage: "Override GUI API key",
+			Usage: "Override GUI API key to `API-KEY`",
 		},
 		cli.StringFlag{
 			Name:  "home",
-			Value: "PATH",
-			Usage: "Set configuration and data directory",
+			Usage: "Set configuration and data directory to `PATH`",
 		},
 		cli.StringFlag{
-			Name:  "conf",
-			Value: "PATH",
-			Usage: "Set configuration directory (config and keys)",
+			Name:  "config",
+			Usage: "Set configuration directory (config and keys) to `PATH`",
+		},
+		cli.StringFlag{
+			Name:  "data",
+			Usage: "Set data directory (database and logs) to `PATH`",
 		},
 	}
 
@@ -151,7 +151,7 @@ func parseFlags(c *preCli) error {
 		}
 	}
 	// We don't want kong to print anything nor os.Exit (e.g. on -h)
-	parser, err := kong.New(c, kong.Writers(ioutil.Discard, ioutil.Discard), kong.Exit(func(int) {}))
+	parser, err := kong.New(c, kong.Writers(io.Discard, io.Discard), kong.Exit(func(int) {}))
 	if err != nil {
 		return err
 	}

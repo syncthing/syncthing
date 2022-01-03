@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -137,6 +138,22 @@ func walkerFor(basePath string) filepath.WalkFunc {
 	}
 }
 
+func collectThemes(basePath string) {
+	files, err := os.ReadDir(basePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			key := "theme-name-" + f.Name()
+			if _, ok := trans[key]; !ok {
+				name := strings.Title(f.Name())
+				trans[key] = name
+			}
+		}
+	}
+}
+
 func main() {
 	fd, err := os.Open(os.Args[1])
 	if err != nil {
@@ -151,6 +168,7 @@ func main() {
 	var guiDir = os.Args[2]
 
 	filepath.Walk(guiDir, walkerFor(guiDir))
+	collectThemes(guiDir)
 
 	bs, err := json.MarshalIndent(trans, "", "   ")
 	if err != nil {

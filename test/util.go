@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
@@ -13,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -205,7 +205,7 @@ func alterFiles(dir string) error {
 							return err
 						}
 						d1 := []byte("I used to be a dir: " + path)
-						err := ioutil.WriteFile(path, d1, 0644)
+						err := os.WriteFile(path, d1, 0644)
 						if err != nil {
 							return err
 						}
@@ -541,7 +541,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 
 	p := rc.NewProcess(addr)
 	p.LogTo(log)
-	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
+	if err := p.Start("../bin/syncthing", "--home", fmt.Sprintf("h%d", i), "--no-browser"); err != nil {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()
@@ -550,7 +550,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 }
 
 func symlinksSupported() bool {
-	tmp, err := ioutil.TempDir("", "symlink-test")
+	tmp, err := os.MkdirTemp("", "symlink-test")
 	if err != nil {
 		return false
 	}

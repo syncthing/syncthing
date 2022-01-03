@@ -806,6 +806,7 @@ angular.module('syncthing.core')
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
+            $scope.currentSharing.shared.sort(deviceCompare);
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
             });
@@ -937,9 +938,9 @@ angular.module('syncthing.core')
                 return 'faileditems';
             }
             if ($scope.hasReceiveOnlyChanged(folderCfg)) {
-                return 'localadditions';
-            }
-            if ($scope.hasReceiveEncryptedItems(folderCfg)) {
+                if (folderCfg.type === "receiveonly") {
+                    return 'localadditions';
+                }
                 return 'localunencrypted';
             }
             if (folderCfg.devices.length <= 1) {
@@ -2468,6 +2469,14 @@ angular.module('syncthing.core')
                                 debugLevel: 2,
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
+                                    // Case insensitive sort with folders on top.
+                                    var cmp = function(a, b) {
+                                        var x = (a.isFolder() ? "0" : "1") + a.title.toLowerCase(),
+                                            y = (b.isFolder() ? "0" : "1") + b.title.toLowerCase();
+                                        return x === y ? 0 : x > y ? 1 : -1;
+                                    };
+                                    data.tree.getRootNode().sortChildren(cmp, true);
+
                                     var node = data.node,
                                         $tdList = $(node.tr).find(">td"),
                                         template;
@@ -2649,27 +2658,12 @@ angular.module('syncthing.core')
         };
 
         $scope.hasReceiveOnlyChanged = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== "receiveonly") {
+            if (!folderCfg || folderCfg.type !== ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
                 return false;
             }
             var counts = $scope.model[folderCfg.id];
             return counts && counts.receiveOnlyTotalItems > 0;
         };
-
-        $scope.hasReceiveEncryptedItems = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== "receiveencrypted") {
-                return false;
-            }
-            return $scope.receiveEncryptedItemsCount(folderCfg) > 0;
-        };
-
-        $scope.receiveEncryptedItemsCount = function (folderCfg) {
-            var counts = $scope.model[folderCfg.id];
-            if (!counts) {
-                return 0;
-            }
-            return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes;
-        }
 
         $scope.revertOverride = function () {
             $http.post(
@@ -2684,15 +2678,18 @@ angular.module('syncthing.core')
             };
             switch (type) {
                 case "override":
-                    params.heading = $translate.instant("Override");
+                    params.heading = $translate.instant("Override Changes");
+                    params.icon = "fas fa-arrow-circle-up"
                     params.operation = "override";
                     break;
                 case "revert":
-                    params.heading = $translate.instant("Revert");
+                    params.heading = $translate.instant("Revert Local Changes");
+                    params.icon = "fas fa-arrow-circle-down"
                     params.operation = "revert";
                     break;
                 case "deleteEnc":
                     params.heading = $translate.instant("Delete Unexpected Items");
+                    params.icon = "fas fa-minus-circle"
                     params.operation = "revert";
                     break;
             }
@@ -2859,9 +2856,14 @@ angular.module('syncthing.core')
         };
 
         $scope.themeName = function (theme) {
-            return theme.replace('-', ' ').replace(/(?:^|\s)\S/g, function (a) {
-                return a.toUpperCase();
-            });
+            var translation = $translate.instant("theme-name-" + theme);
+            if (translation.startsWith("theme-name-")) {
+                // Fall back to simple Title Casing on missing translation
+                translation = theme.toLowerCase().replace(/(?:^|\s)\S/g, function (a) {
+                    return a.toUpperCase();
+                });
+            }
+            return translation;
         };
 
         $scope.modalLoaded = function () {

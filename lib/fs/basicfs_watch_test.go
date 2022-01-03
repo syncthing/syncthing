@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+//go:build (!solaris && !darwin) || (solaris && cgo) || (darwin && cgo)
 // +build !solaris,!darwin solaris,cgo darwin,cgo
 
 package fs
@@ -12,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -529,7 +529,7 @@ func renameTestFile(name string, old string, new string) {
 func modifyTestFile(name string, file string, content string) {
 	joined := filepath.Join(testDirAbs, name, file)
 
-	err := ioutil.WriteFile(joined, []byte(content), 0755)
+	err := os.WriteFile(joined, []byte(content), 0755)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to modify test file %s: %s", joined, err))
 	}

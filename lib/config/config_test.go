@@ -13,7 +13,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -505,7 +504,7 @@ func TestFolderPath(t *testing.T) {
 }
 
 func TestFolderCheckPath(t *testing.T) {
-	n, err := ioutil.TempDir("", "")
+	n, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,6 +597,41 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 }
 
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "config.xml")
+	os.Remove(path)
+	defer os.Remove(path)
+
+	intCfg := New(device1)
+	cfg := wrap(path, intCfg, device1)
+	defer cfg.stop()
+
+	if err := cfg.Save(); err != nil {
+		t.Error(err)
+	}
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
@@ -646,8 +680,8 @@ func TestCopy(t *testing.T) {
 		t.Error("Config should have changed")
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
-		// ioutil.WriteFile("a", bsOrig, 0644)
-		// ioutil.WriteFile("b", bsCopy, 0644)
+		// os.WriteFile("a", bsOrig, 0644)
+		// os.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
 	}
 }
@@ -739,6 +773,27 @@ func TestGUIConfigURL(t *testing.T) {
 		if u != tc[1] {
 			t.Errorf("Incorrect URL %s != %s for addr %s", u, tc[1], tc[0])
 		}
+	}
+}
+
+func TestGUIPasswordHash(t *testing.T) {
+	var c GUIConfiguration
+
+	testPass := "pass"
+	if err := c.HashAndSetPassword(testPass); err != nil {
+		t.Fatal(err)
+	}
+	if c.Password == testPass {
+		t.Error("Password hashing resulted in plaintext")
+	}
+
+	if err := c.CompareHashedPassword(testPass); err != nil {
+		t.Errorf("No match on same password: %v", err)
+	}
+
+	failPass := "different"
+	if err := c.CompareHashedPassword(failPass); err == nil {
+		t.Errorf("Match on different password: %v", err)
 	}
 }
 
@@ -1248,7 +1303,7 @@ func copyToTmp(path string) (string, error) {
 		return "", err
 	}
 	defer orig.Close()
-	temp, err := ioutil.TempFile("", "syncthing-configTest-")
+	temp, err := os.CreateTemp("", "syncthing-configTest-")
 	if err != nil {
 		return "", err
 	}

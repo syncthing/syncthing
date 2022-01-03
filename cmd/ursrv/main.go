@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -162,7 +161,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("template:", err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		log.Fatalln("template:", err)
 	}
@@ -324,7 +323,7 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	rep.Address = addr
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
-	bs, _ := ioutil.ReadAll(lr)
+	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
 		log.Println("decode:", err)
 		if debug {

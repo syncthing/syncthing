@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -236,7 +235,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
-	tmpdir, err := ioutil.TempDir("", "syncthing-test")
+	tmpdir, err := os.MkdirTemp("", "syncthing-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,9 +329,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fc.deleteFile(invDel)
 	fc.addFile(ign, 0644, protocol.FileInfoTypeFile, contents)
 	fc.addFile(ignExisting, 0644, protocol.FileInfoTypeFile, contents)
-	if err := writeFile(fss, ignExisting, otherContents, 0644); err != nil {
-		panic(err)
-	}
+	writeFile(t, fss, ignExisting, otherContents)
 
 	done := make(chan struct{})
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
@@ -486,7 +483,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	payload := []byte("hello")
 
-	must(t, writeFile(tfs, "foo", payload, 0777))
+	writeFile(t, tfs, "foo", payload)
 
 	received := make(chan []protocol.FileInfo)
 	fc.setIndexFn(func(_ context.Context, _ string, fs []protocol.FileInfo) error {
@@ -526,7 +523,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	payload = []byte("bye")
 	buf = make([]byte, len(payload))
 
-	must(t, writeFile(tfs, "foo", payload, 0777))
+	writeFile(t, tfs, "foo", payload)
 
 	_, err = m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
@@ -683,7 +680,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 }
 
 func equalContents(path string, contents []byte) error {
-	if bs, err := ioutil.ReadFile(path); err != nil {
+	if bs, err := os.ReadFile(path); err != nil {
 		return err
 	} else if !bytes.Equal(bs, contents) {
 		return errors.New("incorrect data")
@@ -1066,9 +1063,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 		return nil
 	})
 
-	if err := writeFile(fss, file, contents, 0644); err != nil {
-		panic(err)
-	}
+	writeFile(t, fss, file, contents)
 	m.ScanFolders()
 
 	select {
@@ -1430,6 +1425,14 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	// Simulate request from device that is untrusted too, i.e. with non-empty, but garbage hash
 	_, err := m.Request(device1, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
 	must(t, err)
+
+	changed, err := m.LocalChangedFolderFiles(fcfg.ID, 1, 10)
+	must(t, err)
+	if l := len(changed); l != 1 {
+		t.Errorf("Expected one locally changed file, got %v", l)
+	} else if changed[0].Name != files[0].Name {
+		t.Errorf("Expected %v, got %v", files[0].Name, changed[0].Name)
+	}
 }
 
 func TestRequestGlobalInvalidToValid(t *testing.T) {

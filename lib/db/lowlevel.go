@@ -12,18 +12,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"hash/maphash"
 	"os"
 	"regexp"
 	"time"
 
-	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -180,7 +178,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 		if err != nil {
 			return err
 		}
@@ -225,35 +223,10 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
-				for _, block := range ef.Blocks {
-					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
-					if err != nil {
-						return err
-					}
-					if err := t.Delete(keyBuf); err != nil {
-						return err
-					}
-				}
-				if !blocksHashSame {
-					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
-					if err != nil {
-						return err
-					}
-					if err = t.Delete(keyBuf); err != nil {
-						return err
-					}
-				}
-			}
-
-			keyBuf, err = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+			keyBuf, err = db.removeLocalBlockAndSequenceInfo(keyBuf, folder, name, ef, !blocksHashSame, &t)
 			if err != nil {
 				return err
 			}
-			if err := t.Delete(keyBuf); err != nil {
-				return err
-			}
-			l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
 		}
 
 		f.Sequence = meta.nextLocalSeq()
@@ -272,7 +245,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if err != nil {
 			return err
 		}
-		keyBuf, _, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+		keyBuf, err = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
 		if err != nil {
 			return err
 		}
@@ -314,6 +287,96 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	}
 
 	return t.Commit()
+}
+
+func (db *Lowlevel) removeLocalFiles(folder []byte, nameStrs []string, meta *metadataTracker) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var dk, gk, buf []byte
+	for _, nameStr := range nameStrs {
+		name := []byte(nameStr)
+		dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
+		if err != nil {
+			return err
+		}
+
+		ef, ok, err := t.getFileByKey(dk)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			l.Debugf("remove (local); folder=%q %v: file doesn't exist", folder, nameStr)
+			continue
+		}
+
+		buf, err = db.removeLocalBlockAndSequenceInfo(buf, folder, name, ef, true, &t)
+		if err != nil {
+			return err
+		}
+
+		meta.removeFile(protocol.LocalDeviceID, ef)
+
+		gk, err = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
+		if err != nil {
+			return err
+		}
+		buf, err = t.removeFromGlobal(gk, buf, folder, protocol.LocalDeviceID[:], name, meta)
+		if err != nil {
+			return err
+		}
+
+		err = t.Delete(dk)
+		if err != nil {
+			return err
+		}
+
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
+	}
+
+	return t.Commit()
+}
+
+func (db *Lowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte, ef protocol.FileInfo, removeFromBlockListMap bool, t *readWriteTransaction) ([]byte, error) {
+	var err error
+	if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
+		for _, block := range ef.Blocks {
+			keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+			if err != nil {
+				return nil, err
+			}
+			if err := t.Delete(keyBuf); err != nil {
+				return nil, err
+			}
+		}
+		if removeFromBlockListMap {
+			keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
+			if err != nil {
+				return nil, err
+			}
+			if err = t.Delete(keyBuf); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	keyBuf, err = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Delete(keyBuf); err != nil {
+		return nil, err
+	}
+	l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
+	return keyBuf, nil
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
@@ -865,38 +928,36 @@ func (db *Lowlevel) recordIndirectionHashes(hs IndirectionHashesOnly) {
 }
 
 func newBloomFilter(capacity int) *bloomFilter {
-	var buf [16]byte
-	io.ReadFull(rand.Reader, buf[:])
-
 	return &bloomFilter{
 		f: blobloom.NewSyncOptimized(blobloom.Config{
 			Capacity: uint64(capacity),
 			FPRate:   indirectGCBloomFalsePositiveRate,
 			MaxBits:  8 * indirectGCBloomMaxBytes,
 		}),
-
-		k0: binary.LittleEndian.Uint64(buf[:8]),
-		k1: binary.LittleEndian.Uint64(buf[8:]),
+		seed: maphash.MakeSeed(),
 	}
 }
 
 type bloomFilter struct {
-	f      *blobloom.SyncFilter
-	k0, k1 uint64 // Random key for SipHash.
+	f    *blobloom.SyncFilter
+	seed maphash.Seed
 }
 
 func (b *bloomFilter) add(id []byte)      { b.f.Add(b.hash(id)) }
 func (b *bloomFilter) has(id []byte) bool { return b.f.Has(b.hash(id)) }
 
-// Hash function for the bloomfilter: SipHash of the SHA-256.
+// Hash function for the bloomfilter: maphash of the SHA-256.
 //
-// The randomization in SipHash means we get different collisions across
-// runs and colliding keys are not kept indefinitely.
+// The randomization in maphash should ensure that we get different collisions
+// across runs, so colliding keys are not kept indefinitely.
 func (b *bloomFilter) hash(id []byte) uint64 {
 	if len(id) != sha256.Size {
 		panic("bug: bloomFilter.hash passed something not a SHA256 hash")
 	}
-	return siphash.Hash(b.k0, b.k1, id)
+	var h maphash.Hash
+	h.SetSeed(b.seed)
+	h.Write(id)
+	return h.Sum64()
 }
 
 // checkRepair checks folder metadata and sequences for miscellaneous errors.

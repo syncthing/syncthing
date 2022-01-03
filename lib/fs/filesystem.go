@@ -253,7 +253,7 @@ func IsInternal(file string) bool {
 // - /foo/bar -> foo/bar
 // - / -> "."
 func Canonicalize(file string) (string, error) {
-	pathSep := string(PathSeparator)
+	const pathSep = string(PathSeparator)
 
 	if strings.HasPrefix(file, pathSep+pathSep) {
 		// The relative path may pretend to be an absolute path within

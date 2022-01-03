@@ -4,13 +4,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestRescanWithDelay(t *testing.T) {
 	}
 
 	log.Println("Generating .stignore...")
-	err = ioutil.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
+	err = os.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,11 +19,7 @@ import (
 	"github.com/sasha-s/go-deadlock"
 )
 
-type clock interface {
-	Now() time.Time
-}
-
-var defaultClock clock = (*standardClock)(nil)
+var timeNow = time.Now
 
 type Mutex interface {
 	Lock()
@@ -86,7 +82,7 @@ func (h holder) String() string {
 	if h.at == "" {
 		return "not held"
 	}
-	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, defaultClock.Now().Sub(h.time))
+	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, timeNow().Sub(h.time))
 }
 
 type loggedMutex struct {
@@ -101,7 +97,7 @@ func (m *loggedMutex) Lock() {
 
 func (m *loggedMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := defaultClock.Now().Sub(currentHolder.time)
+	duration := timeNow().Sub(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("Mutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -125,7 +121,7 @@ type loggedRWMutex struct {
 }
 
 func (m *loggedRWMutex) Lock() {
-	start := defaultClock.Now()
+	start := timeNow()
 
 	atomic.StoreInt32(&m.logUnlockers, 1)
 	m.RWMutex.Lock()
@@ -153,7 +149,7 @@ func (m *loggedRWMutex) Lock() {
 
 func (m *loggedRWMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := defaultClock.Now().Sub(currentHolder.time)
+	duration := timeNow().Sub(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("RWMutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -205,9 +201,9 @@ type loggedWaitGroup struct {
 }
 
 func (wg *loggedWaitGroup) Wait() {
-	start := defaultClock.Now()
+	start := timeNow()
 	wg.WaitGroup.Wait()
-	duration := defaultClock.Now().Sub(start)
+	duration := timeNow().Sub(start)
 	if duration >= threshold {
 		l.Debugf("WaitGroup took %v at %s", duration, getHolder())
 	}
@@ -219,7 +215,7 @@ func getHolder() holder {
 	return holder{
 		at:   fmt.Sprintf("%s:%d", file, line),
 		goid: goid(),
-		time: defaultClock.Now(),
+		time: timeNow(),
 	}
 }
 
@@ -299,10 +295,4 @@ func (w *TimeoutCondWaiter) Wait() bool {
 
 func (w *TimeoutCondWaiter) Stop() {
 	w.timer.Stop()
-}
-
-type standardClock struct{}
-
-func (*standardClock) Now() time.Time {
-	return time.Now()
 }

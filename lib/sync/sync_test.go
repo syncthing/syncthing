@@ -57,10 +57,10 @@ func TestTypes(t *testing.T) {
 }
 
 func TestMutex(t *testing.T) {
-	oldClock := defaultClock
+	oldClock := timeNow
 	clock := newTestClock()
-	defaultClock = clock
-	defer func() { defaultClock = oldClock }()
+	timeNow = clock.Now
+	defer func() { timeNow = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)
@@ -97,10 +97,10 @@ func TestMutex(t *testing.T) {
 }
 
 func TestRWMutex(t *testing.T) {
-	oldClock := defaultClock
+	oldClock := timeNow
 	clock := newTestClock()
-	defaultClock = clock
-	defer func() { defaultClock = oldClock }()
+	timeNow = clock.Now
+	defer func() { timeNow = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)
@@ -170,10 +170,10 @@ func TestRWMutex(t *testing.T) {
 }
 
 func TestWaitGroup(t *testing.T) {
-	oldClock := defaultClock
+	oldClock := timeNow
 	clock := newTestClock()
-	defaultClock = clock
-	defer func() { defaultClock = oldClock }()
+	timeNow = clock.Now
+	defer func() { timeNow = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)

@@ -45,10 +45,6 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
@@ -125,11 +121,15 @@ func (s *Service) process(ctx context.Context) (int, time.Duration) {
 
 	s.mut.RLock()
 	for _, mapping := range s.mappings {
-		if mapping.expires.Before(time.Now()) {
+		mapping.mut.RLock()
+		expires := mapping.expires
+		mapping.mut.RUnlock()
+
+		if expires.Before(time.Now()) {
 			toRenew = append(toRenew, mapping)
 		} else {
 			toUpdate = append(toUpdate, mapping)
-			mappingRenewIn := time.Until(mapping.expires)
+			mappingRenewIn := time.Until(expires)
 			if mappingRenewIn < renewIn {
 				renewIn = mappingRenewIn
 			}
@@ -206,41 +206,36 @@ func (s *Service) RemoveMapping(mapping *Mapping) {
 // Optionally takes renew flag which indicates whether or not we should renew
 // mappings with existing natds
 func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) {
-	var added, removed []Address
-
 	renewalTime := time.Duration(s.cfg.Options().NATRenewalM) * time.Minute
+
+	mapping.mut.Lock()
+
 	mapping.expires = time.Now().Add(renewalTime)
+	change := s.verifyExistingLocked(ctx, mapping, nats, renew)
+	add := s.acquireNewLocked(ctx, mapping, nats)
 
-	newAdded, newRemoved := s.verifyExistingMappings(ctx, mapping, nats, renew)
-	added = append(added, newAdded...)
-	removed = append(removed, newRemoved...)
+	mapping.mut.Unlock()
 
-	newAdded, newRemoved = s.acquireNewMappings(ctx, mapping, nats)
-	added = append(added, newAdded...)
-	removed = append(removed, newRemoved...)
-
-	if len(added) > 0 || len(removed) > 0 {
-		mapping.notify(added, removed)
+	if change || add {
+		mapping.notify()
 	}
 }
 
-func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) ([]Address, []Address) {
-	var added, removed []Address
-
+func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) (change bool) {
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
 
-	for id, address := range mapping.addressMap() {
+	for id, address := range mapping.extAddresses {
 		select {
 		case <-ctx.Done():
-			return nil, nil
+			return false
 		default:
 		}
 
 		// Delete addresses for NATDevice's that do not exist anymore
 		nat, ok := nats[id]
 		if !ok {
-			mapping.removeAddress(id)
-			removed = append(removed, address)
+			mapping.removeAddressLocked(id)
+			change = true
 			continue
 		} else if renew {
 			// Only perform renewals on the nat's that have the right local IP
@@ -256,35 +251,32 @@ func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, 
 			addr, err := s.tryNATDevice(ctx, nat, mapping.address.Port, address.Port, leaseTime)
 			if err != nil {
 				l.Debugf("Failed to renew %s -> mapping on %s", mapping, address, id)
-				mapping.removeAddress(id)
-				removed = append(removed, address)
+				mapping.removeAddressLocked(id)
+				change = true
 				continue
 			}
 
 			l.Debugf("Renewed %s -> %s mapping on %s", mapping, address, id)
 
 			if !addr.Equal(address) {
-				mapping.removeAddress(id)
-				mapping.setAddress(id, addr)
-				removed = append(removed, address)
-				added = append(added, address)
+				mapping.removeAddressLocked(id)
+				mapping.setAddressLocked(id, addr)
+				change = true
 			}
 		}
 	}
 
-	return added, removed
+	return change
 }
 
-func (s *Service) acquireNewMappings(ctx context.Context, mapping *Mapping, nats map[string]Device) ([]Address, []Address) {
-	var added, removed []Address
-
+func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats map[string]Device) (change bool) {
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
-	addrMap := mapping.addressMap()
+	addrMap := mapping.extAddresses
 
 	for id, nat := range nats {
 		select {
 		case <-ctx.Done():
-			return nil, nil
+			return false
 		default:
 		}
 
@@ -310,11 +302,11 @@ func (s *Service) acquireNewMappings(ctx context.Context, mapping *Mapping, nats
 
 		l.Debugf("Acquired %s -> %s mapping on %s", mapping, addr, id)
 
-		mapping.setAddress(id, addr)
-		added = append(added, addr)
+		mapping.setAddressLocked(id, addr)
+		change = true
 	}
 
-	return added, removed
+	return change
 }
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
