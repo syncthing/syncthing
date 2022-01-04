@@ -2053,11 +2053,6 @@ angular.module('syncthing.core')
             editFolder(initialTab);
         };
 
-        function editFolderLoadIgnores() {
-            editFolderLoadingIgnores();
-            return editFolderGetIgnores().then(editFolderInitIgnores, $scope.emitHTTPError);
-        }
-
         function editFolderLoadingIgnores() {
             $scope.ignores.text = 'Loading...';
             $scope.ignores.error = null;
@@ -2073,6 +2068,11 @@ angular.module('syncthing.core')
                     return $q.reject(response);
             });
         };
+
+        function editFolderLoadIgnores() {
+            editFolderLoadingIgnores();
+            return editFolderGetIgnores().then(editFolderInitIgnores, $scope.emitHTTPError);
+        }
 
         $scope.editFolderDefaults = function() {
             $q.all([
