@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -229,10 +231,10 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
 	reqID := ctx.Value(idKey).(requestID)
 
-	rawCert := certificateBytes(req)
-	if rawCert == nil {
+	rawCert, err := certificateBytes(req)
+	if err != nil {
 		if debug {
-			log.Println(reqID, "no certificates")
+			log.Println(reqID, "no certificates:", err)
 		}
 		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
@@ -304,9 +306,9 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
-func certificateBytes(req *http.Request) []byte {
+func certificateBytes(req *http.Request) ([]byte, error) {
 	if req.TLS != nil && len(req.TLS.PeerCertificates) > 0 {
-		return req.TLS.PeerCertificates[0].Raw
+		return req.TLS.PeerCertificates[0].Raw, nil
 	}
 
 	var bs []byte
@@ -319,7 +321,7 @@ func certificateBytes(req *http.Request) []byte {
 			hdr, err := url.QueryUnescape(hdr)
 			if err != nil {
 				// Decoding failed
-				return nil
+				return nil, err
 			}
 
 			bs = []byte(hdr)
@@ -338,6 +340,15 @@ func certificateBytes(req *http.Request) []byte {
 				}
 			}
 		}
+	} else if hdr := req.Header.Get("X-Tls-Client-Cert-Der-Base64"); hdr != "" {
+		// Caddy {tls_client_certificate_der_base64}
+		hdr, err := base64.StdEncoding.DecodeString(hdr)
+		if err != nil {
+			// Decoding failed
+			return nil, err
+		}
+
+		bs = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: hdr})
 	} else if hdr := req.Header.Get("X-Forwarded-Tls-Client-Cert"); hdr != "" {
 		// Traefik 2 passtlsclientcert
 		// The certificate is in PEM format with url encoding but without newlines
@@ -346,7 +357,7 @@ func certificateBytes(req *http.Request) []byte {
 		hdr, err := url.QueryUnescape(hdr)
 		if err != nil {
 			// Decoding failed
-			return nil
+			return nil, err
 		}
 
 		for i := 64; i < len(hdr); i += 65 {
@@ -359,16 +370,16 @@ func certificateBytes(req *http.Request) []byte {
 	}
 
 	if bs == nil {
-		return nil
+		return nil, errors.New("empty certificate header")
 	}
 
 	block, _ := pem.Decode(bs)
 	if block == nil {
 		// Decoding failed
-		return nil
+		return nil, errors.New("certificate decode result is empty")
 	}
 
-	return block.Bytes
+	return block.Bytes, nil
 }
 
 // fixupAddresses checks the list of addresses, removing invalid ones and
