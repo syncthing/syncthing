@@ -234,7 +234,7 @@ func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http
 	rawCert, err := certificateBytes(req)
 	if err != nil {
 		if debug {
-			log.Println(reqID, fmt.Sprintf("no certificates: %s", err.Error()))
+			log.Println(reqID, "no certificates:", err)
 		}
 		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
@@ -370,13 +370,13 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 	}
 
 	if bs == nil {
-		return nil, errors.New("empty certificate bytes")
+		return nil, errors.New("empty certificate header")
 	}
 
 	block, _ := pem.Decode(bs)
 	if block == nil {
 		// Decoding failed
-		return nil, errors.New("certificate decode results is empty")
+		return nil, errors.New("certificate decode result is empty")
 	}
 
 	return block.Bytes, nil
