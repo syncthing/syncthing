@@ -1997,6 +1997,14 @@ angular.module('syncthing.core')
             return 'fas fa-folder';
         };
 
+        $scope.editingDefaults = function() {
+            return $scope.currentFolder._editing == 'defaults';
+        }
+
+        $scope.editingExisting = function() {
+            return $scope.currentFolder._editing == 'existing';
+        }
+
         function editFolder(initialTab) {
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
