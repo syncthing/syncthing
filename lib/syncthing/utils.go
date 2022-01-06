@@ -60,8 +60,9 @@ func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 }
 
 func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
-	newCfg, err := config.NewWithFreePorts(myID)
-	if err != nil {
+	newCfg := config.New(myID)
+
+	if err := newCfg.ProbeFreePorts(); err != nil {
 		return nil, err
 	}
 
