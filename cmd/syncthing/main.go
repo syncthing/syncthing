@@ -711,12 +711,15 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
+// loadOrDefaultConfig creates a temporary, minimal configuration wrapper if no file
+// exists.  As it disregards some command-line options, that should never be persisted.
 func loadOrDefaultConfig() (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, protocol.EmptyDeviceID, events.NoopLogger)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, protocol.EmptyDeviceID, events.NoopLogger, true)
+		newCfg := config.New(protocol.EmptyDeviceID)
+		return config.Wrap(cfgFile, newCfg, protocol.EmptyDeviceID, events.NoopLogger), nil
 	}
 
 	return cfg, err
