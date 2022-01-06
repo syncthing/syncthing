@@ -59,10 +59,12 @@ func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
 }
 
-func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
+func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
 	newCfg := config.New(myID)
 
-	if err := newCfg.ProbeFreePorts(); err != nil {
+	if skipPortProbing {
+		l.Infoln("Using default network port numbers instead of probing for free ports")
+	} else if err := newCfg.ProbeFreePorts(); err != nil {
 		return nil, err
 	}
 
@@ -85,11 +87,11 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 // creates a default one, without the default folder if noDefaultFolder is ture.
 // Otherwise it checks the version, and archives and upgrades the config if
 // necessary or returns an error, if the version isn't compatible.
-func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder bool) (config.Wrapper, error) {
+func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
 	myID := protocol.NewDeviceID(cert.Certificate[0])
 	cfg, originalVersion, err := config.Load(path, myID, evLogger)
 	if fs.IsNotExist(err) {
-		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder)
+		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder, skipPortProbing)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate default config")
 		}

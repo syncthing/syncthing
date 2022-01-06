@@ -337,7 +337,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.GenerateDir != "" {
-		if err := generate.Generate(options.GenerateDir, "", "", options.NoDefaultFolder); err != nil {
+		if err := generate.Generate(options.GenerateDir, "", "", options.NoDefaultFolder, options.SkipPortProbing); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
@@ -551,7 +551,7 @@ func syncthingMain(options serveOptions) {
 	evLogger := events.NewLogger()
 	earlyService.Add(evLogger)
 
-	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder, options.SkipPortProbing)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
