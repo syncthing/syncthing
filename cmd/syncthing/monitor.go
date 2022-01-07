@@ -20,11 +20,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -564,7 +562,7 @@ func childEnv() []string {
 // panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig()
 	if err != nil {
 		l.Warnln("Couldn't load config; not reporting crash")
 		return

@@ -90,20 +90,13 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	log.Println("Device ID:", myID)
 
 	cfgFile := locations.Get(locations.ConfigFile)
-	var cfg config.Wrapper
-	if _, err := os.Stat(cfgFile); err == nil {
-		if guiUser == "" && guiPassword == "" {
-			log.Println("WARNING: Config exists; will not overwrite.")
-			return nil
-		}
-
-		if cfg, _, err = config.Load(cfgFile, myID, events.NoopLogger); err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
-	} else {
+	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
+	if fs.IsNotExist(err) {
 		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder); err != nil {
 			return fmt.Errorf("create config: %w", err)
 		}
+	} else if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
