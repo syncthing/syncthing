@@ -53,13 +53,13 @@ func (c *CLI) Run() error {
 		reader := bufio.NewReader(os.Stdin)
 		password, _, err := reader.ReadLine()
 		if err != nil {
-			return fmt.Errorf("Failed reading GUI password: %w", err)
+			return fmt.Errorf("failed reading GUI password: %w", err)
 		}
 		c.GUIPassword = string(password)
 	}
 
 	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
-		return fmt.Errorf("Failed to generate config and keys: %w", err)
+		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil
 }
@@ -129,7 +129,7 @@ func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPasswo
 
 	if guiPassword != "" && guiCfg.Password != guiPassword {
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
-			return fmt.Errorf("Failed to set GUI authentication password: %w", err)
+			return fmt.Errorf("failed to set GUI authentication password: %w", err)
 		}
 		log.Println("Updated GUI authentication password.")
 	}
