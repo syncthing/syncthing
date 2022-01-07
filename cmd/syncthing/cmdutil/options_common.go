@@ -12,4 +12,5 @@ type CommonOptions struct {
 	ConfDir         string `name:"config" placeholder:"PATH" help:"Set configuration directory (config and keys)"`
 	HomeDir         string `name:"home" placeholder:"PATH" help:"Set configuration and data directory"`
 	NoDefaultFolder bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
+	SkipPortProbing bool   `help:"Don't try to find free ports for GUI and listen addresses on first startup"`
 }

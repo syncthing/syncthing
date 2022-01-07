@@ -58,13 +58,13 @@ func (c *CLI) Run() error {
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder); err != nil {
+	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
 		return fmt.Errorf("Failed to generate config and keys: %w", err)
 	}
 	return nil
 }
 
-func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error {
+func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortProbing bool) error {
 	dir, err := fs.ExpandTilde(confDir)
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
 	if fs.IsNotExist(err) {
-		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder); err != nil {
+		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder, skipPortProbing); err != nil {
 			return fmt.Errorf("create config: %w", err)
 		}
 	} else if err != nil {
