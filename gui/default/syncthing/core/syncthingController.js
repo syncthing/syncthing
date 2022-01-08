@@ -58,6 +58,9 @@ angular.module('syncthing.core')
             text: '',
             error: null,
             disabled: false,
+            originalLines: [],
+            defaultLines: [],
+            saved: false,
         };
         resetRemoteNeed();
 
@@ -412,10 +415,8 @@ angular.module('syncthing.core')
         // May be called through .error with the presented arguments, or through
         // .catch with the http response object containing the same arguments.
         $scope.emitHTTPError = function (data, status, headers, config) {
-            var out;
-            if (out && out.data) {
-                out = data;
-            } else {
+            var out = data;
+            if (!out.data) {
                 out = { data: data, status: status, headers: headers, config: config };
             }
             $scope.$emit('HTTPError', out);
@@ -1603,6 +1604,14 @@ angular.module('syncthing.core')
             return 'fas fa-desktop';
         };
 
+        $scope.editingDeviceDefaults = function() {
+            return $scope.currentDevice._editing == 'defaults';
+        }
+
+        $scope.editingDeviceExisting = function() {
+            return $scope.currentDevice._editing == 'existing';
+        }
+
         $scope.editDeviceExisting = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.currentDevice._editing = "existing";
@@ -1982,7 +1991,6 @@ angular.module('syncthing.core')
                 break;
             case "defaults":
                 return $translate.instant("Edit Folder Defaults");
-                break;
             }
             if ($scope.currentFolder.id !== '') {
                 title += ' (' + $scope.folderLabel($scope.currentFolder.id) + ')';
@@ -1997,11 +2005,11 @@ angular.module('syncthing.core')
             return 'fas fa-folder';
         };
 
-        $scope.editingDefaults = function() {
+        $scope.editingFolderDefaults = function() {
             return $scope.currentFolder._editing == 'defaults';
         }
 
-        $scope.editingExisting = function() {
+        $scope.editingFolderExisting = function() {
             return $scope.currentFolder._editing == 'existing';
         }
 
@@ -2099,10 +2107,9 @@ angular.module('syncthing.core')
         }
 
         function editFolderInitIgnores(data) {
-            $scope.ignores.error = data.error;
             $scope.ignores.originalLines = data.ignore || [];
             setIgnoresText(data.ignore);
-            $scope.ignores.error = undefined;
+            $scope.ignores.error = data.error;
             $scope.ignores.disabled = false;
         }
 
@@ -2158,6 +2165,9 @@ angular.module('syncthing.core')
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
+                // Ignores don't need to be initialized here, as that happens in
+                // a second step if the user indicates in the creation modal
+                // that they want to set ignores
             }, $scope.emitHTTPError);
         }
 

@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"path/filepath"
 
@@ -91,10 +92,21 @@ func setDefaultIgnores(c *cli.Context) error {
 	}
 	dir, file := filepath.Split(c.Args()[0])
 	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	lines, err := fs.ReadLines(filesystem, file)
+
+	fd, err := filesystem.Open(file)
 	if err != nil {
 		return err
 	}
+	scanner := bufio.NewScanner(fd)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	fd.Close()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
 	_, err = client.PutJSON("config/defaults/ignores", config.Ignores{Lines: lines})
 	return err
 }
