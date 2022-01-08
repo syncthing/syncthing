@@ -358,8 +358,9 @@ ul.three-columns li, ul.two-columns li {
         margin-right: 15px;
         margin-top: -12px !important;
         max-width: 450px;
-        height: 265px;
         overflow-y: scroll;
+        /* height of 5.5 elements + negative margin-top */
+        height: 276px;
     }
 
     table.table-condensed td,
