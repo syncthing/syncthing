@@ -416,7 +416,7 @@ angular.module('syncthing.core')
         // .catch with the http response object containing the same arguments.
         $scope.emitHTTPError = function (data, status, headers, config) {
             var out = data;
-            if (!out.data) {
+            if (data && !data.data) {
                 out = { data: data, status: status, headers: headers, config: config };
             }
             $scope.$emit('HTTPError', out);
@@ -1579,16 +1579,14 @@ angular.module('syncthing.core')
         }
 
         $scope.editDeviceModalTitle = function() {
-            var title = '';
-            switch ($scope.currentDevice._editing) {
-            case "existing":
-                title += $translate.instant("Edit Device");
-                break;
-            case "add":
-                title += $translate.instant("Add Device");
-                break;
-            case "defaults":
+            if ($scope.editingDeviceDefaults()) {
                 return $translate.instant("Edit Device Defaults");
+            }
+            var title = '';
+            if ($scope.editingDeviceExisting()) {
+                title += $translate.instant("Edit Device");
+            } else {
+                title += $translate.instant("Add Device");
             }
             var name = $scope.deviceName($scope.currentDevice);
             if (name !== '') {
@@ -1978,19 +1976,20 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolderModalTitle = function() {
+            if ($scope.editingFolderDefaults()) {
+                return $translate.instant("Edit Folder Defaults");
+            }
             var title = '';
             switch ($scope.currentFolder._editing) {
             case "existing":
-                title += $translate.instant("Edit Folder");
+                title = $translate.instant("Edit Folder");
                 break;
             case "add":
-                title += $translate.instant("Add Folder");
+                title = $translate.instant("Add Folder");
                 break;
             case "add-ignores":
-                title += $translate.instant("Set Ignores on Added Folder");
+                title = $translate.instant("Set Ignores on Added Folder");
                 break;
-            case "defaults":
-                return $translate.instant("Edit Folder Defaults");
             }
             if ($scope.currentFolder.id !== '') {
                 title += ' (' + $scope.folderLabel($scope.currentFolder.id) + ')';
