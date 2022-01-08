@@ -166,16 +166,13 @@ table.table-auto td {
     display: none;
 }
 
-*[language-select] > .dropdown-menu {
+li[language-select] > .dropdown-menu {
+    column-count: 2;
+    column-gap: 0;
     width: 450px;
 }
 
-*[language-select] > .dropdown-menu > li {
-    float: left;
-    width: 50%;
-}
-
-*[language-select] > .dropdown-menu > li > a {
+li[language-select] > .dropdown-menu > li > a {
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -351,17 +348,19 @@ ul.three-columns li, ul.two-columns li {
         border-radius: 2px;
     }
 
-    *[language-select] {
+    li[language-select] {
         position: static !important;
     }
 
-    *[language-select] > .dropdown-menu {
+    li[language-select] > .dropdown-menu {
+        column-count: auto;
         margin-left: 15px;
         margin-right: 15px;
         margin-top: -12px !important;
         max-width: 450px;
-        height: 265px;
         overflow-y: scroll;
+        /* height of 5.5 elements + negative margin-top */
+        height: 276px;
     }
 
     table.table-condensed td,
