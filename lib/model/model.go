@@ -755,10 +755,10 @@ func (m *model) ConnectionStats() map[string]interface{} {
 	res["connections"] = conns
 
 	in, out := protocol.TotalInOut()
-	res["total"] = protocol.Statistics{
-		At:            time.Now().Truncate(time.Second),
-		InBytesTotal:  in,
-		OutBytesTotal: out,
+	res["total"] = map[string]interface{}{
+		"at":            time.Now().Truncate(time.Second),
+		"inBytesTotal":  in,
+		"outBytesTotal": out,
 	}
 
 	return res
