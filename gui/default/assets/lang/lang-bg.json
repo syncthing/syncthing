@@ -436,6 +436,10 @@
     "full documentation": "пълна документация",
     "items": "елемента",
     "seconds": "секунди",
+    "theme-name-black": "Черна",
+    "theme-name-dark": "Тъмна",
+    "theme-name-default": "По подразбиране",
+    "theme-name-light": "Светла",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} споделя папката „{{folder}}“.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} споделя папката „{{folder}}“. ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Поръчителят {{reintroducer}} може отново да предложи това устройство."

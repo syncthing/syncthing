@@ -436,6 +436,10 @@
     "full documentation": "Dokumentazio osoa",
     "items": "Elementuak",
     "seconds": "segunduak",
+    "theme-name-black": "Black",
+    "theme-name-dark": "Dark",
+    "theme-name-default": "Default",
+    "theme-name-light": "Light",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}k \"{{folder}}\" partekatze hontan gomitatzen zaitu.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}k  \"{{folderlabel}}\" ({{folder}}) hontan gomitatzen zaitu.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} -ek gailu hau birsar lezake."

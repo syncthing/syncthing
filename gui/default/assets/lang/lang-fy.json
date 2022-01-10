@@ -436,6 +436,10 @@
     "full documentation": "komplete dokumintaasje",
     "items": "items",
     "seconds": "sekonden",
+    "theme-name-black": "Black",
+    "theme-name-dark": "Dark",
+    "theme-name-default": "Default",
+    "theme-name-light": "Light",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wol map \"{{folder}}\" diele.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wol map \"{{folderlabel}}\" ({{folder}}) diele.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kin dit apparaat opnij yntrodusearje."

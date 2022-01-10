@@ -436,6 +436,10 @@
     "full documentation": "Documentación completa",
     "items": "Elementos",
     "seconds": "segundos",
+    "theme-name-black": "Black",
+    "theme-name-dark": "Dark",
+    "theme-name-default": "Default",
+    "theme-name-light": "Light",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir la carpeta \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quiere compartir la carpeta \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} puede reintroducir este equipo."

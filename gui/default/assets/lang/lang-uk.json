@@ -436,6 +436,10 @@
     "full documentation": "повна документація",
     "items": "елементи",
     "seconds": "секунд",
+    "theme-name-black": "Black",
+    "theme-name-dark": "Dark",
+    "theme-name-default": "Default",
+    "theme-name-light": "Light",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися директорією \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."

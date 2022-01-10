@@ -436,6 +436,10 @@
     "full documentation": "tam belgelendirme",
     "items": "öğe",
     "seconds": "saniye",
+    "theme-name-black": "Siyah",
+    "theme-name-dark": "Koyu",
+    "theme-name-default": "Varsayılan",
+    "theme-name-light": "Açık",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}, \"{{folder}}\" klasörünü paylaşmak istiyor.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}, \"{{folderlabel}}\" ({{folder}}) klasörünü paylaşmak istiyor.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} bu cihazı yeniden tanıtabilir."

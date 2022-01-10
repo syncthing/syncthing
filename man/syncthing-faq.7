@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Jan 10, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -45,7 +45,7 @@ syncthing-faq \- Frequently Asked Questions
 .IP \(bu 2
 \fI\%How does Syncthing differ from BitTorrent/Resilio Sync?\fP
 .IP \(bu 2
-\fI\%Why is there no iOS client?\fP
+\fI\%Is there an iOS client?\fP
 .IP \(bu 2
 \fI\%Should I keep my device IDs secret?\fP
 .UNINDENT
@@ -92,6 +92,8 @@ syncthing-faq \- Frequently Asked Questions
 \fI\%Does Syncthing support syncing between folders on the same system?\fP
 .IP \(bu 2
 \fI\%When I do have two distinct Syncthing\-managed folders on two hosts, how does Syncthing handle moving files between them?\fP
+.IP \(bu 2
+\fI\%Can I help initial sync by copying files manually?\fP
 .IP \(bu 2
 \fI\%Is Syncthing my ideal backup application?\fP
 .IP \(bu 2
@@ -172,9 +174,9 @@ the faster an additional device will receive the data
 because small blocks will be fetched from all devices in parallel.
 .sp
 Syncthing handles renaming files and updating their metadata in an efficient
-manner. This means that renaming a large file will not cause a retransmission of
-that file. Additionally, appending data to existing large files should be
-handled efficiently as well.
+manner. This means that renaming a file will not cause a retransmission of
+that file. Additionally, appending data to existing files should be handled
+efficiently as well.
 .sp
 Temporary files are used to store partial data
 downloaded from other devices. They are automatically removed whenever a file
@@ -195,12 +197,16 @@ mechanisms in use are well defined and visible in the source code. Resilio
 Sync uses an undocumented, closed protocol with unknown security properties.
 .IP [1] 5
 \fI\%https://en.wikipedia.org/wiki/Resilio_Sync\fP
-.SS Why is there no iOS client?
+.SS Is there an iOS client?
 .sp
-There is an alternative implementation of Syncthing (using the same network
-protocol) called \fBfsync()\fP\&. There are no plans by the current Syncthing
-team to support iOS in the foreseeable future, as the code required to do so
-would be quite different from what Syncthing is today.
+There are no plans by the current Syncthing team to officially support iOS in the foreseeable future.
+.sp
+iOS has significant restrictions on background processing that make it very hard to
+run Syncthing reliably and integrate it into the system.
+.sp
+However, there is a commercial packaging of Syncthing for iOS that attempts to work within these limitations. [2]
+.IP [2] 5
+\fI\%https://www.mobiussync.com\fP
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it’s possible to find the IP
@@ -225,7 +231,7 @@ device\-ids
 .sp
 Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
-\-paths\fP to see where that is). The command line option \fB\-logfile\fP can be
+\-\-paths\fP to see where that is). The command line option \fB\-\-logfile\fP can be
 used to specify a user\-defined logfile.
 .sp
 If you’re running a process manager like systemd, check there. If you’re
@@ -332,7 +338,7 @@ crashes and other bugs.
 .SS How can I view the history of changes?
 .sp
 The web GUI contains a \fBRecent Changes\fP button under the device list which
-displays changes since the last (re)start of Syncthing. With the \fB\-audit\fP
+displays changes since the last (re)start of Syncthing. With the \fB\-\-audit\fP
 option you can enable a persistent, detailed log of changes and most
 activities, which contains a \fBJSON\fP formatted  sequence of events in the
 \fB~/.config/syncthing/audit\-_date_\-_time_.log\fP file.
@@ -397,7 +403,7 @@ The easy way to rename or move a synced folder on the local system is to
 remove the folder in the Syncthing UI, move it on disk, then re\-add it using
 the new path.
 .sp
-It’s best to do this when the folder is already in sync between your
+It’s important to do this when the folder is already in sync between your
 devices, as it is otherwise unpredictable which changes will “win” after the
 move. Changes made on other devices may be overwritten, or changes made
 locally may be overwritten by those on other devices.
@@ -432,6 +438,19 @@ block) from A, and then as A gets rescanned, it will remove the files from A.
 .sp
 A workaround would be to copy first from A to B, rescan B, wait for B to
 copy the files on the remote side, and then delete from A.
+.SS Can I help initial sync by copying files manually?
+.sp
+If you have a large folder that you want to keep in sync over a not\-so\-fast network, and you have the possibility to move all files to the remote device in a faster manner, here is a procedure to follow:
+.INDENT 0.0
+.IP \(bu 2
+Create the folder on the local device, but don’t share it with the remote device yet.
+.IP \(bu 2
+Copy the files from the local device to the remote device using regular file copy. If this takes a long time (perhaps requiring travelling there physically), it may be a good idea to make sure that the files on the local device are not updated while you are doing this.
+.IP \(bu 2
+Create the folder on the remote device, and copy the Folder ID from the folder on the local device, as we want the folders to be considered the same. Then wait until scanning the folder is done.
+.IP \(bu 2
+Now share the folder with the other device, on both sides. Syncthing will exchange file information, updating the database, but existing files will not be transferred. This may still take a while initially, be patient and wait until it settled.
+.UNINDENT
 .SS Is Syncthing my ideal backup application?
 .sp
 No. Syncthing is not a great backup application because all changes to your
@@ -531,7 +550,7 @@ own.
 By default, Syncthing will look for a directory \fBgui\fP inside the Syncthing
 home folder. To change the directory to look for themes, you need to set the
 STGUIASSETS environment variable. To get the concrete directory, run
-syncthing with the \fB\-paths\fP parameter. It will print all the relevant paths,
+syncthing with the \fB\-\-paths\fP parameter. It will print all the relevant paths,
 including the “GUI override directory”.
 .sp
 To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
@@ -553,7 +572,7 @@ upgrade itself automatically within 24 hours of a new release.
 The upgrade button appears in the web GUI when a new version has been
 released. Pressing it will perform an upgrade.
 .IP \(bu 2
-To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
+To force an upgrade from the command line, run \fBsyncthing \-\-upgrade\fP\&.
 .UNINDENT
 .sp
 Note that your system should have CA certificates installed which allows a
