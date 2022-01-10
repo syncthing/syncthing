@@ -706,26 +706,12 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 
 type ConnectionInfo struct {
 	protocol.Statistics
-	Connected     bool
-	Paused        bool
-	Address       string
-	ClientVersion string
-	Type          string
-	Crypto        string
-}
-
-func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"at":            info.At,
-		"inBytesTotal":  info.InBytesTotal,
-		"outBytesTotal": info.OutBytesTotal,
-		"connected":     info.Connected,
-		"paused":        info.Paused,
-		"address":       info.Address,
-		"clientVersion": info.ClientVersion,
-		"type":          info.Type,
-		"crypto":        info.Crypto,
-	})
+	Connected     bool   `json:"connected"`
+	Paused        bool   `json:"paused"`
+	Address       string `json:"address"`
+	ClientVersion string `json:"clientVersion"`
+	Type          string `json:"type"`
+	Crypto        string `json:"crypto"`
 }
 
 // NumConnections returns the current number of active connected devices.
@@ -769,12 +755,10 @@ func (m *model) ConnectionStats() map[string]interface{} {
 	res["connections"] = conns
 
 	in, out := protocol.TotalInOut()
-	res["total"] = ConnectionInfo{
-		Statistics: protocol.Statistics{
-			At:            time.Now().Truncate(time.Second),
-			InBytesTotal:  in,
-			OutBytesTotal: out,
-		},
+	res["total"] = map[string]interface{}{
+		"at":            time.Now().Truncate(time.Second),
+		"inBytesTotal":  in,
+		"outBytesTotal": out,
 	}
 
 	return res
