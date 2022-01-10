@@ -11,6 +11,8 @@ jobs:
     name: Update translations and documentation
     steps:
       - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
       - uses: actions/setup-go@v2
         with:
           go-version: ^1.17.6
