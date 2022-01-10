@@ -1,0 +1,26 @@
+name: Update translations and documentation
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '42 3 * * 1'
+
+jobs:
+
+  update_transifex_docs:
+    runs-on: ubuntu-latest
+    name: Update translations and documentation
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ^1.17.6
+      - run: |
+          set -euo pipefail
+          git config --global user.name 'Syncthing Automation'
+          git config --global user.email 'automation@syncthing.net'
+          bash build.sh translate
+          bash build.sh prerelease
+          git push
+        env:
+          TRANSIFEX_USER: ${{ secrets.TRANSIFEX_USER }}
+          TRANSIFEX_PASS: ${{ secrets.TRANSIFEX_PASS }}
