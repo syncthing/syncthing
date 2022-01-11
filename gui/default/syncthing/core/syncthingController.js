@@ -42,6 +42,7 @@ angular.module('syncthing.core')
         $scope.pendingFolders = {};
         $scope.progress = {};
         $scope.version = {};
+        $scope.docsBaseURL = '';
         $scope.needed = {};
         $scope.neededFolder = '';
         $scope.failed = {};
@@ -130,6 +131,7 @@ angular.module('syncthing.core')
                     }
 
                     $scope.version = data;
+                    findDocsBaseURL();
                 }).error($scope.emitHTTPError);
 
                 $http.get(urlbase + '/svc/report').success(function (data) {
@@ -2782,6 +2784,39 @@ angular.module('syncthing.core')
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
+        };
+
+        $scope.versionBase = function () {
+            if (!$scope.version.version) {
+                return '';
+            }
+            var version = $scope.version.version;
+            var pos = version.indexOf('-');
+            if (pos > 0) {
+                version = version.substring(0, pos);
+            }
+            return version;
+        };
+
+        $scope.docsURL = function (path) {
+            if (!$scope.docsBaseURL) {
+                return '';
+            }
+            var url = $scope.docsBaseURL;
+            if (path) {
+                url += '/' + path;
+            }
+            return url;
+        };
+
+        function findDocsBaseURL() {
+            var urlbase = 'https://docs.syncthing.net';
+            var version = $scope.versionBase();
+            if (version) {
+                $scope.docsBaseURL = urlbase + '/' + version;
+            } else {
+                $scope.docsBaseURL = urlbase;
+            }
         };
 
         $scope.inputTypeFor = function (key, value) {
