@@ -18,8 +18,8 @@ jobs:
           go-version: ^1.17.6
       - run: |
           set -euo pipefail
-          git config --global user.name 'Syncthing Automation'
-          git config --global user.email 'automation@syncthing.net'
+          git config --global user.name 'Syncthing Release Automation'
+          git config --global user.email 'release@syncthing.net'
           bash build.sh translate
           bash build.sh prerelease
           git push
