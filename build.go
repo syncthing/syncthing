@@ -47,6 +47,7 @@ var (
 	cc             string
 	run            string
 	benchRun       string
+	buildOut       string
 	debugBinary    bool
 	coverage       bool
 	long           bool
@@ -374,6 +375,7 @@ func parseFlags() {
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
+	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
 	flag.Parse()
 }
 
@@ -506,6 +508,9 @@ func build(target target, tags []string) {
 	}
 
 	args := []string{"build", "-v"}
+	if buildOut != "" {
+		args = append(args, "-o", buildOut)
+	}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
