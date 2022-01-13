@@ -7,8 +7,12 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"path/filepath"
 
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/urfave/cli"
 )
 
@@ -37,6 +41,12 @@ var operationCommand = cli.Command{
 			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
 			ArgsUsage: "[folder id]",
 			Action:    expects(1, foldersOverride),
+		},
+		{
+			Name:      "default-ignores",
+			Usage:     "Set the default ignores (config) from a file",
+			ArgsUsage: "path",
+			Action:    expects(1, setDefaultIgnores),
 		},
 	},
 }
@@ -73,4 +83,30 @@ func foldersOverride(c *cli.Context) error {
 		}
 	}
 	return fmt.Errorf("Folder " + rid + " not found")
+}
+
+func setDefaultIgnores(c *cli.Context) error {
+	client, err := getClientFactory(c).getClient()
+	if err != nil {
+		return err
+	}
+	dir, file := filepath.Split(c.Args()[0])
+	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+
+	fd, err := filesystem.Open(file)
+	if err != nil {
+		return err
+	}
+	scanner := bufio.NewScanner(fd)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	fd.Close()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	_, err = client.PutJSON("config/defaults/ignores", config.Ignores{Lines: lines})
+	return err
 }

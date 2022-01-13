@@ -2,44 +2,44 @@
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
-        <li class="active"><a data-toggle="tab" href="#folder-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
-        <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
-        <li ng-if="!editingDefaults" ng-class="{'disabled': currentFolder._recvEnc}"><a ng-attr-data-toggle="{{ currentFolder._recvEnc ? undefined : 'tab'}}" href="{{currentFolder._recvEnc ? '#' : '#folder-ignores'}}"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
-        <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}" class="active"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-general'}}"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-sharing'}}"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-versioning'}}"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
+        <li ng-class="{'disabled': currentFolder._recvEnc}"><a data-toggle="tab" href="{{currentFolder._recvEnc ? '' : '#folder-ignores'}}"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-advanced'}}"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
 
         <div id="folder-general" class="tab-pane in active">
-          <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty && !editingDefaults}">
+          <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty && !editingFolderDefaults()}">
             <label for="folderLabel"><span translate>Folder Label</span></label>
             <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" value="{{currentFolder.label}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Optional descriptive label for the folder. Can be different on each device.</span>
             </p>
           </div>
-          <div ng-if="!editingDefaults" class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
+          <div ng-if="!editingFolderDefaults()" class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
             <label for="folderID"><span translate>Folder ID</span></label>
-            <input name="folderID" ng-readonly="editingExisting || (!editingExisting && currentFolder.viewFlags.importFromOtherDevice)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}" />
+            <input name="folderID" ng-readonly="has(['existing', 'add'], currentFolder._editing)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Required identifier for the folder. Must be the same on all cluster devices.</span>
               <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
               <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
-              <span translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</span>
+              <span translate ng-show="!editingFolderExisting()">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</span>
             </p>
           </div>
-          <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty && !editingDefaults}">
+          <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty && !editingFolderDefaults()}">
             <label translate for="folderPath">Folder Path</label>
-            <input name="folderPath" ng-readonly="editingExisting && !editingDefaults" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" ng-required="!editingDefaults" ng-aria-required="!editingDefaults" path-is-sub-dir />
+            <input name="folderPath" ng-readonly="editingFolderExisting()" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" ng-required="!editingFolderDefaults()" ng-aria-required="!editingFolderDefaults()" path-is-sub-dir />
             <datalist id="directory-list">
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
             <p class="help-block">
               <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.</br></span>
-              <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty && !editingDefaults">The folder path cannot be blank.</span>
+              <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty && !editingFolderDefaults()">The folder path cannot be blank.</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length == 0">Warning, this path is a subdirectory of an existing folder "{%otherFolder%}".</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length != 0">Warning, this path is a subdirectory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
-              <span ng-if="folderPathErrors.isParent && !editingDefaults">
+              <span ng-if="folderPathErrors.isParent && !editingFolderDefaults()">
                 <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.otherLabel.length == 0">Warning, this path is a parent directory of an existing folder "{%otherFolder%}".</span>
                 <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.otherLabel.length != 0">Warning, this path is a parent directory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
               </span>
@@ -148,33 +148,42 @@
           </div>
         </div>
 
-        <div ng-if="!editingDefaults" id="folder-ignores" class="tab-pane">
-          <p translate>Enter ignore patterns, one per line.</p>
-          <div ng-class="{'has-error': ignores.error != null}">
-            <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
-            <p class="help-block" ng-if="ignores.error">
-              {{ignores.error}}
-            </p>
+        <div id="folder-ignores" class="tab-pane" ng-switch="currentFolder._editing">
+          <div ng-switch-when="add">
+            <label>
+              <input type="checkbox" ng-model="currentFolder._addIgnores" >&nbsp;<span translate>Add ignore patterns</span>
+            </label>
+            <p translate class="help-block">Ignore patterns can only be added after the folder is created. If checked, an input field to enter ignore patterns will be presented after saving.</p>
           </div>
-          <hr />
-          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
-          <dl class="dl-horizontal dl-narrow small">
-            <dt><code>(?d)</code></dt>
-            <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
-            <dt><code>(?i)</code></dt>
-            <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
-            <dt><code>!</code></dt>
-            <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
-            <dt><code>*</code></dt>
-            <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
-            <dt><code>**</code></dt>
-            <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
-            <dt><code>//</code></dt>
-            <dd><span translate>Comment, when used at the start of a line</span></dd>
-          </dl>
-          <hr />
-          <span translate ng-show="editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
-          <span translate ng-show="!editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span>
+          <div ng-switch-default>
+            <p translate>Enter ignore patterns, one per line.</p>
+            <div ng-class="{'has-error': ignores.error != null}">
+              <textarea class="form-control" name="ignoresText" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
+              <p class="help-block" ng-if="ignores.error">
+                {{ignores.error}}
+              </p>
+            </div>
+            <hr />
+            <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+            <dl class="dl-horizontal dl-narrow small">
+              <dt><code>(?d)</code></dt>
+              <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+              <dt><code>(?i)</code></dt>
+              <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+              <dt><code>!</code></dt>
+              <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+              <dt><code>*</code></dt>
+              <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+              <dt><code>**</code></dt>
+              <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+              <dt><code>//</code></dt>
+              <dd><span translate>Comment, when used at the start of a line</span></dd>
+            </dl>
+            <div ng-if="!editingFolderDefaults()">
+              <hr />
+              <span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+            </div>
+          </div>
         </div>
 
         <div id="folder-advanced" class="tab-pane">
@@ -205,17 +214,17 @@
             <div class="col-md-6 form-group">
               <label translate>Folder Type</label>
               &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-              <select class="form-control" ng-change="setDefaultsForFolderType()" ng-model="currentFolder.type" ng-disabled="editingExisting && currentFolder.type == 'receiveencrypted'">
+              <select class="form-control" ng-change="setDefaultsForFolderType()" ng-model="currentFolder.type" ng-disabled="editingFolderExisting() && currentFolder.type == 'receiveencrypted'">
                 <option value="sendreceive" translate>Send &amp; Receive</option>
                 <option value="sendonly" translate>Send Only</option>
                 <option value="receiveonly" translate>Receive Only</option>
-                <option value="receiveencrypted" ng-disabled="editingExisting" translate>Receive Encrypted</option>
+                <option value="receiveencrypted" ng-disabled="editingFolderExisting()" translate>Receive Encrypted</option>
               </select>
               <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
               <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
               <p ng-if="currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type "{%receiveEncrypted%}" too.</p>
-              <p ng-if="editingExisting && currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
-              <p ng-if="editingExisting && currentFolder.type != 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" can only be set when adding a new folder.</p>
+              <p ng-if="editingFolderExisting() && currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
+              <p ng-if="editingFolderExisting() && currentFolder.type != 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" can only be set when adding a new folder.</p>
             </div>
             <div class="col-md-6 form-group">
               <label translate>File Pull Order</label>
@@ -274,7 +283,7 @@
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
-    <button type="button" class="btn btn-warning pull-left btn-sm" data-toggle="modal" data-target="#remove-folder-confirmation" ng-if="editingExisting && !editingDefaults">
+    <button type="button" class="btn btn-warning pull-left btn-sm" data-toggle="modal" data-target="#remove-folder-confirmation" ng-if="editingFolderExisting()">
       <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
     </button>
   </div>

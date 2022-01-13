@@ -1515,7 +1515,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	// Invalid path, marker should be missing, hence returns an error.
+	// Invalid path, treated like no patterns at all.
 	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
 	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
 	m.fmut.Lock()
@@ -1524,8 +1524,8 @@ func TestIgnores(t *testing.T) {
 	m.fmut.Unlock()
 
 	_, _, err = m.LoadIgnores("fresh")
-	if err == nil {
-		t.Error("No error")
+	if err != nil {
+		t.Error("Got error for inexistent folder path")
 	}
 
 	// Repeat tests with paused folder

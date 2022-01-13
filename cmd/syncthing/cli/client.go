@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -25,6 +27,7 @@ import (
 type APIClient interface {
 	Get(url string) (*http.Response, error)
 	Post(url, body string) (*http.Response, error)
+	PutJSON(url string, o interface{}) (*http.Response, error)
 }
 
 type apiClient struct {
@@ -118,20 +121,36 @@ func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, checkResponse(resp)
 }
 
-func (c *apiClient) Get(url string) (*http.Response, error) {
-	request, err := http.NewRequest("GET", c.Endpoint()+"rest/"+url, nil)
+func (c *apiClient) Request(url, method string, r io.Reader) (*http.Response, error) {
+	request, err := http.NewRequest(method, c.Endpoint()+"rest/"+url, r)
 	if err != nil {
 		return nil, err
 	}
 	return c.Do(request)
 }
 
-func (c *apiClient) Post(url, body string) (*http.Response, error) {
-	request, err := http.NewRequest("POST", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
+func (c *apiClient) RequestString(url, method, data string) (*http.Response, error) {
+	return c.Request(url, method, bytes.NewBufferString(data))
+}
+
+func (c *apiClient) RequestJSON(url, method string, o interface{}) (*http.Response, error) {
+	data, err := json.Marshal(o)
 	if err != nil {
 		return nil, err
 	}
-	return c.Do(request)
+	return c.Request(url, method, bytes.NewBuffer(data))
+}
+
+func (c *apiClient) Get(url string) (*http.Response, error) {
+	return c.RequestString(url, "GET", "")
+}
+
+func (c *apiClient) Post(url, body string) (*http.Response, error) {
+	return c.RequestString(url, "POST", body)
+}
+
+func (c *apiClient) PutJSON(url string, o interface{}) (*http.Response, error) {
+	return c.RequestJSON(url, "PUT", o)
 }
 
 var errNotFound = errors.New("invalid endpoint or API call")

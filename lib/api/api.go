@@ -313,6 +313,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDevice("/rest/config/devices/:id")
 	configBuilder.registerDefaultFolder("/rest/config/defaults/folder")
 	configBuilder.registerDefaultDevice("/rest/config/defaults/device")
+	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
 	configBuilder.registerGUI("/rest/config/gui")
