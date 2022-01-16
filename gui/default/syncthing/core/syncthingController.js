@@ -399,6 +399,10 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
+            if (!$scope.model[arg.data.folder]) {
+                console.log("Dropping folder errors event for unknown folder", arg.data.folder)
+                return;
+            }
             $scope.model[arg.data.folder].errors = arg.data.errors.length;
         });
 
