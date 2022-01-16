@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/cmd/syncthing/override-credentials"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -132,10 +133,11 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
-	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
-	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli      struct{}     `cmd:"" help:"Command line interface for Syncthing"`
+	Serve               serveOptions             `cmd:"" help:"Run Syncthing"`
+	Generate            generate.CLI             `cmd:"" help:"Generate key and config, then exit"`
+	OverrideCredentials override_credentials.CLI `cmd:"" help:"Override default key, cert and config files, then exit"`
+	Decrypt             decrypt.CLI              `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli                 struct{}                 `cmd:"" help:"Command line interface for Syncthing"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
