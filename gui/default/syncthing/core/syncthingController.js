@@ -1517,7 +1517,7 @@ angular.module('syncthing.core')
                 // here as well...
                 $scope.devices = deviceMap($scope.config.devices);
 
-                $scope.saveConfig.then(function () {
+                $scope.saveConfig().then(function () {
                     if (themeChanged) {
                         document.location.reload(true);
                     }
