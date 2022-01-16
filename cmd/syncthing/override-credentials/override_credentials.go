@@ -60,15 +60,15 @@ func OverrideCredentials(srcDir string) error {
 	srcCert := filepath.Join(dir, filepath.Base(certPath))
 	srcConf := filepath.Join(dir, filepath.Base(confPath))
 
-	cert, err := tls.LoadX509KeyPair(srcCert, srcKey)
+	_, err = tls.LoadX509KeyPair(srcCert, srcKey)
 	if err != nil {
 		return fmt.Errorf("Couldn't load certificate from the source directory: %w", err)
 	}
 
 	srcDestPairs := [3]SourceDestinationPair{
-		SourceDestinationPair{srcKey, keyPath},
-		SourceDestinationPair{srcCert, certPath},
-		SourceDestinationPair{srcConf, confPath},
+		{srcKey, keyPath},
+		{srcCert, certPath},
+		{srcConf, confPath},
 	}
 	for _, p := range srcDestPairs {
 		if p.source == p.destination {
@@ -93,7 +93,7 @@ func OverrideCredentials(srcDir string) error {
 	}
 
 	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
-	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+	cert, _ := tls.LoadX509KeyPair(certFile, keyFile)
 	myID := protocol.NewDeviceID(cert.Certificate[0])
 	log.Println("New device ID:", myID)
 
