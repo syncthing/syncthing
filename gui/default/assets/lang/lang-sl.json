@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Ali naj se dovoli brezimno poročanje o uporabi?",
     "Allowed Networks": "Dovoljena omrežja",
     "Alphabetic": "Po abecedi",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Zunanji ukaz upravlja z različicami. To mora odstraniti datoteko od deljene mape. Če pot do aplikacije vsebuje presledke, jo postavite v dvojne narekovaje.",
     "Anonymous Usage Reporting": "Brezimno poročanje o uporabi",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Format anonimnega poročanja uporabe se je spremenil. Ali želite se premakniti na novi format?",

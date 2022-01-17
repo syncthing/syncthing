@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Allow Anonymous Usage Reporting?",
     "Allowed Networks": "Allowed Networks",
     "Alphabetic": "Alphabetic",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "Anonymous Usage Reporting": "Anonymous Usage Reporting",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Anonymous usage report format has changed. Would you like to move to the new format?",

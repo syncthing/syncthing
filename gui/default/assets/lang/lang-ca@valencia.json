@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Permetre informes d'ús anònim?",
     "Allowed Networks": "Xarxes permeses",
     "Alphabetic": "Alfabètic",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Un comandament extern maneja el versionat. És necessari eliminar el fitxer de la carpeta compartida. Si la ruta a l'aplicació conté espais, hi ha que ficar-los entre cometes.",
     "Anonymous Usage Reporting": "Informe d'ús anònim",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "El format del informe anònim d'ús ha canviat. Vols canviar al nou format?",

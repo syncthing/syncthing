@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Salli anonyymi käyttöraportointi?",
     "Allowed Networks": "Sallitut verkot",
     "Alphabetic": "Aakkosellinen",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Ulkoinen komento hallitsee versionnin. Sen täytyy poistaa tiedosto synkronoidusta kansiosta. Mikäli ohjelman polussa on välilyöntejä se on laitettava lainausmerkkeihin.",
     "Anonymous Usage Reporting": "Anonyymi käyttöraportointi",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Anonyymi käyttöraportti on muuttunut. Haluatko vaihtaa uuteen muotoon?",

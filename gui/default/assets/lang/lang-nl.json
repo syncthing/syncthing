@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Versturen van anonieme gebruikersstatistieken toestaan?",
     "Allowed Networks": "Toegestane netwerken",
     "Alphabetic": "Alfabetisch",
+    "Altered by ignoring deletes.": "Veranderd door het negeren van verwijderingen.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Een externe opdracht regelt het versiebeheer. Hij moet het bestand verwijderen uit de gedeelde map. Als het pad naar de toepassing spaties bevat, moet dit tussen aanhalingstekens geplaatst worden.",
     "Anonymous Usage Reporting": "Anonieme gebruikersstatistieken",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Het formaat voor anonieme gebruikersrapporten is gewijzigd. Wilt u naar het nieuwe formaat overschakelen?",

@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Povolit anonymní hlášení o používání?",
     "Allowed Networks": "Sítě, ze kterých je umožněn přístup",
     "Alphabetic": "Abecední",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Správu verzí obstarává externí příkaz. U toho je třeba, aby neaktuální soubory jím byly odsouvány pryč ze sdílené složky. Pokud popis umístění tohoto příkazu obsahuje mezeru, je třeba popis umístění uzavřít do uvozovek.",
     "Anonymous Usage Reporting": "Anonymní hlášení o používání",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Formát anonymního hlášení o používání byl změněn. Chcete přejít na nový formát?",

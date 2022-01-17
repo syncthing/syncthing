@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Permiteţi raportarea anonimă de folosire a aplicaţiei?",
     "Allowed Networks": "Rețele permise",
     "Alphabetic": "Alfabetic",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "O comandă externă gestionează versiunea. Trebuie să elimine fișierul din folderul partajat. Dacă calea către aplicație conține spații, ar trebui să fie pusă între ghilimele.",
     "Anonymous Usage Reporting": "Raport Anonim despre Folosirea Aplicației",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Formatul raportului de utilizare anonim s-a schimbat. Doriți să vă mutați în noul format?",

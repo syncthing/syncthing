@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "允許回報匿名數據？",
     "Allowed Networks": "允許的網路",
     "Alphabetic": "字母順序",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "外部指令接管了版本控制。它必須將檔案自分享資料夾中移除。如果應用程式的路徑包含了空格，則必須使用雙引號刮起。",
     "Anonymous Usage Reporting": "匿名數據回報",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "匿名數據回報格式已經變更，想要移至新格式嗎？",

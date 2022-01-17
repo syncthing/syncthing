@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "¿Deseas permitir el envío anónimo de informes de uso?",
     "Allowed Networks": "Redes permitidas",
     "Alphabetic": "Alfabético",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Un comando externo maneja el versionado. Tiene que eliminar el fichero de la carpeta compartida. Si la ruta a la aplicación contiene espacios, hay que escribirla entre comillas.",
     "Anonymous Usage Reporting": "Informe anónimo de uso",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "El formato del informe anónimo de uso ha cambiado. ¿Quieres cambiar al nuevo formato?",

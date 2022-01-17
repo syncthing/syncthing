@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Izenik gabeko erabiltze erreportak baimendu?",
     "Allowed Networks": "Sare baimenduak",
     "Alphabetic": "Alfabetikoa",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Kanpoko kontrolagailu  batek fitxategien bertsioak kudeatzen ditu. Fitxategiak kendu behar ditu errepertorio sinkronizatuan. Aplikaziorako ibilbideak espazioak baditu, komatxo artean egon behar du.",
     "Anonymous Usage Reporting": "Izenik gabeko erabiltze erreportak",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Erabilera anonimoko txostenaren formatua aldatu egin da. Formatu berria erabili nahi duzu?",

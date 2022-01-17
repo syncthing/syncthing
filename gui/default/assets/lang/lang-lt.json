@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Siųsti anoniminę naudojimo ataskaitą?",
     "Allowed Networks": "Leidžiami tinklai",
     "Alphabetic": "Abėcėlės tvarka",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Išorinė komanda apdoroja versijų valdymą. Ji turi pašalinti failą iš bendrinamo aplanko. Jei kelyje į programą yra tarpų, jie turėtų būti imami į kabutes.",
     "Anonymous Usage Reporting": "Anoniminė naudojimo ataskaita",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Anoniminės naudojimo ataskaitos formatas pasikeitė. Ar norėtumėte pereiti prie naujojo formato?",

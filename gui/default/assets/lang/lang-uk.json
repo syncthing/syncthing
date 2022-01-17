@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Дозволити програмі збирати анонімну статистику використання?",
     "Allowed Networks": "Дозволені мережі",
     "Alphabetic": "За алфавітом",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Зовнішня команда керування версіями. Вона має видалити файл із спільної директорії. Якщо шлях до програми містить пробіли, він буде взятий у лапки.",
     "Anonymous Usage Reporting": "Анонімна статистика використання",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Змінився формат анонімного звіту про користування. Бажаєте перейти на новий формат?",
