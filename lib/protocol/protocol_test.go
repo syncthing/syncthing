@@ -516,7 +516,7 @@ func TestLZ4CompressionUpdate(t *testing.T) {
 
 	res, err := lz4Decompress(oldCompressed)
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	if !bytes.Equal(uncompressed, res) {
 		t.Fatal("result does not match")
