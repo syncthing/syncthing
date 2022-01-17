@@ -3,7 +3,7 @@ module github.com/syncthing/syncthing
 require (
 	github.com/AudriusButkevicius/pfilter v0.0.10
 	github.com/AudriusButkevicius/recli v0.0.6
-	github.com/alecthomas/kong v0.2.17
+	github.com/alecthomas/kong v0.3.0
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.3
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
