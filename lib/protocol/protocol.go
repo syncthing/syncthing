@@ -765,7 +765,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	}
 
 	if c.shouldCompressMessage(msg) {
-		ok, err := c.writeCompressedMessage(msg, buf[overhead:], overhead)
+		ok, err := c.writeCompressedMessage(msg, buf[overhead:])
 		if ok {
 			return err
 		}
@@ -789,11 +789,11 @@ func (c *rawConnection) writeMessage(msg message) error {
 	return nil
 }
 
-// Write msg out compressed, given its uncompressed marshaled payload and overhead.
+// Write msg out compressed, given its uncompressed marshaled payload.
 //
 // The first return value indicates whether compression succeeded.
 // If not, the caller should retry without compression.
-func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, overhead int) (ok bool, err error) {
+func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (ok bool, err error) {
 	hdr := Header{
 		Type:        c.typeOf(msg),
 		Compression: MessageCompressionLZ4,
@@ -804,13 +804,16 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, ov
 	}
 
 	cOverhead := 2 + hdrSize + 4
-	maxCompressed := cOverhead + lz4.CompressBlockBound(len(marshaled))
+	// The compressed size may be at most n-n/32 = .96875*n bytes,
+	// I.e., if we can't save at least 3.125% bandwidth, we forgo compression.
+	// This number is arbitrary but cheap to compute.
+	maxCompressed := cOverhead + len(marshaled) - len(marshaled)/32
 	buf := BufferPool.Get(maxCompressed)
 	defer BufferPool.Put(buf)
 
 	compressedSize, err := lz4Compress(marshaled, buf[cOverhead:])
 	totSize := compressedSize + cOverhead
-	if err != nil || totSize >= len(marshaled)+overhead {
+	if err != nil {
 		return false, nil
 	}
 
