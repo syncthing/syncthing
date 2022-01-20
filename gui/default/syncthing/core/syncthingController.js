@@ -2090,7 +2090,12 @@ angular.module('syncthing.core')
 
         function editFolderLoadIgnores() {
             editFolderLoadingIgnores();
-            return editFolderGetIgnores().then(editFolderInitIgnores, $scope.emitHTTPError);
+            return editFolderGetIgnores().then(function(data) {
+                if (!data) {
+                    return;
+                }
+                editFolderInitIgnores(data.ignore, data.error);
+            }, $scope.emitHTTPError);
         }
 
         $scope.editFolderDefaults = function() {
@@ -2109,10 +2114,10 @@ angular.module('syncthing.core')
             });
         }
 
-        function editFolderInitIgnores(data) {
-            $scope.ignores.originalLines = data.ignore || [];
-            setIgnoresText(data.ignore);
-            $scope.ignores.error = data.error;
+        function editFolderInitIgnores(lines, error) {
+            $scope.ignores.originalLines = lines || [];
+            setIgnoresText(lines);
+            $scope.ignores.error = error;
             $scope.ignores.disabled = false;
         }
 
@@ -2288,7 +2293,7 @@ angular.module('syncthing.core')
                     return;
                 }
                 if ((data.ignore && data.ignore.length > 0) || data.error) {
-                    editFolderInitIgnores(data);
+                    editFolderInitIgnores(data.ignore, data.error);
                 } else {
                     getDefaultIgnores().then(function(lines) {
                         setIgnoresText(lines);
