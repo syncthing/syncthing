@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Tillat anonym innsamling av brukerdata?",
     "Allowed Networks": "Tillatte nettverk",
     "Alphabetic": "Alfabetisk",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "En ekstern kommando tar hånd om versjoneringen. Den må fjerne filen fra den delte mappen. Hvis stien til programmet inneholder mellomrom, må den siteres.",
     "Anonymous Usage Reporting": "Anonym innsamling av brukerdata",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Det anonyme bruksrapportformatet har endret seg. Ønsker du å gå over til det nye formatet?",

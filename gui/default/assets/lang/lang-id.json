@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Izinkan Laporan Penggunaan Anonim?",
     "Allowed Networks": "Jaringan Terizinkan",
     "Alphabetic": "Alfabet",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Perintah eksternal menangani pemversian. Ia harus menghapus berkas dari folder yang dibagi. Jika lokasi aplikasi terdapat spasi, itu harus dikutip.",
     "Anonymous Usage Reporting": "Pelaporan Penggunaan Anonim",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Format pelaporan penggunaan anonim telah berubah. Maukah anda pindah menggunakan format yang baru?",

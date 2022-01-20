@@ -1651,6 +1651,11 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
 				fcfg.Type = config.FolderTypeReceiveEncrypted
+			} else {
+				ignores := m.cfg.DefaultIgnores()
+				if err := m.setIgnores(fcfg, ignores.Lines); err != nil {
+					l.Warnf("Failed to apply default ignores to auto-accepted folder %s at path %s: %v", folder.Description(), fcfg.Path, err)
+				}
 			}
 
 			l.Infof("Auto-accepted %s folder %s at path %s", deviceID, folder.Description(), fcfg.Path)
@@ -2035,11 +2040,6 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 		return nil, nil, nil
 	}
 
-	// On creation a new folder with ignore patterns validly has no marker yet.
-	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
-		return nil, nil, err
-	}
-
 	if !ignoresOk {
 		ignores = ignore.New(cfg.Filesystem())
 	}
@@ -2081,7 +2081,10 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
+	return m.setIgnores(cfg, content)
+}
 
+func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) error {
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
 		if err = cfg.CreateRoot(); err != nil {
@@ -2099,7 +2102,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	}
 
 	m.fmut.RLock()
-	runner, ok := m.folderRunners[folder]
+	runner, ok := m.folderRunners[cfg.ID]
 	m.fmut.RUnlock()
 	if ok {
 		runner.ScheduleScan()

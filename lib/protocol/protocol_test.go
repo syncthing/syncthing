@@ -17,7 +17,7 @@ import (
 	"testing/quick"
 	"time"
 
-	lz4 "github.com/bkaradzic/go-lz4"
+	lz4 "github.com/pierrec/lz4/v4"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 )
@@ -484,7 +484,7 @@ func TestLZ4Compression(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		comp := make([]byte, lz4.CompressBound(dataLen))
+		comp := make([]byte, lz4.CompressBlockBound(dataLen))
 		compLen, err := lz4Compress(data, comp)
 		if err != nil {
 			t.Errorf("compressing %d bytes: %v", dataLen, err)
@@ -503,6 +503,36 @@ func TestLZ4Compression(t *testing.T) {
 			t.Error("Incorrect decompressed data")
 		}
 		t.Logf("OK #%d, %d -> %d -> %d", i, dataLen, len(comp), dataLen)
+	}
+}
+
+func TestLZ4CompressionUpdate(t *testing.T) {
+	uncompressed := []byte("this is some arbitrary yet fairly compressible data")
+
+	// Compressed, as created by the LZ4 implementation in Syncthing 1.18.6 and earlier.
+	oldCompressed, _ := hex.DecodeString("00000033f0247468697320697320736f6d65206172626974726172792079657420666169726c7920636f6d707265737369626c652064617461")
+
+	// Verify that we can decompress
+
+	res, err := lz4Decompress(oldCompressed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(uncompressed, res) {
+		t.Fatal("result does not match")
+	}
+
+	// Verify that our current compression is equivalent
+
+	buf := make([]byte, 128)
+	n, err := lz4Compress(uncompressed, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(oldCompressed, buf[:n]) {
+		t.Logf("%x", oldCompressed)
+		t.Logf("%x", buf[:n])
+		t.Fatal("compression does not match")
 	}
 }
 

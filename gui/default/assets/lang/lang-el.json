@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Να επιτρέπεται η αποστολή ανώνυμων στοιχείων χρήσης;",
     "Allowed Networks": "Επιτρεπόμενα δίκτυα",
     "Alphabetic": "Αλφαβητικά",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Μια εξωτερική εντολή χειρίζεται την τήρηση εκδόσεων και αναλαμβάνει να αφαιρέσει το αρχείο από τον συγχρονισμένο φάκελο. Αν η διαδρομή προς την εφαρμογή περιέχει διαστήματα, πρέπει να εσωκλείεται σε εισαγωγικά. ",
     "Anonymous Usage Reporting": "Ανώνυμα στοιχεία χρήσης",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Η μορφή της αναφοράς ανώνυμων στοιχείων χρήσης έχει αλλάξει. Επιθυμείτε να μεταβείτε στη νέα μορφή;",

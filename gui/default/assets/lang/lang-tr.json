@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "İsimsiz Kullanım Bildirmeye İzin Verilsin Mi?",
     "Allowed Networks": "İzin Verilen Ağlar",
     "Alphabetic": "Alfabetik",
+    "Altered by ignoring deletes.": "Silmeler yoksayılarak değiştirildi.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Harici bir komut sürümlendirmeyi gerçekleştirir. Dosyayı paylaşılan klasörden kaldırmak zorundadır. Eğer uygulama yolu boşluklar içeriyorsa, tırnak içine alınmalıdır.",
     "Anonymous Usage Reporting": "İsimsiz Kullanım Bildirme",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "İsimsiz kullanım raporu biçimi değişti. Yeni biçime geçmek ister misiniz?",

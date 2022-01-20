@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Разрешить анонимный отчет об использовании?",
     "Allowed Networks": "Разрешённые сети",
     "Alphabetic": "По алфавиту",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Для версионирования используется внешняя программа. Ей нужно удалить файл из общей папки. Если путь к приложению содержит пробелы, его нужно взять в кавычки.",
     "Anonymous Usage Reporting": "Анонимный отчет об использовании",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Формат анонимных отчётов изменился. Хотите переключиться на новый формат?",

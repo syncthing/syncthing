@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "匿名で使用状況をレポートすることを許可しますか？",
     "Allowed Networks": "許可されているネットワーク",
     "Alphabetic": "アルファベット順",
+    "Altered by ignoring deletes.": "Altered by ignoring deletes.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "Anonymous Usage Reporting": "匿名での使用状況レポート",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "匿名での使用状況レポートのフォーマットが変わりました。新形式でのレポートに移行しますか？",

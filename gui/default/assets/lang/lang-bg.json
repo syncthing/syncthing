@@ -22,6 +22,7 @@
     "Allow Anonymous Usage Reporting?": "Разрешаване на анонимното отчитане на употребата?",
     "Allowed Networks": "Разрешени мрежи",
     "Alphabetic": "Азбучен ред",
+    "Altered by ignoring deletes.": "Пренебрегнати са премахнати файлове.",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Външна команда управлява версиите. Тя трябва да премахне файла от синхронизираната папка. Ако в пътя до приложението има интервали, то той трябва да бъде поставен в кавички.",
     "Anonymous Usage Reporting": "Анонимно отчитане на употреба",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Форматът на данните за анонимно отчитане на употреба е променен. Желаете ли да използвате него вместо стария?",

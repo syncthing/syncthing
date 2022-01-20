@@ -621,3 +621,9 @@ func ensureZeroForNodefault(empty interface{}, target interface{}) {
 		return len(v) > 0
 	})
 }
+
+func (i Ignores) Copy() Ignores {
+	out := Ignores{Lines: make([]string, len(i.Lines))}
+	copy(out.Lines, i.Lines)
+	return out
+}

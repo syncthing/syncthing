@@ -4,7 +4,6 @@ require (
 	github.com/AudriusButkevicius/pfilter v0.0.10
 	github.com/AudriusButkevicius/recli v0.0.6
 	github.com/alecthomas/kong v0.2.17
-	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.3
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
@@ -36,6 +35,7 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.5.0
+	github.com/pierrec/lz4/v4 v4.1.12
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.30.0 // indirect
