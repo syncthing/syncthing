@@ -58,14 +58,13 @@ func indexDumpOutput(url string) cli.ActionFunc {
 	}
 }
 
-func indexDumpOutputWithArg(url string) cli.ActionFunc {
+func indexDumpOutputWithQuery(url string, query map[string]string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client, err := getClientFactory(c).getClient()
 		if err != nil {
 			return err
 		}
-		rid := c.Args()[0]
-		response, err := client.Get(url + rid)
+		response, err := client.GetWithQuery(url, query)
 		if errors.Is(err, errNotFound) {
 			return errors.New("not found (folder/file not in database)")
 		}

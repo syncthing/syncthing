@@ -29,7 +29,12 @@ var pendingCommand = cli.Command{
 			Name:      "device-folders",
 			Usage:     "Show pending folders for a given device",
 			ArgsUsage: "[device id]",
-			Action:    expects(1, indexDumpOutputWithArg("cluster/pending/folders?device=")),
+			Action:    expects(1, device_folders),
 		},
 	},
+}
+
+func device_folders(c *cli.Context) error {
+	rid := c.Args()[0]
+	return indexDumpOutputWithQuery("cluster/pending/folders", map[string]string{"device": rid})(c)
 }
