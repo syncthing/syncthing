@@ -25,5 +25,11 @@ var pendingCommand = cli.Command{
 			Usage:  "Show pending folders",
 			Action: expects(0, indexDumpOutput("cluster/pending/folders")),
 		},
+		{
+			Name:      "device-folders",
+			Usage:     "Show pending folders for a given device",
+			ArgsUsage: "[device id]",
+			Action:    expects(1, indexDumpOutputWithArg("cluster/pending/folders?device=")),
+		},
 	},
 }
