@@ -28,7 +28,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
-	github.com/lib/pq v1.10.3
+	github.com/lib/pq v1.10.4
 	github.com/lucas-clemente/quic-go v0.25.0
 	github.com/maruel/panicparse v1.6.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
