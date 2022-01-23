@@ -1610,9 +1610,8 @@ angular.module('syncthing.core')
             return $scope.currentDevice._editing == 'existing';
         }
 
-        // There's no separate helper function for 'pending', because all
-        // the required checks are done just by negating 'new'.
         $scope.editingDeviceNew = function() {
+            // The "new-pending" value is intentionally disregarded here.
             return $scope.currentDevice._editing == 'new';
         }
 
