@@ -1017,15 +1017,15 @@ func (c *rawConnection) Statistics() Statistics {
 }
 
 func lz4Compress(src, buf []byte) (int, error) {
-	// The compressed block is prefixed by the size of the uncompressed data.
-	binary.BigEndian.PutUint32(buf, uint32(len(src)))
-
 	n, err := lz4.CompressBlock(src, buf[4:], nil)
 	if err != nil {
 		return -1, err
-	} else if len(src) > 0 && n == 0 {
+	} else if n == 0 {
 		return -1, errNotCompressible
 	}
+
+	// The compressed block is prefixed by the size of the uncompressed data.
+	binary.BigEndian.PutUint32(buf, uint32(len(src)))
 
 	return n + 4, nil
 }
