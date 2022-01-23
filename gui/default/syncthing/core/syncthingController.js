@@ -1610,6 +1610,10 @@ angular.module('syncthing.core')
             return $scope.currentDevice._editing == 'existing';
         }
 
+        $scope.editingDevicePending = function() {
+            return $scope.currentDevice._editing == 'pending';
+        }
+
         $scope.editingDeviceNew = function() {
             return $scope.currentDevice._editing == 'new';
         }
@@ -1683,9 +1687,11 @@ angular.module('syncthing.core')
                         $scope.currentDevice = p.data;
                         $scope.currentDevice.name = name;
                         $scope.currentDevice.deviceID = deviceID;
-                        if (!deviceID) {
+                        if (deviceID) {
+                            $scope.currentDevice._editing = "pending";
+                        } else {
                             $scope.currentDevice._editing = "new";
-                        };
+                        }
                         initShareEditing('device');
                         $scope.currentSharing.unrelated = $scope.folderList();
                         editDeviceModal();
