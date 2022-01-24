@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jan 12, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Jan 22, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -155,7 +155,10 @@ File or directory owners and Groups (not preserved)
 .IP \(bu 2
 Directory modification times (not preserved)
 .IP \(bu 2
-Hard links and Windows directory junctions (followed, not preserved)
+Hard links (followed, not preserved)
+.IP \(bu 2
+Windows junctions (synced as ordinary directories; require enabling
+in the configuration on a per\-folder basis)
 .IP \(bu 2
 Extended attributes, resource forks (not preserved)
 .IP \(bu 2
@@ -536,8 +539,8 @@ $ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 If only your remote computer is Unix\-like,
 you can still access it with ssh from Windows.
 .sp
-Under Windows 10 (64 bit) you can use the same ssh command if you install
-the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install-win10\fP>\&.
+Under Windows 10 or later (64\-bit only) you can use the same ssh command
+if you install the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install\fP>\&.
 .sp
 Another Windows way to run ssh is to install \fI\%gow (Gnu On Windows)\fP <\fBhttps://github.com/bmatzelle/gow\fP>\&. The easiest way to install gow is with the \fI\%chocolatey\fP <\fBhttps://chocolatey.org/\fP> package manager.
 .SS I don’t like the GUI or the theme. Can it be changed?
