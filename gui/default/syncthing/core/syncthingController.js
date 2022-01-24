@@ -2892,6 +2892,34 @@ angular.module('syncthing.core')
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
+        $scope.versionBase = function () {
+            if (!$scope.version.version) {
+                return '';
+            }
+            var version = $scope.version.version;
+            var pos = version.indexOf('-');
+            if (pos > 0) {
+                version = version.slice(0, pos);
+            }
+            return version;
+        };
+
+        $scope.docsURL = function (path) {
+            var url = 'https://docs.syncthing.net';
+            if (path) {
+                var hash = path.indexOf('#');
+                if (hash != -1) {
+                    url += '/' + path.slice(0, hash);
+                    url += '?version=' + $scope.versionBase();
+                    url += path.slice(hash);
+                } else {
+                    url += '/' + path;
+                    url += '?version=' + $scope.versionBase();
+                }
+            }
+            return url;
+        };
+
         $scope.inputTypeFor = function (key, value) {
             if (key.substr(0, 1) === '_') {
                 return 'skip';

@@ -77,7 +77,7 @@
 
         <div id="folder-versioning" class="tab-pane">
           <div class="form-group">
-            <label translate>File Versioning</label>&emsp;<a href="https://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+            <label translate>File Versioning</label>&emsp;<a href="{{docsURL('users/versioning')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <select class="form-control" ng-model="currentFolder._guiVersioning.selector">
               <option value="none" translate>No File Versioning</option>
               <option value="trashcan" translate>Trash Can File Versioning</option>
@@ -164,7 +164,7 @@
               </p>
             </div>
             <hr />
-            <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+            <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="{{docsURL('users/ignoring')}}" target="_blank" translate>full documentation</a>):</p>
             <dl class="dl-horizontal dl-narrow small">
               <dt><code>(?d)</code></dt>
               <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
@@ -190,7 +190,7 @@
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
               <label translate>Scanning</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
+              &nbsp;<a href="{{docsURL('users/syncing#scanning')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
 
               <div class="row">
                 <div class="col-md-6">
@@ -213,7 +213,7 @@
           <div class="row">
             <div class="col-md-6 form-group">
               <label translate>Folder Type</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              &nbsp;<a href="{{docsURL('users/foldertypes')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
               <select class="form-control" ng-change="setDefaultsForFolderType()" ng-model="currentFolder.type" ng-disabled="editingFolderExisting() && currentFolder.type == 'receiveencrypted'">
                 <option value="sendreceive" translate>Send &amp; Receive</option>
                 <option value="sendonly" translate>Send Only</option>

@@ -85,7 +85,7 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                <label translate>Automatic upgrades</label>&emsp;<a href="{{docsURL('users/releases')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
                 <select class="form-control" ng-model="tmpOptions.upgrades" ng-if="upgradeInfo">
                   <option ng-if="!version.isCandidate" value="none" translate>No upgrades</option>
                   <option value="stable" translate>Stable releases only</option>
@@ -115,7 +115,7 @@
 
         <div id="settings-gui" class="tab-pane">
           <div class="form-group" ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
-            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="{{docsURL('users/guilisten')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <p class="text-warning" ng-show="system.guiAddressOverridden">
               <span class="fas fa-exclamation-triangle"></span>
               <span translate>The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.</span>
@@ -187,7 +187,7 @@
 
         <div id="settings-connections" class="tab-pane">
           <div class="form-group">
-            <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+            <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="{{docsURL('users/config#listen-addresses')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr" />
           </div>
           <div class="row">
