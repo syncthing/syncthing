@@ -466,7 +466,7 @@ func TestWriteCompressed(t *testing.T) {
 			t.Error("received the wrong message")
 		}
 
-		hdr := Header{Type: c.typeOf(msg)}
+		hdr := Header{Type: typeOf(msg)}
 		size := int64(2 + hdr.ProtoSize() + 4 + msg.ProtoSize())
 		if c.cr.tot > size {
 			t.Errorf("compression enlarged message from %d to %d",
