@@ -301,6 +301,62 @@ ul.three-columns li, ul.two-columns li {
     z-index: 980;
 }
 
+/*
+ * Restore Versions tweaks
+ */
+
+#restoreTree-container {
+    overflow-y: scroll;
+    resize: vertical;
+    /* Limit height to prevent vertical screen overflow. */
+    max-height: calc(100vh - 390px);
+    /* Always fit at least one folder with dropdown open. */
+    min-height: 136px;
+}
+@media (min-width: 768px) {
+    #restoreTree-container {
+        max-height: calc(100vh - 401px);
+    }
+}
+@media (min-width: 992px) {
+    #restoreTree-container {
+        max-height: calc(100vh - 333px);
+    }
+}
+
+/* Ignore fixed height when manually resized. */
+#restoreTree-container[style*="height"] {
+    max-height: none;
+}
+
+/* Remove table outline as rows have own focus style already. */
+#restoreTree:focus {
+    outline: 0;
+}
+
+/* Align dropdown with title first line. */
+#restoreTree td + td {
+    padding-top: 4px;
+    vertical-align: top;
+}
+
+/* Reduce space between toggle and menu on mobile. */
+#restoreTree .dropdown-toggle {
+    margin-bottom: 0;
+}
+
+/* Change direction to remain on screen on mobile. */
+#restoreTree .dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Ensure maximum space for filtering and date range. */
+#restoreVersions .form-group,
+#restoreVersions .form-control {
+    width: 100%;
+}
+
 /** Footer nav on small devices **/
 @media (max-width: 1199px) {
     /* Stay at the end of the page, with space reserved for the footer
@@ -396,10 +452,6 @@ ul.three-columns li, ul.two-columns li {
     padding-top: 10px;
 }
 
-.fancytree-ext-table {
-    width: 100% !important;
-}
-
 @media (max-width: 419px) {
     /* the selectors are build to target only the content of folder and device
        panels as it would "destroy" e.g. out of sync or recent changes listings */
@@ -420,12 +472,18 @@ ul.three-columns li, ul.two-columns li {
         width: 100%;
     }
 
-    /* all buttons, except panel headings, get bottom margin, as they won't fit
-       beside each other anymore */
+    /* All buttons, except panel headings, get bottom margin, as they
+       won't fit beside each other anymore. Reduce footer padding to
+       compensate for the margin. */
     .btn:not(.panel-heading),
-    /* this "+"-selector is needed to override some bootstrap defaults */
     .btn:not(.panel-heading) + .btn:not(.panel-heading) {
-        margin-bottom: 1rem;
+        margin-bottom: 10px;
+    }
+    .panel-footer {
+        padding-bottom: 0;
+    }
+    .modal-footer {
+        padding-bottom: 5px;
     }
 }
 

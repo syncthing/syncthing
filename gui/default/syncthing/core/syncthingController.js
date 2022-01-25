@@ -2509,23 +2509,22 @@ angular.module('syncthing.core')
                             }
 
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
-                                extensions: ["table", "filter"],
+                                extensions: ["table", "filter", "glyph"],
                                 quicksearch: true,
                                 filter: {
-                                    autoApply: true,
-                                    counter: true,
-                                    hideExpandedCounter: true,
                                     hideExpanders: true,
-                                    highlight: true,
-                                    leavesOnly: false,
-                                    nodata: true,
                                     mode: "hide"
                                 },
-                                table: {
-                                    indentation: 20,
-                                    nodeColumnIdx: 0,
+                                glyph: {
+                                    preset: "awesome5",
                                 },
-                                debugLevel: 2,
+                                table: {
+                                    indentation: 24,
+                                },
+                                // Set to '1' to silence errors after pressing arrow keys on file nodes.
+                                // Happens on the official option cofiguration from the developer's site
+                                // too, so probably a bug?
+                                debugLevel: 1,
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
                                     // Case insensitive sort with folders on top.
@@ -2540,9 +2539,9 @@ angular.module('syncthing.core')
                                         $tdList = $(node.tr).find(">td"),
                                         template;
                                     if (node.folder) {
-                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'" class="pull-right"/>';
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'"/>';
                                     } else {
-                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'" class="pull-right"/>';
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'"/>';
                                     }
 
                                     var scope = $rootScope.$new(true);
@@ -2601,7 +2600,6 @@ angular.module('syncthing.core')
                                 timePicker: true,
                                 timePicker24Hour: true,
                                 timePickerSeconds: true,
-                                autoUpdateInput: true,
                                 opens: "left",
                                 drops: "up",
                                 startDate: minDate,
