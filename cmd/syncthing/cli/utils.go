@@ -58,23 +58,6 @@ func indexDumpOutput(url string) cli.ActionFunc {
 	}
 }
 
-func indexDumpOutputWithQuery(url string, query map[string]string) cli.ActionFunc {
-	return func(c *cli.Context) error {
-		client, err := getClientFactory(c).getClient()
-		if err != nil {
-			return err
-		}
-		response, err := client.GetWithQuery(url, query)
-		if errors.Is(err, errNotFound) {
-			return errors.New("not found (folder/file not in database)")
-		}
-		if err != nil {
-			return err
-		}
-		return prettyPrintResponse(response)
-	}
-}
-
 func saveToFile(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client, err := getClientFactory(c).getClient()

@@ -16,7 +16,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -27,7 +26,6 @@ import (
 
 type APIClient interface {
 	Get(url string) (*http.Response, error)
-	GetWithQuery(url string, params map[string]string) (*http.Response, error)
 	Post(url, body string) (*http.Response, error)
 	PutJSON(url string, o interface{}) (*http.Response, error)
 }
@@ -145,15 +143,6 @@ func (c *apiClient) RequestJSON(url, method string, o interface{}) (*http.Respon
 
 func (c *apiClient) Get(url string) (*http.Response, error) {
 	return c.RequestString(url, "GET", "")
-}
-
-func (c *apiClient) GetWithQuery(baseUrl string, params map[string]string) (*http.Response, error) {
-	values := url.Values{}
-	for key, value := range params {
-		values.Add(key, value)
-	}
-	query := values.Encode()
-	return c.RequestString(baseUrl+"?"+query, "GET", "")
 }
 
 func (c *apiClient) Post(url, body string) (*http.Response, error) {

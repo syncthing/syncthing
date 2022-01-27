@@ -7,6 +7,8 @@
 package cli
 
 import (
+	"net/url"
+
 	"github.com/urfave/cli"
 )
 
@@ -21,20 +23,23 @@ var pendingCommand = cli.Command{
 			Action: expects(0, indexDumpOutput("cluster/pending/devices")),
 		},
 		{
-			Name:   "folders",
-			Usage:  "Show pending folders",
-			Action: expects(0, indexDumpOutput("cluster/pending/folders")),
-		},
-		{
-			Name:      "device-folders",
-			Usage:     "Show pending folders for a given device",
-			ArgsUsage: "[device id]",
-			Action:    expects(1, device_folders),
+			Name:  "folders",
+			Usage: "Show pending folders",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "device", Usage: "Show pending folders for given device"},
+			},
+			Action: expects(0, folders()),
 		},
 	},
 }
 
-func device_folders(c *cli.Context) error {
-	rid := c.Args()[0]
-	return indexDumpOutputWithQuery("cluster/pending/folders", map[string]string{"device": rid})(c)
+func folders() cli.ActionFunc {
+	return func(c *cli.Context) error {
+		if c.String("device") != "" {
+			query := make(url.Values)
+			query.Set("device", c.String("device"))
+			return indexDumpOutput("cluster/pending/folders?" + query.Encode())(c)
+		}
+		return indexDumpOutput("cluster/pending/folders")(c)
+	}
 }
