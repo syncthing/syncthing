@@ -26,7 +26,7 @@ var pendingCommand = cli.Command{
 			Name:  "folders",
 			Usage: "Show pending folders",
 			Flags: []cli.Flag{
-				cli.StringFlag{Name: "device", Usage: "Show pending folders for given device"},
+				cli.StringFlag{Name: "device", Usage: "Show pending folders offered by given device"},
 			},
 			Action: expects(0, folders()),
 		},
