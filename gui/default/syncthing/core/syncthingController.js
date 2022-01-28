@@ -2145,6 +2145,8 @@ angular.module('syncthing.core')
                 addFolderInit(folderID).then(function() {
                     // Triggers the watch that sets the path
                     $scope.currentFolder.label = $scope.currentFolder.label;
+                    // Let the folder ID be editable
+                    $scope.currentFolder._editing = "new";
                     editFolderModal();
                 });
             });
