@@ -4,7 +4,7 @@ angular.module('syncthing.core')
             require: 'ngModel',
             link: function (scope, elm, attrs, ctrl) {
                 ctrl.$parsers.unshift(function (viewValue) {
-                    if (scope.currentFolder._editing != "add") {
+                    if (!scope.editingFolderNew()) {
                         // we shouldn't validate
                         ctrl.$setValidity('uniqueFolder', true);
                     } else if (scope.folders.hasOwnProperty(viewValue)) {

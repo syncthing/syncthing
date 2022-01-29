@@ -754,7 +754,7 @@ angular.module('syncthing.core')
         }
 
         function shouldSetDefaultFolderPath() {
-            return $scope.config.defaults.folder.path && $scope.folderEditor.folderPath.$pristine && $scope.currentFolder._editing == "add";
+            return $scope.config.defaults.folder.path && $scope.folderEditor.folderPath.$pristine && $scope.editingFolderNew();
         }
 
         function resetRemoteNeed() {
@@ -1997,7 +1997,8 @@ angular.module('syncthing.core')
             case "existing":
                 title = $translate.instant("Edit Folder");
                 break;
-            case "add":
+            case "new":
+            case "new-pending":
                 title = $translate.instant("Add Folder");
                 break;
             case "new-ignores":
@@ -2023,6 +2024,10 @@ angular.module('syncthing.core')
 
         $scope.editingFolderExisting = function() {
             return $scope.currentFolder._editing == 'existing';
+        }
+
+        $scope.editingFolderNew = function() {
+            return $scope.has(['new', 'new-pending'], currentFolder._editing);
         }
 
         function editFolder(initialTab) {

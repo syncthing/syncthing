@@ -148,7 +148,7 @@
           </div>
         </div>
 
-        <div id="folder-ignores" class="tab-pane" ng-switch="has(['new', 'new-pending'], currentFolder._editing)">
+        <div id="folder-ignores" class="tab-pane" ng-switch="editingFolderNew()">
           <div ng-switch-when="true">
             <label>
               <input type="checkbox" ng-model="currentFolder._addIgnores" >&nbsp;<span translate>Add ignore patterns</span>
