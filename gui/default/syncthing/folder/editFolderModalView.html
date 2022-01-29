@@ -2,11 +2,11 @@
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
-        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}" class="active"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-general'}}"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
-        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-sharing'}}"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-versioning'}}"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}" class="active"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-general'}}"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-sharing'}}"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-versioning'}}"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
         <li ng-class="{'disabled': currentFolder._recvEnc}"><a data-toggle="tab" href="{{currentFolder._recvEnc ? '' : '#folder-ignores'}}"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
-        <li ng-class="{'disabled': currentFolder._editing == 'add-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'add-ignores' ? '' : '#folder-advanced'}}"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-advanced'}}"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
 
@@ -20,7 +20,7 @@
           </div>
           <div ng-if="!editingFolderDefaults()" class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
             <label for="folderID"><span translate>Folder ID</span></label>
-            <input name="folderID" ng-readonly="has(['existing', 'add'], currentFolder._editing)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}" />
+            <input name="folderID" ng-readonly="has(['existing', 'new-pending'], currentFolder._editing)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Required identifier for the folder. Must be the same on all cluster devices.</span>
               <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
@@ -148,8 +148,8 @@
           </div>
         </div>
 
-        <div id="folder-ignores" class="tab-pane" ng-switch="currentFolder._editing">
-          <div ng-switch-when="add">
+        <div id="folder-ignores" class="tab-pane" ng-switch="has(['new', 'new-pending'], currentFolder._editing)">
+          <div ng-switch-when="true">
             <label>
               <input type="checkbox" ng-model="currentFolder._addIgnores" >&nbsp;<span translate>Add ignore patterns</span>
             </label>
