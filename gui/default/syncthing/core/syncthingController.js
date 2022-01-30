@@ -2530,6 +2530,11 @@ angular.module('syncthing.core')
                                 table: {
                                     indentation: 24,
                                 },
+                                strings: {
+                                    loading: $translate.instant("Loading..."),
+                                    loadError: $translate.instant("Failed to load file versions."),
+                                    noData: $translate.instant("There are no file versions to restore.")
+                                },
                                 // Set to '1' to silence errors after pressing arrow keys on file nodes.
                                 // Happens on the official option cofiguration from the developer's site
                                 // too, so probably a bug?
