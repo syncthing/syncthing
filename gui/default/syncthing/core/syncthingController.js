@@ -754,7 +754,7 @@ angular.module('syncthing.core')
         }
 
         function shouldSetDefaultFolderPath() {
-            return $scope.config.defaults.folder.path && $scope.folderEditor.folderPath.$pristine && $scope.currentFolder._editing == "add";
+            return $scope.config.defaults.folder.path && $scope.folderEditor.folderPath.$pristine && $scope.editingFolderNew();
         }
 
         function resetRemoteNeed() {
@@ -1977,7 +1977,7 @@ angular.module('syncthing.core')
             }).one('hidden.bs.modal', function () {
                 var p = $q.when();
                 // If the modal was closed default patterns should still apply
-                if ($scope.currentFolder._editing == "add-ignores" && !$scope.ignores.saved && $scope.ignores.defaultLines) {
+                if ($scope.currentFolder._editing == "new-ignores" && !$scope.ignores.saved && $scope.ignores.defaultLines) {
                     p = saveFolderAddIgnores($scope.currentFolder.id, true);
                 }
                 p.then(function () {
@@ -1997,10 +1997,11 @@ angular.module('syncthing.core')
             case "existing":
                 title = $translate.instant("Edit Folder");
                 break;
-            case "add":
+            case "new":
+            case "new-pending":
                 title = $translate.instant("Add Folder");
                 break;
-            case "add-ignores":
+            case "new-ignores":
                 title = $translate.instant("Set Ignores on Added Folder");
                 break;
             }
@@ -2023,6 +2024,10 @@ angular.module('syncthing.core')
 
         $scope.editingFolderExisting = function() {
             return $scope.currentFolder._editing == 'existing';
+        }
+
+        $scope.editingFolderNew = function() {
+            return $scope.has(['new', 'new-pending'], currentFolder._editing);
         }
 
         function editFolder(initialTab) {
@@ -2153,6 +2158,7 @@ angular.module('syncthing.core')
                 var folderID = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 addFolderInit(folderID).then(function() {
                     // Triggers the watch that sets the path
+                    $scope.currentFolder._editing = "new";
                     $scope.currentFolder.label = $scope.currentFolder.label;
                     editFolderModal();
                 });
@@ -2170,6 +2176,7 @@ angular.module('syncthing.core')
                         break;
                     }
                 }
+                $scope.currentFolder._editing = "new-pending";
                 editFolderModal();
             });
         };
@@ -2177,7 +2184,6 @@ angular.module('syncthing.core')
         function addFolderInit(folderID) {
             return $http.get(urlbase + '/config/defaults/folder').then(function (response) {
                 $scope.currentFolder = response.data;
-                $scope.currentFolder._editing = "add";
                 $scope.currentFolder.id = folderID;
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
@@ -2204,7 +2210,7 @@ angular.module('syncthing.core')
         };
 
         $scope.saveFolder = function () {
-            if ($scope.currentFolder._editing == "add-ignores") {
+            if ($scope.currentFolder._editing == "new-ignores") {
                 // On modal being hidden without clicking save, the defaults will be saved.
                 $scope.ignores.saved = true;
                 saveFolderAddIgnores($scope.currentFolder.id);
@@ -2293,7 +2299,7 @@ angular.module('syncthing.core')
             // load default ignores, then let the user edit them.
             $scope.saveConfig().then(function() {
                 editFolderLoadingIgnores();
-                $scope.currentFolder._editing = "add-ignores";
+                $scope.currentFolder._editing = "new-ignores";
                 $('.nav-tabs a[href="#folder-ignores"]').tab('show');
                 return editFolderGetIgnores();
             }).then(function(data) {
