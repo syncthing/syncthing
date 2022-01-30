@@ -12,7 +12,8 @@ package fs
 import "github.com/syncthing/notify"
 
 const (
-	subEventMask  = notify.Create | notify.Remove | notify.Write | notify.Rename | notify.FSEventsInodeMetaMod
-	permEventMask = 0
+	subEventMask = notify.Create | notify.Remove | notify.Write | notify.Rename | notify.FSEventsInodeMetaMod
+	// FSEventsChangeOwner fires on permission change
+	permEventMask = notify.FSEventsChangeOwner
 	rmEventMask   = notify.Remove | notify.Rename
 )
