@@ -553,7 +553,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
 			var err error
-			fset, err = db.NewFileSet(folder, to.Filesystem(), m.db)
+			fset, err = db.NewFileSet(folder, m.db)
 			if err != nil {
 				return fmt.Errorf("restarting %v: %w", to.Description(), err)
 			}
@@ -586,7 +586,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
-	fset, err := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	fset, err := db.NewFileSet(cfg.ID, m.db)
 	if err != nil {
 		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
 	}
@@ -2003,11 +2003,12 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
 	m.fmut.RLock()
 	ffs, ok := m.folderFiles[folder]
+	fcfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	return fs.GetMtimeMapping(ffs.MtimeFS(), file)
+	return fs.GetMtimeMapping(ffs.MtimeFS(fcfg.Filesystem()), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.

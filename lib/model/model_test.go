@@ -1621,7 +1621,7 @@ func TestROScanRecovery(t *testing.T) {
 	defer cancel()
 	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
 
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
@@ -1676,7 +1676,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	testOs.RemoveAll(fcfg.Path)
 
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
@@ -2177,7 +2177,7 @@ func TestIssue2782(t *testing.T) {
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m := newModel(t, defaultCfgWrapper, myID, "syncthing", "dev", nil)
 
-	files := newFileSet(t, "default", defaultFs, m.db)
+	files := newFileSet(t, "default", m.db)
 	files.Drop(device1)
 	files.Update(device1, genFiles(1))
 	files.Drop(device2)
@@ -2191,7 +2191,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
-	files = newFileSet(t, "default", defaultFs, m.db)
+	files = newFileSet(t, "default", m.db)
 
 	if l := len(files.ListDevices()); l != 1 {
 		t.Errorf("Expected one device got %v", l)
@@ -2622,7 +2622,7 @@ func TestCustomMarkerName(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
