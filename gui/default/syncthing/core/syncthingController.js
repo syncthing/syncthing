@@ -2027,7 +2027,7 @@ angular.module('syncthing.core')
         }
 
         $scope.editingFolderNew = function() {
-            return $scope.has(['new', 'new-pending'], currentFolder._editing);
+            return $scope.has(['new', 'new-pending'], $scope.currentFolder._editing);
         }
 
         function editFolder(initialTab) {
