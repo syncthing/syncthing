@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jan 22, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jan 30, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -47,7 +47,7 @@ with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated 
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A ‘*’ will always be appended
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://pkg.go.dev/path/filepath#Match\fP>\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0

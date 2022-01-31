@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jan 22, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Jan 30, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -157,8 +157,9 @@ Directory modification times (not preserved)
 .IP \(bu 2
 Hard links (followed, not preserved)
 .IP \(bu 2
-Windows junctions (synced as ordinary directories; require enabling
-in the configuration on a per\-folder basis)
+Windows junctions (synced as ordinary directories; require enabling in
+\fBthe configuration\fP on a per\-folder
+basis)
 .IP \(bu 2
 Extended attributes, resource forks (not preserved)
 .IP \(bu 2
@@ -283,8 +284,8 @@ causes a certain amount of extra CPU usage to calculate the summary data it
 presents. Note however that once things are \fIin sync\fP CPU usage should be
 negligible.
 .sp
-To minimize the impact of this, Syncthing attempts to lower the
-process priority when starting up.
+To minimize the impact of this, Syncthing attempts to \fBlower the
+process priority\fP when starting up.
 .sp
 To further limit the amount of CPU used when syncing and scanning, set the
 environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
@@ -306,7 +307,7 @@ is bound to localhost \- namely that the browser is talking to localhost.
 This protects against most forms of \fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP> against the GUI.
 .sp
 To pass this test, ensure that you are accessing the GUI using an URL that
-begins with \fIhttp://localhost\fP, \fIhttp://127.0.0.1\fP or \fIhttp://[::1]\fP\&. HTTPS
+begins with \fBhttp://localhost\fP, \fBhttp://127.0.0.1\fP or \fBhttp://[::1]\fP\&. HTTPS
 is fine too, of course.
 .sp
 If you are using a proxy in front of Syncthing you may need to disable this
@@ -314,9 +315,9 @@ check, after ensuring that the proxy provides sufficient authentication to
 protect against unauthorized access. Either:
 .INDENT 0.0
 .IP \(bu 2
-Make sure the proxy sets a \fIHost\fP header containing \fIlocalhost\fP, or
+Make sure the proxy sets a \fBHost\fP header containing \fBlocalhost\fP, or
 .IP \(bu 2
-Set \fIinsecureSkipHostcheck\fP in the advanced settings, or
+Set \fBgui.insecureSkipHostcheck\fP in the advanced settings, or
 .IP \(bu 2
 Bind the GUI/API to a non\-localhost listen port.
 .UNINDENT
