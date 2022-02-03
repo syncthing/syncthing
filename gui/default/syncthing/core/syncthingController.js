@@ -74,7 +74,6 @@ angular.module('syncthing.core')
             cleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
-            staggeredCleanInterval: 3600,
             externalCommand: "",
         };
 
@@ -2071,7 +2070,6 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
-                $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
@@ -2256,7 +2254,6 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
-                folderCfg.versioning.params.cleanInterval = '' + folderCfg._guiVersioning.staggeredCleanInterval;
                 break;
             case "external":
                 folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
