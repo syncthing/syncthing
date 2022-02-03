@@ -2602,11 +2602,11 @@ angular.module('syncthing.core')
                             var ranges = {};
                             ranges[$translate.instant("All Time")] = [minDate, maxDate];
                             ranges[$translate.instant("Today")] = [moment().startOf('day'), moment()];
-                            ranges[$translate.instant("Yesterday")] = [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')];
+                            ranges[$translate.instant("Yesterday")] = [moment().subtract(1, 'days').startOf('day'), moment().startOf('day')];
                             ranges[$translate.instant("Last 7 Days")] = [moment().subtract(6, 'days').startOf('day'), moment()];
                             ranges[$translate.instant("Last 30 Days")] = [moment().subtract(29, 'days').startOf('day'), moment()];
-                            ranges[$translate.instant("This Month")] = [moment().startOf('month'), moment().endOf('month')];
-                            ranges[$translate.instant("Last Month")] = [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')];
+                            ranges[$translate.instant("This Month")] = [moment().startOf('month'), moment()];
+                            ranges[$translate.instant("Last Month")] = [moment().subtract(1, 'month').startOf('month'), moment().startOf('month')];
 
                             // Filter out invalid ranges.
                             $.each(ranges, function (key, range) {
