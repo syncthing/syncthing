@@ -67,6 +67,7 @@
    "Copyright © 2014-2019 the following Contributors:": "Copyright © 2014-2019 the following Contributors:",
    "Creating ignore patterns, overwriting an existing file at {%path%}.": "Creating ignore patterns, overwriting an existing file at {{path}}.",
    "Currently Shared With Devices": "Currently Shared With Devices",
+   "Custom Range": "Custom Range",
    "Danger!": "Danger!",
    "Debugging Facilities": "Debugging Facilities",
    "Default Configuration": "Default Configuration",
