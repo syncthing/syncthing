@@ -2627,6 +2627,7 @@ angular.module('syncthing.core')
                                 maxDate: maxDate,
                                 ranges: ranges,
                                 locale: {
+                                    customRangeLabel: $translate.instant("Custom Range"),
                                     format: 'YYYY/MM/DD HH:mm:ss',
                                 }
                             }).on('apply.daterangepicker', function (ev, picker) {
