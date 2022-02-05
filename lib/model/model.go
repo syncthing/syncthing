@@ -1006,9 +1006,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	return progress, queued, rest, nil
 }
 
-// RemoteNeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// RemoteNeedFolderFiles returns paginated list of currently needed files for a
+// remote device to become synced with a folder.
 func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
