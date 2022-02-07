@@ -1,7 +1,6 @@
 ## Reporting Bugs
 
-Please file bugs in the [GitHub Issue
-Tracker](https://github.com/syncthing/syncthing/issues).  
+Please file bugs in the [GitHub Issue Tracker][issue tracker].  
 Include at least the following:
 
  - What happened.
@@ -23,26 +22,23 @@ too much information will never get you yelled at. :-)
 
 ## Contributing Translations
 
-All translations are done via 
-[Transifex](https://www.transifex.com/projects/p/syncthing/). 
-If you wish to contribute to a translation, just head over there 
-and sign up.
-Before every release, the language resources are updated from 
-the latest info on Transifex.
+All translations are done via [Transifex][transifex]. 
+If you wish to contribute to a translation, just head over there and sign up.
+Before every release, the language resources are updated from the latest info 
+on Transifex.
 
 ## Contributing Code
 
 Every contribution is welcome. 
 If you want to contribute but are unsure where to start, 
-any open issues are fair game! See the [Contribution
-Guidelines](https://docs.syncthing.net/dev/contributing.html) 
+any open issues are fair game! 
+See the [Contribution Guidelines][contributing] 
 for the full story on committing code.
 
 ## Contributing Documentation
 
-Updates to the [documentation site](https://docs.syncthing.net/) 
-can be made as pull requests on the [documentation
-repository](https://github.com/syncthing/docs).
+Updates to the [documentation site][documentation]
+can be made as pull requests on the [documentation repository][docs repo].
 
 ## Licensing
 
@@ -63,3 +59,9 @@ but there are exceptions:
 
 Regardless of the license in effect, ___you retain the copyright to your
 contribution.___
+
+[issue tracker]: https://github.com/syncthing/syncthing/issues
+[transifex]:     https://www.transifex.com/projects/p/syncthing/
+[contributing]:  https://docs.syncthing.net/dev/contributing.html
+[documentation]: https://docs.syncthing.net/
+[docs repo]:     https://github.com/syncthing/docs
