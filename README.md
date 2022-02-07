@@ -11,28 +11,28 @@
 
 ## Goals
 
-Syncthing is a **continuous file synchronization program**. It synchronizes
-files between two or more computers. We strive to fulfill the goals below.
+Syncthing is a **continuous file synchronization program**.  
+It synchronizes files between two (or more) computers. 
+We strive to fulfill the goals below.
 The goals are listed in order of importance, the most important one being
-the first. This is the summary version of the goal list - for more
+the first. This is the summary version of the goal list &mdash; for more
 commentary, see the full [Goals document][13].
 
 Syncthing should be:
 
-1. **Safe From Data Loss**
+1. **Safe from Data Loss**
 
    Protecting the user's data is paramount. We take every reasonable
    precaution to avoid corrupting the user's files.
 
-2. **Secure Against Attackers**
+2. **Secure against Attackers**
 
-   Again, protecting the user's data is paramount. Regardless of our other
-   goals we must never allow the user's data to be susceptible to
-   eavesdropping or modification by unauthorized parties.
+   Again, protecting the user's data is paramount. 
+   Regardless of our other goals, we must never allow the user's data to be susceptible to eavesdropping or modification, by unauthorized parties.
 
 3. **Easy to Use**
 
-   Syncthing should be approachable, understandable and inclusive.
+   Syncthing should be approachable, understandable, and inclusive.
 
 4. **Automatic**
 
@@ -40,27 +40,28 @@ Syncthing should be:
 
 5. **Universally Available**
 
-   Syncthing should run on every common computer. We are mindful that the
+   Syncthing should run on every common computer. We are mindful that the 
    latest technology is not always available to any given individual.
 
 6. **For Individuals**
 
-   Syncthing is primarily about empowering the individual user with safe,
-   secure and easy to use file synchronization.
+   Syncthing is primarily about empowering the individual user with safe, 
+   secure, and easy-to-use file synchronization.
 
 7. **Everything Else**
 
-   There are many things we care about that don't make it on to the list. It
-   is fine to optimize for these values, as long as they are not in conflict
-   with the stated goals above.
+   There are many things we care about that don't make it onto the list. 
+   It is fine to optimize for these values, as long as they are 
+   not in conflict with the goals stated above.
 
 ## Getting Started
 
-Take a look at the [getting started guide][2].
+Take a look at the [Getting Started guide][2].
 
 There are a few examples for keeping Syncthing running in the background
-on your system in [the etc directory][3]. There are also several [GUI
-implementations][11] for Windows, Mac and Linux.
+on your system, in the program's [etc directory][3].
+
+There are also several [GUI implementations][11] for Windows, macOS, and Linux.
 
 ## Docker
 
@@ -68,14 +69,15 @@ To run Syncthing in Docker, see [the Docker README][16].
 
 ## Vote on features/bugs
 
-We'd like to encourage you to [vote][12] on issues that matter to you.
-This helps the team understand what are the biggest pain points for our users, and could potentially influence what is being worked on next.
+We'd like to encourage you to [vote][12] on the issues that matter to you.
+This helps the team understand what the biggest pain-points are for our users, 
+and could potentially influence what is being worked on next.
 
 ## Getting in Touch
 
-The first and best point of contact is the [Forum][8].
-If you've found something that is clearly a
-bug, feel free to report it in the [GitHub issue tracker][10].
+The first, and best, point of contact is the [Forum][8].
+If you've found something that is clearly a bug, feel free to report it in the 
+[GitHub issue tracker][10].
 
 ## Building
 
@@ -84,17 +86,17 @@ that describes it for both Unix and Windows systems.
 
 ## Signed Releases
 
-As of v0.10.15 and onwards release binaries are GPG signed with the key
-D26E6ED000654A3E, available from https://syncthing.net/security.html and
-most key servers.
+Beginning with `v0.10.15`, release binaries are GPG-signed with the key
+`D26E6ED000654A3E`, available from https://syncthing.net/security.html and
+most public key servers.
 
-There is also a built in automatic upgrade mechanism (disabled in some
-distribution channels) which uses a compiled in ECDSA signature. macOS
-binaries are also properly code signed.
+There is also a built-in, automatic-upgrade mechanism (disabled by default in 
+some distribution channels) which uses a compiled in ECDSA signature. 
+Binaries for macOS are also properly code-signed.
 
 ## Documentation
 
-Please see the Syncthing [documentation site][6] [[source]][17].
+Please see the Syncthing [documentation site][6] and [source][17].
 
 All code is licensed under the [MPLv2 License][7].
 
