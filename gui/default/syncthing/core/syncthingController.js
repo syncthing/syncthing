@@ -2599,15 +2599,14 @@ angular.module('syncthing.core')
                             $scope.restoreVersions.filters['start'] = minDate;
                             $scope.restoreVersions.filters['end'] = maxDate;
 
-                            var ranges = {
-                                'All time': [minDate, maxDate],
-                                'Today': [moment(), moment()],
-                                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-                            };
+                            var ranges = {};
+                            ranges[$translate.instant("All Time")] = [minDate, maxDate];
+                            ranges[$translate.instant("Today")] = [moment().startOf('day'), moment()];
+                            ranges[$translate.instant("Yesterday")] = [moment().subtract(1, 'days').startOf('day'), moment().startOf('day')];
+                            ranges[$translate.instant("Last 7 Days")] = [moment().subtract(6, 'days').startOf('day'), moment()];
+                            ranges[$translate.instant("Last 30 Days")] = [moment().subtract(29, 'days').startOf('day'), moment()];
+                            ranges[$translate.instant("This Month")] = [moment().startOf('month'), moment()];
+                            ranges[$translate.instant("Last Month")] = [moment().subtract(1, 'month').startOf('month'), moment().startOf('month')];
 
                             // Filter out invalid ranges.
                             $.each(ranges, function (key, range) {
@@ -2628,6 +2627,7 @@ angular.module('syncthing.core')
                                 maxDate: maxDate,
                                 ranges: ranges,
                                 locale: {
+                                    customRangeLabel: $translate.instant("Custom Range"),
                                     format: 'YYYY/MM/DD HH:mm:ss',
                                 }
                             }).on('apply.daterangepicker', function (ev, picker) {
