@@ -1,12 +1,7 @@
-/**
-
-Dark theme
-
-Author: alessandro.g89
-Source: https://userstyles.org/styles/122502/syncthing-dark
-
-Modified by: fti7
-
+/** Dark theme
+    Author: alessandro.g89
+    Source: https://userstyles.org/styles/122502/syncthing-dark
+    Modified by: fti7
 **/
 
 body {
@@ -14,10 +9,11 @@ body {
     background-color: #272727 !important;
 }
 
-a:hover,a:focus,a.focus{
+a:hover, 
+a:focus, 
+a.focus {
     outline: none !important;
 }
-
 
 /* navbar */
 .navbar {
@@ -25,7 +21,6 @@ a:hover,a:focus,a.focus{
     border-color: #424242 !important;
     border-top-width: 1px !important;
     border-bottom-width: 1px !important;
-
 }
 
 .nav-tabs > li.active > a,
@@ -48,8 +43,10 @@ a:hover,a:focus,a.focus{
   border-color: transparent !important;
 }
 
-
-.navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {
+.navbar-text, .dropdown > a, 
+.dropdown-menu > li > a, 
+.hidden-xs > a, 
+.navbar-link {
     color: #aaa !important;
 }
 
@@ -59,12 +56,14 @@ a:hover,a:focus,a.focus{
     background-color: #222 !important;
 }
 
-.dropdown-menu>li>a:hover, .dropdown-menu>li>a:focus {
+.dropdown-menu > li > a:hover, 
+.dropdown-menu>li>a:focus {
     color: #fff !important;
     background-color: #333 !important;
 }
 
-.open>.dropdown-toggle, .dropdown-toggle:hover {
+.open > .dropdown-toggle, 
+.dropdown-toggle:hover {
     border-color: #424242 !important;
     background-color: #222 !important;
 }
@@ -74,17 +73,18 @@ a:hover,a:focus,a.focus{
     height: 2px !important;
 }
 
-li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
+li.hidden-xs:hover, 
+.navbar-link:hover, 
+.navbar-link:focus {
     outline: none !important;
     border-color: #424242 !important;
     background-color: #222 !important;
 }
 
-.dropdown-menu>.active>a {
+.dropdown-menu > .active > a {
     color: #fff !important;
     background-color: #217dbb !important;
 }
-
 
 /* main panel */
 .panel {
@@ -101,6 +101,7 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-color: #222 !important;
     background-color: #3B3B3B !important;
 }
+
 .panel-warning > .panel-heading {
     color: #222 !important;
 }
@@ -114,11 +115,12 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-width: 0 !important;
 }
 
-.table-striped>tbody>tr:nth-of-type(odd) {
+.table-striped > tbody > tr:nth-of-type(odd) {
     background-color: #2E2E2E !important;
 }
 
-.panel-group .panel-heading+.panel-collapse>.panel-body, .panel-group .panel-heading+.panel-collapse>.list-group {
+.panel-group .panel-heading + .panel-collapse > .panel-body, 
+.panel-group .panel-heading + .panel-collapse > .list-group {
     border-top: 1px solid #424242 !important;
 }
 
@@ -130,10 +132,10 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     fill: #222;
 }
 
-.panel-heading:hover, .panel-heading:focus {
+.panel-heading:hover, 
+.panel-heading:focus {
     text-decoration: none;
 }
-
 
 /* buttons */
 .btn {
@@ -141,7 +143,9 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-width: 0px !important;
 }
 
-.btn:hover, .btn:focus, .btn.focus {
+.btn:hover, 
+.btn:focus, 
+.btn.focus {
     outline: none !important;
 }
 .btn-default {
@@ -149,7 +153,9 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #333 !important;
 }
 
-.btn-default:hover, .btn-default:focus, .btn-default.focus {
+.btn-default:hover, 
+.btn-default:focus, 
+.btn-default.focus {
     color: #fff !important;
     background-color: #484848 !important;
 }
@@ -158,7 +164,9 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #217dbb !important;
 }
 
-.btn-primary:hover, .btn-primary:focus, .btn-primary.focus {
+.btn-primary:hover, 
+.btn-primary:focus, 
+.btn-primary.focus {
     background-color: #3498db !important;
 }
 
@@ -166,7 +174,9 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #c29d0b !important;
 }
 
-.btn-warning:hover, .btn-warning:focus, .btn-warning.focus {
+.btn-warning:hover, 
+.btn-warning:focus, 
+.btn-warning.focus {
     background-color: #f1c40f !important;
 }
 
@@ -174,10 +184,11 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #d62c1a !important;
 }
 
-.btn-danger:hover, .btn-danger:focus, .btn-danger.focus {
+.btn-danger:hover, 
+.btn-danger:focus, 
+.btn-danger.focus {
     background-color: #e74c3c !important;
 }
-
 
 /* modal dialogs */
 .modal-header {
@@ -222,27 +233,32 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #3B3B3B !important;
 }
 
-code.ng-binding{
+code.ng-binding {
     color: #f99 !important;
     background-color: #444 !important;
 }
 
-.well, .form-control[readonly="readonly"], .popover { /* read-only fields*/
+/* read-only fields*/
+.well, 
+.form-control[readonly="readonly"], 
+.popover { 
     color: #666 !important;
     border-color: #424242 !important;
     background-color: #3B3B3B !important;
 }
 
 /* buttons for pagination */
-.pagination>li>a, .pagination>li>span {
+.pagination > li > a, 
+.pagination > li > span {
     background-color: #333 !important;
     border-color: #484848 !important;
 }
 
-.pagination>li>a:hover, .pagination>li>a:focus, .pagination>li>a.focus {
+.pagination > li > a:hover, 
+.pagination > li > a:focus, 
+.pagination > li > a.focus {
     background-color: #484848 !important;
 }
-
 
 /* progress bars */
 .progress-bar {
@@ -277,10 +293,7 @@ code.ng-binding{
     color: #3fa9f0;
 }
 
-/*
- * Fancytree tweaks
- */
-
+/* Fancytree tweaks */
 .fancytree-container tr:hover,
 .fancytree-focused {
     background-color: #424242;
