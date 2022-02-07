@@ -3,19 +3,19 @@
 Please file bugs in the [GitHub Issue Tracker][issue tracker].  
 Include at least the following:
 
- - What happened.
- 
- - What you expected should happen instead of what *did* happen. 
-   (Unless it's highly obvious.)
+* What happened.
 
- - The operating system name, operating system version, 
-   and version of Syncthing, which you are running.
+* What you expected should happen instead of what *did* happen. 
+  (Unless it's highly obvious.)
 
- - The same for other connected devices, where relevant.
+* The operating system name, operating system version, 
+  and version of Syncthing, which you are running.
 
- - Screenshot(s) if the issue concerns something visible in the GUI.
+* The same for other connected devices, where relevant.
 
- - Console log entries, where possible and relevant.
+* Screenshot(s) if the issue concerns something visible in the GUI.
+
+* Console log entries, where possible and relevant.
 
 If you're not sure whether something is relevant, erring on the side of
 too much information will never get you yelled at. :-)
@@ -47,13 +47,13 @@ the already existing material being contributed to.
 For most of the project and unless otherwise stated this means MPLv2, 
 but there are exceptions:
 
-- Certain commands (under cmd/...) may have a separate license, indicated by
+* Certain commands (under cmd/...) may have a separate license, indicated by
   the presence of a LICENSE file in the corresponding directory.
 
-- The documentation (man/...) is licensed under the Creative Commons
+* The documentation (man/...) is licensed under the Creative Commons
   Attribution 4.0 International License.
 
-- Projects under vendor/... are copyright by and licensed from their
+* Projects under vendor/... are copyright by and licensed from their
   respective original authors. Contributions should be made to the original
   project, not here.
 
