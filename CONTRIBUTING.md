@@ -1,52 +1,55 @@
 ## Reporting Bugs
 
 Please file bugs in the [GitHub Issue
-Tracker](https://github.com/syncthing/syncthing/issues). Include at
-least the following:
+Tracker](https://github.com/syncthing/syncthing/issues).  
+Include at least the following:
 
- - What happened
+ - What happened.
+ 
+ - What you expected should happen instead of what *did* happen. 
+   (Unless it's highly obvious.)
 
- - What did you expect to happen instead of what *did* happen, if it's
-   not crazy obvious
+ - The operating system name, operating system version, 
+   and version of Syncthing, which you are running.
 
- - What operating system, operating system version and version of
-   Syncthing you are running
+ - The same for other connected devices, where relevant.
 
- - The same for other connected devices, where relevant
+ - Screenshot(s) if the issue concerns something visible in the GUI.
 
- - Screenshot if the issue concerns something visible in the GUI
-
- - Console log entries, where possible and relevant
+ - Console log entries, where possible and relevant.
 
 If you're not sure whether something is relevant, erring on the side of
-too much information will never get you yelled at. :)
+too much information will never get you yelled at. :-)
 
 ## Contributing Translations
 
-All translations are done via
-[Transifex](https://www.transifex.com/projects/p/syncthing/). If you
-wish to contribute to a translation, just head over there and sign up.
-Before every release, the language resources are updated from the
-latest info on Transifex.
+All translations are done via 
+[Transifex](https://www.transifex.com/projects/p/syncthing/). 
+If you wish to contribute to a translation, just head over there 
+and sign up.
+Before every release, the language resources are updated from 
+the latest info on Transifex.
 
 ## Contributing Code
 
-Every contribution is welcome. If you want to contribute but are unsure
-where to start, any open issues are fair game! See the [Contribution
-Guidelines](https://docs.syncthing.net/dev/contributing.html) for the full
-story on committing code.
+Every contribution is welcome. 
+If you want to contribute but are unsure where to start, 
+any open issues are fair game! See the [Contribution
+Guidelines](https://docs.syncthing.net/dev/contributing.html) 
+for the full story on committing code.
 
 ## Contributing Documentation
 
-Updates to the [documentation site](https://docs.syncthing.net/) can be
-made as pull requests on the [documentation
+Updates to the [documentation site](https://docs.syncthing.net/) 
+can be made as pull requests on the [documentation
 repository](https://github.com/syncthing/docs).
 
 ## Licensing
 
-All contributions are made available under the same license as the already
-existing material being contributed to. For most of the project and unless
-otherwise stated this means MPLv2, but there are exceptions:
+All contributions are made available under the same license as 
+the already existing material being contributed to. 
+For most of the project and unless otherwise stated this means MPLv2, 
+but there are exceptions:
 
 - Certain commands (under cmd/...) may have a separate license, indicated by
   the presence of a LICENSE file in the corresponding directory.
@@ -58,6 +61,5 @@ otherwise stated this means MPLv2, but there are exceptions:
   respective original authors. Contributions should be made to the original
   project, not here.
 
-Regardless of the license in effect, you retain the copyright to your
-contribution.
-
+Regardless of the license in effect, ___you retain the copyright to your
+contribution.___
