@@ -99,6 +99,7 @@ angular.module('syncthing.core')
             function useLocale(language, save2Storage) {
                 if (language) {
                     $translate.use(language).then(function () {
+                        document.documentElement.setAttribute("lang", language);
                         if (save2Storage && _localStorage)
                             _localStorage[_SYNLANG] = language;
                     });
