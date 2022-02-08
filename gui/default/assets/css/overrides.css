@@ -506,3 +506,10 @@ ul.three-columns li, ul.two-columns li {
   padding-top: 6px;
   padding-bottom: 6px;
 }
+
+/* CJK languages don't use italic at all, hence don't force it on them. */
+html[lang|="zh"] i,
+html[lang="ja"] i,
+html[lang|="ko"] i {
+    font-style: normal;
+}
