@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
 		{34, migrateToConfigV34},
 		{33, migrateToConfigV33},
@@ -92,6 +93,12 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV36(cfg *Configuration) {
+	for i := range cfg.Folders {
+		delete(cfg.Folders[i].Versioning.Params, "cleanInterval")
+	}
 }
 
 func migrateToConfigV35(cfg *Configuration) {
