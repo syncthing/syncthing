@@ -512,17 +512,3 @@ func (fv FileVersion) copy() FileVersion {
 	n.InvalidDevices = append([][]byte{}, fv.InvalidDevices...)
 	return n
 }
-
-type fileList []protocol.FileInfo
-
-func (fl fileList) Len() int {
-	return len(fl)
-}
-
-func (fl fileList) Swap(a, b int) {
-	fl[a], fl[b] = fl[b], fl[a]
-}
-
-func (fl fileList) Less(a, b int) bool {
-	return fl[a].Name < fl[b].Name
-}
