@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
+          fetch-depth: 0
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
       - uses: actions/setup-go@v2
         with:
