@@ -159,8 +159,10 @@ func TestCheckAvailableSize(t *testing.T) {
 			continue
 		}
 		usage := fs.Usage{Free: tc.free, Total: tc.total}
-		if ok := checkAvailableSpace(tc.req, minFree, usage); ok != tc.ok {
-			t.Errorf("checkAvailableSpace(%v, %v, %v) == %v, expected %v", tc.req, minFree, usage, ok, tc.ok)
+		err = checkAvailableSpace(tc.req, minFree, usage)
+		t.Log(err)
+		if (err == nil) != tc.ok {
+			t.Errorf("checkAvailableSpace(%v, %v, %v) == %v, expected %v", tc.req, minFree, usage, err, tc.ok)
 		}
 	}
 }
