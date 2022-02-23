@@ -359,6 +359,16 @@ type Model struct {
 		result1 []db.FileInfoTruncated
 		result2 error
 	}
+	MissingRemoteFoldersStub        func() map[protocol.DeviceID][]string
+	missingRemoteFoldersMutex       sync.RWMutex
+	missingRemoteFoldersArgsForCall []struct {
+	}
+	missingRemoteFoldersReturns struct {
+		result1 map[protocol.DeviceID][]string
+	}
+	missingRemoteFoldersReturnsOnCall map[int]struct {
+		result1 map[protocol.DeviceID][]string
+	}
 	NeedFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
 	needFolderFilesMutex       sync.RWMutex
 	needFolderFilesArgsForCall []struct {
@@ -2259,6 +2269,59 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []db.File
 	}{result1, result2}
 }
 
+func (fake *Model) MissingRemoteFolders() map[protocol.DeviceID][]string {
+	fake.missingRemoteFoldersMutex.Lock()
+	ret, specificReturn := fake.missingRemoteFoldersReturnsOnCall[len(fake.missingRemoteFoldersArgsForCall)]
+	fake.missingRemoteFoldersArgsForCall = append(fake.missingRemoteFoldersArgsForCall, struct {
+	}{})
+	stub := fake.MissingRemoteFoldersStub
+	fakeReturns := fake.missingRemoteFoldersReturns
+	fake.recordInvocation("MissingRemoteFolders", []interface{}{})
+	fake.missingRemoteFoldersMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) MissingRemoteFoldersCallCount() int {
+	fake.missingRemoteFoldersMutex.RLock()
+	defer fake.missingRemoteFoldersMutex.RUnlock()
+	return len(fake.missingRemoteFoldersArgsForCall)
+}
+
+func (fake *Model) MissingRemoteFoldersCalls(stub func() map[protocol.DeviceID][]string) {
+	fake.missingRemoteFoldersMutex.Lock()
+	defer fake.missingRemoteFoldersMutex.Unlock()
+	fake.MissingRemoteFoldersStub = stub
+}
+
+func (fake *Model) MissingRemoteFoldersReturns(result1 map[protocol.DeviceID][]string) {
+	fake.missingRemoteFoldersMutex.Lock()
+	defer fake.missingRemoteFoldersMutex.Unlock()
+	fake.MissingRemoteFoldersStub = nil
+	fake.missingRemoteFoldersReturns = struct {
+		result1 map[protocol.DeviceID][]string
+	}{result1}
+}
+
+func (fake *Model) MissingRemoteFoldersReturnsOnCall(i int, result1 map[protocol.DeviceID][]string) {
+	fake.missingRemoteFoldersMutex.Lock()
+	defer fake.missingRemoteFoldersMutex.Unlock()
+	fake.MissingRemoteFoldersStub = nil
+	if fake.missingRemoteFoldersReturnsOnCall == nil {
+		fake.missingRemoteFoldersReturnsOnCall = make(map[int]struct {
+			result1 map[protocol.DeviceID][]string
+		})
+	}
+	fake.missingRemoteFoldersReturnsOnCall[i] = struct {
+		result1 map[protocol.DeviceID][]string
+	}{result1}
+}
+
 func (fake *Model) NeedFolderFiles(arg1 string, arg2 int, arg3 int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
 	fake.needFolderFilesMutex.Lock()
 	ret, specificReturn := fake.needFolderFilesReturnsOnCall[len(fake.needFolderFilesArgsForCall)]
@@ -3463,6 +3526,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.loadIgnoresMutex.RUnlock()
 	fake.localChangedFolderFilesMutex.RLock()
 	defer fake.localChangedFolderFilesMutex.RUnlock()
+	fake.missingRemoteFoldersMutex.RLock()
+	defer fake.missingRemoteFoldersMutex.RUnlock()
 	fake.needFolderFilesMutex.RLock()
 	defer fake.needFolderFilesMutex.RUnlock()
 	fake.numConnectionsMutex.RLock()

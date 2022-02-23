@@ -111,6 +111,7 @@ type Model interface {
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
 	DismissPendingDevice(device protocol.DeviceID) error
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
+	MissingRemoteFolders() map[protocol.DeviceID][]string
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
@@ -3129,6 +3130,21 @@ func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) er
 		})
 	}
 	return nil
+}
+
+func (m *model) MissingRemoteFolders() map[protocol.DeviceID][]string {
+	res := make(map[protocol.DeviceID][]string, len(m.remoteFolderStates))
+	for deviceID, folders := range m.remoteFolderStates {
+		if len(folders) > 0 {
+			res[deviceID] = make([]string, 0, len(folders))
+		}
+		for folderID, state := range folders {
+			if state == remoteMissing {
+				res[deviceID] = append(res[deviceID], folderID)
+			}
+		}
+	}
+	return res
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
