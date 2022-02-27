@@ -37,9 +37,9 @@ services:
     volumes:
       - /wherever/st-sync:/var/syncthing
     ports:
-      - 8384:8384
-      - 22000:22000/tcp
-      - 22000:22000/udp
+      - 8384:8384 # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
     restart: unless-stopped
 ```
 
