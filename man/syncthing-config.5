@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Feb 20, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Feb 23, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -904,9 +904,9 @@ untrusted\&.
 .UNINDENT
 .UNINDENT
 .sp
-There must be exactly one \fBgui\fP element. The GUI configuration is also used
-by the rest\-api and the event\-api\&. The following attributes may
-be set on the \fBgui\fP element:
+There must be exactly one \fBgui\fP element. The GUI configuration is also used by
+the /dev/rest and the /dev/events\&. The following attributes may be
+set on the \fBgui\fP element:
 .INDENT 0.0
 .TP
 .B enabled
@@ -922,7 +922,8 @@ still possible but not required.
 .INDENT 0.0
 .TP
 .B debugging
-This enables profiling and additional debugging endpoints in the rest\-api\&.
+This enables /users/profiling and additional endpoints in the REST
+API, see /rest/debug\&.
 .UNINDENT
 .sp
 The following child elements may be present:

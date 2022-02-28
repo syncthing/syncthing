@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Feb 20, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Feb 23, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -414,11 +414,11 @@ locally may be overwritten by those on other devices.
 .sp
 An alternative way is to shut down Syncthing, move the folder on disk (including
 the \fB\&.stfolder\fP marker), edit the path directly in \fBconfig.xml\fP in the
-configuration folder (see config) and then start Syncthing again.
+configuration folder (see /users/config) and then start Syncthing again.
 .SS How do I configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
-to configure listening ports such that they do not overlap (see config).
+to configure listening ports such that they do not overlap (see /users/config).
 .SS Does Syncthing support syncing between folders on the same system?
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
