@@ -180,13 +180,11 @@ type rawConnection struct {
 	cw     *countingWriter
 	closer io.Closer // Closing the underlying connection and thus cr and cw
 
+	awaitingMut sync.Mutex // Protects awaiting and nextID.
 	awaiting    map[int]chan asyncResult
-	awaitingMut sync.Mutex
+	nextID      int
 
 	idxMut sync.Mutex // ensures serialization of Index calls
-
-	nextID    int
-	nextIDMut sync.Mutex
 
 	inbox                 chan message
 	outbox                chan asyncMessage
@@ -336,17 +334,15 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, folder string, idx []Fi
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *rawConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	c.nextIDMut.Lock()
-	id := c.nextID
-	c.nextID++
-	c.nextIDMut.Unlock()
+	rc := make(chan asyncResult, 1)
 
 	c.awaitingMut.Lock()
+	id := c.nextID
+	c.nextID++
 	if _, ok := c.awaiting[id]; ok {
 		c.awaitingMut.Unlock()
 		panic("id taken")
 	}
-	rc := make(chan asyncResult, 1)
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
