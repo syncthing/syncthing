@@ -2369,7 +2369,12 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceName($scope.devices[device.deviceID]));
+                    var name = $scope.deviceName($scope.devices[device.deviceID]);
+                    // Put in brackets if unaccepted on the remote device
+                    if ($scope.completion[device.deviceID] && !$scope.completion[device.deviceID][folderCfg.id].accepted) {
+                        name = '[' + name + ']';
+                    }
+                    names.push(name);
                 }
             });
             names.sort();

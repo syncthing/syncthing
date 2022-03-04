@@ -532,7 +532,11 @@
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
+                        <td class="text-right">
+			  <span tooltip data-original-title="{{sharesFolder(folder)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
+			    {{sharesFolder(folder)}}
+			  </span>
+			</td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
                         <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>

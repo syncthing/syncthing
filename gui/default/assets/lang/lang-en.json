@@ -44,6 +44,7 @@
    "Automatically create or share folders that this device advertises at the default path.": "Automatically create or share folders that this device advertises at the default path.",
    "Available debug logging facilities:": "Available debug logging facilities:",
    "Be careful!": "Be careful!",
+   "Brackets indicate the remote device has not accepted this folder.": "Brackets indicate the remote device has not accepted this folder.",
    "Bugs": "Bugs",
    "Cancel": "Cancel",
    "Changelog": "Changelog",
