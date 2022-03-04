@@ -3766,16 +3766,16 @@ func TestClusterConfigOnFolderUnpause(t *testing.T) {
 
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
-	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0)
-	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0))
+	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, true)
+	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, false))
 	if comp.CompletionPct != 100 {
 		t.Error(comp.CompletionPct)
 	}
 
 	// Completion is of the whole
-	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0)             // 100% complete
-	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0)) // 82.5% complete
-	if comp.CompletionPct != 90 {                                                 // 100 * (1 - 50/500)
+	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, true)             // 100% complete
+	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, true)) // 82.5% complete
+	if comp.CompletionPct != 90 {                                                       // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }
