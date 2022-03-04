@@ -2402,6 +2402,19 @@ angular.module('syncthing.core')
             return label && label.length > 0 ? label : folderID;
         };
 
+        $scope.sharedFolders = function (deviceCfg) {
+            var labels = [];
+            $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
+                var label = $scope.folderLabel(folderID);
+                // Put in brackets if unaccepted on the remote device
+                if ($scope.completion[deviceCfg.deviceID] && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
+                    label = '[' + label + ']';
+                }
+                labels.push(label);
+            });
+            return labels.join(', ');
+        };
+
         $scope.deleteFolder = function (id) {
             hideFolderModal();
             if ($scope.currentFolder._editing != "existing") {

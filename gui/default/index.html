@@ -837,7 +837,11 @@
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                        <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
+                        <td class="text-right">
+			  <span tooltip data-original-title="{{sharedFolders(deviceCfg)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
+			    {{sharedFolders(deviceCfg)}}
+			  </span>
+			</td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
                         <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
