@@ -533,10 +533,10 @@
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                         <td class="text-right">
-			  <span tooltip data-original-title="{{sharesFolder(folder)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
-			    {{sharesFolder(folder)}}
-			  </span>
-			</td>
+                          <span tooltip data-original-title="{{sharesFolder(folder)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
+                            {{sharesFolder(folder)}}
+                          </span>
+                        </td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
                         <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
@@ -672,8 +672,8 @@
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed listener status' | translate}}.">
                           <a href="" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
-			    {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
-			  </a>
+                            {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
+                          </a>
                         </span>
                       </td>
                     </tr>
@@ -682,8 +682,8 @@
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed discovery status' | translate}}.">
                           <a href="" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
-			    {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
-			  </a>
+                            {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+                          </a>
                         </span>
                       </td>
                     </tr>
@@ -838,10 +838,10 @@
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                         <td class="text-right">
-			  <span tooltip data-original-title="{{sharedFolders(deviceCfg)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
-			    {{sharedFolders(deviceCfg)}}
-			  </span>
-			</td>
+                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}}<br/>({{'Brackets indicate the remote device has not accepted this folder.' | translate}})">
+                            {{sharedFolders(deviceCfg)}}
+                          </span>
+                        </td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
                         <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
