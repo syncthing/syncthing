@@ -2921,16 +2921,18 @@ angular.module('syncthing.core')
 
         $scope.docsURL = function (path) {
             var url = 'https://docs.syncthing.net';
-            if (path) {
-                var hash = path.indexOf('#');
-                if (hash != -1) {
-                    url += '/' + path.slice(0, hash);
-                    url += '?version=' + $scope.versionBase();
-                    url += path.slice(hash);
-                } else {
-                    url += '/' + path;
-                    url += '?version=' + $scope.versionBase();
-                }
+            if (!path) {
+                // Undefined or null should become a valid string.
+                path = '';
+            }
+            var hash = path.indexOf('#');
+            if (hash != -1) {
+                url += '/' + path.slice(0, hash);
+                url += '?version=' + $scope.versionBase();
+                url += path.slice(hash);
+            } else {
+                url += '/' + path;
+                url += '?version=' + $scope.versionBase();
             }
             return url;
         };
