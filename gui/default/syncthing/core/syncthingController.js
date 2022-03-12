@@ -2624,6 +2624,8 @@ angular.module('syncthing.core')
                                 maxDate: maxDate,
                                 ranges: ranges,
                                 locale: {
+                                    applyLabel: $translate.instant("Apply"),
+                                    cancelLabel: $translate.instant("Cancel"),
                                     customRangeLabel: $translate.instant("Custom Range"),
                                     format: 'YYYY/MM/DD HH:mm:ss',
                                 }
