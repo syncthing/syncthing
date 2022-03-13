@@ -223,11 +223,11 @@ func (it *leveldbIterator) Error() error {
 
 // wrapLeveldbErr wraps errors so that the backend package can recognize them
 func wrapLeveldbErr(err error) error {
-	if err == leveldb.ErrClosed {
-		return &errClosed{}
-	}
-	if err == leveldb.ErrNotFound {
-		return &errNotFound{}
+	switch err {
+	case leveldb.ErrClosed:
+		return errClosed
+	case leveldb.ErrNotFound:
+		return errNotFound
 	}
 	return err
 }
