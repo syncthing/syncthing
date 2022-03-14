@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Mar 03, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Mar 13, 2022" "v1.19.1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -215,10 +215,10 @@ Emitted when a device was paused.
 .fi
 .UNINDENT
 .UNINDENT
-.SS DeviceRejected
+.SS DeviceRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pending\-devices\-changed event instead.
+the replacement pendingdeviceschanged event instead.
 
 .sp
 Emitted when there is a connection from a device we are not configured
@@ -400,7 +400,13 @@ device.
     "data": {
         "completion": 100,
         "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU",
-        "folder": "default"
+        "folder": "default",
+        "globalBytes": 17,
+        "globalItems": 4,
+        "needBytes": 0,
+        "needDeletes": 0,
+        "needItems": 0,
+        "sequence": 12
     }
 }
 .ft P
@@ -470,10 +476,10 @@ of a folder.  Sent repeatedly for each changed folder.
 .fi
 .UNINDENT
 .UNINDENT
-.SS FolderRejected
+.SS FolderRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pending\-folders\-changed event instead.
+the replacement pendingfolderschanged event instead.
 
 .sp
 Emitted when a device sends index information for a folder we do not

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Mar 03, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 13, 2022" "v1.19.1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -94,7 +94,7 @@ $ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var
 .fi
 .UNINDENT
 .UNINDENT
-.SS GET /rest/system/config
+.SS GET /rest/system/config (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use rest\-config
 instead.
@@ -365,7 +365,7 @@ Returns the current configuration.
 .fi
 .UNINDENT
 .UNINDENT
-.SS GET /rest/system/config/insync
+.SS GET /rest/system/config/insync (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use
 rest\-config\-insync instead.
@@ -385,9 +385,9 @@ configuration is the same as that on disk.
 .fi
 .UNINDENT
 .UNINDENT
-.SS POST /rest/system/config
+.SS POST /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use rest\-config
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated.  Use config
 instead.
 
 .sp
@@ -1044,7 +1044,7 @@ The results can be paginated using the common pagination parameters\&.
 .fi
 .UNINDENT
 .UNINDENT
-.SS GET /rest/folder/pullerrors
+.SS GET /rest/folder/pullerrors (DEPRECATED)
 .sp
 Deprecated since version v0.14.53: This endpoint still works as before but is deprecated.  Use
 folder\-errors\-get instead, which returns the same information.
@@ -1273,7 +1273,8 @@ Aggregated completion status for all folders on the local device:
   "needBytes": 9789241,
   "globalItems": 7823,
   "needItems": 412,
-  "needDeletes": 0
+  "needDeletes": 0,
+  "sequence": 12
 }
 .ft P
 .fi
