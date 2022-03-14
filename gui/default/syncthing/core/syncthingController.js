@@ -2365,16 +2365,20 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
+        $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
+            var name = $scope.deviceName($scope.devices[deviceID]);
+            // Put in brackets if unaccepted on the remote device
+            if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+                name = '[' + name + ']';
+            }
+            return name;
+        };
+
         $scope.sharesFolder = function (folderCfg) {
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    var name = $scope.deviceName($scope.devices[device.deviceID]);
-                    // Put in brackets if unaccepted on the remote device
-                    if ($scope.completion[device.deviceID] && !$scope.completion[device.deviceID][folderCfg.id].accepted) {
-                        name = '[' + name + ']';
-                    }
-                    names.push(name);
+                    names.push($scope.deviceNameMarkUnaccepted(device.deviceID, folderCfg.id));
                 }
             });
             names.sort();
@@ -2402,15 +2406,19 @@ angular.module('syncthing.core')
             return label && label.length > 0 ? label : folderID;
         };
 
+        $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
+            var label = $scope.folderLabel(folderID);
+            // Put in brackets if unaccepted on the remote device
+            if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+                label = '[' + label + ']';
+            }
+            return label;
+        };
+
         $scope.sharedFolders = function (deviceCfg) {
             var labels = [];
             $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
-                var label = $scope.folderLabel(folderID);
-                // Put in brackets if unaccepted on the remote device
-                if ($scope.completion[deviceCfg.deviceID] && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
-                    label = '[' + label + ']';
-                }
-                labels.push(label);
+                labels.push($scope.folderLabelMarkUnaccepted(folderID, deviceCfg.deviceID));
             });
             return labels.join(', ');
         };
