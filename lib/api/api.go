@@ -59,6 +59,8 @@ import (
 )
 
 const (
+	// Default mask excludes these very noisy event types to avoid filling the pipe.
+	// FIXME: ItemStarted and ItemFinished should be excluded for the same reason.
 	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
 	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
 	EventSubBufferSize    = 1000
