@@ -39,13 +39,13 @@ var operationCommand = cli.Command{
 		{
 			Name:      "folder-override",
 			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
-			ArgsUsage: "[folder id]",
+			ArgsUsage: "FOLDER-ID",
 			Action:    expects(1, foldersOverride),
 		},
 		{
 			Name:      "default-ignores",
 			Usage:     "Set the default ignores (config) from a file",
-			ArgsUsage: "path",
+			ArgsUsage: "PATH",
 			Action:    expects(1, setDefaultIgnores),
 		},
 	},
