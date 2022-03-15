@@ -55,7 +55,7 @@ func (s folderState) String() string {
 type remoteFolderState int
 
 const (
-	remoteMissing remoteFolderState = iota
+	remoteNotSharing remoteFolderState = iota
 	remotePaused
 	remoteValid
 )

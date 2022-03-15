@@ -907,7 +907,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	defer snap.Release()
 
 	m.pmut.RLock()
-	accepted := m.remoteFolderStates[device][folder] != remoteMissing
+	accepted := m.remoteFolderStates[device][folder] != remoteNotSharing
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
 
@@ -1378,7 +1378,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	for folderID, cfg := range m.cfg.Folders() {
 		if _, seen := seenFolders[folderID]; !seen && cfg.SharedWith(deviceID) {
 			l.Debugf("Remote device %v has not accepted folder %s", deviceID.Short(), cfg.Description())
-			seenFolders[folderID] = remoteMissing
+			seenFolders[folderID] = remoteNotSharing
 		}
 	}
 
@@ -3139,7 +3139,7 @@ func (m *model) MissingRemoteFolders() map[protocol.DeviceID][]string {
 			res[deviceID] = make([]string, 0, len(folders))
 		}
 		for folderID, state := range folders {
-			if state == remoteMissing {
+			if state == remoteNotSharing {
 				res[deviceID] = append(res[deviceID], folderID)
 			}
 		}
