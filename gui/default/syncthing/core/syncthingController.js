@@ -2369,7 +2369,7 @@ angular.module('syncthing.core')
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Put in brackets if unaccepted on the remote device
             if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                name = '[' + name + ']';
+                name += '&sup1;';
             }
             return name;
         };
@@ -2410,7 +2410,7 @@ angular.module('syncthing.core')
             var label = $scope.folderLabel(folderID);
             // Put in brackets if unaccepted on the remote device
             if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                label = '[' + label + ']';
+                label += '&sup1;';
             }
             return label;
         };
