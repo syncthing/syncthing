@@ -59,7 +59,7 @@
               <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceNameMarkUnaccepted(device.deviceID, currentFolder.id)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
             </div>
             <p class="help-block">
-              <span translate>&sup1; The remote device has not accepted this folder.</span>
+              &sup1; <span translate>The remote device has not accepted sharing this folder.</span>
             </p>
           </div>
           <div class="form-horizontal" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">

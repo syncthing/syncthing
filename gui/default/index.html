@@ -533,7 +533,7 @@
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                         <td class="text-right">
-                          <span tooltip data-original-title="{{sharesFolder(folder)}}<br/>({{'&sup1; The remote device has not accepted this folder.' | translate}})">
+                          <span tooltip data-original-title="{{sharesFolder(folder)}}<br/>(&sup1; {{'The remote device has not accepted sharing this folder.' | translate}})">
                             {{sharesFolder(folder)}}
                           </span>
                         </td>
@@ -838,7 +838,7 @@
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                         <td class="text-right">
-                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}}<br/>({{'&sup1; The remote device has not accepted this folder.' | translate}})">
+                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}}<br/>(&sup1; {{'The remote device has not accepted sharing this folder.' | translate}})">
                             {{sharedFolders(deviceCfg)}}
                           </span>
                         </td>

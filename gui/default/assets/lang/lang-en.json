@@ -377,6 +377,7 @@
    "The number of versions must be a number and cannot be blank.": "The number of versions must be a number and cannot be blank.",
    "The path cannot be blank.": "The path cannot be blank.",
    "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
+   "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
    "The rescan interval must be a non-negative number of seconds.": "The rescan interval must be a non-negative number of seconds.",
    "There are no devices to share this folder with.": "There are no devices to share this folder with.",
    "There are no file versions to restore.": "There are no file versions to restore.",
@@ -456,6 +457,5 @@
    "theme-name-light": "Light",
    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
-   "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device.",
-   "¹ The remote device has not accepted this folder.": "¹ The remote device has not accepted this folder."
+   "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }
