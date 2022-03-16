@@ -876,6 +876,9 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 	// We want completion for all (shared) folders as an aggregate.
 	var comp FolderCompletion
 	for _, fcfg := range m.cfg.FolderList() {
+		if fcfg.Paused {
+			continue
+		}
 		if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
 			folderComp, err := m.folderCompletion(device, fcfg.ID)
 			if err != nil {
