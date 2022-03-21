@@ -28,7 +28,7 @@
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Ein externer Befehl behandelt die Versionierung. Die Datei aus dem freigegebenen Ordner muss entfernen werden. Wenn der Pfad der Anwendung Leerzeichen enthält, sollte dieser in Anführungszeichen stehen.",
     "Anonymous Usage Reporting": "Anonymer Nutzungsbericht",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Das Format des anonymen Nutzungsberichts hat sich geändert. Möchten Sie auf das neue Format umsteigen?",
-    "Apply": "Apply",
+    "Apply": "Anwenden",
     "Are you sure you want to continue?": "Sind Sie sicher, dass Sie fortfahren möchten?",
     "Are you sure you want to override all remote changes?": "Sind Sie sicher, dass Sie alle entfernten Änderungen überschreiben möchten?",
     "Are you sure you want to permanently delete all these files?": "Sind Sie sicher, dass Sie all diese Dateien dauerhaft löschen möchten?",

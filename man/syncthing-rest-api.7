@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Mar 13, 2022" "v1.19.1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 20, 2022" "v1.19.1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -1709,9 +1709,11 @@ This is an expensive call, increasing CPU and RAM usage on the device. Use spari
 .sp
 To receive events, perform a HTTP GET of \fB/rest/events\fP\&.
 .sp
-To filter the event list, in effect creating a specific subscription for
-only the desired event types, add a parameter
-\fBevents=EventTypeA,EventTypeB,...\fP where the event types are any of the event\-types\&.
+To filter the event list, in effect creating a specific subscription for only
+the desired event types, add a parameter \fBevents=EventTypeA,EventTypeB,...\fP
+where the event types are any of the event\-types\&.  If no filter is
+specified, all events \fIexcept\fP /events/localchangedetected and
+/events/remotechangedetected are included.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
 you’ve already seen. Syncthing returns a JSON encoded array of event objects,
