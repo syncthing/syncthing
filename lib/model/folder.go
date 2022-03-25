@@ -382,7 +382,6 @@ func (f *folder) pull() (success bool, err error) {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false, err
 	}
-	f.setError(nil)
 
 	// Send only folder doesn't do any io, it only checks for out-of-sync
 	// items that differ in metadata and updates those.
@@ -409,6 +408,7 @@ func (f *folder) pull() (success bool, err error) {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false, err
 	}
+	f.setError(nil)
 
 	success, err = f.puller.pull()
 
@@ -431,10 +431,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	err := f.getHealthErrorAndLoadIgnores()
 	if err != nil {
-		// If there is a health error we set it as the folder error. We do not
-		// clear the folder error if there is no health error, as there might be
-		// an *other* folder error (failed to load ignores, for example). Hence
-		// we do not use the CheckHealth() convenience function here.
 		return err
 	}
 	f.setError(nil)
