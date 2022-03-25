@@ -212,7 +212,7 @@ loop:
 			case *UnsupportedDeviceTypeError:
 				l.Debugln(err.Error())
 			default:
-				if errors.Cause(err) != context.Canceled {
+				if !errors.Is(err, context.Canceled) {
 					l.Infoln("UPnP parse:", err)
 				}
 			}
