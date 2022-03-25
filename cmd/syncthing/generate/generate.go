@@ -53,18 +53,18 @@ func (c *CLI) Run() error {
 		reader := bufio.NewReader(os.Stdin)
 		password, _, err := reader.ReadLine()
 		if err != nil {
-			return fmt.Errorf("Failed reading GUI password: %w", err)
+			return fmt.Errorf("failed reading GUI password: %w", err)
 		}
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder); err != nil {
-		return fmt.Errorf("Failed to generate config and keys: %w", err)
+	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
+		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil
 }
 
-func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error {
+func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortProbing bool) error {
 	dir, err := fs.ExpandTilde(confDir)
 	if err != nil {
 		return err
@@ -90,20 +90,13 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder bool) error 
 	log.Println("Device ID:", myID)
 
 	cfgFile := locations.Get(locations.ConfigFile)
-	var cfg config.Wrapper
-	if _, err := os.Stat(cfgFile); err == nil {
-		if guiUser == "" && guiPassword == "" {
-			log.Println("WARNING: Config exists; will not overwrite.")
-			return nil
-		}
-
-		if cfg, _, err = config.Load(cfgFile, myID, events.NoopLogger); err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
-	} else {
-		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder); err != nil {
+	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
+	if fs.IsNotExist(err) {
+		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder, skipPortProbing); err != nil {
 			return fmt.Errorf("create config: %w", err)
 		}
+	} else if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -136,7 +129,7 @@ func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPasswo
 
 	if guiPassword != "" && guiCfg.Password != guiPassword {
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
-			return fmt.Errorf("Failed to set GUI authentication password: %w", err)
+			return fmt.Errorf("failed to set GUI authentication password: %w", err)
 		}
 		log.Println("Updated GUI authentication password.")
 	}

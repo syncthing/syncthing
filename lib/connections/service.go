@@ -706,10 +706,6 @@ func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
 	})
 }
 
-func (s *service) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {

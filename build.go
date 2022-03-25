@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -48,6 +47,7 @@ var (
 	cc             string
 	run            string
 	benchRun       string
+	buildOut       string
 	debugBinary    bool
 	coverage       bool
 	long           bool
@@ -375,6 +375,7 @@ func parseFlags() {
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
+	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
 	flag.Parse()
 }
 
@@ -507,6 +508,9 @@ func build(target target, tags []string) {
 	}
 
 	args := []string{"build", "-v"}
+	if buildOut != "" {
+		args = append(args, "-o", buildOut)
+	}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -723,7 +727,7 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	err = ioutil.WriteFile(jsonPath, bs, 0644)
+	err = os.WriteFile(jsonPath, bs, 0644)
 	if err != nil {
 		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
 	}
@@ -762,12 +766,12 @@ func shouldCleanupSyso(sysoFilePath string) {
 // exists. The permission bits are copied as well. If dst already exists and
 // the contents are identical to src the modification time is not updated.
 func copyFile(src, dst string, perm os.FileMode) error {
-	in, err := ioutil.ReadFile(src)
+	in, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	out, err := ioutil.ReadFile(dst)
+	out, err := os.ReadFile(dst)
 	if err != nil {
 		// The destination probably doesn't exist, we should create
 		// it.
@@ -783,7 +787,7 @@ func copyFile(src, dst string, perm os.FileMode) error {
 
 copy:
 	os.MkdirAll(filepath.Dir(dst), 0777)
-	if err := ioutil.WriteFile(dst, in, perm); err != nil {
+	if err := os.WriteFile(dst, in, perm); err != nil {
 		return err
 	}
 
@@ -958,7 +962,7 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
-	bs, err := ioutil.ReadFile("RELEASE")
+	bs, err := os.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
 	}
@@ -1290,11 +1294,11 @@ func zipFile(out string, files []archiveFile) {
 
 		if strings.HasSuffix(f.dst, ".txt") {
 			// Text file. Read it and convert line endings.
-			bs, err := ioutil.ReadAll(sf)
+			bs, err := io.ReadAll(sf)
 			if err != nil {
 				log.Fatal(err)
 			}
-			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\n', '\r'}, -1)
+			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\r', '\n'}, -1)
 			fh.UncompressedSize = uint32(len(bs))
 			fh.UncompressedSize64 = uint64(len(bs))
 

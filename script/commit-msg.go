@@ -12,7 +12,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,7 +30,7 @@ func main() {
 		os.Exit(exitError)
 	}
 
-	bs, err := ioutil.ReadFile(os.Args[1])
+	bs, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		fmt.Println("Reading input:", err)
 		os.Exit(exitError)

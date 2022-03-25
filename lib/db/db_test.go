@@ -14,7 +14,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -42,11 +41,11 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	fs := newFileSet(t, "test", db)
 
 	// The contents of the database are like this:
 	//
-	// 	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	// 	fs := newFileSet(t, "test", db)
 	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 	// 		{ // invalid (ignored) file
 	// 			Name:    "foo",
@@ -498,7 +497,7 @@ func TestCheckGlobals(t *testing.T) {
 	db := newLowlevelMemory(t)
 	defer db.Close()
 
-	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, "test", db)
 
 	// Add any file
 	name := "foo"
@@ -854,7 +853,7 @@ func TestCheckLocalNeed(t *testing.T) {
 	defer db.Close()
 
 	folderStr := "test"
-	fs := newFileSet(t, folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, folderStr, db)
 
 	// Add files such that we are in sync for a and b, and need c and d.
 	files := []protocol.FileInfo{
@@ -929,9 +928,8 @@ func TestDuplicateNeedCount(t *testing.T) {
 	defer db.Close()
 
 	folder := "test"
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := newFileSet(t, folder, testFs, db)
+	fs := newFileSet(t, folder, db)
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1}}
 	fs.Update(protocol.LocalDeviceID, files)
 	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
@@ -939,7 +937,7 @@ func TestDuplicateNeedCount(t *testing.T) {
 
 	db.checkRepair()
 
-	fs = newFileSet(t, folder, testFs, db)
+	fs = newFileSet(t, folder, db)
 	found := false
 	for _, c := range fs.meta.counts.Counts {
 		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {
@@ -959,9 +957,8 @@ func TestNeedAfterDropGlobal(t *testing.T) {
 	defer db.Close()
 
 	folder := "test"
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := newFileSet(t, folder, testFs, db)
+	fs := newFileSet(t, folder, db)
 
 	// Initial:
 	// Three devices and a file "test": local has Version 1, remoteDevice0

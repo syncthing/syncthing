@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -232,7 +231,7 @@ func TestCaseSensitivity(t *testing.T) {
 }
 
 func TestCaching(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +424,7 @@ flamingo
 *.crow
 	`
 	// Caches per file, hence write the patterns to a file.
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -466,7 +465,7 @@ flamingo
 }
 
 func TestCacheReload(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -989,7 +988,7 @@ func TestIssue4689(t *testing.T) {
 }
 
 func TestIssue4901(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1001,7 +1000,7 @@ func TestIssue4901(t *testing.T) {
 	puppy
 	`
 
-	if err := ioutil.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -1020,7 +1019,7 @@ func TestIssue4901(t *testing.T) {
 		}
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -1191,5 +1190,44 @@ func TestEmptyPatterns(t *testing.T) {
 		if !IsParseError(err) {
 			t.Fatal("bad pattern should be a parse error")
 		}
+	}
+}
+
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	lines := "foo\nbar\nbaz\n"
+
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	m := New(ffs)
+	if err := m.Parse(strings.NewReader(lines), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteIgnores(ffs, ".stignore", m.Lines()); err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := ffs.Open(".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs, err := io.ReadAll(fd)
+	fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
 	}
 }

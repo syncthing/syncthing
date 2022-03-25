@@ -1532,8 +1532,8 @@ loop:
 		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the
 		// file).
-		selected, found := activity.leastBusy(candidates)
-		if !found {
+		found := activity.leastBusy(candidates)
+		if found == -1 {
 			if lastError != nil {
 				state.fail(errors.Wrap(lastError, "pull"))
 			} else {
@@ -1542,7 +1542,9 @@ loop:
 			break
 		}
 
-		candidates = removeAvailability(candidates, selected)
+		selected := candidates[found]
+		candidates[found] = candidates[len(candidates)-1]
+		candidates = candidates[:len(candidates)-1]
 
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
@@ -1552,7 +1554,7 @@ loop:
 		buf, lastError = f.model.requestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
-			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
+			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)
 			continue
 		}
 
@@ -1802,16 +1804,6 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 		return true
 	}
 	return false
-}
-
-func removeAvailability(availabilities []Availability, availability Availability) []Availability {
-	for i := range availabilities {
-		if availabilities[i] == availability {
-			availabilities[i] = availabilities[len(availabilities)-1]
-			return availabilities[:len(availabilities)-1]
-		}
-	}
-	return availabilities
 }
 
 func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {

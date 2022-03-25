@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jan 30, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -47,7 +47,7 @@ with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated 
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A ‘*’ will always be appended
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://pkg.go.dev/path/filepath#Match\fP>\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0
@@ -100,22 +100,23 @@ Returns the current configuration.
 .nf
 .ft C
 {
-  "version": 30,
+  "version": 35,
   "folders": [
     {
-      "id": "GXWxf\-3zgnU",
-      "label": "MyFolder",
+      "id": "default",
+      "label": "Default Folder",
       "filesystemType": "basic",
       "path": "...",
       "type": "sendreceive",
       "devices": [
         {
           "deviceID": "...",
-          "introducedBy": ""
+          "introducedBy": "",
+          "encryptionPassword": ""
         }
       ],
-      "rescanIntervalS": 60,
-      "fsWatcherEnabled": false,
+      "rescanIntervalS": 3600,
+      "fsWatcherEnabled": true,
       "fsWatcherDelayS": 10,
       "ignorePerms": false,
       "autoNormalize": true,
@@ -124,10 +125,11 @@ Returns the current configuration.
         "unit": "%"
       },
       "versioning": {
-        "type": "simple",
-        "params": {
-          "keep": "5"
-        }
+        "type": "",
+        "params": {},
+        "cleanupIntervalS": 3600,
+        "fsPath": "",
+        "fsType": "basic"
       },
       "copiers": 0,
       "pullerMaxPendingKiB": 0,
@@ -136,14 +138,20 @@ Returns the current configuration.
       "ignoreDelete": false,
       "scanProgressIntervalS": 0,
       "pullerPauseS": 0,
-      "maxConflicts": 10,
+      "maxConflicts": \-1,
       "disableSparseFiles": false,
       "disableTempIndexes": false,
       "paused": false,
       "weakHashThresholdPct": 25,
       "markerName": ".stfolder",
       "copyOwnershipFromParent": false,
-      "modTimeWindowS": 0
+      "modTimeWindowS": 0,
+      "maxConcurrentWrites": 2,
+      "disableFsync": false,
+      "blockPullOrder": "standard",
+      "copyRangeMethod": "standard",
+      "caseSensitiveFS": false,
+      "junctionsAsDirs": true
     }
   ],
   "devices": [
@@ -164,18 +172,27 @@ Returns the current configuration.
       "autoAcceptFolders": false,
       "maxSendKbps": 0,
       "maxRecvKbps": 0,
-      "ignoredFolders": [],
-      "maxRequestKiB": 0
+      "ignoredFolders": [
+        {
+          "time": "2022\-01\-09T19:09:52Z",
+          "id": "br63e\-wyhb7",
+          "label": "Foo"
+        }
+      ],
+      "maxRequestKiB": 0,
+      "untrusted": false,
+      "remoteGUIPort": 0
     }
   ],
   "gui": {
     "enabled": true,
     "address": "127.0.0.1:8384",
+    "unixSocketPermissions": "",
     "user": "Username",
     "password": "$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6",
     "authMode": "static",
     "useTLS": false,
-    "apiKey": "pGahcht56664QU5eoFQW6szbEG6Ec2Cr",
+    "apiKey": "k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1",
     "insecureAdminAccess": false,
     "theme": "default",
     "debugging": false,
@@ -186,7 +203,9 @@ Returns the current configuration.
     "address": "",
     "bindDN": "",
     "transport": "plain",
-    "insecureSkipVerify": false
+    "insecureSkipVerify": false,
+    "searchBaseDN": "",
+    "searchFilter": ""
   },
   "options": {
     "listenAddresses": [
@@ -204,14 +223,14 @@ Returns the current configuration.
     "reconnectionIntervalS": 60,
     "relaysEnabled": true,
     "relayReconnectIntervalM": 10,
-    "startBrowser": false,
+    "startBrowser": true,
     "natEnabled": true,
     "natLeaseMinutes": 60,
     "natRenewalMinutes": 30,
     "natTimeoutSeconds": 10,
-    "urAccepted": \-1,
-    "urSeen": 2,
-    "urUniqueId": "",
+    "urAccepted": 0,
+    "urSeen": 0,
+    "urUniqueId": "...",
     "urURL": "https://data.syncthing.net/newdata",
     "urPostInsecurely": false,
     "urInitialDelayS": 1800,
@@ -230,9 +249,10 @@ Returns the current configuration.
     "alwaysLocalNets": [],
     "overwriteRemoteDeviceNamesOnConnect": false,
     "tempIndexMinBlocks": 10,
-    "unackedNotificationIDs": [],
+    "unackedNotificationIDs": [
+      "authenticationUserAndPassword"
+    ],
     "trafficClass": 0,
-    "defaultFolderPath": "~",
     "setLowPriority": true,
     "maxFolderConcurrency": 0,
     "crURL": "https://crash.syncthing.net/newcrash",
@@ -243,9 +263,96 @@ Returns the current configuration.
       "default"
     ],
     "databaseTuning": "auto",
-    "maxConcurrentIncomingRequestKiB": 0
+    "maxConcurrentIncomingRequestKiB": 0,
+    "announceLANAddresses": true,
+    "sendFullIndexOnUpgrade": false,
+    "featureFlags": [],
+    "connectionLimitEnough": 0,
+    "connectionLimitMax": 0,
+    "insecureAllowOldTLSVersions": false
   },
-  "remoteIgnoredDevices": []
+  "remoteIgnoredDevices": [
+    {
+      "time": "2022\-01\-09T20:02:01Z",
+      "deviceID": "...",
+      "name": "...",
+      "address": "192.168.0.20:22000"
+    }
+  ],
+  "defaults": {
+    "folder": {
+      "id": "",
+      "label": "",
+      "filesystemType": "basic",
+      "path": "~",
+      "type": "sendreceive",
+      "devices": [
+        {
+          "deviceID": "...",
+          "introducedBy": "",
+          "encryptionPassword": ""
+        }
+      ],
+      "rescanIntervalS": 3600,
+      "fsWatcherEnabled": true,
+      "fsWatcherDelayS": 10,
+      "ignorePerms": false,
+      "autoNormalize": true,
+      "minDiskFree": {
+        "value": 1,
+        "unit": "%"
+      },
+      "versioning": {
+        "type": "",
+        "params": {},
+        "cleanupIntervalS": 3600,
+        "fsPath": "",
+        "fsType": "basic"
+      },
+      "copiers": 0,
+      "pullerMaxPendingKiB": 0,
+      "hashers": 0,
+      "order": "random",
+      "ignoreDelete": false,
+      "scanProgressIntervalS": 0,
+      "pullerPauseS": 0,
+      "maxConflicts": 10,
+      "disableSparseFiles": false,
+      "disableTempIndexes": false,
+      "paused": false,
+      "weakHashThresholdPct": 25,
+      "markerName": ".stfolder",
+      "copyOwnershipFromParent": false,
+      "modTimeWindowS": 0,
+      "maxConcurrentWrites": 2,
+      "disableFsync": false,
+      "blockPullOrder": "standard",
+      "copyRangeMethod": "standard",
+      "caseSensitiveFS": false,
+      "junctionsAsDirs": false
+    },
+    "device": {
+      "deviceID": "",
+      "name": "",
+      "addresses": [
+        "dynamic"
+      ],
+      "compression": "metadata",
+      "certName": "",
+      "introducer": false,
+      "skipIntroductionRemovals": false,
+      "introducedBy": "",
+      "paused": false,
+      "allowedNetworks": [],
+      "autoAcceptFolders": false,
+      "maxSendKbps": 0,
+      "maxRecvKbps": 0,
+      "ignoredFolders": [],
+      "maxRequestKiB": 0,
+      "untrusted": false,
+      "remoteGUIPort": 0
+    }
+  }
 }
 .ft P
 .fi
@@ -290,7 +397,7 @@ config, modify the needed parts and post it again.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Return format changed in 0.13.0.
+Return format changed in versions 0.13.0 and 1.19.0.
 .UNINDENT
 .UNINDENT
 .sp
@@ -305,14 +412,9 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .ft C
 {
    "total" : {
-          "paused" : false,
-          "clientVersion" : "",
           "at" : "2015\-11\-07T17:29:47.691637262+01:00",
-          "connected" : false,
           "inBytesTotal" : 1479,
-          "type" : "",
           "outBytesTotal" : 1318,
-          "address" : ""
    },
    "connections" : {
           "YZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC" : {
@@ -320,6 +422,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "inBytesTotal" : 556,
              "paused" : false,
              "at" : "2015\-11\-07T17:29:47.691548971+01:00",
+             "startedAt" : "2015\-11\-07T00:09:47Z",
              "clientVersion" : "v0.12.1",
              "address" : "127.0.0.1:22002",
              "type" : "TCP (Client)",
@@ -330,6 +433,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "type" : "",
              "address" : "",
              "at" : "0001\-01\-01T00:00:00Z",
+             "startedAt" : "0001\-01\-01T00:00:00Z",
              "clientVersion" : "",
              "paused" : false,
              "inBytesTotal" : 0,
@@ -343,6 +447,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "inBytesTotal" : 0,
              "paused" : false,
              "at" : "0001\-01\-01T00:00:00Z",
+             "startedAt" : "0001\-01\-01T00:00:00Z",
              "clientVersion" : ""
           }
    }
@@ -549,7 +654,7 @@ $ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/rese
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fB\-reset\-database\fP for \fB\&.stfolder\fP creation side\-effect and caution regarding mountpoints.
+\fBCaution\fP: See \fB\-\-reset\-database\fP for \fB\&.stfolder\fP creation side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.

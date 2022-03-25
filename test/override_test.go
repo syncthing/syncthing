@@ -10,7 +10,7 @@
 package integration
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -127,7 +127,7 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +295,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +309,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +423,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}

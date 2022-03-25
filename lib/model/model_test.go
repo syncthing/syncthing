@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -1516,7 +1515,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	// Invalid path, marker should be missing, hence returns an error.
+	// Invalid path, treated like no patterns at all.
 	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
 	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
 	m.fmut.Lock()
@@ -1525,8 +1524,8 @@ func TestIgnores(t *testing.T) {
 	m.fmut.Unlock()
 
 	_, _, err = m.LoadIgnores("fresh")
-	if err == nil {
-		t.Error("No error")
+	if err != nil {
+		t.Error("Got error for inexistent folder path")
 	}
 
 	// Repeat tests with paused folder
@@ -1622,7 +1621,7 @@ func TestROScanRecovery(t *testing.T) {
 	defer cancel()
 	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
 
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
@@ -1677,7 +1676,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	testOs.RemoveAll(fcfg.Path)
 
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
@@ -2152,7 +2151,7 @@ func TestIssue2782(t *testing.T) {
 	if err := os.MkdirAll(testDir+"/syncdir", 0755); err != nil {
 		t.Skip(err)
 	}
-	if err := ioutil.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
+	if err := os.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
 		t.Skip(err)
 	}
 	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
@@ -2178,7 +2177,7 @@ func TestIssue2782(t *testing.T) {
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m := newModel(t, defaultCfgWrapper, myID, "syncthing", "dev", nil)
 
-	files := newFileSet(t, "default", defaultFs, m.db)
+	files := newFileSet(t, "default", m.db)
 	files.Drop(device1)
 	files.Update(device1, genFiles(1))
 	files.Drop(device2)
@@ -2192,7 +2191,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
-	files = newFileSet(t, "default", defaultFs, m.db)
+	files = newFileSet(t, "default", m.db)
 
 	if l := len(files.ListDevices()); l != 1 {
 		t.Errorf("Expected one device got %v", l)
@@ -2623,7 +2622,7 @@ func TestCustomMarkerName(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
-	set := newFileSet(t, "default", defaultFs, m.db)
+	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
@@ -2763,7 +2762,7 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	must(t, err)
 	defer os.RemoveAll(dir)
 
@@ -2900,7 +2899,7 @@ func TestVersionRestore(t *testing.T) {
 		}
 		defer fd.Close()
 
-		content, err := ioutil.ReadAll(fd)
+		content, err := io.ReadAll(fd)
 		if err != nil {
 			t.Error(err)
 		}
@@ -2930,7 +2929,7 @@ func TestVersionRestore(t *testing.T) {
 				must(t, err)
 				defer fd.Close()
 
-				content, err := ioutil.ReadAll(fd)
+				content, err := io.ReadAll(fd)
 				if err != nil {
 					t.Error(err)
 				}

@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -680,8 +679,8 @@ func TestIssue3164(t *testing.T) {
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
 	must(t, ffs.MkdirAll(subDir, 0777))
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644))
+	must(t, os.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644))
+	must(t, os.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644))
 	file := protocol.FileInfo{
 		Name: "issue3164",
 	}
@@ -806,8 +805,8 @@ func TestCopyOwner(t *testing.T) {
 	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
-	f.fset = newFileSet(t, f.ID, f.Filesystem(), m.db)
-	f.mtimefs = f.fset.MtimeFS()
+	f.fset = newFileSet(t, f.ID, m.db)
+	f.mtimefs = f.fset.MtimeFS(f.Filesystem())
 
 	// Create a parent dir with a certain owner/group.
 

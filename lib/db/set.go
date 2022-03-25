@@ -24,7 +24,6 @@ import (
 
 type FileSet struct {
 	folder string
-	fs     fs.Filesystem
 	db     *Lowlevel
 	meta   *metadataTracker
 
@@ -36,7 +35,7 @@ type FileSet struct {
 // continue iteration, false to stop.
 type Iterator func(f protocol.FileIntf) bool
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error) {
+func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
 	select {
 	case <-db.oneFileSetCreated:
 	default:
@@ -49,7 +48,6 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error)
 	}
 	s := &FileSet{
 		folder:      folder,
-		fs:          fs,
 		db:          db,
 		meta:        meta,
 		updateMutex: sync.NewMutex(),
@@ -405,7 +403,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	}
 }
 
-func (s *FileSet) MtimeFS() fs.Filesystem {
+func (s *FileSet) MtimeFS(filesystem fs.Filesystem) fs.Filesystem {
 	opStr := fmt.Sprintf("%s MtimeFS()", s.folder)
 	l.Debugf(opStr)
 	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
@@ -415,7 +413,7 @@ func (s *FileSet) MtimeFS() fs.Filesystem {
 		fatalError(err, opStr, s.db)
 	}
 	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeFS(s.fs, kv)
+	return fs.NewMtimeFS(filesystem, kv)
 }
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {

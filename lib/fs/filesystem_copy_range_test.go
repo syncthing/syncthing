@@ -9,7 +9,6 @@ package fs
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -257,7 +256,7 @@ func TestCopyRange(tttt *testing.T) {
 		paths = []string{""}
 	}
 	for _, path := range paths {
-		testPath, err := ioutil.TempDir(path, "")
+		testPath, err := os.MkdirTemp(path, "")
 		if err != nil {
 			tttt.Fatal(err)
 		}
@@ -273,7 +272,7 @@ func TestCopyRange(tttt *testing.T) {
 						tt.Run(testCase.name, func(t *testing.T) {
 							srcBuf := make([]byte, testCase.srcSize)
 							dstBuf := make([]byte, testCase.dstSize)
-							td, err := ioutil.TempDir(testPath, "")
+							td, err := os.MkdirTemp(testPath, "")
 							if err != nil {
 								t.Fatal(err)
 							}

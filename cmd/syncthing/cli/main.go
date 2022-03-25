@@ -9,7 +9,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -151,7 +151,7 @@ func parseFlags(c *preCli) error {
 		}
 	}
 	// We don't want kong to print anything nor os.Exit (e.g. on -h)
-	parser, err := kong.New(c, kong.Writers(ioutil.Discard, ioutil.Discard), kong.Exit(func(int) {}))
+	parser, err := kong.New(c, kong.Writers(io.Discard, io.Discard), kong.Exit(func(int) {}))
 	if err != nil {
 		return err
 	}

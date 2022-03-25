@@ -249,17 +249,22 @@ func IsInternal(file string) bool {
 	return false
 }
 
+var (
+	errPathInvalid           = errors.New("path is invalid")
+	errPathTraversingUpwards = errors.New("relative path traversing upwards (starting with ..)")
+)
+
 // Canonicalize checks that the file path is valid and returns it in the "canonical" form:
 // - /foo/bar -> foo/bar
 // - / -> "."
 func Canonicalize(file string) (string, error) {
-	pathSep := string(PathSeparator)
+	const pathSep = string(PathSeparator)
 
 	if strings.HasPrefix(file, pathSep+pathSep) {
 		// The relative path may pretend to be an absolute path within
 		// the root, but the double path separator on Windows implies
 		// something else and is out of spec.
-		return "", errNotRelative
+		return "", errPathInvalid
 	}
 
 	// The relative path should be clean from internal dotdots and similar
@@ -268,10 +273,10 @@ func Canonicalize(file string) (string, error) {
 
 	// It is not acceptable to attempt to traverse upwards.
 	if file == ".." {
-		return "", errNotRelative
+		return "", errPathTraversingUpwards
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {
-		return "", errNotRelative
+		return "", errPathTraversingUpwards
 	}
 
 	if strings.HasPrefix(file, pathSep) {

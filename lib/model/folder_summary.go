@@ -178,7 +178,11 @@ func (c *folderSummaryService) listenForUpdates(ctx context.Context) error {
 		// This loop needs to be fast so we don't miss too many events.
 
 		select {
-		case ev := <-sub.C():
+		case ev, ok := <-sub.C():
+			if !ok {
+				<-ctx.Done()
+				return ctx.Err()
+			}
 			c.processUpdate(ev)
 		case <-ctx.Done():
 			return ctx.Err()

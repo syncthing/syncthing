@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -76,7 +75,7 @@ func init() {
 }
 
 func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -215,7 +214,7 @@ func cleanupModelAndRemoveDir(m *testModel, dir string) {
 }
 
 func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
+	tmpDir, err := os.MkdirTemp("", "syncthing_testFolder-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
@@ -308,7 +307,7 @@ func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
 func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
 	t.Helper()
 	m.removeFolder(fcfg)
-	fset := newFileSet(t, fcfg.ID, fcfg.Filesystem(), m.db)
+	fset := newFileSet(t, fcfg.ID, m.db)
 	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
@@ -360,9 +359,9 @@ func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.D
 	return cfg
 }
 
-func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
+func newFileSet(t testing.TB, folder string, ldb *db.Lowlevel) *db.FileSet {
 	t.Helper()
-	fset, err := db.NewFileSet(folder, fs, ldb)
+	fset, err := db.NewFileSet(folder, ldb)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,6 @@ package api
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -230,6 +229,28 @@ func (c *configMuxBuilder) registerDefaultDevice(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerDefaultIgnores(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, c.cfg.DefaultIgnores())
+	})
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		var ignores config.Ignores
+		if err := unmarshalTo(r.Body, &ignores); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
+			cfg.Defaults.Ignores = ignores
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		c.finish(w, waiter)
+	})
+}
+
 func (c *configMuxBuilder) registerOptions(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
 		sendJSON(w, c.cfg.Options())
@@ -407,7 +428,7 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 
 // Unmarshals the content of the given body and stores it in to (i.e. to must be a pointer).
 func unmarshalTo(body io.ReadCloser, to interface{}) error {
-	bs, err := ioutil.ReadAll(body)
+	bs, err := io.ReadAll(body)
 	body.Close()
 	if err != nil {
 		return err

@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -206,7 +205,7 @@ func alterFiles(dir string) error {
 							return err
 						}
 						d1 := []byte("I used to be a dir: " + path)
-						err := ioutil.WriteFile(path, d1, 0644)
+						err := os.WriteFile(path, d1, 0644)
 						if err != nil {
 							return err
 						}
@@ -551,7 +550,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 }
 
 func symlinksSupported() bool {
-	tmp, err := ioutil.TempDir("", "symlink-test")
+	tmp, err := os.MkdirTemp("", "symlink-test")
 	if err != nil {
 		return false
 	}

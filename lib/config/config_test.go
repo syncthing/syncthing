@@ -13,7 +13,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -113,6 +112,9 @@ func TestDefaultValues(t *testing.T) {
 				AllowedNetworks: []string{},
 				Compression:     protocol.CompressionMetadata,
 				IgnoredFolders:  []ObservedFolder{},
+			},
+			Ignores: Ignores{
+				Lines: []string{},
 			},
 		},
 		IgnoredDevices: []ObservedDevice{},
@@ -502,7 +504,7 @@ func TestFolderPath(t *testing.T) {
 }
 
 func TestFolderCheckPath(t *testing.T) {
-	n, err := ioutil.TempDir("", "")
+	n, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,6 +597,41 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 }
 
+func TestWindowsLineEndings(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific")
+	}
+
+	dir, err := os.MkdirTemp("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "config.xml")
+	os.Remove(path)
+	defer os.Remove(path)
+
+	intCfg := New(device1)
+	cfg := wrap(path, intCfg, device1)
+	defer cfg.stop()
+
+	if err := cfg.Save(); err != nil {
+		t.Error(err)
+	}
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
@@ -643,8 +680,8 @@ func TestCopy(t *testing.T) {
 		t.Error("Config should have changed")
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
-		// ioutil.WriteFile("a", bsOrig, 0644)
-		// ioutil.WriteFile("b", bsCopy, 0644)
+		// os.WriteFile("a", bsOrig, 0644)
+		// os.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
 	}
 }
@@ -1266,7 +1303,7 @@ func copyToTmp(path string) (string, error) {
 		return "", err
 	}
 	defer orig.Close()
-	temp, err := ioutil.TempFile("", "syncthing-configTest-")
+	temp, err := os.CreateTemp("", "syncthing-configTest-")
 	if err != nil {
 		return "", err
 	}

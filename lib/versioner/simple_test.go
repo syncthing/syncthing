@@ -7,8 +7,8 @@
 package versioner
 
 import (
-	"io/ioutil"
 	"math"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -55,7 +55,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 		t.Skip("Test takes some time, skipping.")
 	}
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	//defer os.RemoveAll(dir)
 	if err != nil {
 		t.Error(err)

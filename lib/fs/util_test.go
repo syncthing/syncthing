@@ -117,3 +117,15 @@ func TestSanitizePathFuzz(t *testing.T) {
 		}
 	}
 }
+
+func benchmarkWindowsInvalidFilename(b *testing.B, name string) {
+	for i := 0; i < b.N; i++ {
+		WindowsInvalidFilename(name)
+	}
+}
+func BenchmarkWindowsInvalidFilenameValid(b *testing.B) {
+	benchmarkWindowsInvalidFilename(b, "License.txt.gz")
+}
+func BenchmarkWindowsInvalidFilenameNUL(b *testing.B) {
+	benchmarkWindowsInvalidFilename(b, "nul.txt.gz")
+}

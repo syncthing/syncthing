@@ -9,7 +9,7 @@ package discover
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -232,7 +232,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "POST" {
-		s.announce, _ = ioutil.ReadAll(r.Body)
+		s.announce, _ = io.ReadAll(r.Body)
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")

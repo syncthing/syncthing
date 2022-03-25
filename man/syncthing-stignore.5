@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Jan 30, 2022" "v1" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -89,8 +89,21 @@ any lower case character.
 .IP \(bu 2
 \fBBackslash\fP (\fB\e\fP) “escapes” a special character so that it loses its
 special meaning. For example, \fB\e{banana\e}\fP matches \fB{banana}\fP exactly
-and does not denote a set of alternatives as above. \fIEscaped characters
-are not supported on Windows.\fP
+and does not denote a set of alternatives as above.
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Escaped characters are not supported on Windows, where \fB\e\fP is the
+path separator. If you still need to match files that have square or
+curly brackets in their names, one possible workaround is to replace
+them with \fB?\fP, which will then match any character. For example,
+you can type \fB?banana?\fP to match both \fB[banana]\fP and
+\fB{banana}\fP, and so on.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .IP \(bu 2
 A pattern beginning with \fB/\fP matches in the root of the folder only.
 \fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
