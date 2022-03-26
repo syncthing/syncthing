@@ -1849,7 +1849,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
-	if errors.Cause(err) == f.ctx.Err() {
+	if errors.Is(err, f.ctx.Err()) {
 		// Error because the folder stopped - no point logging/tracking
 		return
 	}

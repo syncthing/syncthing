@@ -882,7 +882,7 @@ func (s *connectionStatusHandler) ConnectionStatus() map[string]ConnectionStatus
 }
 
 func (s *connectionStatusHandler) setConnectionStatus(address string, err error) {
-	if errors.Cause(err) == context.Canceled {
+	if errors.Is(err, context.Canceled) {
 		return
 	}
 
