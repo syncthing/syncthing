@@ -28,7 +28,7 @@
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Een externe opdracht regelt het versiebeheer. Hij moet het bestand verwijderen uit de gedeelde map. Als het pad naar de toepassing spaties bevat, moet dit tussen aanhalingstekens geplaatst worden.",
     "Anonymous Usage Reporting": "Anonieme gebruikersstatistieken",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Het formaat voor anonieme gebruikersrapporten is gewijzigd. Wilt u naar het nieuwe formaat overschakelen?",
-    "Apply": "Apply",
+    "Apply": "Toepassen",
     "Are you sure you want to continue?": "Weet u zeker dat u wilt doorgaan?",
     "Are you sure you want to override all remote changes?": "Weet u zeker dat u alle externe wijzigingen wilt overschrijven?",
     "Are you sure you want to permanently delete all these files?": "Weet u zeker dat u al deze bestanden permanent wilt verwijderen?",
