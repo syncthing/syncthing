@@ -2368,7 +2368,7 @@ angular.module('syncthing.core')
         $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Add footnote if sharing was not accepted on the remote device
-            if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
                 name += '&sup1;';
             }
             return name;
@@ -2409,7 +2409,7 @@ angular.module('syncthing.core')
         $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
             var label = $scope.folderLabel(folderID);
             // Add footnote if sharing was not accepted on the remote device
-            if ($scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
                 label += '&sup1;';
             }
             return label;
