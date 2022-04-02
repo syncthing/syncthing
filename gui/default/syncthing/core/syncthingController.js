@@ -2369,7 +2369,7 @@ angular.module('syncthing.core')
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Add footnote if sharing was not accepted on the remote device
             if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                name += '&sup1;';
+                name += '<sup>1</sup>';
             }
             return name;
         };
@@ -2410,7 +2410,7 @@ angular.module('syncthing.core')
             var label = $scope.folderLabel(folderID);
             // Add footnote if sharing was not accepted on the remote device
             if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                label += '&sup1;';
+                label += '<sup>1</sup>';
             }
             return label;
         };
