@@ -1038,7 +1038,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr {
-		data := map[string]interface{}{
+		data := map[string]string{
 			"folder": f.ID,
 		}
 		if prevErr != nil {
