@@ -1,7 +1,7 @@
 <div class="col-md-6 checkbox">
   <label for="sharedwith-{{id}}">
     <input id="sharedwith-{{id}}" ng-model="selected[id]" type="checkbox" />
-    <span tooltip data-original-title="{{id}}">{{label}}</span>
+    <span tooltip data-original-title="{{id}}" ng-bind-html="label" />
   </label>
 </div>
 <div class="col-md-6">
