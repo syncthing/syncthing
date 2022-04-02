@@ -533,7 +533,7 @@
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                         <td class="text-right">
-                          <span tooltip data-original-title="{{sharesFolder(folder)}} {{folderHasUnacceptedDevices(folder) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : ''}}" ng-bind-html="sharesFolder(folder)" />
+                          <span tooltip data-original-title="{{sharesFolder(folder)}} {{folderHasUnacceptedDevices(folder) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : ''}}" ng-bind-html="sharesFolder(folder)"></span>
                         </td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
@@ -836,8 +836,7 @@
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                         <td class="text-right">
-                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}} {{deviceHasUnacceptedFolders(deviceCfg) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : '' }}" ng-bind-html="sharedFolders(deviceCfg)" />
-                          </span>
+                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}} {{deviceHasUnacceptedFolders(deviceCfg) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : '' }}" ng-bind-html="sharedFolders(deviceCfg)"></span>
                         </td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
