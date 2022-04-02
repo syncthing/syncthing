@@ -34,6 +34,9 @@ import (
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
+// Arbitrary limit that triggers a warning on kqueue systems
+const kqueueItemCountThreshold = 10000
+
 type folder struct {
 	stateTracker
 	config.FolderConfiguration
@@ -81,6 +84,8 @@ type folder struct {
 
 	puller    puller
 	versioner versioner.Versioner
+
+	warnedKqueue bool
 }
 
 type syncRequest struct {
@@ -974,12 +979,16 @@ func (f *folder) startWatch() {
 func (f *folder) monitorWatch(ctx context.Context) {
 	failTimer := time.NewTimer(0)
 	aggrCtx, aggrCancel := context.WithCancel(ctx)
+	defer aggrCancel()
 	var err error
 	var eventChan <-chan fs.Event
 	var errChan <-chan error
 	warnedOutside := false
 	var lastWatch time.Time
 	pause := time.Minute
+	// Subscribe to folder summaries only on kqueue systems, to warn about potential high resource usage
+	var summarySub events.Subscription
+	var summaryChan <-chan events.Event
 	for {
 		select {
 		case <-failTimer.C:
@@ -997,6 +1006,10 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			}
 			lastWatch = time.Now()
 			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
+			if fs.WatchKqueue {
+				summarySub = f.evLogger.Subscribe(events.FolderCompletion)
+				summaryChan = summarySub.C()
+			}
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
 			var next time.Duration
@@ -1023,8 +1036,19 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			}
 			aggrCancel()
 			errChan = nil
+			if summarySub != nil {
+				summarySub.Unsubscribe()
+			}
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
+		case summary := <-summaryChan:
+			if !f.warnedKqueue && summary.Data.(map[string]interface{})["localTotalItems"].(int) > kqueueItemCountThreshold {
+				f.warnedKqueue = true
+				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
+			}
 		case <-ctx.Done():
+			if summarySub != nil {
+				summarySub.Unsubscribe()
+			}
 			return
 		}
 	}
