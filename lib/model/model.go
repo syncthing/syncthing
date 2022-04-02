@@ -3073,9 +3073,6 @@ func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	l.Debugf("Discarding pending device %v", device)
 	err := m.db.RemovePendingDevice(device)
 	if err != nil {
-		msg := "Failed to remove pending device entry"
-		l.Warnf("%v: %v", msg, err)
-		m.evLogger.Log(events.Failure, msg)
 		return err
 	}
 	removedPendingDevices := []map[string]string{
@@ -3096,9 +3093,6 @@ func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) er
 		l.Debugf("Discarding pending removed folder %s from all devices", folder)
 		err := m.db.RemovePendingFolder(folder)
 		if err != nil {
-			msg := "Failed to remove pending folder entry"
-			l.Warnf("%v: %v", msg, err)
-			m.evLogger.Log(events.Failure, msg)
 			return err
 		}
 		removedPendingFolders = []map[string]string{
@@ -3108,9 +3102,6 @@ func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) er
 		l.Debugf("Discarding pending folder %s from device %v", folder, device)
 		err := m.db.RemovePendingFolderForDevice(folder, device)
 		if err != nil {
-			msg := "Failed to remove pending folder entry"
-			l.Warnf("%v: %v", msg, err)
-			m.evLogger.Log(events.Failure, msg)
 			return err
 		}
 		removedPendingFolders = []map[string]string{
