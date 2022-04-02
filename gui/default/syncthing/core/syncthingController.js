@@ -2385,6 +2385,17 @@ angular.module('syncthing.core')
             return names.join(", ");
         };
 
+        $scope.folderHasUnacceptedDevices = function (folderCfg) {
+            for (var deviceID in $scope.completion) {
+                if (deviceID in $scope.devices
+                    && folderCfg.id in $scope.completion[deviceID]
+                    && !$scope.completion[deviceID][folderCfg.id].accepted) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         $scope.deviceFolders = function (deviceCfg) {
             var folders = [];
             $scope.folderList().forEach(function (folder) {
@@ -2421,6 +2432,19 @@ angular.module('syncthing.core')
                 labels.push($scope.folderLabelMarkUnaccepted(folderID, deviceCfg.deviceID));
             });
             return labels.join(', ');
+        };
+
+        $scope.deviceHasUnacceptedFolders = function (deviceCfg) {
+            if (!(deviceCfg.deviceID in $scope.completion)) {
+                return false;
+            }
+            for (var folderID in $scope.completion[deviceCfg.deviceID]) {
+                if (folderID in $scope.folders
+                    && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
+                    return true;
+                }
+            }
+            return false;
         };
 
         $scope.deleteFolder = function (id) {
