@@ -29,7 +29,7 @@ const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
-	Summary(folder string) (map[string]interface{}, error)
+	Summary(folder string) (*FolderSummary, error)
 	OnEventRequest()
 }
 
@@ -76,8 +76,56 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
-	var res = make(map[string]interface{})
+type FolderSummary struct {
+	Errors     int
+	PullErrors int // deprecated
+
+	Invalid string // deprecated
+
+	GlobalFiles       int
+	GlobalDirectories int
+	GlobalSymlinks    int
+	GlobalDeleted     int
+	GlobalBytes       int64
+	GlobalTotalItems  int
+
+	LocalFiles       int
+	LocalDirectories int
+	LocalSymlinks    int
+	LocalDeleted     int
+	LocalBytes       int64
+	LocalTotalItems  int
+
+	NeedFiles       int
+	NeedDirectories int
+	NeedSymlinks    int
+	NeedDeletes     int
+	NeedBytes       int64
+	NeedTotalItems  int
+
+	ReceiveOnlyChangedFiles       int
+	ReceiveOnlyChangedDirectories int
+	ReceiveOnlyChangedSymlinks    int
+	ReceiveOnlyChangedDeletes     int
+	ReceiveOnlyChangedBytes       int64
+	ReceiveOnlyTotalItems         int
+
+	InSyncFiles int
+	InSyncBytes int64
+
+	State        string
+	StateChanged time.Time
+	Error        string
+
+	Version  int64 // deprecated
+	Sequence int64
+
+	IgnorePatterns bool
+	WatchError     string
+}
+
+func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
+	var res = new(FolderSummary)
 
 	var local, global, need, ro db.Counts
 	var ourSeq, remoteSeq int64
@@ -101,14 +149,14 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 		return nil, err
 	}
 
-	res["errors"] = len(errors)
-	res["pullErrors"] = len(errors) // deprecated
+	res.Errors = len(errors)
+	res.PullErrors = len(errors) // deprecated
 
-	res["invalid"] = "" // Deprecated, retains external API for now
+	res.Invalid = "" // Deprecated, retains external API for now
 
-	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
+	res.GlobalFiles, res.GlobalDirectories, res.GlobalSymlinks, res.GlobalDeleted, res.GlobalBytes, res.GlobalTotalItems = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
+	res.LocalFiles, res.LocalDirectories, res.LocalSymlinks, res.LocalDeleted, res.LocalBytes, res.LocalTotalItems = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
 	fcfg, haveFcfg := c.cfg.Folder(folder)
 
@@ -122,41 +170,41 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
-	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
+	res.NeedFiles, res.NeedDirectories, res.NeedSymlinks, res.NeedDeletes, res.NeedBytes, res.NeedTotalItems = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
 	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type == config.FolderTypeReceiveEncrypted) {
 		// Add statistics for things that have changed locally in a receive
 		// only or receive encrypted folder.
-		res["receiveOnlyChangedFiles"] = ro.Files
-		res["receiveOnlyChangedDirectories"] = ro.Directories
-		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
-		res["receiveOnlyChangedDeletes"] = ro.Deleted
-		res["receiveOnlyChangedBytes"] = ro.Bytes
-		res["receiveOnlyTotalItems"] = ro.TotalItems()
+		res.ReceiveOnlyChangedFiles = ro.Files
+		res.ReceiveOnlyChangedDirectories = ro.Directories
+		res.ReceiveOnlyChangedSymlinks = ro.Symlinks
+		res.ReceiveOnlyChangedDeletes = ro.Deleted
+		res.ReceiveOnlyChangedBytes = ro.Bytes
+		res.ReceiveOnlyTotalItems = ro.TotalItems()
 	}
 
-	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
+	res.InSyncFiles, res.InSyncBytes = global.Files-need.Files, global.Bytes-need.Bytes
 
-	res["state"], res["stateChanged"], err = c.model.State(folder)
+	res.State, res.StateChanged, err = c.model.State(folder)
 	if err != nil {
-		res["error"] = err.Error()
+		res.Error = err.Error()
 	}
 
-	res["version"] = ourSeq + remoteSeq  // legacy
-	res["sequence"] = ourSeq + remoteSeq // new name
+	res.Version = ourSeq + remoteSeq  // legacy
+	res.Sequence = ourSeq + remoteSeq // new name
 
 	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)
-	res["ignorePatterns"] = false
+	res.IgnorePatterns = false
 	for _, line := range ignorePatterns {
 		if len(line) > 0 && !strings.HasPrefix(line, "//") {
-			res["ignorePatterns"] = true
+			res.IgnorePatterns = true
 			break
 		}
 	}
 
 	err = c.model.WatchError(folder)
 	if err != nil {
-		res["watchError"] = err.Error()
+		res.WatchError = err.Error()
 	}
 
 	return res, nil
@@ -322,6 +370,11 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	return res
 }
 
+type folderSummaryEventData struct {
+	Folder  string
+	Summary *FolderSummary
+}
+
 // sendSummary send the summary events for a single folder
 func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
@@ -330,9 +383,9 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	if err != nil {
 		return
 	}
-	c.evLogger.Log(events.FolderSummary, map[string]interface{}{
-		"folder":  folder,
-		"summary": data,
+	c.evLogger.Log(events.FolderSummary, folderSummaryEventData{
+		Folder:  folder,
+		Summary: data,
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {

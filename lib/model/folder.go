@@ -989,6 +989,10 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	// Subscribe to folder summaries only on kqueue systems, to warn about potential high resource usage
 	var summarySub events.Subscription
 	var summaryChan <-chan events.Event
+	if fs.WatchKqueue && !f.warnedKqueue {
+		summarySub = f.evLogger.Subscribe(events.FolderCompletion)
+		summaryChan = summarySub.C()
+	}
 	for {
 		select {
 		case <-failTimer.C:
@@ -1006,10 +1010,6 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			}
 			lastWatch = time.Now()
 			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
-			if fs.WatchKqueue {
-				summarySub = f.evLogger.Subscribe(events.FolderCompletion)
-				summaryChan = summarySub.C()
-			}
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
 			var next time.Duration
@@ -1036,17 +1036,18 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			}
 			aggrCancel()
 			errChan = nil
-			if summarySub != nil {
-				summarySub.Unsubscribe()
-			}
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
-		case summary := <-summaryChan:
-			if !f.warnedKqueue && summary.Data.(map[string]interface{})["localTotalItems"].(int) > kqueueItemCountThreshold {
+		case ev := <-summaryChan:
+			if data, ok := ev.Data.(folderSummaryEventData); !ok {
+				f.evLogger.Log(events.Failure, "Unexpected type of folder-summary event in folder.monitorWatch")
+			} else if data.Summary.LocalTotalItems > kqueueItemCountThreshold {
 				f.warnedKqueue = true
+				summarySub.Unsubscribe()
+				summaryChan = nil
 				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
 			}
 		case <-ctx.Done():
-			if summarySub != nil {
+			if summaryChan != nil {
 				summarySub.Unsubscribe()
 			}
 			return
