@@ -71,14 +71,27 @@ func (b *leveldbBackend) NewWriteTransaction(hooks ...CommitHook) (WriteTransact
 		rel.Release()
 		return nil, err // already wrapped
 	}
-	return &leveldbTransaction{
+
+	t := &leveldbTransaction{
 		leveldbSnapshot: snap,
 		ldb:             b.ldb,
 		batch:           new(leveldb.Batch),
 		rel:             rel,
-		commitHooks:     hooks,
-		inFlush:         false,
-	}, nil
+	}
+	t.flusher = &batchFlusher{
+		size:  func() int { return len(t.batch.Dump()) },
+		empty: func() bool { return t.batch.Len() == 0 },
+		writeAndReset: func() error {
+			if err := t.ldb.Write(t.batch, nil); err != nil {
+				return wrapLeveldbErr(err)
+			}
+			t.batch.Reset()
+			return nil
+		},
+		transaction: t,
+		commitHooks: hooks,
+	}
+	return t, nil
 }
 
 func (b *leveldbBackend) Close() error {
@@ -150,29 +163,28 @@ func (l leveldbSnapshot) Release() {
 // an actual leveldb transaction)
 type leveldbTransaction struct {
 	leveldbSnapshot
-	ldb         *leveldb.DB
-	batch       *leveldb.Batch
-	rel         *releaser
-	commitHooks []CommitHook
-	inFlush     bool
+	ldb     *leveldb.DB
+	batch   *leveldb.Batch
+	rel     *releaser
+	flusher *batchFlusher
 }
 
 func (t *leveldbTransaction) Delete(key []byte) error {
 	t.batch.Delete(key)
-	return t.checkFlush(dbFlushBatchMax)
+	return t.flusher.check(dbFlushBatchMax)
 }
 
 func (t *leveldbTransaction) Put(key, val []byte) error {
 	t.batch.Put(key, val)
-	return t.checkFlush(dbFlushBatchMax)
+	return t.flusher.check(dbFlushBatchMax)
 }
 
 func (t *leveldbTransaction) Checkpoint() error {
-	return t.checkFlush(dbFlushBatchMin)
+	return t.flusher.check(dbFlushBatchMin)
 }
 
 func (t *leveldbTransaction) Commit() error {
-	err := wrapLeveldbErr(t.flush())
+	err := wrapLeveldbErr(t.flusher.flush())
 	t.leveldbSnapshot.Release()
 	t.rel.Release()
 	return err
@@ -181,36 +193,6 @@ func (t *leveldbTransaction) Commit() error {
 func (t *leveldbTransaction) Release() {
 	t.leveldbSnapshot.Release()
 	t.rel.Release()
-}
-
-// checkFlush flushes and resets the batch if its size exceeds the given size.
-func (t *leveldbTransaction) checkFlush(size int) error {
-	// Hooks might put values in the database, which triggers a checkFlush which might trigger a flush,
-	// which might trigger the hooks.
-	// Don't recurse...
-	if t.inFlush || len(t.batch.Dump()) < size {
-		return nil
-	}
-	return t.flush()
-}
-
-func (t *leveldbTransaction) flush() error {
-	t.inFlush = true
-	defer func() { t.inFlush = false }()
-
-	for _, hook := range t.commitHooks {
-		if err := hook(t); err != nil {
-			return err
-		}
-	}
-	if t.batch.Len() == 0 {
-		return nil
-	}
-	if err := t.ldb.Write(t.batch, nil); err != nil {
-		return wrapLeveldbErr(err)
-	}
-	t.batch.Reset()
-	return nil
 }
 
 type leveldbIterator struct {

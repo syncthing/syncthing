@@ -11,17 +11,20 @@ import "testing"
 // testBackendBehavior is the generic test suite that must be fulfilled by
 // every backend implementation. It should be called by each implementation
 // as (part of) their test suite.
-func testBackendBehavior(t *testing.T, open func() Backend) {
+func testBackendBehavior(t *testing.T, open func() (Backend, error)) {
 	t.Run("WriteIsolation", func(t *testing.T) { testWriteIsolation(t, open) })
 	t.Run("DeleteNonexisten", func(t *testing.T) { testDeleteNonexistent(t, open) })
 	t.Run("IteratorClosedDB", func(t *testing.T) { testIteratorClosedDB(t, open) })
 }
 
-func testWriteIsolation(t *testing.T, open func() Backend) {
+func testWriteIsolation(t *testing.T, open func() (Backend, error)) {
 	// Values written during a transaction should not be read back, our
 	// updateGlobal depends on this.
 
-	db := open()
+	db, err := open()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
 	// Sanity check
@@ -41,13 +44,16 @@ func testWriteIsolation(t *testing.T, open func() Backend) {
 	}
 }
 
-func testDeleteNonexistent(t *testing.T, open func() Backend) {
+func testDeleteNonexistent(t *testing.T, open func() (Backend, error)) {
 	// Deleting a non-existent key is not an error
 
-	db := open()
+	db, err := open()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
-	err := db.Delete([]byte("a"))
+	err = db.Delete([]byte("a"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,8 +61,11 @@ func testDeleteNonexistent(t *testing.T, open func() Backend) {
 
 // Either creating the iterator or the .Error() method of the returned iterator
 // should return an error and IsClosed(err) == true.
-func testIteratorClosedDB(t *testing.T, open func() Backend) {
-	db := open()
+func testIteratorClosedDB(t *testing.T, open func() (Backend, error)) {
+	db, err := open()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_ = db.Put([]byte("a"), []byte("a"))
 

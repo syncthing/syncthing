@@ -8,7 +8,12 @@ package backend
 
 import (
 	"errors"
+	"os"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/locations"
 )
 
 // CommitHook is a function that is executed before a WriteTransaction is
@@ -126,11 +131,25 @@ const (
 )
 
 func Open(path string, tuning Tuning) (Backend, error) {
+	if os.Getenv("USE_PEBBLE") != "" {
+		l.Warnln("Using experimental pebble db")
+		if err := maybeCopyDatabase(path, strings.Replace(path, locations.PebbleDir, locations.LevelDBDir, 1), OpenPebble, OpenLevelDBRO); err != nil {
+			return nil, err
+		}
+		return OpenPebble(path)
+	}
+
+	if err := maybeCopyDatabase(path, strings.Replace(path, locations.LevelDBDir, locations.PebbleDir, 1), OpenLevelDBAuto, OpenPebble); err != nil {
+		return nil, err
+	}
 	return OpenLevelDB(path, tuning)
 }
 
-func OpenMemory() Backend {
-	return OpenLevelDBMemory()
+func OpenMemory() (Backend, error) {
+	if os.Getenv("USE_PEBBLE") != "" {
+		return OpenPebbleTemporary()
+	}
+	return OpenLevelDBMemory(), nil
 }
 
 var (
@@ -143,8 +162,9 @@ func IsNotFound(err error) bool { return errors.Is(err, errNotFound) }
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
-	wg   *closeWaitGroup
-	once sync.Once
+	wg       *closeWaitGroup
+	mut      sync.Mutex
+	released bool
 }
 
 func newReleaser(wg *closeWaitGroup) (*releaser, error) {
@@ -155,9 +175,19 @@ func newReleaser(wg *closeWaitGroup) (*releaser, error) {
 }
 
 func (r *releaser) Release() {
-	// We use the Once because we may get called multiple times from
-	// Commit() and deferred Release().
-	r.once.Do(r.wg.Done)
+	// We may get called multiple times from Commit() and deferred Release().
+	r.mut.Lock()
+	if !r.released {
+		r.wg.Done()
+		r.released = true
+	}
+	r.mut.Unlock()
+}
+
+func (r *releaser) Released() bool {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+	return r.released
 }
 
 // closeWaitGroup behaves just like a sync.WaitGroup, but does not require
@@ -184,4 +214,112 @@ func (cg *closeWaitGroup) CloseWait() {
 	cg.closed = true
 	cg.closeMut.Unlock()
 	cg.WaitGroup.Wait()
+}
+
+func (cg *closeWaitGroup) Closed() bool {
+	cg.closeMut.RLock()
+	defer cg.closeMut.RUnlock()
+	return cg.closed
+}
+
+type opener func(path string) (Backend, error)
+
+// maybeCopyDatabase copies the database if the destination doesn't exist
+// but the source does.
+func maybeCopyDatabase(toPath, fromPath string, toOpen, fromOpen opener) error {
+	if _, err := os.Lstat(toPath); !os.IsNotExist(err) {
+		// Destination database exists (or is otherwise unavailable), do not
+		// attempt to overwrite it.
+		return nil
+	}
+
+	if _, err := os.Lstat(fromPath); err != nil {
+		// Source database is not available, so nothing to copy
+		return nil
+	}
+
+	fromDB, err := fromOpen(fromPath)
+	if err != nil {
+		return err
+	}
+	defer fromDB.Close()
+
+	toDB, err := toOpen(toPath)
+	if err != nil {
+		// That's odd, but it will be handled & reported in the usual path
+		// so we can ignore it here.
+		return err
+	}
+	defer toDB.Close()
+
+	l.Infoln("Copying database for format conversion...")
+	if err := copyBackend(toDB, fromDB); err != nil {
+		return err
+	}
+
+	// Move the old database out of the way to mark it as migrated.
+	fromDB.Close()
+	_ = os.Rename(fromPath, fromPath+".migrated."+time.Now().Format("20060102150405"))
+	return nil
+}
+
+func copyBackend(to, from Backend) error {
+	srcIt, err := from.NewPrefixIterator(nil)
+	if err != nil {
+		return err
+	}
+	defer srcIt.Release()
+
+	dstTx, err := to.NewWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer dstTx.Release()
+
+	for srcIt.Next() {
+		if err := dstTx.Put(srcIt.Key(), srcIt.Value()); err != nil {
+			return err
+		}
+	}
+	if srcIt.Error() != nil {
+		return err
+	}
+	srcIt.Release()
+
+	return dstTx.Commit()
+}
+
+type batchFlusher struct {
+	size          func() int
+	empty         func() bool
+	writeAndReset func() error
+	inFlush       bool
+	commitHooks   []CommitHook
+	transaction   WriteTransaction
+}
+
+// check flushes and resets the batch if its size exceeds the given size.
+func (f *batchFlusher) check(size int) error {
+	// Hooks might put values in the database, which triggers a checkFlush which might trigger a flush,
+	// which might trigger the hooks.
+	// Don't recurse...
+	if f.inFlush || f.size() < size {
+		return nil
+	}
+	return f.flush()
+}
+
+func (f *batchFlusher) flush() error {
+	f.inFlush = true
+	defer func() { f.inFlush = false }()
+
+	for _, hook := range f.commitHooks {
+		if err := hook(f.transaction); err != nil {
+			return err
+		}
+	}
+	if f.empty() {
+		return nil
+	}
+	return f.writeAndReset()
 }

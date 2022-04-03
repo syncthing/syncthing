@@ -41,14 +41,18 @@ func writeJSONS(w io.Writer, db backend.Backend) {
 var _ = writeJSONS
 
 // openJSONS reads a JSON stream file into a backend DB
-func openJSONS(file string) (backend.Backend, error) {
+func openJSONS(t testing.TB, file string) (backend.Backend, error) {
+	t.Helper()
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
 	dec := json.NewDecoder(fd)
 
-	db := backend.OpenMemory()
+	db, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for {
 		var row map[string][]byte
@@ -78,7 +82,12 @@ func newLowlevel(t testing.TB, backend backend.Backend) *Lowlevel {
 }
 
 func newLowlevelMemory(t testing.TB) *Lowlevel {
-	return newLowlevel(t, backend.OpenMemory())
+	t.Helper()
+	backend, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return newLowlevel(t, backend)
 }
 
 func newFileSet(t testing.TB, folder string, db *Lowlevel) *FileSet {

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Syncthing Authors.
+// Copyright (C) 2022 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -8,6 +8,6 @@ package backend
 
 import "testing"
 
-func TestLevelDBBackendBehavior(t *testing.T) {
-	testBackendBehavior(t, func() (Backend, error) { return OpenLevelDBMemory(), nil })
+func TestPebbleBackendBehavior(t *testing.T) {
+	testBackendBehavior(t, OpenPebbleTemporary)
 }

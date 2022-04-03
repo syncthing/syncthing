@@ -155,7 +155,11 @@ type testModel struct {
 func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
-	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
+	b, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ldb, err := db.NewLowlevel(b, evLogger)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -71,7 +71,10 @@ func TestStartupFail(t *testing.T) {
 	}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
-	db := backend.OpenMemory()
+	db, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
 	app, err := New(cfg, db, events.NoopLogger, cert, Options{})
 	if err != nil {
 		t.Fatal(err)

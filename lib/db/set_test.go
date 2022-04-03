@@ -1882,7 +1882,12 @@ func newLowlevel(t testing.TB, backend backend.Backend) *db.Lowlevel {
 }
 
 func newLowlevelMemory(t testing.TB) *db.Lowlevel {
-	return newLowlevel(t, backend.OpenMemory())
+	t.Helper()
+	backend, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return newLowlevel(t, backend)
 }
 
 func newFileSet(t testing.TB, folder string, ll *db.Lowlevel) *db.FileSet {

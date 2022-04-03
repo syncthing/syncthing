@@ -3898,7 +3898,11 @@ func TestIssue6961(t *testing.T) {
 	// Always recalc/repair when opening a fileset.
 	m := newModel(t, wcfg, myID, "syncthing", "dev", nil)
 	m.db.Close()
-	m.db, err = db.NewLowlevel(backend.OpenMemory(), m.evLogger, db.WithRecheckInterval(time.Millisecond))
+	b, err := backend.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.db, err = db.NewLowlevel(b, m.evLogger, db.WithRecheckInterval(time.Millisecond))
 	if err != nil {
 		t.Fatal(err)
 	}

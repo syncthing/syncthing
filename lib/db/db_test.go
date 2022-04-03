@@ -31,7 +31,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 }
 
 func TestIgnoredFiles(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
+	ldb, err := openJSONS(t, "testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func init() {
 }
 
 func TestUpdate0to3(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
+	ldb, err := openJSONS(t, "testdata/v0.14.45-update0to3.db.jsons")
 
 	if err != nil {
 		t.Fatal(err)
@@ -533,7 +533,7 @@ func TestCheckGlobals(t *testing.T) {
 }
 
 func TestUpdateTo10(t *testing.T) {
-	ldb, err := openJSONS("./testdata/v1.4.0-updateTo10.json")
+	ldb, err := openJSONS(t, "./testdata/v1.4.0-updateTo10.json")
 	if err != nil {
 		t.Fatal(err)
 	}

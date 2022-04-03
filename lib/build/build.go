@@ -43,6 +43,7 @@ var (
 		"STHASHING",
 		"STNORESTART",
 		"STNOUPGRADE",
+		"USE_PEBBLE",
 	}
 )
 
