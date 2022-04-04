@@ -59,3 +59,5 @@ require (
 )
 
 go 1.16
+
+replace github.com/cockroachdb/pebble v0.0.0-20220322140401-833c64e250c6 => github.com/imsodin/pebble v0.0.0-20220404165107-f0ec4aa7d980
