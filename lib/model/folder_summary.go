@@ -76,56 +76,58 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
+// FolderSummary replaces the previously used map[string]interface{}, and needs
+// to keep the structure/naming for api backwards compatibility
 type FolderSummary struct {
-	Errors     int
-	PullErrors int // deprecated
+	Errors     int `json:"errors"`
+	PullErrors int `json:"pullErrors"` // deprecated
 
-	Invalid string // deprecated
+	Invalid string `json:"invalid"` // deprecated
 
-	GlobalFiles       int
-	GlobalDirectories int
-	GlobalSymlinks    int
-	GlobalDeleted     int
-	GlobalBytes       int64
-	GlobalTotalItems  int
+	GlobalFiles       int   `json:"globalFiles"`
+	GlobalDirectories int   `json:"globalDirectories"`
+	GlobalSymlinks    int   `json:"globalSymlinks"`
+	GlobalDeleted     int   `json:"globalDeleted"`
+	GlobalBytes       int64 `json:"globalBytes"`
+	GlobalTotalItems  int   `json:"globalTotalItems"`
 
-	LocalFiles       int
-	LocalDirectories int
-	LocalSymlinks    int
-	LocalDeleted     int
-	LocalBytes       int64
-	LocalTotalItems  int
+	LocalFiles       int   `json:"localFiles"`
+	LocalDirectories int   `json:"localDirectories"`
+	LocalSymlinks    int   `json:"localSymlinks"`
+	LocalDeleted     int   `json:"localDeleted"`
+	LocalBytes       int64 `json:"localBytes"`
+	LocalTotalItems  int   `json:"localTotalItems"`
 
-	NeedFiles       int
-	NeedDirectories int
-	NeedSymlinks    int
-	NeedDeletes     int
-	NeedBytes       int64
-	NeedTotalItems  int
+	NeedFiles       int   `json:"needFiles"`
+	NeedDirectories int   `json:"needDirectories"`
+	NeedSymlinks    int   `json:"needSymlinks"`
+	NeedDeletes     int   `json:"needDeletes"`
+	NeedBytes       int64 `json:"needBytes"`
+	NeedTotalItems  int   `json:"needTotalItems"`
 
-	ReceiveOnlyChangedFiles       int
-	ReceiveOnlyChangedDirectories int
-	ReceiveOnlyChangedSymlinks    int
-	ReceiveOnlyChangedDeletes     int
-	ReceiveOnlyChangedBytes       int64
-	ReceiveOnlyTotalItems         int
+	ReceiveOnlyChangedFiles       int   `json:"receiveOnlyChangedFiles"`
+	ReceiveOnlyChangedDirectories int   `json:"receiveOnlyChangedDirectories"`
+	ReceiveOnlyChangedSymlinks    int   `json:"receiveOnlyChangedSymlinks"`
+	ReceiveOnlyChangedDeletes     int   `json:"receiveOnlyChangedDeletes"`
+	ReceiveOnlyChangedBytes       int64 `json:"receiveOnlyChangedBytes"`
+	ReceiveOnlyTotalItems         int   `json:"receiveOnlyTotalItems"`
 
-	InSyncFiles int
-	InSyncBytes int64
+	InSyncFiles int   `json:"inSyncFiles"`
+	InSyncBytes int64 `json:"inSyncBytes"`
 
-	State        string
-	StateChanged time.Time
-	Error        string
+	State        string    `json:"state"`
+	StateChanged time.Time `json:"stateChanged"`
+	Error        string    `json:"error"`
 
-	Version  int64 // deprecated
-	Sequence int64
+	Version  int64 `json:"version"` // deprecated
+	Sequence int64 `json:"sequence"`
 
-	IgnorePatterns bool
-	WatchError     string
+	IgnorePatterns bool   `json:"ignorePatterns"`
+	WatchError     string `json:"watchError"`
 }
 
 func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
-	var res = new(FolderSummary)
+	res := new(FolderSummary)
 
 	var local, global, need, ro db.Counts
 	var ourSeq, remoteSeq int64
@@ -370,9 +372,9 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	return res
 }
 
-type folderSummaryEventData struct {
-	Folder  string
-	Summary *FolderSummary
+type FolderSummaryEventData struct {
+	Folder  string         `json:"folder"`
+	Summary *FolderSummary `json:"summary"`
 }
 
 // sendSummary send the summary events for a single folder
@@ -383,7 +385,7 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	if err != nil {
 		return
 	}
-	c.evLogger.Log(events.FolderSummary, folderSummaryEventData{
+	c.evLogger.Log(events.FolderSummary, FolderSummaryEventData{
 		Folder:  folder,
 		Summary: data,
 	})
