@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	loggermocks "github.com/syncthing/syncthing/lib/logger/mocks"
+	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -260,7 +261,7 @@ func TestAPIServiceRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -297,6 +298,12 @@ func TestAPIServiceRequests(t *testing.T) {
 			Code:   200,
 			Type:   "application/json",
 			Prefix: "null",
+		},
+		{
+			URL:    "/rest/db/status?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
 		},
 
 		// /rest/stats
@@ -466,14 +473,17 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Log("Testing", tc.URL, "...")
-		testHTTPRequest(t, baseURL, tc, testAPIKey)
+		t.Run(cases[0].URL, func(t *testing.T) {
+			testHTTPRequest(t, baseURL, tc, testAPIKey)
+		})
 	}
 }
 
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
+	t.Parallel()
+
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -608,7 +618,7 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	}
 	addrChan := make(chan string)
 	mockedSummary := &modelmocks.FolderSummaryService{}
-	mockedSummary.SummaryReturns(map[string]interface{}{"mocked": true}, nil)
+	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
