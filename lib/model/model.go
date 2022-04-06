@@ -2007,7 +2007,7 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	return fs.GetMtimeMapping(ffs.MtimeFS(fcfg.Filesystem()), file)
+	return fs.GetMtimeMapping(fcfg.MtimeFilesystem(ffs), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.

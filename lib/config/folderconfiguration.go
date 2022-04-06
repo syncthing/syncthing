@@ -16,6 +16,7 @@ import (
 
 	"github.com/shirou/gopsutil/v3/disk"
 
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
@@ -43,17 +44,23 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 }
 
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
+	return f.MtimeFilesystem(nil)
+}
+
+func (f FolderConfiguration) MtimeFilesystem(fset *db.FileSet) fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	var opts []fs.Option
+	opts := make([]fs.Option, 0, 3)
 	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
 		opts = append(opts, new(fs.OptionJunctionsAsDirs))
 	}
-	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
-		filesystem = fs.NewCaseFilesystem(filesystem)
+		opts = append(opts, new(fs.OptionDetectCaseConflicts))
 	}
-	return filesystem
+	if fset != nil {
+		opts = append(opts, fset.MtimeOption())
+	}
+	return fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {

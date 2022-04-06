@@ -202,10 +202,28 @@ var IsPathSeparator = os.IsPathSeparator
 // representation of those must be part of the returned string.
 type Option interface {
 	String() string
-	apply(Filesystem)
+	apply(Filesystem) Filesystem
 }
 
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
+	var caseOpt Option
+	var mtimeOpt Option
+	i := 0
+	for _, opt := range opts {
+		if caseOpt != nil && mtimeOpt != nil {
+			break
+		}
+		switch opt.(type) {
+		case *OptionDetectCaseConflicts:
+			caseOpt = opt
+		case *optionMtime:
+			mtimeOpt = opt
+		default:
+			opts[i] = opt
+			i++
+		}
+	}
+
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
@@ -219,6 +237,17 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 			uri:    uri,
 			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
 		}
+	}
+
+	// Case handling is the innermost, as any filesystem calls by wrappers should be case-resolved
+	if caseOpt != nil {
+		fs = caseOpt.apply(fs)
+	}
+
+	// mtime handling should happen inside walking, as filesystem calls while
+	// walking should be mtime-resoved too
+	if mtimeOpt != nil {
+		fs = mtimeOpt.apply(fs)
 	}
 
 	if l.ShouldDebug("walkfs") {
@@ -287,21 +316,6 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
-}
-
-// wrapFilesystem should always be used when wrapping a Filesystem.
-// It ensures proper wrapping order, which right now means:
-// `logFilesystem` needs to be the outermost wrapper for caller lookup.
-func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesystem {
-	logFs, ok := fs.(*logFilesystem)
-	if ok {
-		fs = logFs.Filesystem
-	}
-	fs = wrapFn(fs)
-	if ok {
-		fs = &logFilesystem{fs}
-	}
-	return fs
 }
 
 // unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.

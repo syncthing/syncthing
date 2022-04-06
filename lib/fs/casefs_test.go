@@ -34,8 +34,12 @@ func TestRealCase(t *testing.T) {
 	})
 }
 
+func newCaseFilesystem(fsys Filesystem) *caseFilesystem {
+	return globalCaseFilesystemRegistry.get(fsys).(*caseFilesystem)
+}
+
 func testRealCase(t *testing.T, fsys Filesystem) {
-	testFs := NewCaseFilesystem(fsys).(*caseFilesystem)
+	testFs := newCaseFilesystem(fsys)
 	comps := []string{"Foo", "bar", "BAZ", "bAs"}
 	path := filepath.Join(comps...)
 	testFs.MkdirAll(filepath.Join(comps[:len(comps)-1]...), 0777)
@@ -86,7 +90,7 @@ func TestRealCaseSensitive(t *testing.T) {
 }
 
 func testRealCaseSensitive(t *testing.T, fsys Filesystem) {
-	testFs := NewCaseFilesystem(fsys).(*caseFilesystem)
+	testFs := newCaseFilesystem(fsys)
 
 	names := make([]string, 2)
 	names[0] = "foo"
@@ -139,7 +143,7 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 		sensitive = false
 	}
 
-	testFs := NewCaseFilesystem(fsys)
+	testFs := newCaseFilesystem(fsys)
 	_, err = testFs.Stat("FOO")
 	if sensitive {
 		if IsNotExist(err) {

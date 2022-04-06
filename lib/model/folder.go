@@ -108,7 +108,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID:       model.shortID,
 		fset:          fset,
 		ignores:       ignores,
-		mtimefs:       fset.MtimeFS(cfg.Filesystem()),
+		mtimefs:       cfg.MtimeFilesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 

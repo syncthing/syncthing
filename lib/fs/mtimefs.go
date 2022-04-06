@@ -33,20 +33,34 @@ func WithCaseInsensitivity(v bool) MtimeFSOption {
 	}
 }
 
-// NewMtimeFS returns a filesystem with nanosecond mtime precision, regardless
+// OptionMtime returns a filesystem with nanosecond mtime precision, regardless
 // of what shenanigans the underlying filesystem gets up to.
-func NewMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) Filesystem {
-	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
-		f := &mtimeFS{
-			Filesystem: underlying,
-			chtimes:    underlying.Chtimes, // for mocking it out in the tests
-			db:         db,
-		}
-		for _, opt := range options {
-			opt(f)
-		}
-		return f
-	})
+type optionMtime struct {
+	db      database
+	options []MtimeFSOption
+}
+
+func NewMtimeOption(db database, options ...MtimeFSOption) Option {
+	return &optionMtime{
+		db:      db,
+		options: options,
+	}
+}
+
+func (o *optionMtime) apply(fs Filesystem) Filesystem {
+	f := &mtimeFS{
+		Filesystem: fs,
+		chtimes:    fs.Chtimes, // for mocking it out in the tests
+		db:         o.db,
+	}
+	for _, opt := range o.options {
+		opt(f)
+	}
+	return f
+}
+
+func (_ *optionMtime) String() string {
+	return "mtime"
 }
 
 func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
@@ -102,25 +116,6 @@ func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 	}
 
 	return info, nil
-}
-
-func (f *mtimeFS) Walk(root string, walkFn WalkFunc) error {
-	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
-		if info != nil {
-			mtimeMapping, loadErr := f.load(path)
-			if loadErr != nil && err == nil {
-				// The iterator gets to deal with the error
-				err = loadErr
-			}
-			if mtimeMapping.Real == info.ModTime() {
-				info = mtimeFileInfo{
-					FileInfo: info,
-					mtime:    mtimeMapping.Virtual,
-				}
-			}
-		}
-		return walkFn(path, info, err)
-	})
 }
 
 func (f *mtimeFS) Create(name string) (File, error) {
