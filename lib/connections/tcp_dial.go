@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -28,6 +29,7 @@ func init() {
 
 type tcpDialer struct {
 	commonDialer
+	registry *registry.Registry
 }
 
 func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
@@ -35,7 +37,7 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	conn, err := dialer.DialContextReusePort(timeoutCtx, uri.Scheme, uri.Host)
+	conn, err := dialer.DialContextReusePortFunc(d.registry)(timeoutCtx, uri.Scheme, uri.Host)
 	if err != nil {
 		return internalConn{}, err
 	}
@@ -62,12 +64,15 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 
 type tcpDialerFactory struct{}
 
-func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
-	return &tcpDialer{commonDialer{
-		trafficClass:      opts.TrafficClass,
-		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
-		tlsCfg:            tlsCfg,
-	}}
+func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, registry *registry.Registry) genericDialer {
+	return &tcpDialer{
+		commonDialer: commonDialer{
+			trafficClass:      opts.TrafficClass,
+			reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+			tlsCfg:            tlsCfg,
+		},
+		registry: registry,
+	}
 }
 
 func (tcpDialerFactory) Priority() int {
