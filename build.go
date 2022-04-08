@@ -883,7 +883,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 
 func updateDependencies() {
 	runPrint(goCmd, "get", "-u", "./cmd/...")
-	runPrint(goCmd, "mod", "tidy", "-go=1.16", "-compat=1.16")
+	runPrint(goCmd, "mod", "tidy", "-go=1.17", "-compat=1.17")
 
 	// We might have updated the protobuf package and should regenerate to match.
 	proto()
