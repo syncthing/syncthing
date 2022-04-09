@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -160,6 +161,7 @@ type service struct {
 	limiter              *limiter
 	natService           *nat.Service
 	evLogger             events.Logger
+	registry             *registry.Registry
 
 	dialNow           chan struct{}
 	dialNowDevices    map[protocol.DeviceID]struct{}
@@ -170,7 +172,7 @@ type service struct {
 	listenerTokens map[string]suture.ServiceToken
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry) Service {
 	spec := svcutil.SpecWithInfoLogger(l)
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
@@ -187,6 +189,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		limiter:              newLimiter(myID, cfg),
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
+		registry:             registry,
 
 		dialNowDevicesMut: sync.NewMutex(),
 		dialNow:           make(chan struct{}, 1),
@@ -655,7 +658,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			continue
 		}
 
-		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
+		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry)
 		nextDialAt.set(deviceID, addr, now.Add(dialer.RedialFrequency()))
 
 		// For LAN addresses, increase the priority so that we
@@ -755,7 +758,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 
 	l.Debugln("Starting listener", uri)
 
-	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
+	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService, s.registry)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 
 	// Retrying a listener many times in rapid succession is unlikely to help,
