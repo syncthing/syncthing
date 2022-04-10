@@ -133,23 +133,13 @@ func OpenMemory() Backend {
 	return OpenLevelDBMemory()
 }
 
-type errClosed struct{}
+var (
+	errClosed   = errors.New("database is closed")
+	errNotFound = errors.New("key not found")
+)
 
-func (*errClosed) Error() string { return "database is closed" }
-
-type errNotFound struct{}
-
-func (*errNotFound) Error() string { return "key not found" }
-
-func IsClosed(err error) bool {
-	e := &errClosed{}
-	return errors.As(err, &e)
-}
-
-func IsNotFound(err error) bool {
-	e := &errNotFound{}
-	return errors.As(err, &e)
-}
+func IsClosed(err error) bool   { return errors.Is(err, errClosed) }
+func IsNotFound(err error) bool { return errors.Is(err, errNotFound) }
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
@@ -183,7 +173,7 @@ func (cg *closeWaitGroup) Add(i int) error {
 	cg.closeMut.RLock()
 	defer cg.closeMut.RUnlock()
 	if cg.closed {
-		return &errClosed{}
+		return errClosed
 	}
 	cg.WaitGroup.Add(i)
 	return nil

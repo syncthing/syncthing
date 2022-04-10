@@ -9,8 +9,10 @@ package syncthing
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
 )
 
 // The verbose logging service subscribes to events and prints these in
@@ -45,6 +47,8 @@ func (s *verboseService) Serve(ctx context.Context) error {
 		}
 	}
 }
+
+var folderSummaryRemoveDeprecatedRe = regexp.MustCompile(`(Invalid|IgnorePatterns|StateChanged):\S+\s?`)
 
 func (s *verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
@@ -116,15 +120,8 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", data["folder"], data["device"], data["completion"])
 
 	case events.FolderSummary:
-		data := ev.Data.(map[string]interface{})
-		sum := make(map[string]interface{})
-		for k, v := range data["summary"].(map[string]interface{}) {
-			if k == "invalid" || k == "ignorePatterns" || k == "stateChanged" {
-				continue
-			}
-			sum[k] = v
-		}
-		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], sum)
+		data := ev.Data.(model.FolderSummaryEventData)
+		return folderSummaryRemoveDeprecatedRe.ReplaceAllString(fmt.Sprintf("Summary for folder %q is %+v", data.Folder, data.Summary), "")
 
 	case events.FolderScanProgress:
 		data := ev.Data.(map[string]interface{})

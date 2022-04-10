@@ -23,6 +23,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -447,7 +448,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	natSvc := nat.NewService(deviceId, wcfg)
 	conns := make(chan internalConn, 1)
 	fmt.Println("listening", uri)
-	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc)
+	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc, registry.New())
 	supervisor.Add(listenSvc)
 
 	var addr *url.URL
@@ -466,7 +467,8 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	if err != nil {
 		b.Fatal(err)
 	}
-	dialer := df.New(cfg.Options, tlsCfg)
+	// Purposely using a different registry: Don't want to reuse port between dialer and listener on the same device
+	dialer := df.New(cfg.Options, tlsCfg, registry.New())
 
 	// Relays might take some time to register the device, so dial multiple times
 	fmt.Println("dialing", addr)

@@ -29,7 +29,7 @@ const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
-	Summary(folder string) (map[string]interface{}, error)
+	Summary(folder string) (*FolderSummary, error)
 	OnEventRequest()
 }
 
@@ -76,8 +76,58 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
-	var res = make(map[string]interface{})
+// FolderSummary replaces the previously used map[string]interface{}, and needs
+// to keep the structure/naming for api backwards compatibility
+type FolderSummary struct {
+	Errors     int `json:"errors"`
+	PullErrors int `json:"pullErrors"` // deprecated
+
+	Invalid string `json:"invalid"` // deprecated
+
+	GlobalFiles       int   `json:"globalFiles"`
+	GlobalDirectories int   `json:"globalDirectories"`
+	GlobalSymlinks    int   `json:"globalSymlinks"`
+	GlobalDeleted     int   `json:"globalDeleted"`
+	GlobalBytes       int64 `json:"globalBytes"`
+	GlobalTotalItems  int   `json:"globalTotalItems"`
+
+	LocalFiles       int   `json:"localFiles"`
+	LocalDirectories int   `json:"localDirectories"`
+	LocalSymlinks    int   `json:"localSymlinks"`
+	LocalDeleted     int   `json:"localDeleted"`
+	LocalBytes       int64 `json:"localBytes"`
+	LocalTotalItems  int   `json:"localTotalItems"`
+
+	NeedFiles       int   `json:"needFiles"`
+	NeedDirectories int   `json:"needDirectories"`
+	NeedSymlinks    int   `json:"needSymlinks"`
+	NeedDeletes     int   `json:"needDeletes"`
+	NeedBytes       int64 `json:"needBytes"`
+	NeedTotalItems  int   `json:"needTotalItems"`
+
+	ReceiveOnlyChangedFiles       int   `json:"receiveOnlyChangedFiles"`
+	ReceiveOnlyChangedDirectories int   `json:"receiveOnlyChangedDirectories"`
+	ReceiveOnlyChangedSymlinks    int   `json:"receiveOnlyChangedSymlinks"`
+	ReceiveOnlyChangedDeletes     int   `json:"receiveOnlyChangedDeletes"`
+	ReceiveOnlyChangedBytes       int64 `json:"receiveOnlyChangedBytes"`
+	ReceiveOnlyTotalItems         int   `json:"receiveOnlyTotalItems"`
+
+	InSyncFiles int   `json:"inSyncFiles"`
+	InSyncBytes int64 `json:"inSyncBytes"`
+
+	State        string    `json:"state"`
+	StateChanged time.Time `json:"stateChanged"`
+	Error        string    `json:"error"`
+
+	Version  int64 `json:"version"` // deprecated
+	Sequence int64 `json:"sequence"`
+
+	IgnorePatterns bool   `json:"ignorePatterns"`
+	WatchError     string `json:"watchError"`
+}
+
+func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
+	res := new(FolderSummary)
 
 	var local, global, need, ro db.Counts
 	var ourSeq, remoteSeq int64
@@ -101,14 +151,14 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 		return nil, err
 	}
 
-	res["errors"] = len(errors)
-	res["pullErrors"] = len(errors) // deprecated
+	res.Errors = len(errors)
+	res.PullErrors = len(errors) // deprecated
 
-	res["invalid"] = "" // Deprecated, retains external API for now
+	res.Invalid = "" // Deprecated, retains external API for now
 
-	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
+	res.GlobalFiles, res.GlobalDirectories, res.GlobalSymlinks, res.GlobalDeleted, res.GlobalBytes, res.GlobalTotalItems = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
+	res.LocalFiles, res.LocalDirectories, res.LocalSymlinks, res.LocalDeleted, res.LocalBytes, res.LocalTotalItems = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
 	fcfg, haveFcfg := c.cfg.Folder(folder)
 
@@ -122,41 +172,41 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
-	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
+	res.NeedFiles, res.NeedDirectories, res.NeedSymlinks, res.NeedDeletes, res.NeedBytes, res.NeedTotalItems = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
 	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type == config.FolderTypeReceiveEncrypted) {
 		// Add statistics for things that have changed locally in a receive
 		// only or receive encrypted folder.
-		res["receiveOnlyChangedFiles"] = ro.Files
-		res["receiveOnlyChangedDirectories"] = ro.Directories
-		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
-		res["receiveOnlyChangedDeletes"] = ro.Deleted
-		res["receiveOnlyChangedBytes"] = ro.Bytes
-		res["receiveOnlyTotalItems"] = ro.TotalItems()
+		res.ReceiveOnlyChangedFiles = ro.Files
+		res.ReceiveOnlyChangedDirectories = ro.Directories
+		res.ReceiveOnlyChangedSymlinks = ro.Symlinks
+		res.ReceiveOnlyChangedDeletes = ro.Deleted
+		res.ReceiveOnlyChangedBytes = ro.Bytes
+		res.ReceiveOnlyTotalItems = ro.TotalItems()
 	}
 
-	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
+	res.InSyncFiles, res.InSyncBytes = global.Files-need.Files, global.Bytes-need.Bytes
 
-	res["state"], res["stateChanged"], err = c.model.State(folder)
+	res.State, res.StateChanged, err = c.model.State(folder)
 	if err != nil {
-		res["error"] = err.Error()
+		res.Error = err.Error()
 	}
 
-	res["version"] = ourSeq + remoteSeq  // legacy
-	res["sequence"] = ourSeq + remoteSeq // new name
+	res.Version = ourSeq + remoteSeq  // legacy
+	res.Sequence = ourSeq + remoteSeq // new name
 
 	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)
-	res["ignorePatterns"] = false
+	res.IgnorePatterns = false
 	for _, line := range ignorePatterns {
 		if len(line) > 0 && !strings.HasPrefix(line, "//") {
-			res["ignorePatterns"] = true
+			res.IgnorePatterns = true
 			break
 		}
 	}
 
 	err = c.model.WatchError(folder)
 	if err != nil {
-		res["watchError"] = err.Error()
+		res.WatchError = err.Error()
 	}
 
 	return res, nil
@@ -322,6 +372,11 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	return res
 }
 
+type FolderSummaryEventData struct {
+	Folder  string         `json:"folder"`
+	Summary *FolderSummary `json:"summary"`
+}
+
 // sendSummary send the summary events for a single folder
 func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
@@ -330,9 +385,9 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	if err != nil {
 		return
 	}
-	c.evLogger.Log(events.FolderSummary, map[string]interface{}{
-		"folder":  folder,
-		"summary": data,
+	c.evLogger.Log(events.FolderSummary, FolderSummaryEventData{
+		Folder:  folder,
+		Summary: data,
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {

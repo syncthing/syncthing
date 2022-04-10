@@ -177,15 +177,13 @@ var (
 )
 
 var (
-	errDeviceUnknown     = errors.New("unknown device")
-	errDevicePaused      = errors.New("device is paused")
-	errDeviceIgnored     = errors.New("device is ignored")
-	errDeviceRemoved     = errors.New("device has been removed")
-	ErrFolderPaused      = errors.New("folder is paused")
-	ErrFolderNotRunning  = errors.New("folder is not running")
-	ErrFolderMissing     = errors.New("no such folder")
-	errNetworkNotAllowed = errors.New("network not allowed")
-	errNoVersioner       = errors.New("folder has no versioner")
+	errDeviceUnknown    = errors.New("unknown device")
+	errDevicePaused     = errors.New("device is paused")
+	errDeviceRemoved    = errors.New("device has been removed")
+	ErrFolderPaused     = errors.New("folder is paused")
+	ErrFolderNotRunning = errors.New("folder is not running")
+	ErrFolderMissing    = errors.New("no such folder")
+	errNoVersioner      = errors.New("folder has no versioner")
 	// errors about why a connection is closed
 	errReplacingConnection                = errors.New("replacing connection")
 	errStopped                            = errors.New("Syncthing is being stopped")
@@ -1006,9 +1004,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	return progress, queued, rest, nil
 }
 
-// RemoteNeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// RemoteNeedFolderFiles returns paginated list of currently needed files for a
+// remote device to become synced with a folder.
 func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
@@ -2115,12 +2112,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
 func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.Hello) error {
-	if m.cfg.IgnoredDevice(remoteID) {
-		return errDeviceIgnored
-	}
-
-	cfg, ok := m.cfg.Device(remoteID)
-	if !ok {
+	if _, ok := m.cfg.Device(remoteID); !ok {
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
@@ -2139,21 +2131,6 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		})
 		return errDeviceUnknown
 	}
-
-	if cfg.Paused {
-		return errDevicePaused
-	}
-
-	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-		// The connection is not from an allowed network.
-		return errNetworkNotAllowed
-	}
-
-	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
-		// We're not allowed to accept any more connections.
-		return errConnLimitReached
-	}
-
 	return nil
 }
 

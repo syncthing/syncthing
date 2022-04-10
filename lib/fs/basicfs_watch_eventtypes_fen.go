@@ -12,7 +12,7 @@ package fs
 import "github.com/syncthing/notify"
 
 const (
-	subEventMask  = notify.Create | notify.FileModified | notify.FileRenameFrom | notify.FileDelete | notify.FileRenameTo
+	subEventMask  = notify.Create | notify.FileModified | notify.FileRenameFrom | notify.FileDelete | notify.FileRenameTo | notify.FileNoFollow
 	permEventMask = notify.FileAttrib
 	rmEventMask   = notify.FileDelete | notify.FileRenameFrom
 )
