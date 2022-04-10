@@ -27,13 +27,13 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Jan 30, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Apr 02, 2022" "v1.19.1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
 .sp
 Syncthing provides a simple long polling interface for exposing events from the
-core utility towards a GUI. To receive events, see events\-get\&.
+core utility towards a GUI. To receive events, see /rest/events\-get\&.
 .SH EVENT STRUCTURE
 .sp
 Each event is represented by an object similar to the following:
@@ -215,10 +215,10 @@ Emitted when a device was paused.
 .fi
 .UNINDENT
 .UNINDENT
-.SS DeviceRejected
+.SS DeviceRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pending\-devices\-changed event instead.
+the replacement pendingdeviceschanged event instead.
 
 .sp
 Emitted when there is a connection from a device we are not configured
@@ -400,7 +400,13 @@ device.
     "data": {
         "completion": 100,
         "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU",
-        "folder": "default"
+        "folder": "default",
+        "globalBytes": 17,
+        "globalItems": 4,
+        "needBytes": 0,
+        "needDeletes": 0,
+        "needItems": 0,
+        "sequence": 12
     }
 }
 .ft P
@@ -470,10 +476,10 @@ of a folder.  Sent repeatedly for each changed folder.
 .fi
 .UNINDENT
 .UNINDENT
-.SS FolderRejected
+.SS FolderRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pending\-folders\-changed event instead.
+the replacement pendingfolderschanged event instead.
 
 .sp
 Emitted when a device sends index information for a folder we do not
@@ -582,6 +588,32 @@ state.
             "version": 0
         }
     }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS FolderWatchStateChanged
+.sp
+The \fBFolderWatchStateChanged\fP event is emitted when a folder’s watcher routine
+encounters a new error, or when a previous error disappeared after retrying.
+The event contains the ID of the affected folder and textual error messages
+describing the previous (\fBfrom\fP) and the updated (\fBto\fP) error conditions.
+If there was no error in either of these, the respective field is omitted.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 123,
+  "type": "FolderWatchStateChanged",
+  "time": "2022\-03\-14T12:34:56.890000000+01:00",
+  "data": {
+    "folder": "default",
+    "from": "Something bad happened.",
+    "to": "Something worse happened."
+  }
 }
 .ft P
 .fi
@@ -732,8 +764,16 @@ This event is emitted when a listen address changes.
 .sp
 Generated upon scan whenever the local disk has discovered an updated file from the
 previous scan.  This does \fInot\fP include events that are discovered and copied from
-other devices (remote\-change\-detected), only files that were changed on the
+other devices (remotechangedetected), only files that were changed on the
 local filesystem.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This event is not included in /rest/events\-get endpoint without
+a mask specified, but needs to be selected explicitly.
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -889,7 +929,15 @@ longer pending for any device.
 .SS RemoteChangeDetected
 .sp
 Generated upon scan whenever a file is locally updated due to a remote change.
-Files that are updated locally produce a local\-change\-detected event.
+Files that are updated locally produce a localchangedetected event.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This event is not included in /rest/events\-get endpoint without
+a mask specified, but needs to be selected explicitly.
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp

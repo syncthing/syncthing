@@ -1264,7 +1264,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	// Hope that it's usually in the same folder, so start with that one.
 	folders := []string{f.folderID}
 	for folder, cfg := range f.model.cfg.Folders() {
-		folderFilesystems[folder] = cfg.Filesystem()
+		folderFilesystems[folder] = cfg.Filesystem(nil)
 		if folder != f.folderID {
 			folders = append(folders, folder)
 		}
@@ -1849,7 +1849,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
-	if errors.Cause(err) == f.ctx.Err() {
+	if errors.Is(err, f.ctx.Err()) {
 		// Error because the folder stopped - no point logging/tracking
 		return
 	}

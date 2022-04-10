@@ -8,14 +8,14 @@ package pmp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/jackpal/gateway"
-	"github.com/jackpal/go-nat-pmp"
-	"github.com/pkg/errors"
+	natpmp "github.com/jackpal/go-nat-pmp"
 
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/util"
@@ -50,7 +50,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 		return ierr
 	})
 	if err != nil {
-		if errors.Cause(err) == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if strings.Contains(err.Error(), "Timed out") {

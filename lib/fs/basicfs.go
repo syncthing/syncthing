@@ -27,12 +27,13 @@ var (
 
 type OptionJunctionsAsDirs struct{}
 
-func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
+func (o *OptionJunctionsAsDirs) apply(fs Filesystem) Filesystem {
 	if basic, ok := fs.(*BasicFilesystem); !ok {
 		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
 	} else {
 		basic.junctionsAsDirs = true
 	}
+	return fs
 }
 
 func (o *OptionJunctionsAsDirs) String() string {

@@ -177,15 +177,13 @@ var (
 )
 
 var (
-	errDeviceUnknown     = errors.New("unknown device")
-	errDevicePaused      = errors.New("device is paused")
-	errDeviceIgnored     = errors.New("device is ignored")
-	errDeviceRemoved     = errors.New("device has been removed")
-	ErrFolderPaused      = errors.New("folder is paused")
-	ErrFolderNotRunning  = errors.New("folder is not running")
-	ErrFolderMissing     = errors.New("no such folder")
-	errNetworkNotAllowed = errors.New("network not allowed")
-	errNoVersioner       = errors.New("folder has no versioner")
+	errDeviceUnknown    = errors.New("unknown device")
+	errDevicePaused     = errors.New("device is paused")
+	errDeviceRemoved    = errors.New("device has been removed")
+	ErrFolderPaused     = errors.New("folder is paused")
+	ErrFolderNotRunning = errors.New("folder is not running")
+	ErrFolderMissing    = errors.New("no such folder")
+	errNoVersioner      = errors.New("folder has no versioner")
 	// errors about why a connection is closed
 	errReplacingConnection                = errors.New("replacing connection")
 	errStopped                            = errors.New("Syncthing is being stopped")
@@ -334,7 +332,7 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 
 // Need to hold lock on m.fmut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
+	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			l.Warnln("Loading ignores:", err)
@@ -398,7 +396,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	// These are our metadata files, and they should always be hidden.
-	ffs := cfg.Filesystem()
+	ffs := cfg.Filesystem(nil)
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
@@ -430,7 +428,7 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	}
 
 	// This is a bit of a hack.
-	ffs := cfg.Filesystem()
+	ffs := cfg.Filesystem(nil)
 	if ffs.Type() != fs.FilesystemTypeBasic {
 		return
 	}
@@ -480,7 +478,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	if isPathUnique {
 		// Remove (if empty and removable) or move away (if non-empty or
 		// otherwise not removable) Syncthing-specific marker files.
-		fs := cfg.Filesystem()
+		fs := cfg.Filesystem(nil)
 		if err := fs.Remove(config.DefaultMarkerName); err != nil {
 			moved := config.DefaultMarkerName + time.Now().Format(".removed-20060102-150405")
 			_ = fs.Rename(config.DefaultMarkerName, moved)
@@ -1006,9 +1004,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	return progress, queued, rest, nil
 }
 
-// RemoteNeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// RemoteNeedFolderFiles returns paginated list of currently needed files for a
+// remote device to become synced with a folder.
 func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
@@ -1842,7 +1839,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 	// Grab the FS after limiting, as it causes I/O and we want to minimize
 	// the race time between the symlink check and the read.
 
-	folderFs := folderCfg.Filesystem()
+	folderFs := folderCfg.Filesystem(nil)
 
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
@@ -2008,7 +2005,7 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	return fs.GetMtimeMapping(ffs.MtimeFS(fcfg.Filesystem()), file)
+	return fs.GetMtimeMapping(fcfg.Filesystem(ffs), file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
@@ -2042,7 +2039,7 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(cfg.Filesystem())
+		ignores = ignore.New(cfg.Filesystem(nil))
 	}
 
 	err := ignores.Load(".stignore")
@@ -2097,7 +2094,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 		return err
 	}
 
-	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
+	if err := ignore.WriteIgnores(cfg.Filesystem(nil), ".stignore", content); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
@@ -2115,12 +2112,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
 func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.Hello) error {
-	if m.cfg.IgnoredDevice(remoteID) {
-		return errDeviceIgnored
-	}
-
-	cfg, ok := m.cfg.Device(remoteID)
-	if !ok {
+	if _, ok := m.cfg.Device(remoteID); !ok {
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
@@ -2139,21 +2131,6 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		})
 		return errDeviceUnknown
 	}
-
-	if cfg.Paused {
-		return errDevicePaused
-	}
-
-	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-		// The connection is not from an allowed network.
-		return errNetworkNotAllowed
-	}
-
-	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
-		// We're not allowed to accept any more connections.
-		return errConnLimitReached
-	}
-
 	return nil
 }
 
@@ -3230,7 +3207,7 @@ type storedEncryptionToken struct {
 }
 
 func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
-	fd, err := cfg.Filesystem().Open(encryptionTokenPath(cfg))
+	fd, err := cfg.Filesystem(nil).Open(encryptionTokenPath(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -3244,7 +3221,7 @@ func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
 
 func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	tokenName := encryptionTokenPath(cfg)
-	fd, err := cfg.Filesystem().OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
 	if err != nil {
 		return err
 	}

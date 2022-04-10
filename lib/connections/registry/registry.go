@@ -15,10 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-var (
-	Default = New()
-)
-
 type Registry struct {
 	mut       sync.Mutex
 	available map[string][]interface{}
@@ -84,16 +80,4 @@ func (r *Registry) Get(scheme string, preferred func(interface{}) bool) interfac
 		}
 	}
 	return best
-}
-
-func Register(scheme string, item interface{}) {
-	Default.Register(scheme, item)
-}
-
-func Unregister(scheme string, item interface{}) {
-	Default.Unregister(scheme, item)
-}
-
-func Get(scheme string, preferred func(interface{}) bool) interface{} {
-	return Default.Get(scheme, preferred)
 }

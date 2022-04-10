@@ -222,7 +222,7 @@ func BenchmarkIndex_100(b *testing.B) {
 func benchmarkIndex(b *testing.B, nfiles int) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	files := genFiles(nfiles)
 	must(b, m.Index(device1, fcfg.ID, files))
@@ -249,7 +249,7 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
@@ -1517,7 +1517,7 @@ func TestIgnores(t *testing.T) {
 
 	// Invalid path, treated like no patterns at all.
 	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
+	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
 	m.fmut.Lock()
 	m.folderCfgs[fcfg.ID] = fcfg
 	m.folderIgnores[fcfg.ID] = ignores
@@ -1709,7 +1709,7 @@ func TestRWScanRecovery(t *testing.T) {
 func TestGlobalDirectoryTree(t *testing.T) {
 	m, _, fcfg, wCancel := setupModelWithConnection(t)
 	defer wCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -2012,7 +2012,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 func benchmarkTree(b *testing.B, n1, n2 int) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	m.ScanFolder(fcfg.ID)
 	files := genDeepFiles(n1, n2)
@@ -2477,7 +2477,7 @@ func TestIssue2571(t *testing.T) {
 
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
-	testFs := fcfg.Filesystem()
+	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
@@ -2516,7 +2516,7 @@ func TestIssue4573(t *testing.T) {
 
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
-	testFs := fcfg.Filesystem()
+	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
 
 	must(t, testFs.MkdirAll("inaccessible", 0755))
@@ -2546,7 +2546,7 @@ func TestIssue4573(t *testing.T) {
 func TestInternalScan(t *testing.T) {
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
-	testFs := fcfg.Filesystem()
+	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
 
 	testCases := map[string]func(protocol.FileInfo) bool{
@@ -2644,7 +2644,7 @@ func TestCustomMarkerName(t *testing.T) {
 func TestRemoveDirWithContent(t *testing.T) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	tfs.MkdirAll("dirwith", 0755)
@@ -2706,7 +2706,7 @@ func TestIssue4475(t *testing.T) {
 	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
 	defer cleanupModel(m)
-	testFs := fcfg.Filesystem()
+	testFs := fcfg.Filesystem(nil)
 
 	// Scenario: Dir is deleted locally and before syncing/index exchange
 	// happens, a file is create in that dir on the remote.
@@ -2769,7 +2769,7 @@ func TestVersionRestore(t *testing.T) {
 	fcfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, dir)
 	fcfg.Versioning.Type = "simple"
 	fcfg.FSWatcherEnabled = false
-	filesystem := fcfg.Filesystem()
+	filesystem := fcfg.Filesystem(nil)
 
 	rawConfig := config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
@@ -3005,7 +3005,7 @@ func TestIssue4094(t *testing.T) {
 		t.Fatalf("failed setting ignores: %v", err)
 	}
 
-	if _, err := fcfg.Filesystem().Lstat(".stignore"); err != nil {
+	if _, err := fcfg.Filesystem(nil).Lstat(".stignore"); err != nil {
 		t.Fatalf("failed stating .stignore: %v", err)
 	}
 }
@@ -3037,7 +3037,7 @@ func TestIssue4903(t *testing.T) {
 		t.Fatalf("expected path missing error, got: %v", err)
 	}
 
-	if _, err := fcfg.Filesystem().Lstat("."); !fs.IsNotExist(err) {
+	if _, err := fcfg.Filesystem(nil).Lstat("."); !fs.IsNotExist(err) {
 		t.Fatalf("Expected missing path error, got: %v", err)
 	}
 }
@@ -3067,7 +3067,7 @@ func TestParentOfUnignored(t *testing.T) {
 	m, cancel := newState(t, defaultCfg)
 	defer cleanupModel(m)
 	defer cancel()
-	defer defaultFolderConfig.Filesystem().Remove(".stignore")
+	defer defaultFolderConfig.Filesystem(nil).Remove(".stignore")
 
 	m.SetIgnores("default", []string{"!quux", "*"})
 
@@ -3184,7 +3184,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
 	m := setupModel(t, w)
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
@@ -3220,7 +3220,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 func TestModTimeWindow(t *testing.T) {
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	fcfg.RawModTimeWindowS = 2
 	setFolder(t, w, fcfg)
 	m := setupModel(t, w)
@@ -3277,7 +3277,7 @@ func TestModTimeWindow(t *testing.T) {
 func TestDevicePause(t *testing.T) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	sub := m.evLogger.Subscribe(events.DevicePaused)
 	defer sub.Unsubscribe()
@@ -3304,7 +3304,7 @@ func TestDevicePause(t *testing.T) {
 func TestDeviceWasSeen(t *testing.T) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	m.deviceWasSeen(device1)
 
@@ -3399,7 +3399,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	numFiles := 20
 
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 	for i := 0; i < numFiles; i++ {
 		v := fmt.Sprintf("%d", i)
 		writeFile(t, ffs, v, []byte(v))
@@ -3468,7 +3468,7 @@ func TestRenameSameFile(t *testing.T) {
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 	writeFile(t, ffs, "file", []byte("file"))
 
 	m.ScanFolders()
@@ -3519,7 +3519,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 
 	writeFile(t, ffs, "file", []byte("data"))
 	writeFile(t, ffs, "empty", nil)
@@ -3596,7 +3596,7 @@ func TestBlockListMap(t *testing.T) {
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 	writeFile(t, ffs, "one", []byte("content"))
 	writeFile(t, ffs, "two", []byte("content"))
 	writeFile(t, ffs, "three", []byte("content"))
@@ -3664,7 +3664,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 	name := "foo"
 	writeFile(t, ffs, name, []byte("contents"))
 
@@ -3782,7 +3782,7 @@ func TestAddFolderCompletion(t *testing.T) {
 
 func TestScanDeletedROChangedOnSR(t *testing.T) {
 	m, _, fcfg, wCancel := setupModelWithConnection(t)
-	ffs := fcfg.Filesystem()
+	ffs := fcfg.Filesystem(nil)
 	defer wCancel()
 	defer cleanupModelAndRemoveDir(m, ffs.URI())
 	fcfg.Type = config.FolderTypeReceiveOnly
@@ -3886,7 +3886,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 func TestIssue6961(t *testing.T) {
 	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	waiter, err := wcfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
 		fcfg.Type = config.FolderTypeReceiveOnly
@@ -3956,7 +3956,7 @@ func TestIssue6961(t *testing.T) {
 func TestCompletionEmptyGlobal(t *testing.T) {
 	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
 	m.fmut.Lock()
 	m.folderFiles[fcfg.ID].Update(protocol.LocalDeviceID, files)
@@ -4157,7 +4157,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	// Create the folder, but don't start it.
 	w, fcfg, wCancel := tmpDefaultWrapper()
 	defer wCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -4264,7 +4264,7 @@ func TestDeletedNotLocallyChangedReceiveEncrypted(t *testing.T) {
 
 func deletedNotLocallyChanged(t *testing.T, ft config.FolderType) {
 	w, fcfg, wCancel := tmpDefaultWrapper()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)
 	defer wCancel()

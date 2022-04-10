@@ -74,7 +74,6 @@ angular.module('syncthing.core')
             cleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
-            staggeredCleanInterval: 3600,
             externalCommand: "",
         };
 
@@ -2071,7 +2070,6 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
-                $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
@@ -2256,7 +2254,6 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
-                folderCfg.versioning.params.cleanInterval = '' + folderCfg._guiVersioning.staggeredCleanInterval;
                 break;
             case "external":
                 folderCfg.versioning.params.command = '' + folderCfg._guiVersioning.externalCommand;
@@ -2599,15 +2596,14 @@ angular.module('syncthing.core')
                             $scope.restoreVersions.filters['start'] = minDate;
                             $scope.restoreVersions.filters['end'] = maxDate;
 
-                            var ranges = {
-                                'All time': [minDate, maxDate],
-                                'Today': [moment(), moment()],
-                                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                                'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-                            };
+                            var ranges = {};
+                            ranges[$translate.instant("All Time")] = [minDate, maxDate];
+                            ranges[$translate.instant("Today")] = [moment().startOf('day'), moment()];
+                            ranges[$translate.instant("Yesterday")] = [moment().subtract(1, 'days').startOf('day'), moment().startOf('day')];
+                            ranges[$translate.instant("Last 7 Days")] = [moment().subtract(6, 'days').startOf('day'), moment()];
+                            ranges[$translate.instant("Last 30 Days")] = [moment().subtract(29, 'days').startOf('day'), moment()];
+                            ranges[$translate.instant("This Month")] = [moment().startOf('month'), moment()];
+                            ranges[$translate.instant("Last Month")] = [moment().subtract(1, 'month').startOf('month'), moment().startOf('month')];
 
                             // Filter out invalid ranges.
                             $.each(ranges, function (key, range) {
@@ -2628,6 +2624,9 @@ angular.module('syncthing.core')
                                 maxDate: maxDate,
                                 ranges: ranges,
                                 locale: {
+                                    applyLabel: $translate.instant("Apply"),
+                                    cancelLabel: $translate.instant("Cancel"),
+                                    customRangeLabel: $translate.instant("Custom Range"),
                                     format: 'YYYY/MM/DD HH:mm:ss',
                                 }
                             }).on('apply.daterangepicker', function (ev, picker) {
@@ -2924,16 +2923,18 @@ angular.module('syncthing.core')
 
         $scope.docsURL = function (path) {
             var url = 'https://docs.syncthing.net';
-            if (path) {
-                var hash = path.indexOf('#');
-                if (hash != -1) {
-                    url += '/' + path.slice(0, hash);
-                    url += '?version=' + $scope.versionBase();
-                    url += path.slice(hash);
-                } else {
-                    url += '/' + path;
-                    url += '?version=' + $scope.versionBase();
-                }
+            if (!path) {
+                // Undefined or null should become a valid string.
+                path = '';
+            }
+            var hash = path.indexOf('#');
+            if (hash != -1) {
+                url += '/' + path.slice(0, hash);
+                url += '?version=' + $scope.versionBase();
+                url += path.slice(hash);
+            } else {
+                url += '/' + path;
+                url += '?version=' + $scope.versionBase();
             }
             return url;
         };

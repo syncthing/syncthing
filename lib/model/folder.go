@@ -34,6 +34,9 @@ import (
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
+// Arbitrary limit that triggers a warning on kqueue systems
+const kqueueItemCountThreshold = 10000
+
 type folder struct {
 	stateTracker
 	config.FolderConfiguration
@@ -81,6 +84,8 @@ type folder struct {
 
 	puller    puller
 	versioner versioner.Versioner
+
+	warnedKqueue bool
 }
 
 type syncRequest struct {
@@ -103,7 +108,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID:       model.shortID,
 		fset:          fset,
 		ignores:       ignores,
-		mtimefs:       fset.MtimeFS(cfg.Filesystem()),
+		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -329,7 +334,7 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 	dbPath := locations.Get(locations.Database)
 	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
 		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
-			return errors.Wrapf(err, "insufficient space on disk for database (%v)", dbPath)
+			return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
 		}
 	}
 
@@ -382,7 +387,6 @@ func (f *folder) pull() (success bool, err error) {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false, err
 	}
-	f.setError(nil)
 
 	// Send only folder doesn't do any io, it only checks for out-of-sync
 	// items that differ in metadata and updates those.
@@ -409,6 +413,7 @@ func (f *folder) pull() (success bool, err error) {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false, err
 	}
+	f.setError(nil)
 
 	success, err = f.puller.pull()
 
@@ -431,10 +436,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	err := f.getHealthErrorAndLoadIgnores()
 	if err != nil {
-		// If there is a health error we set it as the folder error. We do not
-		// clear the folder error if there is no health error, as there might be
-		// an *other* folder error (failed to load ignores, for example). Hence
-		// we do not use the CheckHealth() convenience function here.
 		return err
 	}
 	f.setError(nil)
@@ -984,10 +985,23 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	warnedOutside := false
 	var lastWatch time.Time
 	pause := time.Minute
+	// Subscribe to folder summaries only on kqueue systems, to warn about potential high resource usage
+	var summarySub events.Subscription
+	var summaryChan <-chan events.Event
+	if fs.WatchKqueue && !f.warnedKqueue {
+		summarySub = f.evLogger.Subscribe(events.FolderCompletion)
+		summaryChan = summarySub.C()
+	}
+	defer func() {
+		aggrCancel() // aggrCancel might e re-assigned -> call within closure
+		if summaryChan != nil {
+			summarySub.Unsubscribe()
+		}
+	}()
 	for {
 		select {
 		case <-failTimer.C:
-			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
+			eventChan, errChan, err = f.mtimefs.Watch(".", f.ignores, ctx, f.IgnorePerms)
 			// We do this once per minute initially increased to
 			// max one hour in case of repeat failures.
 			f.scanOnWatchErr()
@@ -1028,6 +1042,15 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			aggrCancel()
 			errChan = nil
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
+		case ev := <-summaryChan:
+			if data, ok := ev.Data.(FolderSummaryEventData); !ok {
+				f.evLogger.Log(events.Failure, "Unexpected type of folder-summary event in folder.monitorWatch")
+			} else if data.Summary.LocalTotalItems > kqueueItemCountThreshold {
+				f.warnedKqueue = true
+				summarySub.Unsubscribe()
+				summaryChan = nil
+				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -1042,7 +1065,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr {
-		data := map[string]interface{}{
+		data := map[string]string{
 			"folder": f.ID,
 		}
 		if prevErr != nil {

@@ -457,7 +457,7 @@ func TestIssue1262(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].Filesystem().URI()
+	actual := cfg.Folders()["test"].Filesystem(nil).URI()
 	expected := `e:\`
 
 	if actual != expected {
@@ -494,7 +494,7 @@ func TestFolderPath(t *testing.T) {
 		Path: "~/tmp",
 	}
 
-	realPath := folder.Filesystem().URI()
+	realPath := folder.Filesystem(nil).URI()
 	if !filepath.IsAbs(realPath) {
 		t.Error(realPath, "should be absolute")
 	}

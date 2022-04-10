@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jan 30, 2022" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Apr 02, 2022" "v1.19.1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -414,11 +414,11 @@ locally may be overwritten by those on other devices.
 .sp
 An alternative way is to shut down Syncthing, move the folder on disk (including
 the \fB\&.stfolder\fP marker), edit the path directly in \fBconfig.xml\fP in the
-configuration folder (see config) and then start Syncthing again.
+configuration folder (see /users/config) and then start Syncthing again.
 .SS How do I configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
-to configure listening ports such that they do not overlap (see config).
+to configure listening ports such that they do not overlap (see /users/config).
 .SS Does Syncthing support syncing between folders on the same system?
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
@@ -655,7 +655,22 @@ echo 204800 | sudo tee /proc/sys/fs/inotify/max_user_watches
 .UNINDENT
 .SS How do I reset the GUI password?
 .sp
-If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on the OS and is described in the configuration documentation.
+If you’ve forgotten / lost the GUI password, you can reset it using the
+\fB\-\-gui\-password\fP (and possibly \fB\-\-gui\-user\fP) options to the
+\fBsyncthing generate\fP subcommand.  This should be done while Syncthing is not
+running.
+.INDENT 0.0
+.IP 1. 3
+Stop Syncthing: \fBsyncthing cli operations shutdown\fP
+.IP 2. 3
+\fBsyncthing generate \-\-gui\-password=myNewPassword \-\-gui\-user=newUserName\fP
+.IP 3. 3
+Restart Syncthing as usual.
+.UNINDENT
+.sp
+\fIAlternatively, in step 2\fP, you can manually delete the \fB<user>\fP and \fB<password>\fP XML tags from the
+\fB<gui>\fP block in file \fBconfig.xml\fP\&.  The location of the file depends on the
+OS and is described in the configuration documentation\&.
 .sp
 For example, the two emphasized lines below would be removed from the file.
 .INDENT 0.0
