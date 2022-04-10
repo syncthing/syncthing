@@ -447,7 +447,6 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	}
 	natSvc := nat.NewService(deviceId, wcfg)
 	conns := make(chan internalConn, 1)
-	fmt.Println("listening", uri)
 	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc, registry.New())
 	supervisor.Add(listenSvc)
 
@@ -471,10 +470,8 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	dialer := df.New(cfg.Options, tlsCfg, registry.New())
 
 	// Relays might take some time to register the device, so dial multiple times
-	fmt.Println("dialing", addr)
 	clientConn, err := dialer.Dial(ctx, deviceId, addr)
 	if err != nil {
-		fmt.Println("error", err)
 		for i := 0; i < 10 && err != nil; i++ {
 			clientConn, err = dialer.Dial(ctx, deviceId, addr)
 			time.Sleep(100 * time.Millisecond)
@@ -483,7 +480,6 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 			b.Fatal(err)
 		}
 	}
-	fmt.Println("clientConn", clientConn.LocalAddr(), "->", clientConn.RemoteAddr())
 
 	// Quic does not start a stream until some data is sent through, so send something for the AcceptStream
 	// to fire on the other side.
@@ -493,7 +489,6 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	}
 
 	serverConn := <-conns
-	fmt.Println("serverConn", serverConn.LocalAddr(), "->", serverConn.RemoteAddr())
 
 	recv := make([]byte, len(send))
 	if _, err := io.ReadFull(serverConn, recv); err != nil {
