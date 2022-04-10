@@ -408,11 +408,6 @@ func TestConnectionEstablishment(t *testing.T) {
 }
 
 func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h func(client, server internalConn)) {
-	// We're connecting to ourselves over localhost. Reuseport doesn't work
-	// well in this scenario since we can't typically have a connection with
-	// the same source and destination port...
-	dialer.SupportsReusePort = false
-
 	// Root of the service tree.
 	supervisor := suture.New("main", suture.Spec{
 		PassThroughPanics: true,
