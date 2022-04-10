@@ -40,7 +40,7 @@ func init() {
 	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
 
 	defaultFolderConfig = testFolderConfig("testdata")
-	defaultFs = defaultFolderConfig.Filesystem()
+	defaultFs = defaultFolderConfig.Filesystem(nil)
 
 	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
@@ -308,7 +308,7 @@ func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderCon
 	t.Helper()
 	m.removeFolder(fcfg)
 	fset := newFileSet(t, fcfg.ID, m.db)
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
 	m.fmut.Unlock()

@@ -38,7 +38,7 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 			FSPath: tmpDir2,
 		},
 	}
-	folderFs := cfg.Filesystem()
+	folderFs := cfg.Filesystem(nil)
 
 	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
 

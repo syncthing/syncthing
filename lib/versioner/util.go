@@ -256,7 +256,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 }
 
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
-	folderFs := cfg.Filesystem()
+	folderFs := cfg.Filesystem(nil)
 	if cfg.Versioning.FSPath == "" {
 		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
 	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {
