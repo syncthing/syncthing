@@ -340,10 +340,6 @@ func BenchmarkConnections(b *testing.B) {
 							wg.Add(2)
 							errC := make(chan error, 2)
 							go func() {
-								wg.Wait()
-								close(errC)
-							}()
-							go func() {
 								if _, err := client.Write(data); err != nil {
 									errC <- err
 									return
@@ -358,6 +354,8 @@ func BenchmarkConnections(b *testing.B) {
 								total += sz
 								wg.Done()
 							}()
+							wg.Wait()
+							close(errC)
 							err := <-errC
 							if err != nil {
 								b.Fatal(err)
