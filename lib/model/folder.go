@@ -108,7 +108,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID:       model.shortID,
 		fset:          fset,
 		ignores:       ignores,
-		mtimefs:       cfg.MtimeFilesystem(fset),
+		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -1001,7 +1001,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	for {
 		select {
 		case <-failTimer.C:
-			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
+			eventChan, errChan, err = f.mtimefs.Watch(".", f.ignores, ctx, f.IgnorePerms)
 			// We do this once per minute initially increased to
 			// max one hour in case of repeat failures.
 			f.scanOnWatchErr()

@@ -70,7 +70,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem()
+	fs := cfg.Filesystem(nil)
 
 	v := newSimple(cfg)
 

@@ -223,6 +223,7 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 			i++
 		}
 	}
+	opts = opts[:i]
 
 	var fs Filesystem
 	switch fsType {

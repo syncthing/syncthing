@@ -33,13 +33,13 @@ func WithCaseInsensitivity(v bool) MtimeFSOption {
 	}
 }
 
-// OptionMtime returns a filesystem with nanosecond mtime precision, regardless
-// of what shenanigans the underlying filesystem gets up to.
 type optionMtime struct {
 	db      database
 	options []MtimeFSOption
 }
 
+// NewMtimeOption makes any filesystem provide nanosecond mtime precision,
+// regardless of what shenanigans the underlying filesystem gets up to.
 func NewMtimeOption(db database, options ...MtimeFSOption) Option {
 	return &optionMtime{
 		db:      db,

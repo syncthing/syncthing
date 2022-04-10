@@ -43,13 +43,12 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	return c
 }
 
-func (f FolderConfiguration) Filesystem() fs.Filesystem {
-	return f.MtimeFilesystem(nil)
-}
-
-func (f FolderConfiguration) MtimeFilesystem(fset *db.FileSet) fs.Filesystem {
+// Filesystem creates a filesystem for the path and options of this folder.
+// The fset parameter may be nil, in which case no mtime handling on top of
+// the fileystem is provided.
+func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
-	// cfg.Folders["default"].Filesystem() should be valid.
+	// cfg.Folders["default"].Filesystem(nil) should be valid.
 	opts := make([]fs.Option, 0, 3)
 	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
 		opts = append(opts, new(fs.OptionJunctionsAsDirs))
@@ -66,7 +65,7 @@ func (f FolderConfiguration) MtimeFilesystem(fset *db.FileSet) fs.Filesystem {
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	dur := time.Duration(f.RawModTimeWindowS) * time.Second
 	if f.RawModTimeWindowS < 1 && runtime.GOOS == "android" {
-		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
+		if usage, err := disk.Usage(f.Filesystem(nil).URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
 		} else if strings.HasPrefix(strings.ToLower(usage.Fstype), "ext2") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext3") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext4") {
@@ -96,7 +95,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		// begin with.
 		permBits = 0700
 	}
-	fs := f.Filesystem()
+	fs := f.Filesystem(nil)
 	err := fs.Mkdir(DefaultMarkerName, permBits)
 	if err != nil {
 		return err
@@ -113,7 +112,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
-	fi, err := f.Filesystem().Stat(".")
+	fi, err := f.Filesystem(nil).Stat(".")
 	if err != nil {
 		if !fs.IsNotExist(err) {
 			return err
@@ -131,7 +130,7 @@ func (f *FolderConfiguration) CheckPath() error {
 		return ErrPathNotDirectory
 	}
 
-	_, err = f.Filesystem().Stat(f.MarkerName)
+	_, err = f.Filesystem(nil).Stat(f.MarkerName)
 	if err != nil {
 		if !fs.IsNotExist(err) {
 			return err
@@ -152,7 +151,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 		permBits = 0700
 	}
 
-	filesystem := f.Filesystem()
+	filesystem := f.Filesystem(nil)
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
 		err = filesystem.MkdirAll(".", permBits)
@@ -263,7 +262,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	if val <= 0 {
 		return nil
 	}
-	fs := f.Filesystem()
+	fs := f.Filesystem(nil)
 	usage, err := fs.Usage(".")
 	if err != nil {
 		return nil
