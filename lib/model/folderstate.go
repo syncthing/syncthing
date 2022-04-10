@@ -52,6 +52,14 @@ func (s folderState) String() string {
 	}
 }
 
+type remoteFolderState int
+
+const (
+	remoteNotSharing remoteFolderState = iota
+	remotePaused
+	remoteValid
+)
+
 type stateTracker struct {
 	folderID string
 	evLogger events.Logger

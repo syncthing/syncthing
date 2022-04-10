@@ -117,7 +117,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 
 	case events.FolderCompletion:
 		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", data["folder"], data["device"], data["completion"])
+		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (accepted: %v)", data["folder"], data["device"], data["completion"], data["accepted"])
 
 	case events.FolderSummary:
 		data := ev.Data.(model.FolderSummaryEventData)

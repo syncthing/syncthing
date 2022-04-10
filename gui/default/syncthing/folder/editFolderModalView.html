@@ -56,8 +56,11 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="form-group" ng-repeat="device in currentSharing.shared">
-              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceName(device)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
+              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceNameMarkUnaccepted(device.deviceID, currentFolder.id)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
             </div>
+            <p class="help-block" ng-if="folderHasUnacceptedDevices(currentFolder)">
+              <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
+            </p>
           </div>
           <div class="form-horizontal" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>

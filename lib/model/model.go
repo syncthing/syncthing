@@ -161,7 +161,7 @@ type model struct {
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
-	remotePausedFolders map[protocol.DeviceID]map[string]struct{} // deviceID -> folders
+	remoteFolderStates  map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
 	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
 
 	// for testing only
@@ -246,7 +246,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
-		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
+		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:       make(map[protocol.DeviceID]*indexHandlerRegistry),
 	}
 	for devID := range cfg.Devices() {
@@ -800,9 +800,10 @@ type FolderCompletion struct {
 	NeedItems     int
 	NeedDeletes   int
 	Sequence      int64
+	Accepted      bool
 }
 
-func newFolderCompletion(global, need db.Counts, sequence int64) FolderCompletion {
+func newFolderCompletion(global, need db.Counts, sequence int64, accepted bool) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
@@ -810,6 +811,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64) FolderCompletio
 		NeedItems:   need.Files + need.Directories + need.Symlinks,
 		NeedDeletes: need.Deleted,
 		Sequence:    sequence,
+		Accepted:    accepted,
 	}
 	comp.setComplectionPct()
 	return comp
@@ -851,6 +853,7 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 		"needItems":   comp.NeedItems,
 		"needDeletes": comp.NeedDeletes,
 		"sequence":    comp.Sequence,
+		"accepted":    comp.Accepted,
 	}
 }
 
@@ -901,6 +904,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	defer snap.Release()
 
 	m.pmut.RLock()
+	accepted := m.remoteFolderStates[device][folder] != remoteNotSharing
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
 
@@ -911,7 +915,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device))
+	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device), accepted)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil
@@ -1221,13 +1225,13 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		w.Wait()
 	}
 
-	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexHandlerRegistry)
+	tempIndexFolders, states, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexHandlerRegistry)
 	if err != nil {
 		return err
 	}
 
 	m.pmut.Lock()
-	m.remotePausedFolders[deviceID] = paused
+	m.remoteFolderStates[deviceID] = states
 	m.pmut.Unlock()
 
 	if len(tempIndexFolders) > 0 {
@@ -1262,11 +1266,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]struct{}, error) {
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]remoteFolderState, error) {
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
-	paused := make(map[string]struct{}, len(folders))
-	seenFolders := make(map[string]struct{}, len(folders))
+	seenFolders := make(map[string]remoteFolderState, len(folders))
 	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	expiredPending, err := m.db.PendingFoldersForDevice(deviceID)
@@ -1275,7 +1278,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
-		seenFolders[folder.ID] = struct{}{}
+		seenFolders[folder.ID] = remoteValid
 
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
@@ -1316,7 +1319,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if folder.Paused {
 			indexHandlers.Remove(folder.ID)
-			paused[cfg.ID] = struct{}{}
+			seenFolders[cfg.ID] = remotePaused
 			continue
 		}
 
@@ -1345,7 +1348,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				m.evLogger.Log(events.Failure, err.Error())
 				l.Warnln(msg)
 			}
-			return tempIndexFolders, paused, err
+			return tempIndexFolders, seenFolders, err
 		}
 		m.fmut.Lock()
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
@@ -1367,6 +1370,15 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexHandlers.RemoveAllExcept(seenFolders)
+
+	// Explicitly mark folders we offer, but the remote has not accepted
+	for folderID, cfg := range m.cfg.Folders() {
+		if _, seen := seenFolders[folderID]; !seen && cfg.SharedWith(deviceID) {
+			l.Debugf("Remote device %v has not accepted folder %s", deviceID.Short(), cfg.Description())
+			seenFolders[folderID] = remoteNotSharing
+		}
+	}
+
 	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
@@ -1387,7 +1399,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		})
 	}
 
-	return tempIndexFolders, paused, nil
+	return tempIndexFolders, seenFolders, nil
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *clusterConfigDeviceInfo, deviceUntrusted bool) error {
@@ -1726,7 +1738,7 @@ func (m *model) Closed(device protocol.DeviceID, err error) {
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
-	delete(m.remotePausedFolders, device)
+	delete(m.remoteFolderStates, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
 	delete(m.indexHandlers, device)
@@ -2697,10 +2709,10 @@ func (m *model) availabilityInSnapshot(cfg config.FolderConfiguration, snap *db.
 func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	var availabilities []Availability
 	for _, device := range snap.Availability(file.Name) {
-		if _, ok := m.remotePausedFolders[device]; !ok {
+		if _, ok := m.remoteFolderStates[device]; !ok {
 			continue
 		}
-		if _, ok := m.remotePausedFolders[device][cfg.ID]; ok {
+		if state, ok := m.remoteFolderStates[device][cfg.ID]; !ok || state == remotePaused {
 			continue
 		}
 		_, ok := m.conn[device]

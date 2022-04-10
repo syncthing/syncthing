@@ -2365,15 +2365,35 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
+        $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
+            var name = $scope.deviceName($scope.devices[deviceID]);
+            // Add footnote if sharing was not accepted on the remote device
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+                name += '<sup>1</sup>';
+            }
+            return name;
+        };
+
         $scope.sharesFolder = function (folderCfg) {
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceName($scope.devices[device.deviceID]));
+                    names.push($scope.deviceNameMarkUnaccepted(device.deviceID, folderCfg.id));
                 }
             });
             names.sort();
             return names.join(", ");
+        };
+
+        $scope.folderHasUnacceptedDevices = function (folderCfg) {
+            for (var deviceID in $scope.completion) {
+                if (deviceID in $scope.devices
+                    && folderCfg.id in $scope.completion[deviceID]
+                    && !$scope.completion[deviceID][folderCfg.id].accepted) {
+                    return true;
+                }
+            }
+            return false;
         };
 
         $scope.deviceFolders = function (deviceCfg) {
@@ -2395,6 +2415,36 @@ angular.module('syncthing.core')
             }
             var label = $scope.folders[folderID].label;
             return label && label.length > 0 ? label : folderID;
+        };
+
+        $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
+            var label = $scope.folderLabel(folderID);
+            // Add footnote if sharing was not accepted on the remote device
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+                label += '<sup>1</sup>';
+            }
+            return label;
+        };
+
+        $scope.sharedFolders = function (deviceCfg) {
+            var labels = [];
+            $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
+                labels.push($scope.folderLabelMarkUnaccepted(folderID, deviceCfg.deviceID));
+            });
+            return labels.join(', ');
+        };
+
+        $scope.deviceHasUnacceptedFolders = function (deviceCfg) {
+            if (!(deviceCfg.deviceID in $scope.completion)) {
+                return false;
+            }
+            for (var folderID in $scope.completion[deviceCfg.deviceID]) {
+                if (folderID in $scope.folders
+                    && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
+                    return true;
+                }
+            }
+            return false;
         };
 
         $scope.deleteFolder = function (id) {
