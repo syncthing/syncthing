@@ -482,7 +482,7 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	t.Parallel()
+	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
 
 	timeout := time.Second
 	if tc.Timeout > 0 {
