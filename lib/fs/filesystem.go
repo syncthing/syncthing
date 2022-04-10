@@ -246,7 +246,7 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	}
 
 	// mtime handling should happen inside walking, as filesystem calls while
-	// walking should be mtime-resoved too
+	// walking should be mtime-resolved too
 	if mtimeOpt != nil {
 		fs = mtimeOpt.apply(fs)
 	}
