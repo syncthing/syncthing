@@ -167,6 +167,22 @@
                 </form>
               </div>
             </div>
+            <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="advancedDefaultIgnoresHeading" data-toggle="collapse" data-parent="#advancedDefaults" href="#advancedDefaultIgnores" aria-expanded="false" aria-controls="advancedDefaultIgnores" style="cursor: pointer;">
+                <h4 class="panel-title" tabindex="0" translate>Default Ignore Patterns</h4>
+              </div>
+              <div id="advancedDefaultIgnores" class="panel-collapse collapse" role="tabpanel" aria-labelledby="advancedDefaultIgnoresHeading">
+                <form class="form-horizontal" role="form">
+                  <div ng-repeat="(key, value) in advancedConfig.defaults.ignores" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                    <label for="advancedDefaultIgnoresInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-defaults.ignores.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
+                    <div class="col-sm-8">
+                      <textarea ng-if="inputTypeFor(key, value) == 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" ng-model="advancedConfig.defaults.ignores[key]" ng-list="&#10;" ng-trim="false"></textarea>
+                      <input ng-if="inputTypeFor(key, value) != 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.defaults.ignores[key]" />
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
 
           </div>
         </div>
