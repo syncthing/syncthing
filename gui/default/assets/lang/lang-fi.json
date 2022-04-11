@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Versioiden määrän rulee olla numero, eikä se voi olla tyhjä.",
     "The path cannot be blank.": "Polku ei voi olla tyhjä.",
     "The rate limit must be a non-negative number (0: no limit)": "Nopeusrajan tulee olla positiivinen luku tai nolla. (0: ei rajaa)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Uudelleenskannauksen aikavälin tulee olla ei-negatiivinen numero sekunteja.",
     "There are no devices to share this folder with.": "There are no devices to share this folder with.",
     "There are no file versions to restore.": "There are no file versions to restore.",

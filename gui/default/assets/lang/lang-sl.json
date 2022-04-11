@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Število različic mora biti število in ne more biti prazno.",
     "The path cannot be blank.": "Pot ne more biti prazna.",
     "The rate limit must be a non-negative number (0: no limit)": "Omejitev stopnje odzivnosti mora biti nenegativno število (0: brez omejitve)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Interval skeniranja mora biti pozitivna številka.",
     "There are no devices to share this folder with.": "Ni naprav za skupno rabo te mape.",
     "There are no file versions to restore.": "Ni različic od datotek za obnoviti.",

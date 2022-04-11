@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Jumlah versi harus berupa angka dan tidak dapat kosong.",
     "The path cannot be blank.": "Lokasi tidak dapat kosong.",
     "The rate limit must be a non-negative number (0: no limit)": "Pembatasan kecepatan harus berupa angka positif (0: tidak terbatas)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Interval pemindaian ulang harus berupa angka positif.",
     "There are no devices to share this folder with.": "Tidak ada perangkat untuk membagikan folder ini.",
     "There are no file versions to restore.": "Tidak ada versi berkas untuk dipulihkan.",

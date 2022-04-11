@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Liczba wersji musi być wartością liczbową oraz nie może być pusta.",
     "The path cannot be blank.": "Ścieżka nie może być pusta.",
     "The rate limit must be a non-negative number (0: no limit)": "Ograniczenie prędkości musi być nieujemną wartością liczbową (0: brak ograniczeń)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Przedział czasowy ponownego skanowania musi być nieujemną liczbą sekund.",
     "There are no devices to share this folder with.": "Brak urządzeń, z którymi można współdzielić ten folder.",
     "There are no file versions to restore.": "Brak wersji plików, które można przywrócić.",

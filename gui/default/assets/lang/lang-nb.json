@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Antall versjoner må være et tall og kan ikke være tomt.",
     "The path cannot be blank.": "Plasseringen kan ikke være tom.",
     "The rate limit must be a non-negative number (0: no limit)": "Hastighetsbegrensningen kan ikke være et negativt tall (0: ingen begrensing)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Antall sekund for intervallet kan ikke være negativt.",
     "There are no devices to share this folder with.": "There are no devices to share this folder with.",
     "There are no file versions to restore.": "There are no file versions to restore.",

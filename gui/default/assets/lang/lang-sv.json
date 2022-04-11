@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Antalet versioner måste vara ett nummer och kan inte lämnas tomt.",
     "The path cannot be blank.": "Sökvägen kan inte vara tom.",
     "The rate limit must be a non-negative number (0: no limit)": "Frekvensgränsen måste vara ett icke-negativt tal (0: ingen gräns)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Förnyelseintervallet måste vara ett positivt antal sekunder",
     "There are no devices to share this folder with.": "Det finns inga enheter att dela denna mapp med.",
     "There are no file versions to restore.": "Det finns inga filversioner att återställa.",

@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Počet verzií musí byť číslo a nemôže byť prázdny.",
     "The path cannot be blank.": "Cesta nemôže byť prázdna.",
     "The rate limit must be a non-negative number (0: no limit)": "Limit rýchlosti musí byť kladné číslo (0: bez limitu)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "The rescan interval must be a non-negative number of seconds.",
     "There are no devices to share this folder with.": "There are no devices to share this folder with.",
     "There are no file versions to restore.": "There are no file versions to restore.",

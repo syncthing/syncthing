@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "保留版本数量必须为数字，且不能为空。",
     "The path cannot be blank.": "路径不能为空。",
     "The rate limit must be a non-negative number (0: no limit)": "传输速度限制为非负整数（0 表示不限制）",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "扫描间隔单位为秒，且不能为负数。",
     "There are no devices to share this folder with.": "没有设备共享此文件夹",
     "There are no file versions to restore.": "There are no file versions to restore.",

@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "A megtartott verziók száma nem lehet üres.",
     "The path cannot be blank.": "Az elérési útvonal nem lehet üres.",
     "The rate limit must be a non-negative number (0: no limit)": "A sebességlimitnek pozitív számnak kell lennie (0: nincs limit)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Az átnézési intervallum nullánál nagyobb másodperc érték kell legyen.",
     "There are no devices to share this folder with.": "Nincsenek eszközök, amelyekkel megosztható lenne a mappa.",
     "There are no file versions to restore.": "Nincsenek visszaállítható fájlverziók.",

@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Versijų skaičius turi būti skaitmuo ir negali būti tuščias laukelis.",
     "The path cannot be blank.": "Kelias negali būti tuščias.",
     "The rate limit must be a non-negative number (0: no limit)": "Srauto maksimalus greitis privalo būti ne neigiamas skaičius (0: nėra apribojimo)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Nuskaitymo dažnis negali būti neigiamas skaičius.",
     "There are no devices to share this folder with.": "Nėra įrenginių su kuriais bendrinti šį aplanką.",
     "There are no file versions to restore.": "There are no file versions to restore.",

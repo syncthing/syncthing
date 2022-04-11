@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Het aantal versies moet een getal zijn en mag niet leeg ziijn.",
     "The path cannot be blank.": "Het pad mag niet leeg zijn.",
     "The rate limit must be a non-negative number (0: no limit)": "De snelheidsbegrenzing moet een positief getal zijn (0: geen begrenzing)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Het interval voor opnieuw scannen moet een positief aantal seconden zijn.",
     "There are no devices to share this folder with.": "Er zijn geen apparaten om deze map mee te delen.",
     "There are no file versions to restore.": "Er zijn geen bestandsversies om te herstellen.",

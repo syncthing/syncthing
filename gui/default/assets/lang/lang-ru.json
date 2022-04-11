@@ -378,6 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Количество версий должно быть числом и не может быть пустым.",
     "The path cannot be blank.": "Путь не может быть пустым.",
     "The rate limit must be a non-negative number (0: no limit)": "Скорость должна быть неотрицательным числом (0: нет ограничения)",
+    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Интервал пересканирования должен быть неотрицательным количеством секунд.",
     "There are no devices to share this folder with.": "Нет устройств, для которых будет доступна эта папка.",
     "There are no file versions to restore.": "Нет версий файла для восстановления.",
