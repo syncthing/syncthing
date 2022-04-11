@@ -14,8 +14,8 @@ require (
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/getsentry/raven-go v0.2.0
-	github.com/go-asn1-ber/asn1-ber v1.5.3 // indirect
-	github.com/go-ldap/ldap/v3 v3.4.1
+	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.3
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -47,9 +47,9 @@ require (
 	github.com/thejerf/suture/v4 v4.0.2
 	github.com/urfave/cli v1.22.5
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 	golang.org/x/mod v0.5.1 // indirect
-	golang.org/x/net v0.0.0-20210924151903-3ad01bbaa167
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
@@ -58,7 +58,7 @@ require (
 )
 
 require (
-	github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
