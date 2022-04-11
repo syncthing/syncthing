@@ -184,6 +184,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
 		conns:                make(chan internalConn),
+		hellos:               make(chan *connWithHello),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		limiter:              newLimiter(myID, cfg),
