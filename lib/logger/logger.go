@@ -80,12 +80,29 @@ func New() Logger {
 }
 
 func newLogger(w io.Writer) Logger {
-	return &logger{
+	l := &logger{
 		logger:     log.New(w, "", DefaultFlags),
 		traces:     os.Getenv("STTRACE"),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
+
+	// Start a routine to print the date when the date changes, if the log
+	// format doesn't already include the date. This disambiguates
+	// timestamps in logs that cover several days with the default (time
+	// only) log format.
+	go func() {
+		for {
+			now := time.Now()
+			tomorrow := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local).Add(24 * time.Hour)
+			time.Sleep(time.Until(tomorrow))
+			if l.logger.Flags()&log.Ldate == 0 {
+				l.Infoln("Day changed to", tomorrow.Format("2006-01-02"))
+			}
+		}
+	}()
+
+	return l
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
