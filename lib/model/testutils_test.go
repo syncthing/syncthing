@@ -86,18 +86,13 @@ func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelF
 	return wrapper, cancel
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+func tmpDefaultWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
 	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfig(t.TempDir())
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
 	return w, fcfg, cancel
-}
-
-func testFolderConfigTmp() config.FolderConfiguration {
-	tmpDir := createTmpDir()
-	return testFolderConfig(tmpDir)
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
@@ -116,7 +111,7 @@ func testFolderConfigFake() config.FolderConfiguration {
 
 func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg, cancel := tmpDefaultWrapper()
+	w, fcfg, cancel := tmpDefaultWrapper(t)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg, cancel
 }
@@ -211,14 +206,6 @@ func cleanupModel(m *testModel) {
 func cleanupModelAndRemoveDir(m *testModel, dir string) {
 	cleanupModel(m)
 	os.RemoveAll(dir)
-}
-
-func createTmpDir() string {
-	tmpDir, err := os.MkdirTemp("", "syncthing_testFolder-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
 }
 
 type alwaysChangedKey struct {

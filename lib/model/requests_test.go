@@ -221,7 +221,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	defer func() {
 		os.RemoveAll(fcfg.Filesystem(nil).URI())
@@ -235,11 +235,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
-	tmpdir, err := os.MkdirTemp("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -300,7 +296,7 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	w, wCancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	defer wCancel()
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfig(t.TempDir())
 	fss := fcfg.Filesystem(nil)
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)
@@ -1029,7 +1025,7 @@ func TestNeedFolderFiles(t *testing.T) {
 // propagated upon un-ignoring.
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	m := setupModel(t, w)
 	fss := fcfg.Filesystem(nil)
@@ -1273,7 +1269,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
 	dir1 := "foo"
@@ -1340,7 +1336,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		t.Skip("skipping on short testing - scrypt is too slow")
 	}
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
 	fcfg.Type = config.FolderTypeReceiveEncrypted

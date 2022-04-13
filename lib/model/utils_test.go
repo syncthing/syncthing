@@ -7,7 +7,6 @@
 package model
 
 import (
-	"os"
 	"runtime"
 	"testing"
 
@@ -15,8 +14,7 @@ import (
 )
 
 func TestInWriteableDir(t *testing.T) {
-	dir := createTmpDir()
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -77,8 +75,7 @@ func TestOSWindowsRemove(t *testing.T) {
 		return
 	}
 
-	dir := createTmpDir()
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
@@ -115,8 +112,7 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 		return
 	}
 
-	dir := createTmpDir()
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
@@ -148,8 +144,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return
 	}
 
-	dir := createTmpDir()
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
