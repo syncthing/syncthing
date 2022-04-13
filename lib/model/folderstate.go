@@ -55,9 +55,9 @@ func (s folderState) String() string {
 type remoteFolderState int
 
 const (
-	remoteNotSharing remoteFolderState = iota
+	remoteValid remoteFolderState = iota
+	remoteNotSharing
 	remotePaused
-	remoteValid
 )
 
 type stateTracker struct {
