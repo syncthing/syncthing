@@ -669,7 +669,7 @@
                       <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed listener status' | translate}}.">
-                          <a href="" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
+                          <a href="" ng-class="{'text-success': listenersTotal > 0 && listenersFailed.length == 0, 'text-danger': listenersTotal > 0 && listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
                             {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
                           </a>
                         </span>
