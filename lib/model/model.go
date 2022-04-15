@@ -2712,7 +2712,7 @@ func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, s
 		if _, ok := m.remoteFolderStates[device]; !ok {
 			continue
 		}
-		if state, ok := m.remoteFolderStates[device][cfg.ID]; !ok || state == remotePaused {
+		if state := m.remoteFolderStates[device][cfg.ID]; state != remoteValid {
 			continue
 		}
 		_, ok := m.conn[device]
