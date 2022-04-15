@@ -843,7 +843,7 @@ func (comp *FolderCompletion) setComplectionPct() {
 	}
 }
 
-// Map returns the members as a map, e.g. used in api to serialize as Json.
+// Map returns the members as a map, e.g. used in api to serialize as JSON.
 func (comp FolderCompletion) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"completion":  comp.CompletionPct,
@@ -1374,7 +1374,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	// Explicitly mark folders we offer, but the remote has not accepted
 	for folderID, cfg := range m.cfg.Folders() {
 		if _, seen := seenFolders[folderID]; !seen && cfg.SharedWith(deviceID) {
-			l.Debugf("Remote device %v has not accepted folder %s", deviceID.Short(), cfg.Description())
+			l.Debugf("Remote device %v has not accepted sharing folder %s", deviceID.Short(), cfg.Description())
 			seenFolders[folderID] = remoteNotSharing
 		}
 	}
