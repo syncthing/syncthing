@@ -68,9 +68,9 @@ The --logflags value is a sum of the following:
    8  Long filename
   16  Short filename
 
-I.e. to prefix each log line with date and time, set --logflags=3 (1 + 2 from
-above). The value 0 is used to disable all of the above. The default is to
-show time only (2).
+I.e. to prefix each log line with time and filename, set --logflags=18 (2 + 16
+from above). The value 0 is used to disable all of the above. The default is
+to show date and time (3).
 
 Logging always happens to the command line (stdout) and optionally to the
 file at the path specified by --logfile=path. In addition to an path, the special
@@ -187,7 +187,7 @@ type serveOptions struct {
 func defaultVars() kong.Vars {
 	vars := kong.Vars{}
 
-	vars["logFlags"] = strconv.Itoa(log.Ltime)
+	vars["logFlags"] = strconv.Itoa(logger.DefaultFlags)
 	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
 	vars["logMaxFiles"] = "3"                   // plus the current one
 
