@@ -1234,6 +1234,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.remoteFolderStates[deviceID] = states
 	m.pmut.Unlock()
 
+	m.evLogger.Log(events.RemoteClusterConfigReceived, map[string]string{
+		"id": deviceID.String(),
+	})
+
 	if len(tempIndexFolders) > 0 {
 		m.pmut.RLock()
 		conn, ok := m.conn[deviceID]
