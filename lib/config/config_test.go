@@ -504,13 +504,10 @@ func TestFolderPath(t *testing.T) {
 }
 
 func TestFolderCheckPath(t *testing.T) {
-	n, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	n := t.TempDir()
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, n)
 
-	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
+	err := os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,11 +599,7 @@ func TestWindowsLineEndings(t *testing.T) {
 		t.Skip("Windows specific")
 	}
 
-	dir, err := os.MkdirTemp("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	path := filepath.Join(dir, "config.xml")
 	os.Remove(path)

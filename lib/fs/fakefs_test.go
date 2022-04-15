@@ -204,7 +204,6 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 	}
 
 	testDir, sensitive := createTestDir(t)
-	defer removeTestDir(t, testDir)
 	if sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
@@ -240,7 +239,6 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	testDir, sensitive := createTestDir(t)
-	defer removeTestDir(t, testDir)
 	if !sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
@@ -251,10 +249,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 func createTestDir(t *testing.T) (string, bool) {
 	t.Helper()
 
-	testDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatalf("could not create temporary dir for testing: %s", err)
-	}
+	testDir := t.TempDir()
 
 	if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
 		t.Fatalf("could not create .stfolder: %s", err)
@@ -271,14 +266,6 @@ func createTestDir(t *testing.T) (string, bool) {
 	}
 
 	return testDir, sensitive
-}
-
-func removeTestDir(t *testing.T, testDir string) {
-	t.Helper()
-
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatalf("could not remove test directory: %s", err)
-	}
 }
 
 func runTests(t *testing.T, tests []test, filesystems []testFS) {

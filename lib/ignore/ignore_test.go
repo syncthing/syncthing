@@ -231,10 +231,7 @@ func TestCaseSensitivity(t *testing.T) {
 }
 
 func TestCaching(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -424,10 +421,7 @@ flamingo
 *.crow
 	`
 	// Caches per file, hence write the patterns to a file.
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		b.Fatal(err)
-	}
+	dir := b.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -465,10 +459,7 @@ flamingo
 }
 
 func TestCacheReload(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -988,12 +979,7 @@ func TestIssue4689(t *testing.T) {
 }
 
 func TestIssue4901(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	stignore := `
 	#include unicorn-lazor-death
@@ -1023,7 +1009,7 @@ func TestIssue4901(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	err = pats.Load(".stignore")
+	err := pats.Load(".stignore")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -1200,11 +1186,7 @@ func TestWindowsLineEndings(t *testing.T) {
 
 	lines := "foo\nbar\nbaz\n"
 
-	dir, err := os.MkdirTemp("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	m := New(ffs)

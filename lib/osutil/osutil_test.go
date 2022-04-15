@@ -81,15 +81,7 @@ func TestIsDeleted(t *testing.T) {
 }
 
 func TestRenameOrCopy(t *testing.T) {
-	mustTempDir := func() string {
-		t.Helper()
-		tmpDir, err := os.MkdirTemp("", "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return tmpDir
-	}
-	sameFs := fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir())
+	sameFs := fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir())
 	tests := []struct {
 		src  fs.Filesystem
 		dst  fs.Filesystem
@@ -101,13 +93,13 @@ func TestRenameOrCopy(t *testing.T) {
 			file: "file",
 		},
 		{
-			src:  fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir()),
-			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir()),
+			src:  fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir()),
+			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir()),
 			file: "file",
 		},
 		{
 			src:  fs.NewFilesystem(fs.FilesystemTypeFake, `fake://fake/?files=1&seed=42`),
-			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir()),
+			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir()),
 			file: osutil.NativeFilename(`05/7a/4d52f284145b9fe8`),
 		},
 	}
@@ -147,6 +139,10 @@ func TestRenameOrCopy(t *testing.T) {
 		if fd, err := test.dst.Open("new"); err != nil {
 			t.Fatal(err)
 		} else {
+			t.Cleanup(func() {
+				_ = fd.Close()
+			})
+
 			if buf, err := io.ReadAll(fd); err != nil {
 				t.Fatal(err)
 			} else if string(buf) != content {

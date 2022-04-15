@@ -379,11 +379,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 func TestWalkRootSymlink(t *testing.T) {
 	// Create a folder with a symlink in it
-	tmp, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
+	tmp := t.TempDir()
 	testFs := fs.NewFilesystem(testFsType, tmp)
 
 	link := "link"
@@ -712,11 +708,7 @@ func TestStopWalk(t *testing.T) {
 }
 
 func TestIssue4799(t *testing.T) {
-	tmp, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
+	tmp := t.TempDir()
 
 	fs := fs.NewFilesystem(testFsType, tmp)
 
@@ -774,11 +766,7 @@ func TestRecurseInclude(t *testing.T) {
 }
 
 func TestIssue4841(t *testing.T) {
-	tmp, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
+	tmp := t.TempDir()
 
 	fs := fs.NewFilesystem(testFsType, tmp)
 

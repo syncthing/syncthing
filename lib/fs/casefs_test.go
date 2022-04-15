@@ -9,7 +9,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -28,8 +27,7 @@ func TestRealCase(t *testing.T) {
 		testRealCase(t, newFakeFilesystem(t.Name()+"?insens=true"))
 	})
 	t.Run("actual", func(t *testing.T) {
-		fsys, tmpDir := setup(t)
-		defer os.RemoveAll(tmpDir)
+		fsys, _ := setup(t)
 		testRealCase(t, fsys)
 	})
 }
@@ -83,8 +81,7 @@ func TestRealCaseSensitive(t *testing.T) {
 		testRealCaseSensitive(t, newFakeFilesystem(t.Name()))
 	})
 	t.Run("actual", func(t *testing.T) {
-		fsys, tmpDir := setup(t)
-		defer os.RemoveAll(tmpDir)
+		fsys, _ := setup(t)
 		testRealCaseSensitive(t, fsys)
 	})
 }
@@ -124,8 +121,7 @@ func TestCaseFSStat(t *testing.T) {
 		testCaseFSStat(t, newFakeFilesystem(t.Name()+"?insens=true"))
 	})
 	t.Run("actual", func(t *testing.T) {
-		fsys, tmpDir := setup(t)
-		defer os.RemoveAll(tmpDir)
+		fsys, _ := setup(t)
 		testCaseFSStat(t, fsys)
 	})
 }

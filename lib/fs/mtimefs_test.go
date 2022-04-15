@@ -82,11 +82,7 @@ func TestMtimeFS(t *testing.T) {
 }
 
 func TestMtimeFSWalk(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	dir := t.TempDir()
 
 	mtimefs, walkFs := newMtimeFSWithWalk(dir, make(mapStore))
 	underlying := mtimefs.Filesystem
@@ -136,11 +132,7 @@ func TestMtimeFSWalk(t *testing.T) {
 }
 
 func TestMtimeFSOpen(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	dir := t.TempDir()
 
 	mtimefs := newMtimeFS(dir, make(mapStore))
 	underlying := mtimefs.Filesystem
@@ -177,6 +169,8 @@ func TestMtimeFSOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer fd.Close()
+
 	info, err := fd.Stat()
 	if err != nil {
 		t.Fatal(err)

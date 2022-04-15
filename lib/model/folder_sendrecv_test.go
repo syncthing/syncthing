@@ -89,7 +89,7 @@ func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.F
 
 // Sets up a folder and model, but makes sure the services aren't actually running.
 func setupSendReceiveFolder(t testing.TB, files ...protocol.FileInfo) (*testModel, *sendReceiveFolder, context.CancelFunc) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	// Initialise model and stop immediately.
 	model := setupModel(t, w)
 	model.cancel()
@@ -972,8 +972,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	defer cleanupSRFolder(f, m, wcfgCancel)
 	ffs := f.Filesystem(nil)
 
-	destDir := createTmpDir()
-	defer os.RemoveAll(destDir)
+	destDir := t.TempDir()
 	destFs := fs.NewFilesystem(fs.FilesystemTypeBasic, destDir)
 
 	link := "link"
@@ -1228,6 +1227,8 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 	cs := <-copyChan
 	if _, err := cs.tempFile(); err != nil {
 		t.Error(err)
+	} else {
+		cs.finalClose()
 	}
 }
 

@@ -2475,7 +2475,7 @@ func TestIssue2571(t *testing.T) {
 		t.Skip("Scanning symlinks isn't supported on windows")
 	}
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
@@ -2514,7 +2514,7 @@ func TestIssue4573(t *testing.T) {
 		t.Skip("Can't make the dir inaccessible on windows")
 	}
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
@@ -2544,7 +2544,7 @@ func TestIssue4573(t *testing.T) {
 // TestInternalScan checks whether various fs operations are correctly represented
 // in the db after scanning.
 func TestInternalScan(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
@@ -2605,7 +2605,7 @@ func TestInternalScan(t *testing.T) {
 func TestCustomMarkerName(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfig(t.TempDir())
 	fcfg.ID = "default"
 	fcfg.RescanIntervalS = 1
 	fcfg.MarkerName = "myfile"
@@ -2762,9 +2762,7 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
-	dir, err := os.MkdirTemp("", "")
-	must(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	fcfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, dir)
 	fcfg.Versioning.Type = "simple"
@@ -3181,7 +3179,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 		protocol.CloseTimeout = oldCloseTimeout
 	}()
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
@@ -3218,7 +3216,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 }
 
 func TestModTimeWindow(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
 	fcfg.RawModTimeWindowS = 2
@@ -3347,7 +3345,7 @@ func TestNewLimitedRequestResponse(t *testing.T) {
 }
 
 func TestSummaryPausedNoError(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	pauseFolder(t, wcfg, fcfg.ID, true)
 	m := setupModel(t, wcfg)
@@ -3360,7 +3358,7 @@ func TestSummaryPausedNoError(t *testing.T) {
 }
 
 func TestFolderAPIErrors(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	pauseFolder(t, wcfg, fcfg.ID, true)
 	m := setupModel(t, wcfg)
@@ -3392,7 +3390,7 @@ func TestFolderAPIErrors(t *testing.T) {
 }
 
 func TestRenameSequenceOrder(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3463,7 +3461,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 }
 
 func TestRenameSameFile(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3514,7 +3512,7 @@ func TestRenameSameFile(t *testing.T) {
 }
 
 func TestRenameEmptyFile(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3591,7 +3589,7 @@ func TestRenameEmptyFile(t *testing.T) {
 }
 
 func TestBlockListMap(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3659,7 +3657,7 @@ func TestBlockListMap(t *testing.T) {
 }
 
 func TestScanRenameCaseOnly(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3712,7 +3710,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 
 func TestClusterConfigOnFolderAdd(t *testing.T) {
 	testConfigChangeTriggersClusterConfigs(t, false, true, nil, func(wrapper config.Wrapper) {
-		fcfg := testFolderConfigTmp()
+		fcfg := testFolderConfig(t.TempDir())
 		fcfg.ID = "second"
 		fcfg.Label = "second"
 		fcfg.Devices = []config.FolderDeviceConfiguration{{
@@ -3822,7 +3820,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 
 func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSecond bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
-	wcfg, _, wcfgCancel := tmpDefaultWrapper()
+	wcfg, _, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3884,7 +3882,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 // That then causes these files to be considered as needed, while they are not.
 // https://github.com/syncthing/syncthing/issues/6961
 func TestIssue6961(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
+	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper(t)
 	defer wcfgCancel()
 	tfs := fcfg.Filesystem(nil)
 	waiter, err := wcfg.Modify(func(cfg *config.Configuration) {
@@ -3971,7 +3969,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 }
 
 func TestNeedMetaAfterIndexReset(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	addDevice2(t, w, fcfg)
 	m := setupModel(t, w)
@@ -4014,7 +4012,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		t.Skip("skipping on short testing - generating encryption tokens is slow")
 	}
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	m := setupModel(t, w)
 	m.cancel()
@@ -4155,7 +4153,7 @@ func TestCcCheckEncryption(t *testing.T) {
 
 func TestCCFolderNotRunning(t *testing.T) {
 	// Create the folder, but don't start it.
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
 	m := newModel(t, w, myID, "syncthing", "dev", nil)
@@ -4183,7 +4181,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 }
 
 func TestPendingFolder(t *testing.T) {
-	w, _, wCancel := tmpDefaultWrapper()
+	w, _, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	m := setupModel(t, w)
 	defer cleanupModel(m)
@@ -4263,7 +4261,7 @@ func TestDeletedNotLocallyChangedReceiveEncrypted(t *testing.T) {
 }
 
 func deletedNotLocallyChanged(t *testing.T, ft config.FolderType) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	tfs := fcfg.Filesystem(nil)
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)

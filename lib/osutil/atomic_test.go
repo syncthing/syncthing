@@ -61,14 +61,10 @@ func TestCreateAtomicReplaceReadOnly(t *testing.T) {
 func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 	t.Helper()
 
-	testdir, err := os.MkdirTemp("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testdir := t.TempDir()
 	testfile := filepath.Join(testdir, "testfile")
 
 	os.RemoveAll(testdir)
-	defer os.RemoveAll(testdir)
 
 	if err := os.Mkdir(testdir, 0755); err != nil {
 		t.Fatal(err)

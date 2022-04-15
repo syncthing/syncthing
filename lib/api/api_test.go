@@ -1146,11 +1146,7 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir, err := os.MkdirTemp("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
 		t.Fatal(err)
