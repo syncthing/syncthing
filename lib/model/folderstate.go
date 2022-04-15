@@ -55,10 +55,26 @@ func (s folderState) String() string {
 type remoteFolderState int
 
 const (
-	remoteValid remoteFolderState = iota
+	remoteUnknown remoteFolderState = iota
 	remoteNotSharing
 	remotePaused
+	remoteValid
 )
+
+func (s remoteFolderState) String() string {
+	switch s {
+	case remoteUnknown:
+		return "unknown"
+	case remoteNotSharing:
+		return "notsharing"
+	case remotePaused:
+		return "paused"
+	case remoteValid:
+		return "valid"
+	default:
+		return "unknown"
+	}
+}
 
 type stateTracker struct {
 	folderID string

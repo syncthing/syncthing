@@ -800,10 +800,10 @@ type FolderCompletion struct {
 	NeedItems     int
 	NeedDeletes   int
 	Sequence      int64
-	Accepted      bool
+	RemoteState   string
 }
 
-func newFolderCompletion(global, need db.Counts, sequence int64, accepted bool) FolderCompletion {
+func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFolderState) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
@@ -811,7 +811,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64, accepted bool) 
 		NeedItems:   need.Files + need.Directories + need.Symlinks,
 		NeedDeletes: need.Deleted,
 		Sequence:    sequence,
-		Accepted:    accepted,
+		RemoteState: state.String(),
 	}
 	comp.setComplectionPct()
 	return comp
@@ -853,7 +853,7 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 		"needItems":   comp.NeedItems,
 		"needDeletes": comp.NeedDeletes,
 		"sequence":    comp.Sequence,
-		"accepted":    comp.Accepted,
+		"remoteState": comp.RemoteState,
 	}
 }
 
@@ -904,7 +904,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	defer snap.Release()
 
 	m.pmut.RLock()
-	accepted := m.remoteFolderStates[device][folder] != remoteNotSharing
+	state := m.remoteFolderStates[device][folder]
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
 
@@ -915,7 +915,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device), accepted)
+	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device), state)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil

@@ -2368,7 +2368,7 @@ angular.module('syncthing.core')
         $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && $scope.completion[deviceID][folderID].remoteState == 'notsharing') {
                 name += '<sup>1</sup>';
             }
             return name;
@@ -2389,7 +2389,7 @@ angular.module('syncthing.core')
             for (var deviceID in $scope.completion) {
                 if (deviceID in $scope.devices
                     && folderCfg.id in $scope.completion[deviceID]
-                    && !$scope.completion[deviceID][folderCfg.id].accepted) {
+                    && $scope.completion[deviceID][folderCfg.id].remoteState == 'notsharing') {
                     return true;
                 }
             }
@@ -2420,7 +2420,7 @@ angular.module('syncthing.core')
         $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
             var label = $scope.folderLabel(folderID);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && $scope.completion[deviceID][folderID].remoteState == 'notsharing') {
                 label += '<sup>1</sup>';
             }
             return label;
@@ -2440,7 +2440,7 @@ angular.module('syncthing.core')
             }
             for (var folderID in $scope.completion[deviceCfg.deviceID]) {
                 if (folderID in $scope.folders
-                    && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
+                    && $scope.completion[deviceCfg.deviceID][folderID].remoteState == 'notsharing') {
                     return true;
                 }
             }
