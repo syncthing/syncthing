@@ -3773,7 +3773,7 @@ func TestAddFolderCompletion(t *testing.T) {
 	// Completion is of the whole
 	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, remoteFolderValid)             // 100% complete
 	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, remoteFolderValid)) // 82.5% complete
-	if comp.CompletionPct != 90 {                                                              // 100 * (1 - 50/500)
+	if comp.CompletionPct != 90 {                                                                    // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }
