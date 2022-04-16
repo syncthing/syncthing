@@ -1282,7 +1282,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
-		seenFolders[folder.ID] = remoteValid
+		seenFolders[folder.ID] = remoteFolderValid
 
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
@@ -1323,7 +1323,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if folder.Paused {
 			indexHandlers.Remove(folder.ID)
-			seenFolders[cfg.ID] = remotePaused
+			seenFolders[cfg.ID] = remoteFolderPaused
 			continue
 		}
 
@@ -1379,7 +1379,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	for folderID, cfg := range m.cfg.Folders() {
 		if _, seen := seenFolders[folderID]; !seen && cfg.SharedWith(deviceID) {
 			l.Debugf("Remote device %v has not accepted sharing folder %s", deviceID.Short(), cfg.Description())
-			seenFolders[folderID] = remoteNotSharing
+			seenFolders[folderID] = remoteFolderNotSharing
 		}
 	}
 
@@ -2716,7 +2716,7 @@ func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, s
 		if _, ok := m.remoteFolderStates[device]; !ok {
 			continue
 		}
-		if state := m.remoteFolderStates[device][cfg.ID]; state != remoteValid {
+		if state := m.remoteFolderStates[device][cfg.ID]; state != remoteFolderValid {
 			continue
 		}
 		_, ok := m.conn[device]

@@ -55,21 +55,21 @@ func (s folderState) String() string {
 type remoteFolderState int
 
 const (
-	remoteUnknown remoteFolderState = iota
-	remoteNotSharing
-	remotePaused
-	remoteValid
+	remoteFolderUnknown remoteFolderState = iota
+	remoteFolderNotSharing
+	remoteFolderPaused
+	remoteFolderValid
 )
 
 func (s remoteFolderState) String() string {
 	switch s {
-	case remoteUnknown:
+	case remoteFolderUnknown:
 		return "unknown"
-	case remoteNotSharing:
-		return "notsharing"
-	case remotePaused:
+	case remoteFolderNotSharing:
+		return "notSharing"
+	case remoteFolderPaused:
 		return "paused"
-	case remoteValid:
+	case remoteFolderValid:
 		return "valid"
 	default:
 		return "unknown"
