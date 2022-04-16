@@ -1147,7 +1147,7 @@ type clusterConfigDeviceInfo struct {
 	local, remote protocol.Device
 }
 
-type RemoteClusterConfigReceivedEventData struct {
+type ClusterConfigReceivedEventData struct {
 	ID string `json:"id"`
 }
 
@@ -1238,7 +1238,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.remoteFolderStates[deviceID] = states
 	m.pmut.Unlock()
 
-	m.evLogger.Log(events.RemoteClusterConfigReceived, RemoteClusterConfigReceivedEventData{
+	m.evLogger.Log(events.ClusterConfigReceived, ClusterConfigReceivedEventData{
 		ID: deviceID.String(),
 	})
 

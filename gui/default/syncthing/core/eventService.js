@@ -64,7 +64,7 @@ angular.module('syncthing.core')
             PENDING_DEVICES_CHANGED: 'PendingDevicesChanged',   // Emitted when pending devices were added / updated (connection from unknown ID) or removed (device is ignored or added)
             DEVICE_PAUSED: 'DevicePaused',   // Emitted when a device has been paused
             DEVICE_RESUMED: 'DeviceResumed',   // Emitted when a device has been resumed
-            REMOTE_CLUSTER_CONFIG_RECEIVED: 'RemoteClusterConfigReceived',   // Emitted when receiving a remote device's cluster config
+            CLUSTER_CONFIG_RECEIVED: 'ClusterConfigReceived',   // Emitted when receiving a remote device's cluster config
             DOWNLOAD_PROGRESS: 'DownloadProgress',   // Emitted during file downloads for each folder for each file
             FAILURE: 'Failure',   // Specific errors sent to the usage reporting server for diagnosis
             FOLDER_COMPLETION: 'FolderCompletion',   //Emitted when the local or remote contents for a folder changes

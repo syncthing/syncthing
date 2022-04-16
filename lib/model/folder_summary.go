@@ -221,7 +221,7 @@ func (c *folderSummaryService) OnEventRequest() {
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
 func (c *folderSummaryService) listenForUpdates(ctx context.Context) error {
-	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.RemoteClusterConfigReceived | events.FolderWatchStateChanged | events.DownloadProgress)
+	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.ClusterConfigReceived | events.FolderWatchStateChanged | events.DownloadProgress)
 	defer sub.Unsubscribe()
 
 	for {
@@ -244,7 +244,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 	var folder string
 
 	switch ev.Type {
-	case events.DeviceConnected, events.RemoteClusterConfigReceived:
+	case events.DeviceConnected, events.ClusterConfigReceived:
 		// When a device connects we schedule a refresh of all
 		// folders shared with that device.
 
