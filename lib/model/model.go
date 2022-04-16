@@ -1147,6 +1147,10 @@ type clusterConfigDeviceInfo struct {
 	local, remote protocol.Device
 }
 
+type RemoteClusterConfigReceivedEventData struct {
+	ID string `json:"id"`
+}
+
 func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) error {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
@@ -1234,8 +1238,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.remoteFolderStates[deviceID] = states
 	m.pmut.Unlock()
 
-	m.evLogger.Log(events.RemoteClusterConfigReceived, map[string]string{
-		"id": deviceID.String(),
+	m.evLogger.Log(events.RemoteClusterConfigReceived, RemoteClusterConfigReceivedEventData{
+		ID: deviceID.String(),
 	})
 
 	if len(tempIndexFolders) > 0 {
