@@ -989,7 +989,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	var summarySub events.Subscription
 	var summaryChan <-chan events.Event
 	if fs.WatchKqueue && !f.warnedKqueue {
-		summarySub = f.evLogger.Subscribe(events.FolderCompletion)
+		summarySub = f.evLogger.Subscribe(events.FolderSummary)
 		summaryChan = summarySub.C()
 	}
 	defer func() {
