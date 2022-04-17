@@ -7,7 +7,7 @@
  * {{1|duration:"h"}}         --> <1h
 **/
 angular.module('syncthing.core')
-    .filter('duration', function () {
+    .filter('duration', function ($translate) {
         'use strict';
 
         var SECONDS_IN = { "d": 86400, "h": 3600, "m": 60, "s": 1 };
@@ -20,12 +20,27 @@ angular.module('syncthing.core')
             for (var k in SECONDS_IN) {
                 var t = (input / SECONDS_IN[k] | 0); // Math.floor
 
+                switch (k) {
+                  case 'd':
+                    var translatedTime = $translate.instant("d");
+                    break;
+                  case 'h':
+                    var translatedTime = $translate.instant("h");
+                    break;
+                  case 'm':
+                    var translatedTime = $translate.instant("m");
+                    break;
+                  case 's':
+                    var translatedTime = $translate.instant("s");
+                    break;
+                }
+
                 if (t > 0) {
-                    result += " " + t + k;
+                    result += " " + t + translatedTime;
                 }
 
                 if (precision == k) {
-                    return result ? result : "<1" + k;
+                    return result ? result : "<1" + translatedTime;
                 } else {
                     input %= SECONDS_IN[k];
                 }
