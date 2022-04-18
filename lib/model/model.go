@@ -800,7 +800,7 @@ type FolderCompletion struct {
 	NeedItems     int
 	NeedDeletes   int
 	Sequence      int64
-	RemoteState   string
+	RemoteState   remoteFolderState
 }
 
 func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFolderState) FolderCompletion {
@@ -811,7 +811,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFol
 		NeedItems:   need.Files + need.Directories + need.Symlinks,
 		NeedDeletes: need.Deleted,
 		Sequence:    sequence,
-		RemoteState: state.String(),
+		RemoteState: state,
 	}
 	comp.setComplectionPct()
 	return comp
