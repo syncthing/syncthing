@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Apr 05, 2022" "v1.19.2" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Apr 13, 2022" "v1.19.2" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -229,6 +229,12 @@ directory itself. If you want the pattern to match the directory and its
 content, make sure it does not have a \fB/\fP at the end of the pattern.
 .UNINDENT
 .UNINDENT
+.sp
+New in version 1.19.0: Default patterns can be configured which will take effect when automatically
+accepting a folder from a remote device.  The GUI suggests same the patterns
+when adding a folder manually.  In either case, the \fB\&.stignore\fP file is
+created with these defaults if none is present yet.
+
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

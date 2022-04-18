@@ -378,7 +378,7 @@
     "The number of versions must be a number and cannot be blank.": "Die Anzahl von Versionen muss eine Ganzzahl und darf nicht leer sein.",
     "The path cannot be blank.": "Der Pfad darf nicht leer sein.",
     "The rate limit must be a non-negative number (0: no limit)": "Das Datenratelimit muss eine nicht negative Zahl sein (0 = kein Limit).",
-    "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has not accepted sharing this folder.": "Dieser geteilte Ordner wurde vom Gerät nicht angenommen.",
     "The rescan interval must be a non-negative number of seconds.": "Das Scanintervall muss eine nicht negative Anzahl (in Sekunden) sein.",
     "There are no devices to share this folder with.": "Es gibt keine Geräte, mit denen dieser Ordner geteilt werden kann.",
     "There are no file versions to restore.": "Es gibt keine Dateiversionen zum Wiederherstellen.",
