@@ -547,9 +547,8 @@
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
                         <td class="text-right">
                           <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
-                            <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
-                            <span translate ng-if="folderStats[folder.id].lastFile.deleted">Deleted</span>
-                            {{folderStats[folder.id].lastFile.filename | basename}}
+                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="!folderStats[folder.id].lastFile.deleted">Updated {%file%}</span>
+                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="folderStats[folder.id].lastFile.deleted">Deleted {%file%}</span>
                           </span>
                         </td>
                       </tr>
