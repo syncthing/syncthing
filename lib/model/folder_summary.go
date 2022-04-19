@@ -249,7 +249,11 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		// folders shared with that device.
 
 		data := ev.Data.(map[string]string)
-		deviceID, _ := protocol.DeviceIDFromString(data["id"])
+		key := "id"
+		if ev.Type == events.ClusterConfigReceived {
+			key = "device"
+		}
+		deviceID, _ := protocol.DeviceIDFromString(data[key])
 
 		c.foldersMut.Lock()
 	nextFolder:
