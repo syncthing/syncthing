@@ -4,13 +4,13 @@
       <div class="well well-sm form-control text-monospace text-center" select-on-click>{{currentDevice.deviceID}}</div>
       <div class="input-group-btn">
         <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy to Clipboard' | translate }}">
-          <span class="fas fa-files-o"></span>
+          <span class="fa fa-lg fa-files-o"></span>
         </button>
         <button type="button" class="btn btn-default" ng-click="shareDeviceId('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
-          <span class="fas fa-envelope-o"></span>
+          <span class="fa fa-lg fa-envelope-o"></span>
         </button>
         <button type="button" class="btn btn-default" ng-click="shareDeviceId('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by SMS' | translate }}">
-          <span class="fas fa-comment-o"></span>
+          <span class="fa fa-lg fa-comments-o"></span>
         </button>
       </div>
     </div>

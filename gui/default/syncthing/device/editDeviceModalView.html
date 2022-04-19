@@ -15,16 +15,16 @@
               <div ng-if="!editingDeviceNew()" class="well well-sm form-control text-monospace" style="height: auto;" select-on-click>{{currentDevice.deviceID}}</div>
               <div class="input-group-btn">
                 <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy to Clipboard' | translate }}">
-                  <span class="fas fa-clone"></span>
+                  <span class="fa fa-lg fa-clone"></span>
                 </button>
                 <button type="button" class="btn btn-default" ng-click="shareDeviceId('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
-                  <span class="fas fa-envelope-o"></span>
+                  <span class="fa fa-lg fa-envelope-o"></span>
                 </button>
                 <button type="button" class="btn btn-default" ng-click="shareDeviceId('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by SMS' | translate }}">
-                  <span class="fas fa-comment-o"></span>
+                  <span class="fa fa-lg fa-comments-o"></span>
                 </button>
                 <button type="button" class="btn btn-default" data-toggle="modal" data-target="#idqr" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Show QR' | translate }}">
-                  <span class="fas fa-qrcode"></span>
+                  <span class="fa fa-lg fa-qrcode"></span>
                 </button>
               </div>
             </div>
