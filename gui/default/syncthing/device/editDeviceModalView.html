@@ -15,7 +15,7 @@
               <div ng-if="!editingDeviceNew()" class="well well-sm form-control text-monospace" style="height: auto;" select-on-click>{{currentDevice.deviceID}}</div>
               <div class="input-group-btn">
                 <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy to Clipboard' | translate }}">
-                  <span class="fas fa-files-o"></span>
+                  <span class="fas fa-clone"></span>
                 </button>
                 <button type="button" class="btn btn-default" ng-click="shareDeviceId('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
                   <span class="fas fa-envelope-o"></span>
