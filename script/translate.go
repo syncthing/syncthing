@@ -24,7 +24,7 @@ import (
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
-var jsRe = regexp.MustCompile(`\$translate.instant\("([^"]+)"\)`)
+var jsRe = regexp.MustCompile(`\$translate.instant\("((.+?))"(,|\))`)
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(

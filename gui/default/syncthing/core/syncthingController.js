@@ -3124,6 +3124,95 @@ angular.module('syncthing.core')
                     address.indexOf('unix://') == 0 ||
                     address.indexOf('unixs://') == 0);
         };
+
+        $scope.copyToClipboard = function (event, text) {
+            console.log(text);
+            var success = $translate.instant("Copied to clipboard!");
+            var failure = $translate.instant("Copy to clipboard failed!");
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Default for modern browsers on localhost or HTTPS.
+                navigator.clipboard.writeText(text);
+                return alert(success);
+            } else if (window.clipboardData && window.clipboardData.setData) {
+                // Fallback for Internet Explorer.
+                window.clipboardData.setData('Text', text);
+                return alert(success);
+            } else if (document.queryCommandSupported) {
+                // Fallback for modern browsers on HTTP and non-IE old browsers.
+                // Check for document.queryCommandSupported("copy") support is
+                // omitted on purpose, as old Chrome versions reported "false"
+                // despite supporting the feature.
+                var textarea = document.createElement("textarea");
+                event.currentTarget.appendChild(textarea);
+                textarea.style.position = "fixed";
+                textarea.style.opacity = "0";
+                textarea.textContent = text;
+                textarea.select();
+                try {
+                    document.execCommand("copy");
+                    return alert(success);
+                }
+                catch (ex) {
+                    return alert(failure);
+                }
+                finally {
+                    event.currentTarget.removeChild(textarea);
+                }
+            }
+            return alert(failure);
+        };
+
+        $scope.shareDeviceId = function(method) {
+            // Title and footer can be reused between email, SMS, and possibly
+            // other methods, hence we define them separately in the beginning.
+            var title = $translate.instant("{%name%} has shared their Syncthing device ID!", {name: $scope.currentDevice.name});
+            var footer = $translate.instant("Learn more at {%address%}.", {address: "https://syncthing.net"});
+
+            switch (method) {
+                case 'email':
+                    var subject = title;
+                    var body = $translate.instant("You have been invited to connect with {%name%} using Syncthing!\r\n\r\nTo accept the invitation, add a new device using the ID below.", {name: $scope.currentDevice.name});
+                    body += '\r\n\r\n';
+                    body += $scope.currentDevice.deviceID;
+                    body += '\r\n\r\n';
+                    body += $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.");
+                    body += '\r\n\r\n';
+                    body += footer;
+                    try {
+                        location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+                        success = true;
+                    }
+                    catch (ex) {
+                        var error = $translate.instant("No email client found. Do you want to copy the email text to clipboard instead?");
+                        if (confirm(error)) {
+                              $scope.copyToClipboard(onclick, body);
+                        }
+                    }
+                    break;
+                case 'sms':
+                    // SMS is limited to 160 characters (non-Unicode), so we keep
+                    // it as short as possible, e.g. by stripping hyphens from
+                    // device ID. The current minimum length is around 150 chars,
+                    // but some room is required for longer sharing device names.
+                    var body = title;
+                    body += '\r\n\r\n';
+                    body += $scope.currentDevice.deviceID.replace(/-/g, '');
+                    body += '\r\n\r\n';
+                    body += footer;
+                    try {
+                        location.href = 'sms://;?&body=' + encodeURIComponent(body);
+                        success = true;
+                    }
+                    catch (ex) {
+                        var error = $translate.instant("No SMS client found. Do you want to copy the SMS text to clipboard instead?");
+                        if (confirm(error)) {
+                              $scope.copyToClipboard(onclick, body);
+                        }
+                    }
+                    break;
+            }
+        }
     })
     .directive('shareTemplate', function () {
         return {

@@ -200,6 +200,7 @@
    "Last seen": "Last seen",
    "Latest Change": "Latest Change",
    "Learn more": "Learn more",
+   "Learn more at {%address%}.": "Learn more at {{address}}.",
    "Limit": "Limit",
    "Listener Failures": "Listener Failures",
    "Listener Status": "Listener Status",
@@ -230,6 +231,8 @@
    "Newest First": "Newest First",
    "No": "No",
    "No File Versioning": "No File Versioning",
+   "No SMS client found. Do you want to copy the SMS text to clipboard instead?": "No SMS client found. Do you want to copy the SMS text to clipboard instead?",
+   "No email client found. Do you want to copy the email text to clipboard instead?": "No email client found. Do you want to copy the email text to clipboard instead?",
    "No files will be deleted as a result of this operation.": "No files will be deleted as a result of this operation.",
    "No upgrades": "No upgrades",
    "Not shared": "Not shared",
@@ -309,6 +312,12 @@
    "Settings": "Settings",
    "Share": "Share",
    "Share Folder": "Share Folder",
+<<<<<<< HEAD
+=======
+   "Share Folders With Device": "Share Folders With Device",
+   "Share by Email": "Share by Email",
+   "Share by SMS": "Share by SMS",
+>>>>>>> aac754754 (gui: Add copy to clipboard, share by email, and share by SMS buttons to device IDs (fixes #2771, ref #3868))
    "Share this folder?": "Share this folder?",
    "Shared Folders": "Shared Folders",
    "Shared With": "Shared With",
@@ -348,6 +357,7 @@
    "Syncthing has been shut down.": "Syncthing has been shut down.",
    "Syncthing includes the following software or portions thereof:": "Syncthing includes the following software or portions thereof:",
    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing is Free and Open Source Software licensed as MPL v2.0.",
+   "Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.": "Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.",
    "Syncthing is listening on the following network addresses for connection attempts from other devices:": "Syncthing is listening on the following network addresses for connection attempts from other devices:",
    "Syncthing is not listening for connection attempts from other devices on any address.  Only outgoing connections from this device may work.": "Syncthing is not listening for connection attempts from other devices on any address.  Only outgoing connections from this device may work.",
    "Syncthing is restarting.": "Syncthing is restarting.",
@@ -453,6 +463,7 @@
    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
    "You can change your choice at any time in the Settings dialog.": "You can change your choice at any time in the Settings dialog.",
    "You can read more about the two release channels at the link below.": "You can read more about the two release channels at the link below.",
+   "You have been invited to connect with {%name%} using Syncthing!\\r\\n\\r\\nTo accept the invitation, add a new device using the ID below.": "You have been invited to connect with {{name}} using Syncthing!\\r\\n\\r\\nTo accept the invitation, add a new device using the ID below.",
    "You have no ignored devices.": "You have no ignored devices.",
    "You have no ignored folders.": "You have no ignored folders.",
    "You have unsaved changes. Do you really want to discard them?": "You have unsaved changes. Do you really want to discard them?",
@@ -470,5 +481,6 @@
    "theme-name-light": "Light",
    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
+   "{%name%} has shared their Syncthing device ID!": "{{name}} has shared their Syncthing device ID!",
    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }
