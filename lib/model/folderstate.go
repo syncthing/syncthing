@@ -76,6 +76,10 @@ func (s remoteFolderState) String() string {
 	}
 }
 
+func (s remoteFolderState) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
 type stateTracker struct {
 	folderID string
 	evLogger events.Logger
