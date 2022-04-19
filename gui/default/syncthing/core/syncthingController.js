@@ -3125,19 +3125,29 @@ angular.module('syncthing.core')
                     address.indexOf('unixs://') == 0);
         };
 
-        $scope.copyToClipboard = function (event, text) {
-            console.log(text);
+        $scope.showTooltip = function (content) {
+            var e = event.currentTarget;
+            var tooltip = e.getAttribute('data-original-title');
+            e.setAttribute('data-original-title', content);
+            if (tooltip) {
+                e.setAttribute('data-original-title', tooltip);
+            } else {
+                e.removeAttribute('data-original-title');
+            }
+        };
+
+        $scope.copyToClipboard = function (content) {
             var success = $translate.instant("Copied to clipboard!");
-            var failure = $translate.instant("Copy to clipboard failed!");
+            var failure = $translate.instant("Failed to copy to clipboard!");
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 // Default for modern browsers on localhost or HTTPS.
-                navigator.clipboard.writeText(text);
-                return alert(success);
+                navigator.clipboard.writeText(content);
+                return $scope.showTooltip(success);
             } else if (window.clipboardData && window.clipboardData.setData) {
                 // Fallback for Internet Explorer.
-                window.clipboardData.setData('Text', text);
-                return alert(success);
+                window.clipboardData.setData('Text', content);
+                return $scope.showTooltip(success);
             } else if (document.queryCommandSupported) {
                 // Fallback for modern browsers on HTTP and non-IE old browsers.
                 // Check for document.queryCommandSupported("copy") support is
@@ -3147,20 +3157,20 @@ angular.module('syncthing.core')
                 event.currentTarget.appendChild(textarea);
                 textarea.style.position = "fixed";
                 textarea.style.opacity = "0";
-                textarea.textContent = text;
+                textarea.textContent = content;
                 textarea.select();
                 try {
                     document.execCommand("copy");
-                    return alert(success);
+                    return $scope.showTooltip(success);
                 }
                 catch (ex) {
-                    return alert(failure);
+                    return $scope.showTooltip(failure);
                 }
                 finally {
                     event.currentTarget.removeChild(textarea);
                 }
             }
-            return alert(failure);
+            return $scope.showTooltip(failure);
         };
 
         $scope.shareDeviceId = function(method) {
@@ -3179,16 +3189,13 @@ angular.module('syncthing.core')
                     body += $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.");
                     body += '\r\n\r\n';
                     body += footer;
-                    try {
-                        location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-                        success = true;
-                    }
-                    catch (ex) {
-                        var error = $translate.instant("No email client found. Do you want to copy the email text to clipboard instead?");
-                        if (confirm(error)) {
-                              $scope.copyToClipboard(onclick, body);
-                        }
-                    }
+                    // if (confirm($translate.instant("This action requires a registered email client. Continue only if you have one."))) {
+                        // location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+                    // } else {
+                        // if (confirm($translate.instant("The action has been canceled. Do you want to copy the email text to clipboard instead?"))) {
+                            // $scope.copyToClipboard(body);
+                        // }
+                    // }
                     break;
                 case 'sms':
                     // SMS is limited to 160 characters (non-Unicode), so we keep
@@ -3200,16 +3207,13 @@ angular.module('syncthing.core')
                     body += $scope.currentDevice.deviceID.replace(/-/g, '');
                     body += '\r\n\r\n';
                     body += footer;
-                    try {
-                        location.href = 'sms://;?&body=' + encodeURIComponent(body);
-                        success = true;
-                    }
-                    catch (ex) {
-                        var error = $translate.instant("No SMS client found. Do you want to copy the SMS text to clipboard instead?");
-                        if (confirm(error)) {
-                              $scope.copyToClipboard(onclick, body);
-                        }
-                    }
+                    // if (confirm($translate.instant("This action requires a registered SMS client. Continue only if you have one."))) {
+                        // location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+                    // } else {
+                        // if (confirm($translate.instant("The action has been canceled. Do you want to copy the SMS text to clipboard instead?"))) {
+                            // $scope.copyToClipboard(body);
+                        // }
+                    // }
                     break;
             }
         }

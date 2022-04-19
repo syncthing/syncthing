@@ -3,7 +3,7 @@
     <div class="input-group">
       <div class="well well-sm form-control text-monospace text-center" select-on-click>{{currentDevice.deviceID}}</div>
       <div class="input-group-btn">
-        <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy to Clipboard' | translate }}">
+        <button type="button" class="btn btn-default" ng-click="copyToClipboard(currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy to Clipboard' | translate }}">
           <span class="fa fa-lg fa-files-o"></span>
         </button>
         <button type="button" class="btn btn-default" ng-click="shareDeviceId('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
