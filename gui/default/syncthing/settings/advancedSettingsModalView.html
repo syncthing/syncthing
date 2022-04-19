@@ -176,8 +176,12 @@
                   <div ng-repeat="(key, value) in advancedConfig.defaults.ignores" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                     <label for="advancedDefaultIgnoresInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-defaults.ignores.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
                     <div class="col-sm-8">
-                      <textarea ng-if="inputTypeFor(key, value) == 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" ng-model="advancedConfig.defaults.ignores[key]" ng-list="&#10;" ng-trim="false"></textarea>
-                      <input ng-if="inputTypeFor(key, value) != 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.defaults.ignores[key]" />
+		      <div ng-switch="key">
+			<!-- Special case to preserve empty lines in multi-line input -->
+			<textarea ng-switch-when="lines" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" ng-model="advancedConfig.defaults.ignores._lines" ng-model-options="{ getterSetter: true }"></textarea>
+			<input ng-switch-default ng-if="inputTypeFor(key, value) == 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.defaults.ignores[key]" ng-list />
+			<input ng-switch-default ng-if="inputTypeFor(key, value) != 'list'" id="advancedDefaultIgnoresInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.defaults.ignores[key]" />
+                      </div>
                     </div>
                   </div>
                 </form>
