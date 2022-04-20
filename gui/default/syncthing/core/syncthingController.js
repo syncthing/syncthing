@@ -3148,10 +3148,10 @@ angular.module('syncthing.core')
             switch (type) {
                 case "email":
                     params.heading = $translate.instant("Share by Email");
-                    params.icon = "fa fa-envelope-o"
-                    params.subject = title;
+                    params.icon = "fa fa-envelope-o";
                     // Email message format requires using CRLF for line breaks.
                     // Ref: https://datatracker.ietf.org/doc/html/rfc5322
+                    params.subject = title;
                     params.body = [
                         $translate.instant("You have been invited to connect with {%devicename%} using Syncthing!", {devicename: deviceName}),
                         $translate.instant("To accept the invitation, add a new device using the ID below."),
