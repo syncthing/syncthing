@@ -3125,10 +3125,77 @@ angular.module('syncthing.core')
                     address.indexOf('unixs://') == 0);
         };
 
+        $scope.shareDeviceConfirmationModal = function (type) {
+            var params = {
+                type: type,
+            };
+
+            // Device name is used to indicate the "person" who shares their
+            // device. If missing, fall back to short device ID instead, which
+            // cannot be empty.
+            var deviceID = $scope.currentDevice.deviceID;
+            if ($scope.currentDevice.name) {
+                var deviceName = $scope.currentDevice.name;
+            } else {
+                var deviceName = $scope.deviceShortID(deviceID);
+            }
+
+            // Title and footer can be reused between email, SMS, and possibly
+            // other methods, hence we define them separately before the body.
+            var title = $translate.instant("{%devicename%} has shared their Syncthing device ID!", {devicename: deviceName});
+            var footer = $translate.instant("Learn more at {%url%}.", {url: "https://syncthing.net"});
+
+            switch (type) {
+                case "email":
+                    params.heading = $translate.instant("Share by Email");
+                    params.icon = "fa fa-envelope-o"
+                    params.subject = title;
+                    // Email message format requires using CRLF for line breaks.
+                    // Ref: https://datatracker.ietf.org/doc/html/rfc5322
+                    params.body = [
+                        $translate.instant("You have been invited to connect with {%devicename%} using Syncthing!", {devicename: deviceName}),
+                        $translate.instant("To accept the invitation, add a new device using the ID below."),
+                        deviceID,
+                        $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet."),
+                        footer
+                    ].join('\r\n\r\n');
+                    break;
+                case "sms":
+                    params.heading = $translate.instant("Share by SMS");
+                    params.icon = "fa fa-comments-o";
+                    // SMS is limited to 160 characters (non-Unicode), so we keep
+                    // it as short as possible, e.g. by stripping hyphens from
+                    // device ID. The current minimum length is around 140 chars,
+                    // but some room is required for longer sharing device names.
+                    params.body = [
+                        title,
+                        deviceID.replace(/-/g, ''),
+                        footer
+                    ].join('\n\n');
+                    break;
+                default:
+            }
+            $scope.shareDeviceParams = params;
+            $('#share-device-confirmation').modal('show');
+        };
+
+        $scope.shareDevice = function () {
+            switch ($scope.shareDeviceParams.type) {
+                case 'email':
+                    location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceParams.body);
+                    break;
+                case 'sms':
+                    location.href = 'sms://;?&body=' + encodeURIComponent($scope.shareDeviceParams.body);
+                    break;
+                default:
+            }
+        }
+
         $scope.showTooltip = function (content) {
             var e = event.currentTarget;
             var tooltip = e.getAttribute('data-original-title');
             e.setAttribute('data-original-title', content);
+            $(e).tooltip('show');
             if (tooltip) {
                 e.setAttribute('data-original-title', tooltip);
             } else {
@@ -3162,61 +3229,14 @@ angular.module('syncthing.core')
                 try {
                     document.execCommand("copy");
                     return $scope.showTooltip(success);
-                }
-                catch (ex) {
+                } catch (ex) {
                     return $scope.showTooltip(failure);
-                }
-                finally {
+                } finally {
                     event.currentTarget.removeChild(textarea);
                 }
             }
             return $scope.showTooltip(failure);
         };
-
-        $scope.shareDeviceId = function(method) {
-            // Title and footer can be reused between email, SMS, and possibly
-            // other methods, hence we define them separately in the beginning.
-            var title = $translate.instant("{%name%} has shared their Syncthing device ID!", {name: $scope.currentDevice.name});
-            var footer = $translate.instant("Learn more at {%address%}.", {address: "https://syncthing.net"});
-
-            switch (method) {
-                case 'email':
-                    var subject = title;
-                    var body = $translate.instant("You have been invited to connect with {%name%} using Syncthing!\r\n\r\nTo accept the invitation, add a new device using the ID below.", {name: $scope.currentDevice.name});
-                    body += '\r\n\r\n';
-                    body += $scope.currentDevice.deviceID;
-                    body += '\r\n\r\n';
-                    body += $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.");
-                    body += '\r\n\r\n';
-                    body += footer;
-                    // if (confirm($translate.instant("This action requires a registered email client. Continue only if you have one."))) {
-                        // location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-                    // } else {
-                        // if (confirm($translate.instant("The action has been canceled. Do you want to copy the email text to clipboard instead?"))) {
-                            // $scope.copyToClipboard(body);
-                        // }
-                    // }
-                    break;
-                case 'sms':
-                    // SMS is limited to 160 characters (non-Unicode), so we keep
-                    // it as short as possible, e.g. by stripping hyphens from
-                    // device ID. The current minimum length is around 150 chars,
-                    // but some room is required for longer sharing device names.
-                    var body = title;
-                    body += '\r\n\r\n';
-                    body += $scope.currentDevice.deviceID.replace(/-/g, '');
-                    body += '\r\n\r\n';
-                    body += footer;
-                    // if (confirm($translate.instant("This action requires a registered SMS client. Continue only if you have one."))) {
-                        // location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-                    // } else {
-                        // if (confirm($translate.instant("The action has been canceled. Do you want to copy the SMS text to clipboard instead?"))) {
-                            // $scope.copyToClipboard(body);
-                        // }
-                    // }
-                    break;
-            }
-        }
     })
     .directive('shareTemplate', function () {
         return {
