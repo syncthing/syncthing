@@ -146,9 +146,8 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Device %v was resumed", device)
 
 	case events.ClusterConfigReceived:
-		data := ev.Data.(map[string]string)
-		device := data["device"]
-		return fmt.Sprintf("Received ClusterConfig from device %v", device)
+		data := ev.Data.(model.ClusterConfigReceivedEventData)
+		return fmt.Sprintf("Received ClusterConfig from device %v", data.Device)
 
 	case events.FolderPaused:
 		data := ev.Data.(map[string]string)

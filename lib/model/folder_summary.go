@@ -248,12 +248,14 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		// When a device connects we schedule a refresh of all
 		// folders shared with that device.
 
-		data := ev.Data.(map[string]string)
-		key := "id"
-		if ev.Type == events.ClusterConfigReceived {
-			key = "device"
+		var deviceID protocol.DeviceID
+		if ev.Type == events.DeviceConnected {
+			data := ev.Data.(map[string]string)
+			deviceID, _ = protocol.DeviceIDFromString(data["id"])
+		} else {
+			data := ev.Data.(ClusterConfigReceivedEventData)
+			deviceID = data.Device
 		}
-		deviceID, _ := protocol.DeviceIDFromString(data[key])
 
 		c.foldersMut.Lock()
 	nextFolder:
