@@ -3191,13 +3191,14 @@ angular.module('syncthing.core')
             }
         }
 
-        $scope.showTooltip = function (content) {
+        $scope.showTooltip = function (newTooltip) {
             var e = event.currentTarget;
-            var tooltip = e.getAttribute('data-original-title');
-            e.setAttribute('data-original-title', content);
+            var oldTooltip = e.getAttribute('data-original-title');
+
+            e.setAttribute('data-original-title', newTooltip);
             $(e).tooltip('show');
-            if (tooltip) {
-                e.setAttribute('data-original-title', tooltip);
+            if (oldTooltip) {
+                e.setAttribute('data-original-title', oldTooltip);
             } else {
                 e.removeAttribute('data-original-title');
             }
@@ -3206,15 +3207,14 @@ angular.module('syncthing.core')
         $scope.copyToClipboard = function (content) {
             var success = $translate.instant("Copied to clipboard!");
             var failure = $translate.instant("Failed to copy to clipboard!");
+            var message = success;
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 // Default for modern browsers on localhost or HTTPS.
                 navigator.clipboard.writeText(content);
-                return $scope.showTooltip(success);
             } else if (window.clipboardData && window.clipboardData.setData) {
                 // Fallback for Internet Explorer.
                 window.clipboardData.setData('Text', content);
-                return $scope.showTooltip(success);
             } else if (document.queryCommandSupported) {
                 // Fallback for modern browsers on HTTP and non-IE old browsers.
                 // Check for document.queryCommandSupported("copy") support is
@@ -3228,14 +3228,15 @@ angular.module('syncthing.core')
                 textarea.select();
                 try {
                     document.execCommand("copy");
-                    return $scope.showTooltip(success);
                 } catch (ex) {
-                    return $scope.showTooltip(failure);
+                    var message = failure;
                 } finally {
                     event.currentTarget.removeChild(textarea);
                 }
+            } else {
+                var message = failure;
             }
-            return $scope.showTooltip(failure);
+            $scope.showTooltip(message);
         };
     })
     .directive('shareTemplate', function () {
