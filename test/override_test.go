@@ -27,9 +27,11 @@ func TestOverride(t *testing.T) {
 	// Enable "send-only" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _, _ := config.Load("h1/config.xml", id, events.NoopLogger)
-	fld := cfg.Folders()["default"]
-	fld.Type = config.FolderTypeSendOnly
-	cfg.SetFolder(fld)
+	modifyConfig(t, cfg, func(c *config.Configuration) {
+		fld, _, _ := c.Folder("default")
+		fld.Type = config.FolderTypeSendOnly
+		c.SetFolder(fld)
+	})
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
 	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()

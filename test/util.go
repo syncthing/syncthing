@@ -25,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/rc"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -573,4 +574,17 @@ func checkRemoteInSync(folder string, p1, p2 *rc.Process) error {
 		return fmt.Errorf(`from device %v folder "%v" is not in sync on device %v`, p2.ID(), folder, p1.ID())
 	}
 	return nil
+}
+
+func modifyConfig(t *testing.T, cfg config.Wrapper, f config.ModifyFunction) {
+	// FIXME: Where to put this?
+	// ctx, cancel := context.WithCancel(context.Background())
+	// go cfg.Serve(ctx)
+	// defer cancel()
+
+	waiter, err := cfg.Modify(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
 }
