@@ -35,6 +35,7 @@ const (
 	PendingDevicesChanged
 	DevicePaused
 	DeviceResumed
+	ClusterConfigReceived
 	LocalChangeDetected
 	RemoteChangeDetected
 	LocalIndexUpdated
@@ -118,6 +119,8 @@ func (t EventType) String() string {
 		return "DevicePaused"
 	case DeviceResumed:
 		return "DeviceResumed"
+	case ClusterConfigReceived:
+		return "ClusterConfigReceived"
 	case FolderScanProgress:
 		return "FolderScanProgress"
 	case FolderPaused:
@@ -203,6 +206,8 @@ func UnmarshalEventType(s string) EventType {
 		return DevicePaused
 	case "DeviceResumed":
 		return DeviceResumed
+	case "ClusterConfigReceived":
+		return ClusterConfigReceived
 	case "FolderScanProgress":
 		return FolderScanProgress
 	case "FolderPaused":
