@@ -50,10 +50,6 @@ var errTooManyModifications = errors.New("too many concurrent config modificatio
 // false will result in a "restart needed" response to the API/user. Note that
 // the new configuration will still have been applied by those who were
 // capable of doing so.
-//
-// A Committer must take care not to hold any locks while changing the
-// configuration (e.g. calling Wrapper.SetFolder), that are also acquired in any
-// methods of the Committer interface.
 type Committer interface {
 	CommitConfiguration(from, to Configuration) (handled bool)
 	String() string
