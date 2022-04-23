@@ -46,7 +46,7 @@ type httpClient interface {
 const (
 	defaultReannounceInterval             = 30 * time.Minute
 	announceErrorRetryInterval            = 5 * time.Minute
-	requestTimeout                        = 5 * time.Second
+	requestTimeout                        = 30 * time.Second
 	maxAddressChangesBetweenAnnouncements = 10
 )
 
