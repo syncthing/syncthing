@@ -76,8 +76,28 @@ func (s remoteFolderState) String() string {
 	}
 }
 
+func remoteFolderStateFromString(s string) remoteFolderState {
+	switch s {
+	case "unknown":
+		return remoteFolderUnknown
+	case "notSharing":
+		return remoteFolderNotSharing
+	case "paused":
+		return remoteFolderPaused
+	case "valid":
+		return remoteFolderValid
+	default:
+		return remoteFolderUnknown
+	}
+}
+
 func (s remoteFolderState) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
+}
+
+func (s *remoteFolderState) UnmarshalText(bs []byte) error {
+	*s = remoteFolderStateFromString(string(bs))
+	return nil
 }
 
 type stateTracker struct {
