@@ -24,14 +24,13 @@ func TestFileTypeChange(t *testing.T) {
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _, _ := config.Load("h2/config.xml", id, events.NoopLogger)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	modifyConfig(t, cfg, func(c *config.Configuration) {
 		fld, _, _ := c.Folder("default")
 		fld.Versioning = config.VersioningConfiguration{}
 		c.SetFolder(fld)
 	})
-	os.Rename("h2/config.xml", "h2/config.xml.orig")
-	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
-	cfg.Save()
 
 	testFileTypeChange(t)
 }
@@ -40,6 +39,8 @@ func TestFileTypeChangeSimpleVersioning(t *testing.T) {
 	// Use simple versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _, _ := config.Load("h2/config.xml", id, events.NoopLogger)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	modifyConfig(t, cfg, func(c *config.Configuration) {
 		fld, _, _ := c.Folder("default")
 		fld.Versioning = config.VersioningConfiguration{
@@ -48,9 +49,6 @@ func TestFileTypeChangeSimpleVersioning(t *testing.T) {
 		}
 		c.SetFolder(fld)
 	})
-	os.Rename("h2/config.xml", "h2/config.xml.orig")
-	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
-	cfg.Save()
 
 	testFileTypeChange(t)
 }
@@ -59,6 +57,8 @@ func TestFileTypeChangeStaggeredVersioning(t *testing.T) {
 	// Use staggered versioning
 	id, _ := protocol.DeviceIDFromString(id2)
 	cfg, _, _ := config.Load("h2/config.xml", id, events.NoopLogger)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	modifyConfig(t, cfg, func(c *config.Configuration) {
 		fld, _, _ := c.Folder("default")
 		fld.Versioning = config.VersioningConfiguration{
@@ -66,9 +66,6 @@ func TestFileTypeChangeStaggeredVersioning(t *testing.T) {
 		}
 		c.SetFolder(fld)
 	})
-	os.Rename("h2/config.xml", "h2/config.xml.orig")
-	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
-	cfg.Save()
 
 	testFileTypeChange(t)
 }

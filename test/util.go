@@ -10,6 +10,7 @@
 package integration
 
 import (
+	"context"
 	cr "crypto/rand"
 	"errors"
 	"fmt"
@@ -576,11 +577,11 @@ func checkRemoteInSync(folder string, p1, p2 *rc.Process) error {
 	return nil
 }
 
+// modifyConfig waits until the modification has been saved to the file it was loaded from.
 func modifyConfig(t *testing.T, cfg config.Wrapper, f config.ModifyFunction) {
-	// FIXME: Where to put this?
-	// ctx, cancel := context.WithCancel(context.Background())
-	// go cfg.Serve(ctx)
-	// defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	go cfg.Serve(ctx)
+	defer cancel()
 
 	waiter, err := cfg.Modify(f)
 	if err != nil {
