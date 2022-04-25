@@ -3125,15 +3125,16 @@ angular.module('syncthing.core')
                     address.indexOf('unixs://') == 0);
         };
 
-        $scope.shareDeviceConfirmationModal = function (type) {
+        $scope.shareDeviceIdConfirmationModal = function (method) {
             var params = {
-                type: type,
+                method: method,
             };
 
             // Device name is used to indicate the "person" who shares their
             // device. If missing, fall back to short device ID instead, which
             // cannot be empty.
             var deviceID = $scope.currentDevice.deviceID;
+            console.log($scope.deviceName());
             if ($scope.currentDevice.name) {
                 var deviceName = $scope.currentDevice.name;
             } else {
@@ -3142,10 +3143,10 @@ angular.module('syncthing.core')
 
             // Title and footer can be reused between email, SMS, and possibly
             // other methods, hence we define them separately before the body.
-            var title = $translate.instant("{%devicename%} has shared their Syncthing device ID!", {devicename: deviceName});
+            var title = $translate.instant('Syncthing device ID for "{%devicename%}"', {devicename: deviceName});
             var footer = $translate.instant("Learn more at {%url%}.", {url: "https://syncthing.net"});
 
-            switch (type) {
+            switch (method) {
                 case "email":
                     params.heading = $translate.instant("Share by Email");
                     params.icon = "fa fa-envelope-o";
@@ -3153,8 +3154,8 @@ angular.module('syncthing.core')
                     // Ref: https://datatracker.ietf.org/doc/html/rfc5322
                     params.subject = title;
                     params.body = [
-                        $translate.instant("You have been invited to connect with {%devicename%} using Syncthing!", {devicename: deviceName}),
-                        $translate.instant("To accept the invitation, add a new device using the ID below."),
+                        $translate.instant('"{%devicename%}" has shared their Syncthing device ID!', {devicename: deviceName}),
+                        $translate.instant("To connect with them, add a new device using the ID below."),
                         deviceID,
                         $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet."),
                         footer
@@ -3168,35 +3169,39 @@ angular.module('syncthing.core')
                     // device ID. The current minimum length is around 140 chars,
                     // but some room is required for longer sharing device names.
                     params.body = [
-                        title,
+                        title + ":",
                         deviceID.replace(/-/g, ''),
                         footer
                     ].join('\n\n');
                     break;
-                default:
             }
-            $scope.shareDeviceParams = params;
-            $('#share-device-confirmation').modal('show');
+            $scope.shareDeviceIdParams = params;
+            $('#share-device-id-confirmation').modal('show');
         };
 
-        $scope.shareDevice = function () {
-            switch ($scope.shareDeviceParams.type) {
+        $scope.shareDeviceId = function () {
+            switch ($scope.shareDeviceIdParams.method) {
                 case 'email':
-                    location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceParams.body);
+                    location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceIdParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
                 case 'sms':
-                    location.href = 'sms://;?&body=' + encodeURIComponent($scope.shareDeviceParams.body);
+                    location.href = 'sms://;?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
-                default:
             }
         }
 
-        $scope.showTooltip = function (newTooltip) {
+        $scope.showTooltip = function (tooltip) {
+            // This function can be used to display a temporary tooltip next to
+            // the current element. This way, we can dynamically add a tooltip
+            // with explanatory text after the user performs an interactive
+            // operation, e.g. clicks a button. If the element already has a
+            // tooltip, it will be saved first and then restored afterwards.
             var e = event.currentTarget;
             var oldTooltip = e.getAttribute('data-original-title');
 
-            e.setAttribute('data-original-title', newTooltip);
+            e.setAttribute('data-original-title', tooltip);
             $(e).tooltip('show');
+
             if (oldTooltip) {
                 e.setAttribute('data-original-title', oldTooltip);
             } else {
@@ -3229,12 +3234,12 @@ angular.module('syncthing.core')
                 try {
                     document.execCommand("copy");
                 } catch (ex) {
-                    var message = failure;
+                    message = failure;
                 } finally {
                     event.currentTarget.removeChild(textarea);
                 }
             } else {
-                var message = failure;
+                message = failure;
             }
             $scope.showTooltip(message);
         };
