@@ -178,7 +178,8 @@ angular.module('syncthing.core')
 
             console.log('HTTPError', arg);
             online = false;
-            if (!restarting) {
+            // We sometimes get arg == null from angularjs - no idea why
+            if (!restarting && arg) {
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
