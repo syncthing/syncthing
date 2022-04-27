@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -40,7 +41,7 @@ func (c *CLI) Run() error {
 
 	if c.HomeDir != "" {
 		if c.ConfDir != "" {
-			return fmt.Errorf("--home must not be used together with --config")
+			return errors.New("--home must not be used together with --config")
 		}
 		c.ConfDir = c.HomeDir
 	}

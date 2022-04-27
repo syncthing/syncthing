@@ -10,6 +10,7 @@ package decrypt
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,7 +46,7 @@ func (c *CLI) Run() error {
 	log.SetFlags(0)
 
 	if c.To == "" && !c.VerifyOnly {
-		return fmt.Errorf("must set --to or --verify-only")
+		return errors.New("must set --to or --verify-only")
 	}
 
 	if c.TokenPath == "" {
