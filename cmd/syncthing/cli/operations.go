@@ -8,6 +8,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -77,12 +78,12 @@ func foldersOverride(c *cli.Context) error {
 				if body != "" {
 					errStr += "\nBody: " + body
 				}
-				return fmt.Errorf(errStr)
+				return errors.New(errStr)
 			}
 			return nil
 		}
 	}
-	return fmt.Errorf("Folder " + rid + " not found")
+	return fmt.Errorf("Folder %q not found", rid)
 }
 
 func setDefaultIgnores(c *cli.Context) error {
