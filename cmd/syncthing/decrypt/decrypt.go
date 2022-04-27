@@ -139,7 +139,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	}
 	defer encFd.Close()
 
-	encFi, err := c.loadEncryptedFileInfo(encFd)
+	encFi, err := loadEncryptedFileInfo(encFd)
 	if err != nil {
 		return fmt.Errorf("%s: loading metadata trailer: %w", path, err)
 	}
@@ -247,7 +247,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 
 // loadEncryptedFileInfo loads the encrypted FileInfo trailer from a file on
 // disk.
-func (c *CLI) loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
+func loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
 	// Seek to the size of the trailer block
 	if _, err := fd.Seek(-4, io.SeekEnd); err != nil {
 		return nil, err

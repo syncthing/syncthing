@@ -129,7 +129,7 @@ func (n *DeviceID) UnmarshalText(bs []byte) error {
 	}
 }
 
-func (n *DeviceID) ProtoSize() int {
+func (*DeviceID) ProtoSize() int {
 	// Used by protobuf marshaller.
 	return DeviceIDLength
 }
