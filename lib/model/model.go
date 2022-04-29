@@ -793,14 +793,14 @@ func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 }
 
 type FolderCompletion struct {
-	CompletionPct float64
-	GlobalBytes   int64
-	NeedBytes     int64
-	GlobalItems   int
-	NeedItems     int
-	NeedDeletes   int
-	Sequence      int64
-	RemoteState   remoteFolderState
+	CompletionPct float64           `json:"completion"`
+	GlobalBytes   int64             `json:"globalBytes"`
+	NeedBytes     int64             `json:"needBytes"`
+	GlobalItems   int               `json:"globalItems"`
+	NeedItems     int               `json:"needItems"`
+	NeedDeletes   int               `json:"needDeletes"`
+	Sequence      int64             `json:"sequence"`
+	RemoteState   remoteFolderState `json:"remoteState"`
 }
 
 func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFolderState) FolderCompletion {
@@ -840,20 +840,6 @@ func (comp *FolderCompletion) setComplectionPct() {
 	// and needs the same fixup).
 	if comp.NeedBytes == 0 && comp.NeedDeletes > 0 {
 		comp.CompletionPct = 95 // chosen by fair dice roll
-	}
-}
-
-// Map returns the members as a map, e.g. used in api to serialize as JSON.
-func (comp FolderCompletion) Map() map[string]interface{} {
-	return map[string]interface{}{
-		"completion":  comp.CompletionPct,
-		"globalBytes": comp.GlobalBytes,
-		"needBytes":   comp.NeedBytes,
-		"globalItems": comp.GlobalItems,
-		"needItems":   comp.NeedItems,
-		"needDeletes": comp.NeedDeletes,
-		"sequence":    comp.Sequence,
-		"remoteState": comp.RemoteState,
 	}
 }
 
@@ -917,7 +903,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 
 	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device), state)
 
-	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
+	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp)
 	return comp, nil
 }
 
@@ -1274,6 +1260,18 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
+// DEPRECATED: FolderRejected event replaced by PendingFoldersChanged
+type FolderRejectedEventData struct {
+	Folder      string            `json:"folder"`
+	FolderLabel string            `json:"folderLabel"`
+	Device      protocol.DeviceID `json:"device"`
+}
+
+type PendingFoldersChangedEventData struct {
+	Added   []updatedPendingFolder   `json:"added,omitempty"`
+	Removed []pendingFolderListEntry `json:"removed,omitempty"`
+}
+
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]remoteFolderState, error) {
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
@@ -1309,17 +1307,19 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
 			}
 			updatedPending = append(updatedPending, updatedPendingFolder{
-				FolderID:         folder.ID,
+				pendingFolderListEntry: pendingFolderListEntry{
+					Folder: folder.ID,
+					Device: &deviceID,
+				},
 				FolderLabel:      folder.Label,
-				DeviceID:         deviceID,
 				ReceiveEncrypted: of.ReceiveEncrypted,
 				RemoteEncrypted:  of.RemoteEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
-			m.evLogger.Log(events.FolderRejected, map[string]string{
-				"folder":      folder.ID,
-				"folderLabel": folder.Label,
-				"device":      deviceID.String(),
+			m.evLogger.Log(events.FolderRejected, FolderRejectedEventData{
+				Folder:      folder.ID,
+				FolderLabel: folder.Label,
+				Device:      deviceID,
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
 			continue
@@ -1387,7 +1387,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		}
 	}
 
-	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
+	expiredPendingList := make([]pendingFolderListEntry, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.db.RemovePendingFolderForDevice(folder, deviceID); err != nil {
 			msg := "Failed to remove pending folder-device entry"
@@ -1395,15 +1395,15 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
-		expiredPendingList = append(expiredPendingList, map[string]string{
-			"folderID": folder,
-			"deviceID": deviceID.String(),
+		expiredPendingList = append(expiredPendingList, pendingFolderListEntry{
+			Folder: folder,
+			Device: &deviceID,
 		})
 	}
 	if len(updatedPending) > 0 || len(expiredPendingList) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
-			"added":   updatedPending,
-			"removed": expiredPendingList,
+		m.evLogger.Log(events.PendingFoldersChanged, PendingFoldersChangedEventData{
+			Added:   updatedPending,
+			Removed: expiredPendingList,
 		})
 	}
 
@@ -1733,6 +1733,11 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	return newDeviceCfg
 }
 
+type DeviceDisconnectedEventData struct {
+	ID    protocol.DeviceID `json:"id"`
+	Error string            `json:"error"`
+}
+
 // Closed is called when a connection has been closed
 func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
@@ -1756,9 +1761,9 @@ func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
-	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
-		"id":    device.String(),
-		"error": err.Error(),
+	m.evLogger.Log(events.DeviceDisconnected, DeviceDisconnectedEventData{
+		ID:    device,
+		Error: err.Error(),
 	})
 	close(closed)
 }
@@ -2128,6 +2133,14 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 	return nil
 }
 
+// DEPRECATED: DeviceRejected event replaced by PendingDevicesChanged
+type DeviceRejectedEventData updatedPendingDevice
+
+type PendingDevicesChangedEventData struct {
+	Added   []updatedPendingDevice   `json:"added,omitempty"`
+	Removed []pendingDeviceListEntry `json:"removed,omitempty"`
+}
+
 // OnHello is called when an device connects to us.
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
@@ -2136,18 +2149,18 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
-		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
-			"added": {map[string]string{
-				"deviceID": remoteID.String(),
-				"name":     hello.DeviceName,
-				"address":  addr.String(),
+		m.evLogger.Log(events.PendingDevicesChanged, PendingDevicesChangedEventData{
+			Added: []updatedPendingDevice{{
+				pendingDeviceListEntry: pendingDeviceListEntry{remoteID},
+				Name:                   hello.DeviceName,
+				Address:                addr.String(),
 			}},
 		})
 		// DEPRECATED: Only for backwards compatibility, should be removed.
-		m.evLogger.Log(events.DeviceRejected, map[string]string{
-			"name":    hello.DeviceName,
-			"device":  remoteID.String(),
-			"address": addr.String(),
+		m.evLogger.Log(events.DeviceRejected, DeviceRejectedEventData{
+			pendingDeviceListEntry: pendingDeviceListEntry{remoteID},
+			Name:                   hello.DeviceName,
+			Address:                addr.String(),
 		})
 		return errDeviceUnknown
 	}
@@ -2168,6 +2181,15 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}
+}
+
+type DeviceConnectedEventData struct {
+	ID            protocol.DeviceID `json:"id"`
+	DeviceName    string            `json:"deviceName"`
+	ClientName    string            `json:"clientName"`
+	ClientVersion string            `json:"clientVersion"`
+	Type          string            `json:"type"`
+	Address       *string           `json:"addr,omitempty"`
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will
@@ -2222,17 +2244,18 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.helloMessages[deviceID] = hello
 
-	event := map[string]string{
-		"id":            deviceID.String(),
-		"deviceName":    hello.DeviceName,
-		"clientName":    hello.ClientName,
-		"clientVersion": hello.ClientVersion,
-		"type":          conn.Type(),
+	event := DeviceConnectedEventData{
+		ID:            deviceID,
+		DeviceName:    hello.DeviceName,
+		ClientName:    hello.ClientName,
+		ClientVersion: hello.ClientVersion,
+		Type:          conn.Type(),
 	}
 
 	addr := conn.RemoteAddr()
 	if addr != nil {
-		event["addr"] = addr.String()
+		tmp := addr.String()
+		event.Address = &tmp
 	}
 
 	m.evLogger.Log(events.DeviceConnected, event)
@@ -2263,6 +2286,12 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.deviceWasSeen(deviceID)
 }
 
+type RemoteDownloadProgressEventData struct {
+	Device protocol.DeviceID `json:"device"`
+	Folder string            `json:"folder"`
+	State  map[string]int    `json:"state"`
+}
+
 func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
@@ -2278,10 +2307,10 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	downloads.Update(folder, updates)
 	state := downloads.GetBlockCounts(folder)
 
-	m.evLogger.Log(events.RemoteDownloadProgress, map[string]interface{}{
-		"device": device.String(),
-		"folder": folder,
-		"state":  state,
+	m.evLogger.Log(events.RemoteDownloadProgress, RemoteDownloadProgressEventData{
+		Device: device,
+		Folder: folder,
+		State:  state,
 	})
 
 	return nil
@@ -2776,6 +2805,17 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
+type FolderPausedEventData struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+type FolderResumedEventData FolderPausedEventData
+
+type DevicePausedEventData struct {
+	Device protocol.DeviceID `json:"device"`
+}
+type DeviceResumedEventData DevicePausedEventData
+
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
@@ -2850,11 +2890,15 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Emit the folder pause/resume event
 		if fromCfg.Paused != toCfg.Paused {
+			eventData := FolderPausedEventData{
+				ID:    toCfg.ID,
+				Label: toCfg.Label,
+			}
 			eventType := events.FolderResumed
 			if toCfg.Paused {
 				eventType = events.FolderPaused
 			}
-			m.evLogger.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
+			m.evLogger.Log(eventType, eventData)
 		}
 	}
 
@@ -2885,7 +2929,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			closeDevices = append(closeDevices, deviceID)
-			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
+			m.evLogger.Log(events.DevicePaused, DevicePausedEventData{
+				Device: deviceID,
+			})
 		} else {
 			// Ignored folder was removed, reconnect to retrigger the prompt.
 			if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
@@ -2893,7 +2939,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			}
 
 			l.Infoln("Resuming", deviceID)
-			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
+			m.evLogger.Log(events.DeviceResumed, DevicePausedEventData{
+				Device: deviceID,
+			})
 		}
 	}
 	// Clean up after removed devices
@@ -2941,7 +2989,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
-	var removedPendingFolders []map[string]string
+	var removedPendingFolders []pendingFolderListEntry
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		msg := "Could not iterate through pending folder entries for cleanup"
@@ -2960,8 +3008,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 				l.Warnf("%v (%v): %v", msg, folderID, err)
 				m.evLogger.Log(events.Failure, msg)
 			} else {
-				removedPendingFolders = append(removedPendingFolders, map[string]string{
-					"folderID": folderID,
+				removedPendingFolders = append(removedPendingFolders, pendingFolderListEntry{
+					Folder: folderID,
 				})
 			}
 			continue
@@ -2988,19 +3036,19 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 				m.evLogger.Log(events.Failure, msg)
 				continue
 			}
-			removedPendingFolders = append(removedPendingFolders, map[string]string{
-				"folderID": folderID,
-				"deviceID": deviceID.String(),
+			removedPendingFolders = append(removedPendingFolders, pendingFolderListEntry{
+				Folder: folderID,
+				Device: &deviceID,
 			})
 		}
 	}
 	if len(removedPendingFolders) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
-			"removed": removedPendingFolders,
+		m.evLogger.Log(events.PendingFoldersChanged, PendingFoldersChangedEventData{
+			Removed: removedPendingFolders,
 		})
 	}
 
-	var removedPendingDevices []map[string]string
+	var removedPendingDevices []pendingDeviceListEntry
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
 		msg := "Could not iterate through pending device entries for cleanup"
@@ -3025,13 +3073,13 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
-		removedPendingDevices = append(removedPendingDevices, map[string]string{
-			"deviceID": deviceID.String(),
+		removedPendingDevices = append(removedPendingDevices, pendingDeviceListEntry{
+			Device: deviceID,
 		})
 	}
 	if len(removedPendingDevices) > 0 {
-		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
-			"removed": removedPendingDevices,
+		m.evLogger.Log(events.PendingDevicesChanged, PendingDevicesChangedEventData{
+			Removed: removedPendingDevices,
 		})
 	}
 }
@@ -3073,11 +3121,11 @@ func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	if err != nil {
 		return err
 	}
-	removedPendingDevices := []map[string]string{
-		{"deviceID": device.String()},
+	removedPendingDevices := []pendingDeviceListEntry{
+		{Device: device},
 	}
-	m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
-		"removed": removedPendingDevices,
+	m.evLogger.Log(events.PendingDevicesChanged, PendingDevicesChangedEventData{
+		Removed: removedPendingDevices,
 	})
 	return nil
 }
@@ -3086,15 +3134,15 @@ func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 // device combination, or all matching a specific folder ID if the device argument is
 // specified as EmptyDeviceID.
 func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) error {
-	var removedPendingFolders []map[string]string
+	var removedPendingFolders []pendingFolderListEntry
 	if device == protocol.EmptyDeviceID {
 		l.Debugf("Discarding pending removed folder %s from all devices", folder)
 		err := m.db.RemovePendingFolder(folder)
 		if err != nil {
 			return err
 		}
-		removedPendingFolders = []map[string]string{
-			{"folderID": folder},
+		removedPendingFolders = []pendingFolderListEntry{
+			{Folder: folder},
 		}
 	} else {
 		l.Debugf("Discarding pending folder %s from device %v", folder, device)
@@ -3102,16 +3150,16 @@ func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) er
 		if err != nil {
 			return err
 		}
-		removedPendingFolders = []map[string]string{
+		removedPendingFolders = []pendingFolderListEntry{
 			{
-				"folderID": folder,
-				"deviceID": device.String(),
+				Folder: folder,
+				Device: &device,
 			},
 		}
 	}
 	if len(removedPendingFolders) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
-			"removed": removedPendingFolders,
+		m.evLogger.Log(events.PendingFoldersChanged, PendingFoldersChangedEventData{
+			Removed: removedPendingFolders,
 		})
 	}
 	return nil
@@ -3261,12 +3309,28 @@ func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.Filesy
 	return fcfg
 }
 
+type pendingDeviceListEntry struct {
+	Device protocol.DeviceID `json:"deviceID"`
+}
+
+type updatedPendingDevice struct {
+	pendingDeviceListEntry
+
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+type pendingFolderListEntry struct {
+	Folder string             `json:"folderID"`
+	Device *protocol.DeviceID `json:"deviceID,omitempty"`
+}
+
 type updatedPendingFolder struct {
-	FolderID         string            `json:"folderID"`
-	FolderLabel      string            `json:"folderLabel"`
-	DeviceID         protocol.DeviceID `json:"deviceID"`
-	ReceiveEncrypted bool              `json:"receiveEncrypted"`
-	RemoteEncrypted  bool              `json:"remoteEncrypted"`
+	pendingFolderListEntry
+
+	FolderLabel      string `json:"folderLabel"`
+	ReceiveEncrypted bool   `json:"receiveEncrypted"`
+	RemoteEncrypted  bool   `json:"remoteEncrypted"`
 }
 
 // redactPathError checks if the error is actually a os.PathError, and if yes

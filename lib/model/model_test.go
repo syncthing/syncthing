@@ -1583,12 +1583,12 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 	for {
 		select {
 		case ev := <-sub.C():
-			data := ev.Data.(map[string]interface{})
-			if data["folder"].(string) == folder {
-				if data["error"] == nil {
+			data := ev.Data.(StateChangedEventData)
+			if data.Folder == folder {
+				if data.Error == nil {
 					error = ""
 				} else {
-					error = data["error"].(string)
+					error = *data.Error
 				}
 				if error == expected {
 					return

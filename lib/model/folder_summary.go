@@ -250,11 +250,9 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 		var deviceID protocol.DeviceID
 		if ev.Type == events.DeviceConnected {
-			data := ev.Data.(map[string]string)
-			deviceID, _ = protocol.DeviceIDFromString(data["id"])
+			deviceID = ev.Data.(DeviceConnectedEventData).ID
 		} else {
-			data := ev.Data.(ClusterConfigReceivedEventData)
-			deviceID = data.Device
+			deviceID = ev.Data.(ClusterConfigReceivedEventData).Device
 		}
 
 		c.foldersMut.Lock()
@@ -272,7 +270,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.DownloadProgress:
-		data := ev.Data.(map[string]map[string]*pullerProgress)
+		data := ev.Data.(DownloadProgressEventData)
 		c.foldersMut.Lock()
 		for folder := range data {
 			c.folders[folder] = struct{}{}
@@ -281,11 +279,11 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.StateChanged:
-		data := ev.Data.(map[string]interface{})
-		if data["to"].(string) != "idle" {
+		data := ev.Data.(StateChangedEventData)
+		if data.To != "idle" {
 			return
 		}
-		if from := data["from"].(string); from != "syncing" && from != "sync-preparing" {
+		if data.From != "syncing" && data.From != "sync-preparing" {
 			return
 		}
 
@@ -294,11 +292,10 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		// c.immediate must be nonblocking so that we can continue
 		// handling events.
 
-		folder = data["folder"].(string)
 		select {
-		case c.immediate <- folder:
+		case c.immediate <- data.Folder:
 			c.foldersMut.Lock()
-			delete(c.folders, folder)
+			delete(c.folders, data.Folder)
 			c.foldersMut.Unlock()
 			return
 		default:
@@ -383,6 +380,12 @@ type FolderSummaryEventData struct {
 	Summary *FolderSummary `json:"summary"`
 }
 
+type FolderCompletionEventData struct {
+	Folder string            `json:"folder"`
+	Device protocol.DeviceID `json:"device"`
+	FolderCompletion
+}
+
 // sendSummary send the summary events for a single folder
 func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
@@ -419,9 +422,10 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 			l.Debugf("Error getting completion for folder %v, device %v: %v", folder, devCfg.DeviceID, err)
 			continue
 		}
-		ev := comp.Map()
-		ev["folder"] = folder
-		ev["device"] = devCfg.DeviceID.String()
-		c.evLogger.Log(events.FolderCompletion, ev)
+		c.evLogger.Log(events.FolderCompletion, FolderCompletionEventData{
+			FolderCompletion: comp,
+			Folder:           folder,
+			Device:           devCfg.DeviceID,
+		})
 	}
 }

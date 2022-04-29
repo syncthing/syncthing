@@ -157,7 +157,7 @@ func TestInProgress(t *testing.T) {
 	go evLogger.Serve(ctx)
 	defer cancel()
 	testCase := func(c chan<- fs.Event) {
-		evLogger.Log(events.ItemStarted, map[string]string{
+		evLogger.Log(events.ItemStarted, map[string]interface{}{
 			"item": "inprogress",
 		})
 		sleepMs(100)

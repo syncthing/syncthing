@@ -776,11 +776,17 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	return true
 }
 
+type ListenAddressesChangedEventData struct {
+	Address *url.URL   `json:"address"`
+	LAN     []*url.URL `json:"lan"`
+	WAN     []*url.URL `json:"wan"`
+}
+
 func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
-	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
-		"address": l.URI,
-		"lan":     l.LANAddresses,
-		"wan":     l.WANAddresses,
+	s.evLogger.Log(events.ListenAddressesChanged, ListenAddressesChangedEventData{
+		Address: l.URI,
+		LAN:     l.LANAddresses,
+		WAN:     l.WANAddresses,
 	})
 }
 

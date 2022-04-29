@@ -122,6 +122,15 @@ func (a *App) Start() error {
 	return nil
 }
 
+type StartingEventData struct {
+	Home string            `json:"home"`
+	MyID protocol.DeviceID `json:"myID"`
+}
+
+type StartupCompleteEventData struct {
+	MyID protocol.DeviceID `json:"myID"`
+}
+
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
@@ -161,9 +170,9 @@ func (a *App) startup() error {
 
 	// Emit the Starting event, now that we know who we are.
 
-	a.evLogger.Log(events.Starting, map[string]string{
-		"home": locations.GetBaseDir(locations.ConfigBaseDir),
-		"myID": a.myID.String(),
+	a.evLogger.Log(events.Starting, StartingEventData{
+		Home: locations.GetBaseDir(locations.ConfigBaseDir),
+		MyID: a.myID,
 	})
 
 	if err := checkShortIDs(a.cfg); err != nil {
@@ -324,8 +333,8 @@ func (a *App) startup() error {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
-	a.evLogger.Log(events.StartupComplete, map[string]string{
-		"myID": a.myID.String(),
+	a.evLogger.Log(events.StartupComplete, StartupCompleteEventData{
+		MyID: a.myID,
 	})
 
 	if a.cfg.Options().SetLowPriority {

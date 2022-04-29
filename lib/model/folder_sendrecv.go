@@ -155,6 +155,11 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	return f
 }
 
+type FolderErrorsEventData struct {
+	Folder string      `json:"folder"`
+	Errors []FileError `json:"errors,omitempty"`
+}
+
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() (bool, error) {
@@ -218,9 +223,9 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 
 	if pullErrNum > 0 {
 		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
-		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
-			"folder": f.folderID,
-			"errors": f.Errors(),
+		f.evLogger.Log(events.FolderErrors, FolderErrorsEventData{
+			Folder: f.folderID,
+			Errors: f.Errors(),
 		})
 	}
 
@@ -556,20 +561,18 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// care not declare another err.
 	var err error
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "dir",
-		"action": "update",
-	})
+	itemEventData := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "dir",
+		Action: "update",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"error":  events.Error(err),
-			"type":   "dir",
-			"action": "update",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData,
+			Error:                events.Error(err),
 		})
 	}()
 
@@ -714,20 +717,18 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	// care not declare another err.
 	var err error
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "symlink",
-		"action": "update",
-	})
+	itemEventData := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "symlink",
+		Action: "update",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"error":  events.Error(err),
-			"type":   "symlink",
-			"action": "update",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData,
+			Error:                events.Error(err),
 		})
 	}()
 
@@ -800,23 +801,21 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 	// care not declare another err.
 	var err error
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "dir",
-		"action": "delete",
-	})
+	itemEventData := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "dir",
+		Action: "delete",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete dir"))
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"error":  events.Error(err),
-			"type":   "dir",
-			"action": "delete",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData,
+			Error:                events.Error(err),
 		})
 	}()
 
@@ -850,23 +849,21 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 	l.Debugln(f, "Deleting file", file.Name)
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "delete",
-	})
+	itemEventData := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "file",
+		Action: "delete",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"error":  events.Error(err),
-			"type":   "file",
-			"action": "delete",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData,
+			Error:                events.Error(err),
 		})
 	}()
 
@@ -923,33 +920,29 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// care not declare another err.
 	var err error
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   source.Name,
-		"type":   "file",
-		"action": "delete",
-	})
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   target.Name,
-		"type":   "file",
-		"action": "update",
-	})
+	itemEventData1 := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   source.Name,
+		Type:   "file",
+		Action: "delete",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData1)
+	itemEventData2 := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   target.Name,
+		Type:   "file",
+		Action: "update",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData2)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   source.Name,
-			"error":  events.Error(err),
-			"type":   "file",
-			"action": "delete",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData1,
+			Error:                events.Error(err),
 		})
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   target.Name,
-			"error":  events.Error(err),
-			"type":   "file",
-			"action": "update",
+		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+			ItemStartedEventData: itemEventData2,
+			Error:                events.Error(err),
 		})
 	}()
 
@@ -1100,11 +1093,11 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	// Reorder blocks
 	blocks = f.blockPullReorderer.Reorder(blocks)
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "update",
+	f.evLogger.Log(events.ItemStarted, ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "file",
+		Action: "update",
 	})
 
 	s := newSharedPullerState(file, f.mtimefs, f.folderID, tempName, blocks, reused, f.IgnorePerms || file.NoPermissions, hasCurFile, curFile, !f.DisableSparseFiles, !f.DisableFsync)
@@ -1202,20 +1195,18 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
-	f.evLogger.Log(events.ItemStarted, map[string]string{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"type":   "file",
-		"action": "metadata",
-	})
+	itemEventData := ItemStartedEventData{
+		Folder: f.folderID,
+		Item:   file.Name,
+		Type:   "file",
+		Action: "metadata",
+	}
+	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	var err error
-	defer f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"error":  events.Error(err),
-		"type":   "file",
-		"action": "metadata",
+	defer f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		ItemStartedEventData: itemEventData,
+		Error:                events.Error(err),
 	})
 
 	f.queue.Done(file.Name)
@@ -1669,12 +1660,14 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 				f.model.progressEmitter.Deregister(state)
 			}
 
-			f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-				"folder": f.folderID,
-				"item":   state.file.Name,
-				"error":  events.Error(err),
-				"type":   "file",
-				"action": "update",
+			f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+				ItemStartedEventData: ItemStartedEventData{
+					Folder: f.folderID,
+					Item:   state.file.Name,
+					Type:   "file",
+					Action: "update",
+				},
+				Error: events.Error(err),
 			})
 		}
 	}

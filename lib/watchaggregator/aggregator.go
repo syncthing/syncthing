@@ -443,10 +443,12 @@ func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 
 func updateInProgressSet(event events.Event, inProgress map[string]struct{}) {
 	if event.Type == events.ItemStarted {
-		path := event.Data.(map[string]string)["item"]
+		path := event.Data.(map[string]interface{})["item"].(string)
+		//FIXME path := event.Data.(ItemStartedEventData).Item
 		inProgress[path] = struct{}{}
 	} else if event.Type == events.ItemFinished {
 		path := event.Data.(map[string]interface{})["item"].(string)
+		//FIXME path := event.Data.(ItemFinishedEventData).Item
 		delete(inProgress, path)
 	}
 }

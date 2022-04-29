@@ -26,11 +26,17 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
+type LoginAttemptEventData struct {
+	Success       bool   `json:"success"`
+	Username      string `json:"username"`
+	RemoteAddress string `json:"remoteAddress"`
+}
+
 func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
-	evLogger.Log(events.LoginAttempt, map[string]interface{}{
-		"success":       success,
-		"username":      username,
-		"remoteAddress": address,
+	evLogger.Log(events.LoginAttempt, LoginAttemptEventData{
+		Success:       success,
+		Username:      username,
+		RemoteAddress: address,
 	})
 	if !success {
 		l.Infof("Wrong credentials supplied during API authorization from %s", address)

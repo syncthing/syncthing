@@ -117,8 +117,10 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	}
 }
 
+type DownloadProgressEventData map[string]map[string]*pullerProgress
+
 func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
-	output := make(map[string]map[string]*pullerProgress)
+	output := make(DownloadProgressEventData)
 	for folder, pullers := range t.registry {
 		if len(pullers) == 0 {
 			continue

@@ -330,12 +330,12 @@ func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	for i, file := range fs {
 		filenames[i] = file.Name
 	}
-	m.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":    folder,
-		"items":     len(fs),
-		"filenames": filenames,
-		"sequence":  seq,
-		"version":   seq, // legacy for sequence
+	m.evLogger.Log(events.LocalIndexUpdated, LocalIndexUpdatedEventData{
+		Folder:    folder,
+		Items:     len(fs),
+		Filenames: filenames,
+		Sequence:  seq,
+		Version:   seq,
 	})
 }
 

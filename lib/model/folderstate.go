@@ -98,6 +98,14 @@ func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	}
 }
 
+type StateChangedEventData struct {
+	Folder   string   `json:"folder"`
+	To       string   `json:"to"`
+	From     string   `json:"from"`
+	Duration *float64 `json:"duration,omitempty"`
+	Error    *string  `json:"error,omitempty"`
+}
+
 // setState sets the new folder state, for states other than FolderError.
 func (s *stateTracker) setState(newState folderState) {
 	if newState == FolderError {
@@ -117,14 +125,15 @@ func (s *stateTracker) setState(newState folderState) {
 	}
 	*/
 
-	eventData := map[string]interface{}{
-		"folder": s.folderID,
-		"to":     newState.String(),
-		"from":   s.current.String(),
+	eventData := StateChangedEventData{
+		Folder: s.folderID,
+		To:     newState.String(),
+		From:   s.current.String(),
 	}
 
 	if !s.changed.IsZero() {
-		eventData["duration"] = time.Since(s.changed).Seconds()
+		tmp := time.Since(s.changed).Seconds()
+		eventData.Duration = &tmp
 	}
 
 	s.current = newState
@@ -148,22 +157,24 @@ func (s *stateTracker) setError(err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	eventData := map[string]interface{}{
-		"folder": s.folderID,
-		"from":   s.current.String(),
+	eventData := StateChangedEventData{
+		Folder: s.folderID,
+		From:   s.current.String(),
 	}
 
 	if err != nil {
-		eventData["error"] = err.Error()
+		tmp := err.Error()
+		eventData.Error = &tmp
 		s.current = FolderError
 	} else {
 		s.current = FolderIdle
 	}
 
-	eventData["to"] = s.current.String()
+	eventData.To = s.current.String()
 
 	if !s.changed.IsZero() {
-		eventData["duration"] = time.Since(s.changed).Seconds()
+		tmp := time.Since(s.changed).Seconds()
+		eventData.Duration = &tmp
 	}
 
 	s.err = err

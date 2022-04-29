@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -798,12 +799,15 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	for {
 		select {
 		case event := <-sub.C():
-			data, ok := event.Data.(map[string]string)
-			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
+			data, ok := event.Data.(model.DeviceConnectedEventData)
+			if !ok {
+				continue
+			}
+			if data.ClientName != "syncthing" || upgrade.CompareVersions(data.ClientVersion, build.Version) != upgrade.Newer {
 				continue
 			}
 			if cfg.Options().AutoUpgradeEnabled() {
-				l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
+				l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data.ID, build.Version, data.ClientVersion)
 			}
 		case <-timer.C:
 		}

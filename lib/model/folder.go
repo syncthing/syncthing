@@ -341,6 +341,19 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 	return nil
 }
 
+type ItemStartedEventData struct {
+	Folder string `json:"folder"`
+	Item   string `json:"item"`
+	Type   string `json:"type"`
+	Action string `json:"action"`
+}
+
+type ItemFinishedEventData struct {
+	ItemStartedEventData
+
+	Error *string `json:"error,omitempty"`
+}
+
 func (f *folder) pull() (success bool, err error) {
 	f.pullFailTimer.Stop()
 	select {
@@ -1057,6 +1070,12 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	}
 }
 
+type FolderWatchStateChangedEventData struct {
+	Folder string  `json:"folder"`
+	From   *string `json:"from,omitempty"`
+	To     *string `json:"to,omitempty"`
+}
+
 // setWatchError sets the current error state of the watch and should be called
 // regardless of whether err is nil or not.
 func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
@@ -1065,14 +1084,16 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr {
-		data := map[string]interface{}{
-			"folder": f.ID,
+		data := FolderWatchStateChangedEventData{
+			Folder: f.ID,
 		}
 		if prevErr != nil {
-			data["from"] = prevErr.Error()
+			tmp := prevErr.Error()
+			data.From = &tmp
 		}
 		if err != nil {
-			data["to"] = err.Error()
+			tmp := err.Error()
+			data.To = &tmp
 		}
 		f.evLogger.Log(events.FolderWatchStateChanged, data)
 	}
@@ -1207,6 +1228,14 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) {
 	f.emitDiskChangeEvents(fs, events.RemoteChangeDetected)
 }
 
+type LocalIndexUpdatedEventData struct {
+	Folder    string   `json:"folder"`
+	Items     int      `json:"items"`
+	Filenames []string `json:"filenames"`
+	Sequence  int64    `json:"sequence"`
+	Version   int64    `json:"version"` // DEPRECATED: legacy for Sequence
+}
+
 func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	f.fset.Update(protocol.LocalDeviceID, fs)
 
@@ -1220,14 +1249,26 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	f.forcedRescanPathsMut.Unlock()
 
 	seq := f.fset.Sequence(protocol.LocalDeviceID)
-	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":    f.ID,
-		"items":     len(fs),
-		"filenames": filenames,
-		"sequence":  seq,
-		"version":   seq, // legacy for sequence
+	f.evLogger.Log(events.LocalIndexUpdated, LocalIndexUpdatedEventData{
+		Folder:    f.ID,
+		Items:     len(fs),
+		Filenames: filenames,
+		Sequence:  seq,
+		Version:   seq, // DEPRECATED: legacy for Sequence
 	})
 }
+
+type DiskChangeDetectedEventData struct {
+	Folder     string `json:"folder"`
+	FolderID   string `json:"folderID"` // incorrect, deprecated, kept for historical compliance
+	Label      string `json:"label"`
+	Action     string `json:"action"`
+	Type       string `json:"type"`
+	Path       string `json:"path"`
+	ModifiedBy string `json:"modifiedBy"`
+}
+type LocalChangeDetectedEventData DiskChangeDetectedEventData
+type RemoteChangeDetectedEventData DiskChangeDetectedEventData
 
 func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events.EventType) {
 	for _, file := range fs {
@@ -1249,14 +1290,14 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function
-		f.evLogger.Log(typeOfEvent, map[string]string{
-			"folder":     f.ID,
-			"folderID":   f.ID, // incorrect, deprecated, kept for historical compliance
-			"label":      f.Label,
-			"action":     action,
-			"type":       objType,
-			"path":       filepath.FromSlash(file.Name),
-			"modifiedBy": file.ModifiedBy.String(),
+		f.evLogger.Log(typeOfEvent, DiskChangeDetectedEventData{
+			Folder:     f.ID,
+			FolderID:   f.ID, // incorrect, deprecated, kept for historical compliance
+			Label:      f.Label,
+			Action:     action,
+			Type:       objType,
+			Path:       filepath.FromSlash(file.Name),
+			ModifiedBy: file.ModifiedBy.String(),
 		})
 	}
 }
