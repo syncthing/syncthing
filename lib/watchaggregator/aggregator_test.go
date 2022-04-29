@@ -160,12 +160,18 @@ func TestInProgress(t *testing.T) {
 		evLogger.Log(events.ItemStarted, map[string]interface{}{
 			"item": "inprogress",
 		})
+		//FIXME: evLogger.Log(events.ItemStarted, model.ItemStartedEventData{
+		//	Item: "inprogress",
+		//})
 		sleepMs(100)
 		c <- fs.Event{Name: "inprogress", Type: fs.NonRemove}
 		sleepMs(1000)
 		evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"item": "inprogress",
 		})
+		//FIXME: evLogger.Log(events.ItemFinished, model.ItemFinishedEventData{
+		//	Item: "inprogress",
+		//})
 		sleepMs(100)
 		c <- fs.Event{Name: "notinprogress", Type: fs.NonRemove}
 		sleepMs(800)
