@@ -96,12 +96,52 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data.Device, data.Folder, data.Items)
 
 	case events.DeviceRejected:
-		data := ev.Data.(model.DeviceRejectedEventData)
-		return fmt.Sprintf("Rejected connection from device %v at %v", data.Device, data.Address)
+		// Skip, deprecated
+		return ""
+
+	case events.PendingDevicesChanged:
+		data := ev.Data.(model.PendingDevicesChangedEventData)
+		var msg string
+		if len(data.Added) > 0 {
+			msg += "Updated pending (rejected) connections from device"
+			for _, dev := range data.Added {
+				msg += fmt.Sprintf(" %v at %v;", dev.Device, dev.Address)
+			}
+		}
+		if len(data.Removed) > 0 {
+			if len(msg) > 0 {
+				msg += "\n"
+			}
+			msg += "No longer pending device connections from"
+			for _, dev := range data.Removed {
+				msg += fmt.Sprintf(" %v;", dev.Device)
+			}
+		}
+		return msg
 
 	case events.FolderRejected:
-		data := ev.Data.(model.FolderRejectedEventData)
-		return fmt.Sprintf("Rejected unshared folder %q from device %v", data.Folder, data.Device)
+		// Skip, deprecated
+		return ""
+
+	case events.PendingFoldersChanged:
+		data := ev.Data.(model.PendingFoldersChangedEventData)
+		var msg string
+		if len(data.Added) > 0 {
+			msg += "Updated pending (rejected) folder"
+			for _, dev := range data.Added {
+				msg += fmt.Sprintf(" %q from device %v;", dev.Folder, dev.Device)
+			}
+		}
+		if len(data.Removed) > 0 {
+			if len(msg) > 0 {
+				msg += "\n"
+			}
+			msg += "No longer pending folder"
+			for _, dev := range data.Removed {
+				msg += fmt.Sprintf(" %q from device %v;", dev.Folder, dev.Device)
+			}
+		}
+		return msg
 
 	case events.ItemStarted:
 		data := ev.Data.(model.ItemStartedEventData)
