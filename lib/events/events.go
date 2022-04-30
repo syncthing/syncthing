@@ -553,8 +553,6 @@ var NoopLogger Logger = &noopLogger{}
 
 func (*noopLogger) Serve(ctx context.Context) error { return nil }
 
-func (*noopLogger) Stop() {}
-
 func (*noopLogger) Log(t EventType, data interface{}) {}
 
 func (*noopLogger) Subscribe(mask EventType) Subscription {
