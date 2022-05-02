@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Apr 22, 2022" "v1.19.2" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 01, 2022" "v1.19.2" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -1274,6 +1274,7 @@ Aggregated completion status for all folders on the local device:
   "globalItems": 7823,
   "needItems": 412,
   "needDeletes": 0,
+  "remoteState": "valid",
   "sequence": 12
 }
 .ft P
@@ -1284,6 +1285,13 @@ Aggregated completion status for all folders on the local device:
 New in version 1.8.0: The ability to aggregate multiple folders by leaving out the folder ID.
 Querying data for the local device by leaving out the device ID. Returning
 the \fBglobalItems\fP counter in the response.
+
+.sp
+New in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
+us) as well, and whether it is paused.  The \fBremoteState\fP field is
+meaningless for aggregated responses, \fBunknown\fP when the remote device is
+not connected.  Otherwise it can be either \fBpaused\fP, \fBnotSharing\fP, or
+\fBvalid\fP if the remote is sharing back.
 
 .SS GET /rest/db/file
 .sp

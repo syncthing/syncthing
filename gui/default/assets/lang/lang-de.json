@@ -332,7 +332,7 @@
     "Start Browser": "Browser starten",
     "Statistics": "Statistiken",
     "Stopped": "Gestoppt",
-    "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Speichert und synchronisiert nur verschlüsselte Daten. Ordner auf allen verbundenen Geräten müssen mit dem selben Passwort eingerichtet werden  oder vom Typ \"{{receiveEncrypted}}\" sein.",
+    "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Speichert und synchronisiert nur verschlüsselte Daten. Ordner auf allen verbundenen Geräten müssen mit dem selben Passwort eingerichtet werden oder vom Typ \"{{receiveEncrypted}}\" sein.",
     "Support": "Support",
     "Support Bundle": "Supportpaket",
     "Sync Protocol Listen Addresses": "Adresse(n) für das Synchronisierungsprotokoll",
