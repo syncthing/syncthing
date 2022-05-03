@@ -310,7 +310,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.Paths {
-		showPaths()
+		fmt.Print(locations.PrettyPrintPaths())
 		return nil
 	}
 
@@ -910,16 +910,6 @@ func cleanConfigDirectory() {
 			}
 		}
 	}
-}
-
-func showPaths() {
-	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
-	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
-	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
-	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
-	fmt.Printf("Log file:\n\t%s\n\n", locations.Get(locations.LogFile))
-	fmt.Printf("GUI override directory:\n\t%s\n\n", locations.Get(locations.GUIAssets))
-	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
 func setPauseState(cfgWrapper config.Wrapper, paused bool) {

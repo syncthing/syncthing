@@ -134,6 +134,20 @@ func expandLocations() error {
 	return nil
 }
 
+// PrettyPrintPaths returns a nicely formatted, human-readable listing
+func PrettyPrintPaths() string {
+	lines := []string{
+		fmt.Sprintf("Configuration file:\n\t%s\n\n", Get(ConfigFile)),
+		fmt.Sprintf("Database directory:\n\t%s\n\n", Get(Database)),
+		fmt.Sprintf("Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile)),
+		fmt.Sprintf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile)),
+		fmt.Sprintf("Log file:\n\t%s\n\n", Get(LogFile)),
+		fmt.Sprintf("GUI override directory:\n\t%s\n\n", Get(GUIAssets)),
+		fmt.Sprintf("Default sync folder directory:\n\t%s\n\n", Get(DefFolder)),
+	}
+	return strings.Join(lines, "")
+}
+
 // defaultConfigDir returns the default configuration directory, as figured
 // out by various the environment variables present on each platform, or dies
 // trying.
