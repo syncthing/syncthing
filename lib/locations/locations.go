@@ -134,6 +134,25 @@ func expandLocations() error {
 	return nil
 }
 
+// ListExpandedPaths returns a machine-readable mapping of the currently
+// configured locations.  Unexpanded entries are filtered out.
+func ListExpandedPaths() map[string]string {
+	res := make(map[string]string, len(locations))
+locationLoop:
+	for key, path := range locations {
+		for varName := range baseDirs {
+			if strings.Contains(path, "${"+string(varName)+"}") {
+				continue locationLoop
+			}
+		}
+		if strings.Contains(path, "${timestamp}") {
+			continue
+		}
+		res[string(key)] = path
+	}
+	return res
+}
+
 // PrettyPrintPaths returns a nicely formatted, human-readable listing
 func PrettyPrintPaths() string {
 	lines := []string{
