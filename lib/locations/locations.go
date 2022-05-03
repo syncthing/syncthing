@@ -143,6 +143,7 @@ func PrettyPrintPaths() string {
 		fmt.Sprintf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile)),
 		fmt.Sprintf("Log file:\n\t%s\n\n", Get(LogFile)),
 		fmt.Sprintf("GUI override directory:\n\t%s\n\n", Get(GUIAssets)),
+		fmt.Sprintf("CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens)),
 		fmt.Sprintf("Default sync folder directory:\n\t%s\n\n", Get(DefFolder)),
 	}
 	return strings.Join(lines, "")
