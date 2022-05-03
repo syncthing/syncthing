@@ -1313,6 +1313,7 @@ angular.module('syncthing.core')
 
         $scope.logging = {
             facilities: {},
+            paths: {},
             refreshFacilities: function () {
                 $http.get(urlbase + '/system/debug').success(function (data) {
                     var facilities = {};
@@ -1326,9 +1327,15 @@ angular.module('syncthing.core')
                     $scope.logging.facilities = facilities;
                 }).error($scope.emitHTTPError);
             },
+            refreshPaths: function () {
+                $http.get(urlbase + '/system/paths').success(function (data) {
+                    $scope.logging.paths = data;
+                }).error($scope.emitHTTPError);
+            },
             show: function () {
                 $scope.logging.paused = false;
                 $scope.logging.refreshFacilities();
+                $scope.logging.refreshPaths();
                 $scope.logging.timer = $timeout($scope.logging.fetch);
                 var textArea = $('#logViewerText');
                 textArea.on("scroll", $scope.logging.onScroll);
