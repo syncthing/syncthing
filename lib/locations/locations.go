@@ -32,9 +32,9 @@ const (
 	CsrfTokens    LocationEnum = "csrfTokens"
 	PanicLog      LocationEnum = "panicLog"
 	AuditLog      LocationEnum = "auditLog"
-	GUIAssets     LocationEnum = "GUIAssets"
+	GUIAssets     LocationEnum = "guiAssets"
 	DefFolder     LocationEnum = "defFolder"
-	FailuresFile  LocationEnum = "FailuresFile"
+	FailuresFile  LocationEnum = "failuresFile"
 )
 
 type BaseDirEnum string
