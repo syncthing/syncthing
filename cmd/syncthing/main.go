@@ -292,16 +292,16 @@ func (options serveOptions) Run() error {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.LogFile == "default" || options.LogFile == "" {
+	if options.LogFile != "default" && options.LogFile != "" {
 		// We must set this *after* expandLocations above.
 		// Handling an empty value is for backwards compatibility (<1.4.1).
-		options.LogFile = locations.Get(locations.LogFile)
+		locations.Override(locations.LogFile, options.LogFile)
 	}
 
-	if options.DebugGUIAssetsDir == "" {
+	if options.DebugGUIAssetsDir != "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.DebugGUIAssetsDir = locations.Get(locations.GUIAssets)
+		locations.Override(locations.GUIAssets, options.DebugGUIAssetsDir)
 	}
 
 	if options.Version {
@@ -310,7 +310,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.Paths {
-		showPaths(options)
+		showPaths()
 		return nil
 	}
 
@@ -612,7 +612,7 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		AssetDir:             options.DebugGUIAssetsDir,
+		AssetDir:             locations.Get(locations.GUIAssets),
 		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
 		ProfilerAddr:         options.DebugProfilerListen,
@@ -912,13 +912,13 @@ func cleanConfigDirectory() {
 	}
 }
 
-func showPaths(options serveOptions) {
+func showPaths() {
 	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
 	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
-	fmt.Printf("Log file:\n\t%s\n\n", options.LogFile)
-	fmt.Printf("GUI override directory:\n\t%s\n\n", options.DebugGUIAssetsDir)
+	fmt.Printf("Log file:\n\t%s\n\n", locations.Get(locations.LogFile))
+	fmt.Printf("GUI override directory:\n\t%s\n\n", locations.Get(locations.GUIAssets))
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 

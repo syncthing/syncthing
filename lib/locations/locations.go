@@ -107,6 +107,14 @@ var locationTemplates = map[LocationEnum]string{
 
 var locations = make(map[LocationEnum]string)
 
+// Override allows to change only specific, usually user-supplied paths.
+func Override(location LocationEnum, path string) {
+	switch location {
+	case LogFile, GUIAssets:
+		locations[location] = path
+	}
+}
+
 // expandLocations replaces the variables in the locations map with actual
 // directory locations.
 func expandLocations() error {
