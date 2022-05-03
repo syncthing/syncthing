@@ -61,6 +61,9 @@
             <p class="help-block" ng-if="folderHasUnacceptedDevices(currentFolder)">
               <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
             </p>
+            <p class="help-block" ng-if="folderHasPausedDevices(currentFolder)">
+              <sup>2</sup> <span translate>The remote device has paused this folder.</span>
+            </p>
           </div>
           <div class="form-horizontal" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>

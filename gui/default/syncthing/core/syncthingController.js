@@ -2366,11 +2366,15 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
-        $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
+        $scope.deviceNameMarkRemoteState = function (deviceID, folderID) {
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && $scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                name += '<sup>1</sup>';
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
+                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
+                    name += '<sup>1</sup>';
+                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
+                    name += '<sup>2</sup>';
+                }
             }
             return name;
         };
@@ -2379,7 +2383,7 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceNameMarkUnaccepted(device.deviceID, folderCfg.id));
+                    names.push($scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id));
                 }
             });
             names.sort();
@@ -2391,6 +2395,17 @@ angular.module('syncthing.core')
                 if (deviceID in $scope.devices
                     && folderCfg.id in $scope.completion[deviceID]
                     && $scope.completion[deviceID][folderCfg.id].remoteState == 'notSharing') {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $scope.folderHasPausedDevices = function (folderCfg) {
+            for (var deviceID in $scope.completion) {
+                if (deviceID in $scope.devices
+                    && folderCfg.id in $scope.completion[deviceID]
+                    && $scope.completion[deviceID][folderCfg.id].remoteState == 'paused') {
                     return true;
                 }
             }
@@ -2418,11 +2433,15 @@ angular.module('syncthing.core')
             return label && label.length > 0 ? label : folderID;
         };
 
-        $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
+        $scope.folderLabelMarkRemoteState = function (folderID, deviceID) {
             var label = $scope.folderLabel(folderID);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && $scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                label += '<sup>1</sup>';
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
+                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
+                    label += '<sup>1</sup>';
+                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
+                    label += '<sup>2</sup>';
+                }
             }
             return label;
         };
@@ -2430,7 +2449,7 @@ angular.module('syncthing.core')
         $scope.sharedFolders = function (deviceCfg) {
             var labels = [];
             $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
-                labels.push($scope.folderLabelMarkUnaccepted(folderID, deviceCfg.deviceID));
+                labels.push($scope.folderLabelMarkRemoteState(folderID, deviceCfg.deviceID));
             });
             return labels.join(', ');
         };
@@ -2442,6 +2461,19 @@ angular.module('syncthing.core')
             for (var folderID in $scope.completion[deviceCfg.deviceID]) {
                 if (folderID in $scope.folders
                     && $scope.completion[deviceCfg.deviceID][folderID].remoteState == 'notSharing') {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $scope.deviceHasPausedFolders = function (deviceCfg) {
+            if (!(deviceCfg.deviceID in $scope.completion)) {
+                return false;
+            }
+            for (var folderID in $scope.completion[deviceCfg.deviceID]) {
+                if (folderID in $scope.folders
+                    && $scope.completion[deviceCfg.deviceID][folderID].remoteState == 'paused') {
                     return true;
                 }
             }
