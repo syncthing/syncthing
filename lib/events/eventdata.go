@@ -129,16 +129,16 @@ type RemoteDownloadProgressEventData struct {
 	State  map[string]int    `json:"state"`
 }
 
-// type FolderSummaryEventData struct {
-// 	Folder  string                    `json:"folder"`
-// 	Summary *modeltypes.FolderSummary `json:"summary"`
-// }
+type FolderSummaryEventData struct {
+	Folder  string                    `json:"folder"`
+	Summary *modeltypes.FolderSummary `json:"summary"`
+}
 
-// type FolderCompletionEventData struct {
-// 	Folder string            `json:"folder"`
-// 	Device protocol.DeviceID `json:"device"`
-// 	modeltypes.FolderCompletion
-// }
+type FolderCompletionEventData struct {
+	Folder string            `json:"folder"`
+	Device protocol.DeviceID `json:"device"`
+	modeltypes.FolderCompletion
+}
 
 type FolderErrorsEventData struct {
 	Folder string      `json:"folder"`

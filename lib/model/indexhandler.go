@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
@@ -471,7 +472,7 @@ func (r *indexHandlerRegistry) Remove(folder string) {
 // RemoveAllExcept stops all running index handlers and removes those pending to be started,
 // except mentioned ones.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderState) {
+func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]types.RemoteFolderState) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 

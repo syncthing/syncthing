@@ -155,11 +155,11 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return "Configuration was saved"
 
 	case events.FolderCompletion:
-		data := ev.Data.(model.FolderCompletionEventData)
+		data := ev.Data.(events.FolderCompletionEventData)
 		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s)", data.Folder, data.Device, data.CompletionPct, data.RemoteState)
 
 	case events.FolderSummary:
-		data := ev.Data.(model.FolderSummaryEventData)
+		data := ev.Data.(events.FolderSummaryEventData)
 		return folderSummaryRemoveDeprecatedRe.ReplaceAllString(fmt.Sprintf("Summary for folder %q is %+v", data.Folder, data.Summary), "")
 
 	case events.FolderScanProgress:

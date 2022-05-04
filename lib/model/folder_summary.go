@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -29,7 +30,7 @@ const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
-	Summary(folder string) (*FolderSummary, error)
+	Summary(folder string) (*types.FolderSummary, error)
 	OnEventRequest()
 }
 
@@ -76,58 +77,8 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-// FolderSummary replaces the previously used map[string]interface{}, and needs
-// to keep the structure/naming for api backwards compatibility
-type FolderSummary struct {
-	Errors     int `json:"errors"`
-	PullErrors int `json:"pullErrors"` // deprecated
-
-	Invalid string `json:"invalid"` // deprecated
-
-	GlobalFiles       int   `json:"globalFiles"`
-	GlobalDirectories int   `json:"globalDirectories"`
-	GlobalSymlinks    int   `json:"globalSymlinks"`
-	GlobalDeleted     int   `json:"globalDeleted"`
-	GlobalBytes       int64 `json:"globalBytes"`
-	GlobalTotalItems  int   `json:"globalTotalItems"`
-
-	LocalFiles       int   `json:"localFiles"`
-	LocalDirectories int   `json:"localDirectories"`
-	LocalSymlinks    int   `json:"localSymlinks"`
-	LocalDeleted     int   `json:"localDeleted"`
-	LocalBytes       int64 `json:"localBytes"`
-	LocalTotalItems  int   `json:"localTotalItems"`
-
-	NeedFiles       int   `json:"needFiles"`
-	NeedDirectories int   `json:"needDirectories"`
-	NeedSymlinks    int   `json:"needSymlinks"`
-	NeedDeletes     int   `json:"needDeletes"`
-	NeedBytes       int64 `json:"needBytes"`
-	NeedTotalItems  int   `json:"needTotalItems"`
-
-	ReceiveOnlyChangedFiles       int   `json:"receiveOnlyChangedFiles"`
-	ReceiveOnlyChangedDirectories int   `json:"receiveOnlyChangedDirectories"`
-	ReceiveOnlyChangedSymlinks    int   `json:"receiveOnlyChangedSymlinks"`
-	ReceiveOnlyChangedDeletes     int   `json:"receiveOnlyChangedDeletes"`
-	ReceiveOnlyChangedBytes       int64 `json:"receiveOnlyChangedBytes"`
-	ReceiveOnlyTotalItems         int   `json:"receiveOnlyTotalItems"`
-
-	InSyncFiles int   `json:"inSyncFiles"`
-	InSyncBytes int64 `json:"inSyncBytes"`
-
-	State        string    `json:"state"`
-	StateChanged time.Time `json:"stateChanged"`
-	Error        string    `json:"error"`
-
-	Version  int64 `json:"version"` // deprecated
-	Sequence int64 `json:"sequence"`
-
-	IgnorePatterns bool   `json:"ignorePatterns"`
-	WatchError     string `json:"watchError"`
-}
-
-func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
-	res := new(FolderSummary)
+func (c *folderSummaryService) Summary(folder string) (*types.FolderSummary, error) {
+	res := new(types.FolderSummary)
 
 	var local, global, need, ro db.Counts
 	var ourSeq, remoteSeq int64
@@ -375,17 +326,6 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	return res
 }
 
-type FolderSummaryEventData struct {
-	Folder  string         `json:"folder"`
-	Summary *FolderSummary `json:"summary"`
-}
-
-type FolderCompletionEventData struct {
-	Folder string            `json:"folder"`
-	Device protocol.DeviceID `json:"device"`
-	FolderCompletion
-}
-
 // sendSummary send the summary events for a single folder
 func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
@@ -394,7 +334,7 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	if err != nil {
 		return
 	}
-	c.evLogger.Log(events.FolderSummary, FolderSummaryEventData{
+	c.evLogger.Log(events.FolderSummary, events.FolderSummaryEventData{
 		Folder:  folder,
 		Summary: data,
 	})
@@ -422,7 +362,7 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 			l.Debugf("Error getting completion for folder %v, device %v: %v", folder, devCfg.DeviceID, err)
 			continue
 		}
-		c.evLogger.Log(events.FolderCompletion, FolderCompletionEventData{
+		c.evLogger.Log(events.FolderCompletion, events.FolderCompletionEventData{
 			FolderCompletion: comp,
 			Folder:           folder,
 			Device:           devCfg.DeviceID,
