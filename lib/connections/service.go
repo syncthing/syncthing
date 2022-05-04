@@ -228,8 +228,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 }
 
 func (s *service) handleConns(ctx context.Context) error {
-	var c internalConn
 	for {
+		var c internalConn
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
