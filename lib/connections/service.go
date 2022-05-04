@@ -274,13 +274,13 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
-		go func() {
+		go func(c internalConn) {
 			hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 			select {
 			case s.hellos <- &connWithHello{c, hello, err, remoteID, remoteCert}:
 			case <-ctx.Done():
 			}
-		}()
+		}(c)
 	}
 }
 
