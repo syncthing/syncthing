@@ -26,14 +26,8 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-type LoginAttemptEventData struct {
-	Success       bool   `json:"success"`
-	Username      string `json:"username"`
-	RemoteAddress string `json:"remoteAddress"`
-}
-
 func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
-	evLogger.Log(events.LoginAttempt, LoginAttemptEventData{
+	evLogger.Log(events.LoginAttempt, events.LoginAttemptEventData{
 		Success:       success,
 		Username:      username,
 		RemoteAddress: address,

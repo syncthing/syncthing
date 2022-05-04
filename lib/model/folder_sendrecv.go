@@ -561,7 +561,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// care not declare another err.
 	var err error
 
-	itemEventData := ItemStartedEventData{
+	itemEventData := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "dir",
@@ -570,7 +570,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData,
 			Error:                events.Error(err),
 		})
@@ -717,7 +717,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	// care not declare another err.
 	var err error
 
-	itemEventData := ItemStartedEventData{
+	itemEventData := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "symlink",
@@ -726,7 +726,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData,
 			Error:                events.Error(err),
 		})
@@ -801,7 +801,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 	// care not declare another err.
 	var err error
 
-	itemEventData := ItemStartedEventData{
+	itemEventData := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "dir",
@@ -813,7 +813,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete dir"))
 		}
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData,
 			Error:                events.Error(err),
 		})
@@ -849,7 +849,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 	l.Debugln(f, "Deleting file", file.Name)
 
-	itemEventData := ItemStartedEventData{
+	itemEventData := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "file",
@@ -861,7 +861,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
 		}
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData,
 			Error:                events.Error(err),
 		})
@@ -920,14 +920,14 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// care not declare another err.
 	var err error
 
-	itemEventData1 := ItemStartedEventData{
+	itemEventData1 := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   source.Name,
 		Type:   "file",
 		Action: "delete",
 	}
 	f.evLogger.Log(events.ItemStarted, itemEventData1)
-	itemEventData2 := ItemStartedEventData{
+	itemEventData2 := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   target.Name,
 		Type:   "file",
@@ -936,11 +936,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	f.evLogger.Log(events.ItemStarted, itemEventData2)
 
 	defer func() {
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData1,
 			Error:                events.Error(err),
 		})
-		f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+		f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 			ItemStartedEventData: itemEventData2,
 			Error:                events.Error(err),
 		})
@@ -1093,7 +1093,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	// Reorder blocks
 	blocks = f.blockPullReorderer.Reorder(blocks)
 
-	f.evLogger.Log(events.ItemStarted, ItemStartedEventData{
+	f.evLogger.Log(events.ItemStarted, events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "file",
@@ -1195,7 +1195,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
-	itemEventData := ItemStartedEventData{
+	itemEventData := events.ItemStartedEventData{
 		Folder: f.folderID,
 		Item:   file.Name,
 		Type:   "file",
@@ -1204,7 +1204,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	f.evLogger.Log(events.ItemStarted, itemEventData)
 
 	var err error
-	defer f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
+	defer f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
 		ItemStartedEventData: itemEventData,
 		Error:                events.Error(err),
 	})
@@ -1660,8 +1660,8 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 				f.model.progressEmitter.Deregister(state)
 			}
 
-			f.evLogger.Log(events.ItemFinished, ItemFinishedEventData{
-				ItemStartedEventData: ItemStartedEventData{
+			f.evLogger.Log(events.ItemFinished, events.ItemFinishedEventData{
+				ItemStartedEventData: events.ItemStartedEventData{
 					Folder: f.folderID,
 					Item:   state.file.Name,
 					Type:   "file",

@@ -307,14 +307,6 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	return err
 }
 
-type RemoteIndexUpdatedEventData struct {
-	Device   protocol.DeviceID `json:"device"`
-	Folder   string            `json:"folder"`
-	Items    int               `json:"items"`
-	Sequence int64             `json:"sequence"`
-	Version  int64             `json:"version"` // DEPRECATED: legacy for Sequence
-}
-
 func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) error {
 	deviceID := s.conn.ID()
 
@@ -345,7 +337,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) e
 	fset.Update(deviceID, fs)
 
 	seq := fset.Sequence(deviceID)
-	s.evLogger.Log(events.RemoteIndexUpdated, RemoteIndexUpdatedEventData{
+	s.evLogger.Log(events.RemoteIndexUpdated, events.RemoteIndexUpdatedEventData{
 		Device:   deviceID,
 		Folder:   s.folder,
 		Items:    len(fs),

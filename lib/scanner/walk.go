@@ -106,13 +106,6 @@ type walker struct {
 	Config
 }
 
-type FolderScanProgressEventData struct {
-	Folder  string  `json:"folder"`
-	Current int64   `json:"current"`
-	Total   int64   `json:"total"`
-	Rate    float64 `json:"rate"` // bytes per second
-}
-
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *walker) walk(ctx context.Context) chan ScanResult {
@@ -176,7 +169,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 					current := progress.Total()
 					rate := progress.Rate()
 					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					w.EventLogger.Log(events.FolderScanProgress, FolderScanProgressEventData{
+					w.EventLogger.Log(events.FolderScanProgress, events.FolderScanProgressEventData{
 						Folder:  w.Folder,
 						Current: current,
 						Total:   total,

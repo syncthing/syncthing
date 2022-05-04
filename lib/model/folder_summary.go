@@ -250,9 +250,9 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 		var deviceID protocol.DeviceID
 		if ev.Type == events.DeviceConnected {
-			deviceID = ev.Data.(DeviceConnectedEventData).ID
+			deviceID = ev.Data.(events.DeviceConnectedEventData).ID
 		} else {
-			deviceID = ev.Data.(ClusterConfigReceivedEventData).Device
+			deviceID = ev.Data.(events.ClusterConfigReceivedEventData).Device
 		}
 
 		c.foldersMut.Lock()
@@ -279,7 +279,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.StateChanged:
-		data := ev.Data.(StateChangedEventData)
+		data := ev.Data.(events.StateChangedEventData)
 		if data.To != "idle" {
 			return
 		}

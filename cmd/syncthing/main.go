@@ -45,7 +45,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -799,7 +798,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	for {
 		select {
 		case event := <-sub.C():
-			data, ok := event.Data.(model.DeviceConnectedEventData)
+			data, ok := event.Data.(events.DeviceConnectedEventData)
 			if !ok {
 				continue
 			}

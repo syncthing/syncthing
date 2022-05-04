@@ -98,14 +98,6 @@ func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	}
 }
 
-type StateChangedEventData struct {
-	Folder   string   `json:"folder"`
-	To       string   `json:"to"`
-	From     string   `json:"from"`
-	Duration *float64 `json:"duration,omitempty"`
-	Error    *string  `json:"error,omitempty"`
-}
-
 // setState sets the new folder state, for states other than FolderError.
 func (s *stateTracker) setState(newState folderState) {
 	if newState == FolderError {
@@ -125,7 +117,7 @@ func (s *stateTracker) setState(newState folderState) {
 	}
 	*/
 
-	eventData := StateChangedEventData{
+	eventData := events.StateChangedEventData{
 		Folder: s.folderID,
 		To:     newState.String(),
 		From:   s.current.String(),
@@ -157,7 +149,7 @@ func (s *stateTracker) setError(err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	eventData := StateChangedEventData{
+	eventData := events.StateChangedEventData{
 		Folder: s.folderID,
 		From:   s.current.String(),
 	}

@@ -1133,10 +1133,6 @@ type clusterConfigDeviceInfo struct {
 	local, remote protocol.Device
 }
 
-type ClusterConfigReceivedEventData struct {
-	Device protocol.DeviceID `json:"device"`
-}
-
 func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) error {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
@@ -1224,7 +1220,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.remoteFolderStates[deviceID] = states
 	m.pmut.Unlock()
 
-	m.evLogger.Log(events.ClusterConfigReceived, ClusterConfigReceivedEventData{
+	m.evLogger.Log(events.ClusterConfigReceived, events.ClusterConfigReceivedEventData{
 		Device: deviceID,
 	})
 
@@ -1258,13 +1254,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	return nil
-}
-
-// DEPRECATED: FolderRejected event replaced by PendingFoldersChanged
-type FolderRejectedEventData struct {
-	Folder      string            `json:"folder"`
-	FolderLabel string            `json:"folderLabel"`
-	Device      protocol.DeviceID `json:"device"`
 }
 
 type PendingFoldersChangedEventData struct {
@@ -1316,7 +1305,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				RemoteEncrypted:  of.RemoteEncrypted,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
-			m.evLogger.Log(events.FolderRejected, FolderRejectedEventData{
+			m.evLogger.Log(events.FolderRejected, events.FolderRejectedEventData{
 				Folder:      folder.ID,
 				FolderLabel: folder.Label,
 				Device:      deviceID,
@@ -1733,11 +1722,6 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	return newDeviceCfg
 }
 
-type DeviceDisconnectedEventData struct {
-	ID    protocol.DeviceID `json:"id"`
-	Error string            `json:"error"`
-}
-
 // Closed is called when a connection has been closed
 func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
@@ -1761,7 +1745,7 @@ func (m *model) Closed(device protocol.DeviceID, err error) {
 	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
-	m.evLogger.Log(events.DeviceDisconnected, DeviceDisconnectedEventData{
+	m.evLogger.Log(events.DeviceDisconnected, events.DeviceDisconnectedEventData{
 		ID:    device,
 		Error: err.Error(),
 	})
@@ -2183,15 +2167,6 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	}
 }
 
-type DeviceConnectedEventData struct {
-	ID            protocol.DeviceID `json:"id"`
-	DeviceName    string            `json:"deviceName"`
-	ClientName    string            `json:"clientName"`
-	ClientVersion string            `json:"clientVersion"`
-	Type          string            `json:"type"`
-	Address       *string           `json:"addr,omitempty"`
-}
-
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
@@ -2244,7 +2219,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.helloMessages[deviceID] = hello
 
-	event := DeviceConnectedEventData{
+	event := events.DeviceConnectedEventData{
 		ID:            deviceID,
 		DeviceName:    hello.DeviceName,
 		ClientName:    hello.ClientName,
@@ -2286,12 +2261,6 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.deviceWasSeen(deviceID)
 }
 
-type RemoteDownloadProgressEventData struct {
-	Device protocol.DeviceID `json:"device"`
-	Folder string            `json:"folder"`
-	State  map[string]int    `json:"state"`
-}
-
 func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
@@ -2307,7 +2276,7 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	downloads.Update(folder, updates)
 	state := downloads.GetBlockCounts(folder)
 
-	m.evLogger.Log(events.RemoteDownloadProgress, RemoteDownloadProgressEventData{
+	m.evLogger.Log(events.RemoteDownloadProgress, events.RemoteDownloadProgressEventData{
 		Device: device,
 		Folder: folder,
 		State:  state,
@@ -2805,17 +2774,6 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-type FolderPausedEventData struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
-}
-type FolderResumedEventData FolderPausedEventData
-
-type DevicePausedEventData struct {
-	Device protocol.DeviceID `json:"device"`
-}
-type DeviceResumedEventData DevicePausedEventData
-
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
@@ -2890,7 +2848,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Emit the folder pause/resume event
 		if fromCfg.Paused != toCfg.Paused {
-			eventData := FolderPausedEventData{
+			eventData := events.FolderPausedEventData{
 				ID:    toCfg.ID,
 				Label: toCfg.Label,
 			}
@@ -2929,7 +2887,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			closeDevices = append(closeDevices, deviceID)
-			m.evLogger.Log(events.DevicePaused, DevicePausedEventData{
+			m.evLogger.Log(events.DevicePaused, events.DevicePausedEventData{
 				Device: deviceID,
 			})
 		} else {
@@ -2939,7 +2897,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			}
 
 			l.Infoln("Resuming", deviceID)
-			m.evLogger.Log(events.DeviceResumed, DevicePausedEventData{
+			m.evLogger.Log(events.DeviceResumed, events.DevicePausedEventData{
 				Device: deviceID,
 			})
 		}

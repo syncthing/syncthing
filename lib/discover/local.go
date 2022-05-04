@@ -218,11 +218,6 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 	}
 }
 
-type DeviceDiscoveredEventData struct {
-	Device    protocol.DeviceID `json:"device"`
-	Addresses []string          `json:"addrs"`
-}
-
 func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	// Remember whether we already had a valid cache entry for this device.
 	// If the instance ID has changed the remote device has restarted since
@@ -285,7 +280,7 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	})
 
 	if isNewDevice {
-		c.evLogger.Log(events.DeviceDiscovered, DeviceDiscoveredEventData{
+		c.evLogger.Log(events.DeviceDiscovered, events.DeviceDiscoveredEventData{
 			Device:    device.ID,
 			Addresses: validAddresses,
 		})

@@ -11,12 +11,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/syncthing/syncthing/lib/api"
-	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 // The verbose logging service subscribes to events and prints these in
@@ -61,38 +57,38 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return ""
 
 	case events.Starting:
-		data := ev.Data.(StartingEventData)
+		data := ev.Data.(events.StartingEventData)
 		return fmt.Sprintf("Starting up (%s)", data.Home)
 
 	case events.StartupComplete:
 		return "Startup complete"
 
 	case events.DeviceDiscovered:
-		data := ev.Data.(discover.DeviceDiscoveredEventData)
+		data := ev.Data.(events.DeviceDiscoveredEventData)
 		return fmt.Sprintf("Discovered device %v at %v", data.Device, data.Addresses)
 
 	case events.DeviceConnected:
-		data := ev.Data.(model.DeviceConnectedEventData)
+		data := ev.Data.(events.DeviceConnectedEventData)
 		return fmt.Sprintf("Connected to device %v at %v (type %s)", data.ID, data.Address, data.Type)
 
 	case events.DeviceDisconnected:
-		data := ev.Data.(model.DeviceDisconnectedEventData)
+		data := ev.Data.(events.DeviceDisconnectedEventData)
 		return fmt.Sprintf("Disconnected from device %v", data.ID)
 
 	case events.StateChanged:
-		data := ev.Data.(model.StateChangedEventData)
+		data := ev.Data.(events.StateChangedEventData)
 		return fmt.Sprintf("Folder %q is now %v", data.Folder, data.To)
 
 	case events.LocalChangeDetected:
-		data := ev.Data.(model.DiskChangeDetectedEventData)
+		data := ev.Data.(events.DiskChangeDetectedEventData)
 		return fmt.Sprintf("Local change detected in folder %q: %s %s %s", data.Folder, data.Action, data.Type, data.Path)
 
 	case events.RemoteChangeDetected:
-		data := ev.Data.(model.DiskChangeDetectedEventData)
+		data := ev.Data.(events.DiskChangeDetectedEventData)
 		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", data.Folder, data.Action, data.Type, data.Path)
 
 	case events.RemoteIndexUpdated:
-		data := ev.Data.(model.RemoteIndexUpdatedEventData)
+		data := ev.Data.(events.RemoteIndexUpdatedEventData)
 		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data.Device, data.Folder, data.Items)
 
 	case events.DeviceRejected:
@@ -144,11 +140,11 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return msg
 
 	case events.ItemStarted:
-		data := ev.Data.(model.ItemStartedEventData)
+		data := ev.Data.(events.ItemStartedEventData)
 		return fmt.Sprintf("Started syncing %q / %q (%v %v)", data.Folder, data.Item, data.Action, data.Type)
 
 	case events.ItemFinished:
-		data := ev.Data.(model.ItemFinishedEventData)
+		data := ev.Data.(events.ItemFinishedEventData)
 		err := "Success"
 		if data.Error != nil {
 			err = *data.Error
@@ -167,7 +163,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return folderSummaryRemoveDeprecatedRe.ReplaceAllString(fmt.Sprintf("Summary for folder %q is %+v", data.Folder, data.Summary), "")
 
 	case events.FolderScanProgress:
-		data := ev.Data.(scanner.FolderScanProgressEventData)
+		data := ev.Data.(events.FolderScanProgressEventData)
 		rate := data.Rate / 1024 / 1024
 		var pct int64
 		if data.Total > 0 {
@@ -176,31 +172,31 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Scanning folder %q, %d%% done (%.01f MiB/s)", data.Folder, pct, rate)
 
 	case events.DevicePaused:
-		data := ev.Data.(model.DevicePausedEventData)
+		data := ev.Data.(events.DevicePausedEventData)
 		return fmt.Sprintf("Device %v was paused", data.Device)
 
 	case events.DeviceResumed:
-		data := ev.Data.(model.DeviceResumedEventData)
+		data := ev.Data.(events.DeviceResumedEventData)
 		return fmt.Sprintf("Device %v was resumed", data.Device)
 
 	case events.ClusterConfigReceived:
-		data := ev.Data.(model.ClusterConfigReceivedEventData)
+		data := ev.Data.(events.ClusterConfigReceivedEventData)
 		return fmt.Sprintf("Received ClusterConfig from device %v", data.Device)
 
 	case events.FolderPaused:
-		data := ev.Data.(model.FolderPausedEventData)
+		data := ev.Data.(events.FolderPausedEventData)
 		return fmt.Sprintf("Folder %v (%v) was paused", data.ID, data.Label)
 
 	case events.FolderResumed:
-		data := ev.Data.(model.FolderResumedEventData)
+		data := ev.Data.(events.FolderResumedEventData)
 		return fmt.Sprintf("Folder %v (%v) was resumed", data.ID, data.Label)
 
 	case events.ListenAddressesChanged:
-		data := ev.Data.(connections.ListenAddressesChangedEventData)
+		data := ev.Data.(events.ListenAddressesChangedEventData)
 		return fmt.Sprintf("Listen address %s resolution has changed: lan addresses: %s wan addresses: %s", data.Address, data.LAN, data.WAN)
 
 	case events.LoginAttempt:
-		data := ev.Data.(api.LoginAttemptEventData)
+		data := ev.Data.(events.LoginAttemptEventData)
 		success := "failed"
 		if data.Success {
 			success = "successful"
