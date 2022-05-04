@@ -228,8 +228,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 }
 
 func (s *service) handleConns(ctx context.Context) error {
-	var c internalConn
 	for {
+		var c internalConn
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -274,13 +274,13 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
-		go func(c internalConn) {
+		go func() {
 			hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 			select {
 			case s.hellos <- &connWithHello{c, hello, err, remoteID, remoteCert}:
 			case <-ctx.Done():
 			}
-		}(c)
+		}()
 	}
 }
 
