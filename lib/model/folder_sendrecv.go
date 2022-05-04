@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -155,11 +156,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	return f
 }
 
-type FolderErrorsEventData struct {
-	Folder string      `json:"folder"`
-	Errors []FileError `json:"errors,omitempty"`
-}
-
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() (bool, error) {
@@ -209,10 +205,10 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Lock()
 	pullErrNum := len(f.tempPullErrors)
 	if pullErrNum > 0 {
-		f.pullErrors = make([]FileError, 0, len(f.tempPullErrors))
+		f.pullErrors = make([]types.FileError, 0, len(f.tempPullErrors))
 		for path, err := range f.tempPullErrors {
 			l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
-			f.pullErrors = append(f.pullErrors, FileError{
+			f.pullErrors = append(f.pullErrors, types.FileError{
 				Err:  err,
 				Path: path,
 			})
@@ -223,7 +219,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 
 	if pullErrNum > 0 {
 		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
-		f.evLogger.Log(events.FolderErrors, FolderErrorsEventData{
+		f.evLogger.Log(events.FolderErrors, events.FolderErrorsEventData{
 			Folder: f.folderID,
 			Errors: f.Errors(),
 		})
@@ -2106,13 +2102,7 @@ func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	return fn()
 }
 
-// A []FileError is sent as part of an event and will be JSON serialized.
-type FileError struct {
-	Path string `json:"path"`
-	Err  string `json:"error"`
-}
-
-type fileErrorList []FileError
+type fileErrorList []types.FileError
 
 func (l fileErrorList) Len() int {
 	return len(l)

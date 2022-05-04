@@ -33,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -54,7 +55,7 @@ type service interface {
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
-	Errors() []FileError
+	Errors() []types.FileError
 	WatchError() error
 	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
@@ -78,7 +79,7 @@ type Model interface {
 	ScanFolders() map[string]error
 	ScanFolderSubdirs(folder string, subs []string) error
 	State(folder string) (string, time.Time, error)
-	FolderErrors(folder string) ([]FileError, error)
+	FolderErrors(folder string) ([]types.FileError, error)
 	WatchError(folder string) error
 	Override(folder string)
 	Revert(folder string)
@@ -2495,7 +2496,7 @@ func (m *model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *model) FolderErrors(folder string) ([]FileError, error) {
+func (m *model) FolderErrors(folder string) ([]types.FileError, error) {
 	m.fmut.RLock()
 	err := m.checkFolderRunningLocked(folder)
 	runner := m.folderRunners[folder]

@@ -11,6 +11,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
@@ -32,7 +33,7 @@ func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, 
 	return f
 }
 
-func (f *sendOnlyFolder) PullErrors() []FileError {
+func (f *sendOnlyFolder) PullErrors() []types.FileError {
 	return nil
 }
 

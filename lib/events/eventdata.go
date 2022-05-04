@@ -9,6 +9,7 @@ package events
 import (
 	"net/url"
 
+	modeltypes "github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -139,10 +140,10 @@ type RemoteDownloadProgressEventData struct {
 // 	modeltypes.FolderCompletion
 // }
 
-// type FolderErrorsEventData struct {
-// 	Folder string      `json:"folder"`
-// 	Errors []modeltypes.FileError `json:"errors,omitempty"`
-// }
+type FolderErrorsEventData struct {
+	Folder string      `json:"folder"`
+	Errors []modeltypes.FileError `json:"errors,omitempty"`
+}
 
 type FolderScanProgressEventData struct {
 	Folder  string  `json:"folder"`
