@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Apr 13, 2022" "v1.19.2" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "May 01, 2022" "v1.19.2" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -83,6 +83,31 @@ An object containing optional extra information; the exact structure is
 determined by the event type.
 .UNINDENT
 .SH EVENT TYPES
+.SS ClusterConfigReceived
+.sp
+New in version 1.20.0.
+
+.sp
+The \fBClusterConfigReceived\fP event is emitted after processing such a protocol
+message received from a remote device.  It is mainly used for internal purposes.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    "id": 84,
+    "globalID": 84,
+    "type": "ClusterConfigReceived",
+    "time": "2022\-04\-27T14:14:27.043576583+09:00",
+    "data": {
+        "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU"
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS ConfigSaved
 .sp
 Emitted after the config has been saved by the user or by Syncthing
@@ -387,6 +412,12 @@ The \fBFolderCompletion\fP event is emitted when the local or remote
 contents for a folder changes. It contains the completion percentage for
 a given remote device and is emitted once per currently connected remote
 device.
+.sp
+New in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
+us) as well, and whether it is paused.  The \fBremoteState\fP field is
+\fBunknown\fP when the remote device is not connected.  Otherwise it can be
+either \fBpaused\fP, \fBnotSharing\fP, or \fBvalid\fP if the remote is sharing back.
+
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -396,7 +427,7 @@ device.
     "id": 84,
     "globalID": 84,
     "type": "FolderCompletion",
-    "time": "2015\-04\-17T14:14:27.043576583+09:00",
+    "time": "2022\-04\-27T14:14:27.043576583+09:00",
     "data": {
         "completion": 100,
         "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU",
@@ -406,6 +437,7 @@ device.
         "needBytes": 0,
         "needDeletes": 0,
         "needItems": 0,
+        "remoteState": "valid",
         "sequence": 12
     }
 }
