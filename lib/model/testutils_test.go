@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -187,7 +188,7 @@ func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.
 	return f, ok
 }
 
-func (m *testModel) testCompletion(device protocol.DeviceID, folder string) FolderCompletion {
+func (m *testModel) testCompletion(device protocol.DeviceID, folder string) types.FolderCompletion {
 	comp, err := m.Completion(device, folder)
 	must(m.t, err)
 	return comp
@@ -330,7 +331,7 @@ func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	for i, file := range fs {
 		filenames[i] = file.Name
 	}
-	m.evLogger.Log(events.LocalIndexUpdated, LocalIndexUpdatedEventData{
+	m.evLogger.Log(events.LocalIndexUpdated, events.LocalIndexUpdatedEventData{
 		Folder:    folder,
 		Items:     len(fs),
 		Filenames: filenames,

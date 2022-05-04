@@ -35,8 +35,8 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	loggermocks "github.com/syncthing/syncthing/lib/logger/mocks"
-	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
+	modeltypes "github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -618,7 +618,7 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	}
 	addrChan := make(chan string)
 	mockedSummary := &modelmocks.FolderSummaryService{}
-	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
+	mockedSummary.SummaryReturns(new(modeltypes.FolderSummary), nil)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)

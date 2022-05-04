@@ -26,7 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model"
+	modeltypes "github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -669,7 +669,7 @@ func (p *Process) RemoteInSync(folder string, dev protocol.DeviceID) (bool, erro
 		return false, err
 	}
 
-	var comp model.FolderCompletion
+	var comp modeltypes.FolderCompletion
 	if err := json.Unmarshal(bs, &comp); err != nil {
 		return false, err
 	}

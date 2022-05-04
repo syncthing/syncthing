@@ -39,7 +39,7 @@ func expectEvent(w events.Subscription, t *testing.T, size int) {
 	if event.Type != events.DownloadProgress {
 		t.Fatal("Unexpected event:", event, "at", caller(1))
 	}
-	data := event.Data.(DownloadProgressEventData)
+	data := event.Data.(events.DownloadProgressEventData)
 	if len(data) != size {
 		t.Fatal("Unexpected event data size:", data, "at", caller(1))
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -62,18 +63,18 @@ type Model struct {
 	clusterConfigReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CompletionStub        func(protocol.DeviceID, string) (model.FolderCompletion, error)
+	CompletionStub        func(protocol.DeviceID, string) (types.FolderCompletion, error)
 	completionMutex       sync.RWMutex
 	completionArgsForCall []struct {
 		arg1 protocol.DeviceID
 		arg2 string
 	}
 	completionReturns struct {
-		result1 model.FolderCompletion
+		result1 types.FolderCompletion
 		result2 error
 	}
 	completionReturnsOnCall map[int]struct {
-		result1 model.FolderCompletion
+		result1 types.FolderCompletion
 		result2 error
 	}
 	ConnectionStub        func(protocol.DeviceID) (protocol.Connection, bool)
@@ -213,17 +214,17 @@ type Model struct {
 	downloadProgressReturnsOnCall map[int]struct {
 		result1 error
 	}
-	FolderErrorsStub        func(string) ([]model.FileError, error)
+	FolderErrorsStub        func(string) ([]types.FileError, error)
 	folderErrorsMutex       sync.RWMutex
 	folderErrorsArgsForCall []struct {
 		arg1 string
 	}
 	folderErrorsReturns struct {
-		result1 []model.FileError
+		result1 []types.FileError
 		result2 error
 	}
 	folderErrorsReturnsOnCall map[int]struct {
-		result1 []model.FileError
+		result1 []types.FileError
 		result2 error
 	}
 	FolderProgressBytesCompletedStub        func(string) int64
@@ -823,7 +824,7 @@ func (fake *Model) ClusterConfigReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (model.FolderCompletion, error) {
+func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (types.FolderCompletion, error) {
 	fake.completionMutex.Lock()
 	ret, specificReturn := fake.completionReturnsOnCall[len(fake.completionArgsForCall)]
 	fake.completionArgsForCall = append(fake.completionArgsForCall, struct {
@@ -849,7 +850,7 @@ func (fake *Model) CompletionCallCount() int {
 	return len(fake.completionArgsForCall)
 }
 
-func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) (model.FolderCompletion, error)) {
+func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) (types.FolderCompletion, error)) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = stub
@@ -862,28 +863,28 @@ func (fake *Model) CompletionArgsForCall(i int) (protocol.DeviceID, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) CompletionReturns(result1 model.FolderCompletion, result2 error) {
+func (fake *Model) CompletionReturns(result1 types.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	fake.completionReturns = struct {
-		result1 model.FolderCompletion
+		result1 types.FolderCompletion
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) CompletionReturnsOnCall(i int, result1 model.FolderCompletion, result2 error) {
+func (fake *Model) CompletionReturnsOnCall(i int, result1 types.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	if fake.completionReturnsOnCall == nil {
 		fake.completionReturnsOnCall = make(map[int]struct {
-			result1 model.FolderCompletion
+			result1 types.FolderCompletion
 			result2 error
 		})
 	}
 	fake.completionReturnsOnCall[i] = struct {
-		result1 model.FolderCompletion
+		result1 types.FolderCompletion
 		result2 error
 	}{result1, result2}
 }
@@ -1552,7 +1553,7 @@ func (fake *Model) DownloadProgressReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) FolderErrors(arg1 string) ([]model.FileError, error) {
+func (fake *Model) FolderErrors(arg1 string) ([]types.FileError, error) {
 	fake.folderErrorsMutex.Lock()
 	ret, specificReturn := fake.folderErrorsReturnsOnCall[len(fake.folderErrorsArgsForCall)]
 	fake.folderErrorsArgsForCall = append(fake.folderErrorsArgsForCall, struct {
@@ -1577,7 +1578,7 @@ func (fake *Model) FolderErrorsCallCount() int {
 	return len(fake.folderErrorsArgsForCall)
 }
 
-func (fake *Model) FolderErrorsCalls(stub func(string) ([]model.FileError, error)) {
+func (fake *Model) FolderErrorsCalls(stub func(string) ([]types.FileError, error)) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = stub
@@ -1590,28 +1591,28 @@ func (fake *Model) FolderErrorsArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) FolderErrorsReturns(result1 []model.FileError, result2 error) {
+func (fake *Model) FolderErrorsReturns(result1 []types.FileError, result2 error) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = nil
 	fake.folderErrorsReturns = struct {
-		result1 []model.FileError
+		result1 []types.FileError
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) FolderErrorsReturnsOnCall(i int, result1 []model.FileError, result2 error) {
+func (fake *Model) FolderErrorsReturnsOnCall(i int, result1 []types.FileError, result2 error) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = nil
 	if fake.folderErrorsReturnsOnCall == nil {
 		fake.folderErrorsReturnsOnCall = make(map[int]struct {
-			result1 []model.FileError
+			result1 []types.FileError
 			result2 error
 		})
 	}
 	fake.folderErrorsReturnsOnCall[i] = struct {
-		result1 []model.FileError
+		result1 []types.FileError
 		result2 error
 	}{result1, result2}
 }

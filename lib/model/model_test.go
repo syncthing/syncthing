@@ -32,6 +32,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
@@ -1583,7 +1584,7 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 	for {
 		select {
 		case ev := <-sub.C():
-			data := ev.Data.(StateChangedEventData)
+			data := ev.Data.(events.StateChangedEventData)
 			if data.Folder == folder {
 				if data.Error == nil {
 					error = ""
@@ -3764,16 +3765,16 @@ func TestClusterConfigOnFolderUnpause(t *testing.T) {
 
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
-	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderValid)
-	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderPaused))
+	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, types.RemoteFolderValid)
+	comp.Add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, types.RemoteFolderPaused))
 	if comp.CompletionPct != 100 {
 		t.Error(comp.CompletionPct)
 	}
 
 	// Completion is of the whole
-	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, remoteFolderValid)             // 100% complete
-	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, remoteFolderValid)) // 82.5% complete
-	if comp.CompletionPct != 90 {                                                                    // 100 * (1 - 50/500)
+	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, types.RemoteFolderValid)             // 100% complete
+	comp.Add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, types.RemoteFolderValid)) // 82.5% complete
+	if comp.CompletionPct != 90 {                                                                          // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }
