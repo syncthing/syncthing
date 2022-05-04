@@ -121,7 +121,7 @@ type FolderRejectedEventData struct {
 
 //type ConfigSavedEventData config.Configuration
 
-// type DownloadProgressEventData map[string]map[string]*modeltypes.PullerProgress
+type DownloadProgressEventData map[string]map[string]*modeltypes.PullerProgress
 
 type RemoteDownloadProgressEventData struct {
 	Device protocol.DeviceID `json:"device"`

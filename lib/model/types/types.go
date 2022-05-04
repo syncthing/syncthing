@@ -6,6 +6,19 @@
 
 package types
 
+// A momentary state representing the progress of the puller
+type PullerProgress struct {
+	Total                   int   `json:"total"`
+	Reused                  int   `json:"reused"`
+	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
+	CopiedFromOriginShifted int   `json:"copiedFromOriginShifted"`
+	CopiedFromElsewhere     int   `json:"copiedFromElsewhere"`
+	Pulled                  int   `json:"pulled"`
+	Pulling                 int   `json:"pulling"`
+	BytesDone               int64 `json:"bytesDone"`
+	BytesTotal              int64 `json:"bytesTotal"`
+}
+
 // A []FileError is sent as part of an event and will be JSON serialized.
 type FileError struct {
 	Path string `json:"path"`

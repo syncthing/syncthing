@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -73,19 +74,6 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 		fsync:            fsync,
 		created:          time.Now(),
 	}
-}
-
-// A momentary state representing the progress of the puller
-type pullerProgress struct {
-	Total                   int   `json:"total"`
-	Reused                  int   `json:"reused"`
-	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
-	CopiedFromOriginShifted int   `json:"copiedFromOriginShifted"`
-	CopiedFromElsewhere     int   `json:"copiedFromElsewhere"`
-	Pulled                  int   `json:"pulled"`
-	Pulling                 int   `json:"pulling"`
-	BytesDone               int64 `json:"bytesDone"`
-	BytesTotal              int64 `json:"bytesTotal"`
 }
 
 // lockedWriterAt adds a lock to protect from closing the fd at the same time as writing.
@@ -385,13 +373,13 @@ func encryptionTrailerSize(file protocol.FileInfo) int64 {
 }
 
 // Progress returns the momentarily progress for the puller
-func (s *sharedPullerState) Progress() *pullerProgress {
+func (s *sharedPullerState) Progress() *types.PullerProgress {
 	s.mut.RLock()
 	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
 	file := len(s.file.Blocks)
-	return &pullerProgress{
+	return &types.PullerProgress{
 		Total:               total,
 		Reused:              s.reused,
 		CopiedFromOrigin:    s.copyOrigin,

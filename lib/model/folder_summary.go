@@ -270,7 +270,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.DownloadProgress:
-		data := ev.Data.(DownloadProgressEventData)
+		data := ev.Data.(events.DownloadProgressEventData)
 		c.foldersMut.Lock()
 		for folder := range data {
 			c.folders[folder] = struct{}{}

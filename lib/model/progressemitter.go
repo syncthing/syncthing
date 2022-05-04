@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -117,15 +118,13 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	}
 }
 
-type DownloadProgressEventData map[string]map[string]*pullerProgress
-
 func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
-	output := make(DownloadProgressEventData)
+	output := make(events.DownloadProgressEventData)
 	for folder, pullers := range t.registry {
 		if len(pullers) == 0 {
 			continue
 		}
-		output[folder] = make(map[string]*pullerProgress)
+		output[folder] = make(map[string]*types.PullerProgress)
 		for name, puller := range pullers {
 			output[folder][name] = puller.Progress()
 		}
