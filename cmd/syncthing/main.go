@@ -612,7 +612,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		AssetDir:             locations.Get(locations.GUIAssets),
 		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
 		ProfilerAddr:         options.DebugProfilerListen,
