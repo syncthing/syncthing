@@ -3,7 +3,6 @@
     <ul class="nav nav-tabs">
       <li class="active"><a data-toggle="tab" href="#log-viewer-log" translate>Log</a></li>
       <li><a data-toggle="tab" href="#log-viewer-facilities" translate>Debugging Facilities</a></li>
-      <li><a data-toggle="tab" href="#log-viewer-paths" translate>Paths</a></li>
     </ul>
     <div class="tab-content">
 
@@ -22,48 +21,6 @@
                 <input type="checkbox" ng-model="data.enabled" ng-change="logging.onFacilityChange(name)" ng-disabled="data.enabled == null"> <span>{{ name }}</span>
               </td>
               <td>{{ data.description }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div id="log-viewer-paths" class="tab-pane">
-        <table class="table table-striped">
-          <caption><label translate>Internally used paths:</label></caption>
-          <tbody>
-            <tr>
-              <th translate>User Home</th>
-              <td class="file-path"><code>{{ logging.paths['baseDir-userHome'] }}</code></td>
-            </tr>
-            <tr>
-              <th><strong translate>Configuration Directory</strong></th>
-              <td class="file-path"><code><strong>{{ logging.paths['baseDir-config'] }}</strong></code></td>
-            </tr>
-            <tr>
-              <th translate>Configuration File</th>
-              <td class="file-path"><code>{{ logging.paths['config'] }}</code></td>
-            </tr>
-            <tr>
-              <th translate>Device Certificate</th>
-              <td class="file-path"><code>{{ logging.paths['certFile'] }}</code>
-                <br /><code>{{ logging.paths['keyFile'] }}</code></td>
-            </tr>
-            <tr>
-              <th translate>GUI / API HTTPS Certificate</th>
-              <td class="file-path"><code>{{ logging.paths['httpsCertFile'] }}</code>
-                <br /><code>{{ logging.paths['httpsKeyFile'] }}</code></td>
-            </tr>
-            <tr>
-              <th><strong translate>Database Location</strong></th>
-              <td class="file-path"><code><strong>{{ logging.paths['database'] }}</strong></code></td>
-            </tr>
-            <tr>
-              <th><strong translate>Log File</strong></th>
-              <td class="file-path"><code><strong>{{ logging.paths['logFile'] }}</strong></code></td>
-            </tr>
-            <tr>
-              <th translate>GUI Override Directory</th>
-              <td class="file-path"><code>{{ logging.paths['guiAssets'] }}</code></td>
             </tr>
           </tbody>
         </table>

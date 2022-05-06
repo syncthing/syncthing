@@ -18,6 +18,7 @@
     <ul class="nav nav-tabs">
       <li class="active"><a data-toggle="tab" href="#about-authors" translate>Authors</a></li>
       <li><a data-toggle="tab" href="#about-includes" translate>Included Software</a></li>
+      <li><a data-toggle="tab" href="#about-paths" translate>Paths</a></li>
     </ul>
     <div class="tab-content">
 
@@ -77,6 +78,48 @@ Jakob Borg, Audrius Butkevicius, Jesse Lucas, Simon Frei, Alexander Graf, Alexan
           <li><a href="https://golang.org">The Go Programming Language</a>, Copyright &copy; 2009 The Go Authors.</li>
           <li>Font Awesome by Dave Gandy - <a href="http://fontawesome.io/">http://fontawesome.io</a></li>
         </ul>
+      </div>
+
+      <div id="about-paths" class="tab-pane">
+        <table class="table table-striped">
+          <caption><label translate>Internally used paths:</label></caption>
+          <tbody>
+            <tr>
+              <th translate>User Home</th>
+              <td class="file-path"><code>{{ about.paths['baseDir-userHome'] }}</code></td>
+            </tr>
+            <tr>
+              <th><strong translate>Configuration Directory</strong></th>
+              <td class="file-path"><code><strong>{{ about.paths['baseDir-config'] }}</strong></code></td>
+            </tr>
+            <tr>
+              <th translate>Configuration File</th>
+              <td class="file-path"><code>{{ about.paths['config'] }}</code></td>
+            </tr>
+            <tr>
+              <th translate>Device Certificate</th>
+              <td class="file-path"><code>{{ about.paths['certFile'] }}</code>
+                <br /><code>{{ about.paths['keyFile'] }}</code></td>
+            </tr>
+            <tr>
+              <th translate>GUI / API HTTPS Certificate</th>
+              <td class="file-path"><code>{{ about.paths['httpsCertFile'] }}</code>
+                <br /><code>{{ about.paths['httpsKeyFile'] }}</code></td>
+            </tr>
+            <tr>
+              <th><strong translate>Database Location</strong></th>
+              <td class="file-path"><code><strong>{{ about.paths['database'] }}</strong></code></td>
+            </tr>
+            <tr>
+              <th><strong translate>Log File</strong></th>
+              <td class="file-path"><code><strong>{{ about.paths['logFile'] }}</strong></code></td>
+            </tr>
+            <tr>
+              <th translate>GUI Override Directory</th>
+              <td class="file-path"><code>{{ about.paths['guiAssets'] }}</code></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
     </div>
