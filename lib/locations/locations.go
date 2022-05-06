@@ -160,9 +160,9 @@ locationLoop:
 func PrettyPrintPaths() string {
 	lines := []string{
 		fmt.Sprintf("Configuration file:\n\t%s\n\n", Get(ConfigFile)),
-		fmt.Sprintf("Database directory:\n\t%s\n\n", Get(Database)),
 		fmt.Sprintf("Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile)),
-		fmt.Sprintf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile)),
+		fmt.Sprintf("GUI / API HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile)),
+		fmt.Sprintf("Database location:\n\t%s\n\n", Get(Database)),
 		fmt.Sprintf("Log file:\n\t%s\n\n", Get(LogFile)),
 		fmt.Sprintf("GUI override directory:\n\t%s\n\n", Get(GUIAssets)),
 		fmt.Sprintf("CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens)),
