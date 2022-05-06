@@ -28,8 +28,8 @@
       </div>
 
       <div id="log-viewer-paths" class="tab-pane">
-        <label translate>Internally used paths:</label>
         <table class="table table-striped">
+          <caption><label translate>Internally used paths:</label></caption>
           <tbody>
             <tr ng-repeat="(name, path) in logging.paths">
               <td class="text-nowrap">{{ name | uncamel }}</td>
