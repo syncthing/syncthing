@@ -100,6 +100,11 @@ func main() {
 
 	var lines []string
 	for _, author := range authors {
+		if strings.Contains(author.name, "[bot]") {
+			// Only humans are eligible, pending future legislation to the
+			// contrary.
+			continue
+		}
 		lines = append(lines, author.name)
 	}
 	replacement := strings.Join(lines, ", ")
