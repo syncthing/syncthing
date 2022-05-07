@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -73,10 +74,10 @@ func TestMain(m *testing.M) {
 func TestCSRFToken(t *testing.T) {
 	t.Parallel()
 
-	max := 250
+	max := 10 * maxCsrfTokens
 	int := 5
 	if testing.Short() {
-		max = 20
+		max = 1 + maxCsrfTokens
 		int = 2
 	}
 
@@ -88,6 +89,11 @@ func TestCSRFToken(t *testing.T) {
 	t3 := m.newToken()
 	if !m.validToken(t3) {
 		t.Fatal("t3 should be valid")
+	}
+
+	valid := make(map[string]struct{}, maxCsrfTokens)
+	for _, token := range m.tokens {
+		valid[token] = struct{}{}
 	}
 
 	for i := 0; i < max; i++ {
@@ -102,10 +108,26 @@ func TestCSRFToken(t *testing.T) {
 			}
 		}
 
+		if len(m.tokens) == maxCsrfTokens {
+			// We're about to add a token, which will remove the last token
+			// from m.tokens.
+			delete(valid, m.tokens[len(m.tokens)-1])
+		}
+
 		// The newly generated token is always valid
 		t4 := m.newToken()
 		if !m.validToken(t4) {
 			t.Fatal("t4 should be valid at iteration", i)
+		}
+		valid[t4] = struct{}{}
+
+		v := make(map[string]struct{}, maxCsrfTokens)
+		for _, token := range m.tokens {
+			v[token] = struct{}{}
+		}
+
+		if !reflect.DeepEqual(v, valid) {
+			t.Fatalf("want valid tokens %v, got %v", valid, v)
 		}
 	}
 
