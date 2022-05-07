@@ -46,6 +46,7 @@ type apiKeyValidator interface {
 func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, saveLocation string) *csrfManager {
 	m := &csrfManager{
 		tokensMut:       sync.NewMutex(),
+		tokens:          make([]string, 0, maxCsrfTokens),
 		unique:          unique,
 		prefix:          prefix,
 		apiKeyValidator: apiKeyValidator,
@@ -121,11 +122,13 @@ func (m *csrfManager) newToken() string {
 	token := rand.String(32)
 
 	m.tokensMut.Lock()
-	m.tokens = append([]string{token}, m.tokens...)
-	if len(m.tokens) > maxCsrfTokens {
-		m.tokens = m.tokens[:maxCsrfTokens]
-	}
 	defer m.tokensMut.Unlock()
+
+	if len(m.tokens) < maxCsrfTokens {
+		m.tokens = append(m.tokens, "")
+	}
+	copy(m.tokens[1:], m.tokens)
+	m.tokens[0] = token
 
 	m.save()
 
