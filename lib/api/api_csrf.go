@@ -109,7 +109,7 @@ func (m *csrfManager) validToken(token string) bool {
 				// Move this token to the head of the list. Copy the tokens at
 				// the front one step to the right and then replace the token
 				// at the head.
-				copy(m.tokens[1:], m.tokens[:i+1])
+				copy(m.tokens[1:], m.tokens[:i])
 				m.tokens[0] = token
 			}
 			return true
