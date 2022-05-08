@@ -2860,6 +2860,12 @@ angular.module('syncthing.core')
             $scope.advancedConfig = angular.copy($scope.config);
             $scope.advancedConfig.devices.sort(deviceCompare);
             $scope.advancedConfig.folders.sort(folderCompare);
+            $scope.advancedConfig.defaults.ignores._lines = function (newValue) {
+                if (arguments.length) {
+                    $scope.advancedConfig.defaults.ignores.lines = newValue.split('\n');
+                }
+                return $scope.advancedConfig.defaults.ignores.lines.join('\n');
+            };
             $('#advanced').modal('show');
         };
 
