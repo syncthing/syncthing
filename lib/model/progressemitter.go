@@ -13,7 +13,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -124,7 +123,7 @@ func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
 		if len(pullers) == 0 {
 			continue
 		}
-		output[folder] = make(map[string]*types.PullerProgress)
+		output[folder] = make(map[string]*events.PullerProgress)
 		for name, puller := range pullers {
 			output[folder][name] = puller.Progress()
 		}

@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"time"
 
-	modeltypes "github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -122,7 +121,20 @@ type FolderRejectedEventData struct {
 
 //type ConfigSavedEventData config.Configuration
 
-type DownloadProgressEventData map[string]map[string]*modeltypes.PullerProgress
+type DownloadProgressEventData map[string]map[string]*PullerProgress
+
+// A momentary state representing the progress of the puller
+type PullerProgress struct {
+	Total                   int   `json:"total"`
+	Reused                  int   `json:"reused"`
+	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
+	CopiedFromOriginShifted int   `json:"copiedFromOriginShifted"`
+	CopiedFromElsewhere     int   `json:"copiedFromElsewhere"`
+	Pulled                  int   `json:"pulled"`
+	Pulling                 int   `json:"pulling"`
+	BytesDone               int64 `json:"bytesDone"`
+	BytesTotal              int64 `json:"bytesTotal"`
+}
 
 type RemoteDownloadProgressEventData struct {
 	Device protocol.DeviceID `json:"device"`

@@ -13,8 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -373,13 +373,13 @@ func encryptionTrailerSize(file protocol.FileInfo) int64 {
 }
 
 // Progress returns the momentarily progress for the puller
-func (s *sharedPullerState) Progress() *types.PullerProgress {
+func (s *sharedPullerState) Progress() *events.PullerProgress {
 	s.mut.RLock()
 	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
 	file := len(s.file.Blocks)
-	return &types.PullerProgress{
+	return &events.PullerProgress{
 		Total:               total,
 		Reused:              s.reused,
 		CopiedFromOrigin:    s.copyOrigin,
