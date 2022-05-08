@@ -12,7 +12,6 @@ import (
 	"regexp"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model"
 )
 
 // The verbose logging service subscribes to events and prints these in
@@ -96,7 +95,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return ""
 
 	case events.PendingDevicesChanged:
-		data := ev.Data.(model.PendingDevicesChangedEventData)
+		data := ev.Data.(events.PendingDevicesChangedEventData)
 		var msg string
 		if len(data.Added) > 0 {
 			msg += "Updated pending (rejected) connections from device"
@@ -120,7 +119,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return ""
 
 	case events.PendingFoldersChanged:
-		data := ev.Data.(model.PendingFoldersChangedEventData)
+		data := ev.Data.(events.PendingFoldersChangedEventData)
 		var msg string
 		if len(data.Added) > 0 {
 			msg += "Updated pending (rejected) folder"

@@ -42,12 +42,23 @@ type DeviceDisconnectedEventData struct {
 }
 
 // DEPRECATED: DeviceRejected event replaced by PendingDevicesChanged
-//type DeviceRejectedEventData modeltypes.UpdatedPendingDevice
+type DeviceRejectedEventData UpdatedPendingDevice
 
-// type PendingDevicesChangedEventData struct {
-// 	Added   []modeltypes.UpdatedPendingDevice   `json:"added,omitempty"`
-// 	Removed []modeltypes.PendingDeviceListEntry `json:"removed,omitempty"`
-// }
+type PendingDevicesChangedEventData struct {
+	Added   []UpdatedPendingDevice   `json:"added,omitempty"`
+	Removed []PendingDeviceListEntry `json:"removed,omitempty"`
+}
+
+type PendingDeviceListEntry struct {
+	Device protocol.DeviceID `json:"deviceID"`
+}
+
+type UpdatedPendingDevice struct {
+	PendingDeviceListEntry
+
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
 
 type DevicePausedEventData struct {
 	Device protocol.DeviceID `json:"device"`
@@ -114,10 +125,23 @@ type FolderRejectedEventData struct {
 	Device      protocol.DeviceID `json:"device"`
 }
 
-// type PendingFoldersChangedEventData struct {
-// 	Added   []modeltypes.UpdatedPendingFolder   `json:"added,omitempty"`
-// 	Removed []modeltypes.PendingFolderListEntry `json:"removed,omitempty"`
-// }
+type PendingFoldersChangedEventData struct {
+	Added   []UpdatedPendingFolder   `json:"added,omitempty"`
+	Removed []PendingFolderListEntry `json:"removed,omitempty"`
+}
+
+type PendingFolderListEntry struct {
+	Folder string             `json:"folderID"`
+	Device *protocol.DeviceID `json:"deviceID,omitempty"`
+}
+
+type UpdatedPendingFolder struct {
+	PendingFolderListEntry
+
+	FolderLabel      string `json:"folderLabel"`
+	ReceiveEncrypted bool   `json:"receiveEncrypted"`
+	RemoteEncrypted  bool   `json:"remoteEncrypted"`
+}
 
 //type ConfigSavedEventData config.Configuration
 
