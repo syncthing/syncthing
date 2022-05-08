@@ -55,7 +55,7 @@ type service interface {
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
-	Errors() []types.FileError
+	Errors() []events.FileError
 	WatchError() error
 	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
@@ -79,7 +79,7 @@ type Model interface {
 	ScanFolders() map[string]error
 	ScanFolderSubdirs(folder string, subs []string) error
 	State(folder string) (string, time.Time, error)
-	FolderErrors(folder string) ([]types.FileError, error)
+	FolderErrors(folder string) ([]events.FileError, error)
 	WatchError(folder string) error
 	Override(folder string)
 	Revert(folder string)
@@ -2459,7 +2459,7 @@ func (m *model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *model) FolderErrors(folder string) ([]types.FileError, error) {
+func (m *model) FolderErrors(folder string) ([]events.FileError, error) {
 	m.fmut.RLock()
 	err := m.checkFolderRunningLocked(folder)
 	runner := m.folderRunners[folder]

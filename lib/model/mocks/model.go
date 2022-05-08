@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/model/types"
@@ -214,17 +215,17 @@ type Model struct {
 	downloadProgressReturnsOnCall map[int]struct {
 		result1 error
 	}
-	FolderErrorsStub        func(string) ([]types.FileError, error)
+	FolderErrorsStub        func(string) ([]events.FileError, error)
 	folderErrorsMutex       sync.RWMutex
 	folderErrorsArgsForCall []struct {
 		arg1 string
 	}
 	folderErrorsReturns struct {
-		result1 []types.FileError
+		result1 []events.FileError
 		result2 error
 	}
 	folderErrorsReturnsOnCall map[int]struct {
-		result1 []types.FileError
+		result1 []events.FileError
 		result2 error
 	}
 	FolderProgressBytesCompletedStub        func(string) int64
@@ -1553,7 +1554,7 @@ func (fake *Model) DownloadProgressReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) FolderErrors(arg1 string) ([]types.FileError, error) {
+func (fake *Model) FolderErrors(arg1 string) ([]events.FileError, error) {
 	fake.folderErrorsMutex.Lock()
 	ret, specificReturn := fake.folderErrorsReturnsOnCall[len(fake.folderErrorsArgsForCall)]
 	fake.folderErrorsArgsForCall = append(fake.folderErrorsArgsForCall, struct {
@@ -1578,7 +1579,7 @@ func (fake *Model) FolderErrorsCallCount() int {
 	return len(fake.folderErrorsArgsForCall)
 }
 
-func (fake *Model) FolderErrorsCalls(stub func(string) ([]types.FileError, error)) {
+func (fake *Model) FolderErrorsCalls(stub func(string) ([]events.FileError, error)) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = stub
@@ -1591,28 +1592,28 @@ func (fake *Model) FolderErrorsArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) FolderErrorsReturns(result1 []types.FileError, result2 error) {
+func (fake *Model) FolderErrorsReturns(result1 []events.FileError, result2 error) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = nil
 	fake.folderErrorsReturns = struct {
-		result1 []types.FileError
+		result1 []events.FileError
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) FolderErrorsReturnsOnCall(i int, result1 []types.FileError, result2 error) {
+func (fake *Model) FolderErrorsReturnsOnCall(i int, result1 []events.FileError, result2 error) {
 	fake.folderErrorsMutex.Lock()
 	defer fake.folderErrorsMutex.Unlock()
 	fake.FolderErrorsStub = nil
 	if fake.folderErrorsReturnsOnCall == nil {
 		fake.folderErrorsReturnsOnCall = make(map[int]struct {
-			result1 []types.FileError
+			result1 []events.FileError
 			result2 error
 		})
 	}
 	fake.folderErrorsReturnsOnCall[i] = struct {
-		result1 []types.FileError
+		result1 []events.FileError
 		result2 error
 	}{result1, result2}
 }

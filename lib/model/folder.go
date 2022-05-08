@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -67,8 +66,8 @@ type folder struct {
 	pullPause     time.Duration
 	pullFailTimer *time.Timer
 
-	scanErrors []types.FileError
-	pullErrors []types.FileError
+	scanErrors []events.FileError
+	pullErrors []events.FileError
 	errorsMut  sync.Mutex
 
 	doInSyncChan chan syncRequest
@@ -1148,7 +1147,7 @@ func (f *folder) String() string {
 func (f *folder) newScanError(path string, err error) {
 	f.errorsMut.Lock()
 	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
-	f.scanErrors = append(f.scanErrors, types.FileError{
+	f.scanErrors = append(f.scanErrors, events.FileError{
 		Err:  err.Error(),
 		Path: path,
 	})
@@ -1175,11 +1174,11 @@ outer:
 	f.scanErrors = filtered
 }
 
-func (f *folder) Errors() []types.FileError {
+func (f *folder) Errors() []events.FileError {
 	f.errorsMut.Lock()
 	defer f.errorsMut.Unlock()
 	scanLen := len(f.scanErrors)
-	errors := make([]types.FileError, scanLen+len(f.pullErrors))
+	errors := make([]events.FileError, scanLen+len(f.pullErrors))
 	copy(errors[:scanLen], f.scanErrors)
 	copy(errors[scanLen:], f.pullErrors)
 	sort.Sort(fileErrorList(errors))

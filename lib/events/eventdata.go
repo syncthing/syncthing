@@ -142,7 +142,13 @@ type FolderCompletionEventData struct {
 
 type FolderErrorsEventData struct {
 	Folder string      `json:"folder"`
-	Errors []modeltypes.FileError `json:"errors,omitempty"`
+	Errors []FileError `json:"errors,omitempty"`
+}
+
+// A []FileError is sent as part of an event and will be JSON serialized.
+type FileError struct {
+	Path string `json:"path"`
+	Err  string `json:"error"`
 }
 
 type FolderScanProgressEventData struct {

@@ -137,9 +137,3 @@ type PullerProgress struct {
 	BytesDone               int64 `json:"bytesDone"`
 	BytesTotal              int64 `json:"bytesTotal"`
 }
-
-// A []FileError is sent as part of an event and will be JSON serialized.
-type FileError struct {
-	Path string `json:"path"`
-	Err  string `json:"error"`
-}

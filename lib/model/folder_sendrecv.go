@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -205,10 +204,10 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Lock()
 	pullErrNum := len(f.tempPullErrors)
 	if pullErrNum > 0 {
-		f.pullErrors = make([]types.FileError, 0, len(f.tempPullErrors))
+		f.pullErrors = make([]events.FileError, 0, len(f.tempPullErrors))
 		for path, err := range f.tempPullErrors {
 			l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
-			f.pullErrors = append(f.pullErrors, types.FileError{
+			f.pullErrors = append(f.pullErrors, events.FileError{
 				Err:  err,
 				Path: path,
 			})
@@ -2102,7 +2101,7 @@ func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	return fn()
 }
 
-type fileErrorList []types.FileError
+type fileErrorList []events.FileError
 
 func (l fileErrorList) Len() int {
 	return len(l)
