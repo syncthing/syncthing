@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -188,7 +187,7 @@ func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.
 	return f, ok
 }
 
-func (m *testModel) testCompletion(device protocol.DeviceID, folder string) types.FolderCompletion {
+func (m *testModel) testCompletion(device protocol.DeviceID, folder string) FolderCompletion {
 	comp, err := m.Completion(device, folder)
 	must(m.t, err)
 	return comp

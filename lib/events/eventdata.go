@@ -8,6 +8,7 @@ package events
 
 import (
 	"net/url"
+	"time"
 
 	modeltypes "github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -130,14 +131,103 @@ type RemoteDownloadProgressEventData struct {
 }
 
 type FolderSummaryEventData struct {
-	Folder  string                    `json:"folder"`
-	Summary *modeltypes.FolderSummary `json:"summary"`
+	Folder  string              `json:"folder"`
+	Summary FolderSummaryFields `json:"summary"`
+}
+
+// FolderSummaryFields replaces the previously used map[string]interface{}, and
+// needs to keep the structure/naming for api backwards compatibility
+type FolderSummaryFields struct {
+	Errors     int `json:"errors"`
+	PullErrors int `json:"pullErrors"` // deprecated
+
+	Invalid string `json:"invalid"` // deprecated
+
+	GlobalFiles       int   `json:"globalFiles"`
+	GlobalDirectories int   `json:"globalDirectories"`
+	GlobalSymlinks    int   `json:"globalSymlinks"`
+	GlobalDeleted     int   `json:"globalDeleted"`
+	GlobalBytes       int64 `json:"globalBytes"`
+	GlobalTotalItems  int   `json:"globalTotalItems"`
+
+	LocalFiles       int   `json:"localFiles"`
+	LocalDirectories int   `json:"localDirectories"`
+	LocalSymlinks    int   `json:"localSymlinks"`
+	LocalDeleted     int   `json:"localDeleted"`
+	LocalBytes       int64 `json:"localBytes"`
+	LocalTotalItems  int   `json:"localTotalItems"`
+
+	NeedFiles       int   `json:"needFiles"`
+	NeedDirectories int   `json:"needDirectories"`
+	NeedSymlinks    int   `json:"needSymlinks"`
+	NeedDeletes     int   `json:"needDeletes"`
+	NeedBytes       int64 `json:"needBytes"`
+	NeedTotalItems  int   `json:"needTotalItems"`
+
+	ReceiveOnlyChangedFiles       int   `json:"receiveOnlyChangedFiles"`
+	ReceiveOnlyChangedDirectories int   `json:"receiveOnlyChangedDirectories"`
+	ReceiveOnlyChangedSymlinks    int   `json:"receiveOnlyChangedSymlinks"`
+	ReceiveOnlyChangedDeletes     int   `json:"receiveOnlyChangedDeletes"`
+	ReceiveOnlyChangedBytes       int64 `json:"receiveOnlyChangedBytes"`
+	ReceiveOnlyTotalItems         int   `json:"receiveOnlyTotalItems"`
+
+	InSyncFiles int   `json:"inSyncFiles"`
+	InSyncBytes int64 `json:"inSyncBytes"`
+
+	State        string    `json:"state"`
+	StateChanged time.Time `json:"stateChanged"`
+	Error        string    `json:"error"`
+
+	Version  int64 `json:"version"` // deprecated
+	Sequence int64 `json:"sequence"`
+
+	IgnorePatterns bool   `json:"ignorePatterns"`
+	WatchError     string `json:"watchError"`
 }
 
 type FolderCompletionEventData struct {
 	Folder string            `json:"folder"`
 	Device protocol.DeviceID `json:"device"`
-	modeltypes.FolderCompletion
+	FolderCompletionFields
+}
+
+type FolderCompletionFields struct {
+	CompletionPct float64           `json:"completion"`
+	GlobalBytes   int64             `json:"globalBytes"`
+	NeedBytes     int64             `json:"needBytes"`
+	GlobalItems   int               `json:"globalItems"`
+	NeedItems     int               `json:"needItems"`
+	NeedDeletes   int               `json:"needDeletes"`
+	Sequence      int64             `json:"sequence"`
+	RemoteState   RemoteFolderState `json:"remoteState"`
+}
+
+type RemoteFolderState int
+
+const (
+	RemoteFolderUnknown RemoteFolderState = iota
+	RemoteFolderNotSharing
+	RemoteFolderPaused
+	RemoteFolderValid
+)
+
+func (s RemoteFolderState) String() string {
+	switch s {
+	case RemoteFolderUnknown:
+		return "unknown"
+	case RemoteFolderNotSharing:
+		return "notSharing"
+	case RemoteFolderPaused:
+		return "paused"
+	case RemoteFolderValid:
+		return "valid"
+	default:
+		return "unknown"
+	}
+}
+
+func (s RemoteFolderState) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
 }
 
 type FolderErrorsEventData struct {

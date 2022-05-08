@@ -11,7 +11,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -64,18 +63,18 @@ type Model struct {
 	clusterConfigReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CompletionStub        func(protocol.DeviceID, string) (types.FolderCompletion, error)
+	CompletionStub        func(protocol.DeviceID, string) (model.FolderCompletion, error)
 	completionMutex       sync.RWMutex
 	completionArgsForCall []struct {
 		arg1 protocol.DeviceID
 		arg2 string
 	}
 	completionReturns struct {
-		result1 types.FolderCompletion
+		result1 model.FolderCompletion
 		result2 error
 	}
 	completionReturnsOnCall map[int]struct {
-		result1 types.FolderCompletion
+		result1 model.FolderCompletion
 		result2 error
 	}
 	ConnectionStub        func(protocol.DeviceID) (protocol.Connection, bool)
@@ -825,7 +824,7 @@ func (fake *Model) ClusterConfigReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (types.FolderCompletion, error) {
+func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (model.FolderCompletion, error) {
 	fake.completionMutex.Lock()
 	ret, specificReturn := fake.completionReturnsOnCall[len(fake.completionArgsForCall)]
 	fake.completionArgsForCall = append(fake.completionArgsForCall, struct {
@@ -851,7 +850,7 @@ func (fake *Model) CompletionCallCount() int {
 	return len(fake.completionArgsForCall)
 }
 
-func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) (types.FolderCompletion, error)) {
+func (fake *Model) CompletionCalls(stub func(protocol.DeviceID, string) (model.FolderCompletion, error)) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = stub
@@ -864,28 +863,28 @@ func (fake *Model) CompletionArgsForCall(i int) (protocol.DeviceID, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) CompletionReturns(result1 types.FolderCompletion, result2 error) {
+func (fake *Model) CompletionReturns(result1 model.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	fake.completionReturns = struct {
-		result1 types.FolderCompletion
+		result1 model.FolderCompletion
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) CompletionReturnsOnCall(i int, result1 types.FolderCompletion, result2 error) {
+func (fake *Model) CompletionReturnsOnCall(i int, result1 model.FolderCompletion, result2 error) {
 	fake.completionMutex.Lock()
 	defer fake.completionMutex.Unlock()
 	fake.CompletionStub = nil
 	if fake.completionReturnsOnCall == nil {
 		fake.completionReturnsOnCall = make(map[int]struct {
-			result1 types.FolderCompletion
+			result1 model.FolderCompletion
 			result2 error
 		})
 	}
 	fake.completionReturnsOnCall[i] = struct {
-		result1 types.FolderCompletion
+		result1 model.FolderCompletion
 		result2 error
 	}{result1, result2}
 }

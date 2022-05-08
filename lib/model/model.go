@@ -33,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -102,7 +101,7 @@ type Model interface {
 	GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error)
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
-	Completion(device protocol.DeviceID, folder string) (types.FolderCompletion, error)
+	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
@@ -162,7 +161,7 @@ type model struct {
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
-	remoteFolderStates  map[protocol.DeviceID]map[string]types.RemoteFolderState // deviceID -> folders
+	remoteFolderStates  map[protocol.DeviceID]map[string]events.RemoteFolderState // deviceID -> folders
 	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
 
 	// for testing only
@@ -247,7 +246,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
-		remoteFolderStates:  make(map[protocol.DeviceID]map[string]types.RemoteFolderState),
+		remoteFolderStates:  make(map[protocol.DeviceID]map[string]events.RemoteFolderState),
 		indexHandlers:       make(map[protocol.DeviceID]*indexHandlerRegistry),
 	}
 	for devID := range cfg.Devices() {
@@ -793,8 +792,8 @@ func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 	return res, nil
 }
 
-func newFolderCompletion(global, need db.Counts, sequence int64, state types.RemoteFolderState) types.FolderCompletion {
-	comp := types.FolderCompletion{
+func newFolderCompletion(global, need db.Counts, sequence int64, state events.RemoteFolderState) FolderCompletion {
+	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
 		GlobalItems: global.Files + global.Directories + global.Symlinks,
@@ -803,8 +802,34 @@ func newFolderCompletion(global, need db.Counts, sequence int64, state types.Rem
 		Sequence:    sequence,
 		RemoteState: state,
 	}
-	comp.SetComplectionPct()
+	comp.setComplectionPct()
 	return comp
+}
+
+func (comp *FolderCompletion) add(other FolderCompletion) {
+	comp.GlobalBytes += other.GlobalBytes
+	comp.NeedBytes += other.NeedBytes
+	comp.GlobalItems += other.GlobalItems
+	comp.NeedItems += other.NeedItems
+	comp.NeedDeletes += other.NeedDeletes
+	comp.setComplectionPct()
+}
+
+func (comp *FolderCompletion) setComplectionPct() {
+	if comp.GlobalBytes == 0 {
+		comp.CompletionPct = 100
+	} else {
+		needRatio := float64(comp.NeedBytes) / float64(comp.GlobalBytes)
+		comp.CompletionPct = 100 * (1 - needRatio)
+	}
+
+	// If the completion is 100% but there are deletes we need to handle,
+	// drop it down a notch. Hack for consumers that look only at the
+	// percentage (our own GUI does the same calculation as here on its own
+	// and needs the same fixup).
+	if comp.NeedBytes == 0 && comp.NeedDeletes > 0 {
+		comp.CompletionPct = 95 // chosen by fair dice roll
+	}
 }
 
 // Completion returns the completion status, in percent with some counters,
@@ -812,7 +837,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64, state types.Rem
 // (including the local device) or explicitly protocol.LocalDeviceID. An
 // empty folder string means the aggregate of all folders shared with the
 // given device.
-func (m *model) Completion(device protocol.DeviceID, folder string) (types.FolderCompletion, error) {
+func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompletion, error) {
 	// The user specifically asked for our own device ID. Internally that is
 	// known as protocol.LocalDeviceID so translate.
 	if device == m.id {
@@ -821,35 +846,35 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (types.Folde
 
 	if folder != "" {
 		// We want completion for a specific folder.
-		return m.folderCompletion(device, folder)
+		return m.FolderCompletion(device, folder)
 	}
 
 	// We want completion for all (shared) folders as an aggregate.
-	var comp types.FolderCompletion
+	var comp FolderCompletion
 	for _, fcfg := range m.cfg.FolderList() {
 		if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
-			folderComp, err := m.folderCompletion(device, fcfg.ID)
+			folderComp, err := m.FolderCompletion(device, fcfg.ID)
 			if err != nil {
-				return types.FolderCompletion{}, err
+				return FolderCompletion{}, err
 			}
-			comp.Add(folderComp)
+			comp.add(folderComp)
 		}
 	}
 	return comp, nil
 }
 
-func (m *model) folderCompletion(device protocol.DeviceID, folder string) (types.FolderCompletion, error) {
+func (m *model) FolderCompletion(device protocol.DeviceID, folder string) (FolderCompletion, error) {
 	m.fmut.RLock()
 	err := m.checkFolderRunningLocked(folder)
 	rf := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if err != nil {
-		return types.FolderCompletion{}, err
+		return FolderCompletion{}, err
 	}
 
 	snap, err := rf.Snapshot()
 	if err != nil {
-		return types.FolderCompletion{}, err
+		return FolderCompletion{}, err
 	}
 	defer snap.Release()
 
@@ -1225,10 +1250,10 @@ type PendingFoldersChangedEventData struct {
 	Removed []pendingFolderListEntry `json:"removed,omitempty"`
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]types.RemoteFolderState, error) {
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]events.RemoteFolderState, error) {
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
-	seenFolders := make(map[string]types.RemoteFolderState, len(folders))
+	seenFolders := make(map[string]events.RemoteFolderState, len(folders))
 	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	expiredPending, err := m.db.PendingFoldersForDevice(deviceID)
@@ -1237,7 +1262,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
-		seenFolders[folder.ID] = types.RemoteFolderValid
+		seenFolders[folder.ID] = events.RemoteFolderValid
 
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
@@ -1280,7 +1305,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if folder.Paused {
 			indexHandlers.Remove(folder.ID)
-			seenFolders[cfg.ID] = types.RemoteFolderPaused
+			seenFolders[cfg.ID] = events.RemoteFolderPaused
 			continue
 		}
 
@@ -1336,7 +1361,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	for folderID, cfg := range m.cfg.Folders() {
 		if _, seen := seenFolders[folderID]; !seen && cfg.SharedWith(deviceID) {
 			l.Debugf("Remote device %v has not accepted sharing folder %s", deviceID.Short(), cfg.Description())
-			seenFolders[folderID] = types.RemoteFolderNotSharing
+			seenFolders[folderID] = events.RemoteFolderNotSharing
 		}
 	}
 
@@ -2682,7 +2707,7 @@ func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, s
 		if _, ok := m.remoteFolderStates[device]; !ok {
 			continue
 		}
-		if state := m.remoteFolderStates[device][cfg.ID]; state != types.RemoteFolderValid {
+		if state := m.remoteFolderStates[device][cfg.ID]; state != events.RemoteFolderValid {
 			continue
 		}
 		_, ok := m.conn[device]

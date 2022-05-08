@@ -20,7 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model/types"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -30,7 +29,7 @@ const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
-	Summary(folder string) (*types.FolderSummary, error)
+	Summary(folder string) (*FolderSummary, error)
 	OnEventRequest()
 }
 
@@ -53,6 +52,8 @@ type folderSummaryService struct {
 	lastEventReq    time.Time
 	lastEventReqMut sync.Mutex
 }
+
+type FolderCompletion events.FolderCompletionFields
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
@@ -77,8 +78,10 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-func (c *folderSummaryService) Summary(folder string) (*types.FolderSummary, error) {
-	res := new(types.FolderSummary)
+type FolderSummary events.FolderSummaryFields
+
+func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
+	res := new(FolderSummary)
 
 	var local, global, need, ro db.Counts
 	var ourSeq, remoteSeq int64
@@ -336,7 +339,7 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	}
 	c.evLogger.Log(events.FolderSummary, events.FolderSummaryEventData{
 		Folder:  folder,
-		Summary: data,
+		Summary: events.FolderSummaryFields(*data),
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
@@ -363,9 +366,9 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 			continue
 		}
 		c.evLogger.Log(events.FolderCompletion, events.FolderCompletionEventData{
-			FolderCompletion: comp,
-			Folder:           folder,
-			Device:           devCfg.DeviceID,
+			FolderCompletionFields: events.FolderCompletionFields(comp),
+			Folder:                 folder,
+			Device:                 devCfg.DeviceID,
 		})
 	}
 }
