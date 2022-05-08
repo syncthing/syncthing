@@ -28,9 +28,15 @@ import (
 const htmlFile = "gui/default/syncthing/core/aboutModalView.html"
 
 var (
-	nicknameRe = regexp.MustCompile(`\(([^\s]*)\)`)
-	emailRe    = regexp.MustCompile(`<([^\s]*)>`)
+	nicknameRe        = regexp.MustCompile(`\(([^\s]*)\)`)
+	emailRe           = regexp.MustCompile(`<([^\s]*)>`)
+	authorBotsRegexps = []string{
+		`\[bot\]`,
+		`Syncthing.*Automation`,
+	}
 )
+
+var authorBotsRe = regexp.MustCompile(strings.Join(authorBotsRegexps, "|"))
 
 const authorsHeader = `# This is the official list of Syncthing authors for copyright purposes.
 #
@@ -100,7 +106,7 @@ func main() {
 
 	var lines []string
 	for _, author := range authors {
-		if strings.Contains(author.name, "[bot]") {
+		if authorBotsRe.MatchString(author.name) {
 			// Only humans are eligible, pending future legislation to the
 			// contrary.
 			continue
@@ -111,7 +117,7 @@ func main() {
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</div>`)
 	bs := readAll(htmlFile)
-	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n    </div>"))
+	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
 	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
