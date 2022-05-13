@@ -86,18 +86,22 @@ func MimeTypeForFile(file string) string {
 		return "text/html; charset=utf-8"
 	case ".css":
 		return "text/css; charset=utf-8"
+	case ".eot":
+		return "application/vnd.ms-fontobject"
 	case ".js":
 		return "application/javascript; charset=utf-8"
 	case ".json":
 		return "application/json; charset=utf-8"
 	case ".png":
 		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
 	case ".svg":
 		return "image/svg+xml; charset=utf-8"
+	case ".ttf":
+		return "font/ttf"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
 	default:
 		return mime.TypeByExtension(ext)
 	}
