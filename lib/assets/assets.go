@@ -44,7 +44,7 @@ func Serve(w http.ResponseWriter, r *http.Request, asset Asset) {
 	header.Set("ETag", etag)
 	header.Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
 
-	t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since"))
+	t, err := http.ParseTime(r.Header.Get("If-Modified-Since"))
 	if err == nil && !asset.Modified.After(t) {
 		w.WriteHeader(http.StatusNotModified)
 		return
