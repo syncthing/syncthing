@@ -806,7 +806,7 @@ func TestCopyOwner(t *testing.T) {
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
 	f.fset = newFileSet(t, f.ID, m.db)
-	f.mtimefs = f.Filesystem(f.fset)
+	f.mtimefs = f.Filesystem(f.fset.MtimeOption())
 
 	// Create a parent dir with a certain owner/group.
 
