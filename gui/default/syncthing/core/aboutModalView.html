@@ -81,42 +81,42 @@ Jakob Borg, Audrius Butkevicius, Jesse Lucas, Simon Frei, Alexander Graf, Alexan
       </div>
 
       <div id="about-paths" class="tab-pane">
-        <table class="table table-striped">
+        <table class="table table-striped table-auto">
           <caption><label translate>Internally used paths:</label></caption>
           <tbody>
             <tr>
               <th translate>User Home</th>
-              <td class="file-path"><code>{{ about.paths['baseDir-userHome'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['baseDir-userHome'] }}</code></td>
             </tr>
             <tr>
               <th><strong translate>Configuration Directory</strong></th>
-              <td class="file-path"><code><strong>{{ about.paths['baseDir-config'] }}</strong></code></td>
+              <td><code class="file-path"><strong>{{ about.paths['baseDir-config'] }}</strong></code></td>
             </tr>
             <tr>
               <th translate>Configuration File</th>
-              <td class="file-path"><code>{{ about.paths['config'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['config'] }}</code></td>
             </tr>
             <tr>
               <th translate>Device Certificate</th>
-              <td class="file-path"><code>{{ about.paths['certFile'] }}</code>
-                <br /><code>{{ about.paths['keyFile'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['certFile'] }}</code>
+                <br /><code class="file-path">{{ about.paths['keyFile'] }}</code></td>
             </tr>
             <tr>
               <th translate>GUI / API HTTPS Certificate</th>
-              <td class="file-path"><code>{{ about.paths['httpsCertFile'] }}</code>
-                <br /><code>{{ about.paths['httpsKeyFile'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['httpsCertFile'] }}</code>
+                <br /><code class="file-path">{{ about.paths['httpsKeyFile'] }}</code></td>
             </tr>
             <tr>
               <th translate>Database Location</th>
-              <td class="file-path"><code>{{ about.paths['database'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['database'] }}</code></td>
             </tr>
             <tr>
               <th translate>Log File</th>
-              <td class="file-path"><code>{{ about.paths['logFile'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['logFile'] }}</code></td>
             </tr>
             <tr>
               <th translate>GUI Override Directory</th>
-              <td class="file-path"><code>{{ about.paths['guiAssets'] }}</code></td>
+              <td><code class="file-path">{{ about.paths['guiAssets'] }}</code></td>
             </tr>
           </tbody>
         </table>
