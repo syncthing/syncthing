@@ -380,6 +380,7 @@
     "The path cannot be blank.": "Το μονοπάτι δεν μπορεί να είναι κενό.",
     "The rate limit must be a non-negative number (0: no limit)": "Το όριο ταχύτητας πρέπει να είναι ένας μη-αρνητικός αριθμός (0: χωρίς όριο)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Ο χρόνος επανελέγχου για αλλαγές είναι σε δευτερόλεπτα (δηλ. θετικός αριθμός).",
     "There are no devices to share this folder with.": "Δεν υπάρχουν συσκευές με τις οποίες διαμοιράζεται αυτός ο φάκελος.",
     "There are no file versions to restore.": "There are no file versions to restore.",

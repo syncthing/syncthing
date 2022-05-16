@@ -380,6 +380,7 @@
     "The path cannot be blank.": "La vojo ne povas esti malplena.",
     "The rate limit must be a non-negative number (0: no limit)": "La rapideca limo devas esti pozitiva nombro (0: senlimo)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "La intervalo de reskano devas esti pozitiva nombro da sekundoj.",
     "There are no devices to share this folder with.": "Estas neniu aparato kun kiu komunigi tiun ĉi dosierujon.",
     "There are no file versions to restore.": "There are no file versions to restore.",

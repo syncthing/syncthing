@@ -380,6 +380,7 @@
     "The path cannot be blank.": "Locația nu poate fi goală.",
     "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Intervalul de rescanare trebuie să nu fie un număr negativ de secunde. ",
     "There are no devices to share this folder with.": "There are no devices to share this folder with.",
     "There are no file versions to restore.": "There are no file versions to restore.",

@@ -380,6 +380,7 @@
     "The path cannot be blank.": "Popis umístění nemůže zůstat nevyplněný.",
     "The rate limit must be a non-negative number (0: no limit)": "Je třeba, aby limit rychlosti bylo kladné číslo (0: bez limitu)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Je třeba, aby interval opakování skenování bylo kladné číslo.",
     "There are no devices to share this folder with.": "Nejsou žádná zařízení, se kterými lze sdílet tuto složku.",
     "There are no file versions to restore.": "Žádné verze souboru k obnovení.",

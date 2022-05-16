@@ -380,6 +380,7 @@
     "The path cannot be blank.": "O caminho não pode ficar vazio.",
     "The rate limit must be a non-negative number (0: no limit)": "O limite de velocidade deve ser um número positivo (0: sem limite)",
     "The remote device has not accepted sharing this folder.": "O dispositivo remoto não aceitou compartilhar esta pasta.",
+    "The remote device has paused this folder.": "O dispositivo remoto pausou esta pasta.",
     "The rescan interval must be a non-negative number of seconds.": "O intervalo entre verificações deve ser um número positivo de segundos.",
     "There are no devices to share this folder with.": "Não há dispositivos com os quais compartilhar esta pasta.",
     "There are no file versions to restore.": "Não há versões do arquivo para restaurar.",

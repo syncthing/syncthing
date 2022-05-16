@@ -380,6 +380,7 @@
     "The path cannot be blank.": "It paad mei net leech wêze.",
     "The rate limit must be a non-negative number (0: no limit)": "It fluggenslimyt moat in posityf nûmer wêze (0: gjin limyt)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "It wersken-ynterfal moat in posityf tal fan sekonden wêze.",
     "There are no devices to share this folder with.": "Der binne gjin apparaten om dizze map mei te dielen.",
     "There are no file versions to restore.": "There are no file versions to restore.",

@@ -380,6 +380,7 @@
     "The path cannot be blank.": "Yol boş olamaz.",
     "The rate limit must be a non-negative number (0: no limit)": "Hız sınırı negatif olmayan bir sayı olmak zorundadır (0: sınır yok)",
     "The remote device has not accepted sharing this folder.": "Uzak cihaz bu klasörü paylaşmayı kabul etmedi.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "Yeniden tarama aralığı negatif olmayan bir saniye sayısı olmak zorundadır.",
     "There are no devices to share this folder with.": "Bu klasörün paylaşılacağı cihazlar yok.",
     "There are no file versions to restore.": "Geri yüklenecek dosya sürümleri yok.",

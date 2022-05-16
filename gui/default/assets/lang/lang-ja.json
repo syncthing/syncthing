@@ -380,6 +380,7 @@
     "The path cannot be blank.": "パスを入力してください。",
     "The rate limit must be a non-negative number (0: no limit)": "帯域制限値は0以上で指定して下さい。 (0で無制限)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
+    "The remote device has paused this folder.": "The remote device has paused this folder.",
     "The rescan interval must be a non-negative number of seconds.": "再スキャン間隔は0秒以上で指定してください。",
     "There are no devices to share this folder with.": "どのデバイスともフォルダーを共有していません。",
     "There are no file versions to restore.": "There are no file versions to restore.",
