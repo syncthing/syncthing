@@ -531,12 +531,22 @@
                             <span ng-switch-when="external" tooltip data-original-title="<span class='text-monospace'>{{folder.versioning.params.command}}</span>" translate>External</span>
                           </span>
                           <span ng-if="folder.versioning.type != 'external'">
-                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple') && folder.versioning.params.cleanoutDays != versioningDefaults.trashcanClean" tooltip data-original-title="{{'Clean out after' | translate}}">&ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
-                            <span ng-if="folder.versioning.type == 'simple' && folder.versioning.params.keep != versioningDefaults.simpleKeep" tooltip data-original-title="{{'Keep Versions' | translate}}">&ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}</span>
-                            <span ng-if="folder.versioning.type == 'staggered' && folder.versioning.params.maxAge != versioningDefaults.staggeredMaxAge" tooltip data-original-title="{{'Maximum Age' | translate}}">&ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.maxAge | duration}}</span>
-                            <span ng-if="folder.versioning.cleanupIntervalS != versioningDefaults.cleanupIntervalS" tooltip data-original-title="{{'Cleanup Interval' | translate}}">&ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span></span>
+                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple') && folder.versioning.params.cleanoutDays != versioningDefaults.trashcanClean" tooltip data-original-title="{{'Clean out after' | translate}}">
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}
+                            </span>
+                            <span ng-if="folder.versioning.type == 'simple' && folder.versioning.params.keep != versioningDefaults.simpleKeep" tooltip data-original-title="{{'Keep Versions' | translate}}">
+                              &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
+                            </span>
+                            <span ng-if="folder.versioning.type == 'staggered' && folder.versioning.params.maxAge != versioningDefaults.staggeredMaxAge" tooltip data-original-title="{{'Maximum Age' | translate}}">
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.maxAge | duration}}
+                            </span>
+                            <span ng-if="folder.versioning.cleanupIntervalS != versioningDefaults.cleanupIntervalS" tooltip data-original-title="{{'Cleanup Interval' | translate}}">
+                              &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
+                            </span>
                             <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
-                            <span ng-if="folder.versioning.fsPath != ''" tooltip data-original-title="{{folder.versioning.fsPath}}">&ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath}}</span>
+                            <span ng-if="folder.versioning.fsPath != ''" tooltip data-original-title="{{folder.versioning.fsPath}}">
+                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath}}
+                            </span>
                           </span>
                         </td>
                       </tr>
