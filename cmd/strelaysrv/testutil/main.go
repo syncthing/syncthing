@@ -127,10 +127,6 @@ func stdinReader(c chan<- string) {
 }
 
 func connectToStdio(stdin <-chan string, conn net.Conn) {
-	go func() {
-
-	}()
-
 	buf := make([]byte, 1024)
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Millisecond))
