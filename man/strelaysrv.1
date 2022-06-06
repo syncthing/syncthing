@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "May 08, 2022" "v1.20.0" "Syncthing"
+.TH "STRELAYSRV" "1" "May 31, 2022" "v1.20.0" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -196,14 +196,24 @@ procedure for your operating system.
 Syncthing can be configured to use specific relay servers (exclusively of the public pool) by adding the required servers to the Sync Protocol Listen Address field, under Actions and Settings. The format is as follows:
 .INDENT 0.0
 .INDENT 3.5
+.sp
+.nf
+.ft C
 relay://<host name|IP>[:port]/?id=<relay device ID>
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .sp
 For example:
 .INDENT 0.0
 .INDENT 3.5
+.sp
+.nf
+.ft C
 relay://private\-relay\-1.example.com:443/?id=ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .sp
