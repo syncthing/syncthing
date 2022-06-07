@@ -37,7 +37,7 @@ var showCommand = cli.Command{
 		},
 		{
 			Name:   "discovery",
-			Usage:  "Report about the local discovery cache",
+			Usage:  "Show the discovered addresses of remote devices (from cache of the running syncthing instance)",
 			Action: expects(0, indexDumpOutput("system/discovery")),
 		},
 		pendingCommand,
