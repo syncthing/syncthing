@@ -35,6 +35,11 @@ var showCommand = cli.Command{
 			Usage:  "Report about connections to other devices",
 			Action: expects(0, indexDumpOutput("system/connections")),
 		},
+		{
+			Name:   "discovery",
+			Usage:  "Report about the local discovery cache",
+			Action: expects(0, indexDumpOutput("system/discovery")),
+		},
 		pendingCommand,
 		{
 			Name:   "usage",
