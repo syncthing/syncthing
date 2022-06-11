@@ -1670,15 +1670,15 @@ angular.module('syncthing.core')
         };
 
         $scope.addDevice = function (deviceID, name) {
-            $scope.discovery = [];
+            $scope.discoveryUnknown = [];
             for (var id in $scope.discoveryCache) {
-                if ($scope.discovery.length === 100) {
+                if ($scope.discoveryUnknown.length === 100) {
                     break;
                 }
                 if (id in $scope.devices) {
                     continue
                 }
-                $scope.discovery.push(id);
+                $scope.discoveryUnknown.push(id);
             }
             return $http.get(urlbase + '/config/defaults/device').then(function (p) {
                 $scope.currentDevice = p.data;
