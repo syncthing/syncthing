@@ -579,13 +579,39 @@ func TestXattr(t *testing.T) {
 		attrs[key] = value
 	}
 
-	for key, val := range attrs {
-		if err := tfs.SetXattr("/test", key, val); err != nil {
-			t.Fatal(err)
+	// Set the xattrs, read them back and compare
+	if err := tfs.ReplaceXattrs("/test", attrs); err != nil {
+		t.Fatal(err)
+	}
+	res, err := tfs.GetXattr("/test")
+	if err != nil {
+		t.Fatal()
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for key, val := range res {
+		if !bytes.Equal(val, attrs[key]) {
+			t.Fatal("returned xattrs do not match")
 		}
 	}
 
-	res, err := tfs.GetXattr("/test")
+	// Change a couple, remove a couple, and add another couple of
+	// attributes. Replacing the xattrs again should work.
+	delete(attrs, "user.test-1")
+	delete(attrs, "user.test-2")
+	for i := 8; i < 12; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, 256+rand.Intn(1024))
+		rand.Read(value)
+		attrs[key] = value
+	}
+
+	// Set the xattrs, read them back and compare
+	if err := tfs.ReplaceXattrs("/test", attrs); err != nil {
+		t.Fatal(err)
+	}
+	res, err = tfs.GetXattr("/test")
 	if err != nil {
 		t.Fatal()
 	}
