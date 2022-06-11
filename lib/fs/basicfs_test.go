@@ -580,7 +580,7 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.ReplaceXattrs("/test", attrs); err != nil {
+	if err := tfs.SetXattrs("/test", attrs); err != nil {
 		t.Fatal(err)
 	}
 	res, err := tfs.GetXattr("/test")
@@ -608,7 +608,7 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.ReplaceXattrs("/test", attrs); err != nil {
+	if err := tfs.SetXattrs("/test", attrs); err != nil {
 		t.Fatal(err)
 	}
 	res, err = tfs.GetXattr("/test")

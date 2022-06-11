@@ -53,7 +53,7 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 		}
 		size, err = unix.Listxattr(path, buf)
 	}
-	return buf, err
+	return buf[:size], err
 }
 
 func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error) {
@@ -79,15 +79,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 	return buf[:size], buf[size:], nil
 }
 
-// func (f *BasicFilesystem) SetXattr(path, key string, val []byte) error {
-// 	path, err := f.rooted(path)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return unix.Setxattr(path, key, val, 0)
-// }
-
-func (f *BasicFilesystem) ReplaceXattrs(path string, xattrs map[string][]byte) error {
+func (f *BasicFilesystem) SetXattrs(path string, xattrs map[string][]byte) error {
 	current, err := f.GetXattr(path)
 	if err != nil {
 		return err
