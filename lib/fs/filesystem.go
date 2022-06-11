@@ -61,6 +61,8 @@ type Filesystem interface {
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
 
+	GetXattr(name string) (map[string][]byte, error)
+
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
 	wrapperType() filesystemWrapperType

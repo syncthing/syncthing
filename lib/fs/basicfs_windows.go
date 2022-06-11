@@ -152,6 +152,10 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	return drives, nil
 }
 
+func (f *BasicFilesystem) GetXattr(name string) (map[string][]byte, error) {
+	return nil, nil
+}
+
 // unrootedChecked returns the path relative to the folder root (same as
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing

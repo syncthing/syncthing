@@ -7,6 +7,8 @@
 package fs
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -558,6 +560,41 @@ func TestRel(t *testing.T) {
 	for _, tc := range testCases {
 		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
 			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+	}
+}
+
+func TestXattr(t *testing.T) {
+	tfs, _ := setup(t)
+	if err := tfs.Mkdir("/test", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a map of random attributes that we will set and read back
+	attrs := make(map[string][]byte)
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, 256+rand.Intn(1024))
+		rand.Read(value)
+		attrs[key] = value
+	}
+
+	for key, val := range attrs {
+		if err := tfs.SetXattr("/test", key, val); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := tfs.GetXattr("/test")
+	if err != nil {
+		t.Fatal()
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for key, val := range res {
+		if !bytes.Equal(val, attrs[key]) {
+			t.Fatal("returned xattrs do not match")
 		}
 	}
 }
