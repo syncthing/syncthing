@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -20,6 +21,29 @@ const (
 	HelloMessageMagic      uint32 = 0x2EA7D90B
 	Version13HelloMagic    uint32 = 0x9F79BC40 // old
 )
+
+var (
+	operatingSystem OS
+)
+
+func init() {
+	switch runtime.GOOS {
+	case "linux":
+		operatingSystem = OsLinux
+	case "windows":
+		operatingSystem = OsWindows
+	case "darwin":
+		operatingSystem = OsMacos
+	case "freebsd":
+		operatingSystem = OsFreebsd
+	case "netbsd":
+		operatingSystem = OsNetbsd
+	case "openbsd":
+		operatingSystem = OsOpenbsd
+	case "solaris", "illumos":
+		operatingSystem = OsSolaris
+	}
+}
 
 // FileIntf is the set of methods implemented by both FileInfo and
 // db.FileInfoTruncated.
@@ -279,6 +303,40 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 
 	// Actually compare the block lists in full.
 	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+func (f *FileInfo) SetXattrs(xattrs map[string][]byte) {
+	var newXattrs []Xattr
+	for _, xattr := range f.ExtendedAttributes {
+		if xattr.OperatingSystem != operatingSystem {
+			// pass through stuff from other operating systems
+			newXattrs = append(newXattrs, xattr)
+		}
+		if val, ok := xattrs[xattr.Name]; ok {
+			// replace value of existing xattr
+			newXattrs = append(newXattrs, Xattr{
+				OperatingSystem: operatingSystem,
+				Name:            xattr.Name,
+				Value:           val,
+			})
+			delete(xattrs, xattr.Name)
+		}
+	}
+	for key, val := range xattrs {
+		// add remaining xattrs
+		newXattrs = append(newXattrs, Xattr{
+			OperatingSystem: operatingSystem,
+			Name:            key,
+			Value:           val,
+		})
+	}
+	sort.Slice(newXattrs, func(a, b int) bool {
+		if newXattrs[a].OperatingSystem != newXattrs[b].OperatingSystem {
+			return newXattrs[a].OperatingSystem < newXattrs[b].OperatingSystem
+		}
+		return newXattrs[a].Name < newXattrs[b].Name
+	})
+	f.ExtendedAttributes = newXattrs
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
