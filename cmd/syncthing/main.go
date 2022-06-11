@@ -310,7 +310,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.Paths {
-		fmt.Print(locations.PrettyPrintPaths())
+		fmt.Print(locations.PrettyPaths())
 		return nil
 	}
 

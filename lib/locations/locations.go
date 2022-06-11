@@ -156,19 +156,18 @@ locationLoop:
 	return res
 }
 
-// PrettyPrintPaths returns a nicely formatted, human-readable listing
-func PrettyPrintPaths() string {
-	lines := []string{
-		fmt.Sprintf("Configuration file:\n\t%s\n\n", Get(ConfigFile)),
-		fmt.Sprintf("Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile)),
-		fmt.Sprintf("GUI / API HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile)),
-		fmt.Sprintf("Database location:\n\t%s\n\n", Get(Database)),
-		fmt.Sprintf("Log file:\n\t%s\n\n", Get(LogFile)),
-		fmt.Sprintf("GUI override directory:\n\t%s\n\n", Get(GUIAssets)),
-		fmt.Sprintf("CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens)),
-		fmt.Sprintf("Default sync folder directory:\n\t%s\n\n", Get(DefFolder)),
-	}
-	return strings.Join(lines, "")
+// PrettyPaths returns a nicely formatted, human-readable listing
+func PrettyPaths() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Configuration file:\n\t%s\n\n", Get(ConfigFile))
+	fmt.Fprintf(&b, "Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile))
+	fmt.Fprintf(&b, "GUI / API HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile))
+	fmt.Fprintf(&b, "Database location:\n\t%s\n\n", Get(Database))
+	fmt.Fprintf(&b, "Log file:\n\t%s\n\n", Get(LogFile))
+	fmt.Fprintf(&b, "GUI override directory:\n\t%s\n\n", Get(GUIAssets))
+	fmt.Fprintf(&b, "CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens))
+	fmt.Fprintf(&b, "Default sync folder directory:\n\t%s\n\n", Get(DefFolder))
+	return b.String()
 }
 
 // defaultConfigDir returns the default configuration directory, as figured
