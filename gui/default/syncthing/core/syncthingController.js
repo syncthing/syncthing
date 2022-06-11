@@ -1672,7 +1672,7 @@ angular.module('syncthing.core')
         $scope.addDevice = function (deviceID, name) {
             $scope.discovery = [];
             for (var id in $scope.discoveryCache) {
-                if ($scope.discovery.length === 5) {
+                if ($scope.discovery.length === 100) {
                     break;
                 }
                 if (id in $scope.devices) {
