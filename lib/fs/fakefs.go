@@ -955,3 +955,7 @@ func (f *fakeFileInfo) Owner() int {
 func (f *fakeFileInfo) Group() int {
 	return f.gid
 }
+
+func (f *fakeFileInfo) Sys() interface{} {
+	return nil
+}

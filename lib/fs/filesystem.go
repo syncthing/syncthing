@@ -93,6 +93,7 @@ type FileInfo interface {
 	Size() int64
 	ModTime() time.Time
 	IsDir() bool
+	Sys() interface{}
 	// Extensions
 	IsRegular() bool
 	IsSymlink() bool

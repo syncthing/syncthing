@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -557,6 +558,7 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 		// from there.
 		file.Permissions |= (curFile.Permissions & 0111)
 	}
+	file.ExtendedAttributes = curFile.ExtendedAttributes
 	file.Version = curFile.Version.Update(w.ShortID)
 	file.ModifiedBy = w.ShortID
 	file.LocalFlags = w.LocalFlags
@@ -651,5 +653,8 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	}
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
+	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
+		f.InodeChangeNs = sys.Ctimespec.Sec*1e9 + int64(sys.Ctimespec.Nsec)
+	}
 	return f, nil
 }
