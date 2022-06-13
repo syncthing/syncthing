@@ -56,7 +56,7 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="form-group" ng-repeat="device in currentSharing.shared">
-              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceNameMarkUnaccepted(device.deviceID, currentFolder.id)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
+              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceNameMarkRemoteState(device.deviceID, currentFolder.id)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
             </div>
             <p class="help-block" ng-if="folderHasUnacceptedDevices(currentFolder)">
               <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
@@ -119,7 +119,10 @@
             <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
             <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
             <label translate for="staggeredMaxAge">Maximum Age</label>
-            <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder._guiVersioning.staggeredMaxAge" required="" aria-required="true" min="0" />
+            <div class="input-group">
+              <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredMaxAge" required="" aria-required="true" min="0" />
+              <div class="input-group-addon" translate>days</div>
+            </div>
             <p class="help-block">
               <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
               <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
