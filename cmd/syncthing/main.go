@@ -295,13 +295,19 @@ func (options serveOptions) Run() error {
 	if options.LogFile != "default" && options.LogFile != "" {
 		// We must set this *after* expandLocations above.
 		// Handling an empty value is for backwards compatibility (<1.4.1).
-		locations.Override(locations.LogFile, options.LogFile)
+		if err := locations.Set(locations.LogFile, options.LogFile); err != nil {
+			l.Warnln("Setting log file path:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	if options.DebugGUIAssetsDir != "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		locations.Override(locations.GUIAssets, options.DebugGUIAssetsDir)
+		if err := locations.Set(locations.GUIAssets, options.DebugGUIAssetsDir); err != nil {
+			l.Warnln("Setting GUI assets path:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	if options.Version {

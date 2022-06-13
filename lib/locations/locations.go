@@ -65,6 +65,22 @@ func init() {
 	}
 }
 
+func Set(locationName LocationEnum, path string) error {
+	if !filepath.IsAbs(path) {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
+	_, ok := locations[locationName]
+	if !ok {
+		return fmt.Errorf("unknown location: %s", locationName)
+	}
+	locations[locationName] = filepath.Clean(path)
+	return nil
+}
+
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 	if !filepath.IsAbs(path) {
 		var err error
@@ -106,14 +122,6 @@ var locationTemplates = map[LocationEnum]string{
 }
 
 var locations = make(map[LocationEnum]string)
-
-// Override allows to change only specific, usually user-supplied paths.
-func Override(location LocationEnum, path string) {
-	switch location {
-	case LogFile, GUIAssets:
-		locations[location] = path
-	}
-}
 
 // expandLocations replaces the variables in the locations map with actual
 // directory locations.
