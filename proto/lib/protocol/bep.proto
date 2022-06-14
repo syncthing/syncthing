@@ -108,10 +108,9 @@ message FileInfo {
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
 
-    // The list of extended attributes. This is a sorted list of Xattr
-    // entries, with each Xattr operating_system + name value being unique.
-    // We can view this as a map of {operating_system, name} -> value.
-    repeated Xattr extended_attributes = 20;
+    // OS private data, map of OsType to corresponding $OSPrivateData
+    // message.
+    map<uint32, bytes> os_private = 20;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
@@ -129,6 +128,12 @@ message FileInfo {
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];
     bool no_permissions = 8;
 }
+
+message OSPrivateData {
+    // The list of extended attributes.
+    map<string, bytes> extended_attributes = 1;
+}
+
 
 enum FileInfoType {
     FILE_INFO_TYPE_FILE              = 0;
@@ -153,12 +158,6 @@ message Vector {
 message Counter {
     uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
-}
-
-message Xattr {
-    OS     operating_system = 1;
-    string name             = 2;
-    bytes  value            = 3;
 }
 
 enum OS {

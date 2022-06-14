@@ -558,7 +558,7 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 		// from there.
 		file.Permissions |= (curFile.Permissions & 0111)
 	}
-	file.ExtendedAttributes = curFile.ExtendedAttributes
+	file.OsPrivate = curFile.OsPrivate
 	file.Version = curFile.Version.Update(w.ShortID)
 	file.ModifiedBy = w.ShortID
 	file.LocalFlags = w.LocalFlags

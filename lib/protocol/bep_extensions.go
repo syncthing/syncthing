@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -305,38 +304,22 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 	return blocksEqual(f.Blocks, other.Blocks)
 }
 
+func (f *FileInfo) GetPrivateData() *OSPrivateData {
+	var data OSPrivateData
+	if bs, ok := f.OsPrivate[uint32(operatingSystem)]; ok {
+		data.Unmarshal(bs)
+	}
+	return &data
+}
+
+func (f *FileInfo) SetPrivateData(data *OSPrivateData) {
+	f.OsPrivate[uint32(operatingSystem)], _ = data.Marshal()
+}
+
 func (f *FileInfo) SetXattrs(xattrs map[string][]byte) {
-	var newXattrs []Xattr
-	for _, xattr := range f.ExtendedAttributes {
-		if xattr.OperatingSystem != operatingSystem {
-			// pass through stuff from other operating systems
-			newXattrs = append(newXattrs, xattr)
-		}
-		if val, ok := xattrs[xattr.Name]; ok {
-			// replace value of existing xattr
-			newXattrs = append(newXattrs, Xattr{
-				OperatingSystem: operatingSystem,
-				Name:            xattr.Name,
-				Value:           val,
-			})
-			delete(xattrs, xattr.Name)
-		}
-	}
-	for key, val := range xattrs {
-		// add remaining xattrs
-		newXattrs = append(newXattrs, Xattr{
-			OperatingSystem: operatingSystem,
-			Name:            key,
-			Value:           val,
-		})
-	}
-	sort.Slice(newXattrs, func(a, b int) bool {
-		if newXattrs[a].OperatingSystem != newXattrs[b].OperatingSystem {
-			return newXattrs[a].OperatingSystem < newXattrs[b].OperatingSystem
-		}
-		return newXattrs[a].Name < newXattrs[b].Name
-	})
-	f.ExtendedAttributes = newXattrs
+	data := f.GetPrivateData()
+	data.ExtendedAttributes = xattrs
+	f.SetPrivateData(data)
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
