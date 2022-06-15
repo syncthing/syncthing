@@ -1,5 +1,7 @@
 module github.com/syncthing/syncthing
 
+go 1.17
+
 require (
 	github.com/AudriusButkevicius/pfilter v0.0.10
 	github.com/AudriusButkevicius/recli v0.0.6
@@ -80,4 +82,5 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )
 
-go 1.17
+// https://github.com/gobwas/glob/pull/55
+replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
