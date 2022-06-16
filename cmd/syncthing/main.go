@@ -292,7 +292,11 @@ func (options serveOptions) Run() error {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.LogFile != "default" && options.LogFile != "" {
+	// Treat an explicitly empty log file name as no log file
+	if options.LogFile == "" {
+		options.LogFile = "-"
+	}
+	if options.LogFile != "default" {
 		// We must set this *after* expandLocations above.
 		if err := locations.Set(locations.LogFile, options.LogFile); err != nil {
 			l.Warnln("Setting log file path:", err)

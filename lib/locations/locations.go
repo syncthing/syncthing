@@ -65,8 +65,10 @@ func init() {
 	}
 }
 
+// Set overrides a location to the given path, making sure to it points to an
+// absolute path first.  Only the special "-" value will be used verbatim.
 func Set(locationName LocationEnum, path string) error {
-	if !filepath.IsAbs(path) {
+	if !filepath.IsAbs(path) && path != "-" {
 		var err error
 		path, err = filepath.Abs(path)
 		if err != nil {
