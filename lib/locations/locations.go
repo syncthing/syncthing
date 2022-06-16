@@ -75,7 +75,7 @@ func Set(locationName LocationEnum, path string) error {
 			return err
 		}
 	}
-	_, ok := locations[locationName]
+	_, ok := locationTemplates[locationName]
 	if !ok {
 		return fmt.Errorf("unknown location: %s", locationName)
 	}
