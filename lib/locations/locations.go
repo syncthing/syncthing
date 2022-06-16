@@ -144,17 +144,13 @@ func expandLocations() error {
 	return nil
 }
 
-// ListExpandedPaths returns a machine-readable mapping of the currently
-// configured locations.  Unexpanded timestamp entries are filtered out.
+// ListExpandedPaths returns a machine-readable mapping of the currently configured locations.
 func ListExpandedPaths() map[string]string {
 	res := make(map[string]string, len(locations))
 	for key, path := range baseDirs {
 		res["baseDir-"+string(key)] = path
 	}
 	for key, path := range locations {
-		if strings.Contains(path, "${timestamp}") {
-			continue
-		}
 		res[string(key)] = path
 	}
 	return res
