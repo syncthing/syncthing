@@ -7,6 +7,7 @@
 package config
 
 import (
+	"fmt"
 	"sort"
 )
 
@@ -64,4 +65,11 @@ func deduplicateObservedFoldersToMap(input []ObservedFolder) map[string]Observed
 	}
 
 	return output
+}
+
+func (cfg *DeviceConfiguration) Description() string {
+	if cfg.Name == "" {
+		return fmt.Sprintf("%s", cfg.DeviceID.Short())
+	}
+	return fmt.Sprintf("%s (%s)", cfg.Name, cfg.DeviceID.Short())
 }
