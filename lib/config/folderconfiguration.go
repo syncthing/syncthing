@@ -25,7 +25,7 @@ import (
 var (
 	ErrPathNotDirectory = errors.New("folder path not a directory")
 	ErrPathMissing      = errors.New("folder path missing")
-	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
+	ErrMarkerMissing    = errors.New("folder marker missing (consult the 'Error' section on this page: https://docs.syncthing.net/intro/gui.html?highlight=.stfolder )")
 )
 
 const (
