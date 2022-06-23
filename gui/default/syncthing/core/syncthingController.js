@@ -210,6 +210,10 @@ angular.module('syncthing.core')
                 if (data.from === 'scanning' && data.to === 'idle') {
                     refreshFolderStats();
                 }
+
+                $scope.folders[data.folder].devices.forEach(function (deviceCfg) {
+                    refreshCompletion(deviceCfg.deviceID, data.folder);
+                });
             }
         });
 
