@@ -85,31 +85,36 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
-		sessionid := rand.String(32)
-		sessionsMut.Lock()
-		sessions[sessionid] = true
-		sessionsMut.Unlock()
-
-		// Best effort detection of whether the connection is HTTPS --
-		// either directly to us, or as used by the client towards a reverse
-		// proxy who sends us headers.
-		connectionIsHTTPS := r.TLS != nil ||
-			strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
-			strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
-		// If the connection is HTTPS, or *should* be HTTPS, set the Secure
-		// bit in cookies.
-		useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
-
-		http.SetCookie(w, &http.Cookie{
-			Name:   cookieName,
-			Value:  sessionid,
-			MaxAge: 0,
-			Secure: useSecureCookie,
-		})
-
-		emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
+		createSession(cookieName, username, guiCfg, evLogger, w, r)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func createSession(cookieName string, username string, guiCfg config.GUIConfiguration, evLogger events.Logger, w http.ResponseWriter, r *http.Request) {
+	sessionid := rand.String(32)
+	sessionsMut.Lock()
+	sessions[sessionid] = true
+	sessionsMut.Unlock()
+
+	// Best effort detection of whether the connection is HTTPS --
+	// either directly to us, or as used by the client towards a reverse
+	// proxy who sends us headers.
+	connectionIsHTTPS := r.TLS != nil ||
+		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+	// bit in cookies.
+	useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:   cookieName,
+		Value:  sessionid,
+		MaxAge: 0,
+		Secure: useSecureCookie,
+		Path: "/",
+	})
+
+	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
