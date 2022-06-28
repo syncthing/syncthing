@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type infiniteFS struct {
@@ -98,6 +99,10 @@ func (s singleFileFS) Open(name string) (fs.File, error) {
 
 func (s singleFileFS) Options() []fs.Option {
 	return nil
+}
+
+func (s singleFileFS) GetOSData(cur *protocol.FileInfo, stat fs.FileInfo) (map[protocol.OS][]byte, error) {
+	return nil, nil
 }
 
 type fakeInfo struct {

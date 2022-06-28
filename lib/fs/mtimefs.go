@@ -59,7 +59,7 @@ func (o *optionMtime) apply(fs Filesystem) Filesystem {
 	return f
 }
 
-func (_ *optionMtime) String() string {
+func (*optionMtime) String() string {
 	return "mtime"
 }
 

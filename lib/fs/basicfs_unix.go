@@ -12,6 +12,7 @@ package fs
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -55,6 +56,22 @@ func (f *BasicFilesystem) Hide(name string) error {
 
 func (f *BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
+}
+
+func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	nuid, err := strconv.Atoi(uid)
+	if err != nil {
+		return err
+	}
+	ngid, err := strconv.Atoi(gid)
+	if err != nil {
+		return err
+	}
+	return os.Lchown(name, nuid, ngid)
 }
 
 // unrootedChecked returns the path relative to the folder root (same as

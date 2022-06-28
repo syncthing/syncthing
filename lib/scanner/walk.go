@@ -381,7 +381,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, _ := CreateFileInfo(info, relPath, nil)
+	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = blockSize
@@ -416,7 +416,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, _ := CreateFileInfo(info, relPath, nil)
+	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 
@@ -550,17 +550,31 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	return "", errUTF8Conflict
 }
 
-// updateFileInfo updates walker specific members of protocol.FileInfo that do not depend on type
-func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileInfo {
-	if file.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
+// updateFileInfo updates walker specific members of protocol.FileInfo that
+// do not depend on type, and things that should be preserved from the
+// previous version of the FileInfo.
+func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
+	if dst.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
 		// If we have an existing index entry, copy the executable bits
 		// from there.
-		file.Permissions |= (curFile.Permissions & 0111)
+		dst.Permissions |= (src.Permissions & 0111)
 	}
-	file.Version = curFile.Version.Update(w.ShortID)
-	file.ModifiedBy = w.ShortID
-	file.LocalFlags = w.LocalFlags
-	return file
+	dst.Version = src.Version.Update(w.ShortID)
+	dst.ModifiedBy = w.ShortID
+	dst.LocalFlags = w.LocalFlags
+
+	// Copy OS data from src to dst, unless it was already set on dst.
+	if len(dst.OSData) == 0 {
+		dst.OSData = src.OSData
+	} else {
+		for k, v := range src.OSData {
+			if _, ok := dst.OSData[k]; !ok {
+				dst.OSData[k] = v
+			}
+		}
+	}
+
+	return dst
 }
 
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
@@ -645,6 +659,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = fi.ModTime().Nanosecond()
+	f.OSData, _ = filesystem.GetOSData(&f, fi)
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil

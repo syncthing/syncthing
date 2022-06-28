@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -44,6 +45,7 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
+	LoadOSData(os OS, dst interface{ Unmarshal([]byte) error }) bool
 }
 
 func (m Hello) Magic() uint32 {
@@ -53,17 +55,34 @@ func (m Hello) Magic() uint32 {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, OSData:%s}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.osDataString())
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x, OSData:%s}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash, f.osDataString())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, OSData:%s}",
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.osDataString())
 	default:
 		panic("mystery file type detected")
 	}
+}
+
+func (f FileInfo) osDataString() string {
+	var parts []string
+	if bs, ok := f.OSData[OsPosix]; ok {
+		var pd POSIXOSData
+		if err := pd.Unmarshal(bs); err == nil {
+			parts = append(parts, fmt.Sprintf("Posix{%v}", &pd))
+		}
+	}
+	if bs, ok := f.OSData[OsWindows]; ok {
+		var pd WindowsOSData
+		if err := pd.Unmarshal(bs); err == nil {
+			parts = append(parts, fmt.Sprintf("Windows{%v}", &pd))
+		}
+	}
+	return strings.Join(parts, ",")
 }
 
 func (f FileInfo) IsDeleted() bool {
@@ -160,6 +179,18 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) LoadOSData(os OS, dst interface{ Unmarshal([]byte) error }) bool {
+	// TODO(jb): This is a candidate for generics when we adopt Go 1.18;
+	// LoadOSData[T Unmarshaller](os OS, fi FileInfo) (T, bool) so the
+	// caller doesn't need to pre-allocate the struct but will have to
+	// specify the type instead.
+	bs, ok := f.OSData[os]
+	if !ok {
+		return false
+	}
+	return dst.Unmarshal(bs) == nil
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func WinsConflict(f, other FileIntf) bool {
@@ -210,6 +241,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 //  - modification time (difference bigger than modTimeWindow)
 //  - size
 //  - blocks, unless there are no blocks to compare (scanning)
+//  - os data
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
@@ -227,6 +259,20 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 
 	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
+	}
+
+	// OS data comparison is special: we consider a difference only if an
+	// entry for the same OS exists on both sides and they are different.
+	// Otherwise a file would become different as soon as it's synced from
+	// Windows to Linux, as Linux would add a new POSIX entry for the file.
+	//
+	// XXX: Technically, the serialized form of protobuf messages isn't
+	// guaranteed to be stable. In practice it is, and this is a much easier
+	// comparison than deserializing each thing.
+	for os, bs := range f.OSData {
+		if otherBs, ok := other.OSData[os]; ok && !bytes.Equal(bs, otherBs) {
+			return false
+		}
 	}
 
 	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {

@@ -46,6 +46,7 @@ type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
 	options         []Option
+	OSDataGetter
 }
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
@@ -87,6 +88,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 		root:    root,
 		options: opts,
 	}
+	fs.OSDataGetter = NewOSDataGetter(fs)
 	for _, opt := range opts {
 		opt.apply(fs)
 	}
@@ -127,14 +129,6 @@ func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 		return err
 	}
 	return os.Chmod(name, os.FileMode(mode))
-}
-
-func (f *BasicFilesystem) Lchown(name string, uid, gid int) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return os.Lchown(name, uid, gid)
 }
 
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {

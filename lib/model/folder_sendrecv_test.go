@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -811,7 +812,7 @@ func TestCopyOwner(t *testing.T) {
 	// Create a parent dir with a certain owner/group.
 
 	f.mtimefs.Mkdir("foo", 0755)
-	f.mtimefs.Lchown("foo", expOwner, expGroup)
+	f.mtimefs.Lchown("foo", strconv.Itoa(expOwner), strconv.Itoa(expGroup))
 
 	dir := protocol.FileInfo{
 		Name:        "foo/bar",

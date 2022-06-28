@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -627,8 +628,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return err
 			}
 
-			// Copy the parent owner and group, if we are supposed to do that.
-			if err := f.maybeCopyOwner(path); err != nil {
+			// Adjust the ownership, if we are supposed to do that.
+			if err := f.maybeAdjustOwnership(&file, path); err != nil {
 				return err
 			}
 
@@ -754,7 +755,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		if err := f.mtimefs.CreateSymlink(file.SymlinkTarget, path); err != nil {
 			return err
 		}
-		return f.maybeCopyOwner(path)
+		return f.maybeAdjustOwnership(&file, path)
 	}
 
 	if err = f.inWritableDir(createLink, file.Name); err == nil {
@@ -1227,6 +1228,11 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		}
 	}
 
+	if err := f.maybeAdjustOwnership(&file, file.Name); err != nil {
+		f.newPullError(file.Name, err)
+		return
+	}
+
 	// Still need to re-write the trailer with the new encrypted fileinfo.
 	if f.Type == config.FolderTypeReceiveEncrypted {
 		err = inWritableDir(func(path string) error {
@@ -1592,8 +1598,8 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
-	// Copy the parent owner and group, if we are supposed to do that.
-	if err := f.maybeCopyOwner(tempName); err != nil {
+	// Set ownership based on file metadata or parent, maybe.
+	if err := f.maybeAdjustOwnership(&file, tempName); err != nil {
 		return err
 	}
 
@@ -2074,11 +2080,23 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
 }
 
-func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
-	if !f.CopyOwnershipFromParent {
-		// Not supposed to do anything.
-		return nil
+func (f *sendReceiveFolder) maybeAdjustOwnership(file *protocol.FileInfo, name string) error {
+	if f.SyncOwnership {
+		// Set ownership based on file metadata.
+		if err := f.syncOwnership(file, name); err != nil {
+			return err
+		}
+	} else if f.CopyOwnershipFromParent {
+		// Copy the parent owner and group.
+		if err := f.copyOwnershipFromParent(name); err != nil {
+			return err
+		}
 	}
+	// Nothing to do
+	return nil
+}
+
+func (f *sendReceiveFolder) copyOwnershipFromParent(path string) error {
 	if runtime.GOOS == "windows" {
 		// Can't do anything.
 		return nil
@@ -2088,7 +2106,7 @@ func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
 	if err != nil {
 		return errors.Wrap(err, "copy owner from parent")
 	}
-	if err := f.mtimefs.Lchown(path, info.Owner(), info.Group()); err != nil {
+	if err := f.mtimefs.Lchown(path, strconv.Itoa(info.Owner()), strconv.Itoa(info.Group())); err != nil {
 		return errors.Wrap(err, "copy owner from parent")
 	}
 	return nil

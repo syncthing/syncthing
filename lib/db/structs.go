@@ -145,6 +145,14 @@ func (f FileInfoTruncated) ConvertDeletedToFileInfo() protocol.FileInfo {
 	return f.copyToFileInfo()
 }
 
+func (f FileInfoTruncated) LoadOSData(os protocol.OS, dst interface{ Unmarshal([]byte) error }) bool {
+	bs, ok := f.OSData[os]
+	if !ok {
+		return false
+	}
+	return dst.Unmarshal(bs) == nil
+}
+
 // copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
 func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{

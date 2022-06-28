@@ -543,6 +543,81 @@ func TestWalkReceiveOnly(t *testing.T) {
 	}
 }
 
+func TestScanOwnershipPOSIX(t *testing.T) {
+	// This test works on all operating systems because the FakeFS is always POSIXy.
+
+	fakeFS := fs.NewFilesystem(fs.FilesystemTypeFake, "TestScanOwnership")
+	current := make(fakeCurrentFiler)
+
+	fakeFS.Create("root-owned")
+	fakeFS.Create("user-owned")
+	fakeFS.Lchown("user-owned", "1234", "5678")
+	fakeFS.Mkdir("user-owned-dir", 0755)
+	fakeFS.Lchown("user-owned-dir", "2345", "6789")
+
+	expected := []struct {
+		name     string
+		uid, gid int
+	}{
+		{"root-owned", 0, 0},
+		{"user-owned", 1234, 5678},
+		{"user-owned-dir", 2345, 6789},
+	}
+
+	files := walkDir(fakeFS, ".", current, nil, 0)
+	if len(files) != len(expected) {
+		t.Fatalf("expected %d items, not %d", len(expected), len(files))
+	}
+	for i := range expected {
+		if files[i].Name != expected[i].name {
+			t.Errorf("expected %s, got %s", expected[i].name, files[i].Name)
+			continue
+		}
+
+		var pd protocol.POSIXOSData
+		if !files[i].LoadOSData(protocol.OsPosix, &pd) {
+			t.Error("failed to load POSIX data on", files[i].Name)
+			continue
+		}
+		if pd.UID != expected[i].uid {
+			t.Errorf("expected %d, got %d", expected[i].uid, pd.UID)
+		}
+		if pd.GID != expected[i].gid {
+			t.Errorf("expected %d, got %d", expected[i].gid, pd.GID)
+		}
+	}
+}
+
+func TestScanOwnershipWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("This test only works on Windows")
+	}
+
+	testFS := fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir())
+	current := make(fakeCurrentFiler)
+
+	fd, err := testFS.Create("user-owned")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	files := walkDir(testFS, ".", current, nil, 0)
+	if len(files) != 1 {
+		t.Fatalf("expected %d items, not %d", 1, len(files))
+	}
+	t.Log(files[0])
+
+	// The file should have an owner name set.
+	var pd protocol.WindowsOSData
+	if !files[0].LoadOSData(protocol.OsWindows, &pd) {
+		t.Fatal("failed to load Windows data")
+	}
+	if pd.OwnerName == "" {
+		t.Errorf("expected owner name to be set")
+	}
+}
+
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	cfg, cancel := testConfig()
 	defer cancel()
