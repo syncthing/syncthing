@@ -763,7 +763,7 @@ func resetDB() error {
 
 func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 	restartDelay := 60 * time.Second
-	now := time.Now()
+	now := time.Now().Round(0)
 	for {
 		time.Sleep(10 * time.Second)
 		if time.Since(now) > 2*time.Minute && cfg.Options().RestartOnWakeup {
@@ -777,7 +777,7 @@ func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 			app.Stop(svcutil.ExitRestart)
 			return
 		}
-		now = time.Now()
+		now = time.Now().Round(0)
 	}
 }
 
