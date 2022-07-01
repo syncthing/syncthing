@@ -363,9 +363,7 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 
 	// Redirect to HTTPS if we are supposed to
-	if guiCfg.UseTLS() {
-		handler = redirectToHTTPSMiddleware(handler)
-	}
+	handler = redirectToHTTPSMiddleware(guiCfg.UseTLS(), handler)
 
 	// Add the CORS handling
 	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
@@ -579,17 +577,21 @@ func metricsMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.TLS == nil {
-			// Redirect HTTP requests to HTTPS
-			r.URL.Host = r.Host
-			r.URL.Scheme = "https"
-			http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
-		} else {
-			h.ServeHTTP(w, r)
-		}
-	})
+func redirectToHTTPSMiddleware(enabled bool, h http.Handler) http.Handler {
+	if enabled {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.TLS == nil {
+				// Redirect HTTP requests to HTTPS
+				r.URL.Host = r.Host
+				r.URL.Scheme = "https"
+				http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
+			} else {
+				h.ServeHTTP(w, r)
+			}
+		})
+	} else {
+		return h
+	}
 }
 
 func noCacheMiddleware(h http.Handler) http.Handler {
