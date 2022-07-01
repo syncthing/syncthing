@@ -30,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
@@ -318,6 +319,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
@@ -337,16 +339,8 @@ func (s *service) Serve(ctx context.Context) error {
 	// A handler that disables caching
 	noCacheRestMux := noCacheMiddleware(metricsMiddleware(restMux))
 
-	// The main routing handler
+	// The main routing handler for everything behind auth
 	mux := http.NewServeMux()
-	mux.Handle("/rest/", noCacheRestMux)
-	mux.HandleFunc("/qr/", s.getQR)
-
-	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", s.statics)
-
-	// Handle the special meta.js path
-	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
 	guiCfg := s.cfg.GUI()
 
@@ -357,9 +351,12 @@ func (s *service) Serve(ctx context.Context) error {
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
-	// Wrap everything in basic auth, if user/password is set.
+	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		cookieName := "sessionid-"+s.id.String()[:5]
+
+		webauthnMux := newWebauthnMux("/rest/webauthn", s.cfg, cookieName, s.evLogger)
+		handler = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, webauthnMux, s.evLogger)
 	}
 
 	// Add the CORS handling
@@ -370,13 +367,23 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = localhostMiddleware(handler)
 	}
 
-	// Redirect to HTTPS if we are supposed to
-	handler = redirectToHTTPSMiddleware(guiCfg.UseTLS(), handler)
+	// The main routing handler
+	unauthenticatedMux := http.NewServeMux()
+	mux.Handle("/rest/", noCacheRestMux)
+	unauthenticatedMux.Handle("/rest/", handler)
+	mux.HandleFunc("/qr/", s.getQR)
+	unauthenticatedMux.Handle("/qr/", handler)
 
-	handler = debugMiddleware(handler)
+	// Handle the special meta.js path
+	mux.HandleFunc("/meta.js", s.getJSMetadata)
+	unauthenticatedMux.Handle("/meta.js", handler)
+
+	// Serve compiled in assets unless an asset directory was set (for development)
+	unauthenticatedMux.Handle("/", s.statics)
 
 	srv := http.Server{
-		Handler: handler,
+		// Redirect to HTTPS if we are supposed to
+		Handler: debugMiddleware(redirectToHTTPSMiddleware(guiCfg.UseTLS(), unauthenticatedMux)),
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
@@ -466,7 +473,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if to.GUI == from.GUI {
+	if cmp.Equal(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
 		return true
 	}

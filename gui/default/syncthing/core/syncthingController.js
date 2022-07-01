@@ -20,6 +20,12 @@ angular.module('syncthing.core')
 
         // public/scope definitions
 
+        $scope.authenticated = !!window.metadata;
+        $scope.login = {
+            user: '',
+            password: '',
+            errors: {},
+        };
         $scope.completion = {};
         $scope.config = {};
         $scope.configInSync = true;
@@ -62,6 +68,9 @@ angular.module('syncthing.core')
             defaultLines: [],
             saved: false,
         };
+        $scope.webauthn = {
+            errors: {},
+        };
         resetRemoteNeed();
 
         try {
@@ -81,6 +90,35 @@ angular.module('syncthing.core')
             bytes: 0,
             directories: 0,
             files: 0
+        };
+
+        $scope.authenticatePassword = function () {
+            $scope.login.inProgress = true;
+            $scope.login.errors = {};
+            $http.post('/meta.js', {}, {
+                headers: {
+                    'Authorization': 'Basic ' + btoa($scope.login.user + ':' + $scope.login.password),
+                },
+            }).success(function () {
+                location.reload();
+            }).catch(function (response) {
+                if (response.status === 401) {
+                    $scope.login.errors.badLogin = true;
+                } else {
+                    $scope.login.errors.failed = true;
+                    console.log(response);
+                }
+            }).finally(function () {
+                $scope.login.inProgress = false;
+            });
+        };
+
+        $scope.getLocationHost = function () {
+            return $location.host();
+        };
+
+        $scope.getLocationProtocol = function() {
+            return $location.protocol();
         };
 
         $(window).bind('beforeunload', function () {
@@ -1428,7 +1466,89 @@ angular.module('syncthing.core')
                     $("#settings").off("hide.bs.modal");
                 }
             });
+
+          $scope.webauthn.errors = {};
         };
+
+        $scope.webauthnAvailable = function () {
+            return window['PublicKeyCredential'] !== undefined;
+        };
+
+        if ($scope.webauthnAvailable()) {
+            $scope.registerWebauthnCredential = function () {
+                $scope.webauthn.errors = {};
+                $http.post(urlbase + '/config/webauthn/register-start').success(function (data) {
+                    webauthnJSON.create(data)
+                        .then(function (pkc) {
+                            return $http.post(urlbase + '/config/webauthn/register-finish', pkc).success(function (data) {
+                                $scope.tmpGUI.webauthnCredentials.push(data);
+                            });
+                        })
+                        .catch(function (e) {
+                            if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
+                                $scope.webauthn.errors.alreadyRegistered = true;
+                            } else {
+                                $scope.webauthn.errors.registrationFailed = true;
+                                console.log('Credential creation failed.', e);
+                            }
+                            $scope.$apply(); // Promise callback runs outside Angular lifecycle
+                        });
+                });
+            };
+
+            $scope.authenticateWebauthn = function () {
+                $http.post(urlbase + '/webauthn/authenticate-start').success(function (data) {
+                    webauthnJSON.get(data)
+                        .then(function (pkc) {
+                            return $http.post(urlbase + '/webauthn/authenticate-finish', pkc).success(function () {
+                                location.reload();
+                            });
+                        });
+                });
+            };
+
+            $scope.deleteWebauthnCredential = function (cfg, cred) {
+                // Array.filter is fine since WebAuthn only works in modern browsers
+                cfg.webauthnCredentials = cfg.webauthnCredentials.filter(function(cr) {
+                    return cr.id !== cred.id;
+                });
+            };
+
+            $scope.webauthnRpIdChanged = function (fromCfg, toCfg) {
+                return fromCfg && toCfg
+                    && fromCfg.webauthnRpId !== toCfg.webauthnRpId
+                    && !(
+                        (fromCfg.webauthnRpId === 'localhost' && toCfg.webauthnRpId === '')
+                            || (fromCfg.webauthnRpId === '' && toCfg.webauthnRpId === 'localhost')
+                    );
+            };
+
+            $scope.webauthnRpIdMatchesLocation = function (cfg) {
+                return cfg && ($location.host() === (cfg.webauthnRpId || 'localhost') || $location.host().endsWith('.' + cfg.webauthnRpId));
+            };
+
+            $scope.webauthnOriginChanged = function (fromCfg, toCfg) {
+                return fromCfg && toCfg
+                    && fromCfg.webauthnOrigin !== toCfg.webauthnOrigin
+                    && !(
+                        (fromCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(fromCfg) && toCfg.webauthnOrigin === '')
+                            || (fromCfg.webauthnOrigin === '' && toCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(toCfg))
+                    );
+            };
+
+            $scope.getDefaultWebauthnOrigin = function (cfg) {
+                if (cfg) {
+                    var splits = (cfg.address || '').split(':');
+                    var port = '';
+                    if (splits.length > 0) {
+                        port = splits[splits.length - 1];
+                    }
+                    return `https://${cfg.webauthnRpId || 'localhost'}${port ? ':' : ''}${port}`;
+                } else {
+                    return '';
+                }
+            };
+        }
 
         $scope.saveConfig = function () {
             var cfg = JSON.stringify($scope.config);

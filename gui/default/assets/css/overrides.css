@@ -107,6 +107,10 @@ ul+h5 {
     white-space: nowrap;
 }
 
+.table td.stretch {
+  width: 100%;
+}
+
 /* Removing text decoration on anchor link hover pull request: #4135 */
 .table td.small-data span a:hover {
     text-decoration: none;

@@ -28,7 +28,7 @@ func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	return optsCopy
 }
 
-func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
+func (opts *OptionsConfiguration) prepare(guiPWIsSet bool, guiWebauthnIsSet bool) {
 	util.FillNilSlices(opts)
 
 	opts.RawListenAddresses = util.UniqueTrimmedStrings(opts.RawListenAddresses)
@@ -39,7 +39,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 		opts.ReconnectIntervalS = 5
 	}
 
-	if guiPWIsSet && len(opts.UnackedNotificationIDs) > 0 {
+	if (guiPWIsSet || guiWebauthnIsSet) && len(opts.UnackedNotificationIDs) > 0 {
 		for i, key := range opts.UnackedNotificationIDs {
 			if key == "authenticationUserAndPassword" {
 				opts.UnackedNotificationIDs = append(opts.UnackedNotificationIDs[:i], opts.UnackedNotificationIDs[i+1:]...)

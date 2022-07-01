@@ -14,7 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	ldap "github.com/go-ldap/ldap/v3"
+	webauthnLib "github.com/duo-labs/webauthn/webauthn"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -37,7 +40,7 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
+func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, webauthnNext http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
@@ -65,8 +68,13 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			error()
-			return
+			if guiCfg.WebauthnReady() {
+				webauthnNext.ServeHTTP(w, r)
+				return
+			} else {
+				error()
+				return
+			}
 		}
 
 		authOk := auth(username, password, guiCfg, ldapCfg)
@@ -208,4 +216,73 @@ func iso88591ToUTF8(s []byte) []byte {
 		runes[i] = rune(s[i])
 	}
 	return []byte(string(runes))
+}
+
+type webauthnMux struct {
+	*httprouter.Router
+	webauthnState webauthnLib.SessionData
+	cfg config.Wrapper
+	cookieName string
+	evLogger events.Logger
+}
+
+func newWebauthnMux(path string, cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnMux {
+	result := webauthnMux{
+		Router: httprouter.New(),
+		cfg: cfg,
+		cookieName: cookieName,
+		evLogger: evLogger,
+	}
+	result.registerWebauthnAuthentication(path)
+	return result
+}
+
+func (s *webauthnMux) registerWebauthnAuthentication(path string) {
+	s.HandlerFunc(http.MethodPost, path + "/authenticate-start", func(w http.ResponseWriter, r *http.Request) {
+		s.startWebauthnAuthentication(w, r)
+	})
+
+	s.HandlerFunc(http.MethodPost, path + "/authenticate-finish", func(w http.ResponseWriter, r *http.Request) {
+		s.finishWebauthnAuthentication(w, r)
+	})
+}
+
+func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	s.webauthnState = *sessionData
+
+	sendJSON(w, options)
+}
+
+func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) bool {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	state := s.webauthnState
+	s.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+
+	guiCfg := s.cfg.GUI()
+	_, err = webauthn.FinishLogin(guiCfg, state, r)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)
+
+	return true
 }

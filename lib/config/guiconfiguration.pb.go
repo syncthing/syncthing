@@ -4,12 +4,15 @@
 package config
 
 import (
+	"encoding/base64"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/syncthing/syncthing/proto/ext"
 	io "io"
 	math "math"
 	math_bits "math/bits"
+
+	"github.com/duo-labs/webauthn/webauthn"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,6 +25,12 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+
+type WebauthnCredential struct {
+	ID                      string                      `protobuf:"bytes,1,name=id,proto3" json:"id" xml:"id,attr" nodefault:"true"`
+	Nickname                string                      `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname" xml:"nickname,attr"`
+	PublicKeyCose           string                      `protobuf:"bytes,3,opt,name=publicKeyCose,proto3" json:"publicKeyCose" xml:"publicKeyCose,attr" restart:"false"`
+}
 
 type GUIConfiguration struct {
 	Enabled                   bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled" xml:"enabled,attr" default:"true"`
@@ -37,7 +46,50 @@ type GUIConfiguration struct {
 	Debugging                 bool     `protobuf:"varint,11,opt,name=debugging,proto3" json:"debugging" xml:"debugging,attr"`
 	InsecureSkipHostCheck     bool     `protobuf:"varint,12,opt,name=insecure_skip_host_check,json=insecureSkipHostCheck,proto3" json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
 	InsecureAllowFrameLoading bool     `protobuf:"varint,13,opt,name=insecure_allow_frame_loading,json=insecureAllowFrameLoading,proto3" json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
+	WebauthnRpId              string   `protobuf:"bytes,14,name=webauthn_rp_id,json=webauthnRpId,proto3" json:"webauthnRpId" xml:"webauthnRpId"`
+	WebauthnOrigin            string   `protobuf:"bytes,15,name=webauthn_origin,json=webauthnOrigin,proto3" json:"webauthnOrigin" xml:"webauthnOrigin"`
+	WebauthnCredentials       []WebauthnCredential     `protobuf:"bytes,16,name=webauthn_credentials,json=webauthnCredentials,proto3" json:"webauthnCredentials" xml:"webauthnCredential"`
 }
+
+func (gui GUIConfiguration) WebAuthnID() []byte {
+	return []byte{ 0, 1, 2, 3 }
+}
+
+func (gui GUIConfiguration) WebAuthnName() string {
+	return gui.User
+}
+
+func (gui GUIConfiguration) WebAuthnDisplayName() string {
+	return gui.User
+}
+
+func (gui GUIConfiguration) WebAuthnIcon() string {
+	return ""
+}
+
+func (gui GUIConfiguration) WebAuthnCredentials() []webauthn.Credential {
+	var result []webauthn.Credential
+	for _, cred := range gui.WebauthnCredentials {
+		id, err := base64.URLEncoding.DecodeString(cred.ID)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		result = append(result, webauthn.Credential{
+			ID: id,
+			PublicKey: pubkey,
+		})
+	}
+	return result
+}
+
 
 func (m *GUIConfiguration) Reset()         { *m = GUIConfiguration{} }
 func (m *GUIConfiguration) String() string { return proto.CompactTextString(m) }

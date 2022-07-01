@@ -18,7 +18,7 @@ import (
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
-	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
+	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0) || c.WebauthnReady()
 }
 
 func (c GUIConfiguration) IsOverridden() bool {
@@ -84,6 +84,10 @@ func (c GUIConfiguration) UseTLS() bool {
 		}
 	}
 	return c.RawUseTLS
+}
+
+func (c GUIConfiguration) WebauthnReady() bool {
+	return c.UseTLS() && len(c.WebauthnCredentials) > 0
 }
 
 func (c GUIConfiguration) URL() string {
