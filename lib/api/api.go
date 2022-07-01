@@ -362,9 +362,6 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 	}
 
-	// Redirect to HTTPS if we are supposed to
-	handler = redirectToHTTPSMiddleware(guiCfg.UseTLS(), handler)
-
 	// Add the CORS handling
 	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
 
@@ -372,6 +369,9 @@ func (s *service) Serve(ctx context.Context) error {
 		// Verify source host
 		handler = localhostMiddleware(handler)
 	}
+
+	// Redirect to HTTPS if we are supposed to
+	handler = redirectToHTTPSMiddleware(guiCfg.UseTLS(), handler)
 
 	handler = debugMiddleware(handler)
 
