@@ -991,10 +991,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		var fi protocol.FileInfo
 		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs); err == nil {
 			if !fi.IsEquivalentOptional(curTarget, protocol.FileInfoComparison{
-				ModTimeWindow: f.modTimeWindow,
-				IgnorePerms:   f.IgnorePerms,
-				IgnoreBlocks:  true,
-				IgnoreFlags:   protocol.LocalAllFlags,
+				ModTimeWindow:   f.modTimeWindow,
+				IgnorePerms:     f.IgnorePerms,
+				IgnoreBlocks:    true,
+				IgnoreFlags:     protocol.LocalAllFlags,
+				IgnoreOwnership: !f.SyncOwnership,
 			}) {
 				// Target changed
 				scanChan <- target.Name
@@ -1984,10 +1985,11 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			return nil
 		}
 		if !cf.IsEquivalentOptional(diskFile, protocol.FileInfoComparison{
-			ModTimeWindow: f.modTimeWindow,
-			IgnorePerms:   f.IgnorePerms,
-			IgnoreBlocks:  true,
-			IgnoreFlags:   protocol.LocalAllFlags,
+			ModTimeWindow:   f.modTimeWindow,
+			IgnorePerms:     f.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     protocol.LocalAllFlags,
+			IgnoreOwnership: !f.SyncOwnership,
 		}) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
@@ -2058,10 +2060,11 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 	}
 
 	if !statItem.IsEquivalentOptional(item, protocol.FileInfoComparison{
-		ModTimeWindow: f.modTimeWindow,
-		IgnorePerms:   f.IgnorePerms,
-		IgnoreBlocks:  true,
-		IgnoreFlags:   protocol.LocalAllFlags,
+		ModTimeWindow:   f.modTimeWindow,
+		IgnorePerms:     f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.LocalAllFlags,
+		IgnoreOwnership: !f.SyncOwnership,
 	}) {
 		return errModified
 	}
