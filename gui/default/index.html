@@ -421,9 +421,10 @@
                         <td class="text-right">
                           <div>
                             <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
-                            <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                              <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                            </span>
                           </div>
                           <div ng-if="model[folder.id].ignorePatterns">
                             <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
@@ -798,7 +799,7 @@
                         </td>
                       </tr>
                       <tr>
-                        <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
+                        <th><span class="fas fa-fw fa-link"></span>&nbsp;<span translate>Address</span></th>
                         <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
                           <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}">
                             {{deviceAddr(deviceCfg)}}
