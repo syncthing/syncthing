@@ -221,12 +221,20 @@ func WinsConflict(f, other FileIntf) bool {
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
-func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
-	return f.isEquivalent(other, modTimeWindow, false, false, 0)
+type FileInfoComparison struct {
+	ModTimeWindow   time.Duration
+	IgnorePerms     bool
+	IgnoreBlocks    bool
+	IgnoreFlags     uint32
+	IgnoreOwnership bool
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
+	return f.isEquivalent(other, FileInfoComparison{ModTimeWindow: modTimeWindow})
+}
+
+func (f FileInfo) IsEquivalentOptional(other FileInfo, comp FileInfoComparison) bool {
+	return f.isEquivalent(other, comp)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
@@ -245,7 +253,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -254,8 +262,8 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 	}
 
 	// Mask out the ignored local flags before checking IsInvalid() below
-	f.LocalFlags &^= ignoreFlags
-	other.LocalFlags &^= ignoreFlags
+	f.LocalFlags &^= comp.IgnoreFlags
+	other.LocalFlags &^= comp.IgnoreFlags
 
 	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
@@ -269,19 +277,21 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 	// XXX: Technically, the serialized form of protobuf messages isn't
 	// guaranteed to be stable. In practice it is, and this is a much easier
 	// comparison than deserializing each thing.
-	for os, bs := range f.OSData {
-		if otherBs, ok := other.OSData[os]; ok && !bytes.Equal(bs, otherBs) {
-			return false
+	if !comp.IgnoreOwnership {
+		for os, bs := range f.OSData {
+			if otherBs, ok := other.OSData[os]; ok && !bytes.Equal(bs, otherBs) {
+				return false
+			}
 		}
 	}
 
-	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+	if !comp.IgnorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
 		return false
 	}
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || f.BlocksEqual(other))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), comp.ModTimeWindow) && (comp.IgnoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:

@@ -43,6 +43,9 @@ type Config struct {
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
 	IgnorePerms bool
+	// If IgnoreOwnership is true, changes to ownership will not be detected
+	// and ownership data will not be present in the scanned files.
+	IgnoreOwnership bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
 	AutoNormalize bool
@@ -387,7 +390,13 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f.RawBlockSize = blockSize
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -421,7 +430,13 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	f.NoPermissions = w.IgnorePerms
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -466,7 +481,13 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	f = w.updateFileInfo(f, curFile)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -646,6 +667,7 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
+	f.OSData, _ = filesystem.GetOSData(&f, fi)
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)
@@ -659,7 +681,6 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = fi.ModTime().Nanosecond()
-	f.OSData, _ = filesystem.GetOSData(&f, fi)
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil
