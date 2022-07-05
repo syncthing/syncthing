@@ -40,11 +40,9 @@ type Config struct {
 	// The Filesystem provides an abstraction on top of the actual filesystem.
 	Filesystem fs.Filesystem
 	// If IgnorePerms is true, changes to permission bits will not be
-	// detected. Scanned files will get zero permission bits and the
-	// NoPermissionBits flag set.
+	// detected.
 	IgnorePerms bool
-	// If IgnoreOwnership is true, changes to ownership will not be detected
-	// and ownership data will not be present in the scanned files.
+	// If IgnoreOwnership is true, changes to ownership will not be detected.
 	IgnoreOwnership bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
