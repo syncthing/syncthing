@@ -360,24 +360,6 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 	return blocksEqual(f.Blocks, other.Blocks)
 }
 
-func (f *FileInfo) GetPrivateData() *OSPrivateData {
-	var data OSPrivateData
-	if bs, ok := f.OsPrivate[uint32(operatingSystem)]; ok {
-		data.Unmarshal(bs)
-	}
-	return &data
-}
-
-func (f *FileInfo) SetPrivateData(data *OSPrivateData) {
-	f.OsPrivate[uint32(operatingSystem)], _ = data.Marshal()
-}
-
-func (f *FileInfo) SetXattrs(xattrs map[string][]byte) {
-	data := f.GetPrivateData()
-	data.ExtendedAttributes = xattrs
-	f.SetPrivateData(data)
-}
-
 // blocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
 func blocksEqual(a, b []BlockInfo) bool {
