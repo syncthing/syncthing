@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "May 31, 2022" "v1.20.0" "Syncthing"
+.TH "STRELAYSRV" "1" "Jun 09, 2022" "v1.20.2" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -233,7 +233,7 @@ to forward traffic from port 443 to port 22067, for example:
 .sp
 .nf
 .ft C
-iptables \-t nat \-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+iptables \-t nat \-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
 .ft P
 .fi
 .UNINDENT
@@ -249,7 +249,7 @@ Or, if you’re using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\f
 :PREROUTING ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
 
-\-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+\-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
 
 COMMIT
 .ft P

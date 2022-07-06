@@ -1073,6 +1073,31 @@ func TestSpecialChars(t *testing.T) {
 	}
 }
 
+func TestIntlWildcards(t *testing.T) {
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+
+	stignore := `1000春
+200?春
+300[0-9]春
+400[0-9]?`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []string{
+		"1000春",
+		"2002春",
+		"3003春",
+		"4004春",
+	}
+
+	for _, c := range cases {
+		if !pats.Match(c).IsIgnored() {
+			t.Errorf("%q should be ignored", c)
+		}
+	}
+}
+
 func TestPartialIncludeLine(t *testing.T) {
 	// Loading a partial #include line (no file mentioned) should error but not crash.
 
