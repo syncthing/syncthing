@@ -108,9 +108,11 @@ message FileInfo {
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
 
-    // OS private data, map of OsType to corresponding $OSPrivateData
-    // message.
-    map<uint32, bytes> os_private = 20;
+    // OS data; one entry for each operating system, with some generalized
+    // POSIX data in the entry for OS_POSIX. The actual type of each entry
+    // is message ${OS}OSData. Protobuf doesn't have enum-keyed maps so this
+    // is an int32-keyed one instead, but the concept is the same.
+    map<int32, bytes> os_data = 14 [(gogoproto.castkey) = "OS", (ext.goname) = "OSData"];
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
@@ -143,6 +145,36 @@ enum FileInfoType {
     FILE_INFO_TYPE_SYMLINK           = 4;
 }
 
+enum OS {
+    OS_UNSPECIFIED = 0; // not used
+    OS_POSIX       = 1;
+    OS_WINDOWS     = 2;
+    OS_LINUX       = 4;
+    OS_MACOS       = 5;
+    OS_FREEBSD     = 6;
+    OS_NETBSD      = 7;
+    OS_OPENBSD     = 8;
+    OS_SOLARIS     = 9; // also Illumos
+}
+
+message POSIXOSData {
+    // The owner name and group name are set when known (i.e., could be
+    // resolved on the source device), while the UID and GID are always set
+    // as they come directly from the stat() call.
+    string owner_name = 1;
+    string group_name = 2;
+    int32  uid        = 3 [(ext.goname) = "UID"];
+    int32  gid        = 4 [(ext.goname) = "GID"];
+}
+
+message WindowsOSData {
+    // Windows file objects have a single owner, which may be a user or a
+    // group. We keep the name of that account, and a flag to indicate what
+    // type it is.
+    string owner_name     = 1;
+    bool   owner_is_group = 2;
+}
+
 message BlockInfo {
     option (gogoproto.goproto_stringer) = false;
     bytes  hash      = 3;
@@ -158,17 +190,6 @@ message Vector {
 message Counter {
     uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
-}
-
-enum OS {
-    OS_UNDEFINED = 0;
-    OS_LINUX     = 1;
-    OS_WINDOWS   = 2;
-    OS_MACOS     = 3;
-    OS_FREEBSD   = 4;
-    OS_NETBSD    = 5;
-    OS_OPENBSD   = 6;
-    OS_SOLARIS   = 7; // also Illumos
 }
 
 // Request

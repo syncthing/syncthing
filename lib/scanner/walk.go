@@ -41,9 +41,10 @@ type Config struct {
 	// The Filesystem provides an abstraction on top of the actual filesystem.
 	Filesystem fs.Filesystem
 	// If IgnorePerms is true, changes to permission bits will not be
-	// detected. Scanned files will get zero permission bits and the
-	// NoPermissionBits flag set.
+	// detected.
 	IgnorePerms bool
+	// If IgnoreOwnership is true, changes to ownership will not be detected.
+	IgnoreOwnership bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
 	AutoNormalize bool
@@ -382,13 +383,19 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, _ := CreateFileInfo(info, relPath, nil)
+	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = blockSize
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -417,12 +424,18 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, _ := CreateFileInfo(info, relPath, nil)
+	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -467,7 +480,13 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	f = w.updateFileInfo(f, curFile)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+			ModTimeWindow:   w.ModTimeWindow,
+			IgnorePerms:     w.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     w.LocalFlags,
+			IgnoreOwnership: w.IgnoreOwnership,
+		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
@@ -551,18 +570,31 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	return "", errUTF8Conflict
 }
 
-// updateFileInfo updates walker specific members of protocol.FileInfo that do not depend on type
-func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileInfo {
-	if file.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
+// updateFileInfo updates walker specific members of protocol.FileInfo that
+// do not depend on type, and things that should be preserved from the
+// previous version of the FileInfo.
+func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
+	if dst.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
 		// If we have an existing index entry, copy the executable bits
 		// from there.
-		file.Permissions |= (curFile.Permissions & 0111)
+		dst.Permissions |= (src.Permissions & 0111)
 	}
-	file.OsPrivate = curFile.OsPrivate
-	file.Version = curFile.Version.Update(w.ShortID)
-	file.ModifiedBy = w.ShortID
-	file.LocalFlags = w.LocalFlags
-	return file
+	dst.Version = src.Version.Update(w.ShortID)
+	dst.ModifiedBy = w.ShortID
+	dst.LocalFlags = w.LocalFlags
+
+	// Copy OS data from src to dst, unless it was already set on dst.
+	if len(dst.OSData) == 0 {
+		dst.OSData = src.OSData
+	} else {
+		for k, v := range src.OSData {
+			if _, ok := dst.OSData[k]; !ok {
+				dst.OSData[k] = v
+			}
+		}
+	}
+
+	return dst
 }
 
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
@@ -634,6 +666,7 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
+	f.OSData, _ = filesystem.GetOSData(&f, fi)
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

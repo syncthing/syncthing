@@ -295,6 +295,9 @@ func TestMarshalIndexMessage(t *testing.T) {
 			if len(f.Encrypted) == 0 {
 				m1.Files[i].Encrypted = nil
 			}
+			if len(f.OSData) == 0 {
+				m1.Files[i].OSData = nil
+			}
 		}
 
 		return testMarshal(t, "index", &m1, &Index{})
@@ -872,10 +875,10 @@ func TestIsEquivalent(t *testing.T) {
 					continue
 				}
 
-				if res := tc.a.isEquivalent(tc.b, 0, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+				if res := tc.a.isEquivalent(tc.b, FileInfoComparison{IgnorePerms: ignPerms, IgnoreBlocks: ignBlocks, IgnoreFlags: tc.ignFlags}); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
-				if res := tc.b.isEquivalent(tc.a, 0, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+				if res := tc.b.isEquivalent(tc.a, FileInfoComparison{IgnorePerms: ignPerms, IgnoreBlocks: ignBlocks, IgnoreFlags: tc.ignFlags}); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
 			}

@@ -126,7 +126,11 @@ func (f *receiveOnlyFolder) revert() error {
 			}
 			fi.SetDeleted(f.shortID)
 			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-		case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+		case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+			ModTimeWindow:   f.modTimeWindow,
+			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+			IgnoreOwnership: !f.SyncOwnership,
+		}):
 			// What we have locally is equivalent to the global file.
 			fi = gf
 		default:

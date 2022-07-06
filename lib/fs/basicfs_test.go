@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -86,7 +87,7 @@ func TestChownFile(t *testing.T) {
 	newUID := 1000 + rand.Intn(30000)
 	newGID := 1000 + rand.Intn(30000)
 
-	if err := fs.Lchown("file", newUID, newGID); err != nil {
+	if err := fs.Lchown("file", strconv.Itoa(newUID), strconv.Itoa(newGID)); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
