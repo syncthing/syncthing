@@ -15,14 +15,13 @@ import (
 )
 
 func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) error {
-	var pd protocol.WindowsOSData
-	if !file.LoadOSData(protocol.OsWindows, &pd) || pd.OwnerName == "" {
+	if file.Platform.Windows == nil || file.Platform.Windows.OwnerName == "" {
 		// No owner data, nothing to do
 		return nil
 	}
 
-	l.Debugln("Owner name for %s is %s (group=%v)", path, pd.OwnerName, pd.OwnerIsGroup)
-	usid, gsid, err := lookupUserAndGroup(pd.OwnerName, pd.OwnerIsGroup)
+	l.Debugln("Owner name for %s is %s (group=%v)", path, file.Platform.Windows.OwnerName, file.Platform.Windows.OwnerIsGroup)
+	usid, gsid, err := lookupUserAndGroup(file.Platform.Windows.OwnerName, file.Platform.Windows.OwnerIsGroup)
 	if err != nil {
 		return err
 	}

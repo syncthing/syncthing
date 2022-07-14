@@ -574,15 +574,15 @@ func TestScanOwnershipPOSIX(t *testing.T) {
 			continue
 		}
 
-		if files[i].Platform.Posix == nil {
+		if files[i].Platform.Unix == nil {
 			t.Error("failed to load POSIX data on", files[i].Name)
 			continue
 		}
-		if files[i].Platform.Posix.UID != expected[i].uid {
-			t.Errorf("expected %d, got %d", expected[i].uid, files[i].Platform.Posix.UID)
+		if files[i].Platform.Unix.UID != expected[i].uid {
+			t.Errorf("expected %d, got %d", expected[i].uid, files[i].Platform.Unix.UID)
 		}
-		if files[i].Platform.Posix.GID != expected[i].gid {
-			t.Errorf("expected %d, got %d", expected[i].gid, files[i].Platform.Posix.GID)
+		if files[i].Platform.Unix.GID != expected[i].gid {
+			t.Errorf("expected %d, got %d", expected[i].gid, files[i].Platform.Unix.GID)
 		}
 	}
 }

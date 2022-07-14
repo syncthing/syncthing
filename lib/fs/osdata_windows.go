@@ -14,46 +14,50 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func NewOSDataGetter(underlying Filesystem) OSDataGetter {
-	return &WindowsOSDataGetter{fs: underlying}
+func NewPlatformDataGetter(underlying Filesystem) PlatformDataGetter {
+	return &WindowsDataGetter{fs: underlying}
 }
 
-type WindowsOSDataGetter struct {
+type WindowsDataGetter struct {
 	fs Filesystem
 }
 
-func (p *WindowsOSDataGetter) GetOSData(cur *protocol.FileInfo, stat FileInfo) (map[protocol.OS][]byte, error) {
+func (p *WindowsDataGetter) GetPlatformData(cur *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
 	// The underlying filesystem must be a BasicFilesystem, because we're
 	// going to assume the file is an object on local disk and make system
 	// calls on it.
-	basic, ok := p.fs.(*BasicFilesystem)
+	fs, ok := unwrapFilesystem(p.fs, filesystemWrapperTypeNone)
 	if !ok {
-		return nil, fmt.Errorf("underlying filesystem is not a BasicFilesystem")
+		return protocol.PlatformData{}, fmt.Errorf("underlying filesystem is not a BasicFilesystem")
+	}
+	basic, ok := fs.(*BasicFilesystem)
+	if !ok {
+		return protocol.PlatformData{}, fmt.Errorf("underlying filesystem is not a BasicFilesystem")
 	}
 
 	rootedName, err := basic.rooted(cur.Name)
 	if err != nil {
-		return nil, err
+		return protocol.PlatformData{}, err
 	}
 	hdl, err := windows.Open(rootedName, windows.O_RDONLY, 0)
 	if err != nil {
-		return nil, err
+		return protocol.PlatformData{}, err
 	}
 	defer windows.Close(hdl)
 
 	// GetSecurityInfo returns an owner SID.
 	sd, err := windows.GetSecurityInfo(hdl, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION)
 	if err != nil {
-		return nil, err
+		return protocol.PlatformData{}, err
 	}
 	owner, _, err := sd.Owner()
 	if err != nil {
-		return nil, err
+		return protocol.PlatformData{}, err
 	}
 
 	// The owner SID might represent a user or a group. We try to look it up
 	// as both, and set the appropriate fields in the OS data.
-	pd := &protocol.WindowsOSData{}
+	pd := &protocol.WindowsData{}
 	if us, err := user.LookupId(owner.String()); err == nil {
 		pd.OwnerName = us.Username
 	} else if gr, err := user.LookupGroupId(owner.String()); err == nil {
@@ -63,13 +67,5 @@ func (p *WindowsOSDataGetter) GetOSData(cur *protocol.FileInfo, stat FileInfo) (
 		l.Debugf("Failed to resolve owner for %s: %v", rootedName, err)
 	}
 
-	bs, err := pd.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("surprising error marshalling private data: %w", err)
-	}
-
-	l.Debugln("OS data for", rootedName, "is", pd)
-	return map[protocol.OS][]byte{
-		protocol.OsWindows: bs,
-	}, nil
+	return protocol.PlatformData{Windows: pd}, nil
 }

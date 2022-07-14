@@ -9,6 +9,6 @@
 
 package fs
 
-func NewOSDataGetter(underlying Filesystem) OSDataGetter {
-	return NewPOSIXDataGetter(underlying)
+func NewPlatformDataGetter(underlying Filesystem) PlatformDataGetter {
+	return NewUnixDataGetter(underlying)
 }

@@ -17,7 +17,7 @@ import (
 )
 
 func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) error {
-	if file.Platform.Posix == nil {
+	if file.Platform.Unix == nil {
 		// No owner data, nothing to do
 		return nil
 	}
@@ -25,17 +25,17 @@ func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) 
 	// Try to look up the user and group by name, defaulting to the
 	// numerical UID and GID if there is no match.
 
-	uid := strconv.Itoa(file.Platform.Posix.UID)
-	if file.Platform.Posix.OwnerName != "" {
-		us, err := user.Lookup(file.Platform.Posix.OwnerName)
+	uid := strconv.Itoa(file.Platform.Unix.UID)
+	if file.Platform.Unix.OwnerName != "" {
+		us, err := user.Lookup(file.Platform.Unix.OwnerName)
 		if err == nil && us.Uid != "" {
 			uid = us.Uid
 		}
 	}
 
-	gid := strconv.Itoa(file.Platform.Posix.GID)
-	if file.Platform.Posix.GroupName != "" {
-		gr, err := user.LookupGroup(file.Platform.Posix.GroupName)
+	gid := strconv.Itoa(file.Platform.Unix.GID)
+	if file.Platform.Unix.GroupName != "" {
+		gr, err := user.LookupGroup(file.Platform.Unix.GroupName)
 		if err == nil && gr.Gid != "" {
 			gid = gr.Gid
 		}

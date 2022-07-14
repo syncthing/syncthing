@@ -149,11 +149,11 @@ message Counter {
 }
 
 message PlatformData {
-    POSIXData   posix   = 1 [(gogoproto.nullable) = true];
+    UnixData    unix    = 1 [(gogoproto.nullable) = true];
     WindowsData windows = 2 [(gogoproto.nullable) = true];
 }
 
-message POSIXData {
+message UnixData {
     // The owner name and group name are set when known (i.e., could be
     // resolved on the source device), while the UID and GID are always set
     // as they come directly from the stat() call.

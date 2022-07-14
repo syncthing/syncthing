@@ -246,8 +246,8 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	// Otherwise a file would become different as soon as it's synced from
 	// Windows to Linux, as Linux would add a new POSIX entry for the file.
 	if !comp.IgnoreOwnership && f.Platform != other.Platform {
-		if f.Platform.Posix != nil && other.Platform.Posix != nil {
-			if *f.Platform.Posix != *other.Platform.Posix {
+		if f.Platform.Unix != nil && other.Platform.Unix != nil {
+			if *f.Platform.Unix != *other.Platform.Unix {
 				return false
 			}
 		}

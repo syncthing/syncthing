@@ -13,13 +13,13 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func NewPOSIXDataGetter(_ Filesystem) OSDataGetter {
-	return &POSIXOSDataGetter{}
+func NewUnixDataGetter(_ Filesystem) PlatformDataGetter {
+	return &UnixDataGetter{}
 }
 
-type POSIXOSDataGetter struct{}
+type UnixDataGetter struct{}
 
-func (p *POSIXOSDataGetter) GetOSData(_ *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
+func (p *UnixDataGetter) GetPlatformData(_ *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
 	ownerUID := stat.Owner()
 	ownerName := ""
 	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil {
@@ -33,7 +33,7 @@ func (p *POSIXOSDataGetter) GetOSData(_ *protocol.FileInfo, stat FileInfo) (prot
 	}
 
 	return protocol.PlatformData{
-		Posix: &protocol.POSIXData{
+		Unix: &protocol.UnixData{
 			OwnerName: ownerName,
 			GroupName: groupName,
 			UID:       ownerUID,

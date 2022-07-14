@@ -29,19 +29,19 @@ const randomBlockShift = 14 // 128k
 // fakeFS is a fake filesystem for testing and benchmarking. It has the
 // following properties:
 //
-// - File metadata is kept in RAM. Specifically, we remember which files and
-//   directories exist, their dates, permissions and sizes. Symlinks are
-//   not supported.
+//   - File metadata is kept in RAM. Specifically, we remember which files and
+//     directories exist, their dates, permissions and sizes. Symlinks are
+//     not supported.
 //
-// - File contents are generated pseudorandomly with just the file name as
-//   seed. Writes are discarded, other than having the effect of increasing
-//   the file size. If you only write data that you've read from a file with
-//   the same name on a different fakeFS, you'll never know the difference...
+//   - File contents are generated pseudorandomly with just the file name as
+//     seed. Writes are discarded, other than having the effect of increasing
+//     the file size. If you only write data that you've read from a file with
+//     the same name on a different fakeFS, you'll never know the difference...
 //
 // - We totally ignore permissions - pretend you are root.
 //
-// - The root path can contain URL query-style parameters that pre populate
-//   the filesystem at creation with a certain amount of random data:
+//   - The root path can contain URL query-style parameters that pre populate
+//     the filesystem at creation with a certain amount of random data:
 //
 //     files=n    to generate n random files (default 0)
 //     maxsize=n  to generate files up to a total of n MiB (default 0)
@@ -51,7 +51,6 @@ const randomBlockShift = 14 // 128k
 //     latency=d  to set the amount of time each "disk" operation takes, where d is time.ParseDuration format
 //
 // - Two fakeFS:s pointing at the same root path see the same files.
-//
 type fakeFS struct {
 	counters    fakeFSCounters
 	uri         string
@@ -60,7 +59,7 @@ type fakeFS struct {
 	insens      bool
 	withContent bool
 	latency     time.Duration
-	OSDataGetter
+	PlatformDataGetter
 }
 
 type fakeFSCounters struct {
@@ -110,7 +109,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 			children:  make(map[string]*fakeEntry),
 		},
 	}
-	fs.OSDataGetter = NewPOSIXDataGetter(fs)
+	fs.PlatformDataGetter = NewUnixDataGetter(fs)
 
 	files, _ := strconv.Atoi(params.Get("files"))
 	maxsize, _ := strconv.Atoi(params.Get("maxsize"))
