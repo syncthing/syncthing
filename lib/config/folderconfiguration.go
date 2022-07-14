@@ -222,7 +222,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	if f.Type == FolderTypeReceiveEncrypted {
 		f.DisableTempIndexes = true
 		f.IgnorePerms = true
-		f.Versioning.Reset()
 	}
 }
 
