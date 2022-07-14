@@ -1543,7 +1543,7 @@ angular.module('syncthing.core')
                     if (splits.length > 0) {
                         port = splits[splits.length - 1];
                     }
-                    return `https://${cfg.webauthnRpId || 'localhost'}${port ? ':' : ''}${port}`;
+                    return 'https://' + (cfg.webauthnRpId || 'localhost') + (port ? ':' : '') + port;
                 } else {
                     return '';
                 }
