@@ -149,8 +149,8 @@ message Counter {
 }
 
 message PlatformData {
-    POSIXData   posix   = 1;
-    WindowsData windows = 2;
+    POSIXData   posix   = 1 [(gogoproto.nullable) = true];
+    WindowsData windows = 2 [(gogoproto.nullable) = true];
 }
 
 message POSIXData {

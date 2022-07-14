@@ -21,5 +21,5 @@ type OSDataGetter interface {
 	// return entries for other operating systems. Generally this will be a
 	// one-entry map, but it's also imaginable that it'll return an entry
 	// for POSIX and another entry for Linux with more specific data...
-	GetOSData(cur *protocol.FileInfo, stat FileInfo) (map[protocol.OS][]byte, error)
+	GetOSData(cur *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error)
 }

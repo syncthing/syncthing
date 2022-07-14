@@ -36,7 +36,7 @@ message FileInfoTruncated {
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;
     int32                 block_size     = 13 [(ext.goname) = "RawBlockSize"];
-    map<int32, bytes>     os_data        = 14 [(gogoproto.castkey) = "github.com/syncthing/syncthing/lib/protocol.OS", (ext.goname) = "OSData"];
+    protocol.PlatformData platform       = 14;
 
     // see bep.proto
     uint32 local_flags  = 1000;

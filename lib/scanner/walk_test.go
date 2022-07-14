@@ -574,16 +574,15 @@ func TestScanOwnershipPOSIX(t *testing.T) {
 			continue
 		}
 
-		var pd protocol.POSIXOSData
-		if !files[i].LoadOSData(protocol.OsPosix, &pd) {
+		if files[i].Platform.Posix == nil {
 			t.Error("failed to load POSIX data on", files[i].Name)
 			continue
 		}
-		if pd.UID != expected[i].uid {
-			t.Errorf("expected %d, got %d", expected[i].uid, pd.UID)
+		if files[i].Platform.Posix.UID != expected[i].uid {
+			t.Errorf("expected %d, got %d", expected[i].uid, files[i].Platform.Posix.UID)
 		}
-		if pd.GID != expected[i].gid {
-			t.Errorf("expected %d, got %d", expected[i].gid, pd.GID)
+		if files[i].Platform.Posix.GID != expected[i].gid {
+			t.Errorf("expected %d, got %d", expected[i].gid, files[i].Platform.Posix.GID)
 		}
 	}
 }
@@ -609,11 +608,10 @@ func TestScanOwnershipWindows(t *testing.T) {
 	t.Log(files[0])
 
 	// The file should have an owner name set.
-	var pd protocol.WindowsOSData
-	if !files[0].LoadOSData(protocol.OsWindows, &pd) {
+	if files[0].Platform.Windows == nil {
 		t.Fatal("failed to load Windows data")
 	}
-	if pd.OwnerName == "" {
+	if files[0].Platform.Windows.OwnerName == "" {
 		t.Errorf("expected owner name to be set")
 	}
 }

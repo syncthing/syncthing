@@ -583,14 +583,11 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.LocalFlags = w.LocalFlags
 
 	// Copy OS data from src to dst, unless it was already set on dst.
-	if len(dst.OSData) == 0 {
-		dst.OSData = src.OSData
-	} else {
-		for k, v := range src.OSData {
-			if _, ok := dst.OSData[k]; !ok {
-				dst.OSData[k] = v
-			}
-		}
+	if dst.Platform.Posix == nil {
+		dst.Platform.Posix = src.Platform.Posix
+	}
+	if dst.Platform.Windows == nil {
+		dst.Platform.Windows = src.Platform.Windows
 	}
 
 	return dst
@@ -665,7 +662,7 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	f.OSData, _ = filesystem.GetOSData(&f, fi)
+	f.Platform, _ = filesystem.GetOSData(&f, fi)
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

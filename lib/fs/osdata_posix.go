@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"fmt"
 	"os/user"
 	"strconv"
 
@@ -20,7 +19,7 @@ func NewPOSIXDataGetter(_ Filesystem) OSDataGetter {
 
 type POSIXOSDataGetter struct{}
 
-func (p *POSIXOSDataGetter) GetOSData(_ *protocol.FileInfo, stat FileInfo) (map[protocol.OS][]byte, error) {
+func (p *POSIXOSDataGetter) GetOSData(_ *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
 	ownerUID := stat.Owner()
 	ownerName := ""
 	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil {
@@ -33,18 +32,12 @@ func (p *POSIXOSDataGetter) GetOSData(_ *protocol.FileInfo, stat FileInfo) (map[
 		groupName = g.Name
 	}
 
-	// Create the POSIX private data structure and store it marshalled.
-	pd := &protocol.POSIXOSData{
-		OwnerName: ownerName,
-		GroupName: groupName,
-		UID:       ownerUID,
-		GID:       groupID,
-	}
-	bs, err := pd.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("surprising error marshalling private data: %w", err)
-	}
-	return map[protocol.OS][]byte{
-		protocol.OsPosix: bs,
+	return protocol.PlatformData{
+		Posix: &protocol.POSIXData{
+			OwnerName: ownerName,
+			GroupName: groupName,
+			UID:       ownerUID,
+			GID:       groupID,
+		},
 	}, nil
 }
