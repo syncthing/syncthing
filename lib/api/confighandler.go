@@ -496,6 +496,7 @@ func (c *configMuxBuilder) finishWebauthnRegistration(w http.ResponseWriter, r *
 	configCred := config.WebauthnCredential{
 		ID: base64.URLEncoding.EncodeToString(credential.ID),
 		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
+		SignCount: credential.Authenticator.SignCount,
 	}
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)

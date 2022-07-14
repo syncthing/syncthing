@@ -8,6 +8,7 @@ package api
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	ldap "github.com/go-ldap/ldap/v3"
 	webauthnLib "github.com/duo-labs/webauthn/webauthn"
+	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -275,11 +277,36 @@ func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *htt
 	state := s.webauthnState
 	s.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-	guiCfg := s.cfg.GUI()
-	_, err = webauthn.FinishLogin(guiCfg, state, r)
+	parsedResponse, err := webauthnProtocol.ParseCredentialRequestResponse(r)
 	if err != nil {
-		fmt.Println(err)
+		l.Debugln("Failed to parse WebAuthn authentication response", err)
 		return false
+	}
+
+	guiCfg := s.cfg.GUI()
+	updatedCred, err := webauthn.ValidateLogin(guiCfg, state, parsedResponse)
+	if err != nil {
+		l.Infoln("WebAuthn authentication failed", err)
+		return false
+	}
+
+	authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
+	authenticatedCredName := authenticatedCredId
+	var signCountBefore uint32 = 0
+	waiter, err := s.cfg.Modify(func(cfg *config.Configuration) {
+		for i, cred := range cfg.GUI.WebauthnCredentials {
+			if cred.ID == authenticatedCredId {
+				signCountBefore = cfg.GUI.WebauthnCredentials[i].SignCount
+				authenticatedCredName = cfg.GUI.WebauthnCredentials[i].Nickname
+				cfg.GUI.WebauthnCredentials[i].SignCount = updatedCred.Authenticator.SignCount
+				break
+			}
+		}
+	})
+	s.cfg.Finish(w, waiter)
+
+	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
+		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential \"%s\": expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
 	}
 
 	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)

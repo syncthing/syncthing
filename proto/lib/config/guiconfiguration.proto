@@ -29,4 +29,5 @@ message WebauthnCredential {
     string id              = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr"];
     string nickname        = 2 [(ext.xml) = "nickname,attr"];
     string public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
+    uint32 sign_count      = 4 [(ext.xml) = "signCount,attr"];
 }

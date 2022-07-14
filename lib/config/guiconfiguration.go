@@ -188,6 +188,9 @@ func (gui GUIConfiguration) WebAuthnCredentials() []webauthn.Credential {
 		result = append(result, webauthn.Credential{
 			ID: id,
 			PublicKey: pubkey,
+			Authenticator: webauthn.Authenticator{
+				SignCount: cred.SignCount,
+			},
 		})
 	}
 	return result
