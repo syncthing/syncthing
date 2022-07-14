@@ -13,7 +13,6 @@ import (
 	"net/http"
 
 	webauthnLib "github.com/duo-labs/webauthn/webauthn"
-	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -472,12 +471,6 @@ func (c *configMuxBuilder) startWebauthnRegistration(w http.ResponseWriter, r *h
 	}
 
 	c.webauthnState = *sessionData
-	for _, cred := range c.cfg.GUI().WebAuthnCredentials() {
-		options.Response.CredentialExcludeList = append(options.Response.CredentialExcludeList, webauthnProtocol.CredentialDescriptor{
-			Type: "public-key",
-			CredentialID: cred.ID,
-		})
-	}
 
 	sendJSON(w, options)
 }

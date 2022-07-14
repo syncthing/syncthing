@@ -1478,6 +1478,11 @@ angular.module('syncthing.core')
             $scope.registerWebauthnCredential = function () {
                 $scope.webauthn.errors = {};
                 $http.post(urlbase + '/config/webauthn/register-start').success(function (data) {
+
+                    // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
+                    data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
+                      return { type: "public-key", id: cred.id };
+                    });
                     webauthnJSON.create(data)
                         .then(function (pkc) {
                             return $http.post(urlbase + '/config/webauthn/register-finish', pkc).success(function (data) {
