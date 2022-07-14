@@ -30,4 +30,6 @@ message WebauthnCredential {
     string nickname        = 2 [(ext.xml) = "nickname,attr"];
     string public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
     uint32 sign_count      = 4 [(ext.xml) = "signCount,attr"];
+    // This should also include a "transports" field, but duo-labs/webauthn doesn't currently support it.
+    // See: https://www.w3.org/TR/2021/REC-webauthn-2-20210408/#dom-publickeycredentialdescriptor-transports
 }
