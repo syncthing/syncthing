@@ -175,13 +175,13 @@ func (gui GUIConfiguration) WebAuthnCredentials() []webauthn.Credential {
 	for _, cred := range gui.WebauthnCredentials {
 		id, err := base64.URLEncoding.DecodeString(cred.ID)
 		if err != nil {
-			fmt.Println(err)
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential \"%s\": %s", cred.Nickname, cred.ID), err)
 			continue
 		}
 
 		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
-			fmt.Println(err)
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential \"%s\" (%s)", cred.Nickname, cred.ID), err)
 			continue
 		}
 

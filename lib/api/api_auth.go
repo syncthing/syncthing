@@ -252,13 +252,13 @@ func (s *webauthnMux) registerWebauthnAuthentication(path string) {
 func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
-		fmt.Println(err)
+		l.Warnln("Failed to initialize WebAuthn handle", err)
 		return
 	}
 
 	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI())
 	if err != nil {
-		fmt.Println(err)
+		l.Warnln("Failed to initialize WebAuthn login", err)
 		return
 	}
 
@@ -270,7 +270,7 @@ func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http
 func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) bool {
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
-		fmt.Println(err)
+		l.Warnln("Failed to initialize WebAuthn handle", err)
 		return false
 	}
 
