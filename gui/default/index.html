@@ -14,18 +14,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="description" content=""/>
   <meta name="author" content=""/>
-  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png"/>
-  <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
+  <link rel="shortcut icon" href="static/assets/img/favicon-{{syncthingStatus()}}.png"/>
+  <link rel="mask-icon" href="static/assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
-  <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
-  <link href="vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
-  <link href="assets/font/raleway.css" rel="stylesheet"/>
-  <link href="vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
-  <link href="vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
-  <link href="assets/css/tree.css" rel="stylesheet"/>
-  <link href="assets/css/overrides.css" rel="stylesheet"/>
-  <link href="assets/css/theme.css" rel="stylesheet"/>
+  <link href="static/vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="static/vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
+  <link href="static/assets/font/raleway.css" rel="stylesheet"/>
+  <link href="static/vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
+  <link href="static/vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
+  <link href="static/assets/css/tree.css" rel="stylesheet"/>
+  <link href="static/assets/css/overrides.css" rel="stylesheet"/>
+  <link href="static/assets/css/theme.css" rel="stylesheet"/>
 </head>
 
 <body>
@@ -33,8 +33,8 @@
     <nav class="navbar navbar-top navbar-default" role="navigation">
       <div class="container">
         <span class="navbar-brand" aria-hidden="true">
-          <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
-          <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
+          <img class="logo hidden-xs" src="static/assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
+          <img class="logo hidden visible-xs" src="static/assets/img/favicon-default.png" height="32" alt=""/>
         </span>
       </div>
     </nav>
@@ -63,15 +63,15 @@
   </noscript>
 
   <div class="ng-cloak">
-    <script type="text/javascript" src="syncthing/development/logbar.js"></script>
-    <div ng-if="version.isBeta" ng-include="'syncthing/development/logbar.html'"></div>
+    <script type="text/javascript" src="static/syncthing/development/logbar.js"></script>
+    <div ng-if="version.isBeta" ng-include="'static/syncthing/development/logbar.html'"></div>
     <!-- Top bar -->
 
     <nav class="navbar navbar-top navbar-default" role="navigation">
       <div class="container">
         <span class="navbar-brand" aria-hidden="true">
-          <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
-          <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
+          <img class="logo hidden-xs" src="static/assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
+          <img class="logo hidden visible-xs" src="static/assets/img/favicon-default.png" height="32" alt=""/>
         </span>
         <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
         <ul class="nav navbar-nav navbar-right">
@@ -186,7 +186,7 @@
 
         <!-- Panel: Notifications -->
 
-        <div ng-if="config.options && config.options.unackedNotificationIDs" ng-include="'syncthing/core/notifications.html'"></div>
+        <div ng-if="config.options && config.options.unackedNotificationIDs" ng-include="'static/syncthing/core/notifications.html'"></div>
 
         <!-- Panel: New Device -->
 
@@ -965,77 +965,77 @@
     </div>
   </nav>
 
-  <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
-  <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
-  <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/restoreVersionsModalView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
-  <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
-  <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
-  <ng-include src="'syncthing/settings/discardChangesConfirmation.html'"></ng-include>
-  <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
-  <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
-  <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
-  <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
-  <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
-  <ng-include src="'syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
-  <ng-include src="'syncthing/core/connectivityStatusModalView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/revertOverrideView.html'"></ng-include>
-  <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/networkErrorDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/httpErrorDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/restartingDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/upgradingDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/shutdownDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/device/idqrModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/device/editDeviceModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/device/globalChangesModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/folder/editFolderModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/folder/restoreVersionsModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
+  <ng-include src="'static/syncthing/settings/settingsModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/settings/advancedSettingsModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/settings/discardChangesConfirmation.html'"></ng-include>
+  <ng-include src="'static/syncthing/usagereport/usageReportModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/transfer/neededFilesModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/transfer/failedFilesModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/upgradeModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/majorUpgradeModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/aboutModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/connectivityStatusModalView.html'"></ng-include>
+  <ng-include src="'static/syncthing/folder/removeFolderDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/folder/revertOverrideView.html'"></ng-include>
+  <ng-include src="'static/syncthing/device/removeDeviceDialogView.html'"></ng-include>
+  <ng-include src="'static/syncthing/core/logViewerModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
-  <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
-  <script type="text/javascript" src="vendor/angular/angular.js"></script>
-  <script type="text/javascript" src="vendor/angular/angular-sanitize.js"></script>
-  <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>
-  <script type="text/javascript" src="vendor/angular/angular-translate-loader-static-files.js"></script>
-  <script type="text/javascript" src="vendor/angular/angular-dirPagination.js"></script>
-  <script type="text/javascript" src="vendor/moment/moment.js"></script>
-  <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
-  <script type="text/javascript" src="vendor/daterangepicker/daterangepicker.js"></script>
-  <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
-  <script type="text/javascript" src="vendor/webauthn-json-1.0.3/webauthn-json.browser-global.js"></script>
+  <script type="text/javascript" src="static/vendor/jquery/jquery-2.2.2.js"></script>
+  <script type="text/javascript" src="static/vendor/angular/angular.js"></script>
+  <script type="text/javascript" src="static/vendor/angular/angular-sanitize.js"></script>
+  <script type="text/javascript" src="static/vendor/angular/angular-translate.js"></script>
+  <script type="text/javascript" src="static/vendor/angular/angular-translate-loader-static-files.js"></script>
+  <script type="text/javascript" src="static/vendor/angular/angular-dirPagination.js"></script>
+  <script type="text/javascript" src="static/vendor/moment/moment.js"></script>
+  <script type="text/javascript" src="static/vendor/bootstrap/js/bootstrap.js"></script>
+  <script type="text/javascript" src="static/vendor/daterangepicker/daterangepicker.js"></script>
+  <script type="text/javascript" src="static/vendor/fancytree/jquery.fancytree-all-deps.js"></script>
+  <script type="text/javascript" src="static/vendor/webauthn-json-1.0.3/webauthn-json.browser-global.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
-  <script type="text/javascript" src="syncthing/core/module.js"></script>
-  <script type="text/javascript" src="syncthing/core/alwaysNumberFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/basenameFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/binaryFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/localeNumberFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/percentFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/durationFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/eventService.js"></script>
-  <script type="text/javascript" src="syncthing/core/identiconDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/languageSelectDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/lastErrorComponentFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/localeService.js"></script>
-  <script type="text/javascript" src="syncthing/core/modalDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/metricFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/notificationDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/pathIsSubDirDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/popoverDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/selectOnClickDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
-  <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
-  <script type="text/javascript" src="assets/lang/valid-langs.js"></script>
-  <script type="text/javascript" src="assets/lang/prettyprint.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/module.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/alwaysNumberFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/basenameFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/binaryFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/localeNumberFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/percentFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/durationFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/eventService.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/identiconDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/languageSelectDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/lastErrorComponentFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/localeService.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/modalDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/metricFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/notificationDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/pathIsSubDirDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/popoverDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/selectOnClickDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/syncthingController.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/tooltipDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/uncamelFilter.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/uniqueFolderDirective.js"></script>
+  <script type="text/javascript" src="static/syncthing/core/validDeviceidDirective.js"></script>
+  <script type="text/javascript" src="static/assets/lang/valid-langs.js"></script>
+  <script type="text/javascript" src="static/assets/lang/prettyprint.js"></script>
   <script type="text/javascript" src="meta.js"></script>
-  <script type="text/javascript" src="syncthing/app.js"></script>
+  <script type="text/javascript" src="static/syncthing/app.js"></script>
   <!-- / gui application code -->
 
 </body>

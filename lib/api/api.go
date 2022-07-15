@@ -341,6 +341,11 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// The main routing handler for everything behind auth
 	mux := http.NewServeMux()
+	mux.Handle("/rest/", noCacheRestMux)
+	mux.HandleFunc("/qr/", s.getQR)
+
+	// Handle the special meta.js path
+	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
 	guiCfg := s.cfg.GUI()
 
@@ -369,17 +374,19 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// The main routing handler
 	unauthenticatedMux := http.NewServeMux()
-	mux.Handle("/rest/", noCacheRestMux)
-	unauthenticatedMux.Handle("/rest/", handler)
-	mux.HandleFunc("/qr/", s.getQR)
-	unauthenticatedMux.Handle("/qr/", handler)
-
-	// Handle the special meta.js path
-	mux.HandleFunc("/meta.js", s.getJSMetadata)
-	unauthenticatedMux.Handle("/meta.js", handler)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	unauthenticatedMux.Handle("/", s.statics)
+	unauthenticatedMux.Handle("/static/", http.StripPrefix("/static", s.statics))
+
+	// Everything except /static/ and /index.html falls back to the authenticated handler
+	unauthenticatedMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" || r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			s.statics.ServeHTTP(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+		return
+	})
 
 	srv := http.Server{
 		// Redirect to HTTPS if we are supposed to
