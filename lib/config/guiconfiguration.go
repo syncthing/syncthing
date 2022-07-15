@@ -126,8 +126,14 @@ func (c GUIConfiguration) URL() string {
 	return u.String()
 }
 
-// SetHashedPassword hashes the given plaintext password and stores the new hash.
+// SetHashedPassword hashes the given cleartext password and stores the new hash.
+// If the cleartext password is empty, the password is unset instead.
 func (c *GUIConfiguration) HashAndSetPassword(password string) error {
+	if password == "" {
+		c.Password = ""
+		return nil
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
 	if err != nil {
 		return err
