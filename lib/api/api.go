@@ -368,23 +368,22 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 
 	// The main routing handler
-	mainMuxBuilder := splitMux{
-		fallbackHandler: &handler,
-		fallbackMux: mux, // Authenticated section
-		mainMux: http.NewServeMux(), // Unauthenticated section
-	}
-	mainMuxBuilder.Handle("/rest/", noCacheRestMux)
-	mainMuxBuilder.HandleFunc("/qr/", s.getQR)
+	unauthenticatedMux := http.NewServeMux()
+	mux.Handle("/rest/", noCacheRestMux)
+	unauthenticatedMux.Handle("/rest/", handler)
+	mux.HandleFunc("/qr/", s.getQR)
+	unauthenticatedMux.Handle("/qr/", handler)
 
 	// Handle the special meta.js path
-	mainMuxBuilder.HandleFunc("/meta.js", s.getJSMetadata)
+	mux.HandleFunc("/meta.js", s.getJSMetadata)
+	unauthenticatedMux.Handle("/meta.js", handler)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mainMuxBuilder.mainMux.Handle("/", s.statics)
+	unauthenticatedMux.Handle("/", s.statics)
 
 	srv := http.Server{
 		// Redirect to HTTPS if we are supposed to
-		Handler: debugMiddleware(redirectToHTTPSMiddleware(guiCfg.UseTLS(), mainMuxBuilder.mainMux)),
+		Handler: debugMiddleware(redirectToHTTPSMiddleware(guiCfg.UseTLS(), unauthenticatedMux)),
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
@@ -445,27 +444,6 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 
 	return err
-}
-
-// The purpose of splitMux is to help have an unauthenticated section of the API
-// and have everything else fall back to the authenticated segment.
-// The Handle and HandleFunc methods here let you call a "handle" function once
-// but have the path set up in both the unauthenticated "top" mux and the fallback mux.
-// The fallbackHandler is also needed since the fallbackHandler wraps the fallbackMux,
-// but routing paths are registered in the fallbackMux,
-// and the mainMux needs to be configured with the same paths.
-type splitMux struct {
-	fallbackHandler *http.Handler
-	fallbackMux *http.ServeMux
-	mainMux *http.ServeMux
-}
-func (s *splitMux) Handle(path string, handler http.Handler) {
-	s.fallbackMux.Handle(path, handler)
-	s.mainMux.Handle(path, *s.fallbackHandler)
-}
-func (s *splitMux) HandleFunc(path string, handler http.HandlerFunc) {
-	s.fallbackMux.Handle(path, handler)
-	s.mainMux.Handle(path, *s.fallbackHandler)
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
