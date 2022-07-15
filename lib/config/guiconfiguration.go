@@ -20,8 +20,12 @@ import (
 	"github.com/duo-labs/webauthn/webauthn"
 )
 
+func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
+	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
+}
+
 func (c GUIConfiguration) IsAuthEnabled() bool {
-	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0) || c.WebauthnReady()
+	return c.IsPasswordAuthEnabled() || c.WebauthnReady()
 }
 
 func (c GUIConfiguration) IsOverridden() bool {

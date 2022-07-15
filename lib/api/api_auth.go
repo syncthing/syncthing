@@ -168,11 +168,14 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
-	if guiCfg.AuthMode == config.AuthModeLDAP {
-		return authLDAP(username, password, ldapCfg)
-	} else {
-		return authStatic(username, password, guiCfg)
+	if guiCfg.IsPasswordAuthEnabled() {
+		if guiCfg.AuthMode == config.AuthModeLDAP {
+			return authLDAP(username, password, ldapCfg)
+		} else {
+			return authStatic(username, password, guiCfg)
+		}
 	}
+	return false
 }
 
 func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {
