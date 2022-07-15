@@ -42,8 +42,22 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
-func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, webauthnNext http.Handler, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func forbidden(w http.ResponseWriter) {
+	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
+	http.Error(w, "Forbidden", http.StatusForbidden)
+}
+
+func internalServerError(w http.ResponseWriter) {
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
+}
+
+func badRequest(w http.ResponseWriter) {
+	http.Error(w, "Bad request", http.StatusBadRequest)
+}
+
+func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) (http.Handler, http.Handler) {
+
+	handleAuthzPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
@@ -60,44 +74,70 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 			}
 		}
 
-		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
-
-		error := func() {
-			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
-			w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
-			http.Error(w, "Not Authorized", http.StatusUnauthorized)
+		// Fall back to Basic auth if provided, but don't prompt for it
+		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
+			createSession(cookieName, username, guiCfg, evLogger, w, r)
+			next.ServeHTTP(w, r)
+		} else {
+			forbidden(w)
+			return
 		}
+	})
 
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			if guiCfg.WebauthnReady() {
-				webauthnNext.ServeHTTP(w, r)
-				return
-			} else {
-				error()
-				return
-			}
-		}
-
-		authOk := auth(username, password, guiCfg, ldapCfg)
-		if !authOk {
-			usernameIso := string(iso88591ToUTF8([]byte(username)))
-			passwordIso := string(iso88591ToUTF8([]byte(password)))
-			authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
-			if authOk {
-				username = usernameIso
-			}
-		}
-
-		if !authOk {
-			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			error()
+	handlePasswordLogin := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Fall back to Basic auth if provided, but don't prompt for it
+		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
+			createSession(cookieName, username, guiCfg, evLogger, w, r)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		createSession(cookieName, username, guiCfg, evLogger, w, r)
-		next.ServeHTTP(w, r)
+		var req struct{Username string; Password string}
+		err := unmarshalTo(r.Body, &req)
+		if err != nil {
+			l.Debugln("Failed to parse username and password:", err)
+			http.Error(w, "Failed to parse username and password.", 400)
+			return
+		}
+
+		if auth(req.Username, req.Password, guiCfg, ldapCfg) {
+			createSession(cookieName, req.Username, guiCfg, evLogger, w, r)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
+		forbidden(w)
+		return
 	})
+
+	return handleAuthzPassthrough, handlePasswordLogin
+}
+
+func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		return "", false
+	}
+
+	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+
+	authOk := auth(username, password, guiCfg, ldapCfg)
+	if !authOk {
+		usernameIso := string(iso88591ToUTF8([]byte(username)))
+		passwordIso := string(iso88591ToUTF8([]byte(password)))
+		authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+		if authOk {
+			username = usernameIso
+		}
+	}
+
+	if authOk {
+		return username, true
+	}
+
+	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	return "", false
 }
 
 func createSession(cookieName string, username string, guiCfg config.GUIConfiguration, evLogger events.Logger, w http.ResponseWriter, r *http.Request) {
@@ -228,25 +268,14 @@ type webauthnMux struct {
 	evLogger events.Logger
 }
 
-func newWebauthnMux(path string, cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnMux {
+func newWebauthnMux(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnMux {
 	result := webauthnMux{
 		Router: httprouter.New(),
 		cfg: cfg,
 		cookieName: cookieName,
 		evLogger: evLogger,
 	}
-	result.registerWebauthnAuthentication(path)
 	return result
-}
-
-func (s *webauthnMux) registerWebauthnAuthentication(path string) {
-	s.HandlerFunc(http.MethodPost, path + "/authenticate-start", func(w http.ResponseWriter, r *http.Request) {
-		s.startWebauthnAuthentication(w, r)
-	})
-
-	s.HandlerFunc(http.MethodPost, path + "/authenticate-finish", func(w http.ResponseWriter, r *http.Request) {
-		s.finishWebauthnAuthentication(w, r)
-	})
 }
 
 func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
@@ -267,11 +296,12 @@ func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http
 	sendJSON(w, options)
 }
 
-func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) bool {
+func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)
-		return false
+		internalServerError(w)
+		return
 	}
 
 	state := s.webauthnState
@@ -280,14 +310,16 @@ func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *htt
 	parsedResponse, err := webauthnProtocol.ParseCredentialRequestResponse(r)
 	if err != nil {
 		l.Debugln("Failed to parse WebAuthn authentication response", err)
-		return false
+		badRequest(w)
+		return
 	}
 
 	guiCfg := s.cfg.GUI()
 	updatedCred, err := webauthn.ValidateLogin(guiCfg, state, parsedResponse)
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
-		return false
+		forbidden(w)
+		return
 	}
 
 	authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
@@ -310,6 +342,5 @@ func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *htt
 	}
 
 	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)
-
-	return true
+	w.WriteHeader(http.StatusNoContent)
 }

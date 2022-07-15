@@ -347,6 +347,12 @@ func (s *service) Serve(ctx context.Context) error {
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
+	// The main routing handler
+	unauthenticatedMux := http.NewServeMux()
+
+	// Serve compiled in assets unless an asset directory was set (for development)
+	unauthenticatedMux.Handle("/static/", http.StripPrefix("/static", s.statics))
+
 	guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
@@ -360,8 +366,17 @@ func (s *service) Serve(ctx context.Context) error {
 	if guiCfg.IsAuthEnabled() {
 		cookieName := "sessionid-"+s.id.String()[:5]
 
-		webauthnMux := newWebauthnMux("/rest/webauthn", s.cfg, cookieName, s.evLogger)
-		handler = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, webauthnMux, s.evLogger)
+		var handlePasswordAuth http.Handler
+		handler, handlePasswordAuth = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+
+		authnRouter := httprouter.New()
+		authnRouter.Handler(http.MethodPost, "/authn/password", handlePasswordAuth)
+
+		webauthnMux := newWebauthnMux(s.cfg, cookieName, s.evLogger)
+		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-start", webauthnMux.startWebauthnAuthentication)
+		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-finish", webauthnMux.finishWebauthnAuthentication)
+
+		unauthenticatedMux.Handle("/authn/", authnRouter)
 	}
 
 	// Add the CORS handling
@@ -371,12 +386,6 @@ func (s *service) Serve(ctx context.Context) error {
 		// Verify source host
 		handler = localhostMiddleware(handler)
 	}
-
-	// The main routing handler
-	unauthenticatedMux := http.NewServeMux()
-
-	// Serve compiled in assets unless an asset directory was set (for development)
-	unauthenticatedMux.Handle("/static/", http.StripPrefix("/static", s.statics))
 
 	// Everything except /static/ and /index.html falls back to the authenticated handler
 	unauthenticatedMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

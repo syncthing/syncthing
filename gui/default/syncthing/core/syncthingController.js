@@ -22,7 +22,7 @@ angular.module('syncthing.core')
 
         $scope.authenticated = !!window.metadata;
         $scope.login = {
-            user: '',
+            username: '',
             password: '',
             errors: {},
         };
@@ -95,14 +95,13 @@ angular.module('syncthing.core')
         $scope.authenticatePassword = function () {
             $scope.login.inProgress = true;
             $scope.login.errors = {};
-            $http.post('/meta.js', {}, {
-                headers: {
-                    'Authorization': 'Basic ' + btoa($scope.login.user + ':' + $scope.login.password),
-                },
+            $http.post(authnUrlbase + '/password', {
+              username: $scope.login.username,
+              password: $scope.login.password,
             }).success(function () {
                 location.reload();
             }).catch(function (response) {
-                if (response.status === 401) {
+                if (response.status === 403) {
                     $scope.login.errors.badLogin = true;
                 } else {
                     $scope.login.errors.failed = true;
@@ -1502,10 +1501,10 @@ angular.module('syncthing.core')
             };
 
             $scope.authenticateWebauthn = function () {
-                $http.post(urlbase + '/webauthn/authenticate-start').success(function (data) {
+                $http.post(authnUrlbase + '/webauthn/authenticate-start').success(function (data) {
                     webauthnJSON.get(data)
                         .then(function (pkc) {
-                            return $http.post(urlbase + '/webauthn/authenticate-finish', pkc).success(function () {
+                            return $http.post(authnUrlbase + '/webauthn/authenticate-finish', pkc).success(function () {
                                 location.reload();
                             });
                         });

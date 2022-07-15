@@ -16,6 +16,7 @@ var syncthing = angular.module('syncthing', [
 ]);
 
 var urlbase = 'rest';
+var authnUrlbase = 'authn';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     if (window.metadata) {
