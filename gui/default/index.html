@@ -364,16 +364,27 @@
           <p translate>
             Or...
           </p>
-          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || isRawIpAddress()" tabindex="3">
+          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || isRawIpAddress() || getLocationProtocol() !== 'https'" tabindex="3">
             <span translate>Log in with WebAuthn</span>
           </button>
 
           <p class="text-info" ng-if="isRawIpAddress()" translate>
             WebAuthn is not supported on raw IP address hosts.
           </p>
-          <p class="text-info" ng-if="isRawIpAddress()">
-            <a href=""
-            WebAuthn is not supported on raw IP address hosts.
+          <p class="text-info" ng-if="getLocationProtocol() !== 'https'" translate>
+            WebAuthn requires HTTPS.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
+            This device or security key is not registered. Please try a different one.
+          </p>
+          <p class="text-info" ng-if="webauthn.errors.aborted" translate>
+            Authentication aborted by user.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
+            Authentication failed - possibly aborted, timed out, or blocked by the browser.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
+            Authentication failed, see server log for details.
           </p>
         </div>
       </div>

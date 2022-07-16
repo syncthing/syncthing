@@ -1480,39 +1480,58 @@ angular.module('syncthing.core')
         if ($scope.webauthnAvailable()) {
             $scope.registerWebauthnCredential = function () {
                 $scope.webauthn.errors = {};
-                $http.post(urlbase + '/config/webauthn/register-start').success(function (data) {
-
-                    // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                    data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
-                      return { type: "public-key", id: cred.id };
-                    });
-                    webauthnJSON.create(data)
-                        .then(function (pkc) {
-                            return $http.post(urlbase + '/config/webauthn/register-finish', pkc).success(function (data) {
-                                $scope.tmpGUI.webauthnCredentials.push(data);
-                            });
-                        })
-                        .catch(function (e) {
-                            if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
-                                $scope.webauthn.errors.alreadyRegistered = true;
-                            } else {
-                                $scope.webauthn.errors.registrationFailed = true;
-                                console.log('Credential creation failed.', e);
-                            }
-                            $scope.$apply(); // Promise callback runs outside Angular lifecycle
+                $http.post(urlbase + '/config/webauthn/register-start')
+                    .then(function (resp) {
+                        // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
+                        resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
+                          return { type: "public-key", id: cred.id };
                         });
-                });
+                      return webauthnJSON.create(resp.data);
+                    })
+                    .then(function (pkc) {
+                        return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
+                    })
+                    .then(function (resp) {
+                        $scope.tmpGUI.webauthnCredentials.push(resp.data);
+                    })
+                    .catch(function (e) {
+                        if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
+                            $scope.webauthn.errors.alreadyRegistered = true;
+                        } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
+                          $scope.webauthn.errors.aborted = true;
+                        } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                          $scope.webauthn.errors.notAllowed = true;
+                        } else {
+                            $scope.webauthn.errors.registrationFailed = true;
+                            console.log('Credential creation failed.', e);
+                        }
+                    });
             };
 
             $scope.authenticateWebauthn = function () {
-                $http.post(authnUrlbase + '/webauthn/authenticate-start').success(function (data) {
-                    webauthnJSON.get(data)
-                        .then(function (pkc) {
-                            return $http.post(authnUrlbase + '/webauthn/authenticate-finish', pkc).success(function () {
-                                location.reload();
-                            });
-                        });
-                });
+              $scope.webauthn.errors = {};
+                $http.post(authnUrlbase + '/webauthn/authenticate-start')
+                    .then(function (resp) {
+                        return webauthnJSON.get(resp.data);
+                    })
+                    .then(function (pkc) {
+                        return $http.post(authnUrlbase + '/webauthn/authenticate-finish', pkc);
+                    })
+                    .then(function () {
+                        location.reload();
+                    })
+                    .catch(function (e) {
+                      if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
+                          $scope.webauthn.errors.notRegistered = true;
+                      } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
+                          $scope.webauthn.errors.aborted = true;
+                      } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                          $scope.webauthn.errors.notAllowed = true;
+                      } else {
+                          $scope.webauthn.errors.authenticationFailed = true;
+                          console.log('WebAuthn authentication failed.', e);
+                      }
+                    });
             };
 
             $scope.deleteWebauthnCredential = function (cfg, cred) {

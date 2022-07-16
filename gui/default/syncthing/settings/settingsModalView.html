@@ -249,6 +249,14 @@
                         This device or security key is already registered. Please use a different one.
                       </p>
 
+                      <p class="text-info" ng-if="webauthn.errors.aborted" translate>
+                        Registration aborted by user.
+                      </p>
+
+                      <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
+                        Registration failed - possibly aborted, timed out, or blocked by the browser.
+                      </p>
+
                       <p class="text-danger" ng-if="webauthn.errors.registrationFailed" translate>
                         Failed to create credential, see server log for details.
                       </p>
