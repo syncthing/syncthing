@@ -364,9 +364,17 @@
           <p translate>
             Or...
           </p>
-          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress" tabindex="3">
+          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || isRawIpAddress()" tabindex="3">
             <span translate>Log in with WebAuthn</span>
           </button>
+
+          <p class="text-info" ng-if="isRawIpAddress()" translate>
+            WebAuthn is not supported on raw IP address hosts.
+          </p>
+          <p class="text-info" ng-if="isRawIpAddress()">
+            <a href=""
+            WebAuthn is not supported on raw IP address hosts.
+          </p>
         </div>
       </div>
 
