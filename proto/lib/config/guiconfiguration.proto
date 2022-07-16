@@ -20,9 +20,10 @@ message GUIConfiguration {
     bool                        debugging                    = 11 [(ext.xml) = "debugging,attr"];
     bool                        insecure_skip_host_check     = 12 [(ext.xml) = "insecureSkipHostcheck,omitempty", (ext.json) = "insecureSkipHostcheck"];
     bool                        insecure_allow_frame_loading = 13 [(ext.xml) = "insecureAllowFrameLoading,omitempty"];
-    string                      webauthn_rp_id               = 14 [(ext.xml) = "webauthnRpId"];
-    string                      webauthn_origin              = 15 [(ext.xml) = "webauthnOrigin"];
-    repeated WebauthnCredential webauthn_credentials         = 16 [(ext.xml) = "webauthnCredential"];
+    bool                        send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
+    string                      webauthn_rp_id               = 15 [(ext.xml) = "webauthnRpId"];
+    string                      webauthn_origin              = 16 [(ext.xml) = "webauthnOrigin"];
+    repeated WebauthnCredential webauthn_credentials         = 17 [(ext.xml) = "webauthnCredential"];
 }
 
 message WebauthnCredential {

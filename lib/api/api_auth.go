@@ -41,6 +41,12 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
+func unauthorized(w http.ResponseWriter) {
+	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
+	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
+	http.Error(w, "Not Authorized", http.StatusUnauthorized)
+}
+
 func forbidden(w http.ResponseWriter) {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 	http.Error(w, "Forbidden", http.StatusForbidden)
@@ -73,10 +79,13 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 			}
 		}
 
-		// Fall back to Basic auth if provided, but don't prompt for it
 		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
 			createSession(cookieName, username, guiCfg, evLogger, w, r)
 			next.ServeHTTP(w, r)
+		} else if guiCfg.SendBasicAuthPrompt {
+			// Browsers don't send the Authorization request header if not challenged.
+			// This enables https://user:pass@localhost style URLs keep working.
+			unauthorized(w)
 		} else {
 			forbidden(w)
 			return

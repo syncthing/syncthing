@@ -363,8 +363,8 @@ func (s *service) Serve(ctx context.Context) error {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
+	cookieName := "sessionid-"+s.id.String()[:5]
 	if guiCfg.IsAuthEnabled() {
-		cookieName := "sessionid-"+s.id.String()[:5]
 
 		var handlePasswordAuth http.Handler
 		handler, handlePasswordAuth = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
@@ -390,6 +390,20 @@ func (s *service) Serve(ctx context.Context) error {
 	// Everything except /static/ and /index.html falls back to the authenticated handler
 	unauthenticatedMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "" || r.URL.Path == "/" || r.URL.Path == "/index.html" {
+
+			if guiCfg.IsPasswordAuthEnabled() && guiCfg.SendBasicAuthPrompt {
+				if username, ok := attemptBasicAuth(r, guiCfg, s.cfg.LDAP(), s.evLogger); ok {
+					createSession(cookieName, username, guiCfg, s.evLogger, w, r)
+					// And fall through to serve index.html
+
+				} else {
+					// Browsers don't send the Authorization request header if not challenged.
+					// This enables https://user:pass@localhost style URLs keep working.
+					unauthorized(w)
+					return
+				}
+			}
+
 			s.statics.ServeHTTP(w, r)
 			return
 		}
