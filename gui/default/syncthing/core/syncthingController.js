@@ -120,6 +120,10 @@ angular.module('syncthing.core')
             return $location.protocol();
         };
 
+        $scope.isRawIpAddress = function (host) {
+            return (host || $location.host()).match(/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(:.*)?$/) !== null;
+        };
+
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
         });
@@ -1552,6 +1556,19 @@ angular.module('syncthing.core')
                     return '';
                 }
             };
+
+            $scope.locationMatchesWebauthnOrigin = function (cfg) {
+                return cfg && $location.absUrl().startsWith(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+            };
+
+            $scope.reloadAtWebauthnAddress = function (save, cfg) {
+                (save
+                  ? $scope.saveSettings()
+                  : Promise.resolve()
+                ).then(function() {
+                    location.assign(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+                });
+            };
         }
 
         $scope.saveConfig = function () {
@@ -1595,6 +1612,8 @@ angular.module('syncthing.core')
         };
 
         $scope.saveSettings = function () {
+            var savePromise = null;
+
             // Make sure something changed
             if ($scope.settingsModified()) {
                 var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
@@ -1641,7 +1660,7 @@ angular.module('syncthing.core')
                 // here as well...
                 $scope.devices = deviceMap($scope.config.devices);
 
-                $scope.saveConfig().then(function () {
+                savePromise = $scope.saveConfig().then(function () {
                     if (themeChanged) {
                         document.location.reload(true);
                     }
@@ -1649,6 +1668,9 @@ angular.module('syncthing.core')
             }
 
             $("#settings").off("hide.bs.modal").modal("hide");
+
+          // Return a Promise so callers can wait for save completion
+          return savePromise || Promise.resolve();
         };
 
         $scope.saveAdvanced = function () {
