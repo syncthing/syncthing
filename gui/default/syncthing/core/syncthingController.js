@@ -13,9 +13,11 @@ angular.module('syncthing.core')
         var restarting = false;
 
         function initController() {
-            LocaleService.autoConfigLocale();
-            setInterval($scope.refresh, 10000);
-            Events.start();
+            if (window.metadata) {
+                LocaleService.autoConfigLocale();
+                setInterval($scope.refresh, 10000);
+                Events.start();
+            }
         }
 
         // public/scope definitions
@@ -1611,23 +1613,28 @@ angular.module('syncthing.core')
         };
 
         $scope.settingsModified = function () {
-            // Options has artificial properties injected into the temp config.
-            // Need to recompute them before we can check equality
-            var options = angular.copy($scope.config.options);
-            options.deviceName = $scope.thisDevice().name;
-            options.upgrades = "none";
-            if (options.autoUpgradeIntervalH > 0) {
-                options.upgrades = "stable";
+            if ($scope.tmpGUI) {
+                console.log($scope);
+                // Options has artificial properties injected into the temp config.
+                // Need to recompute them before we can check equality
+                var options = angular.copy($scope.config.options);
+                options.deviceName = $scope.thisDevice().name;
+                options.upgrades = "none";
+                if (options.autoUpgradeIntervalH > 0) {
+                    options.upgrades = "stable";
+                }
+                if (options.upgradeToPreReleases) {
+                    options.upgrades = "candidate";
+                }
+                var optionsEqual = angular.equals(options, $scope.tmpOptions);
+                var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
+                var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
+                var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
+                console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
+                return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
+            } else {
+                return false;
             }
-            if (options.upgradeToPreReleases) {
-                options.upgrades = "candidate";
-            }
-            var optionsEqual = angular.equals(options, $scope.tmpOptions);
-            var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
-            var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
-            var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
-            console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
-            return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
         };
 
         $scope.saveSettings = function () {

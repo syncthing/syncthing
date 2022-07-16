@@ -16,7 +16,7 @@ angular.module('syncthing.core')
         }
 
         var _defaultLocale,
-            _availableLocales,
+            _availableLocales = [],
             _localStorage = detectLocalStorage();
 
         var _SYNLANG = "SYN_LANG"; // const key for localStorage
