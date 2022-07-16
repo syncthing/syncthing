@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
 	ldap "github.com/go-ldap/ldap/v3"
 	webauthnLib "github.com/duo-labs/webauthn/webauthn"
 	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
@@ -263,25 +262,22 @@ func iso88591ToUTF8(s []byte) []byte {
 	return []byte(string(runes))
 }
 
-type webauthnMux struct {
-	*httprouter.Router
+type webauthnService struct {
 	webauthnState webauthnLib.SessionData
 	cfg config.Wrapper
 	cookieName string
 	evLogger events.Logger
 }
 
-func newWebauthnMux(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnMux {
-	result := webauthnMux{
-		Router: httprouter.New(),
+func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnService {
+	return webauthnService{
 		cfg: cfg,
 		cookieName: cookieName,
 		evLogger: evLogger,
 	}
-	return result
 }
 
-func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)
@@ -299,7 +295,7 @@ func (s *webauthnMux) startWebauthnAuthentication(w http.ResponseWriter, r *http
 	sendJSON(w, options)
 }
 
-func (s *webauthnMux) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)

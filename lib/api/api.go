@@ -372,9 +372,9 @@ func (s *service) Serve(ctx context.Context) error {
 		authnRouter := httprouter.New()
 		authnRouter.Handler(http.MethodPost, "/authn/password", handlePasswordAuth)
 
-		webauthnMux := newWebauthnMux(s.cfg, cookieName, s.evLogger)
-		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-start", webauthnMux.startWebauthnAuthentication)
-		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-finish", webauthnMux.finishWebauthnAuthentication)
+		webauthnService := newWebauthnService(s.cfg, cookieName, s.evLogger)
+		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-start", webauthnService.startWebauthnAuthentication)
+		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-finish", webauthnService.finishWebauthnAuthentication)
 
 		unauthenticatedMux.Handle("/authn/", authnRouter)
 	}
