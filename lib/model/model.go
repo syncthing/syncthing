@@ -2808,6 +2808,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 					m.fatal(err)
 					return true
 				}
+
+                // Emit the folder add event
+                eventType := events.FolderNew
+                m.evLogger.Log(eventType, map[string]string{"id": cfg.ID, "label": cfg.Label, "path": cfg.Path})
 			}
 			clusterConfigDevices.add(cfg.DeviceIDs())
 		}
@@ -2821,6 +2825,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.removeFolder(fromCfg)
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
 			removedFolders[fromCfg.ID] = struct{}{}
+
+            // Emit the folder remove event
+            eventType := events.FolderRemove
+            m.evLogger.Log(eventType, map[string]string{"id": fromCfg.ID, "label": fromCfg.Label, "path": fromCfg.Path})
 			continue
 		}
 

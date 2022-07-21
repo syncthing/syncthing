@@ -55,6 +55,8 @@ const (
 	FolderPaused
 	FolderResumed
 	FolderWatchStateChanged
+    FolderNew
+    FolderRemove
 	ListenAddressesChanged
 	LoginAttempt
 	Failure
@@ -127,6 +129,10 @@ func (t EventType) String() string {
 		return "FolderPaused"
 	case FolderResumed:
 		return "FolderResumed"
+    case FolderNew:
+        return "FolderNew"
+    case FolderRemove:
+        return "FolderRemove"
 	case ListenAddressesChanged:
 		return "ListenAddressesChanged"
 	case LoginAttempt:
@@ -214,6 +220,10 @@ func UnmarshalEventType(s string) EventType {
 		return FolderPaused
 	case "FolderResumed":
 		return FolderResumed
+    case "FolderNew":
+        return FolderNew
+    case "FolderRemove":
+        return FolderRemove
 	case "ListenAddressesChanged":
 		return ListenAddressesChanged
 	case "LoginAttempt":
