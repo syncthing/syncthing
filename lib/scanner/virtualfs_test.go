@@ -55,6 +55,10 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
+func (i infiniteFS) PlatformData(name string) (protocol.PlatformData, error) {
+	return protocol.PlatformData{}, nil
+}
+
 type singleFileFS struct {
 	fs.Filesystem
 	name     string

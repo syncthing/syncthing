@@ -382,7 +382,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	if err != nil {
+		return err
+	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = blockSize
@@ -423,7 +426,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	if err != nil {
+		return err
+	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 
@@ -662,9 +668,9 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	var err error
-	f.Platform, err = filesystem.PlatformData(name)
-	if err != nil {
+	if plat, err := filesystem.PlatformData(name); err == nil {
+		f.Platform = plat
+	} else {
 		return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
 	}
 	if fi.IsSymlink() {
