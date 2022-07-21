@@ -7,14 +7,13 @@
 package fs
 
 import (
-	"fmt"
 	"os/user"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/windows"
 )
 
-func (f *BasicFilesystem) GetPlatformData(name string) (protocol.PlatformData, error) {
+func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
 	rootedName, err := f.rooted(name)
 	if err != nil {
 		return protocol.PlatformData{}, err
