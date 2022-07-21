@@ -24,14 +24,24 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 
 	ownerUID := stat.Owner()
 	ownerName := ""
-	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil {
+	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil && u.Username != "" {
 		ownerName = u.Username
+	} else if ownerUID == 0 {
+		// We couldn't look up a name, but UID zero should be "root". This
+		// fixup works around the (unlikely) situation where the ownership
+		// is 0:0 but we can't look up a name for either uid zero or gid
+		// zero. If that were the case we'd return a zero PlatformData which
+		// wouldn't get serialized over the wire and the other side would
+		// assume a lack of ownership info...
+		ownerName = "root"
 	}
 
 	groupID := stat.Group()
 	groupName := ""
-	if g, err := user.LookupGroupId(strconv.Itoa(groupID)); err == nil {
+	if g, err := user.LookupGroupId(strconv.Itoa(groupID)); err == nil && g.Name != "" {
 		groupName = g.Name
+	} else if groupID == 0 {
+		groupName = "root"
 	}
 
 	return protocol.PlatformData{
