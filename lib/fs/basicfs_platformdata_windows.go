@@ -14,28 +14,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func NewPlatformDataGetter(underlying Filesystem) PlatformDataGetter {
-	return &WindowsDataGetter{fs: underlying}
-}
-
-type WindowsDataGetter struct {
-	fs Filesystem
-}
-
-func (p *WindowsDataGetter) GetPlatformData(cur *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
-	// The underlying filesystem must be a BasicFilesystem, because we're
-	// going to assume the file is an object on local disk and make system
-	// calls on it.
-	fs, ok := unwrapFilesystem(p.fs, filesystemWrapperTypeNone)
-	if !ok {
-		return protocol.PlatformData{}, fmt.Errorf("underlying filesystem is not a BasicFilesystem")
-	}
-	basic, ok := fs.(*BasicFilesystem)
-	if !ok {
-		return protocol.PlatformData{}, fmt.Errorf("underlying filesystem is not a BasicFilesystem")
-	}
-
-	rootedName, err := basic.rooted(cur.Name)
+func (f *BasicFilesystem) GetPlatformData(name string) (protocol.PlatformData, error) {
+	rootedName, err := f.rooted(name)
 	if err != nil {
 		return protocol.PlatformData{}, err
 	}

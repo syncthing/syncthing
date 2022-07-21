@@ -9,6 +9,10 @@
 
 package fs
 
-func NewPlatformDataGetter(underlying Filesystem) PlatformDataGetter {
-	return NewUnixDataGetter(underlying)
+import (
+	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
+	return unixPlatformData(f, name)
 }

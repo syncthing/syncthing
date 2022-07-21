@@ -13,13 +13,15 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func NewUnixDataGetter(_ Filesystem) PlatformDataGetter {
-	return &UnixDataGetter{}
-}
+// unixPlatformData is used on all platforms, because apart from being the
+// implementation for BasicFilesystem on Unixes it's also the implementation
+// in fakeFS.
+func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error) {
+	stat, err := fs.Lstat(name)
+	if err != nil {
+		return protocol.PlatformData{}, err
+	}
 
-type UnixDataGetter struct{}
-
-func (p *UnixDataGetter) GetPlatformData(_ *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
 	ownerUID := stat.Owner()
 	ownerName := ""
 	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil {

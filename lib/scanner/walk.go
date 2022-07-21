@@ -662,7 +662,11 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	f.Platform, _ = filesystem.GetPlatformData(&f, fi)
+	var err error
+	f.Platform, err = filesystem.PlatformData(name)
+	if err != nil {
+		return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
+	}
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

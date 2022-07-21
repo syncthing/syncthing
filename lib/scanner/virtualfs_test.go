@@ -101,7 +101,7 @@ func (s singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (s singleFileFS) GetPlatformData(cur *protocol.FileInfo, stat fs.FileInfo) (protocol.PlatformData, error) {
+func (s singleFileFS) PlatformData(name string) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 

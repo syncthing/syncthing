@@ -54,7 +54,7 @@ func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
-func (fs *errorFilesystem) GetPlatformData(cur *protocol.FileInfo, stat FileInfo) (protocol.PlatformData, error) {
+func (fs *errorFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, fs.err
 }
 

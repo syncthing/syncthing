@@ -21,6 +21,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 // see readShortAt()
@@ -59,7 +61,6 @@ type fakeFS struct {
 	insens      bool
 	withContent bool
 	latency     time.Duration
-	PlatformDataGetter
 }
 
 type fakeFSCounters struct {
@@ -109,7 +110,6 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 			children:  make(map[string]*fakeEntry),
 		},
 	}
-	fs.PlatformDataGetter = NewUnixDataGetter(fs)
 
 	files, _ := strconv.Atoi(params.Get("files"))
 	maxsize, _ := strconv.Atoi(params.Get("maxsize"))
@@ -655,6 +655,10 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	}
 
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
+}
+
+func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
+	return unixPlatformData(fs, name)
 }
 
 func (fs *fakeFS) underlying() (Filesystem, bool) {

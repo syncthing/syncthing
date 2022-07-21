@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type filesystemWrapperType int32
@@ -60,8 +62,7 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
-
-	PlatformDataGetter
+	PlatformData(name string) (protocol.PlatformData, error)
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
