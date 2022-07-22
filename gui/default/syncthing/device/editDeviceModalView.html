@@ -21,12 +21,12 @@
             </div>
             <div ng-if="editingDeviceNew()">
               <datalist id="discovery-list">
-                <option ng-repeat="id in discovery" value="{{id}}" />
+                <option ng-repeat="id in discoveryUnknown" value="{{id}}" />
               </datalist>
-              <div class="help-block" ng-if="discovery && discovery.length !== 0">
+              <div class="help-block" ng-if="discoveryUnknown && discoveryUnknown.length !== 0">
                 <span translate>You can also select one of these nearby devices:</span>
                 <ul>
-                  <li ng-repeat="id in discovery" style="list-style-type: none;">
+                  <li ng-repeat="id in discoveryUnknown.slice(0, 5)" style="list-style-type: none;">
                     <a href="#" ng-click="currentDevice.deviceID = id">
                       <identicon data-value="id"></identicon>&nbsp;&nbsp;{{id}}
                     </a>
