@@ -663,8 +663,6 @@ func syncthingMain(options serveOptions) {
 		}
 	}
 
-	go standbyMonitor(app, cfgWrapper)
-
 	if err := app.Start(); err != nil {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
@@ -759,26 +757,6 @@ func auditWriter(auditFile string) io.Writer {
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
-}
-
-func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
-	restartDelay := 60 * time.Second
-	now := time.Now()
-	for {
-		time.Sleep(10 * time.Second)
-		if time.Since(now) > 2*time.Minute && cfg.Options().RestartOnWakeup {
-			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
-
-			// We most likely just woke from standby. If we restart
-			// immediately chances are we won't have networking ready. Give
-			// things a moment to stabilize.
-			time.Sleep(restartDelay)
-
-			app.Stop(svcutil.ExitRestart)
-			return
-		}
-		now = time.Now()
-	}
 }
 
 func autoUpgradePossible(options serveOptions) bool {

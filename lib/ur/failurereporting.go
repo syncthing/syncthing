@@ -227,7 +227,6 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 		return
 	}
 	resp.Body.Close()
-	return
 }
 
 func newFailureReport(stat *failureStat) FailureReport {
