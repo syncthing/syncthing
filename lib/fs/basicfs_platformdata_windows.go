@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"fmt"
 	"os/user"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -16,22 +17,22 @@ import (
 func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
 	rootedName, err := f.rooted(name)
 	if err != nil {
-		return protocol.PlatformData{}, err
+		return protocol.PlatformData{}, fmt.Errorf("rooted for %s: %w", name, err)
 	}
-	hdl, err := windows.Open(rootedName, windows.O_RDONLY, 0)
+	hdl, err := openReadOnlyWithBackupSemantics(rootedName)
 	if err != nil {
-		return protocol.PlatformData{}, err
+		return protocol.PlatformData{}, fmt.Errorf("open %s: %w", rootedName, err)
 	}
 	defer windows.Close(hdl)
 
 	// GetSecurityInfo returns an owner SID.
 	sd, err := windows.GetSecurityInfo(hdl, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION)
 	if err != nil {
-		return protocol.PlatformData{}, err
+		return protocol.PlatformData{}, fmt.Errorf("get security info for %s: %w", rootedName, err)
 	}
 	owner, _, err := sd.Owner()
 	if err != nil {
-		return protocol.PlatformData{}, err
+		return protocol.PlatformData{}, fmt.Errorf("get owner for %s: %w", rootedName, err)
 	}
 
 	// The owner SID might represent a user or a group. We try to look it up
@@ -47,4 +48,22 @@ func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, erro
 	}
 
 	return protocol.PlatformData{Windows: pd}, nil
+}
+
+func openReadOnlyWithBackupSemantics(path string) (fd windows.Handle, err error) {
+	// This is windows.Open but simplified to read-only only, and adding
+	// FILE_FLAG_BACKUP_SEMANTICS which is required to open directories.
+	if len(path) == 0 {
+		return windows.InvalidHandle, windows.ERROR_FILE_NOT_FOUND
+	}
+	pathp, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return windows.InvalidHandle, err
+	}
+	var access uint32 = windows.GENERIC_READ
+	var sharemode uint32 = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE
+	var sa *windows.SecurityAttributes
+	var createmode uint32 = windows.OPEN_EXISTING
+	var attrs uint32 = windows.FILE_ATTRIBUTE_READONLY | windows.FILE_FLAG_BACKUP_SEMANTICS
+	return windows.CreateFile(pathp, access, sharemode, sa, createmode, attrs, 0)
 }
