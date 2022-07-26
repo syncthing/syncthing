@@ -21,6 +21,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 // see readShortAt()
@@ -29,19 +31,19 @@ const randomBlockShift = 14 // 128k
 // fakeFS is a fake filesystem for testing and benchmarking. It has the
 // following properties:
 //
-// - File metadata is kept in RAM. Specifically, we remember which files and
-//   directories exist, their dates, permissions and sizes. Symlinks are
-//   not supported.
+//   - File metadata is kept in RAM. Specifically, we remember which files and
+//     directories exist, their dates, permissions and sizes. Symlinks are
+//     not supported.
 //
-// - File contents are generated pseudorandomly with just the file name as
-//   seed. Writes are discarded, other than having the effect of increasing
-//   the file size. If you only write data that you've read from a file with
-//   the same name on a different fakeFS, you'll never know the difference...
+//   - File contents are generated pseudorandomly with just the file name as
+//     seed. Writes are discarded, other than having the effect of increasing
+//     the file size. If you only write data that you've read from a file with
+//     the same name on a different fakeFS, you'll never know the difference...
 //
 // - We totally ignore permissions - pretend you are root.
 //
-// - The root path can contain URL query-style parameters that pre populate
-//   the filesystem at creation with a certain amount of random data:
+//   - The root path can contain URL query-style parameters that pre populate
+//     the filesystem at creation with a certain amount of random data:
 //
 //     files=n    to generate n random files (default 0)
 //     maxsize=n  to generate files up to a total of n MiB (default 0)
@@ -51,7 +53,6 @@ const randomBlockShift = 14 // 128k
 //     latency=d  to set the amount of time each "disk" operation takes, where d is time.ParseDuration format
 //
 // - Two fakeFS:s pointing at the same root path see the same files.
-//
 type fakeFS struct {
 	counters    fakeFSCounters
 	uri         string
@@ -220,7 +221,7 @@ func (fs *fakeFS) Chmod(name string, mode FileMode) error {
 	return nil
 }
 
-func (fs *fakeFS) Lchown(name string, uid, gid int) error {
+func (fs *fakeFS) Lchown(name, uid, gid string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 	fs.counters.Lchown++
@@ -229,8 +230,8 @@ func (fs *fakeFS) Lchown(name string, uid, gid int) error {
 	if entry == nil {
 		return os.ErrNotExist
 	}
-	entry.uid = uid
-	entry.gid = gid
+	entry.uid, _ = strconv.Atoi(uid)
+	entry.gid, _ = strconv.Atoi(gid)
 	return nil
 }
 
@@ -654,6 +655,10 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	}
 
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
+}
+
+func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
+	return unixPlatformData(fs, name)
 }
 
 func (fs *fakeFS) underlying() (Filesystem, bool) {

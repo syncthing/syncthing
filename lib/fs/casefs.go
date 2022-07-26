@@ -153,7 +153,7 @@ func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
 	return f.Filesystem.Chmod(name, mode)
 }
 
-func (f *caseFilesystem) Lchown(name string, uid, gid int) error {
+func (f *caseFilesystem) Lchown(name, uid, gid string) error {
 	if err := f.checkCase(name); err != nil {
 		return err
 	}

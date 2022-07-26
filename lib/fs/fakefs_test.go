@@ -119,7 +119,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Chown
-	if err := fs.Lchown("dira", 1234, 5678); err != nil {
+	if err := fs.Lchown("dira", "1234", "5678"); err != nil {
 		t.Fatal(err)
 	}
 	if info, err := fs.Lstat("dira"); err != nil {

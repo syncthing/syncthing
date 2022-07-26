@@ -129,14 +129,6 @@ func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 	return os.Chmod(name, os.FileMode(mode))
 }
 
-func (f *BasicFilesystem) Lchown(name string, uid, gid int) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return os.Lchown(name, uid, gid)
-}
-
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	name, err := f.rooted(name)
 	if err != nil {
