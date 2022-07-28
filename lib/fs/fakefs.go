@@ -617,7 +617,7 @@ func (fs *fakeFS) Unhide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) GetXattr(name string) ([]protocol.Xattr, error) {
+func (fs *fakeFS) GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 
@@ -661,8 +661,8 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
-func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
-	return unixPlatformData(fs, name)
+func (fs *fakeFS) PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error) {
+	return unixPlatformData(fs, name, xattrFilter)
 }
 
 func (fs *fakeFS) underlying() (Filesystem, bool) {

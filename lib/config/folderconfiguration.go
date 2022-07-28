@@ -9,6 +9,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"path"
 	"runtime"
 	"sort"
 	"strings"
@@ -271,4 +272,17 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 		return fmt.Errorf("insufficient space in folder %v (%v): %w", f.Description(), fs.URI(), err)
 	}
 	return nil
+}
+
+func (f StringFilter) Permit(s string) bool {
+	if len(f.Entries) == 0 {
+		return true
+	}
+
+	for _, entry := range f.Entries {
+		if ok, _ := path.Match(entry.Match, s); ok {
+			return entry.Permit
+		}
+	}
+	return false
 }

@@ -29,6 +29,10 @@ const (
 	filesystemWrapperTypeLog
 )
 
+type StringFilter interface {
+	Permit(string) bool
+}
+
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
@@ -62,8 +66,8 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
-	PlatformData(name string) (protocol.PlatformData, error)
-	GetXattr(name string) ([]protocol.Xattr, error)
+	PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error)
+	GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error)
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)

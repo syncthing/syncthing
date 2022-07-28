@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -83,7 +84,7 @@ func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.F
 	writeFile(t, fs, name, nil)
 	fi, err := fs.Stat(name)
 	must(t, err)
-	file, err := scanner.CreateFileInfo(fi, name, fs)
+	file, err := scanner.CreateFileInfo(fi, name, fs, config.StringFilter{})
 	must(t, err)
 	return file
 }
@@ -777,7 +778,7 @@ func TestDeleteIgnorePerms(t *testing.T) {
 
 	stat, err := file.Stat()
 	must(t, err)
-	fi, err := scanner.CreateFileInfo(stat, name, ffs)
+	fi, err := scanner.CreateFileInfo(stat, name, ffs, config.StringFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0600)
 	scanChan := make(chan string, 1)

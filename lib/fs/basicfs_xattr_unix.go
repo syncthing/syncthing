@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func (f *BasicFilesystem) GetXattr(path string) ([]protocol.Xattr, error) {
+func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
 	path, err := f.rooted(path)
 	if err != nil {
 		return nil, err
@@ -29,6 +29,9 @@ func (f *BasicFilesystem) GetXattr(path string) ([]protocol.Xattr, error) {
 	var val []byte
 	for _, attr := range attrs {
 		if attr == "" {
+			continue
+		}
+		if !xattrFilter.Permit(attr) {
 			continue
 		}
 		val, buf, err = getXattr(path, attr, buf)
@@ -90,7 +93,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 	return buf[:size], buf[size:], nil
 }
 
-func (f *BasicFilesystem) SetXattrs(path string, xattrs []protocol.Xattr) error {
+func (f *BasicFilesystem) SetXattrs(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
 	// Index the new attribute set
 	xattrsIdx := make(map[string]int)
 	for i, xa := range xattrs {
@@ -98,7 +101,7 @@ func (f *BasicFilesystem) SetXattrs(path string, xattrs []protocol.Xattr) error 
 	}
 
 	// Get and index the existing attribute set
-	current, err := f.GetXattr(path)
+	current, err := f.GetXattr(path, xattrFilter)
 	if err != nil {
 		return err
 	}

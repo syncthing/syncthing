@@ -55,7 +55,7 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
-func (i infiniteFS) PlatformData(name string) (protocol.PlatformData, error) {
+func (i infiniteFS) PlatformData(name string, xattrFilter fs.StringFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -105,7 +105,7 @@ func (s singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (s singleFileFS) PlatformData(name string) (protocol.PlatformData, error) {
+func (s singleFileFS) PlatformData(name string, xattrFilter fs.StringFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 

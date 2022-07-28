@@ -17,7 +17,7 @@ import (
 // unixPlatformData is used on all platforms, because apart from being the
 // implementation for BasicFilesystem on Unixes it's also the implementation
 // in fakeFS.
-func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error) {
+func unixPlatformData(fs Filesystem, name string, xattrFilter StringFilter) (protocol.PlatformData, error) {
 	stat, err := fs.Lstat(name)
 	if err != nil {
 		return protocol.PlatformData{}, err
@@ -54,7 +54,7 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 		},
 	}
 
-	xattrs, err := fs.GetXattr(name)
+	xattrs, err := fs.GetXattr(name, xattrFilter)
 	if err != nil {
 		return protocol.PlatformData{}, err
 	}
