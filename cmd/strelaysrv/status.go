@@ -36,7 +36,7 @@ func statusService(addr string) {
 	}
 }
 
-func getStatus(w http.ResponseWriter, r *http.Request) {
+func getStatus(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	status := make(map[string]interface{})
 

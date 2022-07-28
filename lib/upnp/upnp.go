@@ -85,7 +85,7 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
-func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	var results []nat.Device
 
 	interfaces, err := net.Interfaces()

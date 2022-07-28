@@ -178,7 +178,7 @@ func (t *relayListener) NATType() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, _ *registry.Registry) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, _ *registry.Registry) genericListener {
 	t := &relayListener{
 		uri:     uri,
 		cfg:     cfg,

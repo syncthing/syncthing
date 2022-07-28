@@ -1806,7 +1806,7 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}

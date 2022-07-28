@@ -55,7 +55,7 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
-func (i infiniteFS) PlatformData(name string) (protocol.PlatformData, error) {
+func (i infiniteFS) PlatformData(_ string) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -105,7 +105,7 @@ func (s singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (s singleFileFS) PlatformData(name string) (protocol.PlatformData, error) {
+func (s singleFileFS) PlatformData(_ string) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -156,7 +156,7 @@ func (f *fakeFile) Stat() (fs.FileInfo, error) {
 func (f *fakeFile) Write([]byte) (int, error)          { return 0, errNotSupp }
 func (f *fakeFile) WriteAt([]byte, int64) (int, error) { return 0, errNotSupp }
 func (f *fakeFile) Close() error                       { return nil }
-func (f *fakeFile) Truncate(size int64) error          { return errNotSupp }
+func (f *fakeFile) Truncate(_ int64) error             { return errNotSupp }
 func (f *fakeFile) ReadAt([]byte, int64) (int, error)  { return 0, errNotSupp }
 func (f *fakeFile) Seek(int64, int) (int64, error)     { return 0, errNotSupp }
 func (f *fakeFile) Sync() error                        { return nil }
