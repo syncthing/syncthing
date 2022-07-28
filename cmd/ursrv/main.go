@@ -785,72 +785,53 @@ func getReport(db *sql.DB) map[string]interface{} {
 		}
 	}
 
-	var categories []category
-	categories = append(categories, category{
-		Values: statsForInts(totFiles),
-		Descr:  "Files Managed per Device",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(maxFiles),
-		Descr:  "Files in Largest Folder",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(totMiB),
-		Descr:  "Data Managed per Device",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(maxMiB),
-		Descr:  "Data in Largest Folder",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numDevices),
-		Descr:  "Number of Devices in Cluster",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numFolders),
-		Descr:  "Number of Folders Configured",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(memoryUsage),
-		Descr:  "Memory Usage",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(memorySize),
-		Descr:  "System Memory",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForFloats(sha256Perf),
-		Descr:  "SHA-256 Hashing Performance",
-		Unit:   "B/s",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numCPU),
-		Descr:  "Number of CPU cores",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(uptime),
-		Descr:  "Uptime (v3)",
-		Type:   NumberDuration,
-	})
+	categories := []category{
+		{
+			Values: statsForInts(totFiles),
+			Descr:  "Files Managed per Device",
+		}, {
+			Values: statsForInts(maxFiles),
+			Descr:  "Files in Largest Folder",
+		}, {
+			Values: statsForInt64s(totMiB),
+			Descr:  "Data Managed per Device",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInt64s(maxMiB),
+			Descr:  "Data in Largest Folder",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInts(numDevices),
+			Descr:  "Number of Devices in Cluster",
+		}, {
+			Values: statsForInts(numFolders),
+			Descr:  "Number of Folders Configured",
+		}, {
+			Values: statsForInt64s(memoryUsage),
+			Descr:  "Memory Usage",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInt64s(memorySize),
+			Descr:  "System Memory",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForFloats(sha256Perf),
+			Descr:  "SHA-256 Hashing Performance",
+			Unit:   "B/s",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInts(numCPU),
+			Descr:  "Number of CPU cores",
+		}, {
+			Values: statsForInts(uptime),
+			Descr:  "Uptime (v3)",
+			Type:   NumberDuration,
+		},
+	}
 
 	reportFeatures := make(map[string][]feature)
 	for featureType, versions := range features {
