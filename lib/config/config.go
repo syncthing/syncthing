@@ -590,7 +590,7 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 // a random high port is returned.
 func getFreePort(host string, ports ...int) (int, error) {
 	for _, port := range ports {
-		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			c.Close()
 			return port, nil
