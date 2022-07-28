@@ -114,9 +114,11 @@ message FileInfo {
     // received (we make sure to zero it), nonetheless we need it on our
     // struct and to be able to serialize it to/from the database.
     uint32 local_flags = 1000;
+
     // The version_hash is an implementation detail and not part of the wire
     // format.
     bytes version_hash = 1001;
+
     // The time when the inode was last changed (i.e., permissions, xattrs
     // etc changed). This is host-local, not sent over the wire.
     int64 inode_change_ns = 1002;
@@ -125,12 +127,6 @@ message FileInfo {
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];
     bool no_permissions = 8;
 }
-
-message OSPrivateData {
-    // The list of extended attributes.
-    map<string, bytes> extended_attributes = 1;
-}
-
 
 enum FileInfoType {
     FILE_INFO_TYPE_FILE              = 0;
