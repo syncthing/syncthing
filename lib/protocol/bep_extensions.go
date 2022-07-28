@@ -44,6 +44,8 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
+	PlatformData() PlatformData
+	InodeChangeTime() time.Time
 }
 
 func (m Hello) Magic() uint32 {
@@ -158,6 +160,14 @@ func (f FileInfo) FilePermissions() uint32 {
 
 func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
+}
+
+func (f FileInfo) PlatformData() PlatformData {
+	return f.Platform
+}
+
+func (f FileInfo) InodeChangeTime() time.Time {
+	return time.Unix(0, f.InodeChangeNs)
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in

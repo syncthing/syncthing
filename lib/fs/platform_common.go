@@ -61,7 +61,7 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 	switch runtime.GOOS {
 	case "linux":
 		pd.Linux = &protocol.XattrData{Xattrs: xattrs}
-	case "macos":
+	case "darwin":
 		pd.MacOS = &protocol.XattrData{Xattrs: xattrs}
 	case "freebsd":
 		pd.MacOS = &protocol.XattrData{Xattrs: xattrs}
