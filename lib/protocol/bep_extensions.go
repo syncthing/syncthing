@@ -233,6 +233,12 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
+	// If we are recording inode change times and it changed, they are not
+	// equal.
+	if f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
+		return false
+	}
+
 	// Mask out the ignored local flags before checking IsInvalid() below
 	f.LocalFlags &^= comp.IgnoreFlags
 	other.LocalFlags &^= comp.IgnoreFlags

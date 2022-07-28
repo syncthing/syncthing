@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -571,13 +572,16 @@ func TestXattr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create a map of random attributes that we will set and read back
-	attrs := make(map[string][]byte)
+	// Create a set of random attributes that we will set and read back
+	var attrs []protocol.Xattr
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("user.test-%d", i)
 		value := make([]byte, 256+rand.Intn(1024))
 		rand.Read(value)
-		attrs[key] = value
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
 	}
 
 	// Set the xattrs, read them back and compare
@@ -591,22 +595,32 @@ func TestXattr(t *testing.T) {
 	if len(res) != len(attrs) {
 		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
 	}
-	for key, val := range res {
-		if !bytes.Equal(val, attrs[key]) {
-			t.Fatal("returned xattrs do not match")
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
 		}
 	}
 
-	// Change a couple, remove a couple, and add another couple of
+	// Remove a couple, change a couple, and add another couple of
 	// attributes. Replacing the xattrs again should work.
-	delete(attrs, "user.test-1")
-	delete(attrs, "user.test-2")
-	for i := 8; i < 12; i++ {
+	attrs = attrs[2:]
+	attrs[1].Value = make([]byte, 256+rand.Intn(1024))
+	rand.Read(attrs[1].Value)
+	attrs[3].Value = make([]byte, 256+rand.Intn(1024))
+	rand.Read(attrs[3].Value)
+	for i := 10; i < 12; i++ {
 		key := fmt.Sprintf("user.test-%d", i)
 		value := make([]byte, 256+rand.Intn(1024))
 		rand.Read(value)
-		attrs[key] = value
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
 	}
+	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
 
 	// Set the xattrs, read them back and compare
 	if err := tfs.SetXattrs("/test", attrs); err != nil {
@@ -619,9 +633,12 @@ func TestXattr(t *testing.T) {
 	if len(res) != len(attrs) {
 		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
 	}
-	for key, val := range res {
-		if !bytes.Equal(val, attrs[key]) {
-			t.Fatal("returned xattrs do not match")
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
 		}
 	}
 }

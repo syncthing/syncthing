@@ -156,6 +156,7 @@ message Counter {
 message PlatformData {
     UnixData    unix    = 1 [(gogoproto.nullable) = true];
     WindowsData windows = 2 [(gogoproto.nullable) = true];
+    XattrData   linux   = 3 [(gogoproto.nullable) = true];
 }
 
 message UnixData {
@@ -174,6 +175,15 @@ message WindowsData {
     // type it is.
     string owner_name     = 1;
     bool   owner_is_group = 2;
+}
+
+message XattrData {
+    repeated Xattr xattrs = 1;
+}
+
+message Xattr {
+    string name  = 1;
+    bytes  value = 2;
 }
 
 // Request

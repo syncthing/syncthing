@@ -44,12 +44,23 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 		groupName = "root"
 	}
 
-	return protocol.PlatformData{
+	pd := protocol.PlatformData{
 		Unix: &protocol.UnixData{
 			OwnerName: ownerName,
 			GroupName: groupName,
 			UID:       ownerUID,
 			GID:       groupID,
 		},
-	}, nil
+	}
+
+	// xattrs, err := fs.GetXattr(name)
+	// if err != nil {
+	// 	return protocol.PlatformData{}, err
+	// }
+	// switch runtime.GOOS {
+	// case "linux":
+	// 	pd
+	// }
+
+	return pd, nil
 }

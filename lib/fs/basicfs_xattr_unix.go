@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"syscall"
 
+	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/unix"
 )
 
-func (f *BasicFilesystem) GetXattr(path string) (map[string][]byte, error) {
+func (f *BasicFilesystem) GetXattr(path string) ([]protocol.Xattr, error) {
 	path, err := f.rooted(path)
 	if err != nil {
 		return nil, err
@@ -23,7 +25,7 @@ func (f *BasicFilesystem) GetXattr(path string) (map[string][]byte, error) {
 	}
 
 	attrs := strings.Split(string(buf), "\x00")
-	res := make(map[string][]byte, len(attrs))
+	var res []protocol.Xattr
 	var val []byte
 	for _, attr := range attrs {
 		if attr == "" {
@@ -34,8 +36,14 @@ func (f *BasicFilesystem) GetXattr(path string) (map[string][]byte, error) {
 			fmt.Println("Error getting xattr", attr, err)
 			continue
 		}
-		res[attr] = val
+		res = append(res, protocol.Xattr{
+			Name:  attr,
+			Value: val,
+		})
 	}
+	sort.Slice(res, func(a, b int) bool {
+		return res[a].Name < res[b].Name
+	})
 	return res, nil
 }
 
@@ -52,6 +60,9 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 			buf = make([]byte, size)
 		}
 		size, err = unix.Listxattr(path, buf)
+	}
+	if err != nil {
+		return nil, err
 	}
 	return buf[:size], err
 }
@@ -79,10 +90,21 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 	return buf[:size], buf[size:], nil
 }
 
-func (f *BasicFilesystem) SetXattrs(path string, xattrs map[string][]byte) error {
+func (f *BasicFilesystem) SetXattrs(path string, xattrs []protocol.Xattr) error {
+	// Index the new attribute set
+	xattrsIdx := make(map[string]int)
+	for i, xa := range xattrs {
+		xattrsIdx[xa.Name] = i
+	}
+
+	// Get and index the existing attribute set
 	current, err := f.GetXattr(path)
 	if err != nil {
 		return err
+	}
+	currentIdx := make(map[string]int)
+	for i, xa := range current {
+		currentIdx[xa.Name] = i
 	}
 
 	path, err = f.rooted(path)
@@ -90,20 +112,21 @@ func (f *BasicFilesystem) SetXattrs(path string, xattrs map[string][]byte) error
 		return err
 	}
 
-	// Remove all xattrs that are not in the new map
-	for key := range current {
-		if _, ok := xattrs[key]; !ok {
-			if err := unix.Removexattr(path, key); err != nil {
+	// Remove all existing xattrs that are not in the new set
+	for _, xa := range current {
+		if _, ok := xattrsIdx[xa.Name]; !ok {
+			if err := unix.Removexattr(path, xa.Name); err != nil {
 				return err
 			}
 		}
 	}
-	// Set all xattrs that are in the new map
-	for key, val := range xattrs {
-		if old, ok := current[key]; ok && bytes.Equal(old, val) {
+
+	// Set all xattrs that are different in the new set
+	for _, xa := range xattrs {
+		if old, ok := currentIdx[xa.Name]; ok && bytes.Equal(xa.Value, current[old].Value) {
 			continue
 		}
-		if err := unix.Setxattr(path, key, val, 0); err != nil {
+		if err := unix.Setxattr(path, xa.Name, xa.Value, 0); err != nil {
 			return err
 		}
 	}

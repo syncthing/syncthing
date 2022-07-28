@@ -63,7 +63,7 @@ type Filesystem interface {
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
 	PlatformData(name string) (protocol.PlatformData, error)
-	GetXattr(name string) (map[string][]byte, error)
+	GetXattr(name string) ([]protocol.Xattr, error)
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)

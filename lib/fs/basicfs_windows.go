@@ -154,7 +154,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	return drives, nil
 }
 
-func (f *BasicFilesystem) GetXattr(name string) (map[string][]byte, error) {
+func (f *BasicFilesystem) GetXattr(name string) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 

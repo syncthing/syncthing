@@ -617,7 +617,7 @@ func (fs *fakeFS) Unhide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) GetXattr(name string) (map[string][]byte, error) {
+func (fs *fakeFS) GetXattr(name string) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 
