@@ -1115,9 +1115,10 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		t.Fatal("file is missing")
 	}
 
-	remote := *(&cur)
+	remote := cur
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
+
 	temp := fs.TempName(remote.Name)
 	writeFile(t, ffs, temp, contents)
 	scanChan := make(chan string, 1)
@@ -1181,7 +1182,8 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	remote := *(&cur)
+
+	remote := cur
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
 
