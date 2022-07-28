@@ -26,6 +26,8 @@ import (
 	"unicode"
 
 	"github.com/oschwald/geoip2-golang"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -773,7 +775,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 			}
 
 			for transport, count := range rep.TransportStats {
-				add(featureGroups["Connection"]["v3"], "Transport", strings.Title(transport), count)
+				add(featureGroups["Connection"]["v3"], "Transport", cases.Title(language.English).String(transport), count)
 				if strings.HasSuffix(transport, "4") {
 					add(featureGroups["Connection"]["v3"], "IP version", "IPv4", count)
 				} else if strings.HasSuffix(transport, "6") {
