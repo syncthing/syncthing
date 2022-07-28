@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -2399,7 +2400,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "android" {
+	if build.IsWindows || build.IsDarwin || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1

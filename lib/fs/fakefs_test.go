@@ -17,6 +17,8 @@ import (
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestFakeFS(t *testing.T) {
@@ -563,7 +565,7 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 	}
 
 	// not checking on darwin due to https://github.com/golang/go/issues/35222
-	if runtime.GOOS != "darwin" {
+	if !build.IsDarwin {
 		if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != nil {
 			t.Errorf("Could not perform in-place case-only directory rename: %s", err)
 		}
@@ -786,7 +788,7 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		} else {
 			fd.Close()
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				time.Sleep(1 * time.Millisecond)
 			}
 		}

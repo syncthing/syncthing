@@ -7,9 +7,9 @@
 package model
 
 import (
-	"runtime"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -70,7 +70,7 @@ func TestInWriteableDir(t *testing.T) {
 func TestOSWindowsRemove(t *testing.T) {
 	// os.Remove should remove read only things on windows
 
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skipf("Tests not required")
 		return
 	}
@@ -107,7 +107,7 @@ func TestOSWindowsRemove(t *testing.T) {
 func TestOSWindowsRemoveAll(t *testing.T) {
 	// os.RemoveAll should remove read only things on windows
 
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skipf("Tests not required")
 		return
 	}
@@ -139,7 +139,7 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 }
 
 func TestInWritableDirWindowsRename(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skipf("Tests not required")
 		return
 	}

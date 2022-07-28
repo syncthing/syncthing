@@ -25,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rc"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -174,7 +175,7 @@ func alterFiles(dir string) error {
 
 		// Change capitalization
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
-			if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+			if build.IsDarwin || build.IsWindows {
 				// Syncthing is currently broken for case-only renames on case-
 				// insensitive platforms.
 				// https://github.com/syncthing/syncthing/issues/1787

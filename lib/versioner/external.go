@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 
@@ -35,7 +35,7 @@ type external struct {
 func newExternal(cfg config.FolderConfiguration) Versioner {
 	command := cfg.Versioning.Params["command"]
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -344,7 +344,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
-		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name) != nil:
+		case build.IsWindows && fs.WindowsInvalidFilename(file.Name) != nil:
 			if file.IsDeleted() {
 				// Just pretend we deleted it, no reason to create an error
 				// about a deleted file that we can't have anyway.
@@ -394,7 +394,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				f.queue.Push(file.Name, file.Size, file.ModTime())
 			}
 
-		case runtime.GOOS == "windows" && file.IsSymlink():
+		case build.IsWindows && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
 				break
@@ -2115,7 +2115,7 @@ func (f *sendReceiveFolder) maybeAdjustOwnership(file *protocol.FileInfo, name s
 }
 
 func (f *sendReceiveFolder) copyOwnershipFromParent(path string) error {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Can't do anything.
 		return nil
 	}

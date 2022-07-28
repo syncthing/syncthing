@@ -12,9 +12,10 @@ package integration
 import (
 	"log"
 	"os"
-	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func printUsage(name string, proc *os.ProcessState, total int64) {
@@ -22,7 +23,7 @@ func printUsage(name string, proc *os.ProcessState, total int64) {
 		mib := total / 1024 / 1024
 		log.Printf("%s: Utime: %s / MiB", name, time.Duration(rusage.Utime.Nano()/mib))
 		log.Printf("%s: Stime: %s / MiB", name, time.Duration(rusage.Stime.Nano()/mib))
-		if runtime.GOOS == "darwin" {
+		if build.IsDarwin {
 			// Darwin reports in bytes, Linux seems to report in KiB even
 			// though the manpage says otherwise.
 			rusage.Maxrss /= 1024

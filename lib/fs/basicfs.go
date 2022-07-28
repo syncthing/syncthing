@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -79,7 +79,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		root = longFilenameSupport(root)
 	}
 
