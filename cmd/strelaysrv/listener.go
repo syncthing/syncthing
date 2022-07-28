@@ -76,7 +76,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 	}
 
 	state := conn.ConnectionState()
-	if (!state.NegotiatedProtocolIsMutual || state.NegotiatedProtocol != protocol.ProtocolName) && debug {
+	if debug && state.NegotiatedProtocol != protocol.ProtocolName {
 		log.Println("Protocol negotiation error")
 	}
 
