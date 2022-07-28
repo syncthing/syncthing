@@ -136,7 +136,7 @@ func (s *staticsServer) serveFromAssetDir(file, theme string, w http.ResponseWri
 		return false
 	}
 	mtype := assets.MimeTypeForFile(file)
-	if mtype == "" {
+	if mtype != "" {
 		w.Header().Set("Content-Type", mtype)
 	}
 	http.ServeFile(w, r, p)
