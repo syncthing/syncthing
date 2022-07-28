@@ -701,7 +701,7 @@ func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)
 }
 
-func (*service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"version":     build.Version,
 		"codename":    build.Codename,
@@ -718,7 +718,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (*service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
 	sort.Strings(enabled)
@@ -805,13 +805,13 @@ func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) postDBOverride(w http.ResponseWriter, r *http.Request) {
+func (s *service) postDBOverride(_ http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Override(folder)
 }
 
-func (s *service) postDBRevert(w http.ResponseWriter, r *http.Request) {
+func (s *service) postDBRevert(_ http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Revert(folder)
@@ -898,11 +898,11 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getSystemConnections(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemConnections(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, s.model.ConnectionStats())
 }
 
-func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
+func (s *service) getDeviceStats(w http.ResponseWriter, _ *http.Request) {
 	stats, err := s.model.DeviceStatistics()
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -911,7 +911,7 @@ func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, stats)
 }
 
-func (s *service) getFolderStats(w http.ResponseWriter, r *http.Request) {
+func (s *service) getFolderStats(w http.ResponseWriter, _ *http.Request) {
 	stats, err := s.model.FolderStatistics()
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -997,7 +997,7 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemRestart(w http.ResponseWriter, _ *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
 
 	s.fatal(&svcutil.FatalErr{
@@ -1041,7 +1041,7 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemShutdown(w http.ResponseWriter, _ *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
 	s.fatal(&svcutil.FatalErr{
 		Err:    errors.New("shutdown initiated by rest API"),
@@ -1049,13 +1049,13 @@ func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) flushResponse(resp string, w http.ResponseWriter) {
+func (*service) flushResponse(resp string, w http.ResponseWriter) {
 	w.Write([]byte(resp + "\n"))
 	f := w.(http.Flusher)
 	f.Flush()
 }
 
-func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -1099,13 +1099,13 @@ func (s *service) getSystemError(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func (s *service) postSystemError(w http.ResponseWriter, r *http.Request) {
+func (*service) postSystemError(_ http.ResponseWriter, r *http.Request) {
 	bs, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	l.Warnln(string(bs))
 }
 
-func (s *service) postSystemErrorClear(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemErrorClear(_ http.ResponseWriter, _ *http.Request) {
 	s.guiErrors.Clear()
 }
 
@@ -1245,7 +1245,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, &zipFilesBuffer)
 }
 
-func (s *service) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemHTTPMetrics(w http.ResponseWriter, _ *http.Request) {
 	stats := make(map[string]interface{})
 	metrics.Each(func(name string, intf interface{}) {
 		if m, ok := intf.(*metrics.StandardTimer); ok {
@@ -1265,7 +1265,7 @@ func (s *service) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func (s *service) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemDiscovery(w http.ResponseWriter, _ *http.Request) {
 	devices := make(map[string]discover.CacheEntry)
 
 	if s.discoverer != nil {
@@ -1294,7 +1294,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
+func (*service) getRandomString(w http.ResponseWriter, r *http.Request) {
 	length := 32
 	if val, _ := strconv.Atoi(r.URL.Query().Get("length")); val > 0 {
 		length = val
@@ -1392,7 +1392,7 @@ func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub eve
 	sendJSON(w, evs)
 }
 
-func (s *service) getEventMask(evs string) events.EventType {
+func (*service) getEventMask(evs string) events.EventType {
 	eventMask := DefaultEventMask
 	if evs != "" {
 		eventList := strings.Split(evs, ",")
@@ -1417,7 +1417,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 	return bufsub
 }
 
-func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	if s.noUpgrade {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusServiceUnavailable)
 		return
@@ -1437,7 +1437,7 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, res)
 }
 
-func (s *service) getDeviceID(w http.ResponseWriter, r *http.Request) {
+func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	idStr := qs.Get("id")
 	id, err := protocol.DeviceIDFromString(idStr)
@@ -1453,7 +1453,7 @@ func (s *service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) getLang(w http.ResponseWriter, r *http.Request) {
+func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
 	var langs []string
 	for _, l := range strings.Split(lang, ",") {
@@ -1463,7 +1463,7 @@ func (s *service) getLang(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, langs)
 }
 
-func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -1561,7 +1561,7 @@ func (s *service) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	s.getDBNeed(w, r)
 }
 
-func (s *service) getQR(w http.ResponseWriter, r *http.Request) {
+func (*service) getQR(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var text = qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
@@ -1574,7 +1574,7 @@ func (s *service) getQR(w http.ResponseWriter, r *http.Request) {
 	w.Write(code.PNG())
 }
 
-func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
+func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
@@ -1668,7 +1668,7 @@ func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
 
@@ -1747,7 +1747,7 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 	return append(exactMatches, caseInsMatches...)
 }
 
-func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
+func (*service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 	duration, err := time.ParseDuration(r.FormValue("duration"))
 	if err != nil {
 		duration = 30 * time.Second
@@ -1764,7 +1764,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
+func (*service) getHeapProf(w http.ResponseWriter, _ *http.Request) {
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
