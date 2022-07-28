@@ -1604,7 +1604,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 }
 
 // handleDeintroductions handles removals of devices/shares that are removed by an introducer device
-func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
+func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
 	if introducerCfg.SkipIntroductionRemovals {
 		return folders, devices, false
 	}
@@ -2777,7 +2777,7 @@ func (m *model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }
 
-func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+func (*model) VerifyConfiguration(from, to config.Configuration) error {
 	toFolders := to.FolderMap()
 	for _, from := range from.Folders {
 		to, ok := toFolders[from.ID]

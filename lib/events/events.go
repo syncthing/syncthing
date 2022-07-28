@@ -569,7 +569,7 @@ func (*noopSubscription) Poll(_ time.Duration) (Event, error) {
 	return Event{}, errNoop
 }
 
-func (s *noopSubscription) Mask() EventType {
+func (*noopSubscription) Mask() EventType {
 	return 0
 }
 

@@ -167,11 +167,11 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (m *fakeModel) Index(_ DeviceID, _ string, _ []FileInfo) error {
+func (*fakeModel) Index(_ DeviceID, _ string, _ []FileInfo) error {
 	return nil
 }
 
-func (m *fakeModel) IndexUpdate(_ DeviceID, _ string, _ []FileInfo) error {
+func (*fakeModel) IndexUpdate(_ DeviceID, _ string, _ []FileInfo) error {
 	return nil
 }
 
@@ -184,13 +184,13 @@ func (m *fakeModel) Request(_ DeviceID, _, _ string, _, size int32, offset int64
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (m *fakeModel) ClusterConfig(_ DeviceID, _ ClusterConfig) error {
+func (*fakeModel) ClusterConfig(_ DeviceID, _ ClusterConfig) error {
 	return nil
 }
 
-func (m *fakeModel) Closed(DeviceID, error) {
+func (*fakeModel) Closed(DeviceID, error) {
 }
 
-func (m *fakeModel) DownloadProgress(_ DeviceID, _ string, _ []FileDownloadProgressUpdate) error {
+func (*fakeModel) DownloadProgress(_ DeviceID, _ string, _ []FileDownloadProgressUpdate) error {
 	return nil
 }

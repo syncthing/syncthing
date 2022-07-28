@@ -173,7 +173,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (lim *limiter) String() string {
+func (*limiter) String() string {
 	// required by config.Committer interface
 	return "connections.limiter"
 }

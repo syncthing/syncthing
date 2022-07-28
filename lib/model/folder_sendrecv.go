@@ -1462,7 +1462,7 @@ func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash
 	return weakHashFinder, file
 }
 
-func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
+func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}

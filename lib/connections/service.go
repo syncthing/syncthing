@@ -492,7 +492,7 @@ func (s *service) connect(ctx context.Context) error {
 	}
 }
 
-func (s *service) bestDialerPriority(cfg config.Configuration) int {
+func (*service) bestDialerPriority(cfg config.Configuration) int {
 	bestDialerPriority := worstDialerPriority
 	for _, df := range dialers {
 		if df.Valid(cfg) != nil {

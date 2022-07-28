@@ -113,7 +113,7 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 	}
 }
 
-func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
+func (*BasicFilesystem) eventType(notifyType notify.Event) EventType {
 	if notifyType&rmEventMask != 0 {
 		return Remove
 	}

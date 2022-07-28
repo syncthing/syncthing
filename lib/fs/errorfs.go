@@ -37,7 +37,7 @@ func (fs *errorFilesystem) Remove(_ string) error                        { retur
 func (fs *errorFilesystem) RemoveAll(_ string) error                     { return fs.err }
 func (fs *errorFilesystem) Rename(_, _ string) error                     { return fs.err }
 func (fs *errorFilesystem) Stat(_ string) (FileInfo, error)              { return nil, fs.err }
-func (fs *errorFilesystem) SymlinksSupported() bool                      { return false }
+func (*errorFilesystem) SymlinksSupported() bool                         { return false }
 func (fs *errorFilesystem) Walk(_ string, _ WalkFunc) error              { return fs.err }
 func (fs *errorFilesystem) Unhide(_ string) error                        { return fs.err }
 func (fs *errorFilesystem) Hide(_ string) error                          { return fs.err }
@@ -47,10 +47,10 @@ func (fs *errorFilesystem) Roots() ([]string, error)                     { retur
 func (fs *errorFilesystem) Usage(_ string) (Usage, error)                { return Usage{}, fs.err }
 func (fs *errorFilesystem) Type() FilesystemType                         { return fs.fsType }
 func (fs *errorFilesystem) URI() string                                  { return fs.uri }
-func (fs *errorFilesystem) Options() []Option {
+func (*errorFilesystem) Options() []Option {
 	return nil
 }
-func (fs *errorFilesystem) SameFile(_, _ FileInfo) bool { return false }
+func (*errorFilesystem) SameFile(_, _ FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
@@ -58,10 +58,10 @@ func (fs *errorFilesystem) PlatformData(_ string) (protocol.PlatformData, error)
 	return protocol.PlatformData{}, fs.err
 }
 
-func (fs *errorFilesystem) underlying() (Filesystem, bool) {
+func (*errorFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *errorFilesystem) wrapperType() filesystemWrapperType {
+func (*errorFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeError
 }

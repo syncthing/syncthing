@@ -627,10 +627,10 @@ func (e fakeEventInfo) Path() string {
 	return string(e)
 }
 
-func (e fakeEventInfo) Event() notify.Event {
+func (fakeEventInfo) Event() notify.Event {
 	return notify.Write
 }
 
-func (e fakeEventInfo) Sys() interface{} {
+func (fakeEventInfo) Sys() interface{} {
 	return nil
 }
