@@ -47,6 +47,12 @@ func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, erro
 		l.Debugf("Failed to resolve owner for %s: %v", rootedName, err)
 	}
 
+	xattrs, err := f.GetXattr(name)
+	if err != nil {
+		return protocol.PlatformData{}, fmt.Errorf("get xattr for %s: %w", rootedName, err)
+	}
+	pd.XAttrs = xattrs
+
 	return protocol.PlatformData{Windows: pd}, nil
 }
 

@@ -157,6 +157,11 @@ message PlatformData {
     UnixData    unix    = 1 [(gogoproto.nullable) = true];
     WindowsData windows = 2 [(gogoproto.nullable) = true];
     XattrData   linux   = 3 [(gogoproto.nullable) = true];
+    XattrData   macos   = 4 [(gogoproto.nullable) = true, (ext.goname) = "MacOS"];
+    XattrData   freebsd = 5 [(gogoproto.nullable) = true, (ext.goname) = "FreeBSD"];
+    XattrData   netbsd  = 6 [(gogoproto.nullable) = true, (ext.goname) = "NetBSD"];
+    XattrData   openbsd = 7 [(gogoproto.nullable) = true, (ext.goname) = "OpenBSD"];
+    XattrData   illumos = 8 [(gogoproto.nullable) = true];
 }
 
 message UnixData {
