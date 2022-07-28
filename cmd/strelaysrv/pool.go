@@ -74,9 +74,8 @@ func poolHandler(pool string, uri *url.URL, mapping mapping, ownCert tls.Certifi
 				log.Printf("Joined pool %s, rejoining in %v", pool, rejoin)
 				time.Sleep(rejoin)
 				continue
-			} else {
-				log.Printf("Joined pool %s, failed to deserialize response: %v", pool, err)
 			}
+			log.Printf("Joined pool %s, failed to deserialize response: %v", pool, err)
 
 		case http.StatusInternalServerError:
 			log.Printf("Failed to join %v: server error", pool)
