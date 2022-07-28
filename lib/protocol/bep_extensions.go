@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -21,29 +20,6 @@ const (
 	HelloMessageMagic      uint32 = 0x2EA7D90B
 	Version13HelloMagic    uint32 = 0x9F79BC40 // old
 )
-
-var (
-	operatingSystem OS
-)
-
-func init() {
-	switch runtime.GOOS {
-	case "linux":
-		operatingSystem = OsLinux
-	case "windows":
-		operatingSystem = OsWindows
-	case "darwin":
-		operatingSystem = OsMacos
-	case "freebsd":
-		operatingSystem = OsFreebsd
-	case "netbsd":
-		operatingSystem = OsNetbsd
-	case "openbsd":
-		operatingSystem = OsOpenbsd
-	case "solaris", "illumos":
-		operatingSystem = OsSolaris
-	}
-}
 
 // FileIntf is the set of methods implemented by both FileInfo and
 // db.FileInfoTruncated.
@@ -68,7 +44,6 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
-	LoadOSData(os OS, dst interface{ Unmarshal([]byte) error }) bool
 }
 
 func (m Hello) Magic() uint32 {
@@ -89,23 +64,6 @@ func (f FileInfo) String() string {
 	default:
 		panic("mystery file type detected")
 	}
-}
-
-func (f FileInfo) osDataString() string {
-	var parts []string
-	if bs, ok := f.OSData[OsPosix]; ok {
-		var pd POSIXOSData
-		if err := pd.Unmarshal(bs); err == nil {
-			parts = append(parts, fmt.Sprintf("Posix{%v}", &pd))
-		}
-	}
-	if bs, ok := f.OSData[OsWindows]; ok {
-		var pd WindowsOSData
-		if err := pd.Unmarshal(bs); err == nil {
-			parts = append(parts, fmt.Sprintf("Windows{%v}", &pd))
-		}
-	}
-	return strings.Join(parts, ",")
 }
 
 func (f FileInfo) IsDeleted() bool {
@@ -200,18 +158,6 @@ func (f FileInfo) FilePermissions() uint32 {
 
 func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
-}
-
-func (f FileInfo) LoadOSData(os OS, dst interface{ Unmarshal([]byte) error }) bool {
-	// TODO(jb): This is a candidate for generics when we adopt Go 1.18;
-	// LoadOSData[T Unmarshaller](os OS, fi FileInfo) (T, bool) so the
-	// caller doesn't need to pre-allocate the struct but will have to
-	// specify the type instead.
-	bs, ok := f.OSData[os]
-	if !ok {
-		return false
-	}
-	return dst.Unmarshal(bs) == nil
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in

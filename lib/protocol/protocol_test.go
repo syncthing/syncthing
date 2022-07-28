@@ -295,9 +295,6 @@ func TestMarshalIndexMessage(t *testing.T) {
 			if len(f.Encrypted) == 0 {
 				m1.Files[i].Encrypted = nil
 			}
-			if len(f.OSData) == 0 {
-				m1.Files[i].OSData = nil
-			}
 		}
 
 		return testMarshal(t, "index", &m1, &Index{})

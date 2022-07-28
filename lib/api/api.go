@@ -1820,19 +1820,6 @@ func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
 	}
 
-	// Populate the OS data map. This needs to happen a bit manually as the
-	// types are different for each entry...
-	osData := make(map[string]interface{})
-	if pd := (protocol.POSIXOSData{}); f.LoadOSData(protocol.OsPosix, &pd) {
-		osData["posix"] = &pd
-	}
-	if pd := (protocol.WindowsOSData{}); f.LoadOSData(protocol.OsWindows, &pd) {
-		osData["windows"] = &pd
-	}
-	if len(osData) > 0 {
-		out["osData"] = osData
-	}
-
 	return out
 }
 
