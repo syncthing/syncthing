@@ -80,18 +80,19 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 		if !pullerVersion.Equal(localFile.version) || !pullerCreated.Equal(localFile.created) {
 			// The version has changed or the puller was reconstrcuted due to failure.
 			// Clean up whatever we had for the old file, and advertise the new file.
-			updates = append(updates, protocol.FileDownloadProgressUpdate{
-				Name:       name,
-				Version:    localFile.version,
-				UpdateType: protocol.FileDownloadProgressUpdateTypeForget,
-			})
-			updates = append(updates, protocol.FileDownloadProgressUpdate{
-				Name:         name,
-				Version:      pullerVersion,
-				UpdateType:   protocol.FileDownloadProgressUpdateTypeAppend,
-				BlockIndexes: pullerBlockIndexes,
-				BlockSize:    pullerBlockSize,
-			})
+			updates = append(updates,
+				protocol.FileDownloadProgressUpdate{
+					Name:       name,
+					Version:    localFile.version,
+					UpdateType: protocol.FileDownloadProgressUpdateTypeForget,
+				},
+				protocol.FileDownloadProgressUpdate{
+					Name:         name,
+					Version:      pullerVersion,
+					UpdateType:   protocol.FileDownloadProgressUpdateTypeAppend,
+					BlockIndexes: pullerBlockIndexes,
+					BlockSize:    pullerBlockSize,
+				})
 			localFile.blockIndexes = pullerBlockIndexes
 			localFile.updated = pullerBlockIndexesUpdated
 			localFile.version = pullerVersion
