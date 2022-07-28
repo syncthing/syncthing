@@ -107,12 +107,7 @@ message FileInfo {
     uint32             permissions    = 4;
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
-
-    // OS data; one entry for each operating system, with some generalized
-    // POSIX data in the entry for OS_POSIX. The actual type of each entry
-    // is message ${OS}OSData. Protobuf doesn't have enum-keyed maps so this
-    // is an int32-keyed one instead, but the concept is the same.
-    map<int32, bytes> os_data = 14 [(gogoproto.castkey) = "OS", (ext.goname) = "OSData"];
+    PlatformData       platform       = 14;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
@@ -190,6 +185,29 @@ message Vector {
 message Counter {
     uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
+}
+
+message PlatformData {
+    UnixData    unix    = 1 [(gogoproto.nullable) = true];
+    WindowsData windows = 2 [(gogoproto.nullable) = true];
+}
+
+message UnixData {
+    // The owner name and group name are set when known (i.e., could be
+    // resolved on the source device), while the UID and GID are always set
+    // as they come directly from the stat() call.
+    string owner_name = 1;
+    string group_name = 2;
+    int32  uid        = 3 [(ext.goname) = "UID"];
+    int32  gid        = 4 [(ext.goname) = "GID"];
+}
+
+message WindowsData {
+    // Windows file objects have a single owner, which may be a user or a
+    // group. We keep the name of that account, and a flag to indicate what
+    // type it is.
+    string owner_name     = 1;
+    bool   owner_is_group = 2;
 }
 
 // Request

@@ -383,7 +383,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	if err != nil {
+		return err
+	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = blockSize
@@ -424,7 +427,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, _ := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	if err != nil {
+		return err
+	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 
@@ -584,14 +590,11 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.LocalFlags = w.LocalFlags
 
 	// Copy OS data from src to dst, unless it was already set on dst.
-	if len(dst.OSData) == 0 {
-		dst.OSData = src.OSData
-	} else {
-		for k, v := range src.OSData {
-			if _, ok := dst.OSData[k]; !ok {
-				dst.OSData[k] = v
-			}
-		}
+	if dst.Platform.Unix == nil {
+		dst.Platform.Unix = src.Platform.Unix
+	}
+	if dst.Platform.Windows == nil {
+		dst.Platform.Windows = src.Platform.Windows
 	}
 
 	return dst
@@ -666,7 +669,11 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	f.OSData, _ = filesystem.GetOSData(&f, fi)
+	if plat, err := filesystem.PlatformData(name); err == nil {
+		f.Platform = plat
+	} else {
+		return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
+	}
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

@@ -55,6 +55,10 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
+func (i infiniteFS) PlatformData(name string) (protocol.PlatformData, error) {
+	return protocol.PlatformData{}, nil
+}
+
 type singleFileFS struct {
 	fs.Filesystem
 	name     string
@@ -101,8 +105,8 @@ func (s singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (s singleFileFS) GetOSData(cur *protocol.FileInfo, stat fs.FileInfo) (map[protocol.OS][]byte, error) {
-	return nil, nil
+func (s singleFileFS) PlatformData(name string) (protocol.PlatformData, error) {
+	return protocol.PlatformData{}, nil
 }
 
 type fakeInfo struct {

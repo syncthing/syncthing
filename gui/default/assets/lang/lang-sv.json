@@ -316,7 +316,7 @@
     "Show detailed listener status": "Visa detaljerad lyssnarstatus",
     "Show diff with previous version": "Visa skillnad med tidigare version",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Visas istället för enhets-ID i klusterstatus. Kommer att annonseras på andra enheter som ett valfritt standardnamn.",
-    "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Visas istället för enhets-ID i klusterstatus. Uppdateras till namnet som enheten annonserar om den lämnas tom.",
+    "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Visas istället för enhets-ID i klusterstatusen. Kommer att uppdateras till det namn som enheten annonserar som om det lämnas tomt.",
     "Shutdown": "Stäng av",
     "Shutdown Complete": "Avstängning klar",
     "Simple": "Enkel",

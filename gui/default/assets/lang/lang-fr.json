@@ -319,7 +319,7 @@
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Nom convivial local affiché à la place de l'ID de l'appareil dans la plupart des écrans. Si laissé vide, c'est le nom convivial local de l'appareil distant qui sera utilisé. (Modifiable ultérieurement).",
     "Shutdown": "Arrêter",
     "Shutdown Complete": "Arrêté !",
-    "Simple": "Suivi simple",
+    "Simple": "Suivi simplifié",
     "Simple File Versioning": "Suivi simplifié des versions",
     "Single level wildcard (matches within a directory only)": "N'importe quel nombre, dont 0, de n'importe quels caractères (sauf le séparateur de répertoires).",
     "Size": "Taille",

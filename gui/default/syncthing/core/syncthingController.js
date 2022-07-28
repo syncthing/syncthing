@@ -1670,34 +1670,29 @@ angular.module('syncthing.core')
         };
 
         $scope.addDevice = function (deviceID, name) {
-            return $http.get(urlbase + '/system/discovery')
-                .success(function (registry) {
-                    $scope.discovery = [];
-                    for (var id in registry) {
-                        if ($scope.discovery.length === 5) {
-                            break;
-                        }
-                        if (id in $scope.devices) {
-                            continue
-                        }
-                        $scope.discovery.push(id);
-                    }
-                })
-                .then(function () {
-                    $http.get(urlbase + '/config/defaults/device').then(function (p) {
-                        $scope.currentDevice = p.data;
-                        $scope.currentDevice.name = name;
-                        $scope.currentDevice.deviceID = deviceID;
-                        if (deviceID) {
-                            $scope.currentDevice._editing = "new-pending";
-                        } else {
-                            $scope.currentDevice._editing = "new";
-                        }
-                        initShareEditing('device');
-                        $scope.currentSharing.unrelated = $scope.folderList();
-                        editDeviceModal();
-                    }, $scope.emitHTTPError);
-                });
+            $scope.discoveryUnknown = [];
+            for (var id in $scope.discoveryCache) {
+                if ($scope.discoveryUnknown.length === 100) {
+                    break;
+                }
+                if (id in $scope.devices) {
+                    continue
+                }
+                $scope.discoveryUnknown.push(id);
+            }
+            return $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                $scope.currentDevice = p.data;
+                $scope.currentDevice.name = name;
+                $scope.currentDevice.deviceID = deviceID;
+                if (deviceID) {
+                    $scope.currentDevice._editing = "new-pending";
+                } else {
+                    $scope.currentDevice._editing = "new";
+                }
+                initShareEditing('device');
+                $scope.currentSharing.unrelated = $scope.folderList();
+                editDeviceModal();
+            }, $scope.emitHTTPError);
         };
 
         $scope.deleteDevice = function () {
