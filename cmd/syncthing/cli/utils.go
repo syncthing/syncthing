@@ -105,8 +105,8 @@ func getConfig(c APIClient) (config.Configuration, error) {
 		return cfg, err
 	}
 	err = json.Unmarshal(bytes, &cfg)
-	if err == nil {
-		return cfg, err
+	if err != nil {
+		return config.Configuration{}, err
 	}
 	return cfg, nil
 }
