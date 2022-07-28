@@ -1017,7 +1017,7 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(folder) == 0 {
+	if folder == "" {
 		// Reset all folders.
 		for folder := range s.cfg.Folders() {
 			if err := s.model.ResetFolder(folder); err != nil {

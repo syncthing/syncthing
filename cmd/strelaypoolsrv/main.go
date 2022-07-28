@@ -572,7 +572,7 @@ func loadRelays(file string) []*relay {
 
 	var relays []*relay
 	for _, line := range strings.Split(string(content), "\n") {
-		if len(line) == 0 {
+		if line == "" {
 			continue
 		}
 

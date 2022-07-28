@@ -81,7 +81,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		file = file[1:]
 	}
 
-	if len(file) == 0 {
+	if file == "" {
 		file = "index.html"
 	}
 
@@ -136,7 +136,7 @@ func (s *staticsServer) serveFromAssetDir(file, theme string, w http.ResponseWri
 		return false
 	}
 	mtype := assets.MimeTypeForFile(file)
-	if len(mtype) != 0 {
+	if mtype == "" {
 		w.Header().Set("Content-Type", mtype)
 	}
 	http.ServeFile(w, r, p)
