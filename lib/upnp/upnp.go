@@ -74,6 +74,8 @@ type upnpRoot struct {
 	Device upnpDevice `xml:"device"`
 }
 
+// This is a trivial, irrelevant change.
+
 // UnsupportedDeviceTypeError for unsupported UPnP device types (i.e upnp:rootdevice)
 type UnsupportedDeviceTypeError struct {
 	deviceType string
