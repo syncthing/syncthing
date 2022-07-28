@@ -195,7 +195,7 @@ func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool
 	return true
 }
 
-func (h *failureHandler) String() string {
+func (*failureHandler) String() string {
 	return "FailureHandler"
 }
 
@@ -227,7 +227,6 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 		return
 	}
 	resp.Body.Close()
-	return
 }
 
 func newFailureReport(stat *failureStat) FailureReport {

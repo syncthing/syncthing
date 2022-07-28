@@ -131,11 +131,11 @@ var globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*c
 // used if the filesystem is known to already behave case-sensitively.
 type OptionDetectCaseConflicts struct{}
 
-func (o *OptionDetectCaseConflicts) apply(fs Filesystem) Filesystem {
+func (*OptionDetectCaseConflicts) apply(fs Filesystem) Filesystem {
 	return globalCaseFilesystemRegistry.get(fs)
 }
 
-func (o *OptionDetectCaseConflicts) String() string {
+func (*OptionDetectCaseConflicts) String() string {
 	return "detectCaseConflicts"
 }
 
@@ -153,7 +153,7 @@ func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
 	return f.Filesystem.Chmod(name, mode)
 }
 
-func (f *caseFilesystem) Lchown(name string, uid, gid int) error {
+func (f *caseFilesystem) Lchown(name, uid, gid string) error {
 	if err := f.checkCase(name); err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *caseFilesystem) wrapperType() filesystemWrapperType {
+func (*caseFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeCase
 }
 

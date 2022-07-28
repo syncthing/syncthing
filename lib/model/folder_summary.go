@@ -407,10 +407,6 @@ func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 			// We already know about ourselves.
 			continue
 		}
-		if _, ok := c.model.Connection(devCfg.DeviceID); !ok {
-			// We're not interested in disconnected devices.
-			continue
-		}
 
 		// Get completion percentage of this folder for the
 		// remote device.

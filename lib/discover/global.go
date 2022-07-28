@@ -301,7 +301,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	timer.Reset(defaultReannounceInterval)
 }
 
-func (c *globalClient) Cache() map[protocol.DeviceID]CacheEntry {
+func (*globalClient) Cache() map[protocol.DeviceID]CacheEntry {
 	// The globalClient doesn't do caching
 	return nil
 }

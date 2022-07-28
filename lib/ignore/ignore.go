@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gobwas/glob"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -35,7 +35,7 @@ const (
 var defaultResult Result = resultInclude
 
 func init() {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if build.IsDarwin || build.IsWindows {
 		defaultResult |= resultFoldCase
 	}
 }
@@ -289,10 +289,8 @@ func (m *Matcher) Match(file string) (result Result) {
 			if pattern.match.Match(lowercaseFile) {
 				return pattern.result
 			}
-		} else {
-			if pattern.match.Match(file) {
-				return pattern.result
-			}
+		} else if pattern.match.Match(file) {
+			return pattern.result
 		}
 	}
 

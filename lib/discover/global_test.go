@@ -142,10 +142,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	url = "https://" + list.Addr().String() + "?insecure"
 	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	} else {
-		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect addresses list: %+v", addresses)
-		}
+	} else if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+		t.Errorf("incorrect addresses list: %+v", addresses)
 	}
 
 	// With "id" set to something incorrect, the checks should fail again.
@@ -162,10 +160,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	url = "https://" + list.Addr().String() + "?id=" + id.String()
 	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	} else {
-		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect addresses list: %+v", addresses)
-		}
+	} else if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+		t.Errorf("incorrect addresses list: %+v", addresses)
 	}
 }
 

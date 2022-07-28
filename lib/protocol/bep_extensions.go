@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -46,21 +46,21 @@ type FileIntf interface {
 	ModTime() time.Time
 }
 
-func (m Hello) Magic() uint32 {
+func (Hello) Magic() uint32 {
 	return HelloMessageMagic
 }
 
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform)
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x, Platform:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash, f.Platform)
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform)
 	default:
 		panic("mystery file type detected")
 	}
@@ -190,30 +190,42 @@ func WinsConflict(f, other FileIntf) bool {
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
-func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
-	return f.isEquivalent(other, modTimeWindow, false, false, 0)
+type FileInfoComparison struct {
+	ModTimeWindow   time.Duration
+	IgnorePerms     bool
+	IgnoreBlocks    bool
+	IgnoreFlags     uint32
+	IgnoreOwnership bool
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
+	return f.isEquivalent(other, FileInfoComparison{ModTimeWindow: modTimeWindow})
+}
+
+func (f FileInfo) IsEquivalentOptional(other FileInfo, comp FileInfoComparison) bool {
+	return f.isEquivalent(other, comp)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
 // i.e. it does purposely not check only selected (see below) struct members.
 // Permissions (config) and blocks (scanning) can be excluded from the comparison.
 // Any file info is not "equivalent", if it has different
-//  - type
-//  - deleted flag
-//  - invalid flag
-//  - permissions, unless they are ignored
+//   - type
+//   - deleted flag
+//   - invalid flag
+//   - permissions, unless they are ignored
+//
 // A file is not "equivalent", if it has different
-//  - modification time (difference bigger than modTimeWindow)
-//  - size
-//  - blocks, unless there are no blocks to compare (scanning)
+//   - modification time (difference bigger than modTimeWindow)
+//   - size
+//   - blocks, unless there are no blocks to compare (scanning)
+//   - os data
+//
 // A symlink is not "equivalent", if it has different
-//  - target
+//   - target
+//
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -222,20 +234,37 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 	}
 
 	// Mask out the ignored local flags before checking IsInvalid() below
-	f.LocalFlags &^= ignoreFlags
-	other.LocalFlags &^= ignoreFlags
+	f.LocalFlags &^= comp.IgnoreFlags
+	other.LocalFlags &^= comp.IgnoreFlags
 
 	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
 	}
 
-	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+	// OS data comparison is special: we consider a difference only if an
+	// entry for the same OS exists on both sides and they are different.
+	// Otherwise a file would become different as soon as it's synced from
+	// Windows to Linux, as Linux would add a new POSIX entry for the file.
+	if !comp.IgnoreOwnership && f.Platform != other.Platform {
+		if f.Platform.Unix != nil && other.Platform.Unix != nil {
+			if *f.Platform.Unix != *other.Platform.Unix {
+				return false
+			}
+		}
+		if f.Platform.Windows != nil && other.Platform.Windows != nil {
+			if *f.Platform.Windows != *other.Platform.Windows {
+				return false
+			}
+		}
+	}
+
+	if !comp.IgnorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
 		return false
 	}
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || f.BlocksEqual(other))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), comp.ModTimeWindow) && (comp.IgnoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:
@@ -257,15 +286,13 @@ func ModTimeEqual(a, b time.Time, modTimeWindow time.Duration) bool {
 }
 
 func PermsEqual(a, b uint32) bool {
-	switch runtime.GOOS {
-	case "windows":
+	if build.IsWindows {
 		// There is only writeable and read only, represented for user, group
 		// and other equally. We only compare against user.
 		return a&0600 == b&0600
-	default:
-		// All bits count
-		return a&0777 == b&0777
 	}
+	// All bits count
+	return a&0777 == b&0777
 }
 
 // BlocksEqual returns true when the two files have identical block lists.

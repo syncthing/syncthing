@@ -15,13 +15,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	rdebug "runtime/debug"
 	"sort"
 	"sync"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -178,7 +178,7 @@ func TestVerify(t *testing.T) {
 }
 
 func TestNormalization(t *testing.T) {
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		t.Skip("Normalization test not possible on darwin")
 		return
 	}
@@ -197,7 +197,7 @@ func TestNormalization(t *testing.T) {
 	}
 	numInvalid := 2
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// On Windows, in case 5 the character gets replaced with a
 		// replacement character \xEF\xBF\xBD at the point it's written to disk,
 		// which means it suddenly becomes valid (sort of).
@@ -257,7 +257,7 @@ func TestNormalization(t *testing.T) {
 func TestNormalizationDarwinCaseFS(t *testing.T) {
 	// This tests that normalization works on Darwin, through a CaseFS.
 
-	if runtime.GOOS != "darwin" {
+	if !build.IsDarwin {
 		t.Skip("Normalization test not possible on non-Darwin")
 		return
 	}
@@ -310,7 +310,7 @@ func TestNormalizationDarwinCaseFS(t *testing.T) {
 	}
 }
 
-func TestIssue1507(t *testing.T) {
+func TestIssue1507(_ *testing.T) {
 	w := &walker{}
 	w.Matcher = ignore.New(w.Filesystem)
 	h := make(chan protocol.FileInfo, 100)
@@ -321,7 +321,7 @@ func TestIssue1507(t *testing.T) {
 }
 
 func TestWalkSymlinkUnix(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("skipping unsupported symlink test")
 		return
 	}
@@ -351,7 +351,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 }
 
 func TestWalkSymlinkWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("skipping unsupported symlink test")
 	}
 
@@ -386,7 +386,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	dest, _ := filepath.Abs("testdata/dir1")
 	destFs := fs.NewFilesystem(testFsType, dest)
 	if err := fs.DebugSymlinkForTestsOnly(destFs, testFs, ".", "link"); err != nil {
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
 		} else {
@@ -406,7 +406,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	files = walkDir(testFs, "link", nil, nil, 0)
 
 	// Verify that we got the one symlink, except on windows
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		if len(files) != 0 {
 			t.Errorf("expected no files, not %d", len(files))
 		}
@@ -543,6 +543,79 @@ func TestWalkReceiveOnly(t *testing.T) {
 	}
 }
 
+func TestScanOwnershipPOSIX(t *testing.T) {
+	// This test works on all operating systems because the FakeFS is always POSIXy.
+
+	fakeFS := fs.NewFilesystem(fs.FilesystemTypeFake, "TestScanOwnership")
+	current := make(fakeCurrentFiler)
+
+	fakeFS.Create("root-owned")
+	fakeFS.Create("user-owned")
+	fakeFS.Lchown("user-owned", "1234", "5678")
+	fakeFS.Mkdir("user-owned-dir", 0755)
+	fakeFS.Lchown("user-owned-dir", "2345", "6789")
+
+	expected := []struct {
+		name     string
+		uid, gid int
+	}{
+		{"root-owned", 0, 0},
+		{"user-owned", 1234, 5678},
+		{"user-owned-dir", 2345, 6789},
+	}
+
+	files := walkDir(fakeFS, ".", current, nil, 0)
+	if len(files) != len(expected) {
+		t.Fatalf("expected %d items, not %d", len(expected), len(files))
+	}
+	for i := range expected {
+		if files[i].Name != expected[i].name {
+			t.Errorf("expected %s, got %s", expected[i].name, files[i].Name)
+			continue
+		}
+
+		if files[i].Platform.Unix == nil {
+			t.Error("failed to load POSIX data on", files[i].Name)
+			continue
+		}
+		if files[i].Platform.Unix.UID != expected[i].uid {
+			t.Errorf("expected %d, got %d", expected[i].uid, files[i].Platform.Unix.UID)
+		}
+		if files[i].Platform.Unix.GID != expected[i].gid {
+			t.Errorf("expected %d, got %d", expected[i].gid, files[i].Platform.Unix.GID)
+		}
+	}
+}
+
+func TestScanOwnershipWindows(t *testing.T) {
+	if !build.IsWindows {
+		t.Skip("This test only works on Windows")
+	}
+
+	testFS := fs.NewFilesystem(fs.FilesystemTypeBasic, t.TempDir())
+	current := make(fakeCurrentFiler)
+
+	fd, err := testFS.Create("user-owned")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	files := walkDir(testFS, ".", current, nil, 0)
+	if len(files) != 1 {
+		t.Fatalf("expected %d items, not %d", 1, len(files))
+	}
+	t.Log(files[0])
+
+	// The file should have an owner name set.
+	if files[0].Platform.Windows == nil {
+		t.Fatal("failed to load Windows data")
+	}
+	if files[0].Platform.Windows.OwnerName == "" {
+		t.Errorf("expected owner name to be set")
+	}
+}
+
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	cfg, cancel := testConfig()
 	defer cancel()
@@ -675,12 +748,12 @@ func TestStopWalk(t *testing.T) {
 		f := res.File
 		t.Log("Scanned", f)
 		if f.IsDirectory() {
-			if len(f.Name) == 0 || f.Permissions == 0 {
+			if f.Name == "" || f.Permissions == 0 {
 				t.Error("Bad directory entry", f)
 			}
 			dirs++
 		} else {
-			if len(f.Name) == 0 || len(f.Blocks) == 0 || f.Permissions == 0 {
+			if f.Name == "" || len(f.Blocks) == 0 || f.Permissions == 0 {
 				t.Error("Bad file entry", f)
 			}
 			files++

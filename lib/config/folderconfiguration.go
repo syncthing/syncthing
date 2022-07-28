@@ -9,13 +9,13 @@ package config
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -64,7 +64,7 @@ func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	dur := time.Duration(f.RawModTimeWindowS) * time.Second
-	if f.RawModTimeWindowS < 1 && runtime.GOOS == "android" {
+	if f.RawModTimeWindowS < 1 && build.IsAndroid {
 		if usage, err := disk.Usage(f.Filesystem(nil).URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
@@ -90,7 +90,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	}
 
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700
@@ -145,7 +145,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700

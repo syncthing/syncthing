@@ -56,7 +56,6 @@ var (
 	// These are specific explanations for errUnsupported.
 	errDisabled   = fmt.Errorf("%w: disabled by configuration", errUnsupported)
 	errDeprecated = fmt.Errorf("%w: deprecated", errUnsupported)
-	errNotInBuild = fmt.Errorf("%w: disabled at build time", errUnsupported)
 
 	// Various reasons to reject a connection
 	errNetworkNotAllowed      = errors.New("network not allowed")
@@ -242,7 +241,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
-		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != s.bepProtocolName {
+		if cs.NegotiatedProtocol != s.bepProtocolName {
 			l.Infof("Peer at %s did not negotiate bep/1.0", c)
 		}
 
@@ -492,7 +491,7 @@ func (s *service) connect(ctx context.Context) error {
 	}
 }
 
-func (s *service) bestDialerPriority(cfg config.Configuration) int {
+func (*service) bestDialerPriority(cfg config.Configuration) int {
 	bestDialerPriority := worstDialerPriority
 	for _, df := range dialers {
 		if df.Valid(cfg) != nil {

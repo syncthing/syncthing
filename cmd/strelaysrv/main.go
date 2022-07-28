@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -146,7 +145,7 @@ func main() {
 		log.Println("Connection limit", descriptorLimit)
 
 		go monitorLimits()
-	} else if err != nil && runtime.GOOS != "windows" {
+	} else if err != nil && !build.IsWindows {
 		log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
 	}
 
