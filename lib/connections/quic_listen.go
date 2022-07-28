@@ -214,7 +214,7 @@ func (t *quicListener) NATType() string {
 
 type quicListenerFactory struct{}
 
-func (f *quicListenerFactory) Valid(config.Configuration) error {
+func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
