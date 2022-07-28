@@ -383,7 +383,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 				l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
 
 				for _, service := range services {
-					if len(service.ControlURL) == 0 {
+					if service.ControlURL == "" {
 						l.Infoln(rootURL+"- malformed", service.Type, "description: no control URL.")
 					} else {
 						u, _ := url.Parse(rootURL)

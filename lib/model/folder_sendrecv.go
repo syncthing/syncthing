@@ -737,7 +737,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
 	}
 
-	if len(file.SymlinkTarget) == 0 {
+	if file.SymlinkTarget == "" {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
 		f.newPullError(file.Name, errIncompatibleSymlink)

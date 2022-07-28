@@ -410,7 +410,7 @@ func clear(v interface{}, since int) error {
 		tag := t.Field(i).Tag
 
 		v := tag.Get("since")
-		if len(v) == 0 {
+		if v == "" {
 			f.Set(reflect.Zero(f.Type()))
 			continue
 		}

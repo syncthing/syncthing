@@ -16,7 +16,7 @@ import (
 
 func ParseSize(s string) (Size, error) {
 	s = strings.TrimSpace(s)
-	if len(s) == 0 {
+	if s == "" {
 		return Size{}, nil
 	}
 

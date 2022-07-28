@@ -55,7 +55,7 @@ func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
 	// reserved name.
 	for _, part := range strings.Split(name, `\`) {
-		if len(part) == 0 {
+		if part == "" {
 			continue
 		}
 		switch part[len(part)-1] {

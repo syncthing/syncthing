@@ -748,12 +748,12 @@ func TestStopWalk(t *testing.T) {
 		f := res.File
 		t.Log("Scanned", f)
 		if f.IsDirectory() {
-			if len(f.Name) == 0 || f.Permissions == 0 {
+			if f.Name == "" || f.Permissions == 0 {
 				t.Error("Bad directory entry", f)
 			}
 			dirs++
 		} else {
-			if len(f.Name) == 0 || len(f.Blocks) == 0 || f.Permissions == 0 {
+			if f.Name == "" || len(f.Blocks) == 0 || f.Permissions == 0 {
 				t.Error("Bad file entry", f)
 			}
 			files++
