@@ -199,7 +199,7 @@ func defaultVars() kong.Vars {
 	// Windows, the "default" options.logFile will later be replaced with the
 	// default path, unless the user has manually specified "-" or
 	// something else.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		vars["logFile"] = "default"
 	} else {
 		vars["logFile"] = "-"

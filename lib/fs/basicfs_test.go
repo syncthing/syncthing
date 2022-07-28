@@ -9,13 +9,13 @@ package fs
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -55,7 +55,7 @@ func TestChmodFile(t *testing.T) {
 }
 
 func TestChownFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Not supported on Windows")
 		return
 	}
@@ -106,7 +106,7 @@ func TestChmodDir(t *testing.T) {
 	path := filepath.Join(dir, "dir")
 
 	mode := os.FileMode(0755)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		mode = os.FileMode(0777)
 	}
 
@@ -177,7 +177,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("windows not supported")
 	}
 
@@ -336,7 +336,7 @@ func TestUsage(t *testing.T) {
 	fs, _ := setup(t)
 	usage, err := fs.Usage(".")
 	if err != nil {
-		if runtime.GOOS == "netbsd" || runtime.GOOS == "openbsd" || runtime.GOOS == "solaris" {
+		if build.IsNetBSD || build.IsOpenBSD || build.IsSolaris || build.IsIllumos {
 			t.Skip()
 		}
 		t.Errorf("Unexpected error: %s", err)
@@ -429,7 +429,7 @@ func TestRooted(t *testing.T) {
 		{"/", ".", "/", true},
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		extraCases := []testcase{
 			{`c:\`, `foo`, `c:\foo`, true},
 			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
@@ -503,7 +503,7 @@ func TestRooted(t *testing.T) {
 }
 
 func TestNewBasicFilesystem(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("non-windows root paths")
 	}
 
@@ -550,7 +550,7 @@ func TestRel(t *testing.T) {
 		{"/", "/Test", "Test"},
 		{"/Test", "/Test/test", "test"},
 	}
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		for i := range testCases {
 			testCases[i].root = filepath.FromSlash(testCases[i].root)
 			testCases[i].abs = filepath.FromSlash(testCases[i].abs)

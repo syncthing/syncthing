@@ -10,9 +10,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestMtimeFS(t *testing.T) {
@@ -181,11 +182,10 @@ func TestMtimeFSOpen(t *testing.T) {
 }
 
 func TestMtimeFSInsensitive(t *testing.T) {
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		// blatantly assume file systems here are case insensitive. Might be
 		// a spurious failure on oddly configured systems.
-	default:
+	} else {
 		t.Skip("need case insensitive FS")
 	}
 

@@ -1925,7 +1925,7 @@ func shouldRegenerateCertificate(cert tls.Certificate) error {
 	// On macOS, check for certificates issued on or after July 1st, 2019,
 	// with a longer validity time than 825 days.
 	cutoff := time.Date(2019, 7, 1, 0, 0, 0, 0, time.UTC)
-	if runtime.GOOS == "darwin" &&
+	if build.IsDarwin &&
 		leaf.NotBefore.After(cutoff) &&
 		leaf.NotAfter.Sub(leaf.NotBefore) > 825*24*time.Hour {
 		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")

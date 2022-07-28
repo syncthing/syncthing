@@ -15,12 +15,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -205,7 +205,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 
 func TestCopierFinder(t *testing.T) {
 	methods := []fs.CopyRangeMethod{fs.CopyRangeMethodStandard, fs.CopyRangeMethodAllWithFallback}
-	if runtime.GOOS == "linux" {
+	if build.IsLinux {
 		methods = append(methods, fs.CopyRangeMethodSendFile)
 	}
 	for _, method := range methods {
@@ -789,7 +789,7 @@ func TestCopyOwner(t *testing.T) {
 	// Verifies that owner and group are copied from the parent, for both
 	// files and directories.
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("copying owner not supported on Windows")
 	}
 
@@ -986,7 +986,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	must(t, ffs.RemoveAll(link))
 
 	if err := fs.DebugSymlinkForTestsOnly(destFs, ffs, "", link); err != nil {
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
 		} else {
@@ -1145,7 +1145,7 @@ func TestPullCaseOnlyDir(t *testing.T) {
 }
 
 func TestPullCaseOnlySymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("symlinks not supported on windows")
 	}
 	testPullCaseOnlyDirOrSymlink(t, false)
@@ -1275,7 +1275,7 @@ func TestPullCaseOnlyRename(t *testing.T) {
 }
 
 func TestPullSymlinkOverExistingWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip()
 	}
 

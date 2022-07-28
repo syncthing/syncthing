@@ -42,13 +42,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 )
@@ -100,7 +100,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows
-		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
+		if !build.IsWindows && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
 			continue
 		}
 

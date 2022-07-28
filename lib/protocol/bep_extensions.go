@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -286,15 +286,13 @@ func ModTimeEqual(a, b time.Time, modTimeWindow time.Duration) bool {
 }
 
 func PermsEqual(a, b uint32) bool {
-	switch runtime.GOOS {
-	case "windows":
+	if build.IsWindows {
 		// There is only writeable and read only, represented for user, group
 		// and other equally. We only compare against user.
 		return a&0600 == b&0600
-	default:
-		// All bits count
-		return a&0777 == b&0777
 	}
+	// All bits count
+	return a&0777 == b&0777
 }
 
 // BlocksEqual returns true when the two files have identical block lists.
