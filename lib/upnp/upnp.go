@@ -444,11 +444,10 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 
 	body := fmt.Sprintf(tpl, message)
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
 		return resp, err
 	}
-	req.Cancel = ctx.Done()
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
