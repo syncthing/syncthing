@@ -46,7 +46,6 @@ type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
 	options         []Option
-	OSDataGetter
 }
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
@@ -88,7 +87,6 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 		root:    root,
 		options: opts,
 	}
-	fs.OSDataGetter = NewOSDataGetter(fs)
 	for _, opt := range opts {
 		opt.apply(fs)
 	}

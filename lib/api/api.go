@@ -1819,7 +1819,6 @@ func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 	if f.HasPermissionBits() {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
 	}
-
 	return out
 }
 
