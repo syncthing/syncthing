@@ -597,40 +597,40 @@ func (fs *fakeFS) Stat(name string) (FileInfo, error) {
 	return fs.Lstat(name)
 }
 
-func (fs *fakeFS) SymlinksSupported() bool {
+func (*fakeFS) SymlinksSupported() bool {
 	return false
 }
 
-func (fs *fakeFS) Walk(name string, walkFn WalkFunc) error {
+func (*fakeFS) Walk(name string, walkFn WalkFunc) error {
 	return errors.New("not implemented")
 }
 
-func (fs *fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+func (*fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, ErrWatchNotSupported
 }
 
-func (fs *fakeFS) Hide(name string) error {
+func (*fakeFS) Hide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) Unhide(name string) error {
+func (*fakeFS) Unhide(name string) error {
 	return nil
 }
 
-func (fs *fakeFS) Glob(pattern string) ([]string, error) {
+func (*fakeFS) Glob(pattern string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
 }
 
-func (fs *fakeFS) Roots() ([]string, error) {
+func (*fakeFS) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 
-func (fs *fakeFS) Usage(name string) (Usage, error) {
+func (*fakeFS) Usage(name string) (Usage, error) {
 	return Usage{}, errors.New("not implemented")
 }
 
-func (fs *fakeFS) Type() FilesystemType {
+func (*fakeFS) Type() FilesystemType {
 	return FilesystemTypeFake
 }
 
@@ -638,7 +638,7 @@ func (fs *fakeFS) URI() string {
 	return fs.uri
 }
 
-func (fs *fakeFS) Options() []Option {
+func (*fakeFS) Options() []Option {
 	return nil
 }
 
@@ -661,11 +661,11 @@ func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
 	return unixPlatformData(fs, name)
 }
 
-func (fs *fakeFS) underlying() (Filesystem, bool) {
+func (*fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *fakeFS) wrapperType() filesystemWrapperType {
+func (*fakeFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
 }
 
@@ -698,7 +698,7 @@ type fakeFile struct {
 	presentedName string // present (i.e. != "") on insensitive fs only
 }
 
-func (f *fakeFile) Close() error {
+func (*fakeFile) Close() error {
 	return nil
 }
 
@@ -912,7 +912,7 @@ func (f *fakeFile) Stat() (FileInfo, error) {
 	return info, nil
 }
 
-func (f *fakeFile) Sync() error {
+func (*fakeFile) Sync() error {
 	return nil
 }
 

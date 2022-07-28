@@ -46,7 +46,7 @@ type FileIntf interface {
 	ModTime() time.Time
 }
 
-func (m Hello) Magic() uint32 {
+func (Hello) Magic() uint32 {
 	return HelloMessageMagic
 }
 

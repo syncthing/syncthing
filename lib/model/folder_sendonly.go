@@ -32,7 +32,7 @@ func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, 
 	return f
 }
 
-func (f *sendOnlyFolder) PullErrors() []FileError {
+func (*sendOnlyFolder) PullErrors() []FileError {
 	return nil
 }
 

@@ -266,7 +266,7 @@ func (r *Report) FieldPointers() []interface{} {
 	}
 }
 
-func (r *Report) FieldNames() []string {
+func (*Report) FieldNames() []string {
 	// The database fields that back this struct in PostgreSQL
 	return []string{
 		// V1

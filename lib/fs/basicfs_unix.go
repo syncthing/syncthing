@@ -36,7 +36,7 @@ func (f *BasicFilesystem) ReadSymlink(name string) (string, error) {
 	return os.Readlink(name)
 }
 
-func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
+func (*BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
@@ -54,7 +54,7 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return err
 }
 
-func (f *BasicFilesystem) Roots() ([]string, error) {
+func (*BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 

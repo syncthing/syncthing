@@ -237,11 +237,11 @@ func (f *folder) Serve(ctx context.Context) error {
 	}
 }
 
-func (f *folder) BringToFront(string) {}
+func (*folder) BringToFront(string) {}
 
-func (f *folder) Override() {}
+func (*folder) Override() {}
 
-func (f *folder) Revert() {}
+func (*folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	select {
@@ -275,7 +275,7 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+func (*folder) Jobs(_, _ int) ([]string, []string, int) {
 	return nil, nil, 0
 }
 

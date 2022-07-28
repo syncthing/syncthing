@@ -21,7 +21,7 @@ func (c GUIConfiguration) IsAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
-func (c GUIConfiguration) IsOverridden() bool {
+func (GUIConfiguration) IsOverridden() bool {
 	return os.Getenv("STGUIADDRESS") != ""
 }
 

@@ -37,7 +37,7 @@ func (fs *errorFilesystem) Remove(name string) error                     { retur
 func (fs *errorFilesystem) RemoveAll(name string) error                  { return fs.err }
 func (fs *errorFilesystem) Rename(oldname, newname string) error         { return fs.err }
 func (fs *errorFilesystem) Stat(name string) (FileInfo, error)           { return nil, fs.err }
-func (fs *errorFilesystem) SymlinksSupported() bool                      { return false }
+func (*errorFilesystem) SymlinksSupported() bool                         { return false }
 func (fs *errorFilesystem) Walk(root string, walkFn WalkFunc) error      { return fs.err }
 func (fs *errorFilesystem) Unhide(name string) error                     { return fs.err }
 func (fs *errorFilesystem) Hide(name string) error                       { return fs.err }
@@ -47,10 +47,10 @@ func (fs *errorFilesystem) Roots() ([]string, error)                     { retur
 func (fs *errorFilesystem) Usage(name string) (Usage, error)             { return Usage{}, fs.err }
 func (fs *errorFilesystem) Type() FilesystemType                         { return fs.fsType }
 func (fs *errorFilesystem) URI() string                                  { return fs.uri }
-func (fs *errorFilesystem) Options() []Option {
+func (*errorFilesystem) Options() []Option {
 	return nil
 }
-func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool { return false }
+func (*errorFilesystem) SameFile(fi1, fi2 FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
@@ -58,10 +58,10 @@ func (fs *errorFilesystem) PlatformData(name string) (protocol.PlatformData, err
 	return protocol.PlatformData{}, fs.err
 }
 
-func (fs *errorFilesystem) underlying() (Filesystem, bool) {
+func (*errorFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (fs *errorFilesystem) wrapperType() filesystemWrapperType {
+func (*errorFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeError
 }

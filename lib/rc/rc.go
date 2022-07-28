@@ -391,7 +391,7 @@ func (p *Process) Model(folder string) (Model, error) {
 	return res, nil
 }
 
-func (p *Process) readResponse(resp *http.Response) ([]byte, error) {
+func (*Process) readResponse(resp *http.Response) ([]byte, error) {
 	bs, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {

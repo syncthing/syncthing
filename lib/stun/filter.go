@@ -44,7 +44,7 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 	return false
 }
 
-func (f *stunFilter) isStunPayload(data []byte) bool {
+func (*stunFilter) isStunPayload(data []byte) bool {
 	// Need at least 20 bytes
 	if len(data) < 20 {
 		return false

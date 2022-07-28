@@ -562,8 +562,8 @@ func (r rawResponse) Data() []byte {
 	return r.data
 }
 
-func (r rawResponse) Close() {}
-func (r rawResponse) Wait()  {}
+func (rawResponse) Close() {}
+func (rawResponse) Wait()  {}
 
 // IsEncryptedParent returns true if the path points at a parent directory of
 // encrypted data, i.e. is not a "real" directory. This is determined by

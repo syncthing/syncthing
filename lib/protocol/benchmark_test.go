@@ -167,15 +167,15 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
+func (*fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
 	return nil
 }
 
-func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
+func (*fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
 	return nil
 }
 
-func (m *fakeModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (*fakeModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
@@ -184,13 +184,13 @@ func (m *fakeModel) Request(deviceID DeviceID, folder, name string, blockNo, siz
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
+func (*fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
 	return nil
 }
 
-func (m *fakeModel) Closed(DeviceID, error) {
+func (*fakeModel) Closed(DeviceID, error) {
 }
 
-func (m *fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
+func (*fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
 	return nil
 }
