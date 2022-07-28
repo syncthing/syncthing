@@ -74,6 +74,6 @@ message StringFilter {
 }
 
 message StringFilterEntry {
-    string match  = 1 [(ext.xml) = ",attr"];
-    bool   permit = 2 [(ext.xml) = ",attr"];
+    string match  = 1 [(ext.xml) = "match,attr"];
+    bool   permit = 2 [(ext.xml) = "permit,attr"];
 }

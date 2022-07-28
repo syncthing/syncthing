@@ -38,6 +38,10 @@
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>true</junctionsAsDirs>
         <syncOwnership>false</syncOwnership>
+        <syncXattrs>true</syncXattrs>
+        <xattrFilter>
+            <entry match="net.kastelo.*" permit="true"></entry>
+        </xattrFilter>
     </folder>
     <folder id="s23" label="" path="s23-2" type="sendreceive" rescanIntervalS="15" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
@@ -75,6 +79,8 @@
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>true</junctionsAsDirs>
         <syncOwnership>false</syncOwnership>
+        <syncXattrs>false</syncXattrs>
+        <xattrFilter></xattrFilter>
     </folder>
     <folder id="¯\_(ツ)_/¯ Räksmörgås 动作 Адрес" label="" path="s12-2" type="sendreceive" rescanIntervalS="15" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
@@ -112,6 +118,8 @@
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>true</junctionsAsDirs>
         <syncOwnership>false</syncOwnership>
+        <syncXattrs>false</syncXattrs>
+        <xattrFilter></xattrFilter>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
@@ -233,6 +241,8 @@
             <caseSensitiveFS>false</caseSensitiveFS>
             <junctionsAsDirs>false</junctionsAsDirs>
             <syncOwnership>false</syncOwnership>
+            <syncXattrs>false</syncXattrs>
+            <xattrFilter></xattrFilter>
         </folder>
         <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
             <address>dynamic</address>
