@@ -113,14 +113,14 @@ func (v external) Archive(filePath string) error {
 	return errors.New("file was not removed by external script")
 }
 
-func (v external) GetVersions() (map[string][]FileVersion, error) {
+func (external) GetVersions() (map[string][]FileVersion, error) {
 	return nil, ErrRestorationNotSupported
 }
 
-func (v external) Restore(_ string, _ time.Time) error {
+func (external) Restore(_ string, _ time.Time) error {
 	return ErrRestorationNotSupported
 }
 
-func (v external) Clean(_ context.Context) error {
+func (external) Clean(_ context.Context) error {
 	return nil
 }

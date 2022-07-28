@@ -617,7 +617,7 @@ func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
-func (fs *fakeFS) Glob(_ string) ([]string, error) {
+func (*fakeFS) Glob(_ string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
 }

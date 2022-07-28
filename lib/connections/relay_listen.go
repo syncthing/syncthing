@@ -172,7 +172,7 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
-func (t *relayListener) NATType() string {
+func (*relayListener) NATType() string {
 	return "unknown"
 }
 
