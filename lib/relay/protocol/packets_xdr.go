@@ -89,15 +89,15 @@ func (o Ping) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Ping) MarshalXDRInto(m *xdr.Marshaller) error {
+func (o Ping) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *Ping) UnmarshalXDR(bs []byte) error {
+func (o *Ping) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *Ping) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (o *Ping) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -123,15 +123,15 @@ func (o Pong) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Pong) MarshalXDRInto(m *xdr.Marshaller) error {
+func (o Pong) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *Pong) UnmarshalXDR(bs []byte) error {
+func (o *Pong) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *Pong) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (o *Pong) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -157,15 +157,15 @@ func (o JoinRelayRequest) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o JoinRelayRequest) MarshalXDRInto(m *xdr.Marshaller) error {
+func (o JoinRelayRequest) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
+func (o *JoinRelayRequest) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (o *JoinRelayRequest) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -191,15 +191,15 @@ func (o RelayFull) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o RelayFull) MarshalXDRInto(m *xdr.Marshaller) error {
+func (o RelayFull) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *RelayFull) UnmarshalXDR(bs []byte) error {
+func (o *RelayFull) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *RelayFull) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (o *RelayFull) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 

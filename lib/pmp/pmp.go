@@ -97,7 +97,7 @@ func (w *wrapper) GetLocalIPAddress() net.IP {
 	return w.localIP
 }
 
-func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
+func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, _ string, duration time.Duration) (int, error) {
 	// NAT-PMP says that if duration is 0, the mapping is actually removed
 	// Swap the zero with the renewal value, which should make the lease for the
 	// exact amount of time between the calls.

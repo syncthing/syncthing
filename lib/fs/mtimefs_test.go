@@ -245,7 +245,7 @@ func (s mapStore) Delete(key string) error {
 }
 
 // failChtimes does nothing, and fails
-func failChtimes(name string, mtime, atime time.Time) error {
+func failChtimes(_ string, _, _ time.Time) error {
 	return errors.New("no")
 }
 

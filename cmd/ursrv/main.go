@@ -284,7 +284,7 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func locationsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func locationsHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	cacheMut.Lock()
 	defer cacheMut.Unlock()
 
@@ -377,7 +377,7 @@ func summaryHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func movementHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getMovement(db)
 	if err != nil {
 		log.Println("movementHandler:", err)
@@ -396,7 +396,7 @@ func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func performanceHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getPerformance(db)
 	if err != nil {
 		log.Println("performanceHandler:", err)
@@ -415,7 +415,7 @@ func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func blockStatsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func blockStatsHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getBlockStats(db)
 	if err != nil {
 		log.Println("blockStatsHandler:", err)
