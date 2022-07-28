@@ -265,7 +265,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	return basicFile{fd, name}, err
 }
 
-func (*BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {
 	// implemented in WalkFilesystem
 	return errors.New("not implemented")
 }

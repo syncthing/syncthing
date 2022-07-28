@@ -235,7 +235,7 @@ func (fs *fakeFS) Lchown(name, uid, gid string) error {
 	return nil
 }
 
-func (fs *fakeFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
+func (fs *fakeFS) Chtimes(name string, _ time.Time, mtime time.Time) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 	fs.counters.Chtimes++
@@ -601,23 +601,23 @@ func (*fakeFS) SymlinksSupported() bool {
 	return false
 }
 
-func (*fakeFS) Walk(name string, walkFn WalkFunc) error {
+func (*fakeFS) Walk(_ string, _ WalkFunc) error {
 	return errors.New("not implemented")
 }
 
-func (*fakeFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+func (*fakeFS) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, ErrWatchNotSupported
 }
 
-func (*fakeFS) Hide(name string) error {
+func (*fakeFS) Hide(_ string) error {
 	return nil
 }
 
-func (*fakeFS) Unhide(name string) error {
+func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
-func (*fakeFS) Glob(pattern string) ([]string, error) {
+func (fs *fakeFS) Glob(_ string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
 }
@@ -626,7 +626,7 @@ func (*fakeFS) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 
-func (*fakeFS) Usage(name string) (Usage, error) {
+func (*fakeFS) Usage(_ string) (Usage, error) {
 	return Usage{}, errors.New("not implemented")
 }
 

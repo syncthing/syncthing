@@ -242,7 +242,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// of the TLS handshake. Unfortunately this can't be a hard error,
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
-		if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != s.bepProtocolName {
+		if cs.NegotiatedProtocol != s.bepProtocolName {
 			l.Infof("Peer at %s did not negotiate bep/1.0", c)
 		}
 

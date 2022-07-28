@@ -662,7 +662,7 @@ func (c *byteCounter) Close() {
 
 type noCurrentFiler struct{}
 
-func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 

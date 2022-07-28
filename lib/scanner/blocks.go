@@ -139,4 +139,4 @@ func (noopHash) Write([]byte) (int, error) { return 0, nil }
 
 type noopCounter struct{}
 
-func (*noopCounter) Update(bytes int64) {}
+func (*noopCounter) Update(_ int64) {}

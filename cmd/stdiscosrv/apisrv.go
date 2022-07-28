@@ -68,7 +68,7 @@ func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, 
 	}
 }
 
-func (s *apiSrv) Serve(ctx context.Context) error {
+func (s *apiSrv) Serve(_ context.Context) error {
 	if s.useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
@@ -302,7 +302,7 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 	return s.db.merge(key, dbAddrs, seen)
 }
 
-func handlePing(w http.ResponseWriter, r *http.Request) {
+func handlePing(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(204)
 }
 

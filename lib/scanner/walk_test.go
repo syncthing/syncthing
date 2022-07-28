@@ -310,7 +310,7 @@ func TestNormalizationDarwinCaseFS(t *testing.T) {
 	}
 }
 
-func TestIssue1507(t *testing.T) {
+func TestIssue1507(_ *testing.T) {
 	w := &walker{}
 	w.Matcher = ignore.New(w.Filesystem)
 	h := make(chan protocol.FileInfo, 100)

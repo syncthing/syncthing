@@ -336,13 +336,13 @@ func TestWeakHash(t *testing.T) {
 	// both are of the same length, for example:
 	// File 1: abcdefgh
 	// File 2: xyabcdef
-	f.Seek(0, os.SEEK_SET)
+	f.Seek(0, io.SeekStart)
 	existing, err := scanner.Blocks(context.TODO(), f, protocol.MinBlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
 
-	f.Seek(0, os.SEEK_SET)
+	f.Seek(0, io.SeekStart)
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)

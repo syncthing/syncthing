@@ -60,7 +60,7 @@ func (h *configHandler) configBefore(c *cli.Context) error {
 	return h.err
 }
 
-func (h *configHandler) configAfter(c *cli.Context) error {
+func (h *configHandler) configAfter(_ *cli.Context) error {
 	if h.err != nil {
 		// Error was already returned in configBefore
 		return nil

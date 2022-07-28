@@ -551,11 +551,11 @@ type noopLogger struct{}
 
 var NoopLogger Logger = &noopLogger{}
 
-func (*noopLogger) Serve(ctx context.Context) error { return nil }
+func (*noopLogger) Serve(_ context.Context) error { return nil }
 
-func (*noopLogger) Log(t EventType, data interface{}) {}
+func (*noopLogger) Log(_ EventType, _ interface{}) {}
 
-func (*noopLogger) Subscribe(mask EventType) Subscription {
+func (*noopLogger) Subscribe(_ EventType) Subscription {
 	return &noopSubscription{}
 }
 
@@ -565,7 +565,7 @@ func (*noopSubscription) C() <-chan Event {
 	return nil
 }
 
-func (*noopSubscription) Poll(timeout time.Duration) (Event, error) {
+func (*noopSubscription) Poll(_ time.Duration) (Event, error) {
 	return Event{}, errNoop
 }
 

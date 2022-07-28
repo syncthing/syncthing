@@ -79,7 +79,7 @@ type fakeDiscovery struct {
 	addresses []string
 }
 
-func (f *fakeDiscovery) Lookup(_ context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+func (f *fakeDiscovery) Lookup(_ context.Context, _ protocol.DeviceID) (addresses []string, err error) {
 	return f.addresses, nil
 }
 
@@ -127,7 +127,7 @@ type slowDiscovery struct {
 	started chan struct{}
 }
 
-func (f *slowDiscovery) Lookup(_ context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+func (f *slowDiscovery) Lookup(_ context.Context, _ protocol.DeviceID) (addresses []string, err error) {
 	close(f.started)
 	time.Sleep(f.delay)
 	return nil, nil
