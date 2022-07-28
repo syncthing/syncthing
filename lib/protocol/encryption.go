@@ -547,7 +547,7 @@ func slashify(s string) string {
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
 func deslashify(s string) (string, error) {
-	if len(s) == 0 || !strings.HasPrefix(s[1:], encryptedDirExtension) {
+	if s == "" || !strings.HasPrefix(s[1:], encryptedDirExtension) {
 		return "", fmt.Errorf("invalid encrypted path: %q", s)
 	}
 	s = s[:1] + s[1+len(encryptedDirExtension):]
@@ -575,7 +575,7 @@ func IsEncryptedParent(pathComponents []string) bool {
 	} else if l == 0 {
 		return false
 	}
-	if len(pathComponents[0]) == 0 {
+	if pathComponents[0] == "" {
 		return false
 	}
 	if pathComponents[0][1:] != encryptedDirExtension {

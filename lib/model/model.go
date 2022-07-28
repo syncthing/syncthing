@@ -511,7 +511,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
-	if len(to.ID) == 0 {
+	if to.ID == "" {
 		panic("bug: cannot restart empty folder ID")
 	}
 	if to.ID != from.ID {

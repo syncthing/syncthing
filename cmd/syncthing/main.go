@@ -647,7 +647,7 @@ func syncthingMain(options serveOptions) {
 
 	setupSignalHandling(app)
 
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
+	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
