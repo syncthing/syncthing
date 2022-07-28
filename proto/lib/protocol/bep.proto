@@ -140,36 +140,6 @@ enum FileInfoType {
     FILE_INFO_TYPE_SYMLINK           = 4;
 }
 
-enum OS {
-    OS_UNSPECIFIED = 0; // not used
-    OS_POSIX       = 1;
-    OS_WINDOWS     = 2;
-    OS_LINUX       = 4;
-    OS_MACOS       = 5;
-    OS_FREEBSD     = 6;
-    OS_NETBSD      = 7;
-    OS_OPENBSD     = 8;
-    OS_SOLARIS     = 9; // also Illumos
-}
-
-message POSIXOSData {
-    // The owner name and group name are set when known (i.e., could be
-    // resolved on the source device), while the UID and GID are always set
-    // as they come directly from the stat() call.
-    string owner_name = 1;
-    string group_name = 2;
-    int32  uid        = 3 [(ext.goname) = "UID"];
-    int32  gid        = 4 [(ext.goname) = "GID"];
-}
-
-message WindowsOSData {
-    // Windows file objects have a single owner, which may be a user or a
-    // group. We keep the name of that account, and a flag to indicate what
-    // type it is.
-    string owner_name     = 1;
-    bool   owner_is_group = 2;
-}
-
 message BlockInfo {
     option (gogoproto.goproto_stringer) = false;
     bytes  hash      = 3;
