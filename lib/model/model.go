@@ -2851,9 +2851,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				_, ok := m.folderEncryptionPasswordTokens[toCfg.ID]
 				m.fmut.RUnlock()
 				if !ok {
-					for _, id := range toCfg.DeviceIDs() {
-						closeDevices = append(closeDevices, id)
-					}
+					closeDevices = append(closeDevices, toCfg.DeviceIDs()...)
 				} else {
 					clusterConfigDevices.add(toCfg.DeviceIDs())
 				}
