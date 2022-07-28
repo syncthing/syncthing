@@ -289,10 +289,8 @@ func (m *Matcher) Match(file string) (result Result) {
 			if pattern.match.Match(lowercaseFile) {
 				return pattern.result
 			}
-		} else {
-			if pattern.match.Match(file) {
-				return pattern.result
-			}
+		} else if pattern.match.Match(file) {
+			return pattern.result
 		}
 	}
 
