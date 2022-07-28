@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -59,17 +60,17 @@ func unixPlatformData(fs Filesystem, name string, xattrFilter StringFilter) (pro
 		return protocol.PlatformData{}, err
 	}
 	switch runtime.GOOS {
-	case "linux":
+	case build.Linux:
 		pd.Linux = &protocol.XattrData{Xattrs: xattrs}
-	case "darwin":
+	case build.Darwin:
 		pd.MacOS = &protocol.XattrData{Xattrs: xattrs}
-	case "freebsd":
+	case build.FreeBSD:
 		pd.MacOS = &protocol.XattrData{Xattrs: xattrs}
-	case "netbsd":
+	case build.NetBSD:
 		pd.NetBSD = &protocol.XattrData{Xattrs: xattrs}
-	case "openbsd":
+	case build.OpenBSD:
 		pd.OpenBSD = &protocol.XattrData{Xattrs: xattrs}
-	case "illumos", "solaris":
+	case build.Illumos, build.Solaris:
 		pd.Illumos = &protocol.XattrData{Xattrs: xattrs}
 	}
 
