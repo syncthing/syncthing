@@ -456,7 +456,7 @@ func (s *service) String() string {
 	return fmt.Sprintf("api.service@%p", s)
 }
 
-func (s *service) VerifyConfiguration(from, to config.Configuration) error {
+func (*service) VerifyConfiguration(_, to config.Configuration) error {
 	if to.GUI.Network() != "tcp" {
 		return nil
 	}
@@ -631,7 +631,7 @@ func (s *service) whenDebugging(h http.Handler) http.Handler {
 	})
 }
 
-func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
+func (s *service) getPendingDevices(w http.ResponseWriter, _ *http.Request) {
 	devices, err := s.model.PendingDevices()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -689,11 +689,11 @@ func (s *service) deletePendingFolders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
+func (*service) restPing(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]string{"ping": "pong"})
 }
 
-func (s *service) getJSMetadata(w http.ResponseWriter, r *http.Request) {
+func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	meta, _ := json.Marshal(map[string]string{
 		"deviceID": s.id.String(),
 	})
@@ -701,7 +701,7 @@ func (s *service) getJSMetadata(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)
 }
 
-func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"version":     build.Version,
 		"codename":    build.Codename,
@@ -718,7 +718,7 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
 	sort.Strings(enabled)
@@ -728,7 +728,7 @@ func (s *service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
+func (*service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	q := r.URL.Query()
 	for _, f := range strings.Split(q.Get("enable"), ",") {
@@ -1093,7 +1093,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, res)
 }
 
-func (s *service) getSystemError(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemError(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string][]logger.Line{
 		"errors": s.guiErrors.Since(time.Time{}),
 	})
