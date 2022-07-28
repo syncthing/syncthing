@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -19,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	metrics "github.com/rcrowley/go-metrics"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -474,7 +474,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		return nil
 	}
 
@@ -523,7 +523,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
 func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, err error) {
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		// Mac OS X file names should always be NFD normalized.
 		normPath = norm.NFD.String(path)
 	} else {
@@ -583,7 +583,7 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 // do not depend on type, and things that should be preserved from the
 // previous version of the FileInfo.
 func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
-	if dst.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
+	if dst.Type == protocol.FileInfoTypeFile && build.IsWindows {
 		// If we have an existing index entry, copy the executable bits
 		// from there.
 		dst.Permissions |= (src.Permissions & 0111)
@@ -666,7 +666,7 @@ func (c *byteCounter) Close() {
 
 type noCurrentFiler struct{}
 
-func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 

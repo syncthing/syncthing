@@ -199,7 +199,7 @@ func defaultVars() kong.Vars {
 	// Windows, the "default" options.logFile will later be replaced with the
 	// default path, unless the user has manually specified "-" or
 	// something else.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		vars["logFile"] = "default"
 	} else {
 		vars["logFile"] = "-"
@@ -647,7 +647,7 @@ func syncthingMain(options serveOptions) {
 
 	setupSignalHandling(app)
 
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
+	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 

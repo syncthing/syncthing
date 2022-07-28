@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"github.com/syncthing/notify"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestMain(m *testing.M) {
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 	}
 
 	testDirAbs = filepath.Join(dir, testDir)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		testDirAbs = longFilenameSupport(testDirAbs)
 	}
 
@@ -68,7 +68,7 @@ var (
 )
 
 func TestWatchIgnore(t *testing.T) {
-	if runtime.GOOS == "openbsd" {
+	if build.IsOpenBSD {
 		t.Skip(failsOnOpenBSD)
 	}
 	name := "ignore"
@@ -92,7 +92,7 @@ func TestWatchIgnore(t *testing.T) {
 }
 
 func TestWatchInclude(t *testing.T) {
-	if runtime.GOOS == "openbsd" {
+	if build.IsOpenBSD {
 		t.Skip(failsOnOpenBSD)
 	}
 	name := "include"
@@ -119,7 +119,7 @@ func TestWatchInclude(t *testing.T) {
 }
 
 func TestWatchRename(t *testing.T) {
-	if runtime.GOOS == "openbsd" {
+	if build.IsOpenBSD {
 		t.Skip(failsOnOpenBSD)
 	}
 	name := "rename"
@@ -134,7 +134,7 @@ func TestWatchRename(t *testing.T) {
 	destEvent := Event{new, Remove}
 	// Only on these platforms the removed file can be differentiated from
 	// the created file during renaming
-	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" || runtime.GOOS == "freebsd" {
+	if build.IsWindows || build.IsLinux || build.IsSolaris || build.IsIllumos || build.IsFreeBSD {
 		destEvent = Event{new, NonRemove}
 	}
 	expectedEvents := []Event{
@@ -154,7 +154,7 @@ func TestWatchRename(t *testing.T) {
 // out of root event on every event.
 // https://github.com/syncthing/syncthing/issues/5695
 func TestWatchWinRoot(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific test")
 	}
 
@@ -288,7 +288,7 @@ func TestWatchSubpath(t *testing.T) {
 
 // TestWatchOverflow checks that an event at the root is sent when maxFiles is reached
 func TestWatchOverflow(t *testing.T) {
-	if runtime.GOOS == "openbsd" {
+	if build.IsOpenBSD {
 		t.Skip(failsOnOpenBSD)
 	}
 	name := "overflow"
@@ -313,7 +313,7 @@ func TestWatchOverflow(t *testing.T) {
 }
 
 func TestWatchErrorLinuxInterpretation(t *testing.T) {
-	if runtime.GOOS != "linux" {
+	if !build.IsLinux {
 		t.Skip("testing of linux specific error codes")
 	}
 
@@ -341,7 +341,7 @@ func TestWatchErrorLinuxInterpretation(t *testing.T) {
 }
 
 func TestWatchSymlinkedRoot(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Involves symlinks")
 	}
 
@@ -385,7 +385,7 @@ func TestUnrootedChecked(t *testing.T) {
 }
 
 func TestWatchIssue4877(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific test")
 	}
 
@@ -440,7 +440,7 @@ func TestWatchModTime(t *testing.T) {
 
 	var allowedEvents []Event
 	// Apparently an event for the parent is also sent on mac
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		allowedEvents = []Event{
 			{name, NonRemove},
 		}
@@ -627,10 +627,10 @@ func (e fakeEventInfo) Path() string {
 	return string(e)
 }
 
-func (e fakeEventInfo) Event() notify.Event {
+func (fakeEventInfo) Event() notify.Event {
 	return notify.Write
 }
 
-func (e fakeEventInfo) Sys() interface{} {
+func (fakeEventInfo) Sys() interface{} {
 	return nil
 }

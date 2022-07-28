@@ -10,8 +10,9 @@
 package osutil
 
 import (
-	"runtime"
 	"syscall"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 const (
@@ -36,7 +37,7 @@ func MaximizeOpenFileLimit() (int, error) {
 
 	// macOS doesn't like a soft limit greater then OPEN_MAX
 	// See also: man setrlimit
-	if runtime.GOOS == "darwin" && lim.Max > darwinOpenMax {
+	if build.IsDarwin && lim.Max > darwinOpenMax {
 		lim.Max = darwinOpenMax
 	}
 

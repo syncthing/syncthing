@@ -9,9 +9,9 @@ package versioner
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -45,7 +45,7 @@ func TestExternalNoCommand(t *testing.T) {
 
 func TestExternal(t *testing.T) {
 	cmd := "./_external_test/external.sh %FOLDER_PATH% %FILE_PATH%"
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		cmd = `.\\_external_test\\external.bat %FOLDER_PATH% %FILE_PATH%`
 	}
 

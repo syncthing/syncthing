@@ -328,7 +328,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	return report, nil
 }
 
-func (s *Service) UptimeS() int {
+func (*Service) UptimeS() int {
 	return int(time.Since(StartTime).Seconds())
 }
 

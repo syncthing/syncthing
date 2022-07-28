@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 type Release struct {
@@ -236,15 +238,13 @@ func releaseNames(tag string) []string {
 	// standard, containing both the architecture/OS and the tag name we
 	// expect. This protects against malformed release data potentially
 	// tricking us into doing a downgrade.
-	switch runtime.GOOS {
-	case "darwin":
+	if build.IsDarwin {
 		return []string{
 			fmt.Sprintf("syncthing-macos-%s-%s.", runtime.GOARCH, tag),
 			fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag),
 		}
-	default:
-		return []string{
-			fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag),
-		}
+	}
+	return []string{
+		fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag),
 	}
 }

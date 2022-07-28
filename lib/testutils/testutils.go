@@ -25,12 +25,12 @@ func NewBlockingRW() *BlockingRW {
 		closeOnce: sync.Once{},
 	}
 }
-func (rw *BlockingRW) Read(p []byte) (int, error) {
+func (rw *BlockingRW) Read(_ []byte) (int, error) {
 	<-rw.c
 	return 0, ErrClosed
 }
 
-func (rw *BlockingRW) Write(p []byte) (int, error) {
+func (rw *BlockingRW) Write(_ []byte) (int, error) {
 	<-rw.c
 	return 0, ErrClosed
 }
@@ -45,11 +45,11 @@ func (rw *BlockingRW) Close() error {
 // NoopRW implements io.Reader and Writer but never returns when called
 type NoopRW struct{}
 
-func (rw *NoopRW) Read(p []byte) (n int, err error) {
+func (*NoopRW) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (rw *NoopRW) Write(p []byte) (n int, err error) {
+func (*NoopRW) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 

@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 var versions = []struct {
@@ -120,7 +122,7 @@ func TestSelectedRelease(t *testing.T) {
 }
 
 func TestSelectedReleaseMacOS(t *testing.T) {
-	if runtime.GOOS != "darwin" {
+	if !build.IsDarwin {
 		t.Skip("macOS only")
 	}
 

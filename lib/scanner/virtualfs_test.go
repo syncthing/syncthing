@@ -55,7 +55,7 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
-func (i infiniteFS) PlatformData(name string, xattrFilter fs.StringFilter) (protocol.PlatformData, error) {
+func (infiniteFS) PlatformData(_ string, _ fs.StringFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -101,11 +101,11 @@ func (s singleFileFS) Open(name string) (fs.File, error) {
 	return &fakeFile{s.name, s.filesize, 0}, nil
 }
 
-func (s singleFileFS) Options() []fs.Option {
+func (singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (s singleFileFS) PlatformData(name string, xattrFilter fs.StringFilter) (protocol.PlatformData, error) {
+func (singleFileFS) PlatformData(_ string, _ fs.StringFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -114,18 +114,18 @@ type fakeInfo struct {
 	size int64
 }
 
-func (f fakeInfo) Name() string       { return f.name }
-func (f fakeInfo) Mode() fs.FileMode  { return 0755 }
-func (f fakeInfo) Size() int64        { return f.size }
-func (f fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
+func (f fakeInfo) Name() string     { return f.name }
+func (fakeInfo) Mode() fs.FileMode  { return 0755 }
+func (f fakeInfo) Size() int64      { return f.size }
+func (fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
 func (f fakeInfo) IsDir() bool {
 	return strings.Contains(filepath.Base(f.name), "dir") || f.name == "."
 }
-func (f fakeInfo) IsRegular() bool  { return !f.IsDir() }
-func (f fakeInfo) IsSymlink() bool  { return false }
-func (f fakeInfo) Owner() int       { return 0 }
-func (f fakeInfo) Group() int       { return 0 }
-func (f fakeInfo) Sys() interface{} { return nil }
+func (f fakeInfo) IsRegular() bool { return !f.IsDir() }
+func (fakeInfo) IsSymlink() bool   { return false }
+func (fakeInfo) Owner() int        { return 0 }
+func (fakeInfo) Group() int        { return 0 }
+func (fakeInfo) Sys() interface{}  { return nil }
 
 type fakeFile struct {
 	name       string
@@ -154,10 +154,10 @@ func (f *fakeFile) Stat() (fs.FileInfo, error) {
 	return fakeInfo{f.name, f.size}, nil
 }
 
-func (f *fakeFile) Write([]byte) (int, error)          { return 0, errNotSupp }
-func (f *fakeFile) WriteAt([]byte, int64) (int, error) { return 0, errNotSupp }
-func (f *fakeFile) Close() error                       { return nil }
-func (f *fakeFile) Truncate(size int64) error          { return errNotSupp }
-func (f *fakeFile) ReadAt([]byte, int64) (int, error)  { return 0, errNotSupp }
-func (f *fakeFile) Seek(int64, int) (int64, error)     { return 0, errNotSupp }
-func (f *fakeFile) Sync() error                        { return nil }
+func (*fakeFile) Write([]byte) (int, error)          { return 0, errNotSupp }
+func (*fakeFile) WriteAt([]byte, int64) (int, error) { return 0, errNotSupp }
+func (*fakeFile) Close() error                       { return nil }
+func (*fakeFile) Truncate(_ int64) error             { return errNotSupp }
+func (*fakeFile) ReadAt([]byte, int64) (int, error)  { return 0, errNotSupp }
+func (*fakeFile) Seek(int64, int) (int64, error)     { return 0, errNotSupp }
+func (*fakeFile) Sync() error                        { return nil }

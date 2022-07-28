@@ -146,7 +146,7 @@ func (f *mtimeFS) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *mtimeFS) wrapperType() filesystemWrapperType {
+func (*mtimeFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeMtime
 }
 

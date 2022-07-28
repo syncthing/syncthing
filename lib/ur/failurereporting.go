@@ -195,7 +195,7 @@ func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool
 	return true
 }
 
-func (h *failureHandler) String() string {
+func (*failureHandler) String() string {
 	return "FailureHandler"
 }
 
