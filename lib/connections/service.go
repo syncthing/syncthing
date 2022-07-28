@@ -56,7 +56,6 @@ var (
 	// These are specific explanations for errUnsupported.
 	errDisabled   = fmt.Errorf("%w: disabled by configuration", errUnsupported)
 	errDeprecated = fmt.Errorf("%w: deprecated", errUnsupported)
-	errNotInBuild = fmt.Errorf("%w: disabled at build time", errUnsupported)
 
 	// Various reasons to reject a connection
 	errNetworkNotAllowed      = errors.New("network not allowed")

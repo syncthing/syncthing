@@ -198,7 +198,6 @@ var (
 	errEncryptionTokenWrite               = errors.New("failed to write encryption token")
 	errMissingRemoteInClusterConfig       = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig        = errors.New("local device missing in cluster config")
-	errConnLimitReached                   = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
