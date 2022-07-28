@@ -455,27 +455,29 @@ func TestRooted(t *testing.T) {
 		}
 
 		for _, tc := range cases {
-			// Add case where root is backslashed, rel is forward slashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    tc.rel,
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and the opposite
-			extraCases = append(extraCases, testcase{
-				root:   tc.root,
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and both backslashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
+			extraCases = append(extraCases,
+				// Add case where root is backslashed, rel is forward slashed
+				testcase{
+					root:   filepath.FromSlash(tc.root),
+					rel:    tc.rel,
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+				// and the opposite
+				testcase{
+					root:   tc.root,
+					rel:    filepath.FromSlash(tc.rel),
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+				// and both backslashed
+				testcase{
+					root:   filepath.FromSlash(tc.root),
+					rel:    filepath.FromSlash(tc.rel),
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+			)
 		}
 
 		cases = append(cases, extraCases...)
