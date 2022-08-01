@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -696,8 +695,6 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, xattr
 	}
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
-	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
-		f.InodeChangeNs = sys.Ctimespec.Nano()
-	}
+	setSyscallStatData(&f, fi)
 	return f, nil
 }
