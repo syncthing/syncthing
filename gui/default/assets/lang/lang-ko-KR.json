@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "\"{{receiveEncrypted}}\" 폴더 유형은 폴더를 추가한 후에 변경할 수 없습니다. 폴더를 먼저 삭제하고, 저장 장치에 있는 데이터를 삭제 또는 해독한 다음에 폴더를 다시 추가하십시오.",
     "Folders": "폴더",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "다음 폴더에 변경 항목 감시를 적용하는 과정에서 오류가 발생했습니다. 1분마다 재시도할 예정이므로 오류는 곧 사라질 수 있습니다. 만일 사라지지 않으면 문제의 원인을 직접 해결하거나 스스로 해결하지 못할 경우에는 도움을 요청하십시오.",
+    "Forever": "영원히",
     "Full Rescan Interval (s)": "완전 재탐색 간격(초)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI 인증 비밀번호",

@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Un partage de  type \"{{receiveEncrypted}}\" ne peut pas être modifié après sa création. Il vous faut le supprimer, supprimer ou déchiffrer les données du disque, puis recréer le partage.",
     "Folders": "Partages",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Une erreur s'est produite pour les partages suivants lors du démarrage de la surveillance des changements. Une nouvelle tentative a lieu toutes les minutes, et les erreurs devraient disparaître rapidement. Si elles persistent, essayez de corriger le problème sous-jacent et demandez de l'aide si vous n'y parvenez pas.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Intervalle de réanalyse complète (s)",
     "GUI": "Interface graphique",
     "GUI Authentication Password": "Mot de passe d'authentification GUI",

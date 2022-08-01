@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "資料夾類型 \"{{receiveEncrypted}}\" 無法在新增後變更。您需要移除資料夾、刪除或解密磁碟上的資料，並再次新增資料夾。",
     "Folders": "資料夾",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "啟動監視下列資料夾時發生錯誤。由於每分鐘將進行重試，錯誤可能很快就消失。若錯誤仍存在，請嘗試修復潛在問題，或請求協助。",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "完全重新掃描間隔 (秒)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI 驗證密碼",

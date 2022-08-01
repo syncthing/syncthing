@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Maptype \"{{receiveEncrypted}}\" kin net wizige wurde nei it tafoegjen fan de map. Jo moatte de map fuortsmite, de gegevens op 'e skiif wiskje of ûntsiferje, en de map opnij tafoegje.",
     "Folders": "Mappen",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "By it starten fan it sjen foar feroarings is der foar de folgende mappen is in flater ûnstean. It wurd eltse minuut opnij besike, dus de flaters koene wol ris gau fuortgean. At se der bliuwe, besykje dan it ûnderlizzende probleem te ferhelpen en freegje om help dat dit net slagget.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Folledich wersken ynterfal (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "Wachtwurd foar ferifikaasje yn GUI",

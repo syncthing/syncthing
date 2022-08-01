@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Folder type \"{{receiveEncrypted}}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.",
     "Folders": "Директорії",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Сталася помилка при спробі відслідковувати зміни у вищенаведених папках. Їх доступність перевірятиметься щохвилини, доки помилка не зникне. Якщо помилки не зникають, спробуйте виправити права доступу або попросіть допомоги.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Інтервал повного пересканування (секунди)",
     "GUI": "Графічний інтерфейс",
     "GUI Authentication Password": "Пароль для доступу до панелі управління",

@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "El tipo de carpeta \"{{receiveEncrypted}}\" no se puede cambiar después de añadir la carpeta. Es necesario eliminar la carpeta, borrar o descifrar los datos en el disco y volver a añadir la carpeta.",
     "Folders": "Carpetas",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Para las siguientes carpetas ocurrió un error cuando se empezó a vigilar los cambios. Se reintentará cada minuto, así que puede ser que los errores desaparezcan pronto. Si persisten, intenta solucionar el problema subyacente y pide ayuda en el caso de que no puedas.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Intervalo para el reescaneo completo (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "Password de la Interfaz Gráfica de Usuario (GUI)",

@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Тип папки \"{{receiveEncrypted}}\" не может быть изменён после добавления. Вам необходимо убрать папку, удалить или дешифровать данные на диске, а затем добавить папку заново.",
     "Folders": "Папки",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Для следующих папок произошла ошибка при запуске отслеживания изменений. Попытки будут повторяться раз в минуту, и ошибки скоро могут быть устранены. Если этого не произойдёт, попробуйте разобраться в причинах и попросите поддержки, если у вас не получится.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Интервал полного сканирования (в секундах)",
     "GUI": "Интерфейс",
     "GUI Authentication Password": "Пароль для доступа к панели управления",
