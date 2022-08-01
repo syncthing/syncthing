@@ -5,5 +5,4 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func setSyscallStatData(fi *protocol.FileInfo, stat fs.FileInfo) {
-}
+func setSyscallStatData(fi *protocol.FileInfo, stat fs.FileInfo) {}
