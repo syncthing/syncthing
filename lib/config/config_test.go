@@ -106,7 +106,9 @@ func TestDefaultValues(t *testing.T) {
 				WeakHashThresholdPct: 25,
 				MarkerName:           ".stfolder",
 				MaxConcurrentWrites:  2,
-				XattrFilter:          StringFilter{},
+				XattrFilter: StringFilter{
+					Entries: []StringFilterEntry{},
+				},
 			},
 			Device: DeviceConfiguration{
 				Addresses:       []string{"dynamic"},
@@ -178,7 +180,9 @@ func TestDeviceConfig(t *testing.T) {
 				MarkerName:           DefaultMarkerName,
 				JunctionsAsDirs:      true,
 				MaxConcurrentWrites:  maxConcurrentWritesDefault,
-				XattrFilter:          StringFilter{},
+				XattrFilter: StringFilter{
+					Entries: []StringFilterEntry{},
+				},
 			},
 		}
 
