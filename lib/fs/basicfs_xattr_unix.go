@@ -54,7 +54,7 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 }
 
 func listXattr(path string, buf []byte) ([]byte, error) {
-	size, err := unix.Listxattr(path, buf)
+	size, err := unix.Llistxattr(path, buf)
 	if errors.Is(err, syscall.ERANGE) {
 		// Buffer is too small. Try again with a zero sized buffer to get
 		// the size, then allocate a buffer of the correct size.
@@ -65,7 +65,7 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 		if size > len(buf) {
 			buf = make([]byte, size)
 		}
-		size, err = unix.Listxattr(path, buf)
+		size, err = unix.Llistxattr(path, buf)
 	}
 	if err != nil {
 		return nil, err
@@ -77,18 +77,18 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 	if len(buf) == 0 {
 		buf = make([]byte, 1024)
 	}
-	size, err := unix.Getxattr(path, name, buf)
+	size, err := unix.Lgetxattr(path, name, buf)
 	if errors.Is(err, syscall.ERANGE) {
 		// Buffer was too small. Figure out how large it needs to be, and
 		// allocate.
-		size, err = unix.Getxattr(path, name, nil)
+		size, err = unix.Lgetxattr(path, name, nil)
 		if err != nil {
 			return nil, nil, err
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
 		}
-		size, err = unix.Getxattr(path, name, buf)
+		size, err = unix.Lgetxattr(path, name, buf)
 	}
 	if err != nil {
 		return nil, buf, err

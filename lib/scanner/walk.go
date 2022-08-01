@@ -479,7 +479,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.XattrFilter)
 	if err != nil {
-		handleError(ctx, "reading link:", relPath, err, finishedChan)
+		handleError(ctx, "reading link", relPath, err, finishedChan)
 		return nil
 	}
 
