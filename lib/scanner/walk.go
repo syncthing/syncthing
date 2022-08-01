@@ -697,7 +697,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, xattr
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
 	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
-		f.InodeChangeNs = sys.Ctimespec.Sec*1e9 + int64(sys.Ctimespec.Nsec)
+		f.InodeChangeNs = sys.Ctimespec.Nano()
 	}
 	return f, nil
 }

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -1769,6 +1770,13 @@ loop:
 				lastFile = job.file
 			}
 
+			if !job.file.IsDeleted() && !job.file.IsInvalid() {
+				// Now that the file is finalized, grab possibly updated
+				// info from disk into the local FileInfo.
+				if err := f.updateFileInfoMetadata(&job.file); err != nil {
+					l.Warnln("Error updating metadata for %q at database commit: %v", job.file.Name, err)
+				}
+			}
 			job.file.Sequence = 0
 
 			batch.Append(job.file)
@@ -1781,6 +1789,24 @@ loop:
 	}
 
 	batch.Flush()
+}
+
+// updateFileInfoMetadata updates fields in the FileInfo that depend on the
+// current, new, state of the file on disk.
+func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
+	if build.IsWindows {
+		// Currently we only have Unix specific fields to update, so bail
+		// early on Windows.
+		return nil
+	}
+	info, err := f.mtimefs.Lstat(file.Name)
+	if err != nil {
+		return err
+	}
+	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
+		file.InodeChangeNs = sys.Ctimespec.Nano()
+	}
+	return nil
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
