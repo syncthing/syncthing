@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -1789,24 +1788,6 @@ loop:
 	}
 
 	batch.Flush()
-}
-
-// updateFileInfoMetadata updates fields in the FileInfo that depend on the
-// current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
-	if build.IsWindows {
-		// Currently we only have Unix specific fields to update, so bail
-		// early on Windows.
-		return nil
-	}
-	info, err := f.mtimefs.Lstat(file.Name)
-	if err != nil {
-		return err
-	}
-	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
-		file.InodeChangeNs = sys.Ctimespec.Nano()
-	}
-	return nil
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
