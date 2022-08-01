@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -781,6 +782,11 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	fi, err := scanner.CreateFileInfo(stat, name, ffs, config.StringFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0600)
+	if info, err := ffs.Stat(name); err == nil {
+		if sys, ok := info.Sys().(*syscall.Stat_t); ok {
+			fi.InodeChangeNs = sys.Ctimespec.Nano()
+		}
+	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)

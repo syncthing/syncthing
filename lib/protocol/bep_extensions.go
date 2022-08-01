@@ -268,7 +268,8 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 			}
 		}
 		if f.Platform.Windows != nil && other.Platform.Windows != nil {
-			if *f.Platform.Windows != *other.Platform.Windows {
+			if f.Platform.Windows.OwnerName != other.Platform.Windows.OwnerName ||
+				f.Platform.Windows.OwnerIsGroup != other.Platform.Windows.OwnerIsGroup {
 				return false
 			}
 		}
