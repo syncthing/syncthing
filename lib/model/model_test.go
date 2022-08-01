@@ -3218,8 +3218,11 @@ func TestConnCloseOnRestart(t *testing.T) {
 func TestModTimeWindow(t *testing.T) {
 	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
-	tfs := fcfg.Filesystem(nil)
-	fcfg.RawModTimeWindowS = 2
+	tfs := modtimeTruncatingFS{
+		trunc:      0,
+		Filesystem: fcfg.Filesystem(nil),
+	}
+	// fcfg.RawModTimeWindowS = 2
 	setFolder(t, w, fcfg)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -3243,10 +3246,12 @@ func TestModTimeWindow(t *testing.T) {
 	}
 	v := fi.Version
 
-	// Update time on disk 1s
+	// Change the filesystem to only return modtimes to the closest two
+	// seconds, like FAT.
 
-	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
-	must(t, err)
+	tfs.trunc = 2 * time.Second
+
+	// Scan again
 
 	m.ScanFolders()
 
@@ -4304,4 +4309,42 @@ func equalStringsInAnyOrder(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// modtimeTruncatingFS is a FileSystem that returns modification times only
+// to the closest two `trunc` interval.
+type modtimeTruncatingFS struct {
+	trunc time.Duration
+	fs.Filesystem
+}
+
+func (f modtimeTruncatingFS) Lstat(name string) (fs.FileInfo, error) {
+	fmt.Println("lstat", name)
+	info, err := f.Filesystem.Lstat(name)
+	return modtimeTruncatingFileInfo{trunc: f.trunc, FileInfo: info}, err
+}
+
+func (f modtimeTruncatingFS) Stat(name string) (fs.FileInfo, error) {
+	fmt.Println("stat", name)
+	info, err := f.Filesystem.Stat(name)
+	return modtimeTruncatingFileInfo{trunc: f.trunc, FileInfo: info}, err
+}
+
+func (f modtimeTruncatingFS) Walk(root string, walkFn fs.WalkFunc) error {
+	return f.Filesystem.Walk(root, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+		fmt.Println("walk", info.Name())
+		return walkFn(path, modtimeTruncatingFileInfo{trunc: f.trunc, FileInfo: info}, nil)
+	})
+}
+
+type modtimeTruncatingFileInfo struct {
+	trunc time.Duration
+	fs.FileInfo
+}
+
+func (fi modtimeTruncatingFileInfo) ModTime() time.Time {
+	return fi.FileInfo.ModTime().Truncate(fi.trunc)
 }
