@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Folder type \"{{receiveEncrypted}}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.",
     "Folders": "フォルダー",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "以下のフォルダへの変更の監視を始めるにあたってエラーが発生しました。1分ごとに再試行するため、すぐに回復するかもしれません。エラーが続くようであれば、原因に対処するか、必要に応じて助けを求めましょう。",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "フルスキャンの間隔 (秒)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI認証パスワード",

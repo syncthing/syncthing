@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Maptype \"{{receiveEncrypted}}\" kan niet gewijzigd worden na het toevoegen van de map. U moet de map verwijderen, de gegevens op schijf verwijderen of ontsleutelen en daarna de map opnieuw toevoegen.",
     "Folders": "Mappen",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Voor de volgende mappen trad een fout op tijdens het beginnen opvolgen van wijzigingen. Er zal elke minuut opnieuw geprobeerd worden, dus de fouten kunnen snel verdwijnen. Als ze blijven voorkomen, probeer dan het onderliggende probleem op te lossen en vraag om hulp als u dat niet kunt.",
+    "Forever": "Voor altijd",
     "Full Rescan Interval (s)": "Interval voor volledig opnieuw scannen (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI-wachtwoord",

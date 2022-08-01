@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Der Ordnertyp „{{receiveEncrypted}}“ kann nach dem Hinzufügen nicht geändert werden. Sie müssen den Ordner entfernen, die Daten auf dem Speichermedium löschen oder entschlüsseln und anschließend den Order wieder neu hinzufügen.",
     "Folders": "Ordner",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Bei den folgenden Ordnern ist ein Fehler aufgetreten, während Sie nach Änderungen suchten. Es wird jede Minute erneut gesucht, damit die Fehler bald verschwinden. Falls die Fehler bestehen bleiben, versuchen Sie, das zugrunde liegende Problem zu beheben, und fragen Sie evtl. nach Hilfe.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Vollständiges Scanintervall (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "Passwort für Zugang zur Benutzeroberfläche",

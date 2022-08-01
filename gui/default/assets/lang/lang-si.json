@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "ෆෝල්ඩරය එකතු කිරීමෙන් පසු \"{{receiveEncrypted}}\" ෆෝල්ඩර වර්ගය වෙනස් කළ නොහැක. ඔබට ෆෝල්ඩරය ඉවත් කිරීම, තැටියේ ඇති දත්ත මකා දැමීම හෝ විකේතනය කිරීම සහ ෆෝල්ඩරය නැවත එක් කිරීම අවශ්ය වේ.",
     "Folders": "බහාලුම්",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "පහත ෆෝල්ඩර සඳහා වෙනස්කම් නැරඹීමට පටන් ගැනීමේදී දෝෂයක් ඇති විය. එය සෑම මිනිත්තුවකම නැවත උත්සාහ කරනු ඇත, එබැවින් දෝෂ ඉක්මනින් පහව යනු ඇත. ඒවා දිගටම පවතින්නේ නම්, යටින් පවතින ගැටලුව විසඳීමට උත්සාහ කර ඔබට නොහැකි නම් උදව් ඉල්ලන්න.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "සම්පූර්ණ නැවත ස්කෑන් පරතරය (ය)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI සත්‍යාපන මුරපදය",

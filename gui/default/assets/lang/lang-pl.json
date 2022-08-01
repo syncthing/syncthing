@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Rodzaj folderu \"{{receiveEncrypted}}\" nie może być zmieniony po dodaniu folderu. Musisz najpierw usunąć folder, skasować bądź też odszyfrować dane na dysku, a następnie dodać folder ponownie.",
     "Folders": "Foldery",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Wystąpił błąd podczas włączania obserwowania zmian w następujących folderach. Próba będzie ponawiana co minutę, więc te błędy mogą niebawem zniknąć. Jeżeli nie uda pozbyć się błędów, spróbuj naprawić odpowiedzialny za to problem lub poproś o pomoc, jeżeli nie będziesz sam w stanie tego zrobić.",
+    "Forever": "Na zawsze",
     "Full Rescan Interval (s)": "Przedział czasowy pełnego skanowania (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "Hasło uwierzytelniające GUI",

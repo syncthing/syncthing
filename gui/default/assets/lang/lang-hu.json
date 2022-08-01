@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "A „{{receiveEncrypted}}” mappa típusa nem változtatható meg a létrehozása után. El kell távolítani a mappát, az adatokat törölni kell vagy visszafejteni a lemezen és újra hozzáadni a mappát.",
     "Folders": "Mappák",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Az alábbi mappák figyelésének indításakor hibák léptek fel. Minden percben megismétlődik a próbálkozás, így a hibák valószínűleg el fognak tűnni. Ha mégsem, meg kell próbálni javítani az előidéző hibát vagy segítséget kérni.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Teljes átnézési intervallum (mp)",
     "GUI": "Grafikus felület",
     "GUI Authentication Password": "Grafikus felület jelszava",

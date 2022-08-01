@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Folder type \"{{receiveEncrypted}}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.",
     "Folders": "Kansiot",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Seuraavien kansioiden valvonnan aloitus epäonnistui. Yritetään uudelleen minuutin välein, joten virhe saattaa poistua pian. Mikäli virheet jäävät pysyviksi, yritä korjata taustaongelma tai kysy apua foorumilta, mikäli et onnistu.",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "Täydellisen uudelleenskannauksen aikaväli (s)",
     "GUI": "GUI",
     "GUI Authentication Password": "GUI:n salasana",
