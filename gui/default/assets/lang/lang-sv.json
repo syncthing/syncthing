@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Mapptypen \"{{receiveEncrypted}}\" kan inte ändras efter att mappen har lagts till. Du måste ta bort mappen, ta bort eller dekryptera data på disken och lägga till mappen igen.",
     "Folders": "Mappar",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "För följande mappar uppstod ett fel när du började bevaka ändringar. Det kommer att omförsökas varje minut, så felen kan försvinna snart. Om de fortsätter, försök att åtgärda det underliggande problemet och fråga om hjälp om du inte kan.",
+    "Forever": "För alltid",
     "Full Rescan Interval (s)": "Fullständigt återkommande skanningsintervall (s)",
     "GUI": "Grafiskt användargränssnitt",
     "GUI Authentication Password": "Autentiseringslösenord för gränssnitt",

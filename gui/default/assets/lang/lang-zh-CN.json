@@ -155,6 +155,7 @@
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "添加文件夹后，无法更改文件夹类型“ {{receiveEncrypted}}”。您需要删除该文件夹，删除或解密磁盘上的数据，然后再次添加该文件夹。",
     "Folders": "文件夹",
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "开始监视下列文件夹时发生错误。由于每分钟都会重试，所以错误可能很快就消失。如果它们仍存在，请试着修复潜在问题，如不会则请求帮助。",
+    "Forever": "Forever",
     "Full Rescan Interval (s)": "完整扫描间隔（秒）",
     "GUI": "图形用户界面",
     "GUI Authentication Password": "图形管理界面密码",
