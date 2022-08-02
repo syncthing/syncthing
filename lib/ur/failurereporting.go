@@ -54,6 +54,7 @@ func FailureDataWithGoroutines(description string) FailureData {
 	return FailureData{
 		Description: description,
 		Goroutines:  buf.String(),
+		Extra:       make(map[string]string),
 	}
 }
 
