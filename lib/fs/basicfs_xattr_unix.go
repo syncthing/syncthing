@@ -96,7 +96,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 	return buf[:size], buf[size:], nil
 }
 
-func (f *BasicFilesystem) SetXattrs(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
+func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
 	// Index the new attribute set
 	xattrsIdx := make(map[string]int)
 	for i, xa := range xattrs {

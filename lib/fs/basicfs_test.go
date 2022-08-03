@@ -587,7 +587,7 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattrs("/test", attrs, noopStringFilter{}); err != nil {
+	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); err != nil {
 		t.Fatal(err)
 	}
 	res, err := tfs.GetXattr("/test", noopStringFilter{})
@@ -625,7 +625,7 @@ func TestXattr(t *testing.T) {
 	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattrs("/test", attrs, noopStringFilter{}); err != nil {
+	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); err != nil {
 		t.Fatal(err)
 	}
 	res, err = tfs.GetXattr("/test", noopStringFilter{})

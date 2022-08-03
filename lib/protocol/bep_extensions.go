@@ -325,6 +325,29 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 	return blocksEqual(f.Blocks, other.Blocks)
 }
 
+func (f FileInfo) XattrsForPlatform() []Xattr {
+	switch {
+	case build.IsWindows && f.Platform.Windows != nil:
+		return f.Platform.Windows.Xattrs
+	case build.IsLinux && f.Platform.Linux != nil:
+		return f.Platform.Linux.Xattrs
+	case build.IsDarwin && f.Platform.Darwin != nil:
+		return f.Platform.Darwin.Xattrs
+	case build.IsFreeBSD && f.Platform.FreeBSD != nil:
+		return f.Platform.FreeBSD.Xattrs
+	case build.IsNetBSD && f.Platform.NetBSD != nil:
+		return f.Platform.NetBSD.Xattrs
+	case build.IsOpenBSD && f.Platform.OpenBSD != nil:
+		return f.Platform.OpenBSD.Xattrs
+	case build.IsIllumos && f.Platform.Illumos != nil:
+		return f.Platform.Illumos.Xattrs
+	case build.IsSolaris && f.Platform.Solaris != nil:
+		return f.Platform.Solaris.Xattrs
+	default:
+		return nil
+	}
+}
+
 // blocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
 func blocksEqual(a, b []BlockInfo) bool {

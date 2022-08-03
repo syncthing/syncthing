@@ -30,6 +30,9 @@ func (fs *errorFilesystem) DirNames(_ string) ([]string, error) { return nil, fs
 func (fs *errorFilesystem) GetXattr(_ string, _ StringFilter) ([]protocol.Xattr, error) {
 	return nil, fs.err
 }
+func (fs *errorFilesystem) SetXattr(_ string, _ []protocol.Xattr, _ StringFilter) error {
+	return fs.err
+}
 func (fs *errorFilesystem) Lstat(_ string) (FileInfo, error)             { return nil, fs.err }
 func (fs *errorFilesystem) Mkdir(_ string, _ FileMode) error             { return fs.err }
 func (fs *errorFilesystem) MkdirAll(_ string, _ FileMode) error          { return fs.err }

@@ -1204,8 +1204,8 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 	}
 }
 
-// shortcutFile sets file mode and modification time, when that's the only
-// thing that has changed.
+// shortcutFile sets file metadata, when that's the only thing that has
+// changed.
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
@@ -1231,6 +1231,15 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
 			f.newPullError(file.Name, err)
 			return
+		}
+	}
+
+	if f.SyncXattrs {
+		if xattrs := file.XattrsForPlatform(); xattrs != nil {
+			if err = f.mtimefs.SetXattr(file.Name, xattrs, f.XattrFilter); err != nil {
+				f.newPullError(file.Name, err)
+				return
+			}
 		}
 	}
 

@@ -621,6 +621,10 @@ func (fs *fakeFS) GetXattr(_ string, _ StringFilter) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 
+func (fs *fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ StringFilter) error {
+	return nil
+}
+
 func (*fakeFS) Glob(_ string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
