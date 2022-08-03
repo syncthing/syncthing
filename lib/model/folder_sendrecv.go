@@ -1235,11 +1235,9 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	if f.SyncXattrs {
-		if xattrs := file.XattrsForPlatform(); xattrs != nil {
-			if err = f.mtimefs.SetXattr(file.Name, xattrs, f.XattrFilter); err != nil {
-				f.newPullError(file.Name, err)
-				return
-			}
+		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); err != nil {
+			f.newPullError(file.Name, err)
+			return
 		}
 	}
 
@@ -1609,6 +1607,13 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
+			return err
+		}
+	}
+
+	// Set extended attributes
+	if f.SyncXattrs {
+		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); err != nil {
 			return err
 		}
 	}

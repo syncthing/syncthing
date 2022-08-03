@@ -10,7 +10,6 @@ import (
 	"os/user"
 	"strconv"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -58,22 +57,7 @@ func unixPlatformData(fs Filesystem, name string, xattrFilter StringFilter) (pro
 	if err != nil {
 		return protocol.PlatformData{}, err
 	}
-	switch {
-	case build.IsLinux:
-		pd.Linux = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsDarwin:
-		pd.Darwin = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsFreeBSD:
-		pd.FreeBSD = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsNetBSD:
-		pd.NetBSD = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsOpenBSD:
-		pd.OpenBSD = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsIllumos:
-		pd.Illumos = &protocol.XattrData{Xattrs: xattrs}
-	case build.IsSolaris:
-		pd.Illumos = &protocol.XattrData{Xattrs: xattrs}
-	}
+	pd.SetXattrs(xattrs)
 
 	return pd, nil
 }

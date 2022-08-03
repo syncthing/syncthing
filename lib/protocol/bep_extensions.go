@@ -325,26 +325,114 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 	return blocksEqual(f.Blocks, other.Blocks)
 }
 
-func (f FileInfo) XattrsForPlatform() []Xattr {
+// Xattrs is a convenience method to return the extended attributes of the
+// file for the current platform.
+func (f *PlatformData) Xattrs() []Xattr {
 	switch {
-	case build.IsWindows && f.Platform.Windows != nil:
-		return f.Platform.Windows.Xattrs
-	case build.IsLinux && f.Platform.Linux != nil:
-		return f.Platform.Linux.Xattrs
-	case build.IsDarwin && f.Platform.Darwin != nil:
-		return f.Platform.Darwin.Xattrs
-	case build.IsFreeBSD && f.Platform.FreeBSD != nil:
-		return f.Platform.FreeBSD.Xattrs
-	case build.IsNetBSD && f.Platform.NetBSD != nil:
-		return f.Platform.NetBSD.Xattrs
-	case build.IsOpenBSD && f.Platform.OpenBSD != nil:
-		return f.Platform.OpenBSD.Xattrs
-	case build.IsIllumos && f.Platform.Illumos != nil:
-		return f.Platform.Illumos.Xattrs
-	case build.IsSolaris && f.Platform.Solaris != nil:
-		return f.Platform.Solaris.Xattrs
+	case build.IsWindows && f.Windows != nil:
+		return f.Windows.Xattrs
+	case build.IsLinux && f.Linux != nil:
+		return f.Linux.Xattrs
+	case build.IsDarwin && f.Darwin != nil:
+		return f.Darwin.Xattrs
+	case build.IsFreeBSD && f.FreeBSD != nil:
+		return f.FreeBSD.Xattrs
+	case build.IsNetBSD && f.NetBSD != nil:
+		return f.NetBSD.Xattrs
+	case build.IsOpenBSD && f.OpenBSD != nil:
+		return f.OpenBSD.Xattrs
+	case build.IsIllumos && f.Illumos != nil:
+		return f.Illumos.Xattrs
+	case build.IsSolaris && f.Solaris != nil:
+		return f.Solaris.Xattrs
 	default:
 		return nil
+	}
+}
+
+// SetXattrs is a convenience method to set the extended attributes of the
+// file for the current platform.
+func (p *PlatformData) SetXattrs(xattrs []Xattr) {
+	switch {
+	case build.IsWindows:
+		if p.Windows == nil {
+			p.Windows = &WindowsData{}
+		}
+		p.Windows.Xattrs = xattrs
+
+	case build.IsLinux:
+		if p.Linux == nil {
+			p.Linux = &XattrData{}
+		}
+		p.Linux.Xattrs = xattrs
+
+	case build.IsDarwin:
+		if p.Darwin == nil {
+			p.Darwin = &XattrData{}
+		}
+		p.Darwin.Xattrs = xattrs
+
+	case build.IsFreeBSD:
+		if p.FreeBSD == nil {
+			p.FreeBSD = &XattrData{}
+		}
+		p.FreeBSD.Xattrs = xattrs
+
+	case build.IsNetBSD:
+		if p.NetBSD == nil {
+			p.NetBSD = &XattrData{}
+		}
+		p.NetBSD.Xattrs = xattrs
+
+	case build.IsOpenBSD:
+		if p.OpenBSD == nil {
+			p.OpenBSD = &XattrData{}
+		}
+		p.OpenBSD.Xattrs = xattrs
+
+	case build.IsIllumos:
+		if p.Illumos == nil {
+			p.Illumos = &XattrData{}
+		}
+		p.Illumos.Xattrs = xattrs
+
+	case build.IsSolaris:
+		if p.Solaris == nil {
+			p.Solaris = &XattrData{}
+		}
+		p.Solaris.Xattrs = xattrs
+	}
+}
+
+// MergeWith copies platform data from other, for platforms where it's not
+// already set on p.
+func (p *PlatformData) MergeWith(other *PlatformData) {
+	if p.Unix == nil {
+		p.Unix = other.Unix
+	}
+	if p.Windows == nil {
+		p.Windows = other.Windows
+	}
+	if p.Linux == nil {
+		p.Linux = other.Linux
+	}
+	if p.Darwin == nil {
+		p.Darwin = other.Darwin
+	}
+	if p.FreeBSD == nil {
+		p.FreeBSD = other.FreeBSD
+	}
+	if p.NetBSD == nil {
+		p.NetBSD = other.NetBSD
+	}
+	if p.OpenBSD == nil {
+		p.OpenBSD = other.OpenBSD
+	}
+	if p.Illumos == nil {
+		p.Illumos = other.Illumos
+	}
+	if p.Solaris == nil {
+		p.Solaris = other.Solaris
 	}
 }
 

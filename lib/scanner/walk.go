@@ -592,12 +592,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.LocalFlags = w.LocalFlags
 
 	// Copy OS data from src to dst, unless it was already set on dst.
-	if dst.Platform.Unix == nil {
-		dst.Platform.Unix = src.Platform.Unix
-	}
-	if dst.Platform.Windows == nil {
-		dst.Platform.Windows = src.Platform.Windows
-	}
+	dst.Platform.MergeWith(&src.Platform)
 
 	return dst
 }
