@@ -1,6 +1,6 @@
 module github.com/syncthing/syncthing
 
-go 1.17
+go 1.18
 
 require (
 	github.com/AudriusButkevicius/pfilter v0.0.10
@@ -79,7 +79,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )
 
