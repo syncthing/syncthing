@@ -162,7 +162,10 @@ func (evType EventType) String() string {
 	}
 }
 
-var ErrWatchNotSupported = errors.New("watching is not supported")
+var (
+	ErrWatchNotSupported  = errors.New("watching is not supported")
+	ErrXattrsNotSupported = errors.New("extended attributes are not supported on this platform")
+)
 
 // Equivalents from os package.
 

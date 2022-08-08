@@ -157,12 +157,12 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 
 func (f *BasicFilesystem) GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
 	// XXX: implement
-	return nil, syscall.ENOTSUP
+	return nil, ErrXattrsNotSupported
 }
 
 func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
 	// XXX: implement
-	return syscall.ENOTSUP
+	return ErrXattrsNotSupported
 }
 
 func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
