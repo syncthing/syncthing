@@ -2178,7 +2178,11 @@ func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) erro
 		return err
 	}
 
-	file.InodeChangeNs = fs.InodeChangeTime(info).UnixNano()
+	if ct := info.InodeChangeTime(); !ct.IsZero() {
+		file.InodeChangeNs = ct.UnixNano()
+	} else {
+		file.InodeChangeNs = 0
+	}
 	return nil
 }
 

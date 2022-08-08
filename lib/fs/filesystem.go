@@ -106,6 +106,7 @@ type FileInfo interface {
 	IsSymlink() bool
 	Owner() int
 	Group() int
+	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode

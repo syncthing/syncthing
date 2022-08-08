@@ -690,6 +690,10 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, xattr
 	}
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
-	f.InodeChangeNs = fs.InodeChangeTime(fi).UnixNano()
+	if ct := fi.InodeChangeTime(); !ct.IsZero() {
+		f.InodeChangeNs = ct.UnixNano()
+	} else {
+		f.InodeChangeNs = 0
+	}
 	return f, nil
 }
