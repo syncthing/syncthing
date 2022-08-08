@@ -156,7 +156,13 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 func (f *BasicFilesystem) GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
+	// XXX: implement
 	return nil, nil
+}
+
+func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
+	// XXX: implement
+	return nil
 }
 
 func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
