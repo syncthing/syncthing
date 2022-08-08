@@ -14,9 +14,9 @@ import (
 )
 
 func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
-	return nil, syscall.ErrXattrsNotSupported
+	return nil, ErrXattrsNotSupported
 }
 
 func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
-	return syscall.ErrXattrsNotSupported
+	return ErrXattrsNotSupported
 }
