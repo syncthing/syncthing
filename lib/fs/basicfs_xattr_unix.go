@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"syscall"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/unix"
@@ -61,7 +60,7 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 
 func listXattr(path string, buf []byte) ([]byte, error) {
 	size, err := unix.Llistxattr(path, buf)
-	if errors.Is(err, syscall.ERANGE) {
+	if errors.Is(err, unix.ERANGE) {
 		// Buffer is too small. Try again with a zero sized buffer to get
 		// the size, then allocate a buffer of the correct size.
 		size, err = unix.Listxattr(path, nil)
@@ -84,7 +83,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		buf = make([]byte, 1024)
 	}
 	size, err := unix.Lgetxattr(path, name, buf)
-	if errors.Is(err, syscall.ERANGE) {
+	if errors.Is(err, unix.ERANGE) {
 		// Buffer was too small. Figure out how large it needs to be, and
 		// allocate.
 		size, err = unix.Lgetxattr(path, name, nil)
