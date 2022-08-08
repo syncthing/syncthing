@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !windows && !dragonfly && !illumos && !solaris
-// +build !windows,!dragonfly,!illumos,!solaris
+//go:build !windows && !dragonfly && !illumos && !solaris && !openbsd
+// +build !windows,!dragonfly,!illumos,!solaris,!openbsd
 
 package fs
 
