@@ -48,7 +48,7 @@ func (f *BasicFilesystem) PlatformData(name string, xattrFilter StringFilter) (p
 	}
 
 	xattrs, err := f.GetXattr(name, xattrFilter)
-	if err != nil {
+	if err != nil && !errors.is(err, ErrXattrsNotSupported) {
 		return protocol.PlatformData{}, fmt.Errorf("get xattr for %s: %w", rootedName, err)
 	}
 	pd.Xattrs = xattrs
