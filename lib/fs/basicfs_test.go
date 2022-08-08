@@ -8,12 +8,14 @@ package fs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -587,7 +589,9 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); err != nil {
+	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); errors.Is(err, syscall.ENOTSUP) {
+		t.Skip("xattrs not supported")
+	} else if err != nil {
 		t.Fatal(err)
 	}
 	res, err := tfs.GetXattr("/test", noopStringFilter{})

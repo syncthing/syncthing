@@ -121,11 +121,12 @@ func (fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
 func (f fakeInfo) IsDir() bool {
 	return strings.Contains(filepath.Base(f.name), "dir") || f.name == "."
 }
-func (f fakeInfo) IsRegular() bool { return !f.IsDir() }
-func (fakeInfo) IsSymlink() bool   { return false }
-func (fakeInfo) Owner() int        { return 0 }
-func (fakeInfo) Group() int        { return 0 }
-func (fakeInfo) Sys() interface{}  { return nil }
+func (f fakeInfo) IsRegular() bool          { return !f.IsDir() }
+func (fakeInfo) IsSymlink() bool            { return false }
+func (fakeInfo) Owner() int                 { return 0 }
+func (fakeInfo) Group() int                 { return 0 }
+func (fakeInfo) Sys() interface{}           { return nil }
+func (fakeInfo) InodeChangeTime() time.Time { return time.Time{} }
 
 type fakeFile struct {
 	name       string

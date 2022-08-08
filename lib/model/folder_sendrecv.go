@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -1235,7 +1236,9 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	if f.SyncXattrs {
-		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); err != nil {
+		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, syscall.ENOTSUP) {
+			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
+		} else if err != nil {
 			f.newPullError(file.Name, err)
 			return
 		}
@@ -1613,7 +1616,9 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 
 	// Set extended attributes
 	if f.SyncXattrs {
-		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); err != nil {
+		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, syscall.ENOTSUP) {
+			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
+		} else if err != nil {
 			return err
 		}
 	}
