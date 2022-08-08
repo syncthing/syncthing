@@ -16,7 +16,7 @@ jobs:
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
       - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2
         with:
-          go-version: ^1.17.6
+          go-version: ^1.18.4
       - run: |
           set -euo pipefail
           git config --global user.name 'Syncthing Release Automation'
