@@ -339,12 +339,12 @@ func (f *PlatformData) Xattrs() []Xattr {
 		return f.FreeBSD.Xattrs
 	case build.IsNetBSD && f.NetBSD != nil:
 		return f.NetBSD.Xattrs
-	case build.IsOpenBSD && f.OpenBSD != nil:
-		return f.OpenBSD.Xattrs
-	case build.IsIllumos && f.Illumos != nil:
-		return f.Illumos.Xattrs
-	case build.IsSolaris && f.Solaris != nil:
-		return f.Solaris.Xattrs
+	// case build.IsOpenBSD && f.OpenBSD != nil:
+	// 	return f.OpenBSD.Xattrs
+	// case build.IsIllumos && f.Illumos != nil:
+	// 	return f.Illumos.Xattrs
+	// case build.IsSolaris && f.Solaris != nil:
+	// 	return f.Solaris.Xattrs
 	default:
 		return nil
 	}
@@ -384,23 +384,23 @@ func (p *PlatformData) SetXattrs(xattrs []Xattr) {
 		}
 		p.NetBSD.Xattrs = xattrs
 
-	case build.IsOpenBSD:
-		if p.OpenBSD == nil {
-			p.OpenBSD = &XattrData{}
-		}
-		p.OpenBSD.Xattrs = xattrs
+		// case build.IsOpenBSD:
+		// 	if p.OpenBSD == nil {
+		// 		p.OpenBSD = &XattrData{}
+		// 	}
+		// 	p.OpenBSD.Xattrs = xattrs
 
-	case build.IsIllumos:
-		if p.Illumos == nil {
-			p.Illumos = &XattrData{}
-		}
-		p.Illumos.Xattrs = xattrs
+		// case build.IsIllumos:
+		// 	if p.Illumos == nil {
+		// 		p.Illumos = &XattrData{}
+		// 	}
+		// 	p.Illumos.Xattrs = xattrs
 
-	case build.IsSolaris:
-		if p.Solaris == nil {
-			p.Solaris = &XattrData{}
-		}
-		p.Solaris.Xattrs = xattrs
+		// case build.IsSolaris:
+		// 	if p.Solaris == nil {
+		// 		p.Solaris = &XattrData{}
+		// 	}
+		// 	p.Solaris.Xattrs = xattrs
 	}
 }
 
@@ -425,15 +425,15 @@ func (p *PlatformData) MergeWith(other *PlatformData) {
 	if p.NetBSD == nil {
 		p.NetBSD = other.NetBSD
 	}
-	if p.OpenBSD == nil {
-		p.OpenBSD = other.OpenBSD
-	}
-	if p.Illumos == nil {
-		p.Illumos = other.Illumos
-	}
-	if p.Solaris == nil {
-		p.Solaris = other.Solaris
-	}
+	// if p.OpenBSD == nil {
+	// 	p.OpenBSD = other.OpenBSD
+	// }
+	// if p.Illumos == nil {
+	// 	p.Illumos = other.Illumos
+	// }
+	// if p.Solaris == nil {
+	// 	p.Solaris = other.Solaris
+	// }
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
