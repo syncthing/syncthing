@@ -80,7 +80,3 @@ func lookupWithoutDomain(name string, lookup func(s string) (string, error)) (st
 	}
 	return "", errors.New("lookup failed")
 }
-
-func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
-	return nil
-}

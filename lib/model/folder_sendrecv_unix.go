@@ -12,7 +12,6 @@ package model
 import (
 	"os/user"
 	"strconv"
-	"syscall"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -43,17 +42,4 @@ func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) 
 	}
 
 	return f.mtimefs.Lchown(path, uid, gid)
-}
-
-// updateFileInfoMetadata updates fields in the FileInfo that depend on the
-// current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
-	info, err := f.mtimefs.Lstat(file.Name)
-	if err != nil {
-		return err
-	}
-	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
-		file.InodeChangeNs = sys.Ctimespec.Nano()
-	}
-	return nil
 }

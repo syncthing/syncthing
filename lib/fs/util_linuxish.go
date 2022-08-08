@@ -4,20 +4,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !windows
-// +build !windows
+//go:build aix || dragonfly || linux || openbsd || solaris || illumos
+// +build aix dragonfly linux openbsd solaris illumos
 
-package scanner
+package fs
 
 import (
 	"syscall"
-
-	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"time"
 )
 
-func setSyscallStatData(fi *protocol.FileInfo, stat fs.FileInfo) {
+func InodeChangeTime(stat FileInfo) time.Time {
 	if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
-		fi.InodeChangeNs = sys.Ctimespec.Nano()
+		return time.Unix(0, sys.Ctim.Nano())
 	}
+	return time.Time{}
 }

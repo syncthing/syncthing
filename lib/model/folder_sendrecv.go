@@ -2170,6 +2170,18 @@ func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	return fn()
 }
 
+// updateFileInfoMetadata updates fields in the FileInfo that depend on the
+// current, new, state of the file on disk.
+func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
+	info, err := f.mtimefs.Lstat(file.Name)
+	if err != nil {
+		return err
+	}
+
+	file.InodeChangeNs = fs.InodeChangeTime(info).UnixNano()
+	return nil
+}
+
 // A []FileError is sent as part of an event and will be JSON serialized.
 type FileError struct {
 	Path string `json:"path"`
