@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"os/user"
 
@@ -48,7 +49,7 @@ func (f *BasicFilesystem) PlatformData(name string, xattrFilter StringFilter) (p
 	}
 
 	xattrs, err := f.GetXattr(name, xattrFilter)
-	if err != nil && !errors.is(err, ErrXattrsNotSupported) {
+	if err != nil && !errors.Is(err, ErrXattrsNotSupported) {
 		return protocol.PlatformData{}, fmt.Errorf("get xattr for %s: %w", rootedName, err)
 	}
 	pd.Xattrs = xattrs
