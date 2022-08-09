@@ -593,8 +593,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
-			err = fmt.Errorf("handling dir: %w", err)
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
 		}
 
@@ -612,7 +611,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 			err = f.deleteItemOnDisk(curFile, snap, scanChan)
 		}
 		if err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("handling dir (conflict move): %w", err))
 			return
 		}
 		fallthrough
@@ -662,7 +661,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(file.Name, mode|(info.Mode()&retainBits)); err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("handling dir (setting permissions): %w", err))
 			return
 		}
 	}
@@ -1229,7 +1228,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting permissions): %w", err))
 			return
 		}
 	}
@@ -1238,13 +1237,13 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
 			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
 		} else if err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting xattrs): %w", err))
 			return
 		}
 	}
 
 	if err := f.maybeAdjustOwnership(&file, file.Name); err != nil {
-		f.newPullError(file.Name, err)
+		f.newPullError(file.Name, fmt.Errorf("shortcut file (setting ownership): %w", err))
 		return
 	}
 
@@ -1263,7 +1262,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			return fd.Truncate(file.Size + trailerSize)
 		}, f.mtimefs, file.Name, true)
 		if err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("writing encrypted file trailer: %w", err))
 			return
 		}
 	}
@@ -1609,22 +1608,22 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
-			return err
+			return fmt.Errorf("setting permissions: %w", err)
 		}
 	}
 
 	// Set extended attributes
 	if f.SyncXattrs {
-		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
+		if err := f.mtimefs.SetXattr(tempName, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
 			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
 		} else if err != nil {
-			return err
+			return fmt.Errorf("setting xattrs: %w", err)
 		}
 	}
 
 	// Set ownership based on file metadata or parent, maybe.
 	if err := f.maybeAdjustOwnership(&file, tempName); err != nil {
-		return err
+		return fmt.Errorf("setting ownership: %w", err)
 	}
 
 	if stat, err := f.mtimefs.Lstat(file.Name); err == nil {
@@ -1632,7 +1631,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// handle that.
 
 		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, scanChan); err != nil {
-			return err
+			return fmt.Errorf("checking existing file: %w", err)
 		}
 
 		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
@@ -1648,16 +1647,16 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			err = f.deleteItemOnDisk(curFile, snap, scanChan)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("moving for conflict: %w", err)
 		}
 	} else if !fs.IsNotExist(err) {
-		return err
+		return fmt.Errorf("checking existing file: %w", err)
 	}
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
 	if err := osutil.RenameOrCopy(f.CopyRangeMethod, f.mtimefs, f.mtimefs, tempName, file.Name); err != nil {
-		return err
+		return fmt.Errorf("replacing file: %w", err)
 	}
 
 	// Set the correct timestamp on the new file
@@ -1680,7 +1679,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 			}
 
 			if err != nil {
-				f.newPullError(state.file.Name, err)
+				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
@@ -1904,7 +1903,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specificly in the puller routine.
-	errStr := fmt.Sprintln("syncing:", err)
+	errStr := fmt.Sprintf("syncing: %s", err)
 	f.tempPullErrors[path] = errStr
 
 	l.Debugf("%v new error for %v: %v", f, path, err)
