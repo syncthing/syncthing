@@ -87,9 +87,9 @@ func listXattr(path string) ([]string, error) {
 		for i < len(buf) {
 			l := int(buf[i])
 			i++
-			if i+l >= len(buf) {
+			if i+l > len(buf) {
 				// uh-oh
-				return nil, fmt.Errorf("get xattr %q: attribute length %d at offset %d exceeds buffer length %d (%q)", path, l, i, len(buf), string(buf))
+				return nil, fmt.Errorf("get xattr %q: attribute length %d at offset %d exceeds buffer length %d", path, l, i, len(buf))
 			}
 			attrs = append(attrs, string(buf[i:i+l]))
 			i += l
