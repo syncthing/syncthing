@@ -7,7 +7,8 @@
 package osutil
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -16,10 +17,12 @@ import (
 func SetLowPriority() error {
 	handle, err := windows.GetCurrentProcess()
 	if err != nil {
-		return errors.Wrap(err, "get process handle")
+		return fmt.Errorf("get process handle: %w", err)
 	}
 	defer windows.CloseHandle(handle)
 
-	err = windows.SetPriorityClass(handle, windows.BELOW_NORMAL_PRIORITY_CLASS)
-	return errors.Wrap(err, "set priority class") // wraps nil as nil
+	if err := windows.SetPriorityClass(handle, windows.BELOW_NORMAL_PRIORITY_CLASS); err != nil {
+		return fmt.Errorf("set priority class: %w", err)
+	}
+	return nil
 }

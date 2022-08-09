@@ -8,11 +8,10 @@ package syncthing
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -93,17 +92,17 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 	if fs.IsNotExist(err) {
 		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder, skipPortProbing)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate default config")
+			return nil, fmt.Errorf("failed to generate default config: %w", err)
 		}
 		err = cfg.Save()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to save default config")
+			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
 		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
 		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to load config")
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	if originalVersion != config.CurrentVersion {
@@ -115,7 +114,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 		}
 		err = archiveAndSaveConfig(cfg, originalVersion)
 		if err != nil {
-			return nil, errors.Wrap(err, "config archive")
+			return nil, fmt.Errorf("config archive: %w", err)
 		}
 	}
 

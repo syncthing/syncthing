@@ -8,6 +8,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -51,7 +51,7 @@ func runInternal(c preCli, cliArgs []string) error {
 	// Not set as default above because the strings can be really long.
 	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
-		return errors.Wrap(err, "Command line options:")
+		return fmt.Errorf("Command line options: %w", err)
 	}
 	clientFactory := &apiClientFactory{
 		cfg: config.GUIConfiguration{
@@ -124,7 +124,7 @@ func runInternal(c preCli, cliArgs []string) error {
 					for scanner.Scan() {
 						input, err := shlex.Split(scanner.Text())
 						if err != nil {
-							return errors.Wrap(err, "parsing input")
+							return fmt.Errorf("parsing input: %w", err)
 						}
 						if len(input) == 0 {
 							continue
