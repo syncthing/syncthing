@@ -597,7 +597,7 @@ func TestXattr(t *testing.T) {
 	}
 	res, err := tfs.GetXattr("/test", noopStringFilter{})
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	if len(res) != len(attrs) {
 		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
@@ -635,7 +635,7 @@ func TestXattr(t *testing.T) {
 	}
 	res, err = tfs.GetXattr("/test", noopStringFilter{})
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	if len(res) != len(attrs) {
 		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
