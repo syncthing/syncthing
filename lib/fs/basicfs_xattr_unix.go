@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -43,7 +44,10 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 			continue
 		}
 		val, buf, err = getXattr(path, attr, buf)
-		if err != nil {
+		if errors.Is(err, syscall.Errno(0x5d)) {
+			// ENOATTR, returned on BSD when asking for an attribute that doesn't exist (any more?)
+			continue
+		} else if err != nil {
 			return nil, fmt.Errorf("get xattr %q: %w", path, err)
 		}
 		res = append(res, protocol.Xattr{
