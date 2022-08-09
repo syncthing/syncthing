@@ -575,11 +575,13 @@ func TestXattr(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	xattrSize := func() int { return 20 + rand.Intn(20) }
+
 	// Create a set of random attributes that we will set and read back
 	var attrs []protocol.Xattr
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("user.test-%d", i)
-		value := make([]byte, 256+rand.Intn(1024))
+		value := make([]byte, xattrSize())
 		rand.Read(value)
 		attrs = append(attrs, protocol.Xattr{
 			Name:  key,
@@ -612,13 +614,13 @@ func TestXattr(t *testing.T) {
 	// Remove a couple, change a couple, and add another couple of
 	// attributes. Replacing the xattrs again should work.
 	attrs = attrs[2:]
-	attrs[1].Value = make([]byte, 256+rand.Intn(1024))
+	attrs[1].Value = make([]byte, xattrSize())
 	rand.Read(attrs[1].Value)
-	attrs[3].Value = make([]byte, 256+rand.Intn(1024))
+	attrs[3].Value = make([]byte, xattrSize())
 	rand.Read(attrs[3].Value)
 	for i := 10; i < 12; i++ {
 		key := fmt.Sprintf("user.test-%d", i)
-		value := make([]byte, 256+rand.Intn(1024))
+		value := make([]byte, xattrSize())
 		rand.Read(value)
 		attrs = append(attrs, protocol.Xattr{
 			Name:  key,
