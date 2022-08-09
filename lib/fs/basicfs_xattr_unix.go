@@ -13,12 +13,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"runtime"
 	"sort"
-	"strings"
 	"syscall"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -61,56 +58,6 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 		return res[a].Name < res[b].Name
 	})
 	return res, nil
-}
-
-func listXattr(path string) ([]string, error) {
-	buf := make([]byte, 1024)
-	size, err := unix.Llistxattr(path, buf)
-	if errors.Is(err, unix.ERANGE) {
-		// Buffer is too small. Try again with a zero sized buffer to get
-		// the size, then allocate a buffer of the correct size.
-		size, err = unix.Listxattr(path, nil)
-		if err != nil {
-			return nil, fmt.Errorf("Listxattr %q: %w", path, err)
-		}
-		if size > len(buf) {
-			buf = make([]byte, size)
-		}
-		size, err = unix.Llistxattr(path, buf)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("Listxattr %q: %w", path, err)
-	}
-
-	buf = buf[:size]
-	var attrs []string
-	switch {
-	case build.IsFreeBSD, build.IsNetBSD:
-		// "Each list entry consists of a single byte containing the length
-		// of the attribute name, followed by the attribute name.  The
-		// attrbute name is not terminated by ASCII 0 (nul)."
-		i := 0
-		for i < len(buf) {
-			l := int(buf[i])
-			i++
-			if i+l > len(buf) {
-				// uh-oh
-				return nil, fmt.Errorf("get xattr %q: attribute length %d at offset %d exceeds buffer length %d", path, l, i, len(buf))
-			}
-			attrs = append(attrs, string(buf[i:i+l]))
-			i += l
-		}
-
-	case build.IsLinux, build.IsDarwin:
-		// "The list is the set of (null-terminated) names, one after the
-		// other."
-		attrs = strings.Split(string(buf), "\x00")
-
-	default:
-		return nil, fmt.Errorf("get xattr %q: unhandled OS %q", path, runtime.GOOS)
-	}
-
-	return attrs, nil
 }
 
 func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error) {
@@ -161,7 +108,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 	// Remove all existing xattrs that are not in the new set
 	for _, xa := range current {
 		if _, ok := xattrsIdx[xa.Name]; !ok {
-			if err := unix.Removexattr(path, xa.Name); err != nil {
+			if err := unix.Lremovexattr(path, xa.Name); err != nil {
 				return fmt.Errorf("set xattrs %q: Removexattr %q: %w", path, xa.Name, err)
 			}
 		}
@@ -172,7 +119,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 		if old, ok := currentIdx[xa.Name]; ok && bytes.Equal(xa.Value, current[old].Value) {
 			continue
 		}
-		if err := unix.Setxattr(path, xa.Name, xa.Value, 0); err != nil {
+		if err := unix.Lsetxattr(path, xa.Name, xa.Value, 0); err != nil {
 			return fmt.Errorf("set xattrs %q: Setxattr %q: %w", path, xa.Name, err)
 
 		}
