@@ -23,13 +23,13 @@ import (
 func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
 	path, err := f.rooted(path)
 	if err != nil {
-		return nil, fmt.Errorf("get xattr %s: %w", path, err)
+		return nil, fmt.Errorf("get xattr %q: %w", path, err)
 	}
 
 	buf := make([]byte, 1)
 	buf, err = listXattr(path, buf)
 	if err != nil {
-		return nil, fmt.Errorf("get xattr %s: %w", path, err)
+		return nil, fmt.Errorf("get xattr %q: %w", path, err)
 	}
 
 	attrs := strings.Split(string(buf), "\x00")
@@ -44,7 +44,7 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 		}
 		val, buf, err = getXattr(path, attr, buf)
 		if err != nil {
-			return nil, fmt.Errorf("get xattr %s: %w", path, err)
+			return nil, fmt.Errorf("get xattr %q: %w", path, err)
 		}
 		res = append(res, protocol.Xattr{
 			Name:  attr,
@@ -64,7 +64,7 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 		// the size, then allocate a buffer of the correct size.
 		size, err = unix.Listxattr(path, nil)
 		if err != nil {
-			return nil, fmt.Errorf("Listxattr %s: %w", path, err)
+			return nil, fmt.Errorf("Listxattr %q: %w", path, err)
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
@@ -72,7 +72,7 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 		size, err = unix.Llistxattr(path, buf)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Listxattr %s: %w", path, err)
+		return nil, fmt.Errorf("Listxattr %q: %w", path, err)
 	}
 	return buf[:size], err
 }
@@ -87,7 +87,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		// allocate.
 		size, err = unix.Lgetxattr(path, name, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Lgetxattr %s %s: %w", path, name, err)
+			return nil, nil, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
@@ -95,7 +95,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		size, err = unix.Lgetxattr(path, name, buf)
 	}
 	if err != nil {
-		return nil, buf, fmt.Errorf("Lgetxattr %s %s: %w", path, name, err)
+		return nil, buf, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
 	}
 	return buf[:size], buf[size:], nil
 }
@@ -110,7 +110,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 	// Get and index the existing attribute set
 	current, err := f.GetXattr(path, xattrFilter)
 	if err != nil {
-		return fmt.Errorf("set xattrs %s: GetXattr: %w", path, err)
+		return fmt.Errorf("set xattrs %q: GetXattr: %w", path, err)
 	}
 	currentIdx := make(map[string]int)
 	for i, xa := range current {
@@ -119,14 +119,14 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 
 	path, err = f.rooted(path)
 	if err != nil {
-		return fmt.Errorf("set xattrs %s: %w", path, err)
+		return fmt.Errorf("set xattrs %q: %w", path, err)
 	}
 
 	// Remove all existing xattrs that are not in the new set
 	for _, xa := range current {
 		if _, ok := xattrsIdx[xa.Name]; !ok {
 			if err := unix.Removexattr(path, xa.Name); err != nil {
-				return fmt.Errorf("set xattrs %s: Removexattr: %w", path, err)
+				return fmt.Errorf("set xattrs %q: Removexattr %q: %w", path, xa.Name, err)
 			}
 		}
 	}
@@ -137,7 +137,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 			continue
 		}
 		if err := unix.Setxattr(path, xa.Name, xa.Value, 0); err != nil {
-			return fmt.Errorf("set xattrs %s: Setxattr: %w", path, err)
+			return fmt.Errorf("set xattrs %q: Setxattr %q: %w", path, xa.Name, err)
 
 		}
 	}
