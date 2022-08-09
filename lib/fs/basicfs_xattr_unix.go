@@ -27,36 +27,13 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 		return nil, fmt.Errorf("get xattr %q: %w", path, err)
 	}
 
-	buf := make([]byte, 1)
-	buf, err = listXattr(path, buf)
+	attrs, err := listXattr(path)
 	if err != nil {
 		return nil, fmt.Errorf("get xattr %q: %w", path, err)
 	}
 
-	var attrs []string
-	switch {
-	case build.IsFreeBSD, build.IsNetBSD:
-		// "Each list entry consists of a single byte containing the length
-		// of the attribute name, followed by the attribute name.  The
-		// attrbute name is not terminated by ASCII 0 (nul)."
-		i := 0
-		for i < len(buf) {
-			l := int(buf[i])
-			i++
-			if i+l >= len(buf) {
-				// uh-oh
-				return nil, fmt.Errorf("get xattr %q: attribute length %d exceeds buffer length", path, l)
-			}
-			attrs = append(attrs, string(buf[i:i+l]))
-			i += l
-		}
-	default:
-		// "The list is the set of (null-terminated) names, one after the
-		// other."
-		attrs = strings.Split(string(buf), "\x00")
-	}
 	var res []protocol.Xattr
-	var val []byte
+	var val, buf []byte
 	for _, attr := range attrs {
 		if attr == "" {
 			continue
@@ -79,7 +56,8 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 	return res, nil
 }
 
-func listXattr(path string, buf []byte) ([]byte, error) {
+func listXattr(path string) ([]string, error) {
+	buf := make([]byte, 1024)
 	size, err := unix.Llistxattr(path, buf)
 	if errors.Is(err, unix.ERANGE) {
 		// Buffer is too small. Try again with a zero sized buffer to get
@@ -96,7 +74,32 @@ func listXattr(path string, buf []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Listxattr %q: %w", path, err)
 	}
-	return buf[:size], err
+
+	buf = buf[:size]
+	var attrs []string
+	switch {
+	case build.IsFreeBSD, build.IsNetBSD:
+		// "Each list entry consists of a single byte containing the length
+		// of the attribute name, followed by the attribute name.  The
+		// attrbute name is not terminated by ASCII 0 (nul)."
+		i := 0
+		for i < len(buf) {
+			l := int(buf[i])
+			i++
+			if i+l >= len(buf) {
+				// uh-oh
+				return nil, fmt.Errorf("get xattr %q: attribute length %d exceeds buffer length", path, l)
+			}
+			attrs = append(attrs, string(buf[i:i+l]))
+			i += l
+		}
+	default:
+		// "The list is the set of (null-terminated) names, one after the
+		// other."
+		attrs = strings.Split(string(buf), "\x00")
+	}
+
+	return attrs, nil
 }
 
 func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error) {
