@@ -14,7 +14,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
-      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2
+      - uses: actions/setup-go@84cbf8094393cdc5fe1fe1671ff2647332956b1a # v2
         with:
           go-version: ^1.18.4
       - run: |
