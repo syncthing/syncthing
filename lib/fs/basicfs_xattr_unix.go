@@ -44,8 +44,10 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 			continue
 		}
 		val, buf, err = getXattr(path, attr, buf)
-		if errors.Is(err, syscall.Errno(0x5d)) {
-			// ENOATTR, returned on BSD when asking for an attribute that doesn't exist (any more?)
+		var errNo syscall.Errno
+		if errors.As(err, &errNo) && errNo == 0x5d {
+			// ENOATTR, returned on BSD when asking for an attribute that
+			// doesn't exist (any more?)
 			continue
 		} else if err != nil {
 			return nil, fmt.Errorf("get xattr %q: %w", path, err)
