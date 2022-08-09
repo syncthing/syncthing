@@ -8,11 +8,11 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/AudriusButkevicius/recli"
-	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )

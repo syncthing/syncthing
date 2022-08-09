@@ -8,14 +8,13 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
 	"sort"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -317,7 +316,7 @@ func (f *folder) getHealthErrorAndLoadIgnores() error {
 	}
 	if f.Type != config.FolderTypeReceiveEncrypted {
 		if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-			return errors.Wrap(err, "loading ignores")
+			return fmt.Errorf("loading ignores: %w", err)
 		}
 	}
 	return nil

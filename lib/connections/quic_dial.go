@@ -12,12 +12,12 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -79,7 +79,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, errors.Wrap(err, "dial")
+		return internalConn{}, fmt.Errorf("dial: %w", err)
 	}
 
 	stream, err := session.OpenStreamSync(ctx)
@@ -89,7 +89,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, errors.Wrap(err, "open stream")
+		return internalConn{}, fmt.Errorf("open stream: %w", err)
 	}
 
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil

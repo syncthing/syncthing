@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -50,8 +51,6 @@ import (
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/syncthing"
 	"github.com/syncthing/syncthing/lib/upgrade"
-
-	"github.com/pkg/errors"
 )
 
 const (

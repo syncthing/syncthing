@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -37,7 +38,6 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
-	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
 	"golang.org/x/time/rate"
 )
