@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -88,15 +89,19 @@ func listXattr(path string) ([]string, error) {
 			i++
 			if i+l >= len(buf) {
 				// uh-oh
-				return nil, fmt.Errorf("get xattr %q: attribute length %d exceeds buffer length", path, l)
+				return nil, fmt.Errorf("get xattr %q: attribute length %d at offset %d exceeds buffer length %d (%q)", path, l, i, len(buf), string(buf))
 			}
 			attrs = append(attrs, string(buf[i:i+l]))
 			i += l
 		}
-	default:
+
+	case build.IsLinux, build.IsDarwin:
 		// "The list is the set of (null-terminated) names, one after the
 		// other."
 		attrs = strings.Split(string(buf), "\x00")
+
+	default:
+		return nil, fmt.Errorf("get xattr %q: unhandled OS %q", path, runtime.GOOS)
 	}
 
 	return attrs, nil
