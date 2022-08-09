@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/unix"
 )
@@ -32,7 +33,28 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 		return nil, fmt.Errorf("get xattr %q: %w", path, err)
 	}
 
-	attrs := strings.Split(string(buf), "\x00")
+	var attrs []string
+	switch {
+	case build.IsFreeBSD, build.IsNetBSD:
+		// "Each list entry consists of a single byte containing the length
+		// of the attribute name, followed by the attribute name.  The
+		// attrbute name is not terminated by ASCII 0 (nul)."
+		i := 0
+		for i < len(buf) {
+			l := int(buf[i])
+			i++
+			if i+l >= len(buf) {
+				// uh-oh
+				return nil, fmt.Errorf("get xattr %q: attribute length %d exceeds buffer length", path, l)
+			}
+			attrs = append(attrs, string(buf[i:i+l]))
+			i += l
+		}
+	default:
+		// "The list is the set of (null-terminated) names, one after the
+		// other."
+		attrs = strings.Split(string(buf), "\x00")
+	}
 	var res []protocol.Xattr
 	var val []byte
 	for _, attr := range attrs {
