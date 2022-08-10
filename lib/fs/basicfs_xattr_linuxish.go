@@ -37,7 +37,7 @@ func listXattr(path string) ([]string, error) {
 	}
 
 	buf = buf[:size]
-	attrs := strings.Split(string(buf), "\x00")
+	attrs := compact(strings.Split(string(buf), "\x00"))
 
 	return attrs, nil
 }

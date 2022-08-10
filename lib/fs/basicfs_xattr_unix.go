@@ -35,10 +35,8 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 	var val, buf []byte
 	var totSize int
 	for _, attr := range attrs {
-		if attr == "" {
-			continue
-		}
 		if !xattrFilter.Permit(attr) {
+			l.Debugf("get xattr %q: skipping attribute %q denied by filter", path, attr)
 			continue
 		}
 		val, buf, err = getXattr(path, attr, buf)
@@ -51,11 +49,13 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]pro
 			return nil, fmt.Errorf("get xattr %q: %w", path, err)
 		}
 		if max := xattrFilter.GetMaxSingleEntrySize(); max > 0 && len(attr)+len(val) > max {
-			return nil, fmt.Errorf("get xattr %q: attribute %q exceeds max size", path, attr)
+			l.Debugf("get xattr %q: attribute %q exceeds max size", path, attr)
+			continue
 		}
 		totSize += len(attr) + len(val)
 		if max := xattrFilter.GetMaxTotalSize(); max > 0 && totSize > max {
-			return nil, fmt.Errorf("get xattr %q: total size exceeds maximum", path)
+			l.Debugf("get xattr %q: attribute %q would cause max size to be exceeded", path, attr)
+			continue
 		}
 		res = append(res, protocol.Xattr{
 			Name:  attr,
@@ -133,4 +133,15 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 	}
 
 	return nil
+}
+
+func compact(ss []string) []string {
+	i := 0
+	for _, s := range ss {
+		if s != "" {
+			ss[i] = s
+			i++
+		}
+	}
+	return ss[:i]
 }
