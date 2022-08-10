@@ -13,6 +13,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
+	"time"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -20,7 +21,8 @@ import (
 var (
 	quicConfig = &quic.Config{
 		ConnectionIDLength: 4,
-		KeepAlive:          true,
+		MaxIdleTimeout:     30 * time.Second,
+		KeepAlivePeriod:    15 * time.Second,
 	}
 )
 
