@@ -24,17 +24,17 @@ type FolderSummaryService struct {
 	serveReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SummaryStub        func(string) (map[string]interface{}, error)
+	SummaryStub        func(string) (*model.FolderSummary, error)
 	summaryMutex       sync.RWMutex
 	summaryArgsForCall []struct {
 		arg1 string
 	}
 	summaryReturns struct {
-		result1 map[string]interface{}
+		result1 *model.FolderSummary
 		result2 error
 	}
 	summaryReturnsOnCall map[int]struct {
-		result1 map[string]interface{}
+		result1 *model.FolderSummary
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -126,7 +126,7 @@ func (fake *FolderSummaryService) ServeReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FolderSummaryService) Summary(arg1 string) (map[string]interface{}, error) {
+func (fake *FolderSummaryService) Summary(arg1 string) (*model.FolderSummary, error) {
 	fake.summaryMutex.Lock()
 	ret, specificReturn := fake.summaryReturnsOnCall[len(fake.summaryArgsForCall)]
 	fake.summaryArgsForCall = append(fake.summaryArgsForCall, struct {
@@ -151,7 +151,7 @@ func (fake *FolderSummaryService) SummaryCallCount() int {
 	return len(fake.summaryArgsForCall)
 }
 
-func (fake *FolderSummaryService) SummaryCalls(stub func(string) (map[string]interface{}, error)) {
+func (fake *FolderSummaryService) SummaryCalls(stub func(string) (*model.FolderSummary, error)) {
 	fake.summaryMutex.Lock()
 	defer fake.summaryMutex.Unlock()
 	fake.SummaryStub = stub
@@ -164,28 +164,28 @@ func (fake *FolderSummaryService) SummaryArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *FolderSummaryService) SummaryReturns(result1 map[string]interface{}, result2 error) {
+func (fake *FolderSummaryService) SummaryReturns(result1 *model.FolderSummary, result2 error) {
 	fake.summaryMutex.Lock()
 	defer fake.summaryMutex.Unlock()
 	fake.SummaryStub = nil
 	fake.summaryReturns = struct {
-		result1 map[string]interface{}
+		result1 *model.FolderSummary
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FolderSummaryService) SummaryReturnsOnCall(i int, result1 map[string]interface{}, result2 error) {
+func (fake *FolderSummaryService) SummaryReturnsOnCall(i int, result1 *model.FolderSummary, result2 error) {
 	fake.summaryMutex.Lock()
 	defer fake.summaryMutex.Unlock()
 	fake.SummaryStub = nil
 	if fake.summaryReturnsOnCall == nil {
 		fake.summaryReturnsOnCall = make(map[int]struct {
-			result1 map[string]interface{}
+			result1 *model.FolderSummary
 			result2 error
 		})
 	}
 	fake.summaryReturnsOnCall[i] = struct {
-		result1 map[string]interface{}
+		result1 *model.FolderSummary
 		result2 error
 	}{result1, result2}
 }

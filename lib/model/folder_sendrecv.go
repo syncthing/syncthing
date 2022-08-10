@@ -11,13 +11,14 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -343,7 +344,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
-		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name) != nil:
+		case build.IsWindows && fs.WindowsInvalidFilename(file.Name) != nil:
 			if file.IsDeleted() {
 				// Just pretend we deleted it, no reason to create an error
 				// about a deleted file that we can't have anyway.
@@ -393,7 +394,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				f.queue.Push(file.Name, file.Size, file.ModTime())
 			}
 
-		case runtime.GOOS == "windows" && file.IsSymlink():
+		case build.IsWindows && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
 				break
@@ -627,8 +628,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return err
 			}
 
-			// Copy the parent owner and group, if we are supposed to do that.
-			if err := f.maybeCopyOwner(path); err != nil {
+			// Adjust the ownership, if we are supposed to do that.
+			if err := f.maybeAdjustOwnership(&file, path); err != nil {
 				return err
 			}
 
@@ -736,7 +737,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
 	}
 
-	if len(file.SymlinkTarget) == 0 {
+	if file.SymlinkTarget == "" {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
 		f.newPullError(file.Name, errIncompatibleSymlink)
@@ -754,7 +755,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		if err := f.mtimefs.CreateSymlink(file.SymlinkTarget, path); err != nil {
 			return err
 		}
-		return f.maybeCopyOwner(path)
+		return f.maybeAdjustOwnership(&file, path)
 	}
 
 	if err = f.inWritableDir(createLink, file.Name); err == nil {
@@ -989,7 +990,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	default:
 		var fi protocol.FileInfo
 		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs); err == nil {
-			if !fi.IsEquivalentOptional(curTarget, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
+			if !fi.IsEquivalentOptional(curTarget, protocol.FileInfoComparison{
+				ModTimeWindow:   f.modTimeWindow,
+				IgnorePerms:     f.IgnorePerms,
+				IgnoreBlocks:    true,
+				IgnoreFlags:     protocol.LocalAllFlags,
+				IgnoreOwnership: !f.SyncOwnership,
+			}) {
 				// Target changed
 				scanChan <- target.Name
 				err = errModified
@@ -1227,6 +1234,11 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		}
 	}
 
+	if err := f.maybeAdjustOwnership(&file, file.Name); err != nil {
+		f.newPullError(file.Name, err)
+		return
+	}
+
 	// Still need to re-write the trailer with the new encrypted fileinfo.
 	if f.Type == config.FolderTypeReceiveEncrypted {
 		err = inWritableDir(func(path string) error {
@@ -1264,7 +1276,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	// Hope that it's usually in the same folder, so start with that one.
 	folders := []string{f.folderID}
 	for folder, cfg := range f.model.cfg.Folders() {
-		folderFilesystems[folder] = cfg.Filesystem()
+		folderFilesystems[folder] = cfg.Filesystem(nil)
 		if folder != f.folderID {
 			folders = append(folders, folder)
 		}
@@ -1450,7 +1462,7 @@ func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash
 	return weakHashFinder, file
 }
 
-func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
+func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
@@ -1592,8 +1604,8 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
-	// Copy the parent owner and group, if we are supposed to do that.
-	if err := f.maybeCopyOwner(tempName); err != nil {
+	// Set ownership based on file metadata or parent, maybe.
+	if err := f.maybeAdjustOwnership(&file, tempName); err != nil {
 		return err
 	}
 
@@ -1849,7 +1861,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
-	if errors.Cause(err) == f.ctx.Err() {
+	if errors.Is(err, f.ctx.Err()) {
 		// Error because the folder stopped - no point logging/tracking
 		return
 	}
@@ -1972,7 +1984,13 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			hasToBeScanned = true
 			return nil
 		}
-		if !cf.IsEquivalentOptional(diskFile, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
+		if !cf.IsEquivalentOptional(diskFile, protocol.FileInfoComparison{
+			ModTimeWindow:   f.modTimeWindow,
+			IgnorePerms:     f.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     protocol.LocalAllFlags,
+			IgnoreOwnership: !f.SyncOwnership,
+		}) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
 			scanChan <- path
@@ -2041,7 +2059,13 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 		return errors.Wrap(err, "comparing item on disk to db")
 	}
 
-	if !statItem.IsEquivalentOptional(item, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
+	if !statItem.IsEquivalentOptional(item, protocol.FileInfoComparison{
+		ModTimeWindow:   f.modTimeWindow,
+		IgnorePerms:     f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.LocalAllFlags,
+		IgnoreOwnership: !f.SyncOwnership,
+	}) {
 		return errModified
 	}
 
@@ -2074,12 +2098,24 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
 }
 
-func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
-	if !f.CopyOwnershipFromParent {
-		// Not supposed to do anything.
-		return nil
+func (f *sendReceiveFolder) maybeAdjustOwnership(file *protocol.FileInfo, name string) error {
+	if f.SyncOwnership {
+		// Set ownership based on file metadata.
+		if err := f.syncOwnership(file, name); err != nil {
+			return err
+		}
+	} else if f.CopyOwnershipFromParent {
+		// Copy the parent owner and group.
+		if err := f.copyOwnershipFromParent(name); err != nil {
+			return err
+		}
 	}
-	if runtime.GOOS == "windows" {
+	// Nothing to do
+	return nil
+}
+
+func (f *sendReceiveFolder) copyOwnershipFromParent(path string) error {
+	if build.IsWindows {
 		// Can't do anything.
 		return nil
 	}
@@ -2088,7 +2124,7 @@ func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
 	if err != nil {
 		return errors.Wrap(err, "copy owner from parent")
 	}
-	if err := f.mtimefs.Lchown(path, info.Owner(), info.Group()); err != nil {
+	if err := f.mtimefs.Lchown(path, strconv.Itoa(info.Owner()), strconv.Itoa(info.Group())); err != nil {
 		return errors.Wrap(err, "copy owner from parent")
 	}
 	return nil

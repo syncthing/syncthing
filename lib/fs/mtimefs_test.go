@@ -10,9 +10,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestMtimeFS(t *testing.T) {
@@ -26,7 +27,7 @@ func TestMtimeFS(t *testing.T) {
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
 
-	mtimefs := newMtimeFS(newBasicFilesystem("."), make(mapStore))
+	mtimefs := newMtimeFS(".", make(mapStore))
 
 	// Do one Chtimes call that will go through to the normal filesystem
 	mtimefs.chtimes = os.Chtimes
@@ -82,14 +83,10 @@ func TestMtimeFS(t *testing.T) {
 }
 
 func TestMtimeFSWalk(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	dir := t.TempDir()
 
-	underlying := NewFilesystem(FilesystemTypeBasic, dir)
-	mtimefs := newMtimeFS(underlying, make(mapStore))
+	mtimefs, walkFs := newMtimeFSWithWalk(dir, make(mapStore))
+	underlying := mtimefs.Filesystem
 	mtimefs.chtimes = failChtimes
 
 	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
@@ -120,7 +117,7 @@ func TestMtimeFSWalk(t *testing.T) {
 	}
 
 	found := false
-	_ = mtimefs.Walk("", func(path string, info FileInfo, err error) error {
+	_ = walkFs.Walk("", func(path string, info FileInfo, err error) error {
 		if path == "file" {
 			found = true
 			if !info.ModTime().Equal(newTime) {
@@ -136,14 +133,10 @@ func TestMtimeFSWalk(t *testing.T) {
 }
 
 func TestMtimeFSOpen(t *testing.T) {
-	dir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
+	dir := t.TempDir()
 
-	underlying := NewFilesystem(FilesystemTypeBasic, dir)
-	mtimefs := newMtimeFS(underlying, make(mapStore))
+	mtimefs := newMtimeFS(dir, make(mapStore))
+	underlying := mtimefs.Filesystem
 	mtimefs.chtimes = failChtimes
 
 	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
@@ -177,6 +170,8 @@ func TestMtimeFSOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer fd.Close()
+
 	info, err := fd.Stat()
 	if err != nil {
 		t.Fatal(err)
@@ -187,11 +182,10 @@ func TestMtimeFSOpen(t *testing.T) {
 }
 
 func TestMtimeFSInsensitive(t *testing.T) {
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		// blatantly assume file systems here are case insensitive. Might be
 		// a spurious failure on oddly configured systems.
-	default:
+	} else {
 		t.Skip("need case insensitive FS")
 	}
 
@@ -222,12 +216,12 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 	// The test should fail with a case sensitive mtimefs
 	t.Run("with case sensitive mtimefs", func(t *testing.T) {
-		theTest(t, newMtimeFS(newBasicFilesystem("."), make(mapStore)), false)
+		theTest(t, newMtimeFS(".", make(mapStore)), false)
 	})
 
 	// And succeed with a case insensitive one.
 	t.Run("with case insensitive mtimefs", func(t *testing.T) {
-		theTest(t, newMtimeFS(newBasicFilesystem("."), make(mapStore), WithCaseInsensitivity(true)), true)
+		theTest(t, newMtimeFS(".", make(mapStore), WithCaseInsensitivity(true)), true)
 	})
 }
 
@@ -251,7 +245,7 @@ func (s mapStore) Delete(key string) error {
 }
 
 // failChtimes does nothing, and fails
-func failChtimes(name string, mtime, atime time.Time) error {
+func failChtimes(_ string, _, _ time.Time) error {
 	return errors.New("no")
 }
 
@@ -261,6 +255,12 @@ func evilChtimes(name string, mtime, atime time.Time) error {
 	return os.Chtimes(name, mtime.Add(300*time.Hour).Truncate(time.Hour), atime.Add(300*time.Hour).Truncate(time.Hour))
 }
 
-func newMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) *mtimeFS {
-	return NewMtimeFS(fs, db, options...).(*mtimeFS)
+func newMtimeFS(path string, db database, options ...MtimeFSOption) *mtimeFS {
+	mtimefs, _ := newMtimeFSWithWalk(path, db, options...)
+	return mtimefs
+}
+
+func newMtimeFSWithWalk(path string, db database, options ...MtimeFSOption) (*mtimeFS, *walkFilesystem) {
+	wfs := NewFilesystem(FilesystemTypeBasic, path, NewMtimeOption(db, options...)).(*walkFilesystem)
+	return wfs.Filesystem.(*mtimeFS), wfs
 }

@@ -18,7 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,6 +26,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/assets"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
@@ -35,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	loggermocks "github.com/syncthing/syncthing/lib/logger/mocks"
+	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -72,10 +74,10 @@ func TestMain(m *testing.M) {
 func TestCSRFToken(t *testing.T) {
 	t.Parallel()
 
-	max := 250
+	max := 10 * maxCsrfTokens
 	int := 5
 	if testing.Short() {
-		max = 20
+		max = 1 + maxCsrfTokens
 		int = 2
 	}
 
@@ -87,6 +89,11 @@ func TestCSRFToken(t *testing.T) {
 	t3 := m.newToken()
 	if !m.validToken(t3) {
 		t.Fatal("t3 should be valid")
+	}
+
+	valid := make(map[string]struct{}, maxCsrfTokens)
+	for _, token := range m.tokens {
+		valid[token] = struct{}{}
 	}
 
 	for i := 0; i < max; i++ {
@@ -101,10 +108,26 @@ func TestCSRFToken(t *testing.T) {
 			}
 		}
 
+		if len(m.tokens) == maxCsrfTokens {
+			// We're about to add a token, which will remove the last token
+			// from m.tokens.
+			delete(valid, m.tokens[len(m.tokens)-1])
+		}
+
 		// The newly generated token is always valid
 		t4 := m.newToken()
 		if !m.validToken(t4) {
 			t.Fatal("t4 should be valid at iteration", i)
+		}
+		valid[t4] = struct{}{}
+
+		v := make(map[string]struct{}, maxCsrfTokens)
+		for _, token := range m.tokens {
+			v[token] = struct{}{}
+		}
+
+		if !reflect.DeepEqual(v, valid) {
+			t.Fatalf("want valid tokens %v, got %v", valid, v)
 		}
 	}
 
@@ -260,7 +283,7 @@ func TestAPIServiceRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -297,6 +320,12 @@ func TestAPIServiceRequests(t *testing.T) {
 			Code:   200,
 			Type:   "application/json",
 			Prefix: "null",
+		},
+		{
+			URL:    "/rest/db/status?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
 		},
 
 		// /rest/stats
@@ -466,14 +495,17 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Log("Testing", tc.URL, "...")
-		testHTTPRequest(t, baseURL, tc, testAPIKey)
+		t.Run(cases[0].URL, func(t *testing.T) {
+			testHTTPRequest(t, baseURL, tc, testAPIKey)
+		})
 	}
 }
 
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
+	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
+
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -608,7 +640,7 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	}
 	addrChan := make(chan string)
 	mockedSummary := &modelmocks.FolderSummaryService{}
-	mockedSummary.SummaryReturns(map[string]interface{}{"mocked": true}, nil)
+	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
@@ -1136,11 +1168,7 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir, err := os.MkdirTemp("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
 		t.Fatal(err)
@@ -1227,7 +1255,7 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 		t.Error("expected no error:", err)
 	}
 
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		// Certificates with too long an expiry time are not allowed on macOS
 		crt, err = tlsutil.NewCertificateInMemory("foo.example.com", 1000)
 		if err != nil {
@@ -1388,7 +1416,7 @@ func TestSanitizedHostname(t *testing.T) {
 // be prone to false negatives if things change in the future, but likely
 // not false positives.
 func runningInContainer() bool {
-	if runtime.GOOS != "linux" {
+	if !build.IsLinux {
 		return false
 	}
 

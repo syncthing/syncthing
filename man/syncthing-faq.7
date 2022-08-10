@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Mar 13, 2022" "v1.19.1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Jul 28, 2022" "v1.20.3" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -655,7 +655,22 @@ echo 204800 | sudo tee /proc/sys/fs/inotify/max_user_watches
 .UNINDENT
 .SS How do I reset the GUI password?
 .sp
-If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on the OS and is described in the configuration documentation.
+If you’ve forgotten / lost the GUI password, you can reset it using the
+\fB\-\-gui\-password\fP (and possibly \fB\-\-gui\-user\fP) options to the
+\fBsyncthing generate\fP subcommand.  This should be done while Syncthing is not
+running.
+.INDENT 0.0
+.IP 1. 3
+Stop Syncthing: \fBsyncthing cli operations shutdown\fP
+.IP 2. 3
+\fBsyncthing generate \-\-gui\-password=myNewPassword \-\-gui\-user=newUserName\fP
+.IP 3. 3
+Restart Syncthing as usual.
+.UNINDENT
+.sp
+\fIAlternatively, in step 2\fP, you can manually delete the \fB<user>\fP and \fB<password>\fP XML tags from the
+\fB<gui>\fP block in file \fBconfig.xml\fP\&.  The location of the file depends on the
+OS and is described in the configuration documentation\&.
 .sp
 For example, the two emphasized lines below would be removed from the file.
 .INDENT 0.0

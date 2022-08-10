@@ -403,8 +403,8 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	}
 }
 
-func (s *FileSet) MtimeFS(filesystem fs.Filesystem) fs.Filesystem {
-	opStr := fmt.Sprintf("%s MtimeFS()", s.folder)
+func (s *FileSet) MtimeOption() fs.Option {
+	opStr := fmt.Sprintf("%s MtimeOption()", s.folder)
 	l.Debugf(opStr)
 	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
 	if backend.IsClosed(err) {
@@ -413,7 +413,7 @@ func (s *FileSet) MtimeFS(filesystem fs.Filesystem) fs.Filesystem {
 		fatalError(err, opStr, s.db)
 	}
 	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeFS(filesystem, kv)
+	return fs.NewMtimeOption(kv)
 }
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {

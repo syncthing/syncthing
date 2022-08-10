@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/relay/client"
@@ -171,13 +172,13 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
-func (t *relayListener) NATType() string {
+func (*relayListener) NATType() string {
 	return "unknown"
 }
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, _ *registry.Registry) genericListener {
 	t := &relayListener{
 		uri:     uri,
 		cfg:     cfg,

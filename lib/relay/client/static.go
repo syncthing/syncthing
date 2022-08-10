@@ -204,7 +204,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	}
 
 	cs := conn.ConnectionState()
-	if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != protocol.ProtocolName {
+	if cs.NegotiatedProtocol != protocol.ProtocolName {
 		return errors.New("protocol negotiation error")
 	}
 

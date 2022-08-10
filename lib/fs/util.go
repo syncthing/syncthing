@@ -10,9 +10,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 const pathSeparatorString = string(PathSeparator)
@@ -35,7 +36,7 @@ func ExpandTilde(path string) (string, error) {
 }
 
 func getHomeDir() (string, error) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Legacy -- we prioritize this for historical reasons, whereas
 		// os.UserHomeDir uses %USERPROFILE% always.
 		home := filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
@@ -55,7 +56,7 @@ func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
 	// reserved name.
 	for _, part := range strings.Split(name, `\`) {
-		if len(part) == 0 {
+		if part == "" {
 			continue
 		}
 		switch part[len(part)-1] {
@@ -196,7 +197,7 @@ func CommonPrefix(first, second string) string {
 	}
 
 	if isAbs {
-		if runtime.GOOS == "windows" && isVolumeNameOnly(common) {
+		if build.IsWindows && isVolumeNameOnly(common) {
 			// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
 			// Wedge an empty element to be joined with.
 			common = append(common, "")

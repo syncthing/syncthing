@@ -84,7 +84,7 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 }
 
 func checkServer(deviceID protocol.DeviceID, server string) checkResult {
-	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, events.NoopLogger)
+	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, events.NoopLogger, nil)
 	if err != nil {
 		return checkResult{error: err}
 	}

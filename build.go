@@ -31,6 +31,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	buildpkg "github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -393,7 +395,7 @@ func test(tags []string, pkgs ...string) {
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
-		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+		case buildpkg.Darwin, buildpkg.Linux, buildpkg.FreeBSD: // , "windows": # See https://github.com/golang/go/issues/27089
 			args = append(args, "-race")
 		}
 	}
@@ -883,7 +885,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 
 func updateDependencies() {
 	runPrint(goCmd, "get", "-u", "./cmd/...")
-	runPrint(goCmd, "mod", "tidy", "-go=1.16", "-compat=1.16")
+	runPrint(goCmd, "mod", "tidy", "-go=1.17", "-compat=1.17")
 
 	// We might have updated the protobuf package and should regenerate to match.
 	proto()
@@ -985,7 +987,7 @@ func getGitVersion() (string, error) {
 	v0 := string(bs)
 
 	// To be more semantic-versionish and ensure proper ordering in our
-	// upgrade process, we make sure there's only one hypen in the version.
+	// upgrade process, we make sure there's only one hyphen in the version.
 
 	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`)
 	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {

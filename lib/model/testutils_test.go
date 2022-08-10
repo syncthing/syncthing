@@ -40,7 +40,7 @@ func init() {
 	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
 
 	defaultFolderConfig = testFolderConfig("testdata")
-	defaultFs = defaultFolderConfig.Filesystem()
+	defaultFs = defaultFolderConfig.Filesystem(nil)
 
 	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
@@ -86,18 +86,13 @@ func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelF
 	return wrapper, cancel
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+func tmpDefaultWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
 	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfig(t.TempDir())
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
 	return w, fcfg, cancel
-}
-
-func testFolderConfigTmp() config.FolderConfiguration {
-	tmpDir := createTmpDir()
-	return testFolderConfig(tmpDir)
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
@@ -116,7 +111,7 @@ func testFolderConfigFake() config.FolderConfiguration {
 
 func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg, cancel := tmpDefaultWrapper()
+	w, fcfg, cancel := tmpDefaultWrapper(t)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg, cancel
 }
@@ -213,14 +208,6 @@ func cleanupModelAndRemoveDir(m *testModel, dir string) {
 	os.RemoveAll(dir)
 }
 
-func createTmpDir() string {
-	tmpDir, err := os.MkdirTemp("", "syncthing_testFolder-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
-}
-
 type alwaysChangedKey struct {
 	fs   fs.Filesystem
 	name string
@@ -308,7 +295,7 @@ func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderCon
 	t.Helper()
 	m.removeFolder(fcfg)
 	fset := newFileSet(t, fcfg.ID, m.db)
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
 	m.fmut.Unlock()

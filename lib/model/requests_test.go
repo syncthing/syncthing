@@ -12,13 +12,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -32,7 +32,7 @@ func TestRequestSimple(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -72,14 +72,14 @@ func TestRequestSimple(t *testing.T) {
 func TestSymlinkTraversalRead(t *testing.T) {
 	// Verify that a symlink can not be traversed for reading.
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("no symlink support on CI")
 		return
 	}
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -115,14 +115,14 @@ func TestSymlinkTraversalRead(t *testing.T) {
 func TestSymlinkTraversalWrite(t *testing.T) {
 	// Verify that a symlink can not be traversed for writing.
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("no symlink support on CI")
 		return
 	}
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -181,7 +181,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -214,17 +214,17 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 }
 
 func TestRequestVersioningSymlinkAttack(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("no symlink support on Windows")
 	}
 
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	defer func() {
-		os.RemoveAll(fcfg.Filesystem().URI())
+		os.RemoveAll(fcfg.Filesystem(nil).URI())
 		os.Remove(w.ConfigPath())
 	}()
 
@@ -235,11 +235,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
-	tmpdir, err := os.MkdirTemp("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -300,8 +296,8 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	w, wCancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	defer wCancel()
-	fcfg := testFolderConfigTmp()
-	fss := fcfg.Filesystem()
+	fcfg := testFolderConfig(t.TempDir())
+	fss := fcfg.Filesystem(nil)
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)
 	m := setupModel(t, w)
@@ -430,7 +426,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 func TestIssue4841(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	received := make(chan []protocol.FileInfo)
 	fc.setIndexFn(func(_ context.Context, _ string, fs []protocol.FileInfo) error {
@@ -478,7 +474,7 @@ func TestIssue4841(t *testing.T) {
 func TestRescanIfHaveInvalidContent(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	payload := []byte("hello")
@@ -544,7 +540,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 func TestParentDeletion(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	testFs := fcfg.Filesystem()
+	testFs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
 	parent := "foo"
@@ -617,13 +613,13 @@ func TestParentDeletion(t *testing.T) {
 // TestRequestSymlinkWindows checks that symlinks aren't marked as deleted on windows
 // Issue: https://github.com/syncthing/syncthing/issues/5125
 func TestRequestSymlinkWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("windows specific test")
 	}
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	received := make(chan []protocol.FileInfo)
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
@@ -691,7 +687,7 @@ func equalContents(path string, contents []byte) error {
 func TestRequestRemoteRenameChanged(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -825,7 +821,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 func TestRequestRemoteRenameConflict(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
@@ -916,7 +912,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 func TestRequestDeleteChanged(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
@@ -984,7 +980,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 func TestNeedFolderFiles(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
@@ -1029,10 +1025,10 @@ func TestNeedFolderFiles(t *testing.T) {
 // propagated upon un-ignoring.
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
 	m := setupModel(t, w)
-	fss := fcfg.Filesystem()
+	fss := fcfg.Filesystem(nil)
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
@@ -1127,7 +1123,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 func TestRequestLastFileProgress(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
@@ -1162,7 +1158,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	indexChan := make(chan []protocol.FileInfo)
@@ -1273,9 +1269,9 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	dir1 := "foo"
 	dir2 := "bar"
 
@@ -1340,9 +1336,9 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		t.Skip("skipping on short testing - scrypt is too slow")
 	}
 
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	defer wCancel()
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	fcfg.Type = config.FolderTypeReceiveEncrypted
 	setFolder(t, w, fcfg)
 
@@ -1450,7 +1446,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	must(t, err)
 	waiter.Wait()
 	addFakeConn(m, device2, fcfg.ID)
-	tfs := fcfg.Filesystem()
+	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	indexChan := make(chan []protocol.FileInfo, 1)

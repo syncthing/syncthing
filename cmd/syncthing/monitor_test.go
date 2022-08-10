@@ -17,14 +17,17 @@ import (
 func TestRotatedFile(t *testing.T) {
 	// Verify that log rotation happens.
 
-	dir, err := os.MkdirTemp("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	open := func(name string) (io.WriteCloser, error) {
-		return os.Create(name)
+		f, err := os.Create(name)
+		t.Cleanup(func() {
+			if f != nil {
+				_ = f.Close()
+			}
+		})
+
+		return f, err
 	}
 
 	logName := filepath.Join(dir, "log.txt")

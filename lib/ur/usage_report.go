@@ -225,7 +225,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.TemporariesCustom = opts.KeepTemporariesH != 24
 		report.LimitBandwidthInLan = opts.LimitBandwidthInLan
 		report.CustomReleaseURL = opts.ReleasesURL != "https=//upgrades.syncthing.net/meta.json"
-		report.RestartOnWakeup = opts.RestartOnWakeup
 		report.CustomStunServers = len(opts.RawStunServers) != 1 || opts.RawStunServers[0] != "default"
 
 		for _, cfg := range s.cfg.Folders() {
@@ -329,7 +328,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	return report, nil
 }
 
-func (s *Service) UptimeS() int {
+func (*Service) UptimeS() int {
 	return int(time.Since(StartTime).Seconds())
 }
 

@@ -8,7 +8,6 @@ package versioner
 
 import (
 	"math"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -55,11 +54,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 		t.Skip("Test takes some time, skipping.")
 	}
 
-	dir, err := os.MkdirTemp("", "")
-	//defer os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
-	}
+	dir := t.TempDir()
 
 	cfg := config.FolderConfiguration{
 		FilesystemType: fs.FilesystemTypeBasic,
@@ -70,7 +65,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem()
+	fs := cfg.Filesystem(nil)
 
 	v := newSimple(cfg)
 

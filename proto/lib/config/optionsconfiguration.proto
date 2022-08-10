@@ -30,7 +30,6 @@ message OptionsConfiguration {
     string          usage_reporting_url                      = 21 [(ext.goname) = "URURL", (ext.xml) = "urURL", (ext.json) = "urURL", (ext.default) = "https://data.syncthing.net/newdata"];
     bool            usage_reporting_post_insecurely          = 22 [(ext.goname) = "URPostInsecurely", (ext.xml) = "urPostInsecurely", (ext.json) = "urPostInsecurely", (ext.default) = "false"];
     int32           usage_reporting_initial_delay_s          = 23 [(ext.goname) = "URInitialDelayS", (ext.xml) = "urInitialDelayS", (ext.json) = "urInitialDelayS", (ext.default) = "1800"];
-    bool            restart_on_wakeup                        = 24 [(ext.default) = "true"];
     int32           auto_upgrade_interval_h                  = 25 [(ext.default) = "12"];
     bool            upgrade_to_pre_releases                  = 26;
     int32           keep_temporaries_h                       = 27 [(ext.default) = "24"];

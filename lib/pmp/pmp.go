@@ -8,14 +8,14 @@ package pmp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/jackpal/gateway"
-	"github.com/jackpal/go-nat-pmp"
-	"github.com/pkg/errors"
+	natpmp "github.com/jackpal/go-nat-pmp"
 
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/util"
@@ -50,7 +50,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 		return ierr
 	})
 	if err != nil {
-		if errors.Cause(err) == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if strings.Contains(err.Error(), "Timed out") {
@@ -97,7 +97,7 @@ func (w *wrapper) GetLocalIPAddress() net.IP {
 	return w.localIP
 }
 
-func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
+func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, _ string, duration time.Duration) (int, error) {
 	// NAT-PMP says that if duration is 0, the mapping is actually removed
 	// Swap the zero with the renewal value, which should make the lease for the
 	// exact amount of time between the calls.

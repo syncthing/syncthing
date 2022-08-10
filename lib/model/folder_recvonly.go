@@ -28,27 +28,27 @@ receiveOnlyFolder is a folder that does not propagate local changes outward.
 It does this by the following general mechanism (not all of which is
 implemented in this file):
 
-- Local changes are scanned and versioned as usual, but get the
-  FlagLocalReceiveOnly bit set.
+  - Local changes are scanned and versioned as usual, but get the
+    FlagLocalReceiveOnly bit set.
 
-- When changes are sent to the cluster this bit gets converted to the
-  Invalid bit (like all other local flags, currently) and also the Version
-  gets set to the empty version. The reason for clearing the Version is to
-  ensure that other devices will not consider themselves out of date due to
-  our change.
+  - When changes are sent to the cluster this bit gets converted to the
+    Invalid bit (like all other local flags, currently) and also the Version
+    gets set to the empty version. The reason for clearing the Version is to
+    ensure that other devices will not consider themselves out of date due to
+    our change.
 
-- The database layer accounts sizes per flag bit, so we can know how many
-  files have been changed locally. We use this to trigger a "Revert" option
-  on the folder when the amount of locally changed data is nonzero.
+  - The database layer accounts sizes per flag bit, so we can know how many
+    files have been changed locally. We use this to trigger a "Revert" option
+    on the folder when the amount of locally changed data is nonzero.
 
-- To revert we take the files which have changed and reset their version
-  counter down to zero. The next pull will replace our changed version with
-  the globally latest. As this is a user-initiated operation we do not cause
-  conflict copies when reverting.
+  - To revert we take the files which have changed and reset their version
+    counter down to zero. The next pull will replace our changed version with
+    the globally latest. As this is a user-initiated operation we do not cause
+    conflict copies when reverting.
 
-- When pulling normally (i.e., not in the revert case) with local changes,
-  normal conflict resolution will apply. Conflict copies will be created,
-  but not propagated outwards (because receive only, right).
+  - When pulling normally (i.e., not in the revert case) with local changes,
+    normal conflict resolution will apply. Conflict copies will be created,
+    but not propagated outwards (because receive only, right).
 
 Implementation wise a receiveOnlyFolder is just a sendReceiveFolder that
 sets an extra bit on local changes and has a Revert method.
@@ -126,7 +126,11 @@ func (f *receiveOnlyFolder) revert() error {
 			}
 			fi.SetDeleted(f.shortID)
 			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-		case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+		case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+			ModTimeWindow:   f.modTimeWindow,
+			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+			IgnoreOwnership: !f.SyncOwnership,
+		}):
 			// What we have locally is equivalent to the global file.
 			fi = gf
 		default:

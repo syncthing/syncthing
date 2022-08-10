@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
@@ -109,7 +110,7 @@ func init() {
 		databaseKeys, databaseStatisticsSeconds,
 		databaseOperations, databaseOperationSeconds)
 
-	processCollectorOpts := prometheus.ProcessCollectorOpts{
+	processCollectorOpts := collectors.ProcessCollectorOpts{
 		Namespace: "syncthing_discovery",
 		PidFn: func() (int, error) {
 			return os.Getpid(), nil
@@ -117,7 +118,7 @@ func init() {
 	}
 
 	prometheus.MustRegister(
-		prometheus.NewProcessCollector(processCollectorOpts),
+		collectors.NewProcessCollector(processCollectorOpts),
 	)
 
 }

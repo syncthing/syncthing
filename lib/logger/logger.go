@@ -31,7 +31,7 @@ const (
 )
 
 const (
-	DefaultFlags = log.Ltime
+	DefaultFlags = log.Ltime | log.Ldate
 	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 )
 

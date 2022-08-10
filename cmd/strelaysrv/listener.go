@@ -23,7 +23,7 @@ var (
 	numConnections int64
 )
 
-func listener(proto, addr string, config *tls.Config) {
+func listener(_, addr string, config *tls.Config) {
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -76,7 +76,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 	}
 
 	state := conn.ConnectionState()
-	if (!state.NegotiatedProtocolIsMutual || state.NegotiatedProtocol != protocol.ProtocolName) && debug {
+	if debug && state.NegotiatedProtocol != protocol.ProtocolName {
 		log.Println("Protocol negotiation error")
 	}
 

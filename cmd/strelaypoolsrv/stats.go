@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 func init() {
-	processCollectorOpts := prometheus.ProcessCollectorOpts{
+	processCollectorOpts := collectors.ProcessCollectorOpts{
 		Namespace: "syncthing_relaypoolsrv",
 		PidFn: func() (int, error) {
 			return os.Getpid(), nil
@@ -22,7 +23,7 @@ func init() {
 	}
 
 	prometheus.MustRegister(
-		prometheus.NewProcessCollector(processCollectorOpts),
+		collectors.NewProcessCollector(processCollectorOpts),
 	)
 }
 

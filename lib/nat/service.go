@@ -45,7 +45,7 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
-func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
 		l.Debugln("Starting NAT service")

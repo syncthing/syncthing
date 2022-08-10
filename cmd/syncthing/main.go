@@ -68,9 +68,9 @@ The --logflags value is a sum of the following:
    8  Long filename
   16  Short filename
 
-I.e. to prefix each log line with date and time, set --logflags=3 (1 + 2 from
-above). The value 0 is used to disable all of the above. The default is to
-show time only (2).
+I.e. to prefix each log line with time and filename, set --logflags=18 (2 + 16
+from above). The value 0 is used to disable all of the above. The default is
+to show date and time (3).
 
 Logging always happens to the command line (stdout) and optionally to the
 file at the path specified by --logfile=path. In addition to an path, the special
@@ -187,7 +187,7 @@ type serveOptions struct {
 func defaultVars() kong.Vars {
 	vars := kong.Vars{}
 
-	vars["logFlags"] = strconv.Itoa(log.Ltime)
+	vars["logFlags"] = strconv.Itoa(logger.DefaultFlags)
 	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
 	vars["logMaxFiles"] = "3"                   // plus the current one
 
@@ -199,7 +199,7 @@ func defaultVars() kong.Vars {
 	// Windows, the "default" options.logFile will later be replaced with the
 	// default path, unless the user has manually specified "-" or
 	// something else.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		vars["logFile"] = "default"
 	} else {
 		vars["logFile"] = "-"
@@ -292,16 +292,25 @@ func (options serveOptions) Run() error {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.LogFile == "default" || options.LogFile == "" {
+	// Treat an explicitly empty log file name as no log file
+	if options.LogFile == "" {
+		options.LogFile = "-"
+	}
+	if options.LogFile != "default" {
 		// We must set this *after* expandLocations above.
-		// Handling an empty value is for backwards compatibility (<1.4.1).
-		options.LogFile = locations.Get(locations.LogFile)
+		if err := locations.Set(locations.LogFile, options.LogFile); err != nil {
+			l.Warnln("Setting log file path:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
-	if options.DebugGUIAssetsDir == "" {
+	if options.DebugGUIAssetsDir != "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.DebugGUIAssetsDir = locations.Get(locations.GUIAssets)
+		if err := locations.Set(locations.GUIAssets, options.DebugGUIAssetsDir); err != nil {
+			l.Warnln("Setting GUI assets path:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	if options.Version {
@@ -310,7 +319,7 @@ func (options serveOptions) Run() error {
 	}
 
 	if options.Paths {
-		showPaths(options)
+		fmt.Print(locations.PrettyPaths())
 		return nil
 	}
 
@@ -612,7 +621,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		AssetDir:             options.DebugGUIAssetsDir,
 		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
 		ProfilerAddr:         options.DebugProfilerListen,
@@ -647,7 +655,7 @@ func syncthingMain(options serveOptions) {
 
 	setupSignalHandling(app)
 
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
+	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
@@ -662,8 +670,6 @@ func syncthingMain(options serveOptions) {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
-
-	go standbyMonitor(app, cfgWrapper)
 
 	if err := app.Start(); err != nil {
 		os.Exit(svcutil.ExitError.AsInt())
@@ -759,26 +765,6 @@ func auditWriter(auditFile string) io.Writer {
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
-}
-
-func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
-	restartDelay := 60 * time.Second
-	now := time.Now()
-	for {
-		time.Sleep(10 * time.Second)
-		if time.Since(now) > 2*time.Minute && cfg.Options().RestartOnWakeup {
-			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
-
-			// We most likely just woke from standby. If we restart
-			// immediately chances are we won't have networking ready. Give
-			// things a moment to stabilize.
-			time.Sleep(restartDelay)
-
-			app.Stop(svcutil.ExitRestart)
-			return
-		}
-		now = time.Now()
-	}
 }
 
 func autoUpgradePossible(options serveOptions) bool {
@@ -910,16 +896,6 @@ func cleanConfigDirectory() {
 			}
 		}
 	}
-}
-
-func showPaths(options serveOptions) {
-	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
-	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
-	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
-	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
-	fmt.Printf("Log file:\n\t%s\n\n", options.LogFile)
-	fmt.Printf("GUI override directory:\n\t%s\n\n", options.DebugGUIAssetsDir)
-	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
 func setPauseState(cfgWrapper config.Wrapper, paused bool) {

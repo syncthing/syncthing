@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Mar 13, 2022" "v1.19.1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jul 28, 2022" "v1.20.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -148,6 +148,7 @@ may no longer correspond to the defaults.
         <copyRangeMethod>standard</copyRangeMethod>
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>false</junctionsAsDirs>
+        <syncOwnership>false</syncOwnership>
     </folder>
     <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
@@ -251,6 +252,7 @@ may no longer correspond to the defaults.
             <copyRangeMethod>standard</copyRangeMethod>
             <caseSensitiveFS>false</caseSensitiveFS>
             <junctionsAsDirs>false</junctionsAsDirs>
+            <syncOwnership>false</syncOwnership>
         </folder>
         <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
             <address>dynamic</address>
@@ -343,6 +345,7 @@ GUI.
     <copyRangeMethod>standard</copyRangeMethod>
     <caseSensitiveFS>false</caseSensitiveFS>
     <junctionsAsDirs>false</junctionsAsDirs>
+    <syncOwnership>false</syncOwnership>
 </folder>
 .ft P
 .fi
@@ -668,6 +671,12 @@ a separate chapter\&.
 .B junctionsAsDirs
 NTFS directory junctions are treated as ordinary directories, if this is set
 to \fBtrue\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B syncOwnership
+File and directory ownership is synced when this is set to \fBtrue\fP\&. See
+folder\-sync\-ownership for more information.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -1515,6 +1524,13 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
     </device>
+    <ignores>
+        <line>!foo2</line>
+        <line>// comment</line>
+        <line>(?d).DS_Store</line>
+        <line>*2</line>
+        <line>qu*</line>
+    </ignores>
 </defaults>
 .ft P
 .fi
@@ -1545,6 +1561,18 @@ applies to folders automatically accepted from a remote device.
 .sp
 Even sharing with other remote devices can be done in the template by
 including the appropriate \fI\%folder.device\fP element underneath.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ignores
+New in version 1.19.0.
+
+.sp
+Template for the ignore patterns applied to new
+folders.  These are copied to the \fB\&.stignore\fP file when a folder is
+automatically accepted from a remote device.  The GUI uses them to pre\-fill
+the respective field when adding a new folder as well.  In XML, each pattern
+line is represented as by a \fB<line>\fP element.
 .UNINDENT
 .SS Listen Addresses
 .sp

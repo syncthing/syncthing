@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -27,15 +27,16 @@ var (
 
 type OptionJunctionsAsDirs struct{}
 
-func (o *OptionJunctionsAsDirs) apply(fs Filesystem) {
+func (*OptionJunctionsAsDirs) apply(fs Filesystem) Filesystem {
 	if basic, ok := fs.(*BasicFilesystem); !ok {
 		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
 	} else {
 		basic.junctionsAsDirs = true
 	}
+	return fs
 }
 
-func (o *OptionJunctionsAsDirs) String() string {
+func (*OptionJunctionsAsDirs) String() string {
 	return "junctionsAsDirs"
 }
 
@@ -78,7 +79,7 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		root = longFilenameSupport(root)
 	}
 
@@ -126,14 +127,6 @@ func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 		return err
 	}
 	return os.Chmod(name, os.FileMode(mode))
-}
-
-func (f *BasicFilesystem) Lchown(name string, uid, gid int) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return os.Lchown(name, uid, gid)
 }
 
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
@@ -272,7 +265,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	return basicFile{fd, name}, err
 }
 
-func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {
 	// implemented in WalkFilesystem
 	return errors.New("not implemented")
 }
@@ -305,7 +298,7 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	}, nil
 }
 
-func (f *BasicFilesystem) Type() FilesystemType {
+func (*BasicFilesystem) Type() FilesystemType {
 	return FilesystemTypeBasic
 }
 
@@ -317,7 +310,7 @@ func (f *BasicFilesystem) Options() []Option {
 	return f.options
 }
 
-func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
+func (*BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	// Like os.SameFile, we always return false unless fi1 and fi2 were created
 	// by this package's Stat/Lstat method.
 	f1, ok1 := fi1.(basicFileInfo)
@@ -329,11 +322,11 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	return os.SameFile(f1.osFileInfo(), f2.osFileInfo())
 }
 
-func (f *BasicFilesystem) underlying() (Filesystem, bool) {
+func (*BasicFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (f *BasicFilesystem) wrapperType() filesystemWrapperType {
+func (*BasicFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeNone
 }
 

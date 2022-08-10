@@ -368,6 +368,11 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Canonicalize the URL. In particular, parse and re-encode the query
+	// string so that it's guaranteed to be valid.
+	uri.RawQuery = uri.Query().Encode()
+	newRelay.URL = uri.String()
+
 	if relayCert != nil {
 		advertisedId := uri.Query().Get("id")
 		idFromCert := protocol.NewDeviceID(relayCert.Raw).String()
@@ -567,7 +572,7 @@ func loadRelays(file string) []*relay {
 
 	var relays []*relay
 	for _, line := range strings.Split(string(content), "\n") {
-		if len(line) == 0 {
+		if line == "" {
 			continue
 		}
 

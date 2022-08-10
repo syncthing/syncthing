@@ -27,7 +27,7 @@ var errorsCommand = cli.Command{
 		{
 			Name:      "push",
 			Usage:     "Push an error to active clients",
-			ArgsUsage: "[error message]",
+			ArgsUsage: "ERROR-MESSAGE",
 			Action:    expects(1, errorsPush),
 		},
 		{

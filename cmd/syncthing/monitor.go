@@ -15,11 +15,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -48,7 +48,7 @@ func monitorMain(options serveOptions) {
 
 	var dst io.Writer = os.Stdout
 
-	logFile := options.LogFile
+	logFile := locations.Get(locations.LogFile)
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
@@ -66,7 +66,7 @@ func monitorMain(options serveOptions) {
 		if err != nil {
 			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
 		} else {
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				// Translate line breaks to Windows standard
 				fileDst = osutil.ReplacingWriter{
 					Writer: fileDst,
@@ -315,7 +315,7 @@ func restartMonitor(args []string) error {
 	// opening the browser on startup.
 	os.Setenv("STRESTART", "yes")
 
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		// syscall.Exec is the cleanest way to restart on Unixes as it
 		// replaces the current process with the new one, keeping the pid and
 		// controlling terminal and so on

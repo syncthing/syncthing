@@ -9,8 +9,8 @@ package osutil
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -97,7 +97,7 @@ func (w *AtomicWriter) Close() error {
 		return infoErr
 	}
 	err := w.fs.Rename(w.next.Name(), w.path)
-	if runtime.GOOS == "windows" && fs.IsPermission(err) {
+	if build.IsWindows && fs.IsPermission(err) {
 		// On Windows, we might not be allowed to rename over the file
 		// because it's read-only. Get us some write permissions and try
 		// again.

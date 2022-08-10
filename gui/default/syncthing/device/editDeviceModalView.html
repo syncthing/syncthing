@@ -21,12 +21,12 @@
             </div>
             <div ng-if="editingDeviceNew()">
               <datalist id="discovery-list">
-                <option ng-repeat="id in discovery" value="{{id}}" />
+                <option ng-repeat="id in discoveryUnknown" value="{{id}}" />
               </datalist>
-              <div class="help-block" ng-if="discovery && discovery.length !== 0">
+              <div class="help-block" ng-if="discoveryUnknown && discoveryUnknown.length !== 0">
                 <span translate>You can also select one of these nearby devices:</span>
                 <ul>
-                  <li ng-repeat="id in discovery" style="list-style-type: none;">
+                  <li ng-repeat="id in discoveryUnknown.slice(0, 5)" style="list-style-type: none;">
                     <a href="#" ng-click="currentDevice.deviceID = id">
                       <identicon data-value="id"></identicon>&nbsp;&nbsp;{{id}}
                     </a>
@@ -83,8 +83,14 @@
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.shared">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabelMarkRemoteState(folder.id, currentDevice.deviceID)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" />
               </div>
+              <p class="help-block" ng-if="deviceHasUnacceptedFolders(currentDevice)">
+                <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
+              </p>
+              <p class="help-block" ng-if="deviceHasPausedFolders(currentDevice)">
+                <sup>2</sup> <span translate>The remote device has paused this folder.</span>
+              </p>
             </div>
             <div class="form-horizontal" ng-if="currentSharing.unrelated.length">
               <label translate for="folders">Unshared Folders</label>

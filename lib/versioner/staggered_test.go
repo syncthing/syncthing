@@ -133,10 +133,7 @@ func TestCreateVersionPath(t *testing.T) {
 	)
 
 	// Create a test dir and file
-	tmpDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
 		t.Fatal(err)
 	}
