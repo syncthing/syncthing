@@ -882,7 +882,9 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 		}
 		if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
 			folderComp, err := m.folderCompletion(device, fcfg.ID)
-			if err != nil {
+			if errors.Is(err, ErrFolderPaused) {
+				continue
+			} else if err != nil {
 				return FolderCompletion{}, err
 			}
 			comp.add(folderComp)
