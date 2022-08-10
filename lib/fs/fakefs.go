@@ -617,11 +617,11 @@ func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
-func (fs *fakeFS) GetXattr(_ string, _ StringFilter) ([]protocol.Xattr, error) {
+func (*fakeFS) GetXattr(_ string, _ StringFilter) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 
-func (fs *fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ StringFilter) error {
+func (*fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ StringFilter) error {
 	return nil
 }
 
@@ -965,7 +965,7 @@ func (f *fakeFileInfo) Group() int {
 	return f.gid
 }
 
-func (f *fakeFileInfo) Sys() interface{} {
+func (*fakeFileInfo) Sys() interface{} {
 	return nil
 }
 
