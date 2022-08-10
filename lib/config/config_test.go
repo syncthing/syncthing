@@ -107,7 +107,9 @@ func TestDefaultValues(t *testing.T) {
 				MarkerName:           ".stfolder",
 				MaxConcurrentWrites:  2,
 				XattrFilter: StringFilter{
-					Entries: []StringFilterEntry{},
+					Entries:            []StringFilterEntry{},
+					MaxSingleEntrySize: 1024,
+					MaxTotalSize:       4096,
 				},
 			},
 			Device: DeviceConfiguration{

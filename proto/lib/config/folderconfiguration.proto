@@ -70,7 +70,9 @@ message FolderConfiguration {
 // default action becomes deny. To counter this, you can use the "*" pattern
 // to match all strings at the end of the filter.
 message StringFilter {
-    repeated StringFilterEntry entries = 1 [(ext.xml) = "entry"];
+    repeated StringFilterEntry entries               = 1 [(ext.xml) = "entry"];
+    int32                      max_single_entry_size = 2 [(ext.xml) = "maxSingleEntrySize", (ext.default) = "1024"];
+    int32                      max_total_size        = 3 [(ext.xml) = "maxTotalSize", (ext.default) = "4096"];
 }
 
 message StringFilterEntry {

@@ -31,6 +31,8 @@ const (
 
 type StringFilter interface {
 	Permit(string) bool
+	GetMaxSingleEntrySize() int
+	GetMaxTotalSize() int
 }
 
 // The Filesystem interface abstracts access to the file system.

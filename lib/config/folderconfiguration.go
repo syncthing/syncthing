@@ -286,3 +286,11 @@ func (f StringFilter) Permit(s string) bool {
 	}
 	return false
 }
+
+func (f StringFilter) GetMaxSingleEntrySize() int {
+	return f.MaxSingleEntrySize
+}
+
+func (f StringFilter) GetMaxTotalSize() int {
+	return f.MaxTotalSize
+}

@@ -667,4 +667,6 @@ func TestWalkInfiniteRecursion(t *testing.T) {
 
 type noopStringFilter struct{}
 
-func (noopStringFilter) Permit(string) bool { return true }
+func (noopStringFilter) Permit(string) bool         { return true }
+func (noopStringFilter) GetMaxSingleEntrySize() int { return 0 }
+func (noopStringFilter) GetMaxTotalSize() int       { return 0 }
