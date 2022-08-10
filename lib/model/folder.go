@@ -1059,6 +1059,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
 			}
 		case <-ctx.Done():
+			aggrCancel() // for good measure and keeping the linters happy
 			return
 		}
 	}
