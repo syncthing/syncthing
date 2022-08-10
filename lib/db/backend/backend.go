@@ -72,17 +72,17 @@ type WriteTransaction interface {
 // there is an error preventing iteration, which is then returned by
 // Error(). For example:
 //
-//     it, err := db.NewPrefixIterator(nil)
-//     if err != nil {
-//         // problem preventing iteration
-//     }
-//     defer it.Release()
-//     for it.Next() {
-//         // ...
-//     }
-//     if err := it.Error(); err != nil {
-//         // there was a database problem while iterating
-//     }
+//	it, err := db.NewPrefixIterator(nil)
+//	if err != nil {
+//	    // problem preventing iteration
+//	}
+//	defer it.Release()
+//	for it.Next() {
+//	    // ...
+//	}
+//	if err := it.Error(); err != nil {
+//	    // there was a database problem while iterating
+//	}
 //
 // An iterator must be Released when no longer required. The Error method
 // can be called either before or after Release with the same results. If an

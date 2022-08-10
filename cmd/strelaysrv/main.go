@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -146,7 +145,7 @@ func main() {
 		log.Println("Connection limit", descriptorLimit)
 
 		go monitorLimits()
-	} else if err != nil && runtime.GOOS != "windows" {
+	} else if err != nil && !build.IsWindows {
 		log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
 	}
 
@@ -230,11 +229,30 @@ func main() {
 		go statusService(statusAddr)
 	}
 
-	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", mapping.Address(), id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/", mapping.Address()))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
 		return
 	}
+
+	// Add properly encoded query string parameters to URL.
+	query := make(url.Values)
+	query.Set("id", id.String())
+	query.Set("pingInterval", pingInterval.String())
+	query.Set("networkTimeout", networkTimeout.String())
+	if sessionLimitBps > 0 {
+		query.Set("sessionLimitBps", fmt.Sprint(sessionLimitBps))
+	}
+	if globalLimitBps > 0 {
+		query.Set("globalLimitBps", fmt.Sprint(globalLimitBps))
+	}
+	if statusAddr != "" {
+		query.Set("statusAddr", statusAddr)
+	}
+	if providedBy != "" {
+		query.Set("providedBy", providedBy)
+	}
+	uri.RawQuery = query.Encode()
 
 	log.Println("URI:", uri.String())
 

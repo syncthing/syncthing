@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "Apr 05, 2022" "v1.19.2" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Jul 28, 2022" "v1.20.3" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -97,7 +97,7 @@ messages from the relay, which implies that some other device is trying to
 connect with you. SessionInvitation message contains the unique session key
 which then can be used to establish a connection in session mode.
 .sp
-If the client fails to send a JoinRelayRequest message within the first ping
+If the client fails to send a JoinSessionRequest message within the first ping
 interval, the connection is terminated.
 If the client fails to send a message (even if it’s a ping message) every minute
 (by default), the connection is terminated.

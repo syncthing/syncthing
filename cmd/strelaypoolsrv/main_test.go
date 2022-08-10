@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -63,5 +64,31 @@ func TestHandleGetRequest(t *testing.T) {
 		case r.URL != fmt.Sprintf("permanent%d", i):
 			t.Error("order of permanent relays changed")
 		}
+	}
+}
+
+func TestCanonicalizeQueryValues(t *testing.T) {
+	// This just demonstrates and validates the uri.Parse/String stuff in
+	// regards to query strings.
+
+	in := "http://example.com/?some weird= query^value"
+	exp := "http://example.com/?some+weird=+query%5Evalue"
+
+	uri, err := url.Parse(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	str := uri.String()
+	if str != in {
+		// Just re-encoding the URL doesn't sanitize the query string.
+		t.Errorf("expected %q, got %q", in, str)
+	}
+
+	uri.RawQuery = uri.Query().Encode()
+	str = uri.String()
+	if str != exp {
+		// The query string is now in correct format.
+		t.Errorf("expected %q, got %q", exp, str)
 	}
 }

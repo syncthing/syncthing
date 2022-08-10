@@ -15,13 +15,13 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
@@ -549,7 +549,7 @@ loop:
 }
 
 func cleanSymlinks(filesystem fs.Filesystem, dir string) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// We don't do symlinks on Windows. Additionally, there may
 		// be things that look like symlinks that are not, which we
 		// should leave alone. Deduplicated files, for example.
@@ -590,7 +590,7 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 // a random high port is returned.
 func getFreePort(host string, ports ...int) (int, error) {
 	for _, port := range ports {
-		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			c.Close()
 			return port, nil

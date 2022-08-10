@@ -46,7 +46,7 @@ type httpClient interface {
 const (
 	defaultReannounceInterval             = 30 * time.Minute
 	announceErrorRetryInterval            = 5 * time.Minute
-	requestTimeout                        = 5 * time.Second
+	requestTimeout                        = 30 * time.Second
 	maxAddressChangesBetweenAnnouncements = 10
 )
 
@@ -301,7 +301,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	timer.Reset(defaultReannounceInterval)
 }
 
-func (c *globalClient) Cache() map[protocol.DeviceID]CacheEntry {
+func (*globalClient) Cache() map[protocol.DeviceID]CacheEntry {
 	// The globalClient doesn't do caching
 	return nil
 }

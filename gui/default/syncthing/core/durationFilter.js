@@ -21,7 +21,11 @@ angular.module('syncthing.core')
                 var t = (input / SECONDS_IN[k] | 0); // Math.floor
 
                 if (t > 0) {
-                    result += " " + t + k;
+                    if (!result) {
+                        result = t + k;
+                    } else {
+                        result += " " + t + k;
+                    }
                 }
 
                 if (precision == k) {

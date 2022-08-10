@@ -10,6 +10,7 @@
 body {
     padding-bottom: 70px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    overflow-y: scroll;
 }
 
 h1, h2, h3, h4, h5 {

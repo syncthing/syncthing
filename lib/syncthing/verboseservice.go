@@ -50,7 +50,7 @@ func (s *verboseService) Serve(ctx context.Context) error {
 
 var folderSummaryRemoveDeprecatedRe = regexp.MustCompile(`(Invalid|IgnorePatterns|StateChanged):\S+\s?`)
 
-func (s *verboseService) formatEvent(ev events.Event) string {
+func (*verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
 	case events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
@@ -117,7 +117,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 
 	case events.FolderCompletion:
 		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (accepted: %v)", data["folder"], data["device"], data["completion"], data["accepted"])
+		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s)", data["folder"], data["device"], data["completion"], data["remoteState"])
 
 	case events.FolderSummary:
 		data := ev.Data.(model.FolderSummaryEventData)
@@ -144,6 +144,10 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
+
+	case events.ClusterConfigReceived:
+		data := ev.Data.(model.ClusterConfigReceivedEventData)
+		return fmt.Sprintf("Received ClusterConfig from device %v", data.Device)
 
 	case events.FolderPaused:
 		data := ev.Data.(map[string]string)

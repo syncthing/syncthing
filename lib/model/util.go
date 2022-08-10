@@ -116,28 +116,35 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 	}
 
 	const permBits = fs.ModePerm | fs.ModeSetuid | fs.ModeSetgid | fs.ModeSticky
+	var parentErr error
 	if mode := info.Mode() & permBits; mode&0200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.
-		if err := targetFs.Chmod(dir, mode|0700); err != nil {
-			return err
-		}
-		// Chmod succeeded, we should change the permissions back on the way
-		// out. If we fail we log the error as we have irrevocably messed up
-		// at this point. :( (The operation we were called to wrap has
-		// succeeded or failed on its own so returning an error to the
-		// caller is inappropriate.)
-		defer func() {
-			if err := targetFs.Chmod(dir, mode); err != nil && !fs.IsNotExist(err) {
-				logFn := l.Warnln
-				if ignorePerms {
-					logFn = l.Debugln
+		parentErr = targetFs.Chmod(dir, mode|0700)
+		if parentErr != nil {
+			l.Debugf("Failed to make parent directory writable: %v", parentErr)
+		} else {
+			// Chmod succeeded, we should change the permissions back on the way
+			// out. If we fail we log the error as we have irrevocably messed up
+			// at this point. :( (The operation we were called to wrap has
+			// succeeded or failed on its own so returning an error to the
+			// caller is inappropriate.)
+			defer func() {
+				if err := targetFs.Chmod(dir, mode); err != nil && !fs.IsNotExist(err) {
+					logFn := l.Warnln
+					if ignorePerms {
+						logFn = l.Debugln
+					}
+					logFn("Failed to restore directory permissions after gaining write access:", err)
 				}
-				logFn("Failed to restore directory permissions after gaining write access:", err)
-			}
-		}()
+			}()
+		}
 	}
 
-	return fn(path)
+	err = fn(path)
+	if fs.IsPermission(err) && parentErr != nil {
+		err = fmt.Errorf("error after failing to make parent directory writable: %w", err)
+	}
+	return err
 }

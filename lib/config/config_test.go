@@ -23,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -62,7 +63,6 @@ func TestDefaultValues(t *testing.T) {
 			NATLeaseM:               60,
 			NATRenewalM:             30,
 			NATTimeoutS:             10,
-			RestartOnWakeup:         true,
 			AutoUpgradeIntervalH:    12,
 			KeepTemporariesH:        24,
 			CacheIgnoredFiles:       false,
@@ -247,7 +247,6 @@ func TestOverriddenValues(t *testing.T) {
 		NATLeaseM:               90,
 		NATRenewalM:             15,
 		NATTimeoutS:             15,
-		RestartOnWakeup:         false,
 		AutoUpgradeIntervalH:    24,
 		KeepTemporariesH:        48,
 		CacheIgnoredFiles:       true,
@@ -447,7 +446,7 @@ func TestVersioningConfig(t *testing.T) {
 }
 
 func TestIssue1262(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skipf("path gets converted to absolute as part of the filesystem initialization on linux")
 	}
 
@@ -540,7 +539,7 @@ func TestFolderCheckPath(t *testing.T) {
 			path: "link",
 			err:  nil,
 		})
-	} else if runtime.GOOS != "windows" {
+	} else if !build.IsWindows {
 		t.Log("running without symlink check")
 		t.Fatal(err)
 	}
@@ -595,7 +594,7 @@ func TestNewSaveLoad(t *testing.T) {
 }
 
 func TestWindowsLineEndings(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific")
 	}
 

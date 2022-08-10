@@ -237,11 +237,11 @@ func (f *folder) Serve(ctx context.Context) error {
 	}
 }
 
-func (f *folder) BringToFront(string) {}
+func (*folder) BringToFront(string) {}
 
-func (f *folder) Override() {}
+func (*folder) Override() {}
 
-func (f *folder) Revert() {}
+func (*folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	select {
@@ -275,7 +275,7 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+func (*folder) Jobs(_, _ int) ([]string, []string, int) {
 	return nil, nil, 0
 }
 
@@ -602,7 +602,13 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			b.Remove(fi.Name)
 			return true
 		}
-	case gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+	case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+		ModTimeWindow:   b.f.modTimeWindow,
+		IgnorePerms:     b.f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: !b.f.SyncOwnership,
+	}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
 		fi = gf
@@ -632,6 +638,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		CurrentFiler:          cFiler{snap},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
+		IgnoreOwnership:       !f.SyncOwnership,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
@@ -1045,7 +1052,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 		case ev := <-summaryChan:
 			if data, ok := ev.Data.(FolderSummaryEventData); !ok {
 				f.evLogger.Log(events.Failure, "Unexpected type of folder-summary event in folder.monitorWatch")
-			} else if data.Summary.LocalTotalItems > kqueueItemCountThreshold {
+			} else if data.Summary.LocalTotalItems-data.Summary.LocalDeleted > kqueueItemCountThreshold {
 				f.warnedKqueue = true
 				summarySub.Unsubscribe()
 				summaryChan = nil
@@ -1065,7 +1072,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr {
-		data := map[string]string{
+		data := map[string]interface{}{
 			"folder": f.ID,
 		}
 		if prevErr != nil {

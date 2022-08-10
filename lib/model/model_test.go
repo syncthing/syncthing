@@ -15,7 +15,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -26,6 +25,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -1463,7 +1463,7 @@ func changeIgnores(t *testing.T, m *testModel, expected []string) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
 	}
 
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		// see above
 		time.Sleep(time.Second)
 	} else {
@@ -2130,7 +2130,7 @@ func TestIssue4357(t *testing.T) {
 func TestIssue2782(t *testing.T) {
 	// CheckHealth should accept a symlinked folder, when using tilde-expanded path.
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("not reliable on Windows")
 		return
 	}
@@ -2471,7 +2471,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 // TestIssue2571 tests replacing a directory with content with a symlink
 func TestIssue2571(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Scanning symlinks isn't supported on windows")
 	}
 
@@ -2510,7 +2510,7 @@ func TestIssue2571(t *testing.T) {
 
 // TestIssue4573 tests that contents of an unavailable dir aren't marked deleted
 func TestIssue4573(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Can't make the dir inaccessible on windows")
 	}
 
@@ -2802,7 +2802,7 @@ func TestVersionRestore(t *testing.T) {
 		"dir/file.txt",
 		"dir/existing.txt",
 	} {
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			file = filepath.FromSlash(file)
 		}
 		dir := filepath.Dir(file)
@@ -2886,7 +2886,7 @@ func TestVersionRestore(t *testing.T) {
 
 	// Check that content of files matches to the version they've been restored.
 	for file, version := range restore {
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			file = filepath.FromSlash(file)
 		}
 		tag := version.In(time.Local).Truncate(time.Second).Format(versioner.TimeFormat)
@@ -2918,7 +2918,7 @@ func TestVersionRestore(t *testing.T) {
 	must(t, err)
 	for file, versions := range allFileVersions {
 		key := file
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			file = filepath.FromSlash(file)
 		}
 		for _, version := range versions {
@@ -3764,16 +3764,16 @@ func TestClusterConfigOnFolderUnpause(t *testing.T) {
 
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
-	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, true)
-	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, false))
+	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderValid)
+	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderPaused))
 	if comp.CompletionPct != 100 {
 		t.Error(comp.CompletionPct)
 	}
 
 	// Completion is of the whole
-	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, true)             // 100% complete
-	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, true)) // 82.5% complete
-	if comp.CompletionPct != 90 {                                                       // 100 * (1 - 50/500)
+	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, remoteFolderValid)             // 100% complete
+	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, remoteFolderValid)) // 82.5% complete
+	if comp.CompletionPct != 90 {                                                                    // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }

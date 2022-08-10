@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type filesystemWrapperType int32
@@ -30,7 +32,7 @@ const (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
-	Lchown(name string, uid, gid int) error
+	Lchown(name string, uid, gid string) error // uid/gid as strings; numeric on POSIX, SID on Windows, like in os/user package
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
@@ -60,6 +62,7 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
+	PlatformData(name string) (protocol.PlatformData, error)
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)

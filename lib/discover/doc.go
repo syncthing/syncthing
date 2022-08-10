@@ -70,6 +70,5 @@ Found) is returned.
 
 If the client has exceeded a rate limit, the server may respond with 429 (Too
 Many Requests).
-
 */
 package discover

@@ -9,6 +9,7 @@ package discover
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -87,5 +88,35 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 
 	if !new {
 		t.Fatal("new instance ID should be new")
+	}
+}
+
+func TestFilterUnspecified(t *testing.T) {
+	addrs := []string{
+		"quic://[2001:db8::1]:22000",             // OK
+		"tcp://192.0.2.42:22000",                 // OK
+		"quic://[2001:db8::1]:0",                 // remove, port zero
+		"tcp://192.0.2.42:0",                     // remove, port zero
+		"quic://[::]:22000",                      // remove, unspecified
+		"tcp://0.0.0.0:22000",                    // remove, unspecified
+		"tcp://[2001:db8::1]",                    // remove, no port
+		"tcp://192.0.2.42",                       // remove, no port
+		"tcp://foo:bar",                          // remove, host/port does not resolve
+		"tcp://127.0.0.1:22000",                  // remove, not usable from outside
+		"tcp://[::1]:22000",                      // remove, not usable from outside
+		"tcp://224.1.2.3:22000",                  // remove, not usable from outside (multicast)
+		"tcp://[fe80::9ef:dff1:b332:5e56]:55681", // OK
+		"pure garbage",                           // remove, garbage
+		"",                                       // remove, garbage
+	}
+	exp := []string{
+		"quic://[2001:db8::1]:22000",
+		"tcp://192.0.2.42:22000",
+		"tcp://[fe80::9ef:dff1:b332:5e56]:55681",
+	}
+	res := filterUnspecifiedLocal(addrs)
+	if fmt.Sprint(res) != fmt.Sprint(exp) {
+		t.Log(res)
+		t.Error("filterUnspecified returned invalid addresses")
 	}
 }

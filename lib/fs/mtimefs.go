@@ -59,7 +59,7 @@ func (o *optionMtime) apply(fs Filesystem) Filesystem {
 	return f
 }
 
-func (_ *optionMtime) String() string {
+func (*optionMtime) String() string {
 	return "mtime"
 }
 
@@ -146,7 +146,7 @@ func (f *mtimeFS) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *mtimeFS) wrapperType() filesystemWrapperType {
+func (*mtimeFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeMtime
 }
 

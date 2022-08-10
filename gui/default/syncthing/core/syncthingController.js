@@ -178,7 +178,8 @@ angular.module('syncthing.core')
 
             console.log('HTTPError', arg);
             online = false;
-            if (!restarting) {
+            // We sometimes get arg == null from angularjs - no idea why
+            if (!restarting && arg) {
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
@@ -1669,34 +1670,29 @@ angular.module('syncthing.core')
         };
 
         $scope.addDevice = function (deviceID, name) {
-            return $http.get(urlbase + '/system/discovery')
-                .success(function (registry) {
-                    $scope.discovery = [];
-                    for (var id in registry) {
-                        if ($scope.discovery.length === 5) {
-                            break;
-                        }
-                        if (id in $scope.devices) {
-                            continue
-                        }
-                        $scope.discovery.push(id);
-                    }
-                })
-                .then(function () {
-                    $http.get(urlbase + '/config/defaults/device').then(function (p) {
-                        $scope.currentDevice = p.data;
-                        $scope.currentDevice.name = name;
-                        $scope.currentDevice.deviceID = deviceID;
-                        if (deviceID) {
-                            $scope.currentDevice._editing = "new-pending";
-                        } else {
-                            $scope.currentDevice._editing = "new";
-                        }
-                        initShareEditing('device');
-                        $scope.currentSharing.unrelated = $scope.folderList();
-                        editDeviceModal();
-                    }, $scope.emitHTTPError);
-                });
+            $scope.discoveryUnknown = [];
+            for (var id in $scope.discoveryCache) {
+                if ($scope.discoveryUnknown.length === 100) {
+                    break;
+                }
+                if (id in $scope.devices) {
+                    continue
+                }
+                $scope.discoveryUnknown.push(id);
+            }
+            return $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                $scope.currentDevice = p.data;
+                $scope.currentDevice.name = name;
+                $scope.currentDevice.deviceID = deviceID;
+                if (deviceID) {
+                    $scope.currentDevice._editing = "new-pending";
+                } else {
+                    $scope.currentDevice._editing = "new";
+                }
+                initShareEditing('device');
+                $scope.currentSharing.unrelated = $scope.folderList();
+                editDeviceModal();
+            }, $scope.emitHTTPError);
         };
 
         $scope.deleteDevice = function () {
@@ -2365,11 +2361,15 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
-        $scope.deviceNameMarkUnaccepted = function (deviceID, folderID) {
+        $scope.deviceNameMarkRemoteState = function (deviceID, folderID) {
             var name = $scope.deviceName($scope.devices[deviceID]);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                name += '<sup>1</sup>';
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
+                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
+                    name += '<sup>1</sup>';
+                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
+                    name += '<sup>2</sup>';
+                }
             }
             return name;
         };
@@ -2378,7 +2378,7 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceNameMarkUnaccepted(device.deviceID, folderCfg.id));
+                    names.push($scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id));
                 }
             });
             names.sort();
@@ -2389,7 +2389,18 @@ angular.module('syncthing.core')
             for (var deviceID in $scope.completion) {
                 if (deviceID in $scope.devices
                     && folderCfg.id in $scope.completion[deviceID]
-                    && !$scope.completion[deviceID][folderCfg.id].accepted) {
+                    && $scope.completion[deviceID][folderCfg.id].remoteState == 'notSharing') {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $scope.folderHasPausedDevices = function (folderCfg) {
+            for (var deviceID in $scope.completion) {
+                if (deviceID in $scope.devices
+                    && folderCfg.id in $scope.completion[deviceID]
+                    && $scope.completion[deviceID][folderCfg.id].remoteState == 'paused') {
                     return true;
                 }
             }
@@ -2417,11 +2428,15 @@ angular.module('syncthing.core')
             return label && label.length > 0 ? label : folderID;
         };
 
-        $scope.folderLabelMarkUnaccepted = function (folderID, deviceID) {
+        $scope.folderLabelMarkRemoteState = function (folderID, deviceID) {
             var label = $scope.folderLabel(folderID);
             // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID] && !$scope.completion[deviceID][folderID].accepted) {
-                label += '<sup>1</sup>';
+            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
+                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
+                    label += '<sup>1</sup>';
+                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
+                    label += '<sup>2</sup>';
+                }
             }
             return label;
         };
@@ -2429,7 +2444,7 @@ angular.module('syncthing.core')
         $scope.sharedFolders = function (deviceCfg) {
             var labels = [];
             $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
-                labels.push($scope.folderLabelMarkUnaccepted(folderID, deviceCfg.deviceID));
+                labels.push($scope.folderLabelMarkRemoteState(folderID, deviceCfg.deviceID));
             });
             return labels.join(', ');
         };
@@ -2440,7 +2455,20 @@ angular.module('syncthing.core')
             }
             for (var folderID in $scope.completion[deviceCfg.deviceID]) {
                 if (folderID in $scope.folders
-                    && !$scope.completion[deviceCfg.deviceID][folderID].accepted) {
+                    && $scope.completion[deviceCfg.deviceID][folderID].remoteState == 'notSharing') {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $scope.deviceHasPausedFolders = function (deviceCfg) {
+            if (!(deviceCfg.deviceID in $scope.completion)) {
+                return false;
+            }
+            for (var folderID in $scope.completion[deviceCfg.deviceID]) {
+                if (folderID in $scope.folders
+                    && $scope.completion[deviceCfg.deviceID][folderID].remoteState == 'paused') {
                     return true;
                 }
             }
@@ -2827,6 +2855,12 @@ angular.module('syncthing.core')
             $scope.advancedConfig = angular.copy($scope.config);
             $scope.advancedConfig.devices.sort(deviceCompare);
             $scope.advancedConfig.folders.sort(folderCompare);
+            $scope.advancedConfig.defaults.ignores._lines = function (newValue) {
+                if (arguments.length) {
+                    $scope.advancedConfig.defaults.ignores.lines = newValue.split('\n');
+                }
+                return $scope.advancedConfig.defaults.ignores.lines.join('\n');
+            };
             $('#advanced').modal('show');
         };
 

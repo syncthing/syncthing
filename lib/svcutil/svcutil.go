@@ -51,7 +51,7 @@ func (e *FatalErr) Unwrap() error {
 	return e.Err
 }
 
-func (e *FatalErr) Is(target error) bool {
+func (*FatalErr) Is(target error) bool {
 	return target == suture.ErrTerminateSupervisorTree
 }
 
@@ -76,7 +76,7 @@ func (e *noRestartErr) Unwrap() error {
 	return e.err
 }
 
-func (e *noRestartErr) Is(target error) bool {
+func (*noRestartErr) Is(target error) bool {
 	return target == suture.ErrDoNotRestart
 }
 

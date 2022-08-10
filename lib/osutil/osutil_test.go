@@ -10,10 +10,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -51,7 +51,7 @@ func TestIsDeleted(t *testing.T) {
 		}
 		fd.Close()
 	}
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		// Can't create unreadable dir on windows
 		testFs.MkdirAll("inacc", 0777)
 		if err := testFs.Chmod("inacc", 0000); err == nil {
@@ -63,7 +63,7 @@ func TestIsDeleted(t *testing.T) {
 	}
 	for _, n := range []string{"Dir", "File", "Del"} {
 		if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, strings.ToLower(n), "linkTo"+n); err != nil {
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				t.Skip("Symlinks aren't working")
 			}
 			t.Fatal(err)

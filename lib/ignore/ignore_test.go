@@ -12,11 +12,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -210,10 +210,9 @@ func TestCaseSensitivity(t *testing.T) {
 	match := []string{"test"}
 	dontMatch := []string{"foo"}
 
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		match = append(match, "TEST", "Test", "tESt")
-	default:
+	} else {
 		dontMatch = append(dontMatch, "TEST", "Test", "tESt")
 	}
 
@@ -618,7 +617,7 @@ func TestHashOfEmpty(t *testing.T) {
 func TestWindowsPatterns(t *testing.T) {
 	// We should accept patterns as both a/b and a\b and match that against
 	// both kinds of slash as well.
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific test")
 		return
 	}
@@ -643,7 +642,7 @@ func TestWindowsPatterns(t *testing.T) {
 
 func TestAutomaticCaseInsensitivity(t *testing.T) {
 	// We should do case insensitive matching by default on some platforms.
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+	if !build.IsWindows && !build.IsDarwin {
 		t.Skip("Windows/Mac specific test")
 		return
 	}
@@ -1073,6 +1072,31 @@ func TestSpecialChars(t *testing.T) {
 	}
 }
 
+func TestIntlWildcards(t *testing.T) {
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+
+	stignore := `1000春
+200?春
+300[0-9]春
+400[0-9]?`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []string{
+		"1000春",
+		"2002春",
+		"3003春",
+		"4004春",
+	}
+
+	for _, c := range cases {
+		if !pats.Match(c).IsIgnored() {
+			t.Errorf("%q should be ignored", c)
+		}
+	}
+}
+
 func TestPartialIncludeLine(t *testing.T) {
 	// Loading a partial #include line (no file mentioned) should error but not crash.
 
@@ -1180,7 +1204,7 @@ func TestEmptyPatterns(t *testing.T) {
 }
 
 func TestWindowsLineEndings(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific")
 	}
 
