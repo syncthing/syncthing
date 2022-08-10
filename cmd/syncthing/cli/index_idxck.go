@@ -57,7 +57,7 @@ func indexCheck(*cli.Context) (err error) {
 	defer func() {
 		if err == nil {
 			if success {
-				fmt.Println("Index check completed succesfully.")
+				fmt.Println("Index check completed successfully.")
 			} else {
 				err = errors.New("Inconsistencies found in the index")
 			}
@@ -349,7 +349,7 @@ func indexCheck(*cli.Context) (err error) {
 
 func needsLocally(vl db.VersionList) bool {
 	gfv, gok := vl.GetGlobal()
-	if !gok { // That's weird, but we hardly need something non-existant
+	if !gok { // That's weird, but we hardly need something non-existent
 		return false
 	}
 	fv, ok := vl.Get(protocol.LocalDeviceID[:])
