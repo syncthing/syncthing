@@ -329,8 +329,6 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 // file for the current platform.
 func (f *PlatformData) Xattrs() []Xattr {
 	switch {
-	case build.IsWindows && f.Windows != nil:
-		return f.Windows.Xattrs
 	case build.IsLinux && f.Linux != nil:
 		return f.Linux.Xattrs
 	case build.IsDarwin && f.Darwin != nil:
@@ -339,12 +337,6 @@ func (f *PlatformData) Xattrs() []Xattr {
 		return f.FreeBSD.Xattrs
 	case build.IsNetBSD && f.NetBSD != nil:
 		return f.NetBSD.Xattrs
-	// case build.IsOpenBSD && f.OpenBSD != nil:
-	// 	return f.OpenBSD.Xattrs
-	// case build.IsIllumos && f.Illumos != nil:
-	// 	return f.Illumos.Xattrs
-	// case build.IsSolaris && f.Solaris != nil:
-	// 	return f.Solaris.Xattrs
 	default:
 		return nil
 	}
@@ -354,12 +346,6 @@ func (f *PlatformData) Xattrs() []Xattr {
 // file for the current platform.
 func (p *PlatformData) SetXattrs(xattrs []Xattr) {
 	switch {
-	case build.IsWindows:
-		if p.Windows == nil {
-			p.Windows = &WindowsData{}
-		}
-		p.Windows.Xattrs = xattrs
-
 	case build.IsLinux:
 		if p.Linux == nil {
 			p.Linux = &XattrData{}
@@ -383,24 +369,6 @@ func (p *PlatformData) SetXattrs(xattrs []Xattr) {
 			p.NetBSD = &XattrData{}
 		}
 		p.NetBSD.Xattrs = xattrs
-
-		// case build.IsOpenBSD:
-		// 	if p.OpenBSD == nil {
-		// 		p.OpenBSD = &XattrData{}
-		// 	}
-		// 	p.OpenBSD.Xattrs = xattrs
-
-		// case build.IsIllumos:
-		// 	if p.Illumos == nil {
-		// 		p.Illumos = &XattrData{}
-		// 	}
-		// 	p.Illumos.Xattrs = xattrs
-
-		// case build.IsSolaris:
-		// 	if p.Solaris == nil {
-		// 		p.Solaris = &XattrData{}
-		// 	}
-		// 	p.Solaris.Xattrs = xattrs
 	}
 }
 

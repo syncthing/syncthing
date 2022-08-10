@@ -18,7 +18,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/windows"
 )
 
@@ -153,16 +152,6 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	}
 
 	return drives, nil
-}
-
-func (f *BasicFilesystem) GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
-	// XXX: implement
-	return nil, ErrXattrsNotSupported
-}
-
-func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
-	// XXX: implement
-	return ErrXattrsNotSupported
 }
 
 func (f *BasicFilesystem) Lchown(name, uid, gid string) error {

@@ -154,15 +154,12 @@ message Counter {
 }
 
 message PlatformData {
-    UnixData     unix    = 1 [(gogoproto.nullable) = true];
-    WindowsData  windows = 2 [(gogoproto.nullable) = true];
-    XattrData    linux   = 3 [(gogoproto.nullable) = true];
-    XattrData    darwin  = 4 [(gogoproto.nullable) = true];
-    XattrData    freebsd = 5 [(gogoproto.nullable) = true, (ext.goname) = "FreeBSD"];
-    XattrData    netbsd  = 6 [(gogoproto.nullable) = true, (ext.goname) = "NetBSD"];
-    // XattrData openbsd = 7 [(gogoproto.nullable) = true, (ext.goname) = "OpenBSD"];
-    // XattrData illumos = 8 [(gogoproto.nullable) = true];
-    // XattrData solaris = 9 [(gogoproto.nullable) = true];
+    UnixData    unix    = 1 [(gogoproto.nullable) = true];
+    WindowsData windows = 2 [(gogoproto.nullable) = true];
+    XattrData   linux   = 3 [(gogoproto.nullable) = true];
+    XattrData   darwin  = 4 [(gogoproto.nullable) = true];
+    XattrData   freebsd = 5 [(gogoproto.nullable) = true, (ext.goname) = "FreeBSD"];
+    XattrData   netbsd  = 6 [(gogoproto.nullable) = true, (ext.goname) = "NetBSD"];
 }
 
 message UnixData {
@@ -179,9 +176,8 @@ message WindowsData {
     // Windows file objects have a single owner, which may be a user or a
     // group. We keep the name of that account, and a flag to indicate what
     // type it is.
-    string         owner_name     = 1;
-    bool           owner_is_group = 2;
-    repeated Xattr xattrs         = 3;
+    string owner_name     = 1;
+    bool   owner_is_group = 2;
 }
 
 message XattrData {

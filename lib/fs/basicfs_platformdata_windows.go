@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os/user"
 
@@ -15,7 +14,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func (f *BasicFilesystem) PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error) {
+func (f *BasicFilesystem) PlatformData(name string, _ StringFilter) (protocol.PlatformData, error) {
 	rootedName, err := f.rooted(name)
 	if err != nil {
 		return protocol.PlatformData{}, fmt.Errorf("rooted for %s: %w", name, err)
@@ -47,12 +46,6 @@ func (f *BasicFilesystem) PlatformData(name string, xattrFilter StringFilter) (p
 	} else {
 		l.Debugf("Failed to resolve owner for %s: %v", rootedName, err)
 	}
-
-	xattrs, err := f.GetXattr(name, xattrFilter)
-	if err != nil && !errors.Is(err, ErrXattrsNotSupported) {
-		return protocol.PlatformData{}, fmt.Errorf("get xattr for %s: %w", rootedName, err)
-	}
-	pd.Xattrs = xattrs
 
 	return protocol.PlatformData{Windows: pd}, nil
 }
