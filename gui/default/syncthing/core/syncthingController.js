@@ -1399,6 +1399,19 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.about = {
+            paths: {},
+            refreshPaths: function () {
+                $http.get(urlbase + '/system/paths').success(function (data) {
+                    $scope.about.paths = data;
+                }).error($scope.emitHTTPError);
+            },
+            show: function () {
+                $scope.about.refreshPaths();
+                $('#about').modal("show");
+            },
+        };
+
         $scope.discardChangedSettings = function () {
             $("#discard-changes-confirmation").modal("hide");
             $("#settings").off("hide.bs.modal").modal("hide");

@@ -268,6 +268,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/connections", s.getSystemConnections)   // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/discovery", s.getSystemDiscovery)       // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/error", s.getSystemError)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/paths", s.getSystemPaths)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/ping", s.restPing)                      // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)             // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)           // -
@@ -691,6 +692,10 @@ func (s *service) deletePendingFolders(w http.ResponseWriter, r *http.Request) {
 
 func (*service) restPing(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]string{"ping": "pong"})
+}
+
+func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
+	sendJSON(w, locations.ListExpandedPaths())
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {

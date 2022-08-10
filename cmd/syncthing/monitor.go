@@ -48,7 +48,7 @@ func monitorMain(options serveOptions) {
 
 	var dst io.Writer = os.Stdout
 
-	logFile := options.LogFile
+	logFile := locations.Get(locations.LogFile)
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded

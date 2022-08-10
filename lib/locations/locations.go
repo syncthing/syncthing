@@ -33,9 +33,8 @@ const (
 	CsrfTokens    LocationEnum = "csrfTokens"
 	PanicLog      LocationEnum = "panicLog"
 	AuditLog      LocationEnum = "auditLog"
-	GUIAssets     LocationEnum = "GUIAssets"
+	GUIAssets     LocationEnum = "guiAssets"
 	DefFolder     LocationEnum = "defFolder"
-	FailuresFile  LocationEnum = "FailuresFile"
 )
 
 type BaseDirEnum string
@@ -65,6 +64,24 @@ func init() {
 		fmt.Println(err)
 		panic("Failed to expand locations at init time")
 	}
+}
+
+// Set overrides a location to the given path, making sure to it points to an
+// absolute path first.  Only the special "-" value will be used verbatim.
+func Set(locationName LocationEnum, path string) error {
+	if !filepath.IsAbs(path) && path != "-" {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
+	_, ok := locationTemplates[locationName]
+	if !ok {
+		return fmt.Errorf("unknown location: %s", locationName)
+	}
+	locations[locationName] = filepath.Clean(path)
+	return nil
 }
 
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
@@ -105,7 +122,6 @@ var locationTemplates = map[LocationEnum]string{
 	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
 	DefFolder:     "${userHome}/Sync",
-	FailuresFile:  "${data}/failures-unreported.txt",
 }
 
 var locations = make(map[LocationEnum]string)
@@ -127,6 +143,32 @@ func expandLocations() error {
 	}
 	locations = newLocations
 	return nil
+}
+
+// ListExpandedPaths returns a machine-readable mapping of the currently configured locations.
+func ListExpandedPaths() map[string]string {
+	res := make(map[string]string, len(locations))
+	for key, path := range baseDirs {
+		res["baseDir-"+string(key)] = path
+	}
+	for key, path := range locations {
+		res[string(key)] = path
+	}
+	return res
+}
+
+// PrettyPaths returns a nicely formatted, human-readable listing
+func PrettyPaths() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Configuration file:\n\t%s\n\n", Get(ConfigFile))
+	fmt.Fprintf(&b, "Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile))
+	fmt.Fprintf(&b, "GUI / API HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile))
+	fmt.Fprintf(&b, "Database location:\n\t%s\n\n", Get(Database))
+	fmt.Fprintf(&b, "Log file:\n\t%s\n\n", Get(LogFile))
+	fmt.Fprintf(&b, "GUI override directory:\n\t%s\n\n", Get(GUIAssets))
+	fmt.Fprintf(&b, "CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens))
+	fmt.Fprintf(&b, "Default sync folder directory:\n\t%s\n\n", Get(DefFolder))
+	return b.String()
 }
 
 // defaultConfigDir returns the default configuration directory, as figured
