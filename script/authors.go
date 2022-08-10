@@ -117,7 +117,7 @@ func main() {
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</div>`)
 	bs := readAll(htmlFile)
-	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n    </div>"))
+	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
 	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
