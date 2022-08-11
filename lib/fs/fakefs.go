@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -61,6 +62,8 @@ type fakeFS struct {
 	insens      bool
 	withContent bool
 	latency     time.Duration
+	userCache   *valueCache[*user.User]
+	groupCache  *valueCache[*user.Group]
 }
 
 type fakeFSCounters struct {
@@ -109,6 +112,8 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 			mtime:     time.Now(),
 			children:  make(map[string]*fakeEntry),
 		},
+		userCache:  newValueCache(time.Hour, user.LookupId),
+		groupCache: newValueCache(time.Hour, user.LookupGroupId),
 	}
 
 	files, _ := strconv.Atoi(params.Get("files"))
@@ -658,7 +663,7 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 }
 
 func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
-	return unixPlatformData(fs, name)
+	return unixPlatformData(fs, name, fs.userCache, fs.groupCache)
 }
 
 func (*fakeFS) underlying() (Filesystem, bool) {

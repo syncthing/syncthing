@@ -14,5 +14,5 @@ import (
 )
 
 func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
-	return unixPlatformData(f, name)
+	return unixPlatformData(f, name, f.userCache, f.groupCache)
 }
