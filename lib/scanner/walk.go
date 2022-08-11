@@ -60,6 +60,8 @@ type Config struct {
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
 	EventLogger events.Logger
+	// If ScanOwnership is true, we pick up ownership information on files while scanning.
+	ScanOwnership bool
 }
 
 type CurrentFiler interface {
@@ -382,7 +384,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
 	if err != nil {
 		return err
 	}
@@ -426,7 +428,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
 	if err != nil {
 		return err
 	}
@@ -474,7 +476,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
 	if err != nil {
 		handleError(ctx, "reading link:", relPath, err, finishedChan)
 		return nil
@@ -666,12 +668,14 @@ func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	if plat, err := filesystem.PlatformData(name); err == nil {
-		f.Platform = plat
-	} else {
-		return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
+	if scanOwnership {
+		if plat, err := filesystem.PlatformData(name); err == nil {
+			f.Platform = plat
+		} else {
+			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
+		}
 	}
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink

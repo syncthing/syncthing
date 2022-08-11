@@ -55,6 +55,7 @@ message FolderConfiguration {
     bool                               case_sensitive_fs          = 33 [(ext.goname) = "CaseSensitiveFS", (ext.xml) = "caseSensitiveFS", (ext.json) = "caseSensitiveFS"];
     bool                               follow_junctions           = 34 [(ext.goname) = "JunctionsAsDirs", (ext.xml) = "junctionsAsDirs", (ext.json) = "junctionsAsDirs"];
     bool                               sync_ownership             = 35;
+    bool                               scan_ownership             = 36;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];

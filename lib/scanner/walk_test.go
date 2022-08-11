@@ -625,6 +625,7 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 	cfg.CurrentFiler = cfiler
 	cfg.Matcher = matcher
 	cfg.LocalFlags = localFlags
+	cfg.ScanOwnership = true
 	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo
