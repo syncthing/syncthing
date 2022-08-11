@@ -47,9 +47,12 @@ type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
 	options         []Option
-	userCache       *valueCache[*user.User]
-	groupCache      *valueCache[*user.Group]
+	userCache       *userCache
+	groupCache      *groupCache
 }
+
+type userCache = valueCache[string, *user.User]
+type groupCache = valueCache[string, *user.Group]
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {

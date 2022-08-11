@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"os/user"
 	"strconv"
 	"sync"
 	"time"
@@ -18,7 +17,7 @@ import (
 // unixPlatformData is used on all platforms, because apart from being the
 // implementation for BasicFilesystem on Unixes it's also the implementation
 // in fakeFS.
-func unixPlatformData(fs Filesystem, name string, userCache *valueCache[*user.User], groupCache *valueCache[*user.Group]) (protocol.PlatformData, error) {
+func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCache *groupCache) (protocol.PlatformData, error) {
 	stat, err := fs.Lstat(name)
 	if err != nil {
 		return protocol.PlatformData{}, err
@@ -56,34 +55,34 @@ func unixPlatformData(fs Filesystem, name string, userCache *valueCache[*user.Us
 	}, nil
 }
 
-type cacheEntry[T any] struct {
-	value T
+type valueCache[K comparable, V any] struct {
+	validity time.Duration
+	fill     func(K) (V, error)
+
+	mut   sync.Mutex
+	cache map[K]cacheEntry[V]
+}
+
+type cacheEntry[V any] struct {
+	value V
 	when  time.Time
 }
 
-type valueCache[T any] struct {
-	validity time.Duration
-	fill     func(string) (T, error)
-
-	mut   sync.Mutex
-	cache map[string]cacheEntry[T]
-}
-
-func newValueCache[T any](validity time.Duration, fill func(string) (T, error)) *valueCache[T] {
-	return &valueCache[T]{
+func newValueCache[K comparable, V any](validity time.Duration, fill func(K) (V, error)) *valueCache[K, V] {
+	return &valueCache[K, V]{
 		validity: validity,
 		fill:     fill,
-		cache:    make(map[string]cacheEntry[T]),
+		cache:    make(map[K]cacheEntry[V]),
 	}
 }
 
-func (c *valueCache[T]) lookup(key string) T {
+func (c *valueCache[K, V]) lookup(key K) V {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	if e, ok := c.cache[key]; ok && time.Since(e.when) < c.validity {
 		return e.value
 	}
-	var e cacheEntry[T]
+	var e cacheEntry[V]
 	if val, err := c.fill(key); err == nil {
 		e.value = val
 	}

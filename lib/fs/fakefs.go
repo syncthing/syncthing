@@ -62,8 +62,8 @@ type fakeFS struct {
 	insens      bool
 	withContent bool
 	latency     time.Duration
-	userCache   *valueCache[*user.User]
-	groupCache  *valueCache[*user.Group]
+	userCache   *userCache
+	groupCache  *groupCache
 }
 
 type fakeFSCounters struct {
