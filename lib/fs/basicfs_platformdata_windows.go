@@ -8,7 +8,6 @@ package fs
 
 import (
 	"fmt"
-	"os/user"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/sys/windows"
@@ -35,12 +34,10 @@ func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, erro
 		return protocol.PlatformData{}, fmt.Errorf("get owner for %s: %w", rootedName, err)
 	}
 
-	// The owner SID might represent a user or a group. We try to look it up
-	// as both, and set the appropriate fields in the OS data.
 	pd := &protocol.WindowsData{}
-	if us, err := user.LookupId(owner.String()); err == nil {
+	if us := f.userCache.lookup(owner.String()); us != nil {
 		pd.OwnerName = us.Username
-	} else if gr, err := user.LookupGroupId(owner.String()); err == nil {
+	} else if gr := f.groupCache.lookup(owner.String()); gr != nil {
 		pd.OwnerName = gr.Name
 		pd.OwnerIsGroup = true
 	} else {

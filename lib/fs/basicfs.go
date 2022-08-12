@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -46,7 +47,12 @@ type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
 	options         []Option
+	userCache       *userCache
+	groupCache      *groupCache
 }
+
+type userCache = valueCache[string, *user.User]
+type groupCache = valueCache[string, *user.Group]
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {
@@ -84,8 +90,10 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	}
 
 	fs := &BasicFilesystem{
-		root:    root,
-		options: opts,
+		root:       root,
+		options:    opts,
+		userCache:  newValueCache(time.Hour, user.LookupId),
+		groupCache: newValueCache(time.Hour, user.LookupGroupId),
 	}
 	for _, opt := range opts {
 		opt.apply(fs)

@@ -7,8 +7,9 @@
 package fs
 
 import (
-	"os/user"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -16,7 +17,7 @@ import (
 // unixPlatformData is used on all platforms, because apart from being the
 // implementation for BasicFilesystem on Unixes it's also the implementation
 // in fakeFS.
-func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error) {
+func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCache *groupCache) (protocol.PlatformData, error) {
 	stat, err := fs.Lstat(name)
 	if err != nil {
 		return protocol.PlatformData{}, err
@@ -24,8 +25,8 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 
 	ownerUID := stat.Owner()
 	ownerName := ""
-	if u, err := user.LookupId(strconv.Itoa(ownerUID)); err == nil && u.Username != "" {
-		ownerName = u.Username
+	if user := userCache.lookup(strconv.Itoa(ownerUID)); user != nil {
+		ownerName = user.Username
 	} else if ownerUID == 0 {
 		// We couldn't look up a name, but UID zero should be "root". This
 		// fixup works around the (unlikely) situation where the ownership
@@ -38,8 +39,8 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 
 	groupID := stat.Group()
 	groupName := ""
-	if g, err := user.LookupGroupId(strconv.Itoa(groupID)); err == nil && g.Name != "" {
-		groupName = g.Name
+	if group := groupCache.lookup(strconv.Itoa(ownerUID)); group != nil {
+		groupName = group.Name
 	} else if groupID == 0 {
 		groupName = "root"
 	}
@@ -52,4 +53,40 @@ func unixPlatformData(fs Filesystem, name string) (protocol.PlatformData, error)
 			GID:       groupID,
 		},
 	}, nil
+}
+
+type valueCache[K comparable, V any] struct {
+	validity time.Duration
+	fill     func(K) (V, error)
+
+	mut   sync.Mutex
+	cache map[K]cacheEntry[V]
+}
+
+type cacheEntry[V any] struct {
+	value V
+	when  time.Time
+}
+
+func newValueCache[K comparable, V any](validity time.Duration, fill func(K) (V, error)) *valueCache[K, V] {
+	return &valueCache[K, V]{
+		validity: validity,
+		fill:     fill,
+		cache:    make(map[K]cacheEntry[V]),
+	}
+}
+
+func (c *valueCache[K, V]) lookup(key K) V {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	if e, ok := c.cache[key]; ok && time.Since(e.when) < c.validity {
+		return e.value
+	}
+	var e cacheEntry[V]
+	if val, err := c.fill(key); err == nil {
+		e.value = val
+	}
+	e.when = time.Now()
+	c.cache[key] = e
+	return e.value
 }
