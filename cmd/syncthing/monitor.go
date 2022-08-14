@@ -82,23 +82,11 @@ func monitorMain(options serveOptions) {
 		}
 	}
 
-	args := os.Args
-	// Works around a restriction added in go1.19 that executables in the
-	// current directory are not resolved when specifying just an executable
-	// name (like e.g. "syncthing")
-	if build.IsWindows && !strings.ContainsRune(args[0], os.PathSeparator) {
-		// The path to the binary doesn't contain a slash, lets see if it is in $PATH.
-		binary, err := exec.LookPath(args[0])
-		if err != nil {
-			binary, err = exec.LookPath("." + string(os.PathSeparator) + args[0])
-			if err != nil {
-				l.Warnf("Unable to find binary at %v", args[0])
-				os.Exit(svcutil.ExitError.AsInt())
-			}
-		}
-		args[0] = binary
+	args, err := getAndCheckArgs()
+	if err != nil {
+		l.Warnln("Error starting the main Syncthing process:", err)
+		panic("Error starting the main Syncthing process")
 	}
-
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -217,6 +205,26 @@ func monitorMain(options serveOptions) {
 			first = false
 		}
 	}
+}
+
+func getAndCheckArgs() ([]string, error) {
+	args := os.Args
+	// Works around a restriction added in go1.19 that executables in the
+	// current directory are not resolved when specifying just an executable
+	// name (like e.g. "syncthing")
+	if build.IsWindows && !strings.ContainsRune(args[0], os.PathSeparator) {
+		// Check if it's in PATH
+		_, err := exec.LookPath(args[0])
+		if err != nil {
+			// Check if it's in local directory
+			binary, err := exec.LookPath("." + string(os.PathSeparator) + args[0])
+			if err != nil {
+				return nil, fmt.Errorf("Unable to find binary at %v", args[0])
+			}
+			args[0] = binary
+		}
+	}
+	return args, nil
 }
 
 func copyStderr(stderr io.Reader, dst io.Writer) {
