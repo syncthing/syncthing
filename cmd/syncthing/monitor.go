@@ -86,7 +86,7 @@ func monitorMain(options serveOptions) {
 	// Works around a restriction added in go1.19 that executables in the
 	// current directory are not resolved when specifying just an executable
 	// name (like e.g. "syncthing")
-	if !strings.ContainsRune(args[0], os.PathSeparator) {
+	if build.IsWindows && !strings.ContainsRune(args[0], os.PathSeparator) {
 		// The path to the binary doesn't contain a slash, lets see if it is in $PATH.
 		binary, err := exec.LookPath(args[0])
 		if err != nil {
@@ -344,6 +344,16 @@ func restartMonitor(args []string) error {
 }
 
 func restartMonitorUnix(args []string) error {
+	if !strings.ContainsRune(args[0], os.PathSeparator) {
+		// The path to the binary doesn't contain a slash, so it should be
+		// found in $PATH.
+		binary, err := exec.LookPath(args[0])
+		if err != nil {
+			return err
+		}
+		args[0] = binary
+	}
+
 	return syscall.Exec(args[0], args, os.Environ())
 }
 
