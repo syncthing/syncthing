@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -15,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -1889,7 +1888,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) (err error) {
 	defer func() {
 		if err != nil {
-			err = errors.Wrap(err, contextRemovingOldItem)
+			err = fmt.Errorf("%s: %w", contextRemovingOldItem, err)
 		}
 	}()
 
