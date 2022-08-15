@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jul 28, 2022" "v1.20.3" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -623,6 +623,39 @@ the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBht
 .SS GET /rest/system/log.txt
 .sp
 Returns the same information, formatted as a text log instead of a JSON object.
+.SS GET /rest/system/paths
+.sp
+New in version 1.21.0.
+
+.sp
+Returns the path locations used internally for storing configuration, database,
+and others.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "auditLog": "/home/user/.local/share/syncthing/audit\-${timestamp}.log",
+  "baseDir\-config": "/home/user/.config/syncthing",
+  "baseDir\-data": "/home/user/.local/share/syncthing",
+  "baseDir\-userHome": "/home/user",
+  "certFile": "/home/user/.config/syncthing/cert.pem",
+  "config": "/home/user/.config/syncthing/config.xml",
+  "csrfTokens": "/home/user/.config/syncthing/csrftokens.txt",
+  "database": "/home/user/.local/share/syncthing/index\-v0.14.0.db",
+  "defFolder": "/home/user/Sync",
+  "guiAssets": "/home/user/src/syncthing/gui",
+  "httpsCertFile": "/home/user/.config/syncthing/https\-cert.pem",
+  "httpsKeyFile": "/home/user/.config/syncthing/https\-key.pem",
+  "keyFile": "/home/user/.config/syncthing/key.pem",
+  "logFile": "\-",
+  "panicLog": "/home/user/.local/share/syncthing/panic\-${timestamp}.log"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS POST /rest/system/pause
 .sp
 Pause the given device or all devices.
