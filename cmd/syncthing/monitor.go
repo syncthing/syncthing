@@ -84,7 +84,7 @@ func monitorMain(options serveOptions) {
 
 	args := os.Args
 	binary, err := getBinary(args[0])
-	if build.IsWindows {
+	if err != nil {
 		l.Warnln("Error starting the main Syncthing process:", err)
 		panic("Error starting the main Syncthing process")
 	}
