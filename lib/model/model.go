@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -24,7 +25,6 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -1127,10 +1127,10 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Infof("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
-		return errors.Wrap(ErrFolderMissing, folder)
+		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
-		return errors.Wrap(ErrFolderPaused, folder)
+		return fmt.Errorf("%s: %w", folder, ErrFolderPaused)
 	}
 
 	m.pmut.RLock()
@@ -1142,7 +1142,7 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		// connection
 		m.evLogger.Log(events.Failure, "index sender does not exist for connection on which indexes were received")
 		l.Debugf("%v for folder (ID %q) sent from device %q: missing index handler", op, folder, deviceID)
-		return errors.Wrap(errors.New("index handler missing"), folder)
+		return fmt.Errorf("index handler missing: %s", folder)
 	}
 
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
@@ -2123,7 +2123,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
 		if err = cfg.CreateRoot(); err != nil {
-			return errors.Wrap(err, "failed to create folder root")
+			return fmt.Errorf("failed to create folder root: %w", err)
 		}
 		err = cfg.CheckPath()
 	}

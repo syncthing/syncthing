@@ -9,11 +9,10 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net/url"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"

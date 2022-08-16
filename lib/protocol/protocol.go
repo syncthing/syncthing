@@ -15,6 +15,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -24,7 +25,6 @@ import (
 	"time"
 
 	lz4 "github.com/pierrec/lz4/v4"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -499,7 +499,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	// First comes a 4 byte message length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
-		return nil, errors.Wrap(err, "reading message length")
+		return nil, fmt.Errorf("reading message length: %w", err)
 	}
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
@@ -513,7 +513,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	buf := BufferPool.Get(int(msgLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		BufferPool.Put(buf)
-		return nil, errors.Wrap(err, "reading message")
+		return nil, fmt.Errorf("reading message: %w", err)
 	}
 
 	// ... which might be compressed
@@ -526,7 +526,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		decomp, err := lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
-			return nil, errors.Wrap(err, "decompressing message")
+			return nil, fmt.Errorf("decompressing message: %w", err)
 		}
 		buf = decomp
 
@@ -543,7 +543,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	}
 	if err := msg.Unmarshal(buf); err != nil {
 		BufferPool.Put(buf)
-		return nil, errors.Wrap(err, "unmarshalling message")
+		return nil, fmt.Errorf("unmarshalling message: %w", err)
 	}
 	BufferPool.Put(buf)
 
@@ -554,7 +554,7 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	// First comes a 2 byte header length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
-		return Header{}, errors.Wrap(err, "reading length")
+		return Header{}, fmt.Errorf("reading length: %w", err)
 	}
 	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
 	if hdrLen < 0 {
@@ -566,14 +566,14 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	buf := BufferPool.Get(int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		BufferPool.Put(buf)
-		return Header{}, errors.Wrap(err, "reading header")
+		return Header{}, fmt.Errorf("reading header: %w", err)
 	}
 
 	var hdr Header
 	err := hdr.Unmarshal(buf)
 	BufferPool.Put(buf)
 	if err != nil {
-		return Header{}, errors.Wrap(err, "unmarshalling header")
+		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
 	}
 
 	return hdr, nil
@@ -594,7 +594,7 @@ func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
 func checkIndexConsistency(fs []FileInfo) error {
 	for _, f := range fs {
 		if err := checkFileInfoConsistency(f); err != nil {
-			return errors.Wrapf(err, "%q", f.Name)
+			return fmt.Errorf("%q: %w", f.Name, err)
 		}
 	}
 	return nil
@@ -757,7 +757,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 
 	// Message
 	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
-		return errors.Wrap(err, "marshalling message")
+		return fmt.Errorf("marshalling message: %w", err)
 	}
 
 	if c.shouldCompressMessage(msg) {
@@ -771,7 +771,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return errors.Wrap(err, "marshalling header")
+		return fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
@@ -780,7 +780,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
 	if err != nil {
-		return errors.Wrap(err, "writing message")
+		return fmt.Errorf("writing message: %w", err)
 	}
 	return nil
 }
@@ -817,7 +817,7 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return true, errors.Wrap(err, "marshalling header")
+		return true, fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(compressedSize))
@@ -825,7 +825,7 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	n, err := c.cw.Write(buf[:totSize])
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, compressedSize, len(marshaled), err)
 	if err != nil {
-		return true, errors.Wrap(err, "writing message")
+		return true, fmt.Errorf("writing message: %w", err)
 	}
 	return true, nil
 }
