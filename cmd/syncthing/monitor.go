@@ -214,21 +214,11 @@ func getBinary(args0 string) (string, error) {
 		return e, nil
 	}
 	// Check if args0 cuts it
-	_, err = exec.LookPath(args0)
-	if err == nil {
-		return args0, nil
+	e, lerr := exec.LookPath(args0)
+	if lerr == nil {
+		return e, nil
 	}
-	// Works around a restriction added in go1.19 that executables in the
-	// current directory are not resolved when specifying just an executable
-	// name (like e.g. "syncthing")
-	if !strings.ContainsRune(args0, os.PathSeparator) {
-		e = "." + string(os.PathSeparator) + args0
-		_, err := exec.LookPath(args0)
-		if err == nil {
-			return e, nil
-		}
-	}
-	return "", fmt.Errorf("can't find executable")
+	return "", err
 }
 
 func copyStderr(stderr io.Reader, dst io.Writer) {
