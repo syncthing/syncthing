@@ -29,7 +29,7 @@ const (
 	filesystemWrapperTypeLog
 )
 
-type StringFilter interface {
+type XattrFilter interface {
 	Permit(string) bool
 	GetMaxSingleEntrySize() int
 	GetMaxTotalSize() int
@@ -68,9 +68,9 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
-	PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error)
-	GetXattr(name string, xattrFilter StringFilter) ([]protocol.Xattr, error)
-	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error
+	PlatformData(name string, xattrFilter XattrFilter) (protocol.PlatformData, error)
+	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
+	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)

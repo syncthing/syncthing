@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -61,6 +62,8 @@ type fakeFS struct {
 	insens      bool
 	withContent bool
 	latency     time.Duration
+	userCache   *userCache
+	groupCache  *groupCache
 }
 
 type fakeFSCounters struct {
@@ -109,6 +112,8 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 			mtime:     time.Now(),
 			children:  make(map[string]*fakeEntry),
 		},
+		userCache:  newValueCache(time.Hour, user.LookupId),
+		groupCache: newValueCache(time.Hour, user.LookupGroupId),
 	}
 
 	files, _ := strconv.Atoi(params.Get("files"))
@@ -617,11 +622,11 @@ func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
-func (*fakeFS) GetXattr(_ string, _ StringFilter) ([]protocol.Xattr, error) {
+func (*fakeFS) GetXattr(_ string, _ XattrFilter) ([]protocol.Xattr, error) {
 	return nil, nil
 }
 
-func (*fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ StringFilter) error {
+func (*fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ XattrFilter) error {
 	return nil
 }
 
@@ -665,8 +670,8 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
-func (fs *fakeFS) PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error) {
-	return unixPlatformData(fs, name, xattrFilter)
+func (fs *fakeFS) PlatformData(name string, xattrFilter XattrFilter) (protocol.PlatformData, error) {
+	return unixPlatformData(fs, name, fs.userCache, fs.groupCache, xattrFilter)
 }
 
 func (*fakeFS) underlying() (Filesystem, bool) {

@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func (BasicFilesystem) SymlinksSupported() bool {
+func (*BasicFilesystem) SymlinksSupported() bool {
 	return true
 }
 

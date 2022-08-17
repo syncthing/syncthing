@@ -274,7 +274,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	return nil
 }
 
-func (f StringFilter) Permit(s string) bool {
+func (f XattrFilter) Permit(s string) bool {
 	if len(f.Entries) == 0 {
 		return true
 	}
@@ -287,10 +287,10 @@ func (f StringFilter) Permit(s string) bool {
 	return false
 }
 
-func (f StringFilter) GetMaxSingleEntrySize() int {
+func (f XattrFilter) GetMaxSingleEntrySize() int {
 	return f.MaxSingleEntrySize
 }
 
-func (f StringFilter) GetMaxTotalSize() int {
+func (f XattrFilter) GetMaxTotalSize() int {
 	return f.MaxTotalSize
 }

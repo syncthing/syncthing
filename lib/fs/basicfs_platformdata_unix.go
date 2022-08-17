@@ -13,6 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (f *BasicFilesystem) PlatformData(name string, xattrFilter StringFilter) (protocol.PlatformData, error) {
-	return unixPlatformData(f, name, xattrFilter)
+func (f *BasicFilesystem) PlatformData(name string, xattrFilter XattrFilter) (protocol.PlatformData, error) {
+	return unixPlatformData(f, name, f.userCache, f.groupCache, xattrFilter)
 }

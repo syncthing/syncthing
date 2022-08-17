@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jul 28, 2022" "v1.20.3" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -236,7 +236,9 @@ device\-ids
 Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
 \-\-paths\fP to see where that is). The command line option \fB\-\-logfile\fP can be
-used to specify a user\-defined logfile.
+used to specify a user\-defined logfile.  If you only have access to a running
+instance’s GUI, check under the \fIActions\fP \- \fIAbout\fP menu item to see the used
+paths.
 .sp
 If you’re running a process manager like systemd, check there. If you’re
 using a GUI wrapper integration, it may keep the logs for you.
@@ -326,13 +328,12 @@ In all cases, username/password authentication and HTTPS should be used.
 .SS My Syncthing database is corrupt
 .sp
 This is almost always a result of bad RAM, storage device or other hardware.
-When the index database is found to be corrupt Syncthing cannot operate and
-will note this in the logs and exit. To overcome this delete the \fI\%database
-folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside
-Syncthing’s home directory and re\-start Syncthing. It will then need to
-perform a full re\-hashing of all shared folders. You should check your
-system in case the underlying cause is indeed faulty hardware which may put
-the system at risk of further data loss.
+When the index database is found to be corrupt Syncthing cannot operate and will
+note this in the logs and exit. To overcome this delete the database
+folder inside Syncthing’s data directory and re\-start
+Syncthing. It will then need to perform a full re\-hashing of all shared
+folders. You should check your system in case the underlying cause is indeed
+faulty hardware which may put the system at risk of further data loss.
 .SS Why do I see Syncthing twice in task manager?
 .sp
 One process manages the other, to capture logs and manage restarts. This
