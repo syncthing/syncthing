@@ -994,6 +994,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 				IgnoreBlocks:    true,
 				IgnoreFlags:     protocol.LocalAllFlags,
 				IgnoreOwnership: !f.SyncOwnership,
+				IgnoreXattrs:    !f.SyncXattrs,
 			}) {
 				// Target changed
 				scanChan <- target.Name
@@ -2015,6 +2016,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			IgnoreBlocks:    true,
 			IgnoreFlags:     protocol.LocalAllFlags,
 			IgnoreOwnership: !f.SyncOwnership,
+			IgnoreXattrs:    !f.SyncXattrs,
 		}) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
@@ -2090,6 +2092,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.LocalAllFlags,
 		IgnoreOwnership: !f.SyncOwnership,
+		IgnoreXattrs:    !f.SyncXattrs,
 	}) {
 		return errModified
 	}

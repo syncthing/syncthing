@@ -206,6 +206,7 @@ type FileInfoComparison struct {
 	IgnoreBlocks    bool
 	IgnoreFlags     uint32
 	IgnoreOwnership bool
+	IgnoreXattrs    bool
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
@@ -272,6 +273,20 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 				f.Platform.Windows.OwnerIsGroup != other.Platform.Windows.OwnerIsGroup {
 				return false
 			}
+		}
+	}
+	if !comp.IgnoreXattrs && f.Platform != other.Platform {
+		if f.Platform.Linux != nil && other.Platform.Linux != nil && !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
+			return false
+		}
+		if f.Platform.Darwin != nil && other.Platform.Darwin != nil && !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
+			return false
+		}
+		if f.Platform.FreeBSD != nil && other.Platform.FreeBSD != nil && !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
+			return false
+		}
+		if f.Platform.NetBSD != nil && other.Platform.NetBSD != nil && !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
+			return false
 		}
 	}
 
@@ -533,4 +548,19 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 	}
 	*x = FileInfoType(n)
 	return nil
+}
+
+func xattrsEqual(a, b *XattrData) bool {
+	if len(a.Xattrs) != len(b.Xattrs) {
+		return false
+	}
+	for i := range a.Xattrs {
+		if a.Xattrs[i].Name != b.Xattrs[i].Name {
+			return false
+		}
+		if !bytes.Equal(a.Xattrs[i].Value, b.Xattrs[i].Value) {
+			return false
+		}
+	}
+	return true
 }

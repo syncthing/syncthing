@@ -18,7 +18,6 @@ import (
 
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -43,8 +42,6 @@ type Config struct {
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected.
 	IgnorePerms bool
-	// If IgnoreOwnership is true, changes to ownership will not be detected.
-	IgnoreOwnership bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
 	AutoNormalize bool
@@ -66,12 +63,18 @@ type Config struct {
 	// If ScanXattrs is true, we pick up extended attributes on files while scanning.
 	ScanXattrs bool
 	// Filter for extended attributes
-	XattrFilter config.XattrFilter
+	XattrFilter XattrFilter
 }
 
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
 	CurrentFile(name string) (protocol.FileInfo, bool)
+}
+
+type XattrFilter interface {
+	Permit(string) bool
+	GetMaxSingleEntrySize() int
+	GetMaxTotalSize() int
 }
 
 type ScanResult struct {
@@ -403,7 +406,8 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
@@ -446,7 +450,8 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
@@ -497,7 +502,8 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
@@ -668,7 +674,7 @@ func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter config.XattrFilter) (protocol.FileInfo, error) {
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter XattrFilter) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
 	if scanOwnership || scanXattrs {
 		if plat, err := filesystem.PlatformData(name, scanOwnership, scanXattrs, xattrFilter); err == nil {
