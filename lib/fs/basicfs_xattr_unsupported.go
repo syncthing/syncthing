@@ -13,10 +13,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (f *BasicFilesystem) GetXattr(path string, xattrFilter StringFilter) ([]protocol.Xattr, error) {
+func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]protocol.Xattr, error) {
 	return nil, ErrXattrsNotSupported
 }
 
-func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter StringFilter) error {
+func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error {
 	return ErrXattrsNotSupported
 }

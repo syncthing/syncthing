@@ -590,12 +590,12 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); errors.Is(err, ErrXattrsNotSupported) {
+	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); errors.Is(err, ErrXattrsNotSupported) {
 		t.Skip("xattrs not supported")
 	} else if err != nil {
 		t.Fatal(err)
 	}
-	res, err := tfs.GetXattr("/test", noopStringFilter{})
+	res, err := tfs.GetXattr("/test", noopXattrFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -630,10 +630,10 @@ func TestXattr(t *testing.T) {
 	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattr("/test", attrs, noopStringFilter{}); err != nil {
+	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); err != nil {
 		t.Fatal(err)
 	}
-	res, err = tfs.GetXattr("/test", noopStringFilter{})
+	res, err = tfs.GetXattr("/test", noopXattrFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -665,8 +665,8 @@ func TestWalkInfiniteRecursion(t *testing.T) {
 	testWalkInfiniteRecursion(t, FilesystemTypeBasic, dir)
 }
 
-type noopStringFilter struct{}
+type noopXattrFilter struct{}
 
-func (noopStringFilter) Permit(string) bool         { return true }
-func (noopStringFilter) GetMaxSingleEntrySize() int { return 0 }
-func (noopStringFilter) GetMaxTotalSize() int       { return 0 }
+func (noopXattrFilter) Permit(string) bool         { return true }
+func (noopXattrFilter) GetMaxSingleEntrySize() int { return 0 }
+func (noopXattrFilter) GetMaxTotalSize() int       { return 0 }

@@ -106,8 +106,8 @@ func TestDefaultValues(t *testing.T) {
 				WeakHashThresholdPct: 25,
 				MarkerName:           ".stfolder",
 				MaxConcurrentWrites:  2,
-				XattrFilter: StringFilter{
-					Entries:            []StringFilterEntry{},
+				XattrFilter: XattrFilter{
+					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
 				},
@@ -182,8 +182,8 @@ func TestDeviceConfig(t *testing.T) {
 				MarkerName:           DefaultMarkerName,
 				JunctionsAsDirs:      true,
 				MaxConcurrentWrites:  maxConcurrentWritesDefault,
-				XattrFilter: StringFilter{
-					Entries: []StringFilterEntry{},
+				XattrFilter: XattrFilter{
+					Entries: []XattrFilterEntry{},
 				},
 			},
 		}
@@ -1429,33 +1429,33 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 	}
 }
 
-func TestStringFilter(t *testing.T) {
+func TestXattrFilter(t *testing.T) {
 	cases := []struct {
 		in     []string
-		filter []StringFilterEntry
+		filter []XattrFilterEntry
 		out    []string
 	}{
 		{in: nil, filter: nil, out: nil},
 		{in: []string{"foo", "bar", "baz"}, filter: nil, out: []string{"foo", "bar", "baz"}},
 		{
 			in:     []string{"foo", "bar", "baz"},
-			filter: []StringFilterEntry{{Match: "b*", Permit: true}},
+			filter: []XattrFilterEntry{{Match: "b*", Permit: true}},
 			out:    []string{"bar", "baz"},
 		},
 		{
 			in:     []string{"foo", "bar", "baz"},
-			filter: []StringFilterEntry{{Match: "b*", Permit: false}, {Match: "*", Permit: true}},
+			filter: []XattrFilterEntry{{Match: "b*", Permit: false}, {Match: "*", Permit: true}},
 			out:    []string{"foo"},
 		},
 		{
 			in:     []string{"foo", "bar", "baz"},
-			filter: []StringFilterEntry{{Match: "yoink", Permit: true}},
+			filter: []XattrFilterEntry{{Match: "yoink", Permit: true}},
 			out:    []string{},
 		},
 	}
 
 	for _, tc := range cases {
-		f := StringFilter{Entries: tc.filter}
+		f := XattrFilter{Entries: tc.filter}
 		var out []string
 		for _, s := range tc.in {
 			if f.Permit(s) {

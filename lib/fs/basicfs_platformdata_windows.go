@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func (f *BasicFilesystem) PlatformData(name string, _ StringFilter) (protocol.PlatformData, error) {
+func (f *BasicFilesystem) PlatformData(name string, _ XattrFilter) (protocol.PlatformData, error) {
 	rootedName, err := f.rooted(name)
 	if err != nil {
 		return protocol.PlatformData{}, fmt.Errorf("rooted for %s: %w", name, err)
