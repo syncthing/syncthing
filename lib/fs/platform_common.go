@@ -45,14 +45,22 @@ func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCac
 		groupName = "root"
 	}
 
-	return protocol.PlatformData{
+	pd := protocol.PlatformData{
 		Unix: &protocol.UnixData{
 			OwnerName: ownerName,
 			GroupName: groupName,
 			UID:       ownerUID,
 			GID:       groupID,
 		},
-	}, nil
+	}
+
+	xattrs, err := fs.GetXattr(name, xattrFilter)
+	if err != nil {
+		return protocol.PlatformData{}, err
+	}
+	pd.SetXattrs(xattrs)
+
+	return pd, nil
 }
 
 type valueCache[K comparable, V any] struct {
