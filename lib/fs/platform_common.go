@@ -17,48 +17,46 @@ import (
 // unixPlatformData is used on all platforms, because apart from being the
 // implementation for BasicFilesystem on Unixes it's also the implementation
 // in fakeFS.
-func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCache *groupCache, xattrFilter XattrFilter) (protocol.PlatformData, error) {
-	stat, err := fs.Lstat(name)
-	if err != nil {
-		return protocol.PlatformData{}, err
+func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCache *groupCache, scanOwnership, scanXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error) {
+	var pd protocol.PlatformData
+	if scanOwnership {
+		var ud protocol.UnixData
+
+		stat, err := fs.Lstat(name)
+		if err != nil {
+			return protocol.PlatformData{}, err
+		}
+
+		ud.UID = stat.Owner()
+		if user := userCache.lookup(strconv.Itoa(ud.UID)); user != nil {
+			ud.OwnerName = user.Username
+		} else if ud.UID == 0 {
+			// We couldn't look up a name, but UID zero should be "root". This
+			// fixup works around the (unlikely) situation where the ownership
+			// is 0:0 but we can't look up a name for either uid zero or gid
+			// zero. If that were the case we'd return a zero PlatformData which
+			// wouldn't get serialized over the wire and the other side would
+			// assume a lack of ownership info...
+			ud.OwnerName = "root"
+		}
+
+		ud.GID = stat.Group()
+		if group := groupCache.lookup(strconv.Itoa(ud.GID)); group != nil {
+			ud.GroupName = group.Name
+		} else if ud.GID == 0 {
+			ud.GroupName = "root"
+		}
+
+		pd.Unix = &ud
 	}
 
-	ownerUID := stat.Owner()
-	ownerName := ""
-	if user := userCache.lookup(strconv.Itoa(ownerUID)); user != nil {
-		ownerName = user.Username
-	} else if ownerUID == 0 {
-		// We couldn't look up a name, but UID zero should be "root". This
-		// fixup works around the (unlikely) situation where the ownership
-		// is 0:0 but we can't look up a name for either uid zero or gid
-		// zero. If that were the case we'd return a zero PlatformData which
-		// wouldn't get serialized over the wire and the other side would
-		// assume a lack of ownership info...
-		ownerName = "root"
+	if scanXattrs {
+		xattrs, err := fs.GetXattr(name, xattrFilter)
+		if err != nil {
+			return protocol.PlatformData{}, err
+		}
+		pd.SetXattrs(xattrs)
 	}
-
-	groupID := stat.Group()
-	groupName := ""
-	if group := groupCache.lookup(strconv.Itoa(ownerUID)); group != nil {
-		groupName = group.Name
-	} else if groupID == 0 {
-		groupName = "root"
-	}
-
-	pd := protocol.PlatformData{
-		Unix: &protocol.UnixData{
-			OwnerName: ownerName,
-			GroupName: groupName,
-			UID:       ownerUID,
-			GID:       groupID,
-		},
-	}
-
-	xattrs, err := fs.GetXattr(name, xattrFilter)
-	if err != nil {
-		return protocol.PlatformData{}, err
-	}
-	pd.SetXattrs(xattrs)
 
 	return pd, nil
 }

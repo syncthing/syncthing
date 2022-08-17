@@ -60,7 +60,7 @@ func (*errorFilesystem) SameFile(_, _ FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
-func (fs *errorFilesystem) PlatformData(_ string, _ XattrFilter) (protocol.PlatformData, error) {
+func (fs *errorFilesystem) PlatformData(_ string, _, _ bool, _ XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, fs.err
 }
 

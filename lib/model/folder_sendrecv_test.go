@@ -84,7 +84,7 @@ func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.F
 	writeFile(t, fs, name, nil)
 	fi, err := fs.Stat(name)
 	must(t, err)
-	file, err := scanner.CreateFileInfo(fi, name, fs, false, config.XattrFilter{})
+	file, err := scanner.CreateFileInfo(fi, name, fs, false, false, config.XattrFilter{})
 	must(t, err)
 	return file
 }
@@ -778,7 +778,7 @@ func TestDeleteIgnorePerms(t *testing.T) {
 
 	stat, err := file.Stat()
 	must(t, err)
-	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, config.XattrFilter{})
+	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0600)
 	if info, err := ffs.Stat(name); err == nil {

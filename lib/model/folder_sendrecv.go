@@ -987,7 +987,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		err = errModified
 	default:
 		var fi protocol.FileInfo
-		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs, f.SyncOwnership, f.XattrFilter); err == nil {
+		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter); err == nil {
 			if !fi.IsEquivalentOptional(curTarget, protocol.FileInfoComparison{
 				ModTimeWindow:   f.modTimeWindow,
 				IgnorePerms:     f.IgnorePerms,
@@ -2002,7 +2002,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			hasReceiveOnlyChanged = true
 			return nil
 		}
-		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs, f.SyncOwnership, f.XattrFilter)
+		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
 		if err != nil {
 			// Lets just assume the file has changed.
 			scanChan <- path
@@ -2079,7 +2079,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 	// to the database. If there's a mismatch here, there might be local
 	// changes that we don't know about yet and we should scan before
 	// touching the item.
-	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.mtimefs, f.SyncOwnership, f.XattrFilter)
+	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
 	if err != nil {
 		return fmt.Errorf("comparing item on disk to db: %w", err)
 	}

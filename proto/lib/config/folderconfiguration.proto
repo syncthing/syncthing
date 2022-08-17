@@ -57,7 +57,8 @@ message FolderConfiguration {
     bool                               sync_ownership             = 35;
     bool                               scan_ownership             = 36;
     bool                               sync_xattrs                = 37;
-    XattrFilter                        xattr_filter               = 38;
+    bool                               scan_xattrs                = 38;
+    XattrFilter                        xattr_filter               = 39;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];

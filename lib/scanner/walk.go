@@ -63,6 +63,8 @@ type Config struct {
 	EventLogger events.Logger
 	// If ScanOwnership is true, we pick up ownership information on files while scanning.
 	ScanOwnership bool
+	// If ScanXattrs is true, we pick up extended attributes on files while scanning.
+	ScanXattrs bool
 	// Filter for extended attributes
 	XattrFilter config.XattrFilter
 }
@@ -387,7 +389,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.XattrFilter)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		return err
 	}
@@ -431,7 +433,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.XattrFilter)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		return err
 	}
@@ -479,7 +481,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.XattrFilter)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		handleError(ctx, "reading link", relPath, err, finishedChan)
 		return nil
@@ -666,10 +668,10 @@ func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, xattrFilter config.XattrFilter) (protocol.FileInfo, error) {
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter config.XattrFilter) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	if scanOwnership {
-		if plat, err := filesystem.PlatformData(name, xattrFilter); err == nil {
+	if scanOwnership || scanXattrs {
+		if plat, err := filesystem.PlatformData(name, scanOwnership, scanXattrs, xattrFilter); err == nil {
 			f.Platform = plat
 		} else {
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
