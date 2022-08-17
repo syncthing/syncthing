@@ -83,14 +83,10 @@ func monitorMain(options serveOptions) {
 	}
 
 	args := os.Args
-	binary := args[0]
-	if build.IsWindows {
-		var err error
-		binary, err = expandExecutableInCurrentDirectory(binary)
-		if err != nil {
-			l.Warnln("Error starting the main Syncthing process:", err)
-			panic("Error starting the main Syncthing process")
-		}
+	binary, err := getBinary(args[0])
+	if err != nil {
+		l.Warnln("Error starting the main Syncthing process:", err)
+		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
 
@@ -212,19 +208,17 @@ func monitorMain(options serveOptions) {
 	}
 }
 
-func expandExecutableInCurrentDirectory(args0 string) (string, error) {
-	// Works around a restriction added in go1.19 that executables in the
-	// current directory are not resolved when specifying just an executable
-	// name (like e.g. "syncthing")
-	if !strings.ContainsRune(args0, os.PathSeparator) {
-		// Check if it's in PATH
-		_, err := exec.LookPath(args0)
-		if err != nil {
-			// Try to get the path to the current executable
-			return os.Executable()
-		}
+func getBinary(args0 string) (string, error) {
+	e, err := os.Executable()
+	if err == nil {
+		return e, nil
 	}
-	return args0, nil
+	// Check if args0 cuts it
+	e, lerr := exec.LookPath(args0)
+	if lerr == nil {
+		return e, nil
+	}
+	return "", err
 }
 
 func copyStderr(stderr io.Reader, dst io.Writer) {
@@ -352,17 +346,6 @@ func restartMonitor(binary string, args []string) error {
 }
 
 func restartMonitorUnix(binary string, args []string) error {
-	if !strings.ContainsRune(binary, os.PathSeparator) {
-		// The path to the binary doesn't contain a slash, so it should be
-		// found in $PATH.
-		var err error
-		binary, err = exec.LookPath(binary)
-		if err != nil {
-			return err
-		}
-		args[0] = binary
-	}
-
 	return syscall.Exec(args[0], args, os.Environ())
 }
 
