@@ -274,6 +274,9 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	return nil
 }
 
+// Permit returns true if the filter allows the given string s. An empty
+// filter permits all strings. A non-empty filter where no entry matches s
+// will return false.
 func (f XattrFilter) Permit(s string) bool {
 	if len(f.Entries) == 0 {
 		return true
@@ -287,10 +290,14 @@ func (f XattrFilter) Permit(s string) bool {
 	return false
 }
 
+// GetMaxSingleEntrySize returns the maximum allowed size of a single
+// extended attribute entry, in bytes.
 func (f XattrFilter) GetMaxSingleEntrySize() int {
 	return f.MaxSingleEntrySize
 }
 
+// GetMaxTotalSize returns the maximum allowed size of all extended
+// attributes for a file, in bytes.
 func (f XattrFilter) GetMaxTotalSize() int {
 	return f.MaxTotalSize
 }

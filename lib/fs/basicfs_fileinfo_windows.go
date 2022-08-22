@@ -58,7 +58,11 @@ func (e basicFileInfo) Group() int {
 	return -1
 }
 
+// InodeChangeTime is not currently implemented for Windows.
 func (basicFileInfo) InodeChangeTime() time.Time {
+	// There is an "MFT Change Time" which sounds roughly like the right
+	// thing, but it's not exposed by the regular Go APIs and we don't
+	// currently need it bad enough to go down the win32 rabbit hole.
 	return time.Time{}
 }
 

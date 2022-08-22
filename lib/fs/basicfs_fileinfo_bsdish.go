@@ -14,8 +14,11 @@ import (
 	"time"
 )
 
+// InodeChangeTime returns the change time of the inode (updated when
+// metadata such as extended attributes change).
 func (fi basicFileInfo) InodeChangeTime() time.Time {
 	if sys, ok := fi.FileInfo.Sys().(*syscall.Stat_t); ok {
+		// linux and bsd use different names for the Ctim/Ctimespec field
 		return time.Unix(0, sys.Ctimespec.Nano())
 	}
 	return time.Time{}

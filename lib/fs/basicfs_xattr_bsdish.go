@@ -20,8 +20,9 @@ import (
 func listXattr(path string) ([]string, error) {
 	var attrs []string
 
-	// List the two namespaces explicitly and prefix any results with the
-	// namespace name.
+	// BSD systems have "system" namespaced attributes and "user" namespaced
+	// attributes. List the two namespaces explicitly and prefix any results
+	// with the namespace name.
 	namespacePrefixes := [...]string{unix.EXTATTR_NAMESPACE_USER: "user.", unix.EXTATTR_NAMESPACE_SYSTEM: "system."}
 	for _, nsid := range [...]int{unix.EXTATTR_NAMESPACE_USER, unix.EXTATTR_NAMESPACE_SYSTEM} {
 		buf := make([]byte, 1024)
@@ -45,7 +46,7 @@ func listXattr(path string) ([]string, error) {
 		buf = buf[:size]
 
 		// "Each list entry consists of a single byte containing the length
-		// of the attribute name, followed by the attribute name.  The
+		// of the attribute name, followed by the attribute name. The
 		// attrbute name is not terminated by ASCII 0 (nul)."
 		i := 0
 		for i < len(buf) {
@@ -62,6 +63,8 @@ func listXattr(path string) ([]string, error) {
 
 	return compact(attrs), nil
 }
+
+/* Begin stuff copied & modified from golang.org/x/sys/unix/xattr_bsd.go */
 
 // This is unix.Llistxattr except taking a namespace parameter to dodge
 // https://github.com/golang/go/issues/54357 ("Listxattr on FreeBSD loses
@@ -89,3 +92,5 @@ func initxattrdest(dest []byte, idx int) (d unsafe.Pointer) {
 		return unsafe.Pointer(_zero)
 	}
 }
+
+/* End stuff copied from golang.org/x/sys/unix/xattr_bsd.go */

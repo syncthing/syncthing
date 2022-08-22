@@ -25,7 +25,7 @@ func listXattr(path string) ([]string, error) {
 		// the size, then allocate a buffer of the correct size.
 		size, err = unix.Llistxattr(path, nil)
 		if err != nil {
-			return nil, fmt.Errorf("Listxattr %q: %w", path, err)
+			return nil, fmt.Errorf("unix.Listxattr %q: %w", path, err)
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
@@ -33,7 +33,7 @@ func listXattr(path string) ([]string, error) {
 		size, err = unix.Llistxattr(path, buf)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Listxattr %q: %w", path, err)
+		return nil, fmt.Errorf("unix.Listxattr %q: %w", path, err)
 	}
 
 	buf = buf[:size]

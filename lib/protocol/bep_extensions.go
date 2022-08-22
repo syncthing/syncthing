@@ -408,15 +408,6 @@ func (p *PlatformData) MergeWith(other *PlatformData) {
 	if p.NetBSD == nil {
 		p.NetBSD = other.NetBSD
 	}
-	// if p.OpenBSD == nil {
-	// 	p.OpenBSD = other.OpenBSD
-	// }
-	// if p.Illumos == nil {
-	// 	p.Illumos = other.Illumos
-	// }
-	// if p.Solaris == nil {
-	// 	p.Solaris = other.Solaris
-	// }
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
@@ -554,6 +545,7 @@ func xattrsEqual(a, b *XattrData) bool {
 	if len(a.Xattrs) != len(b.Xattrs) {
 		return false
 	}
+	// assumes attributes are sorted
 	for i := range a.Xattrs {
 		if a.Xattrs[i].Name != b.Xattrs[i].Name {
 			return false

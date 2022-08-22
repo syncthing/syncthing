@@ -20,6 +20,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	bsdENOATTR = 0x5d
+)
+
+// GetXattr returns the extended attributes of the file at path. Attributes
+// are filtered accordinf to the xattrFilter.
 func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]protocol.Xattr, error) {
 	path, err := f.rooted(path)
 	if err != nil {
@@ -41,7 +47,7 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]prot
 		}
 		val, buf, err = getXattr(path, attr, buf)
 		var errNo syscall.Errno
-		if errors.As(err, &errNo) && errNo == 0x5d {
+		if errors.As(err, &errNo) && errNo == bsdENOATTR {
 			// ENOATTR, returned on BSD when asking for an attribute that
 			// doesn't exist (any more?)
 			continue
@@ -78,7 +84,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		// allocate.
 		size, err = unix.Lgetxattr(path, name, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
+			return nil, nil, fmt.Errorf("unix.Lgetxattr %q %q: %w", path, name, err)
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
@@ -86,11 +92,15 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		size, err = unix.Lgetxattr(path, name, buf)
 	}
 	if err != nil {
-		return nil, buf, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
+		return nil, buf, fmt.Errorf("unix.Lgetxattr %q %q: %w", path, name, err)
 	}
 	return buf[:size], buf[size:], nil
 }
 
+// SetXattr sets the extended attribute of the file at path. This replaces
+// all existing extended attributes with the set of attributes in attrs --
+// with the exception of attributes denied by the xattrFilter. Such
+// attributes are instead left untouched on the file.
 func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error {
 	// Index the new attribute set.
 	xattrsIdx := make(map[string]int)
