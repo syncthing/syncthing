@@ -1189,7 +1189,7 @@ func TestBrowse(t *testing.T) {
 		current string
 		returns []string
 	}{
-		// The direcotory without slash is completed to one with slash.
+		// The directory without slash is completed to one with slash.
 		{tmpDir, []string{tmpDir + pathSep}},
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
@@ -1201,7 +1201,7 @@ func TestBrowse(t *testing.T) {
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
-		// Globbing is case-insensitve
+		// Globbing is case-insensitive
 		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 
@@ -1387,7 +1387,7 @@ func TestConfigChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	if opts.MaxSendKbps != 50 {
-		t.Error("Exepcted 50 for MaxSendKbps, got", opts.MaxSendKbps)
+		t.Error("Expected 50 for MaxSendKbps, got", opts.MaxSendKbps)
 	}
 }
 

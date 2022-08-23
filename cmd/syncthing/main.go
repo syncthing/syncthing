@@ -591,7 +591,7 @@ func syncthingMain(options serveOptions) {
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
-	// upgrade immedately. The auto-upgrade routine can only be started
+	// upgrade immediately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
 	autoUpgradePossible := autoUpgradePossible(options)

@@ -37,7 +37,7 @@ func (e basicFileInfo) Mode() FileMode {
 		// NTFS deduped files. Remove the symlink bit.
 		m &^= os.ModeSymlink
 	}
-	// Set executable bits on files with executable extenions (.exe, .bat, etc).
+	// Set executable bits on files with executable extensions (.exe, .bat, etc).
 	if isWindowsExecutable(e.Name()) {
 		m |= 0111
 	}

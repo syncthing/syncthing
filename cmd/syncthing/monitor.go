@@ -273,7 +273,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 * This crash usually occurs due to one of the following reasons:                *
 *  - Syncthing being stopped abruptly (killed/loss of power)                    *
 *  - Bad hardware (memory/disk issues)                                          *
-*  - Software that affects disk writes (SSD caching software and simillar)      *
+*  - Software that affects disk writes (SSD caching software and similar)       *
 *                                                                               *
 * Please see the following URL for instructions on how to recover:              *
 *   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *

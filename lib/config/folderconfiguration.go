@@ -45,7 +45,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 
 // Filesystem creates a filesystem for the path and options of this folder.
 // The fset parameter may be nil, in which case no mtime handling on top of
-// the fileystem is provided.
+// the filesystem is provided.
 func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem(nil) should be valid.

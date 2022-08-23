@@ -144,7 +144,7 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 			},
 		}
 
-		// Check that it is selected and the asset is as epected
+		// Check that it is selected and the asset is as expected
 		sel, err := SelectLatestRelease(rels, "v0.14.46", false)
 		if err != nil {
 			t.Fatal("Unexpected error:", err)

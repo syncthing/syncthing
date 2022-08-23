@@ -155,8 +155,8 @@ cat << EOF
 
     -c           Move discovered coverage reports to the trash
     -z FILE      Upload specified file directly to Codecov and bypass all report generation.
-                 This is inteded to be used only with a pre-formatted Codecov report and is not
-                 expected to work under any other circumstances.
+                 This is intended to be used only with a pre-formatted Codecov report and is
+                 not expected to work under any other circumstances.
     -Z           Exit with 1 if not successful. Default will Exit with 0
 
     -- xcode --
