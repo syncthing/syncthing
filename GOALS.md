@@ -57,7 +57,7 @@ latest technology is not always available to any given individual.
 > Computers include desktops, laptops, servers, virtual machines, small
 > general purpose computers such as Raspberry Pis and, *where possible*,
 > tablets and phones. NAS appliances, toasters, cars, firearms, thermostats
-> and so on may include computing capabitilies but it is not our goal for
+> and so on may include computing capabilities but it is not our goal for
 > Syncthing to run smoothly on these devices.
 
 ### 6. For Individuals

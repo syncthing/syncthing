@@ -1433,7 +1433,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if !(hasTokenRemote || hasTokenLocal || isEncryptedRemote || isEncryptedLocal) {
-		// Noone cares about encryption here
+		// No one cares about encryption here
 		return nil
 	}
 
@@ -1515,7 +1515,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Lock()
 			m.folderEncryptionPasswordTokens[fcfg.ID] = ccToken
 			m.fmut.Unlock()
-			// We can only announce ourselfs once we have the token,
+			// We can only announce ourselves once we have the token,
 			// thus we need to resend CCs now that we have it.
 			m.sendClusterConfig(fcfg.DeviceIDs())
 			return nil

@@ -30,7 +30,7 @@ func EnsureDir(dir string, mode fs.FileMode) error {
 	}
 
 	if fi, err := fs.Stat("."); err == nil {
-		// Apprently the stat may fail even though the mkdirall passed. If it
+		// Apparently the stat may fail even though the mkdirall passed. If it
 		// does, we'll just assume things are in order and let other things
 		// fail (like loading or creating the config...).
 		currentMode := fi.Mode() & 0777
@@ -83,7 +83,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 }
 
 // LoadConfigAtStartup loads an existing config. If it doesn't yet exist, it
-// creates a default one, without the default folder if noDefaultFolder is ture.
+// creates a default one, without the default folder if noDefaultFolder is true.
 // Otherwise it checks the version, and archives and upgrades the config if
 // necessary or returns an error, if the version isn't compatible.
 func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {

@@ -78,7 +78,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 		}
 
 		if !pullerVersion.Equal(localFile.version) || !pullerCreated.Equal(localFile.created) {
-			// The version has changed or the puller was reconstrcuted due to failure.
+			// The version has changed or the puller was reconstructed due to failure.
 			// Clean up whatever we had for the old file, and advertise the new file.
 			updates = append(updates,
 				protocol.FileDownloadProgressUpdate{

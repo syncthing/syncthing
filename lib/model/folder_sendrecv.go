@@ -503,7 +503,7 @@ nextFile:
 		devices := snap.Availability(fileName)
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
-				// Handle the file normally, by coping and pulling, etc.
+				// Handle the file normally, by copying and pulling, etc.
 				f.handleFile(fi, snap, copyChan)
 				continue nextFile
 			}
@@ -1877,7 +1877,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
-	// for errors occurring specificly in the puller routine.
+	// for errors occurring specifically in the puller routine.
 	errStr := fmt.Sprintln("syncing:", err)
 	f.tempPullErrors[path] = errStr
 

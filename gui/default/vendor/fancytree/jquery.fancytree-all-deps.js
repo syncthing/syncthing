@@ -12900,7 +12900,7 @@ var uniqueId = $.fn.extend( {
 		},
 		// Overide virtual methods for this extension.
 		// `this`       : is this extension object
-		// `this._super`: the virtual function that was overriden (member of prev. extension or Fancytree)
+		// `this._super`: the virtual function that was overridden (member of prev. extension or Fancytree)
 		treeInit: function(ctx) {
 			var i,
 				n,
@@ -13715,7 +13715,7 @@ var uniqueId = $.fn.extend( {
 			}
 			// Add level-n class to apply indentation padding.
 			// (Setting element style would not work, since it cannot easily be
-			// overriden while animations run)
+			// overridden while animations run)
 			$(node.span).addClass("fancytree-level-" + level);
 			return res;
 		},

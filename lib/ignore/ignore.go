@@ -556,7 +556,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			} else {
 				// Wrap the error, as if the include does not exist, we get a
 				// IsNotExists(err) == true error, which we use to check
-				// existance of the .stignore file, and just end up assuming
+				// existence of the .stignore file, and just end up assuming
 				// there is none, rather than a broken include.
 				err = parseError(fmt.Errorf("failed to load include file %s: %w", includeFile, err))
 			}

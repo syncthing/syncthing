@@ -215,7 +215,7 @@ function buildTree(children) {
 
 // unitPrefixed converts the input such that it returns a string representation
 // <1000 (<1024) with the metric unit prefix suffixed. I.e. when calling this with
-// binary == true, you need to suffix an additon 'i'.  The "biggest" prefix used
+// binary == true, you need to suffix an addition 'i'.  The "biggest" prefix used
 // is 'T', numbers > 1000T are just returned as such big numbers. If ever deemed
 // useful 'P' can be added easily.
 function unitPrefixed(input, binary) {

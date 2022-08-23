@@ -2630,7 +2630,7 @@ angular.module('syncthing.core')
                                     noData: $translate.instant("There are no file versions to restore.")
                                 },
                                 // Set to '1' to silence errors after pressing arrow keys on file nodes.
-                                // Happens on the official option cofiguration from the developer's site
+                                // Happens on the official option configuration from the developer's site
                                 // too, so probably a bug?
                                 debugLevel: 1,
                                 source: buildTree($scope.restoreVersions.versions),

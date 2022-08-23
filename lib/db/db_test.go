@@ -754,7 +754,7 @@ func TestUpdateTo14(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Initally add the correct file the usual way, all good here.
+	// Initially add the correct file the usual way, all good here.
 	if err := db.updateLocalFiles(folder, []protocol.FileInfo{file}, meta); err != nil {
 		t.Fatal(err)
 	}
