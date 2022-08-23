@@ -274,7 +274,7 @@ func TestOverriddenValues(t *testing.T) {
 	expectedPath := "/media/syncthing"
 
 	os.Unsetenv("STNOUPGRADE")
-	cfg, cfgCancel, err := copyAndLoad("testdata/overridenvalues.xml", device1)
+	cfg, cfgCancel, err := copyAndLoad("testdata/overriddenvalues.xml", device1)
 	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
