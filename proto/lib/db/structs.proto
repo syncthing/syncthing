@@ -39,8 +39,9 @@ message FileInfoTruncated {
     protocol.PlatformData platform       = 14;
 
     // see bep.proto
-    uint32 local_flags  = 1000;
-    bytes  version_hash = 1001;
+    uint32 local_flags     = 1000;
+    bytes  version_hash    = 1001;
+    int64  inode_change_ns = 1002;
 
     bool deleted        = 6;
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];

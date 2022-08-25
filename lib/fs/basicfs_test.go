@@ -7,6 +7,9 @@
 package fs
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,6 +19,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -565,6 +569,87 @@ func TestRel(t *testing.T) {
 	}
 }
 
+func TestXattr(t *testing.T) {
+	tfs, _ := setup(t)
+	if err := tfs.Mkdir("/test", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	xattrSize := func() int { return 20 + rand.Intn(20) }
+
+	// Create a set of random attributes that we will set and read back
+	var attrs []protocol.Xattr
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, xattrSize())
+		rand.Read(value)
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
+	}
+
+	// Set the xattrs, read them back and compare
+	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); errors.Is(err, ErrXattrsNotSupported) {
+		t.Skip("xattrs not supported")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	res, err := tfs.GetXattr("/test", noopXattrFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
+		}
+	}
+
+	// Remove a couple, change a couple, and add another couple of
+	// attributes. Replacing the xattrs again should work.
+	attrs = attrs[2:]
+	attrs[1].Value = make([]byte, xattrSize())
+	rand.Read(attrs[1].Value)
+	attrs[3].Value = make([]byte, xattrSize())
+	rand.Read(attrs[3].Value)
+	for i := 10; i < 12; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, xattrSize())
+		rand.Read(value)
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
+	}
+	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
+
+	// Set the xattrs, read them back and compare
+	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); err != nil {
+		t.Fatal(err)
+	}
+	res, err = tfs.GetXattr("/test", noopXattrFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
+		}
+	}
+}
+
 func TestBasicWalkSkipSymlink(t *testing.T) {
 	_, dir := setup(t)
 	testWalkSkipSymlink(t, FilesystemTypeBasic, dir)
@@ -579,3 +664,9 @@ func TestWalkInfiniteRecursion(t *testing.T) {
 	_, dir := setup(t)
 	testWalkInfiniteRecursion(t, FilesystemTypeBasic, dir)
 }
+
+type noopXattrFilter struct{}
+
+func (noopXattrFilter) Permit(string) bool         { return true }
+func (noopXattrFilter) GetMaxSingleEntrySize() int { return 0 }
+func (noopXattrFilter) GetMaxTotalSize() int       { return 0 }

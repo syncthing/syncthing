@@ -56,9 +56,29 @@ message FolderConfiguration {
     bool                               follow_junctions           = 34 [(ext.goname) = "JunctionsAsDirs", (ext.xml) = "junctionsAsDirs", (ext.json) = "junctionsAsDirs"];
     bool                               sync_ownership             = 35;
     bool                               scan_ownership             = 36;
+    bool                               sync_xattrs                = 37;
+    bool                               scan_xattrs                = 38;
+    XattrFilter                        xattr_filter               = 39;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];
     double min_disk_free_pct = 9001 [deprecated=true];
     int32  pullers           = 9002 [deprecated=true];
+}
+
+// Extended attribute filter. This is a list of patterns to match (glob
+// style), each with an action (permit or deny). First match is used. If the
+// filter is empty, all strings are permitted. If the filter is non-empty,
+// the default action becomes deny. To counter this, you can use the "*"
+// pattern to match all strings at the end of the filter. There are also
+// limits on the size of accepted attributes.
+message XattrFilter {
+    repeated XattrFilterEntry entries               = 1 [(ext.xml) = "entry"];
+    int32                     max_single_entry_size = 2 [(ext.xml) = "maxSingleEntrySize", (ext.default) = "1024"];
+    int32                     max_total_size        = 3 [(ext.xml) = "maxTotalSize", (ext.default) = "4096"];
+}
+
+message XattrFilterEntry {
+    string match  = 1 [(ext.xml) = "match,attr"];
+    bool   permit = 2 [(ext.xml) = "permit,attr"];
 }

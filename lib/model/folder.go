@@ -607,6 +607,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
 		IgnoreOwnership: !b.f.SyncOwnership,
+		IgnoreXattrs:    !b.f.SyncXattrs,
 	}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
@@ -637,7 +638,6 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		CurrentFiler:          cFiler{snap},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
-		IgnoreOwnership:       !f.SyncOwnership,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
@@ -646,6 +646,8 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
 		ScanOwnership:         f.ScanOwnership || f.SyncOwnership,
+		ScanXattrs:            f.ScanXattrs || f.SyncXattrs,
+		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {

@@ -44,6 +44,8 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
+	PlatformData() PlatformData
+	InodeChangeTime() time.Time
 }
 
 func (Hello) Magic() uint32 {
@@ -160,6 +162,14 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) PlatformData() PlatformData {
+	return f.Platform
+}
+
+func (f FileInfo) InodeChangeTime() time.Time {
+	return time.Unix(0, f.InodeChangeNs)
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func WinsConflict(f, other FileIntf) bool {
@@ -196,6 +206,7 @@ type FileInfoComparison struct {
 	IgnoreBlocks    bool
 	IgnoreFlags     uint32
 	IgnoreOwnership bool
+	IgnoreXattrs    bool
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
@@ -233,6 +244,12 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
+	// If we are recording inode change times and it changed, they are not
+	// equal.
+	if f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
+		return false
+	}
+
 	// Mask out the ignored local flags before checking IsInvalid() below
 	f.LocalFlags &^= comp.IgnoreFlags
 	other.LocalFlags &^= comp.IgnoreFlags
@@ -252,9 +269,24 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 			}
 		}
 		if f.Platform.Windows != nil && other.Platform.Windows != nil {
-			if *f.Platform.Windows != *other.Platform.Windows {
+			if f.Platform.Windows.OwnerName != other.Platform.Windows.OwnerName ||
+				f.Platform.Windows.OwnerIsGroup != other.Platform.Windows.OwnerIsGroup {
 				return false
 			}
+		}
+	}
+	if !comp.IgnoreXattrs && f.Platform != other.Platform {
+		if f.Platform.Linux != nil && other.Platform.Linux != nil && !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
+			return false
+		}
+		if f.Platform.Darwin != nil && other.Platform.Darwin != nil && !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
+			return false
+		}
+		if f.Platform.FreeBSD != nil && other.Platform.FreeBSD != nil && !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
+			return false
+		}
+		if f.Platform.NetBSD != nil && other.Platform.NetBSD != nil && !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
+			return false
 		}
 	}
 
@@ -306,6 +338,85 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 
 	// Actually compare the block lists in full.
 	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+// Xattrs is a convenience method to return the extended attributes of the
+// file for the current platform.
+func (f *PlatformData) Xattrs() []Xattr {
+	switch {
+	case build.IsLinux && f.Linux != nil:
+		return f.Linux.Xattrs
+	case build.IsDarwin && f.Darwin != nil:
+		return f.Darwin.Xattrs
+	case build.IsFreeBSD && f.FreeBSD != nil:
+		return f.FreeBSD.Xattrs
+	case build.IsNetBSD && f.NetBSD != nil:
+		return f.NetBSD.Xattrs
+	default:
+		return nil
+	}
+}
+
+// SetXattrs is a convenience method to set the extended attributes of the
+// file for the current platform.
+func (p *PlatformData) SetXattrs(xattrs []Xattr) {
+	switch {
+	case build.IsLinux:
+		if p.Linux == nil {
+			p.Linux = &XattrData{}
+		}
+		p.Linux.Xattrs = xattrs
+
+	case build.IsDarwin:
+		if p.Darwin == nil {
+			p.Darwin = &XattrData{}
+		}
+		p.Darwin.Xattrs = xattrs
+
+	case build.IsFreeBSD:
+		if p.FreeBSD == nil {
+			p.FreeBSD = &XattrData{}
+		}
+		p.FreeBSD.Xattrs = xattrs
+
+	case build.IsNetBSD:
+		if p.NetBSD == nil {
+			p.NetBSD = &XattrData{}
+		}
+		p.NetBSD.Xattrs = xattrs
+	}
+}
+
+// MergeWith copies platform data from other, for platforms where it's not
+// already set on p.
+func (p *PlatformData) MergeWith(other *PlatformData) {
+	if p.Unix == nil {
+		p.Unix = other.Unix
+	}
+	if p.Windows == nil {
+		p.Windows = other.Windows
+	}
+	if p.Linux == nil {
+		p.Linux = other.Linux
+	}
+	if p.Darwin == nil {
+		p.Darwin = other.Darwin
+	}
+	if p.FreeBSD == nil {
+		p.FreeBSD = other.FreeBSD
+	}
+	if p.NetBSD == nil {
+		p.NetBSD = other.NetBSD
+	}
+	// if p.OpenBSD == nil {
+	// 	p.OpenBSD = other.OpenBSD
+	// }
+	// if p.Illumos == nil {
+	// 	p.Illumos = other.Illumos
+	// }
+	// if p.Solaris == nil {
+	// 	p.Solaris = other.Solaris
+	// }
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
@@ -437,4 +548,19 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 	}
 	*x = FileInfoType(n)
 	return nil
+}
+
+func xattrsEqual(a, b *XattrData) bool {
+	if len(a.Xattrs) != len(b.Xattrs) {
+		return false
+	}
+	for i := range a.Xattrs {
+		if a.Xattrs[i].Name != b.Xattrs[i].Name {
+			return false
+		}
+		if !bytes.Equal(a.Xattrs[i].Value, b.Xattrs[i].Value) {
+			return false
+		}
+	}
+	return true
 }
