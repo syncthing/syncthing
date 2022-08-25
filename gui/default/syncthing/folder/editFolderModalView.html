@@ -284,6 +284,39 @@
               </p>
             </div>
           </div>
+
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <label>
+                <input type="checkbox" ng-model="currentFolder.syncOwnership" /> <span translate>Sync Ownership</span>
+              </label>
+              &nbsp;<a href="{{docsURL('advanced/folder-sync-ownership')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              <p translate class="help-block">
+                Enables sending ownership information to other devices, and applying incoming ownership information. Typically requires running with elevated privileges.
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.syncOwnership" ng-model="currentFolder.scanOwnership" /> <span translate>Scan Ownership</span>
+              </label>
+              <p translate class="help-block">
+                Enables sending ownership to other devices, but not applying incoming ownership information. This can have a significant performance impact. Implied by "Sync Ownership".
+              </p>
+            </div>
+            <div class="col-md-6 form-group">
+              <label>
+                <input type="checkbox" ng-model="currentFolder.syncXattrs" /> <span translate>Sync Extended Attributes</span>
+              </label>
+              &nbsp;<a href="{{docsURL('advanced/folder-sync-xattrs')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              <p translate class="help-block">
+                Enables sending extended attributes to other devices, and applying incoming extended attributes. May require running with elevated privileges.
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.syncXattrs" ng-model="currentFolder.scanXattrs" /> <span translate>Scan Extended Attributes</span>
+              </label>
+              <p translate class="help-block">
+                Enables extended attributes to other devices, but not applying incoming extended attributes. This can have a significant performance impact. Implied by "Sync Extended Attributes".
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </form>
