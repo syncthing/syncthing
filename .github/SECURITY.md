@@ -1,4 +1,7 @@
 ## Reporting a Vulnerability
+# security policy 
+# google policy 
+# microsoft security 
 
 If you believe that you've found a Syncthing-related security vulnerability,
 please report it by sending email to the address security@syncthing.net. The
