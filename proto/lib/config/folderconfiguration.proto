@@ -55,15 +55,16 @@ message FolderConfiguration {
     bool                               case_sensitive_fs          = 33 [(ext.goname) = "CaseSensitiveFS", (ext.xml) = "caseSensitiveFS", (ext.json) = "caseSensitiveFS"];
     bool                               follow_junctions           = 34 [(ext.goname) = "JunctionsAsDirs", (ext.xml) = "junctionsAsDirs", (ext.json) = "junctionsAsDirs"];
     bool                               sync_ownership             = 35;
-    bool                               scan_ownership             = 36;
+    bool                               send_ownership             = 36;
     bool                               sync_xattrs                = 37;
-    bool                               scan_xattrs                = 38;
+    bool                               send_xattrs                = 38;
     XattrFilter                        xattr_filter               = 39;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];
     double min_disk_free_pct = 9001 [deprecated=true];
     int32  pullers           = 9002 [deprecated=true];
+    bool   scan_ownership    = 9003 [deprecated=true];
 }
 
 // Extended attribute filter. This is a list of patterns to match (glob

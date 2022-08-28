@@ -295,10 +295,10 @@
                 Enables sending ownership information to other devices, and applying incoming ownership information. Typically requires running with elevated privileges.
               </p>
               <label>
-                <input type="checkbox" ng-disabled="currentFolder.syncOwnership" ng-model="currentFolder.scanOwnership" /> <span translate>Scan Ownership</span>
+                <input type="checkbox" ng-disabled="currentFolder.syncOwnership" ng-model="currentFolder.sendOwnership" /> <span translate>Send Ownership</span>
               </label>
               <p translate class="help-block">
-                Enables sending ownership to other devices, but not applying incoming ownership information. This can have a significant performance impact. Implied by "Sync Ownership".
+                Enables sending ownership to other devices, but not applying incoming ownership information. This can have a significant performance impact. Always enabled when "Sync Ownership" is enabled.
               </p>
             </div>
             <div class="col-md-6 form-group">
@@ -310,10 +310,10 @@
                 Enables sending extended attributes to other devices, and applying incoming extended attributes. May require running with elevated privileges.
               </p>
               <label>
-                <input type="checkbox" ng-disabled="currentFolder.syncXattrs" ng-model="currentFolder.scanXattrs" /> <span translate>Scan Extended Attributes</span>
+                <input type="checkbox" ng-disabled="currentFolder.syncXattrs" ng-model="currentFolder.sendXattrs" /> <span translate>Send Extended Attributes</span>
               </label>
               <p translate class="help-block">
-                Enables extended attributes to other devices, but not applying incoming extended attributes. This can have a significant performance impact. Implied by "Sync Extended Attributes".
+                Enables sending extended attributes to other devices, but not applying incoming extended attributes. This can have a significant performance impact. Always enabled when "Sync Extended Attributes" is enabled.
               </p>
             </div>
           </div>

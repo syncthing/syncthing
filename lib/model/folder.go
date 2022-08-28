@@ -645,8 +645,8 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
-		ScanOwnership:         f.ScanOwnership || f.SyncOwnership,
-		ScanXattrs:            f.ScanXattrs || f.SyncXattrs,
+		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
+		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
 		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
