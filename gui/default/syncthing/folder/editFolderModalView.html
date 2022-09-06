@@ -287,10 +287,13 @@
 
           <div class="row">
             <div class="col-md-6 form-group">
+              <p>
+                <label translate>Ownership</label>
+                &nbsp;<a href="{{docsURL('advanced/folder-sync-ownership')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
               <label>
                 <input type="checkbox" ng-disabled="currentFolder.type == 'sendonly' || currentFolder.type == 'receiveencrypted'" ng-model="currentFolder.syncOwnership" /> <span translate>Sync Ownership</span>
               </label>
-              &nbsp;<a href="{{docsURL('advanced/folder-sync-ownership')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
               <p translate class="help-block">
                 Enables sending ownership information to other devices, and applying incoming ownership information. Typically requires running with elevated privileges.
               </p>
@@ -302,10 +305,13 @@
               </p>
             </div>
             <div class="col-md-6 form-group">
+              <p>
+                <label translate>Extended Attributes</label>
+                &nbsp;<a href="{{docsURL('advanced/folder-sync-xattrs')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
               <label>
                 <input type="checkbox" ng-disabled="currentFolder.type == 'sendonly' || currentFolder.type == 'receiveencrypted'" ng-model="currentFolder.syncXattrs" /> <span translate>Sync Extended Attributes</span>
               </label>
-              &nbsp;<a href="{{docsURL('advanced/folder-sync-xattrs')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
               <p translate class="help-block">
                 Enables sending extended attributes to other devices, and applying incoming extended attributes. May require running with elevated privileges.
               </p>
