@@ -60,7 +60,9 @@ func listXattr(path string) ([]string, error) {
 		}
 	}
 
-	return compact(attrs), nil
+	attrs = compact(attrs)
+	sort.Strings(attrs)
+	return attrs, nil
 }
 
 // This is unix.Llistxattr except taking a namespace parameter to dodge
