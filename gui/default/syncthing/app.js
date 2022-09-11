@@ -184,7 +184,7 @@ function buildTree(children) {
             keySoFar.push(part);
             var found = false;
             for (var i = 0; i < parent.children.length; i++) {
-                if (parent.children[i].folder === true && parent.children[i].title == part) {
+                if (parent.children[i].title == part && parent.children[i].folder === true) {
                     parent = parent.children[i];
                     found = true;
                     break;
