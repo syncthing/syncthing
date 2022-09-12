@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"time"
 
@@ -57,17 +58,7 @@ func (v simple) Archive(filePath string) error {
 		return err
 	}
 
-	// Versions are sorted by timestamp in the file name, oldest first.
-	versions := findAllVersions(v.versionsFs, filePath)
-	if len(versions) > v.keep {
-		for _, toRemove := range versions[:len(versions)-v.keep] {
-			l.Debugln("cleaning out", toRemove)
-			err = v.versionsFs.Remove(toRemove)
-			if err != nil {
-				l.Warnln("removing old version:", err)
-			}
-		}
-	}
+	cleanVersions(v.versionsFs, findAllVersions(v.versionsFs, filePath), v.toRemove)
 
 	return nil
 }
@@ -81,5 +72,40 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 }
 
 func (v simple) Clean(ctx context.Context) error {
-	return cleanByDay(ctx, v.versionsFs, v.cleanoutDays)
+	return clean(ctx, v.versionsFs, v.toRemove)
+}
+
+func (v simple) toRemove(versions []string, now time.Time) []string {
+	var remove []string
+
+	// The list of versions may or may not be properly sorted.
+	sort.Strings(versions)
+
+	// Too many versions: Remove the oldest ones above the treshold
+	if len(versions) > v.keep {
+		remove = versions[:len(versions)-v.keep]
+		versions = versions[len(versions)-v.keep:] //can skip the elements we already are going to remove
+	}
+
+	// Not cleaning out based on cleanoutDays if it's set to 0 (or a negative value)
+	if v.cleanoutDays <= 0 {
+		return remove
+	}
+
+	// Check the rest, they can still be too old
+	for _, version := range versions {
+		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(version), time.Local)
+		if err != nil {
+			l.Debugf("Versioner: file name %q is invalid: %v", version, err)
+			continue
+		}
+		age := int64(now.Sub(versionTime).Seconds())
+		maxAge := int64(v.cleanoutDays * 24 * 60 * 60)
+
+		if age > maxAge {
+			remove = append(remove, version)
+		}
+	}
+
+	return remove
 }

@@ -287,50 +287,78 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	return versions
 }
 
-func cleanByDay(ctx context.Context, versionsFs fs.Filesystem, cleanoutDays int) error {
-	if cleanoutDays <= 0 {
+func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string, time.Time) []string) error {
+	l.Debugln("Versioner clean: Cleaning", versionsFs)
+
+	if _, err := versionsFs.Stat("."); fs.IsNotExist(err) {
+		// There is no need to clean a nonexistent dir.
 		return nil
 	}
 
-	if _, err := versionsFs.Lstat("."); fs.IsNotExist(err) {
-		return nil
-	}
-
-	cutoff := time.Now().Add(time.Duration(-24*cleanoutDays) * time.Hour)
+	versionsPerFile := make(map[string][]string)
 	dirTracker := make(emptyDirTracker)
 
-	walkFn := func(path string, info fs.FileInfo, err error) error {
+	walkFn := func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		if info.IsDir() && !info.IsSymlink() {
+		if f.IsDir() && !f.IsSymlink() {
 			dirTracker.addDir(path)
 			return nil
 		}
 
-		if info.ModTime().Before(cutoff) {
-			// The file is too old; remove it.
-			err = versionsFs.Remove(path)
-		} else {
-			// Keep this file, and remember it so we don't unnecessarily try
-			// to remove this directory.
-			dirTracker.addFile(path)
+		// Regular file, or possibly a symlink.
+		dirTracker.addFile(path)
+
+		name, _ := UntagFilename(path)
+		if name == "" {
+			return nil
 		}
-		return err
+
+		versionsPerFile[name] = append(versionsPerFile[name], path)
+
+		return nil
 	}
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
+		l.Warnln("Versioner: error scanning versions dir", err)
 		return err
+	}
+
+	for _, versionList := range versionsPerFile {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		cleanVersions(versionsFs, versionList, toRemove)
 	}
 
 	dirTracker.deleteEmptyDirs(versionsFs)
 
+	l.Debugln("Cleaner: Finished cleaning", versionsFs)
 	return nil
+}
+
+func cleanVersions(versionsFs fs.Filesystem, versions []string, toRemove func([]string, time.Time) []string) {
+	l.Debugln("Versioner: Expiring versions", versions)
+	for _, file := range toRemove(versions, time.Now()) {
+		if fi, err := versionsFs.Lstat(file); err != nil {
+			l.Warnln("versioner:", err)
+			continue
+		} else if fi.IsDir() {
+			l.Infof("non-file %q is named like a file version", file)
+			continue
+		}
+
+		if err := versionsFs.Remove(file); err != nil {
+			l.Warnf("Versioner: can't remove %q: %v", file, err)
+		}
+	}
 }
