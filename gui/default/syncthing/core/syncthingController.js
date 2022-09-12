@@ -3125,7 +3125,7 @@ angular.module('syncthing.core')
                     address.indexOf('unixs://') == 0);
         };
 
-        $scope.shareDeviceIdConfirmationModal = function (method) {
+        $scope.shareDeviceIdDialog = function (method) {
             // This function can be used to share both user's own and remote
             // device IDs. Three sharing methods are used - copy to clipboard,
             // send by email, and send by SMS.

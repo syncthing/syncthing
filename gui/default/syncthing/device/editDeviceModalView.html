@@ -17,10 +17,10 @@
                 <button type="button" class="btn btn-default" ng-click="copyToClipboard(currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Copy' | translate }}">
                   <span class="fa fa-lg fa-clone"></span>
                 </button>
-                <button type="button" class="btn btn-default" ng-click="shareDeviceIdConfirmationModal('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
+                <button type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by Email' | translate }}">
                   <span class="fa fa-lg fa-envelope-o"></span>
                 </button>
-                <button type="button" class="btn btn-default" ng-click="shareDeviceIdConfirmationModal('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by SMS' | translate }}">
+                <button type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Share by SMS' | translate }}">
                   <span class="fa fa-lg fa-comments-o"></span>
                 </button>
                 <button type="button" class="btn btn-default" data-toggle="modal" data-target="#idqr" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid" tooltip data-original-title="{{ 'Show QR' | translate }}">
