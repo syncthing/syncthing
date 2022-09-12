@@ -1,4 +1,4 @@
-<modal id="share-device-id-dialog" status="warning" icon="{{shareDeviceIdParams.icon}}" heading="{{shareDeviceIdParams.heading}}" large="no" closeable="yes">
+<modal id="share-device-id-dialog" status="warning" icon="{{shareDeviceIdParams.icon}}" heading="{{shareDeviceIdParams.heading}}" large="{{ shareDeviceIdParams.method == 'email' ? 'yes' : 'no' }}" closeable="yes">
   <div class="modal-body" ng-switch="shareDeviceIdParams.method">
     <p>
       <span translate>The following text will automatically be inserted into a new message.</span>
