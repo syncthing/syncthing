@@ -1,8 +1,8 @@
 <modal id="share-device-id-dialog" status="warning" icon="{{shareDeviceIdParams.icon}}" heading="{{shareDeviceIdParams.heading}}" large="no" closeable="yes">
-  <div class="modal-body">
+  <div class="modal-body" ng-switch="shareDeviceIdParams.method">
     <p>
       <span translate>The following text will automatically be inserted into a new message.</span>
-      <span ng-switch="shareDeviceIdParams.method">
+      <span>
         <span ng-switch-when="email">
           <span translate>Your email app should open to let you choose the recipient and send it from your own address.</span>
         </span>
@@ -13,7 +13,7 @@
       <span translate>You can also copy and paste the content into the message manually.</span>
     </p>
     <hr>
-    <div ng-if="shareDeviceIdParams.method == 'email'">
+    <div ng-switch-when="email">
       <h5 translate>Subject:</h5>
       <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.subject}}<button
         type="button" class="btn btn-default pull-right" ng-click="copyToClipboard(shareDeviceIdParams.subject)" tooltip data-original-title="{{ 'Copy' | translate }}">
