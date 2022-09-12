@@ -3134,12 +3134,7 @@ angular.module('syncthing.core')
             // device. If missing, fall back to short device ID instead, which
             // cannot be empty.
             var deviceID = $scope.currentDevice.deviceID;
-            console.log($scope.deviceName());
-            if ($scope.currentDevice.name) {
-                var deviceName = $scope.currentDevice.name;
-            } else {
-                var deviceName = $scope.deviceShortID(deviceID);
-            }
+            var deviceName = $scope.deviceName($scope.currentDevice);
 
             // Title and footer can be reused between email, SMS, and possibly
             // other methods, hence we define them separately before the body.
@@ -3210,8 +3205,8 @@ angular.module('syncthing.core')
         };
 
         $scope.copyToClipboard = function (content) {
-            var success = $translate.instant("Copied to clipboard!");
-            var failure = $translate.instant("Failed to copy to clipboard!");
+            var success = $translate.instant("Copied!");
+            var failure = $translate.instant("Copy failed!");
             var message = success;
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
