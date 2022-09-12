@@ -3126,18 +3126,17 @@ angular.module('syncthing.core')
         };
 
         $scope.shareDeviceIdConfirmationModal = function (method) {
+            // This function can be used to share both user's own and remote
+            // device IDs. Three sharing methods are used - copy to clipboard,
+            // send by email, and send by SMS.
             var params = {
                 method: method,
             };
-
-            // Device name is used to indicate the "person" who shares their
-            // device. If missing, fall back to short device ID instead, which
-            // cannot be empty.
             var deviceID = $scope.currentDevice.deviceID;
             var deviceName = $scope.deviceName($scope.currentDevice);
 
-            // Title and footer can be reused between email, SMS, and possibly
-            // other methods, hence we define them separately before the body.
+            // Title and footer can be reused between different sharing
+            // methods, hence we define them separately before the body.
             var title = $translate.instant('Syncthing device ID for "{%devicename%}"', {devicename: deviceName});
             var footer = $translate.instant("Learn more at {%url%}.", {url: "https://syncthing.net"});
 
@@ -3170,8 +3169,9 @@ angular.module('syncthing.core')
                     ].join('\n\n');
                     break;
             }
+
             $scope.shareDeviceIdParams = params;
-            $('#share-device-id-confirmation').modal('show');
+            $('#share-device-id-dialog').modal('show');
         };
 
         $scope.shareDeviceId = function () {
@@ -3180,13 +3180,14 @@ angular.module('syncthing.core')
                     location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceIdParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
                 case 'sms':
+                    // Ref: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link/58131833#58131833
                     location.href = 'sms://;?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
             }
         }
 
         $scope.showTooltip = function (tooltip) {
-            // This function can be used to display a temporary tooltip next to
+            // This function can be used to display a temporary tooltip above
             // the current element. This way, we can dynamically add a tooltip
             // with explanatory text after the user performs an interactive
             // operation, e.g. clicks a button. If the element already has a
@@ -3206,36 +3207,46 @@ angular.module('syncthing.core')
 
         $scope.copyToClipboard = function (content) {
             var success = $translate.instant("Copied!");
-            var failure = $translate.instant("Copy failed!");
+            var failure = $translate.instant("Copy failed! Try to select any copy manually.");
             var message = success;
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                // Default for modern browsers on localhost or HTTPS.
+                // Default for modern browsers on localhost or HTTPS. Doesn't
+                // work on unencrypted HTTP for security reasons.
                 navigator.clipboard.writeText(content);
             } else if (window.clipboardData && window.clipboardData.setData) {
-                // Fallback for Internet Explorer.
+                // Fallback for Internet Explorer. Needs to go second before
+                // "document.queryCommandSupported", as the browser supports the
+                // other method too, yet it can often be disabled for security
+                // reasons, causing the copy to fail. The IE-specific method is
+                // more reliable.
                 window.clipboardData.setData('Text', content);
             } else if (document.queryCommandSupported) {
                 // Fallback for modern browsers on HTTP and non-IE old browsers.
                 // Check for document.queryCommandSupported("copy") support is
                 // omitted on purpose, as old Chrome versions reported "false"
-                // despite supporting the feature.
+                // despite supporting the feature. The position and opacity
+                // hacks are needed to work inside Bootstrap modals.
+                var e = event.currentTarget;
                 var textarea = document.createElement("textarea");
-                event.currentTarget.appendChild(textarea);
+
+                e.appendChild(textarea);
                 textarea.style.position = "fixed";
                 textarea.style.opacity = "0";
                 textarea.textContent = content;
                 textarea.select();
+
                 try {
                     document.execCommand("copy");
                 } catch (ex) {
                     message = failure;
                 } finally {
-                    event.currentTarget.removeChild(textarea);
+                    e.removeChild(textarea);
                 }
             } else {
                 message = failure;
             }
+
             $scope.showTooltip(message);
         };
     })
