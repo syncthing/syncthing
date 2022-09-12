@@ -1,4 +1,5 @@
 {
+   "\"{%devicename%}\" has shared their Syncthing device ID!": "\"{{devicename}}\" has shared their Syncthing device ID!",
    "A device with that ID is already added.": "A device with that ID is already added.",
    "A negative number of days doesn't make sense.": "A negative number of days doesn't make sense.",
    "A new major version may not be compatible with previous versions.": "A new major version may not be compatible with previous versions.",
@@ -204,6 +205,7 @@
    "Last seen": "Last seen",
    "Latest Change": "Latest Change",
    "Learn more": "Learn more",
+   "Learn more at {%url%}.": "Learn more at {{url}}.",
    "Limit": "Limit",
    "Listener Failures": "Listener Failures",
    "Listener Status": "Listener Status",
@@ -352,6 +354,7 @@
    "Sync Protocol Listen Addresses": "Sync Protocol Listen Addresses",
    "Sync Status": "Sync Status",
    "Syncing": "Syncing",
+   "Syncthing device ID for \"{%devicename%}\"": "Syncthing device ID for \"{{devicename}}\"",
    "Syncthing has been shut down.": "Syncthing has been shut down.",
    "Syncthing includes the following software or portions thereof:": "Syncthing includes the following software or portions thereof:",
    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing is Free and Open Source Software licensed as MPL v2.0.",
