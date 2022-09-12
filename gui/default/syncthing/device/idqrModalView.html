@@ -1,15 +1,15 @@
 <modal id="idqr" status="info" icon="fas fa-qrcode" heading="{{'Device Identification' | translate}} - {{deviceName(currentDevice)}}" large="yes" closeable="yes">
-  <div class="modal-body">
+  <div class="modal-body text-center">
     <div class="well well-sm text-monospace text-center" select-on-click>{{currentDevice.deviceID}}</div>
     <img ng-if="currentDevice.deviceID" class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" alt="qr code" />
-    <div class="btn-group-vertical">
+    <div class="btn-group-vertical" style="vertical-align: top;">
       <button type="button" class="btn btn-default" ng-click="copyToClipboard(currentDevice.deviceID)" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid">
-        <span class="fa fa-lg fa-clone"></span>&nbsp;<span translate>Copy to Clipboard</span>
+        <span class="fa fa-lg fa-clone text-left"></span>&nbsp;<span translate>Copy</span>
       </button>
-      <button type="button" class="btn btn-default" ng-click="shareDeviceIdConfirmationModal('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid">
+      <button type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('email')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid">
         <span class="fa fa-lg fa-envelope-o"></span>&nbsp;<span translate>Share by Email</span>
       </button>
-      <button type="button" class="btn btn-default" ng-click="shareDeviceIdConfirmationModal('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid">
+      <button type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('sms')" ng-disabled="editingDeviceNew() && !deviceEditor.deviceID.$valid">
         <span class="fa fa-lg fa-comments-o"></span>&nbsp;<span translate>Share by SMS</span>
       </button>
     </div>
