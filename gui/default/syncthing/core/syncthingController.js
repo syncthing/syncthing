@@ -3186,12 +3186,13 @@ angular.module('syncthing.core')
             }
         }
 
-        $scope.showTooltip = function (tooltip) {
+        $scope.showTemporaryTooltip = function (tooltip) {
             // This function can be used to display a temporary tooltip above
             // the current element. This way, we can dynamically add a tooltip
             // with explanatory text after the user performs an interactive
             // operation, e.g. clicks a button. If the element already has a
-            // tooltip, it will be saved first and then restored afterwards.
+            // tooltip, it will be saved first and then restored once the user
+            // moves focus to a different element.
             var e = event.currentTarget;
             var oldTooltip = e.getAttribute('data-original-title');
 
@@ -3247,7 +3248,7 @@ angular.module('syncthing.core')
                 message = failure;
             }
 
-            $scope.showTooltip(message);
+            $scope.showTemporaryTooltip(message);
         };
     })
     .directive('shareTemplate', function () {
