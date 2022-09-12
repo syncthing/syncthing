@@ -309,15 +309,6 @@
    "Settings": "Settings",
    "Share": "Share",
    "Share Folder": "Share Folder",
-<<<<<<< HEAD
-=======
-   "Share Folders With Device": "Share Folders With Device",
-<<<<<<< HEAD
-   "Share by Email": "Share by Email",
-   "Share by SMS": "Share by SMS",
->>>>>>> aac754754 (gui: Add copy to clipboard, share by email, and share by SMS buttons to device IDs (fixes #2771, ref #3868))
-=======
->>>>>>> 1e7844eb3 (wip)
    "Share this folder?": "Share this folder?",
    "Shared Folders": "Shared Folders",
    "Shared With": "Shared With",
