@@ -156,9 +156,6 @@ func TestTrashcanCleanOut(t *testing.T) {
 	}
 
 	t.Run(fmt.Sprintf("trashcan versioner trashcan clean up"), func(t *testing.T) {
-		fs.RemoveAll("testdata")
-		defer fs.RemoveAll("testdata")
-
 		oldTime := time.Now().Add(-8 * 24 * time.Hour)
 		for file, shouldRemove := range testcases {
 			fs.MkdirAll(filepath.Dir(file), 0777)
