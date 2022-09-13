@@ -30,41 +30,44 @@ func listXattr(path string) ([]string, error) {
 	for _, nsid := range namespaces {
 		buf := make([]byte, 1024)
 		size, err := unixLlistxattr(path, buf, nsid)
-		if errors.Is(err, unix.ERANGE) {
-			// Buffer is too small. Try again with a zero sized buffer to get
-			// the size, then allocate a buffer of the correct size.
+		if errors.Is(err, unix.ERANGE) || size == len(buf) {
+			// Buffer is too small. Try again with a zero sized buffer to
+			// get the size, then allocate a buffer of the correct size. We
+			// inlude the size == len(buf) because apparently macOS doesn't
+			// return ERANGE as it should -- no harm done, just an extra
+			// read if we happened to need precisely 1024 bytes on the first
+			// pass.
 			size, err = unixLlistxattr(path, nil, nsid)
 			if err != nil {
-				return nil, fmt.Errorf("Listxattr %q: %w", path, err)
+				return nil, fmt.Errorf("Listxattr %s: %w", path, err)
 			}
-			if size > len(buf) {
-				buf = make([]byte, size)
-			}
+			buf = make([]byte, size)
 			size, err = unixLlistxattr(path, buf, nsid)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Listxattr %q: %w", path, err)
+			return nil, fmt.Errorf("Listxattr %s: %w", path, err)
 		}
 
 		buf = buf[:size]
 
 		// "Each list entry consists of a single byte containing the length
 		// of the attribute name, followed by the attribute name.  The
-		// attrbute name is not terminated by ASCII 0 (nul)."
+		// attribute name is not terminated by ASCII 0 (nul)."
 		i := 0
 		for i < len(buf) {
 			l := int(buf[i])
 			i++
 			if i+l > len(buf) {
 				// uh-oh
-				return nil, fmt.Errorf("get xattr %q: attribute length %d at offset %d exceeds buffer length %d", path, l, i, len(buf))
+				return nil, fmt.Errorf("get xattr %s: attribute length %d at offset %d exceeds buffer length %d", path, l, i, len(buf))
 			}
-			attrs = append(attrs, namespacePrefixes[nsid]+string(buf[i:i+l]))
-			i += l
+			if l > 0 {
+				attrs = append(attrs, namespacePrefixes[nsid]+string(buf[i:i+l]))
+				i += l
+			}
 		}
 	}
 
-	attrs = compact(attrs)
 	sort.Strings(attrs)
 	return attrs, nil
 }

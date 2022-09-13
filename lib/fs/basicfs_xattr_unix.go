@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"sort"
 	"syscall"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -23,20 +22,20 @@ import (
 func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]protocol.Xattr, error) {
 	path, err := f.rooted(path)
 	if err != nil {
-		return nil, fmt.Errorf("get xattr %q: %w", path, err)
+		return nil, fmt.Errorf("get xattr %s: %w", path, err)
 	}
 
 	attrs, err := listXattr(path)
 	if err != nil {
-		return nil, fmt.Errorf("get xattr %q: %w", path, err)
+		return nil, fmt.Errorf("get xattr %s: %w", path, err)
 	}
 
-	var res []protocol.Xattr
+	res := make([]protocol.Xattr, 0, len(attrs))
 	var val, buf []byte
 	var totSize int
 	for _, attr := range attrs {
 		if !xattrFilter.Permit(attr) {
-			l.Debugf("get xattr %q: skipping attribute %q denied by filter", path, attr)
+			l.Debugf("get xattr %s: skipping attribute %q denied by filter", path, attr)
 			continue
 		}
 		val, buf, err = getXattr(path, attr, buf)
@@ -46,15 +45,15 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]prot
 			// doesn't exist (any more?)
 			continue
 		} else if err != nil {
-			return nil, fmt.Errorf("get xattr %q: %w", path, err)
+			return nil, fmt.Errorf("get xattr %s: %w", path, err)
 		}
 		if max := xattrFilter.GetMaxSingleEntrySize(); max > 0 && len(attr)+len(val) > max {
-			l.Debugf("get xattr %q: attribute %q exceeds max size", path, attr)
+			l.Debugf("get xattr %s: attribute %q exceeds max size", path, attr)
 			continue
 		}
 		totSize += len(attr) + len(val)
 		if max := xattrFilter.GetMaxTotalSize(); max > 0 && totSize > max {
-			l.Debugf("get xattr %q: attribute %q would cause max size to be exceeded", path, attr)
+			l.Debugf("get xattr %s: attribute %q would cause max size to be exceeded", path, attr)
 			continue
 		}
 		res = append(res, protocol.Xattr{
@@ -62,9 +61,6 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]prot
 			Value: val,
 		})
 	}
-	sort.Slice(res, func(a, b int) bool {
-		return res[a].Name < res[b].Name
-	})
 	return res, nil
 }
 
@@ -78,7 +74,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		// allocate.
 		size, err = unix.Lgetxattr(path, name, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
+			return nil, nil, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
 		}
 		if size > len(buf) {
 			buf = make([]byte, size)
@@ -86,7 +82,7 @@ func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error
 		size, err = unix.Lgetxattr(path, name, buf)
 	}
 	if err != nil {
-		return nil, buf, fmt.Errorf("Lgetxattr %q %q: %w", path, name, err)
+		return nil, buf, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
 	}
 	return buf[:size], buf[size:], nil
 }
@@ -101,7 +97,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 	// Get and index the existing attribute set
 	current, err := f.GetXattr(path, xattrFilter)
 	if err != nil {
-		return fmt.Errorf("set xattrs %q: GetXattr: %w", path, err)
+		return fmt.Errorf("set xattrs %s: GetXattr: %w", path, err)
 	}
 	currentIdx := make(map[string]int)
 	for i, xa := range current {
@@ -110,14 +106,14 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 
 	path, err = f.rooted(path)
 	if err != nil {
-		return fmt.Errorf("set xattrs %q: %w", path, err)
+		return fmt.Errorf("set xattrs %s: %w", path, err)
 	}
 
 	// Remove all existing xattrs that are not in the new set
 	for _, xa := range current {
 		if _, ok := xattrsIdx[xa.Name]; !ok {
 			if err := unix.Lremovexattr(path, xa.Name); err != nil {
-				return fmt.Errorf("set xattrs %q: Removexattr %q: %w", path, xa.Name, err)
+				return fmt.Errorf("set xattrs %s: Removexattr %q: %w", path, xa.Name, err)
 			}
 		}
 	}
@@ -128,7 +124,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 			continue
 		}
 		if err := unix.Lsetxattr(path, xa.Name, xa.Value, 0); err != nil {
-			return fmt.Errorf("set xattrs %q: Setxattr %q: %w", path, xa.Name, err)
+			return fmt.Errorf("set xattrs %s: Setxattr %q: %w", path, xa.Name, err)
 		}
 	}
 
