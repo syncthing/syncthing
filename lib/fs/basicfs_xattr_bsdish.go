@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
+var (
 	namespaces        = [...]int{unix.EXTATTR_NAMESPACE_USER, unix.EXTATTR_NAMESPACE_SYSTEM}
 	namespacePrefixes = [...]string{unix.EXTATTR_NAMESPACE_USER: "user.", unix.EXTATTR_NAMESPACE_SYSTEM: "system."}
 )
