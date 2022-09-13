@@ -50,6 +50,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -303,12 +304,7 @@ func localIP(ctx context.Context, url *url.URL) (net.IP, error) {
 	}
 	defer conn.Close()
 
-	localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())
-	if err != nil {
-		return nil, err
-	}
-
-	return net.ParseIP(localIPAddress), nil
+	return osutil.IPFromAddr(conn.LocalAddr())
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
