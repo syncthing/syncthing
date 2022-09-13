@@ -349,14 +349,6 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 func cleanVersions(versionsFs fs.Filesystem, versions []string, toRemove func([]string, time.Time) []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range toRemove(versions, time.Now()) {
-		if fi, err := versionsFs.Lstat(file); err != nil {
-			l.Warnln("versioner:", err)
-			continue
-		} else if fi.IsDir() {
-			l.Infof("non-file %q is named like a file version", file)
-			continue
-		}
-
 		if err := versionsFs.Remove(file); err != nil {
 			l.Warnf("Versioner: can't remove %q: %v", file, err)
 		}

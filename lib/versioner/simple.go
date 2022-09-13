@@ -92,7 +92,7 @@ func (v simple) toRemove(versions []string, now time.Time) []string {
 		return remove
 	}
 
-	maxAge := int64(v.cleanoutDays * 24 * 60 * 60)
+	maxAge := time.Duration(v.cleanoutDays) * 24 * time.Hour
 
 	// For the rest of the versions, elements which are too old are to be removed
 	for _, version := range versions {
@@ -102,9 +102,7 @@ func (v simple) toRemove(versions []string, now time.Time) []string {
 			continue
 		}
 
-		versionAge := int64(now.Sub(versionTime).Seconds())
-
-		if versionAge > maxAge {
+		if now.Sub(versionTime) > maxAge {
 			remove = append(remove, version)
 		}
 	}
