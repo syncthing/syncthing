@@ -126,9 +126,12 @@ func writeFile(t *testing.T, filesystem fs.Filesystem, name, content string) {
 }
 
 func TestTrashcanCleanOut(t *testing.T) {
+
+	testDir := t.TempDir()
+
 	cfg := config.FolderConfiguration{
 		FilesystemType: fs.FilesystemTypeBasic,
-		Path:           "testdata",
+		Path:           testDir,
 		Versioning: config.VersioningConfiguration{
 			Params: map[string]string{
 				"cleanoutDays": "7",
@@ -136,33 +139,34 @@ func TestTrashcanCleanOut(t *testing.T) {
 		},
 	}
 
+	fs := cfg.Filesystem(nil)
+
 	v := newTrashcan(cfg)
 
 	var testcases = map[string]bool{
-		"testdata/.stversions/file1":                     false,
-		"testdata/.stversions/file2":                     true,
-		"testdata/.stversions/keep1/file1":               false,
-		"testdata/.stversions/keep1/file2":               false,
-		"testdata/.stversions/keep2/file1":               false,
-		"testdata/.stversions/keep2/file2":               true,
-		"testdata/.stversions/keep3/keepsubdir/file1":    false,
-		"testdata/.stversions/remove/file1":              true,
-		"testdata/.stversions/remove/file2":              true,
-		"testdata/.stversions/remove/removesubdir/file1": true,
+		".stversions/file1":                     false,
+		".stversions/file2":                     true,
+		".stversions/keep1/file1":               false,
+		".stversions/keep1/file2":               false,
+		".stversions/keep2/file1":               false,
+		".stversions/keep2/file2":               true,
+		".stversions/keep3/keepsubdir/file1":    false,
+		".stversions/remove/file1":              true,
+		".stversions/remove/file2":              true,
+		".stversions/remove/removesubdir/file1": true,
 	}
 
 	t.Run(fmt.Sprintf("trashcan versioner trashcan clean up"), func(t *testing.T) {
-		os.RemoveAll("testdata")
-		defer os.RemoveAll("testdata")
+		fs.RemoveAll("testdata")
+		defer fs.RemoveAll("testdata")
 
 		oldTime := time.Now().Add(-8 * 24 * time.Hour)
 		for file, shouldRemove := range testcases {
-			os.MkdirAll(filepath.Dir(file), 0777)
-			if err := os.WriteFile(file, []byte("data"), 0644); err != nil {
-				t.Fatal(err)
-			}
+			fs.MkdirAll(filepath.Dir(file), 0777)
+			fs.Create(file)
+
 			if shouldRemove {
-				if err := os.Chtimes(file, oldTime, oldTime); err != nil {
+				if err := fs.Chtimes(file, oldTime, oldTime); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -173,7 +177,7 @@ func TestTrashcanCleanOut(t *testing.T) {
 		}
 
 		for file, shouldRemove := range testcases {
-			_, err := os.Lstat(file)
+			_, err := fs.Lstat(file)
 			if shouldRemove && !os.IsNotExist(err) {
 				t.Error(file, "should have been removed")
 			} else if !shouldRemove && err != nil {
@@ -181,11 +185,11 @@ func TestTrashcanCleanOut(t *testing.T) {
 			}
 		}
 
-		if _, err := os.Lstat("testdata/.stversions/keep3"); os.IsNotExist(err) {
+		if _, err := fs.Lstat(".stversions/keep3"); os.IsNotExist(err) {
 			t.Error("directory with non empty subdirs should not be removed")
 		}
 
-		if _, err := os.Lstat("testdata/.stversions/remove"); !os.IsNotExist(err) {
+		if _, err := fs.Lstat(".stversions/remove"); !os.IsNotExist(err) {
 			t.Error("empty directory should have been removed")
 		}
 	})
