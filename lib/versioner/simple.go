@@ -81,28 +81,30 @@ func (v simple) toRemove(versions []string, now time.Time) []string {
 	// The list of versions may or may not be properly sorted.
 	sort.Strings(versions)
 
-	// Too many versions: Remove the oldest ones above the treshold
+	// If the amount of elements exceeds the limit: the oldest elements are to be removed.
 	if len(versions) > v.keep {
 		remove = versions[:len(versions)-v.keep]
-		versions = versions[len(versions)-v.keep:] //can skip the elements we already are going to remove
+		versions = versions[len(versions)-v.keep:]
 	}
 
-	// Not cleaning out based on cleanoutDays if it's set to 0 (or a negative value)
+	// If cleanoutDays is not a positive value then don't remove based on age.
 	if v.cleanoutDays <= 0 {
 		return remove
 	}
 
-	// Check the rest, they can still be too old
+	maxAge := int64(v.cleanoutDays * 24 * 60 * 60)
+
+	// For the rest of the versions, elements which are too old are to be removed
 	for _, version := range versions {
 		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(version), time.Local)
 		if err != nil {
 			l.Debugf("Versioner: file name %q is invalid: %v", version, err)
 			continue
 		}
-		age := int64(now.Sub(versionTime).Seconds())
-		maxAge := int64(v.cleanoutDays * 24 * 60 * 60)
 
-		if age > maxAge {
+		versionAge := int64(now.Sub(versionTime).Seconds())
+
+		if versionAge > maxAge {
 			remove = append(remove, version)
 		}
 	}
