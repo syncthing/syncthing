@@ -17,13 +17,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	namespaces        = [...]int{unix.EXTATTR_NAMESPACE_USER, unix.EXTATTR_NAMESPACE_SYSTEM}
+	namespacePrefixes = [...]string{unix.EXTATTR_NAMESPACE_USER: "user.", unix.EXTATTR_NAMESPACE_SYSTEM: "system."}
+)
+
 func listXattr(path string) ([]string, error) {
 	var attrs []string
 
 	// List the two namespaces explicitly and prefix any results with the
 	// namespace name.
-	namespacePrefixes := [...]string{unix.EXTATTR_NAMESPACE_USER: "user.", unix.EXTATTR_NAMESPACE_SYSTEM: "system."}
-	for _, nsid := range [...]int{unix.EXTATTR_NAMESPACE_USER, unix.EXTATTR_NAMESPACE_SYSTEM} {
+	for _, nsid := range namespaces {
 		buf := make([]byte, 1024)
 		size, err := unixLlistxattr(path, buf, nsid)
 		if errors.Is(err, unix.ERANGE) {
