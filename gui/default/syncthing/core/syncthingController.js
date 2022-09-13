@@ -2667,6 +2667,11 @@ angular.module('syncthing.core')
                                 }
                             }).fancytree("getTree");
 
+                            // Skip date picker generation if there are no versioned files.
+                            if (Object.keys($scope.restoreVersions.versions).length === 0) {
+                                return;
+                            }
+
                             var minDate = moment(),
                                 maxDate = moment(0, 'X'),
                                 date;

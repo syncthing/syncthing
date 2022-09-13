@@ -17,13 +17,13 @@
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionSearch"><span translate>Filter by name</span>:&nbsp</label>
-            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text">
+            <input id="restoreVersionSearch" class="form-control" type="text" ng-disabled="restoreVersions.errors || (restoreVersions.versions | json) == '{}'" ng-model="restoreVersions.filters.text">
           </div>
         </div>
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionDate"><span translate>Filter by date</span>:&nbsp</label>
-            <input id="restoreVersionDateRange" class="form-control">
+            <input id="restoreVersionDateRange" class="form-control" ng-disabled="restoreVersions.errors || (restoreVersions.versions | json) == '{}'">
           </div>
         </div>
       </div>
