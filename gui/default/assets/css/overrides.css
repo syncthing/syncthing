@@ -526,5 +526,5 @@ html[lang|="ko"] i {
    when a tooltip is shown for one of them. */
 .btn-group-vertical > .tooltip + .btn,
 .btn-group-vertical > .tooltip + .btn-group {
-  margin-top: -1px;
+    margin-top: -1px;
 }
