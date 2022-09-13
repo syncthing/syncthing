@@ -12,6 +12,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
