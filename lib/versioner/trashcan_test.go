@@ -163,13 +163,15 @@ func TestTrashcanCleanOut(t *testing.T) {
 		oldTime := time.Now().Add(-8 * 24 * time.Hour)
 		for file, shouldRemove := range testcases {
 			fs.MkdirAll(filepath.Dir(file), 0777)
-			fs.Create(file)
+
+			writeFile(t, fs, file, "some content")
 
 			if shouldRemove {
 				if err := fs.Chtimes(file, oldTime, oldTime); err != nil {
 					t.Fatal(err)
 				}
 			}
+
 		}
 
 		if err := v.Clean(context.Background()); err != nil {
