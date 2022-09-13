@@ -126,7 +126,6 @@ func writeFile(t *testing.T, filesystem fs.Filesystem, name, content string) {
 }
 
 func TestTrashcanCleanOut(t *testing.T) {
-
 	testDir := t.TempDir()
 
 	cfg := config.FolderConfiguration{
@@ -171,7 +170,6 @@ func TestTrashcanCleanOut(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-
 		}
 
 		if err := v.Clean(context.Background()); err != nil {
