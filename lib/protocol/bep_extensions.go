@@ -276,16 +276,16 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		}
 	}
 	if !comp.IgnoreXattrs && f.Platform != other.Platform {
-		if f.Platform.Linux != nil && other.Platform.Linux != nil && !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
+		if !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
 			return false
 		}
-		if f.Platform.Darwin != nil && other.Platform.Darwin != nil && !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
+		if !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
 			return false
 		}
-		if f.Platform.FreeBSD != nil && other.Platform.FreeBSD != nil && !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
+		if !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
 			return false
 		}
-		if f.Platform.NetBSD != nil && other.Platform.NetBSD != nil && !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
+		if !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
 			return false
 		}
 	}
@@ -551,6 +551,11 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 }
 
 func xattrsEqual(a, b *XattrData) bool {
+	if a == nil || b == nil {
+		// Having no data on either side means we have nothing to compare
+		// to, and we consider that equal.
+		return true
+	}
 	if len(a.Xattrs) != len(b.Xattrs) {
 		return false
 	}
