@@ -3208,7 +3208,7 @@ angular.module('syncthing.core')
 
         $scope.copyToClipboard = function (content) {
             var success = $translate.instant("Copied!");
-            var failure = $translate.instant("Copy failed! Try to select any copy manually.");
+            var failure = $translate.instant("Copy failed! Try to select and copy manually.");
             var message = success;
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
