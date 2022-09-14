@@ -28,8 +28,8 @@ var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\
 // Find both $translate.instant("…") and $translate.instant("…",…) in JS.
 // Consider single quote variants too.
 var jsRe = []*regexp.Regexp{
-	regexp.MustCompile(`\$translate\.instant\("(.+?)"(,.*|\s*)\)`),
-	regexp.MustCompile(`\$translate\.instant\('(.+?)'(,.*|\s*)\)`),
+	regexp.MustCompile(`\$translate\.instant\(\s*"(.+?)"(,.*|\s*)\)`),
+	regexp.MustCompile(`\$translate\.instant\(\s*'(.+?)'(,.*|\s*)\)`),
 }
 
 // exceptions to the untranslated text warning
