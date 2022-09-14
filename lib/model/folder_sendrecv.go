@@ -1788,8 +1788,10 @@ loop:
 
 			if !job.file.IsDeleted() && !job.file.IsInvalid() {
 				// Now that the file is finalized, grab possibly updated
-				// info from disk into the local FileInfo.
-				if err := f.updateFileInfoMetadata(&job.file); err != nil {
+				// inode change time from disk into the local FileInfo. We
+				// use this change time to check for changes to xattrs etc
+				// on next scan.
+				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
 					l.Warnln("Error updating metadata for %q at database commit: %v", job.file.Name, err)
 				}
 			}
@@ -2177,9 +2179,9 @@ func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	return fn()
 }
 
-// updateFileInfoMetadata updates fields in the FileInfo that depend on the
-// current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoMetadata(file *protocol.FileInfo) error {
+// updateFileInfoChangeTime updates the inode change time in the FileInfo,
+// because that depends on the current, new, state of the file on disk.
+func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) error {
 	info, err := f.mtimefs.Lstat(file.Name)
 	if err != nil {
 		return err
