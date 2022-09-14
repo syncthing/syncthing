@@ -890,11 +890,11 @@ func updateDependencies() {
 		log.Fatal(err)
 	}
 	re := regexp.MustCompile(`(?m)^go\s+([0-9.]+)`)
-	matches := re.FindStringSubmatch(string(bs))
+	matches := re.FindSubmatch(bs)
 	if len(matches) != 2 {
 		log.Fatal("failed to parse go.mod")
 	}
-	goVersion := matches[1]
+	goVersion := string(matches[1])
 
 	runPrint(goCmd, "get", "-u", "all")
 	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
