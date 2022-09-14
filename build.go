@@ -884,8 +884,20 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func updateDependencies() {
-	runPrint(goCmd, "get", "-u", "./cmd/...")
-	runPrint(goCmd, "mod", "tidy", "-go=1.17", "-compat=1.17")
+	// Figure out desired Go version
+	bs, err := os.ReadFile("go.mod")
+	if err != nil {
+		log.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^go\s+([0-9.]+)`)
+	matches := re.FindStringSubmatch(string(bs))
+	if len(matches) != 2 {
+		log.Fatal("failed to parse go.mod")
+	}
+	goVersion := matches[1]
+
+	runPrint(goCmd, "get", "-u", "all")
+	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
 
 	// We might have updated the protobuf package and should regenerate to match.
 	proto()
