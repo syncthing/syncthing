@@ -2611,6 +2611,11 @@ angular.module('syncthing.core')
                                 return;
                             }
 
+                            // Skip tree generation if there are no versioned files.
+                            if (JSON.stringify($scope.restoreVersions.versions) === '{}') {
+                                return;
+                            }
+
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
                                 extensions: ["table", "filter", "glyph"],
                                 quicksearch: true,
@@ -2625,7 +2630,7 @@ angular.module('syncthing.core')
                                     indentation: 24,
                                 },
                                 strings: {
-                                    loading: $translate.instant("Loading..."),
+                                    loading: $translate.instant("Loading data..."),
                                     loadError: $translate.instant("Failed to load file versions."),
                                     noData: $translate.instant("There are no file versions to restore.")
                                 },
@@ -2666,11 +2671,6 @@ angular.module('syncthing.core')
                                     });
                                 }
                             }).fancytree("getTree");
-
-                            // Skip date picker generation if there are no versioned files.
-                            if (Object.keys($scope.restoreVersions.versions).length === 0) {
-                                return;
-                            }
 
                             var minDate = moment(),
                                 maxDate = moment(0, 'X'),
