@@ -610,7 +610,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 			err = f.deleteItemOnDisk(curFile, snap, scanChan)
 		}
 		if err != nil {
-			f.newPullError(file.Name, fmt.Errorf("handling dir (conflict move): %w", err))
+			f.newPullError(file.Name, err)
 			return
 		}
 		fallthrough
