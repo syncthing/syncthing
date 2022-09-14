@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var (
@@ -65,9 +66,7 @@ func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 }
 
 func packetConnUnspecified(conn interface{}) bool {
-	// Since QUIC connections are wrapped, we can't do a simple typecheck
-	// on *net.UDPAddr here.
 	addr := conn.(net.PacketConn).LocalAddr()
-	host, _, err := net.SplitHostPort(addr.String())
-	return err == nil && net.ParseIP(host).IsUnspecified()
+	ip, err := osutil.IPFromAddr(addr)
+	return err == nil && ip.IsUnspecified()
 }
