@@ -622,6 +622,14 @@ func (*fakeFS) Unhide(_ string) error {
 	return nil
 }
 
+func (*fakeFS) GetXattr(_ string, _ XattrFilter) ([]protocol.Xattr, error) {
+	return nil, nil
+}
+
+func (*fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ XattrFilter) error {
+	return nil
+}
+
 func (*fakeFS) Glob(_ string) ([]string, error) {
 	// gnnh we don't seem to actually require this in practice
 	return nil, errors.New("not implemented")
@@ -662,8 +670,8 @@ func (fs *fakeFS) SameFile(fi1, fi2 FileInfo) bool {
 	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
-func (fs *fakeFS) PlatformData(name string) (protocol.PlatformData, error) {
-	return unixPlatformData(fs, name, fs.userCache, fs.groupCache)
+func (fs *fakeFS) PlatformData(name string, scanOwnership, scanXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error) {
+	return unixPlatformData(fs, name, fs.userCache, fs.groupCache, scanOwnership, scanXattrs, xattrFilter)
 }
 
 func (*fakeFS) underlying() (Filesystem, bool) {
@@ -960,4 +968,12 @@ func (f *fakeFileInfo) Owner() int {
 
 func (f *fakeFileInfo) Group() int {
 	return f.gid
+}
+
+func (*fakeFileInfo) Sys() interface{} {
+	return nil
+}
+
+func (*fakeFileInfo) InodeChangeTime() time.Time {
+	return time.Time{}
 }
