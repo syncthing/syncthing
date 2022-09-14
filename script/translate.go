@@ -24,7 +24,13 @@ import (
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
-var jsRe = regexp.MustCompile(`\$translate.instant\("([^"]+)"\)`)
+
+// Find both $translate.instant("…") and $translate.instant("…",…) in JS.
+// Consider single quote variants too.
+var jsRe = []*regexp.Regexp{
+	regexp.MustCompile(`\$translate\.instant\("(.+?)"(,.*|\s*)\)`),
+	regexp.MustCompile(`\$translate\.instant\('(.+?)'(,.*|\s*)\)`),
+}
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
@@ -128,8 +134,10 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			generalNode(doc, filepath.Base(name))
 		case ".js":
 			for s := bufio.NewScanner(fd); s.Scan(); {
-				for _, matches := range jsRe.FindAllStringSubmatch(s.Text(), -1) {
-					translation(matches[1])
+				for _, re := range jsRe {
+					for _, matches := range re.FindAllStringSubmatch(s.Text(), -1) {
+						translation(matches[1])
+					}
 				}
 			}
 		}
