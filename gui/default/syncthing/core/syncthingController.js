@@ -3138,7 +3138,7 @@ angular.module('syncthing.core')
             // Title and footer can be reused between different sharing
             // methods, hence we define them separately before the body.
             var title = $translate.instant('Syncthing device ID for "{%devicename%}"', {devicename: deviceName});
-            var footer = $translate.instant("Learn more at {%url%}.", {url: "https://syncthing.net"});
+            var footer = $translate.instant("Learn more at {%url%}", {url: "https://syncthing.net"});
 
             switch (method) {
                 case "email":
