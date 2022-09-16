@@ -3179,7 +3179,8 @@ angular.module('syncthing.core')
                     location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceIdParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
                 case 'sms':
-                    // Ref: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link/58131833#58131833
+                    // Ref1: https://rfc-editor.org/rfc/rfc5724
+                    // Ref2: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link/58131833#58131833
                     location.href = 'sms:;?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
             }
