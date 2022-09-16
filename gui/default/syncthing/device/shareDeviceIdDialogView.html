@@ -12,8 +12,8 @@
       </span>
       <span translate>You can also copy and paste the content into the message manually.</span>
     </p>
-    <hr>
     <div ng-switch-when="email">
+      <hr>
       <h5 translate>Subject:</h5>
       <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.subject}}<button
         type="button" class="btn btn-default pull-right" ng-click="copyToClipboard(shareDeviceIdParams.subject)" tooltip data-original-title="{{ 'Copy' | translate }}">
