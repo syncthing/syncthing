@@ -592,8 +592,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
-			err = fmt.Errorf("handling dir: %w", err)
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
 		}
 
@@ -661,7 +660,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(file.Name, mode|(info.Mode()&retainBits)); err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("handling dir (setting permissions): %w", err))
 			return
 		}
 	}
@@ -988,13 +987,14 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		err = errModified
 	default:
 		var fi protocol.FileInfo
-		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs, f.SyncOwnership); err == nil {
+		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter); err == nil {
 			if !fi.IsEquivalentOptional(curTarget, protocol.FileInfoComparison{
 				ModTimeWindow:   f.modTimeWindow,
 				IgnorePerms:     f.IgnorePerms,
 				IgnoreBlocks:    true,
 				IgnoreFlags:     protocol.LocalAllFlags,
 				IgnoreOwnership: !f.SyncOwnership,
+				IgnoreXattrs:    !f.SyncXattrs,
 			}) {
 				// Target changed
 				scanChan <- target.Name
@@ -1203,8 +1203,8 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 	}
 }
 
-// shortcutFile sets file mode and modification time, when that's the only
-// thing that has changed.
+// shortcutFile sets file metadata, when that's the only thing that has
+// changed.
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
@@ -1228,13 +1228,22 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting permissions): %w", err))
+			return
+		}
+	}
+
+	if f.SyncXattrs {
+		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
+			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
+		} else if err != nil {
+			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting xattrs): %w", err))
 			return
 		}
 	}
 
 	if err := f.maybeAdjustOwnership(&file, file.Name); err != nil {
-		f.newPullError(file.Name, err)
+		f.newPullError(file.Name, fmt.Errorf("shortcut file (setting ownership): %w", err))
 		return
 	}
 
@@ -1253,7 +1262,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			return fd.Truncate(file.Size + trailerSize)
 		}, f.mtimefs, file.Name, true)
 		if err != nil {
-			f.newPullError(file.Name, err)
+			f.newPullError(file.Name, fmt.Errorf("writing encrypted file trailer: %w", err))
 			return
 		}
 	}
@@ -1599,13 +1608,22 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
-			return err
+			return fmt.Errorf("setting permissions: %w", err)
+		}
+	}
+
+	// Set extended attributes
+	if f.SyncXattrs {
+		if err := f.mtimefs.SetXattr(tempName, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
+			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
+		} else if err != nil {
+			return fmt.Errorf("setting xattrs: %w", err)
 		}
 	}
 
 	// Set ownership based on file metadata or parent, maybe.
 	if err := f.maybeAdjustOwnership(&file, tempName); err != nil {
-		return err
+		return fmt.Errorf("setting ownership: %w", err)
 	}
 
 	if stat, err := f.mtimefs.Lstat(file.Name); err == nil {
@@ -1613,7 +1631,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// handle that.
 
 		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, scanChan); err != nil {
-			return err
+			return fmt.Errorf("checking existing file: %w", err)
 		}
 
 		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
@@ -1629,16 +1647,16 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			err = f.deleteItemOnDisk(curFile, snap, scanChan)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("moving for conflict: %w", err)
 		}
 	} else if !fs.IsNotExist(err) {
-		return err
+		return fmt.Errorf("checking existing file: %w", err)
 	}
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
 	if err := osutil.RenameOrCopy(f.CopyRangeMethod, f.mtimefs, f.mtimefs, tempName, file.Name); err != nil {
-		return err
+		return fmt.Errorf("replacing file: %w", err)
 	}
 
 	// Set the correct timestamp on the new file
@@ -1661,7 +1679,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 			}
 
 			if err != nil {
-				f.newPullError(state.file.Name, err)
+				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
@@ -1768,6 +1786,15 @@ loop:
 				lastFile = job.file
 			}
 
+			if !job.file.IsDeleted() && !job.file.IsInvalid() {
+				// Now that the file is finalized, grab possibly updated
+				// inode change time from disk into the local FileInfo. We
+				// use this change time to check for changes to xattrs etc
+				// on next scan.
+				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
+					l.Warnln("Error updating metadata for %q at database commit: %v", job.file.Name, err)
+				}
+			}
 			job.file.Sequence = 0
 
 			batch.Append(job.file)
@@ -1878,7 +1905,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specifically in the puller routine.
-	errStr := fmt.Sprintln("syncing:", err)
+	errStr := fmt.Sprintf("syncing: %s", err)
 	f.tempPullErrors[path] = errStr
 
 	l.Debugf("%v new error for %v: %v", f, path, err)
@@ -1978,7 +2005,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			hasReceiveOnlyChanged = true
 			return nil
 		}
-		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs, f.SyncOwnership)
+		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
 		if err != nil {
 			// Lets just assume the file has changed.
 			scanChan <- path
@@ -1991,6 +2018,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			IgnoreBlocks:    true,
 			IgnoreFlags:     protocol.LocalAllFlags,
 			IgnoreOwnership: !f.SyncOwnership,
+			IgnoreXattrs:    !f.SyncXattrs,
 		}) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
@@ -2055,7 +2083,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 	// to the database. If there's a mismatch here, there might be local
 	// changes that we don't know about yet and we should scan before
 	// touching the item.
-	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.mtimefs, f.SyncOwnership)
+	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
 	if err != nil {
 		return fmt.Errorf("comparing item on disk to db: %w", err)
 	}
@@ -2066,6 +2094,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.LocalAllFlags,
 		IgnoreOwnership: !f.SyncOwnership,
+		IgnoreXattrs:    !f.SyncXattrs,
 	}) {
 		return errModified
 	}
@@ -2148,6 +2177,22 @@ func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
+}
+
+// updateFileInfoChangeTime updates the inode change time in the FileInfo,
+// because that depends on the current, new, state of the file on disk.
+func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) error {
+	info, err := f.mtimefs.Lstat(file.Name)
+	if err != nil {
+		return err
+	}
+
+	if ct := info.InodeChangeTime(); !ct.IsZero() {
+		file.InodeChangeNs = ct.UnixNano()
+	} else {
+		file.InodeChangeNs = 0
+	}
+	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

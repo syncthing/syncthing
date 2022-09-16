@@ -56,7 +56,51 @@ func (t *trashcan) String() string {
 }
 
 func (t *trashcan) Clean(ctx context.Context) error {
-	return cleanByDay(ctx, t.versionsFs, t.cleanoutDays)
+	if t.cleanoutDays <= 0 {
+		return nil
+	}
+
+	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
+		return nil
+	}
+
+	cutoff := time.Now().Add(time.Duration(-24*t.cleanoutDays) * time.Hour)
+	dirTracker := make(emptyDirTracker)
+
+	walkFn := func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if info.IsDir() && !info.IsSymlink() {
+			dirTracker.addDir(path)
+			return nil
+		}
+
+		if info.ModTime().Before(cutoff) {
+			// The file is too old; remove it.
+			err = t.versionsFs.Remove(path)
+		} else {
+			// Keep this file, and remember it so we don't unnecessarily try
+			// to remove this directory.
+			dirTracker.addFile(path)
+		}
+		return err
+	}
+
+	if err := t.versionsFs.Walk(".", walkFn); err != nil {
+		return err
+	}
+
+	dirTracker.deleteEmptyDirs(t.versionsFs)
+
+	return nil
 }
 
 func (t *trashcan) GetVersions() (map[string][]FileVersion, error) {

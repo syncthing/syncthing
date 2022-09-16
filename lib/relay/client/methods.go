@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/osutil"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
@@ -66,7 +67,7 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
 		if len(ip) == 0 || ip.IsUnspecified() {
-			msg.Address = remoteIPBytes(conn)
+			msg.Address, _ = osutil.IPFromAddr(conn.RemoteAddr())
 		}
 		return msg, nil
 	default:
@@ -162,12 +163,4 @@ func configForCerts(certs []tls.Certificate) *tls.Config {
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
 		},
 	}
-}
-
-func remoteIPBytes(conn net.Conn) []byte {
-	addr := conn.RemoteAddr().String()
-	if host, _, err := net.SplitHostPort(addr); err == nil {
-		addr = host
-	}
-	return net.ParseIP(addr)[:]
 }

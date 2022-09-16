@@ -402,7 +402,9 @@
                       </tr>
                       <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
                         <th><span class="fas fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
-                        <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
+                        <td class="text-right">
+                          <span tooltip data-original-title="{{model[folder.id].invalid || model[folder.id].error}}">{{model[folder.id].invalid || model[folder.id].error}}</span>
+                        </td>
                       </tr>
                       <tr ng-if="!folder.paused">
                         <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>

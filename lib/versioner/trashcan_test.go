@@ -7,7 +7,11 @@
 package versioner
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -119,4 +123,71 @@ func writeFile(t *testing.T, filesystem fs.Filesystem, name, content string) {
 	if n, err := fd.Write([]byte(content)); err != nil || n != len(content) {
 		t.Fatal(n, len(content), err)
 	}
+}
+
+func TestTrashcanCleanOut(t *testing.T) {
+	testDir := t.TempDir()
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           testDir,
+		Versioning: config.VersioningConfiguration{
+			Params: map[string]string{
+				"cleanoutDays": "7",
+			},
+		},
+	}
+
+	fs := cfg.Filesystem(nil)
+
+	v := newTrashcan(cfg)
+
+	var testcases = map[string]bool{
+		".stversions/file1":                     false,
+		".stversions/file2":                     true,
+		".stversions/keep1/file1":               false,
+		".stversions/keep1/file2":               false,
+		".stversions/keep2/file1":               false,
+		".stversions/keep2/file2":               true,
+		".stversions/keep3/keepsubdir/file1":    false,
+		".stversions/remove/file1":              true,
+		".stversions/remove/file2":              true,
+		".stversions/remove/removesubdir/file1": true,
+	}
+
+	t.Run(fmt.Sprintf("trashcan versioner trashcan clean up"), func(t *testing.T) {
+		oldTime := time.Now().Add(-8 * 24 * time.Hour)
+		for file, shouldRemove := range testcases {
+			fs.MkdirAll(filepath.Dir(file), 0777)
+
+			writeFile(t, fs, file, "some content")
+
+			if shouldRemove {
+				if err := fs.Chtimes(file, oldTime, oldTime); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+
+		if err := v.Clean(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+
+		for file, shouldRemove := range testcases {
+			_, err := fs.Lstat(file)
+			if shouldRemove && !os.IsNotExist(err) {
+				t.Error(file, "should have been removed")
+			} else if !shouldRemove && err != nil {
+				t.Error(file, "should not have been removed")
+			}
+		}
+
+		if _, err := fs.Lstat(".stversions/keep3"); os.IsNotExist(err) {
+			t.Error("directory with non empty subdirs should not be removed")
+		}
+
+		if _, err := fs.Lstat(".stversions/remove"); !os.IsNotExist(err) {
+			t.Error("empty directory should have been removed")
+		}
+	})
 }

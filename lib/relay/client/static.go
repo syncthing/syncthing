@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/osutil"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
@@ -87,7 +88,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
 				if len(ip) == 0 || ip.IsUnspecified() {
-					msg.Address = remoteIPBytes(c.conn)
+					msg.Address, _ = osutil.IPFromAddr(c.conn.RemoteAddr())
 				}
 				select {
 				case c.invitations <- msg:

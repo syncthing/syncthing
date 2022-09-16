@@ -114,9 +114,14 @@ message FileInfo {
     // received (we make sure to zero it), nonetheless we need it on our
     // struct and to be able to serialize it to/from the database.
     uint32 local_flags = 1000;
+
     // The version_hash is an implementation detail and not part of the wire
     // format.
     bytes version_hash = 1001;
+
+    // The time when the inode was last changed (i.e., permissions, xattrs
+    // etc changed). This is host-local, not sent over the wire.
+    int64 inode_change_ns = 1002;
 
     bool deleted        = 6;
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];
@@ -151,6 +156,10 @@ message Counter {
 message PlatformData {
     UnixData    unix    = 1 [(gogoproto.nullable) = true];
     WindowsData windows = 2 [(gogoproto.nullable) = true];
+    XattrData   linux   = 3 [(gogoproto.nullable) = true];
+    XattrData   darwin  = 4 [(gogoproto.nullable) = true];
+    XattrData   freebsd = 5 [(gogoproto.nullable) = true, (ext.goname) = "FreeBSD"];
+    XattrData   netbsd  = 6 [(gogoproto.nullable) = true, (ext.goname) = "NetBSD"];
 }
 
 message UnixData {
@@ -169,6 +178,15 @@ message WindowsData {
     // type it is.
     string owner_name     = 1;
     bool   owner_is_group = 2;
+}
+
+message XattrData {
+    repeated Xattr xattrs = 1;
+}
+
+message Xattr {
+    string name  = 1;
+    bytes  value = 2;
 }
 
 // Request
