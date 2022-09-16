@@ -15,11 +15,9 @@
     <div ng-switch-when="email">
       <hr>
       <h5 translate>Subject:</h5>
-      <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.subject}}<button
-        type="button" class="btn btn-default pull-right" ng-click="copyToClipboard(shareDeviceIdParams.subject)" tooltip data-original-title="{{ 'Copy' | translate }}">
-          <span class="fa fa-clone"></span>
-        </button
-      ></pre>
+      <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.subject}}<button type="button" class="btn btn-default pull-right" ng-click="copyToClipboard(shareDeviceIdParams.subject)" tooltip data-original-title="{{ 'Copy' | translate }}">
+        <span class="fa fa-clone"></span>
+      </button></pre>
       <h5 translate>Body:</h5>
     </div>
     <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.body}}<button
