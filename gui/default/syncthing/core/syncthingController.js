@@ -3148,8 +3148,7 @@ angular.module('syncthing.core')
                     // Ref: https://datatracker.ietf.org/doc/html/rfc5322
                     params.subject = title;
                     params.body = [
-                        $translate.instant('"{%devicename%}" has shared their Syncthing device ID!', {devicename: deviceName}),
-                        $translate.instant("To connect with them, add a new device using the ID below."),
+                        $translate.instant('To connect with the Syncthing device named "{%devicename%}", add a new remote device on your end with this ID:', {devicename: deviceName}),
                         deviceID,
                         $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet."),
                         footer
