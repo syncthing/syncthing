@@ -3163,7 +3163,7 @@ angular.module('syncthing.core')
                     // device ID. The current minimum length is around 140 chars,
                     // but some room is required for longer sharing device names.
                     params.body = [
-                        title + ":",
+                        title,
                         deviceID.replace(/-/g, ''),
                         footer
                     ].join('\n');
