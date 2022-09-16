@@ -516,3 +516,7 @@ html[lang="ja"] i,
 html[lang|="ko"] i {
     font-style: normal;
 }
+
+.select-on-click {
+    user-select: all;
+}
