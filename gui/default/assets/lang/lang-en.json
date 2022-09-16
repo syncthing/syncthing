@@ -1,5 +1,4 @@
 {
-   "\"{%devicename%}\" has shared their Syncthing device ID!": "\"{{devicename}}\" has shared their Syncthing device ID!",
    "A device with that ID is already added.": "A device with that ID is already added.",
    "A negative number of days doesn't make sense.": "A negative number of days doesn't make sense.",
    "A new major version may not be compatible with previous versions.": "A new major version may not be compatible with previous versions.",
@@ -205,7 +204,7 @@
    "Last seen": "Last seen",
    "Latest Change": "Latest Change",
    "Learn more": "Learn more",
-   "Learn more at {%url%}.": "Learn more at {{url}}.",
+   "Learn more at {%url%}": "Learn more at {{url}}",
    "Limit": "Limit",
    "Listener Failures": "Listener Failures",
    "Listener Status": "Listener Status",
@@ -413,7 +412,7 @@
    "This setting controls the free space required on the home (i.e., index database) disk.": "This setting controls the free space required on the home (i.e., index database) disk.",
    "Time": "Time",
    "Time the item was last modified": "Time the item was last modified",
-   "To connect with them, add a new device using the ID below.": "To connect with them, add a new device using the ID below.",
+   "To connect with the Syncthing device named \"{%devicename%}\", add a new remote device on your end with this ID:": "To connect with the Syncthing device named \"{{devicename}}\", add a new remote device on your end with this ID:",
    "Today": "Today",
    "Trash Can": "Trash Can",
    "Trash Can File Versioning": "Trash Can File Versioning",
