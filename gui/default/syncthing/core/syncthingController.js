@@ -3166,7 +3166,7 @@ angular.module('syncthing.core')
                         title + ":",
                         deviceID.replace(/-/g, ''),
                         footer
-                    ].join('\n\n');
+                    ].join('\n');
                     break;
             }
 
