@@ -3181,7 +3181,7 @@ angular.module('syncthing.core')
                     break;
                 case 'sms':
                     // Ref: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link/58131833#58131833
-                    location.href = 'sms://;?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
+                    location.href = 'sms:;?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
                     break;
             }
         }
