@@ -8,11 +8,11 @@ package model
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 )
 
@@ -96,7 +96,7 @@ func unifySubsCases() []unifySubsCase {
 		},
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Fixup path separators
 		for i := range cases {
 			for j, p := range cases[i].in {

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,6 +17,8 @@ import (
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestFakeFS(t *testing.T) {
@@ -88,7 +89,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Read
-	bs0, err := ioutil.ReadAll(fd)
+	bs0, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,7 @@ func TestFakeFS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs1, err := ioutil.ReadAll(fd)
+	bs1, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Chown
-	if err := fs.Lchown("dira", 1234, 5678); err != nil {
+	if err := fs.Lchown("dira", "1234", "5678"); err != nil {
 		t.Fatal(err)
 	}
 	if info, err := fs.Lstat("dira"); err != nil {
@@ -139,7 +140,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 
 	// Read
 	fd.Seek(0, io.SeekStart)
-	bs0, err := ioutil.ReadAll(fd)
+	bs0, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +155,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 	if n != len(buf0) {
 		t.Fatal("short read")
 	}
-	buf1, err := ioutil.ReadAll(fd)
+	buf1, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +206,6 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 	}
 
 	testDir, sensitive := createTestDir(t)
-	defer removeTestDir(t, testDir)
 	if sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
@@ -241,7 +241,6 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	testDir, sensitive := createTestDir(t)
-	defer removeTestDir(t, testDir)
 	if !sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
@@ -252,10 +251,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 func createTestDir(t *testing.T) (string, bool) {
 	t.Helper()
 
-	testDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("could not create temporary dir for testing: %s", err)
-	}
+	testDir := t.TempDir()
 
 	if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
 		t.Fatalf("could not create .stfolder: %s", err)
@@ -272,14 +268,6 @@ func createTestDir(t *testing.T) (string, bool) {
 	}
 
 	return testDir, sensitive
-}
-
-func removeTestDir(t *testing.T, testDir string) {
-	t.Helper()
-
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatalf("could not remove test directory: %s", err)
-	}
 }
 
 func runTests(t *testing.T, tests []test, filesystems []testFS) {
@@ -328,7 +316,7 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	bs2, err := ioutil.ReadAll(fd2)
+	bs2, err := io.ReadAll(fd2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,7 +565,7 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 	}
 
 	// not checking on darwin due to https://github.com/golang/go/issues/35222
-	if runtime.GOOS != "darwin" {
+	if !build.IsDarwin {
 		if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != nil {
 			t.Errorf("Could not perform in-place case-only directory rename: %s", err)
 		}
@@ -800,7 +788,7 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		} else {
 			fd.Close()
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				time.Sleep(1 * time.Millisecond)
 			}
 		}

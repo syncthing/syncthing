@@ -262,11 +262,9 @@ func (vl *VersionList) update(folder, device []byte, file protocol.FileIntf, t r
 	oldFV = oldFV.copy()
 
 	// Remove ourselves first
-	removedFV, haveRemoved, _, err := vl.pop(device, []byte(file.FileName()))
-	if err == nil {
-		// Find position and insert the file
-		err = vl.insert(folder, device, file, t)
-	}
+	removedFV, haveRemoved, _ := vl.pop(device)
+	// Find position and insert the file
+	err := vl.insert(folder, device, file, t)
 	if err != nil {
 		return FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
 	}
@@ -315,28 +313,28 @@ func (vl *VersionList) insertAt(i int, v FileVersion) {
 // pop removes the given device from the VersionList and returns the FileVersion
 // before removing the device, whether it was found/removed at all and whether
 // the global changed in the process.
-func (vl *VersionList) pop(device, name []byte) (FileVersion, bool, bool, error) {
+func (vl *VersionList) pop(device []byte) (FileVersion, bool, bool) {
 	invDevice, i, j, ok := vl.findDevice(device)
 	if !ok {
-		return FileVersion{}, false, false, nil
+		return FileVersion{}, false, false
 	}
 	globalPos := vl.findGlobal()
 
 	if vl.RawVersions[i].deviceCount() == 1 {
 		fv := vl.RawVersions[i]
 		vl.popVersionAt(i)
-		return fv, true, globalPos == i, nil
+		return fv, true, globalPos == i
 	}
 
 	oldFV := vl.RawVersions[i].copy()
 	if invDevice {
 		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
-		return oldFV, true, false, nil
+		return oldFV, true, false
 	}
 	vl.RawVersions[i].Devices = popDeviceAt(vl.RawVersions[i].Devices, j)
 	// If the last valid device of the previous global was removed above,
 	// the global changed.
-	return oldFV, true, len(vl.RawVersions[i].Devices) == 0 && globalPos == i, nil
+	return oldFV, true, len(vl.RawVersions[i].Devices) == 0 && globalPos == i
 }
 
 // Get returns a FileVersion that contains the given device and whether it has
@@ -511,18 +509,4 @@ func (fv FileVersion) copy() FileVersion {
 	n.Devices = append([][]byte{}, fv.Devices...)
 	n.InvalidDevices = append([][]byte{}, fv.InvalidDevices...)
 	return n
-}
-
-type fileList []protocol.FileInfo
-
-func (fl fileList) Len() int {
-	return len(fl)
-}
-
-func (fl fileList) Swap(a, b int) {
-	fl[a], fl[b] = fl[b], fl[a]
-}
-
-func (fl fileList) Less(a, b int) bool {
-	return fl[a].Name < fl[b].Name
 }

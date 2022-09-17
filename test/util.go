@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rc"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -175,7 +175,7 @@ func alterFiles(dir string) error {
 
 		// Change capitalization
 		case r == 2 && comps > 3 && rand.Float64() < 0.2:
-			if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+			if build.IsDarwin || build.IsWindows {
 				// Syncthing is currently broken for case-only renames on case-
 				// insensitive platforms.
 				// https://github.com/syncthing/syncthing/issues/1787
@@ -206,7 +206,7 @@ func alterFiles(dir string) error {
 							return err
 						}
 						d1 := []byte("I used to be a dir: " + path)
-						err := ioutil.WriteFile(path, d1, 0644)
+						err := os.WriteFile(path, d1, 0644)
 						if err != nil {
 							return err
 						}
@@ -542,7 +542,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 
 	p := rc.NewProcess(addr)
 	p.LogTo(log)
-	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
+	if err := p.Start("../bin/syncthing", "--home", fmt.Sprintf("h%d", i), "--no-browser"); err != nil {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()
@@ -551,7 +551,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 }
 
 func symlinksSupported() bool {
-	tmp, err := ioutil.TempDir("", "symlink-test")
+	tmp, err := os.MkdirTemp("", "symlink-test")
 	if err != nil {
 		return false
 	}

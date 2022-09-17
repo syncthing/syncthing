@@ -31,14 +31,14 @@ const (
 
 var errTooManyModifications = errors.New("too many concurrent config modifications")
 
-// The Committer interface is implemented by objects that need to know about
-// or have a say in configuration changes.
+// The Committer and Verifier interfaces are implemented by objects
+// that need to know about or have a say in configuration changes.
 //
 // When the configuration is about to be changed, VerifyConfiguration() is
-// called for each subscribing object, with the old and new configuration. A
-// nil error is returned if the new configuration is acceptable (i.e. does not
-// contain any errors that would prevent it from being a valid config).
-// Otherwise an error describing the problem is returned.
+// called for each subscribing object that implements it, with copies of the
+// old and new configuration. A nil error is returned if the new configuration
+// is acceptable (i.e., does not contain any errors that would prevent it from
+// being a valid config). Otherwise an error describing the problem is returned.
 //
 // If any subscriber returns an error from VerifyConfiguration(), the
 // configuration change is not committed and an error is returned to whoever
@@ -55,9 +55,14 @@ var errTooManyModifications = errors.New("too many concurrent config modificatio
 // configuration (e.g. calling Wrapper.SetFolder), that are also acquired in any
 // methods of the Committer interface.
 type Committer interface {
-	VerifyConfiguration(from, to Configuration) error
 	CommitConfiguration(from, to Configuration) (handled bool)
 	String() string
+}
+
+// A Verifier can determine if a new configuration is acceptable.
+// See the description for Committer, above.
+type Verifier interface {
+	VerifyConfiguration(from, to Configuration) error
 }
 
 // Waiter allows to wait for the given config operation to complete.
@@ -95,6 +100,7 @@ type Wrapper interface {
 	GUI() GUIConfiguration
 	LDAP() LDAPConfiguration
 	Options() OptionsConfiguration
+	DefaultIgnores() Ignores
 
 	Folder(id string) (FolderConfiguration, bool)
 	Folders() map[string]FolderConfiguration
@@ -300,6 +306,10 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	}
 
 	for _, sub := range w.subs {
+		sub, ok := sub.(Verifier)
+		if !ok {
+			continue
+		}
 		l.Debugln(sub, "verifying configuration")
 		if err := sub.VerifyConfiguration(from.Copy(), to.Copy()); err != nil {
 			l.Debugln(sub, "rejected config:", err)
@@ -428,6 +438,13 @@ func (w *wrapper) GUI() GUIConfiguration {
 	return w.cfg.GUI.Copy()
 }
 
+// DefaultIgnores returns the list of ignore patterns to be used by default on folders.
+func (w *wrapper) DefaultIgnores() Ignores {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Defaults.Ignores.Copy()
+}
+
 // IgnoredDevice returns whether or not connection attempts from the given
 // device should be silently ignored.
 func (w *wrapper) IgnoredDevice(id protocol.DeviceID) bool {
@@ -493,7 +510,7 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	if err := w.cfg.WriteXML(fd); err != nil {
+	if err := w.cfg.WriteXML(osutil.LineEndingsWriter(fd)); err != nil {
 		l.Debugln("WriteXML:", err)
 		fd.Close()
 		return err

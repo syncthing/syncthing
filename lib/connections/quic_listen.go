@@ -40,11 +40,12 @@ type quicListener struct {
 
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	cfg     config.Wrapper
-	tlsCfg  *tls.Config
-	conns   chan internalConn
-	factory listenerFactory
+	uri      *url.URL
+	cfg      config.Wrapper
+	tlsCfg   *tls.Config
+	conns    chan internalConn
+	factory  listenerFactory
+	registry *registry.Registry
 
 	address *url.URL
 	laddr   net.Addr
@@ -100,8 +101,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	go svc.Serve(ctx)
 
-	registry.Register(t.uri.Scheme, conn)
-	defer registry.Unregister(t.uri.Scheme, conn)
+	t.registry.Register(t.uri.Scheme, conn)
+	defer t.registry.Unregister(t.uri.Scheme, conn)
 
 	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
@@ -213,23 +214,24 @@ func (t *quicListener) NATType() string {
 
 type quicListenerFactory struct{}
 
-func (f *quicListenerFactory) Valid(config.Configuration) error {
+func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry) genericListener {
 	l := &quicListener{
-		uri:     fixupPort(uri, config.DefaultQUICPort),
-		cfg:     cfg,
-		tlsCfg:  tlsCfg,
-		conns:   conns,
-		factory: f,
+		uri:      fixupPort(uri, config.DefaultQUICPort),
+		cfg:      cfg,
+		tlsCfg:   tlsCfg,
+		conns:    conns,
+		factory:  f,
+		registry: registry,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	l.nat.Store(stun.NATUnknown)
 	return l
 }
 
-func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
+func (quicListenerFactory) Enabled(_ config.Configuration) bool {
 	return true
 }

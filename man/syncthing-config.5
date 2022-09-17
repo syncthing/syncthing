@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -115,12 +115,18 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="30">
+<configuration version="35">
     <folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
-        <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+        <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+            <encryptionPassword></encryptionPassword>
+        </device>
         <minDiskFree unit="%">1</minDiskFree>
-        <versioning></versioning>
+        <versioning>
+            <cleanupIntervalS>3600</cleanupIntervalS>
+            <fsPath></fsPath>
+            <fsType>basic</fsType>
+        </versioning>
         <copiers>0</copiers>
         <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
         <hashers>0</hashers>
@@ -140,14 +146,20 @@ may no longer correspond to the defaults.
         <disableFsync>false</disableFsync>
         <blockPullOrder>standard</blockPullOrder>
         <copyRangeMethod>standard</copyRangeMethod>
+        <caseSensitiveFS>false</caseSensitiveFS>
+        <junctionsAsDirs>false</junctionsAsDirs>
+        <syncOwnership>false</syncOwnership>
+        <scanOwnership>false</scanOwnership>
     </folder>
-    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+    <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
+        <ignoredFolder time="2022\-01\-09T19:09:52Z" id="br63e\-wyhb7" label="Foo"></ignoredFolder>
         <maxRequestKiB>0</maxRequestKiB>
+        <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
     </device>
     <gui enabled="true" tls="false" debugging="false">
@@ -190,8 +202,8 @@ may no longer correspond to the defaults.
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <unackedNotificationID>authenticationUserAndPassword</unackedNotificationID>
         <trafficClass>0</trafficClass>
-        <defaultFolderPath>~</defaultFolderPath>
         <setLowPriority>true</setLowPriority>
         <maxFolderConcurrency>0</maxFolderConcurrency>
         <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
@@ -201,7 +213,60 @@ may no longer correspond to the defaults.
         <stunServer>default</stunServer>
         <databaseTuning>auto</databaseTuning>
         <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
+        <announceLANAddresses>true</announceLANAddresses>
+        <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
+        <connectionLimitEnough>0</connectionLimitEnough>
+        <connectionLimitMax>0</connectionLimitMax>
+        <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
     </options>
+    <remoteIgnoredDevice time="2022\-01\-09T20:02:01Z" id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="bugger" address="192.168.0.20:22000"></remoteIgnoredDevice>
+    <defaults>
+        <folder id="" label="" path="~" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+            <filesystemType>basic</filesystemType>
+            <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+                <encryptionPassword></encryptionPassword>
+            </device>
+            <minDiskFree unit="%">1</minDiskFree>
+            <versioning>
+                <cleanupIntervalS>3600</cleanupIntervalS>
+                <fsPath></fsPath>
+                <fsType>basic</fsType>
+            </versioning>
+            <copiers>0</copiers>
+            <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+            <hashers>0</hashers>
+            <order>random</order>
+            <ignoreDelete>false</ignoreDelete>
+            <scanProgressIntervalS>0</scanProgressIntervalS>
+            <pullerPauseS>0</pullerPauseS>
+            <maxConflicts>10</maxConflicts>
+            <disableSparseFiles>false</disableSparseFiles>
+            <disableTempIndexes>false</disableTempIndexes>
+            <paused>false</paused>
+            <weakHashThresholdPct>25</weakHashThresholdPct>
+            <markerName>.stfolder</markerName>
+            <copyOwnershipFromParent>false</copyOwnershipFromParent>
+            <modTimeWindowS>0</modTimeWindowS>
+            <maxConcurrentWrites>2</maxConcurrentWrites>
+            <disableFsync>false</disableFsync>
+            <blockPullOrder>standard</blockPullOrder>
+            <copyRangeMethod>standard</copyRangeMethod>
+            <caseSensitiveFS>false</caseSensitiveFS>
+            <junctionsAsDirs>false</junctionsAsDirs>
+            <syncOwnership>false</syncOwnership>
+            <scanOwnership>false</scanOwnership>
+        </folder>
+        <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+            <address>dynamic</address>
+            <paused>false</paused>
+            <autoAcceptFolders>false</autoAcceptFolders>
+            <maxSendKbps>0</maxSendKbps>
+            <maxRecvKbps>0</maxRecvKbps>
+            <maxRequestKiB>0</maxRequestKiB>
+            <untrusted>false</untrusted>
+            <remoteGUIPort>0</remoteGUIPort>
+        </device>
+    </defaults>
 </configuration>
 .ft P
 .fi
@@ -213,14 +278,14 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="30">
+<configuration version="35">
     <folder></folder>
     <device></device>
     <gui></gui>
     <ldap></ldap>
     <options></options>
-    <ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
-    <ignoredFolder>bd7q3\-zskm5</ignoredFolder>
+    <remoteIgnoredDevice></remoteIgnoredDevice>
+    <defaults></defaults>
 </configuration>
 .ft P
 .fi
@@ -235,19 +300,14 @@ The config version. Increments whenever a change is made that requires
 migration from previous formats.
 .UNINDENT
 .sp
-It contains the elements described in the following sections and these two
-additional child elements:
+It contains the elements described in the following sections and any number of
+this additional child element:
 .INDENT 0.0
 .TP
-.B ignoredDevice
+.B remoteIgnoredDevice
 Contains the ID of the device that should be ignored. Connection attempts
 from this device are logged to the console but never displayed in the web
 GUI.
-.TP
-.B ignoredFolder
-Contains the ID of the folder that should be ignored. This folder will
-always be skipped when advertised from a remote device, i.e. this will be
-logged, but there will be no dialog shown in the web GUI.
 .UNINDENT
 .SH FOLDER ELEMENT
 .INDENT 0.0
@@ -257,9 +317,15 @@ logged, but there will be no dialog shown in the web GUI.
 .ft C
 <folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
     <filesystemType>basic</filesystemType>
-    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+    <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+        <encryptionPassword></encryptionPassword>
+    </device>
     <minDiskFree unit="%">1</minDiskFree>
-    <versioning></versioning>
+    <versioning>
+        <cleanupIntervalS>3600</cleanupIntervalS>
+        <fsPath></fsPath>
+        <fsType>basic</fsType>
+    </versioning>
     <copiers>0</copiers>
     <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
     <hashers>0</hashers>
@@ -279,6 +345,10 @@ logged, but there will be no dialog shown in the web GUI.
     <disableFsync>false</disableFsync>
     <blockPullOrder>standard</blockPullOrder>
     <copyRangeMethod>standard</copyRangeMethod>
+    <caseSensitiveFS>false</caseSensitiveFS>
+    <junctionsAsDirs>false</junctionsAsDirs>
+    <syncOwnership>false</syncOwnership>
+    <scanOwnership>false</scanOwnership>
 </folder>
 .ft P
 .fi
@@ -290,41 +360,61 @@ describes one folder. The following attributes may be set on the \fBfolder\fP
 element:
 .INDENT 0.0
 .TP
-.B id
-The folder ID, which must be unique. (mandatory)
+.B id (mandatory)
+The folder ID, which must be unique.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B label
 The label of a folder is a human readable and descriptive local name. May
 be different on each device, empty, and/or identical to other folder
 labels. (optional)
+.UNINDENT
+.INDENT 0.0
 .TP
-.B path
+.B filesystemType
+The internal file system implementation used to access this folder, detailed
+in a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B path (mandatory)
 The path to the directory where the folder is stored on this
-device; not sent to other devices. (mandatory)
+device; not sent to other devices.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B type
 Controls how the folder is handled by Syncthing. Possible values are:
 .INDENT 7.0
 .TP
-.B sendreceive
+.B \fBsendreceive\fP
 The folder is in default mode. Sending local and accepting remote changes.
 Note that this type was previously called “readwrite” which is deprecated
 but still accepted in incoming configs.
 .TP
-.B sendonly
+.B \fBsendonly\fP
 The folder is in “send only” mode – it will not be modified by
 Syncthing on this device.
 Note that this type was previously called “readonly” which is deprecated
 but still accepted in incoming configs.
 .TP
-.B receiveonly
+.B \fBreceiveonly\fP
 The folder is in “receive only” mode – it will not propagate
 changes to other devices.
+.TP
+.B \fBreceiveencrypted\fP
+Must be used on untrusted devices, where the data cannot be decrypted
+because no folder password was entered.  See untrusted\&.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B rescanIntervalS
 The rescan interval, in seconds. Can be set to \fB0\fP to disable when external
 plugins are used to trigger rescans.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B fsWatcherEnabled
 If set to \fBtrue\fP, this detects changes to files in the folder and scans them.
@@ -333,68 +423,101 @@ If set to \fBtrue\fP, this detects changes to files in the folder and scans them
 .TP
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
-scheduled (only takes effect if \fBfsWatcherEnabled\fP is set to \fBtrue\fP).
+scheduled (only takes effect if \fI\%fsWatcherEnabled\fP is set to \fBtrue\fP).
+.UNINDENT
+.INDENT 0.0
 .TP
 .B ignorePerms
-True if the folder should ignore permissions.
+If \fBtrue\fP, files originating from this folder will be announced to remote
+devices with the “no permission bits” flag.  The remote devices will use
+whatever their default permission setting is when creating the files.  The
+primary use case is for file systems that do not support permissions, such
+as FAT, or environments where changing permissions is impossible.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B autoNormalize
-Automatically correct UTF\-8 normalization errors found in file names.
+Automatically correct UTF\-8 normalization errors found in file names.  The
+mechanism and how to set it up is described in a separate chapter\&.
 .UNINDENT
 .sp
 The following child elements may exist:
 .INDENT 0.0
 .TP
 .B device
-These must have the \fBid\fP attribute and can have an \fBintroducedBy\fP attribute,
-identifying the device that introduced us to share this folder with the given device.
-If the original introducer unshares this folder with this device, our device will follow
-and unshare the folder (subject to skipIntroductionRemovals being false on the introducer device).
+These must have the \fBid\fP attribute and can have an \fBintroducedBy\fP
+attribute, identifying the device that introduced us to share this folder
+with the given device.  If the original introducer unshares this folder with
+this device, our device will follow and unshare the folder (subject to
+\fI\%skipIntroductionRemovals\fP being \fBfalse\fP on the introducer device).
+.sp
 All mentioned devices are those that will be sharing the folder in question.
 Each mentioned device must have a separate \fBdevice\fP element later in the file.
 It is customary that the local device ID is included in all folders.
 Syncthing will currently add this automatically if it is not present in
 the configuration file.
+.sp
+The \fBencryptionPassword\fP sub\-element contains the secret needed to decrypt
+this folder’s data on the remote device.  If left empty, the data is plainly
+accessible (but still protected by the transport encryption).  The mechanism
+and how to set it up is described in a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B minDiskFree
-The minimum required free space that should be available on the disk this folder
-resides. The folder will be stopped when the value drops below the threshold. Accepted units are
-\fB%\fP, \fBkB\fP, \fBMB\fP, \fBGB\fP and \fBTB\fP\&. Set to zero to disable.
+The minimum required free space that should be available on the disk this
+folder resides.  The folder will be stopped when the value drops below the
+threshold.  The element content is interpreted according to the given
+\fBunit\fP attribute.  Accepted \fBunit\fP values are \fB%\fP (percent of the disk
+/ volume size), \fBkB\fP, \fBMB\fP, \fBGB\fP and \fBTB\fP\&.  Set to zero to disable.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B versioning
 Specifies a versioning configuration.
-.UNINDENT
 .sp
 \fBSEE ALSO:\fP
-.INDENT 0.0
+.INDENT 7.0
 .INDENT 3.5
 versioning
 .UNINDENT
 .UNINDENT
+.UNINDENT
 .INDENT 0.0
 .TP
-.B copiers, pullers, hashers
-The number of copier, puller and hasher routines to use, or \fB0\fP for the
-system determined optimums. These are low level performance options for
+.B copiers
+.TP
+.B hashers
+The number of copier and hasher routines to use, or \fB0\fP for the
+system determined optimums. These are low\-level performance options for
 advanced users only; do not change unless requested to or you’ve actually
 read and understood the code yourself. :)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B pullerMaxPendingKiB
+Controls when we stop sending requests to other devices once we’ve got this
+much unserved requests.  The number of pullers is automatically adjusted
+based on this desired amount of outstanding request data.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B order
-The order in which needed files should be pulled from the cluster.
-The possibles values are:
+The order in which needed files should be pulled from the cluster.  It has
+no effect when the folder type is “send only”.  The possibles values are:
 .INDENT 7.0
 .TP
-.B random
+.B \fBrandom\fP (default)
 Pull files in random order. This optimizes for balancing resources among
 the devices in a cluster.
 .TP
-.B alphabetic
+.B \fBalphabetic\fP
 Pull files ordered by file name alphabetically.
 .TP
-.B smallestFirst, largestFirst
+.B \fBsmallestFirst\fP, \fBlargestFirst\fP
 Pull files ordered by file size; smallest and largest first respectively.
 .TP
-.B oldestFirst, newestFirst
+.B \fBoldestFirst\fP, \fBnewestFirst\fP
 Pull files ordered by modification time; oldest and newest first
 respectively.
 .UNINDENT
@@ -403,6 +526,8 @@ Note that the scanned files are sent in batches and the sorting is applied
 only to the already discovered files. This means the sync might start with
 a 1 GB file even if there is 1 KB file available on the source device until
 the 1 KB becomes known to the pulling device.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B ignoreDelete
 .
@@ -414,25 +539,36 @@ Enabling this is highly discouraged \- use at your own risk. You have been warne
 .UNINDENT
 .sp
 When set to \fBtrue\fP, this device will pretend not to see instructions to
-delete files from other devices.
+delete files from other devices.  The mechanism is described in a
+separate chapter\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B scanProgressIntervalS
 The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
 will cause Syncthing to use the default value of two.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B pullerPauseS
 Tweak for rate limiting the puller when it retries pulling files. Don’t
 change this unless you know what you’re doing.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
 The default, \fB\-1\fP, means an unlimited number. Setting this to \fB0\fP disables
 conflict copies altogether.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B disableSparseFiles
 By default, blocks containing all zeros are not written, causing files
 to be sparse on filesystems that support this feature. When set to \fBtrue\fP,
 sparse files will not be created.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B disableTempIndexes
 By default, devices exchange information about blocks available in
@@ -440,21 +576,31 @@ transfers that are still in progress, which allows other devices to
 download parts of files that are not yet fully downloaded on your own
 device, essentially making transfers more torrent like. When set to
 \fBtrue\fP, such information is not exchanged for this folder.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B paused
 True if this folder is (temporarily) suspended.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B weakHashThresholdPct
 Use weak hash if more than the given percentage of the file has changed. Set
 to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
 marker\-faq\&. Default is \fB\&.stfolder\fP\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B copyOwnershipFromParent
 On Unix systems, tries to copy file/folder ownership from the parent directory (the directory it’s located in).
 Requires running Syncthing as a privileged user, or granting it additional capabilities (e.g. CAP_CHOWN on Linux).
+.UNINDENT
+.INDENT 0.0
 .TP
 .B modTimeWindowS
 Allowed modification timestamp difference when comparing files for
@@ -462,26 +608,27 @@ equivalence. To be used on file systems which have unstable
 modification timestamps that might change after being recorded
 during the last write operation. Default is \fB2\fP on Android when the
 folder is located on a FAT partition, and \fB0\fP otherwise.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxConcurrentWrites
 Maximum number of concurrent write operations while syncing. Increasing this might increase or
 decrease disk performance, depending on the underlying storage. Default is \fB2\fP\&.
 .UNINDENT
-.sp
-disableFsync
 .INDENT 0.0
-.INDENT 3.5
-.sp
+.TP
+.B disableFsync
+.
 \fBWARNING:\fP
-.INDENT 0.0
+.INDENT 7.0
 .INDENT 3.5
 This is a known insecure option \- use at your own risk.
 .UNINDENT
 .UNINDENT
 .sp
-Disables committing file operations to disk before recording them in the database.
-Disabling fsync can lead to data corruption.
-.UNINDENT
+Disables committing file operations to disk before recording them in the
+database.  Disabling fsync can lead to data corruption.  The mechanism is
+described in a separate chapter\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -492,26 +639,53 @@ file spread between the connected devices, at the cost of causing strain on the 
 Available options:
 .INDENT 7.0
 .TP
-.B standard (default):
+.B \fBstandard\fP (default)
 The blocks of a file are split into N equal continuous sequences, where N is the number of connected
 devices. Each device starts downloading its own sequence, after which it picks other devices
 sequences at random. Provides acceptable data distribution and minimal spinning disk strain.
 .TP
-.B random:
+.B \fBrandom\fP
 The blocks of a file are downloaded in a random order. Provides great data distribution, but very taxing on
 spinning disk drives.
 .TP
-.B inOrder:
+.B \fBinOrder\fP
 The blocks of a file are downloaded sequentially, from start to finish. Spinning disk drive friendly, but provides
 no improvements to data distribution.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B copyRangeMethod
-Provides a choice of method for copying data between files. This can be used to optimise copies on network
-filesystems, improve speed of large copies or clone the data using copy\-on\-write functionality if the underlying
-filesystem supports it.
-.sp
-See folder\-copyRangeMethod for details.
+Provides a choice of method for copying data between files.  This can be
+used to optimise copies on network filesystems, improve speed of large
+copies or clone the data using copy\-on\-write functionality if the underlying
+filesystem supports it.  The mechanism is described in a separate
+chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B caseSensitiveFS
+Affects performance by disabling the extra safety checks for case
+insensitive filesystems.  The mechanism and how to set it up is described in
+a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B junctionsAsDirs
+NTFS directory junctions are treated as ordinary directories, if this is set
+to \fBtrue\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B syncOwnership
+File and directory ownership is synced when this is set to \fBtrue\fP\&. See
+/advanced/folder\-sync\-ownership for more information.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B scanOwnership
+File and directory ownership information is scanned when this is set to
+\fBtrue\fP\&. See /advanced/folder\-scan\-ownership for more information.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -519,16 +693,18 @@ See folder\-copyRangeMethod for details.
 .sp
 .nf
 .ft C
-<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
+<device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
     <address>dynamic</address>
     <paused>false</paused>
     <autoAcceptFolders>false</autoAcceptFolders>
     <maxSendKbps>0</maxSendKbps>
     <maxRecvKbps>0</maxRecvKbps>
+    <ignoredFolder time="2022\-01\-09T19:09:52Z" id="br63e\-wyhb7" label="Foo"></ignoredFolder>
     <maxRequestKiB>0</maxRequestKiB>
+    <untrusted>false</untrusted>
     <remoteGUIPort>0</remoteGUIPort>
 </device>
-<device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+<device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="true" skipIntroductionRemovals="false" introducedBy="">
     <address>tcp://192.0.2.1:22001</address>
     <paused>true</paused>
     <allowedNetwork>192.168.0.0/16</allowedNetwork>
@@ -536,6 +712,7 @@ See folder\-copyRangeMethod for details.
     <maxSendKbps>100</maxSendKbps>
     <maxRecvKbps>100</maxRecvKbps>
     <maxRequestKiB>65536</maxRequestKiB>
+    <untrusted>false</untrusted>
     <remoteGUIPort>8384</remoteGUIPort>
 </device>
 .ft P
@@ -550,39 +727,45 @@ it is not present. The following attributes may be set on the \fBdevice\fP
 element:
 .INDENT 0.0
 .TP
-.B id
-The device ID\&. (mandatory)
+.B id (mandatory)
+The device ID\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B name
 A friendly name for the device. (optional)
+.UNINDENT
+.INDENT 0.0
 .TP
 .B compression
 Whether to use protocol compression when sending messages to this device.
 The possible values are:
 .INDENT 7.0
 .TP
-.B metadata
+.B \fBmetadata\fP
 Compress metadata packets, such as index information. Metadata is
 usually very compression friendly so this is a good default.
 .TP
-.B always
+.B \fBalways\fP
 Compress all packets, including file data. This is recommended if the
 folders contents are mainly compressible data such as documents or
 text files.
 .TP
-.B never
+.B \fBnever\fP
 Disable all compression.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B introducer
 Set to true if this device should be trusted as an introducer, i.e. we
 should copy their list of devices per folder when connecting.
-.UNINDENT
 .sp
 \fBSEE ALSO:\fP
-.INDENT 0.0
+.INDENT 7.0
 .INDENT 3.5
 introducer
+.UNINDENT
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -591,9 +774,13 @@ introducer
 Set to true if you wish to follow only introductions and not de\-introductions.
 For example, if this is set, we would not remove a device that we were introduced
 to even if the original introducer is no longer listing the remote device as known.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B introducedBy
 Defines which device has introduced us to this device. Used only for following de\-introductions.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B certName
 The device certificate’s common name, if it is not the default “syncthing”.
@@ -602,7 +789,7 @@ The device certificate’s common name, if it is not the default “syncthing”
 From the following child elements at least one \fBaddress\fP child must exist.
 .INDENT 0.0
 .TP
-.B address
+.B address (mandatory: At least one must be present.)
 Contains an address or host name to use when attempting to connect to this device.
 Entries other than \fBdynamic\fP need a protocol specific prefix. For the TCP protocol
 the prefixes \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only) can be used.
@@ -653,25 +840,55 @@ for example:
 .fi
 .UNINDENT
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B paused
 True if synchronization with this devices is (temporarily) suspended.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B allowedNetwork
-If given, this restricts connections to this device to only this network
-(see allowed\-networks).
+If given, this restricts connections to this device to only this network.
+The mechanism is described in detail in a separate chapter).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B autoAcceptFolders
+If \fBtrue\fP, folders shared from this remote device are automatically added
+and synced locally under the \fI\%default path\fP\&.  For the
+folder name, Syncthing tries to use the label from the remote device, and if
+the same label already exists, it then tries to use the folder’s ID.  If
+that exists as well, the folder is just offered to accept manually.  A local
+folder already added with the same ID will just be shared rather than
+created separately.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxSendKbps
 Maximum send rate to use for this device. Unit is kibibytes/second, despite
 the config name looking like kilobits/second.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxRecvKbps
 Maximum receive rate to use for this device. Unit is kibibytes/second,
 despite the config name looking like kilobits/second.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ignoredFolder
+Contains the ID of the folder that should be ignored. This folder will
+always be skipped when advertised from the containing remote device,
+i.e. this will be logged, but there will be no dialog shown in the web GUI.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxRequestKiB
 Maximum amount of data to have outstanding in requests towards this device.
 Unit is kibibytes.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B remoteGUIPort
 If set to a positive integer, the GUI will display an HTTP link to the IP
@@ -679,6 +896,15 @@ address which is currently used for synchronization.  Only the TCP port is
 exchanged for the value specified here.  Note that any port forwarding or
 firewall settings need to be done manually and the link will probably not
 work for link\-local IPv6 addresses because of modern browser limitations.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B untrusted
+This boolean value marks a particular device as untrusted, which disallows
+ever sharing any unencrypted data with it.  Every folder shared with that
+device then needs an encryption password set, or must already be of the
+“receive encrypted” type locally.  Refer to the detailed explanation under
+untrusted\&.
 .UNINDENT
 .SH GUI ELEMENT
 .INDENT 0.0
@@ -688,7 +914,7 @@ work for link\-local IPv6 addresses because of modern browser limitations.
 .ft C
 <gui enabled="true" tls="false" debugging="false">
     <address>127.0.0.1:8384</address>
-    <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+    <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
 </gui>
 .ft P
@@ -696,28 +922,33 @@ work for link\-local IPv6 addresses because of modern browser limitations.
 .UNINDENT
 .UNINDENT
 .sp
-There must be exactly one \fBgui\fP element. The GUI configuration is also used
-by the rest\-api and the event\-api\&. The following attributes may
-be set on the \fBgui\fP element:
+There must be exactly one \fBgui\fP element. The GUI configuration is also used by
+the /dev/rest and the /dev/events\&. The following attributes may be
+set on the \fBgui\fP element:
 .INDENT 0.0
 .TP
 .B enabled
 If not \fBtrue\fP, the GUI and API will not be started.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B tls
 If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
 be redirected to HTTPS. When set to \fBfalse\fP, TLS connections are
 still possible but not required.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B debugging
-This enables profiling and additional debugging endpoints in the rest\-api\&.
+This enables /users/profiling and additional endpoints in the REST
+API, see /rest/debug\&.
 .UNINDENT
 .sp
 The following child elements may be present:
 .INDENT 0.0
 .TP
-.B address
-Set the listen address. One address element must be present. Allowed address formats are:
+.B address (mandatory: Exactly one element must be present.)
+Set the listen address.  Allowed address formats are:
 .INDENT 7.0
 .TP
 .B IPv4 address and port (\fB127.0.0.1:8384\fP)
@@ -734,36 +965,63 @@ interfaces via both IPv4 and IPv6.
 .B UNIX socket location (\fB/var/run/st.sock\fP)
 If the address is an absolute path it is interpreted as the path to a UNIX socket.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B unixSocketPermissions
 When \fBaddress\fP is set to a UNIX socket location, set this to an octal value
 to override the default permissions of the socket.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B user
 Set to require authentication.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B password
 Contains the bcrypt hash of the real password.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B apikey
 If set, this is the API key that enables usage of the REST interface.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B insecureAdminAccess
 If true, this allows access to the web GUI from outside (i.e. not localhost)
 without authorization. A warning will displayed about this setting on startup.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B insecureSkipHostcheck
+When the GUI / API is bound to localhost, we enforce that the \fBHost\fP
+header looks like localhost.  This option bypasses that check.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B insecureAllowFrameLoading
+Allow rendering the GUI within an \fB<iframe>\fP, \fB<frame>\fP or \fB<object>\fP
+by not setting the \fBX\-Frame\-Options: SAMEORIGIN\fP HTTP header.  This may be
+needed for serving the Syncthing GUI as part of a website through a proxy.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B theme
 The name of the theme to use.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B authMode
 Authentication mode to use. If not present, the authentication mode (static)
 is controlled by the presence of user/password fields for backward compatibility.
 .INDENT 7.0
 .TP
-.B static
+.B \fBstatic\fP
 Authentication using user and password.
 .TP
-.B ldap
+.B \fBldap\fP
 LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
 .UNINDENT
@@ -784,37 +1042,56 @@ LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
 .UNINDENT
 .sp
-The \fBldap\fP element contains LDAP configuration options.
+The \fBldap\fP element contains LDAP configuration options.  The mechanism is
+described in detail under ldap\&.
 .INDENT 0.0
 .TP
-.B address
+.B address (mandatory)
+.INDENT 7.0
+.INDENT 3.5
 LDAP server address (server:port).
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
-.B bindDN
+.B bindDN (mandatory)
+.INDENT 7.0
+.INDENT 3.5
 BindDN for user authentication.
 Special \fB%s\fP variable should be used to pass username to LDAP.
 .UNINDENT
-.sp
-transport
-.INDENT 0.0
-.INDENT 3.5
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .TP
-.B nontls
+.B transport
+.INDENT 7.0
+.TP
+.B \fBnontls\fP
 Non secure connection.
 .TP
-.B tls
+.B \fBtls\fP
 TLS secured connection.
 .TP
-.B starttls
+.B \fBstarttls\fP
 StartTLS connection mode.
-.UNINDENT
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
 .TP
 .B insecureSkipVerify
 Skip verification (\fBtrue\fP or \fBfalse\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B searchBaseDN
+Base DN for user searches.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B searchFilter
+Search filter for user searches.
 .UNINDENT
 .SH OPTIONS ELEMENT
 .INDENT 0.0
@@ -856,8 +1133,8 @@ Skip verification (\fBtrue\fP or \fBfalse\fP).
     <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
     <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
     <tempIndexMinBlocks>10</tempIndexMinBlocks>
+    <unackedNotificationID>authenticationUserAndPassword</unackedNotificationID>
     <trafficClass>0</trafficClass>
-    <defaultFolderPath>~</defaultFolderPath>
     <setLowPriority>true</setLowPriority>
     <maxFolderConcurrency>0</maxFolderConcurrency>
     <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
@@ -867,6 +1144,11 @@ Skip verification (\fBtrue\fP or \fBfalse\fP).
     <stunServer>default</stunServer>
     <databaseTuning>auto</databaseTuning>
     <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
+    <announceLANAddresses>true</announceLANAddresses>
+    <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
+    <connectionLimitEnough>0</connectionLimitEnough>
+    <connectionLimitMax>0</connectionLimitMax>
+    <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
 </options>
 .ft P
 .fi
@@ -879,6 +1161,8 @@ The \fBoptions\fP element contains all other global configuration options.
 .B listenAddress
 The listen address for incoming sync connections. See
 \fI\%Listen Addresses\fP for the allowed syntax.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B globalAnnounceServer
 A URI to a global announce (discovery) server, or the word \fBdefault\fP to
@@ -888,132 +1172,204 @@ HTTPS URL. A number of options may be added as query options to the URL:
 \fBinsecure\fP to prevent certificate validation (required for HTTP URLs)
 and \fBid=<device ID>\fP to perform certificate pinning. The device ID to
 use is printed by the discovery server on startup.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B globalAnnounceEnabled
 Whether to announce this device to the global announce (discovery) server,
 and also use it to look up other devices.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B localAnnounceEnabled
 Whether to send announcements to the local LAN, also use such
 announcements to find other devices.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B localAnnouncePort
 The port on which to listen and send IPv4 broadcast announcements to.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B localAnnounceMCAddr
 The group address and port to join and send IPv6 multicast announcements on.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxSendKbps
 Outgoing data rate limit, in kibibytes per second.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B maxRecvKbps
 Incoming data rate limits, in kibibytes per second.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B reconnectionIntervalS
 The number of seconds to wait between each attempt to connect to currently
 unconnected devices.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B relaysEnabled
 When \fBtrue\fP, relays will be connected to and potentially used for device to device connections.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B relayReconnectIntervalM
 Sets the interval, in minutes, between relay reconnect attempts.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B startBrowser
 Whether to attempt to start a browser to show the GUI when Syncthing starts.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B natEnabled
 Whether to attempt to perform a UPnP and NAT\-PMP port mapping for
 incoming sync connections.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B natLeaseMinutes
 Request a lease for this many minutes; zero to request a permanent lease.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B natRenewalMinutes
 Attempt to renew the lease after this many minutes.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B natTimeoutSeconds
 When scanning for UPnP devices, wait this long for responses.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urAccepted
 Whether the user has accepted to submit anonymous usage data. The default,
 \fB0\fP, mean the user has not made a choice, and Syncthing will ask at some
 point in the future. \fB\-1\fP means no, a number above zero means that that
 version of usage reporting has been accepted.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urSeen
 The highest usage reporting version that has already been shown in the web GUI.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urUniqueID
 The unique ID sent together with the usage report. Generated when usage
 reporting is enabled.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urURL
 The URL to post usage report data to, when enabled.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urPostInsecurely
 When true, the UR URL can be http instead of https, or have a self\-signed
 certificate. The default is \fBfalse\fP\&.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B urInitialDelayS
 The time to wait from startup for the first usage report to be sent. Allows
 the system to stabilize before reporting statistics.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B restartOnWakeup
 Whether to perform a restart of Syncthing when it is detected that we are
 waking from sleep mode (i.e. an unfolding laptop).
+.UNINDENT
+.INDENT 0.0
 .TP
 .B autoUpgradeIntervalH
 Check for a newer version after this many hours. Set to \fB0\fP to disable
 automatic upgrades.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B upgradeToPreReleases
 If \fBtrue\fP, automatic upgrades include release candidates (see
 releases).
+.UNINDENT
+.INDENT 0.0
 .TP
 .B keepTemporariesH
 Keep temporary failed transfers for this many hours. While the temporaries
 are kept, the data they contain need not be transferred again.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B cacheIgnoredFiles
 Whether to cache the results of ignore pattern evaluation. Performance
 at the price of memory. Defaults to \fBfalse\fP as the cost for evaluating
 ignores is usually not significant.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B progressUpdateIntervalS
 How often in seconds the progress of ongoing downloads is made available to
 the GUI.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B limitBandwidthInLan
 Whether to apply bandwidth limits to devices in the same broadcast domain
 as the local device.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B minHomeDiskFree
-The minimum required free space that should be available on the
-partition holding the configuration and index. Accepted units are \fB%\fP, \fBkB\fP,
-\fBMB\fP, \fBGB\fP and \fBTB\fP\&.
+The minimum required free space that should be available on the partition
+holding the configuration and index.  The element content is interpreted
+according to the given \fBunit\fP attribute.  Accepted \fBunit\fP values are
+\fB%\fP (percent of the disk / volume size), \fBkB\fP, \fBMB\fP, \fBGB\fP and
+\fBTB\fP\&.  Set to zero to disable.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B releasesURL
 The URL from which release information is loaded, for automatic upgrades.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B alwaysLocalNet
 Network that should be considered as local given in CIDR notation.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B overwriteRemoteDeviceNamesOnConnect
 If set, device names will always be overwritten with the name given by
 remote on each connection. By default, the name that the remote device
 announces will only be adopted when a name has not already been set.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B tempIndexMinBlocks
 When exchanging index information for incomplete transfers, only take
 into account files that have at least this many blocks.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B unackedNotificationID
 ID of a notification to be displayed in the web GUI. Will be removed once
 the user acknowledged it (e.g. an transition notice on an upgrade).
+.UNINDENT
+.INDENT 0.0
 .TP
 .B trafficClass
 Specify a type of service (TOS)/traffic class of outgoing packets.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B stunServer
 Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
@@ -1025,15 +1381,19 @@ expanded to
 \fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
 \fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
 \fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+.UNINDENT
+.INDENT 0.0
 .TP
-.B stunKeepaliveSeconds
-Interval in seconds between contacting a STUN server to
-maintain NAT mapping. Default is \fB24\fP and you can set it to \fB0\fP to
-disable contacting STUN servers.
+.B stunKeepaliveStartS
+Interval in seconds between contacting a STUN server to maintain NAT
+mapping. Default is \fB24\fP and you can set it to \fB0\fP to disable contacting
+STUN servers.  The interval is automatically reduced if needed, down to a
+minimum of \fI\%stunKeepaliveMinS\fP\&.
+.UNINDENT
+.INDENT 0.0
 .TP
-.B defaultFolderPath
-The UI will propose to create new folders at this path. This can be disabled by
-setting this to an empty string.
+.B stunKeepaliveMinS
+Minimum for the \fI\%stunKeepaliveStartS\fP interval, in seconds.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1045,6 +1405,183 @@ best effort level five; on other Unixes, set the process niceness level
 to nine; on Windows, set the process priority class to below normal. To
 disable this behavior, for example to control process priority yourself
 as part of launching Syncthing, set this option to \fBfalse\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B maxFolderConcurrency
+This option controls how many folders may concurrently be in I/O\-intensive
+operations such as syncing or scanning.  The mechanism is described in
+detail in a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B crashReportingURL
+Server URL where automatic crash reports will be sent if
+enabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B crashReportingEnabled
+Switch to opt out from the automatic crash reporting
+feature. Set \fBfalse\fP to keep Syncthing from sending panic logs on serious
+troubles.  Defaults to \fBtrue\fP, to help the developers troubleshoot.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B databaseTuning
+Controls how Syncthing uses the backend key\-value database that stores the
+index data and other persistent data it needs.  The available options and
+implications are explained in a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B maxConcurrentIncomingRequestKiB
+This limits how many bytes we have “in the air” in the form of response data
+being read and processed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B announceLANAddresses
+Enable (the default) or disable announcing private (RFC1918) LAN IP
+addresses to global discovery.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sendFullIndexOnUpgrade
+Controls whether all index data is resent when an upgrade has happened,
+equivalent to starting Syncthing with \fB\-\-reset\-deltas\fP\&.  This used
+to be the default behavior in older versions, but is mainly useful as a
+troubleshooting step and causes high database churn. The default is now
+\fBfalse\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B featureFlag
+Feature flags are simple strings that, when added to the configuration, may
+unleash unfinished or still\-in\-development features to allow early user
+testing.  Any supported value will be separately announced with the feature,
+so that regular users do not enable it by accident.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B connectionLimitEnough
+The number of connections at which we stop trying to connect to more
+devices, zero meaning no limit.  Does not affect incoming connections.  The
+mechanism is described in detail in a separate chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B connectionLimitMax
+The maximum number of connections which we will allow in total, zero meaning
+no limit.  Affects incoming connections and prevents attempting outgoing
+connections.  The mechanism is described in detail in a separate
+chapter\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B insecureAllowOldTLSVersions
+Only for compatibility with old versions of Syncthing on remote devices, as
+detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
+.UNINDENT
+.SH DEFAULTS ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<defaults>
+    <folder id="" label="" path="~" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+        <filesystemType>basic</filesystemType>
+        <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+            <encryptionPassword></encryptionPassword>
+        </device>
+        <minDiskFree unit="%">1</minDiskFree>
+        <versioning>
+            <cleanupIntervalS>3600</cleanupIntervalS>
+            <fsPath></fsPath>
+            <fsType>basic</fsType>
+        </versioning>
+        <copiers>0</copiers>
+        <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+        <hashers>0</hashers>
+        <order>random</order>
+        <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerPauseS>0</pullerPauseS>
+        <maxConflicts>10</maxConflicts>
+        <disableSparseFiles>false</disableSparseFiles>
+        <disableTempIndexes>false</disableTempIndexes>
+        <paused>false</paused>
+        <weakHashThresholdPct>25</weakHashThresholdPct>
+        <markerName>.stfolder</markerName>
+        <copyOwnershipFromParent>false</copyOwnershipFromParent>
+        <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
+        <copyRangeMethod>standard</copyRangeMethod>
+        <caseSensitiveFS>false</caseSensitiveFS>
+        <junctionsAsDirs>false</junctionsAsDirs>
+    </folder>
+    <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+        <address>dynamic</address>
+        <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
+        <maxRequestKiB>0</maxRequestKiB>
+        <untrusted>false</untrusted>
+        <remoteGUIPort>0</remoteGUIPort>
+    </device>
+    <ignores>
+        <line>!foo2</line>
+        <line>// comment</line>
+        <line>(?d).DS_Store</line>
+        <line>*2</line>
+        <line>qu*</line>
+    </ignores>
+</defaults>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fBdefaults\fP element describes a template for newly added device and folder
+options.  These will be used when adding a new remote device or folder, either
+through the GUI or the command line interface.  The following child elements can
+be present in the \fBdefaults\fP element:
+.INDENT 0.0
+.TP
+.B device
+Template for a \fBdevice\fP element, with the same internal structure.  Any
+fields here will be used for a newly added remote device.  The \fBid\fP
+attribute is meaningless in this context.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B folder
+Template for a \fBfolder\fP element, with the same internal structure.  Any
+fields here will be used for a newly added shared folder.  The \fBid\fP
+attribute is meaningless in this context.
+.sp
+The UI will propose to create new folders at the path given in the \fBpath\fP
+attribute (used to be \fBdefaultFolderPath\fP under \fBoptions\fP).  It also
+applies to folders automatically accepted from a remote device.
+.sp
+Even sharing with other remote devices can be done in the template by
+including the appropriate \fI\%folder.device\fP element underneath.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ignores
+New in version 1.19.0.
+
+.sp
+Template for the ignore patterns applied to new
+folders.  These are copied to the \fB\&.stignore\fP file when a folder is
+automatically accepted from a remote device.  The GUI uses them to pre\-fill
+the respective field when adding a new folder as well.  In XML, each pattern
+line is represented as by a \fB<line>\fP element.
 .UNINDENT
 .SS Listen Addresses
 .sp

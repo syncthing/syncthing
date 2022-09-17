@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type filesystemWrapperType int32
@@ -30,7 +32,7 @@ const (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
-	Lchown(name string, uid, gid int) error
+	Lchown(name string, uid, gid string) error // uid/gid as strings; numeric on POSIX, SID on Windows, like in os/user package
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
@@ -60,6 +62,7 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
+	PlatformData(name string) (protocol.PlatformData, error)
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
@@ -202,10 +205,29 @@ var IsPathSeparator = os.IsPathSeparator
 // representation of those must be part of the returned string.
 type Option interface {
 	String() string
-	apply(Filesystem)
+	apply(Filesystem) Filesystem
 }
 
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
+	var caseOpt Option
+	var mtimeOpt Option
+	i := 0
+	for _, opt := range opts {
+		if caseOpt != nil && mtimeOpt != nil {
+			break
+		}
+		switch opt.(type) {
+		case *OptionDetectCaseConflicts:
+			caseOpt = opt
+		case *optionMtime:
+			mtimeOpt = opt
+		default:
+			opts[i] = opt
+			i++
+		}
+	}
+	opts = opts[:i]
+
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
@@ -219,6 +241,17 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 			uri:    uri,
 			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
 		}
+	}
+
+	// Case handling is the innermost, as any filesystem calls by wrappers should be case-resolved
+	if caseOpt != nil {
+		fs = caseOpt.apply(fs)
+	}
+
+	// mtime handling should happen inside walking, as filesystem calls while
+	// walking should be mtime-resolved too
+	if mtimeOpt != nil {
+		fs = mtimeOpt.apply(fs)
 	}
 
 	if l.ShouldDebug("walkfs") {
@@ -249,17 +282,22 @@ func IsInternal(file string) bool {
 	return false
 }
 
+var (
+	errPathInvalid           = errors.New("path is invalid")
+	errPathTraversingUpwards = errors.New("relative path traversing upwards (starting with ..)")
+)
+
 // Canonicalize checks that the file path is valid and returns it in the "canonical" form:
 // - /foo/bar -> foo/bar
 // - / -> "."
 func Canonicalize(file string) (string, error) {
-	pathSep := string(PathSeparator)
+	const pathSep = string(PathSeparator)
 
 	if strings.HasPrefix(file, pathSep+pathSep) {
 		// The relative path may pretend to be an absolute path within
 		// the root, but the double path separator on Windows implies
 		// something else and is out of spec.
-		return "", errNotRelative
+		return "", errPathInvalid
 	}
 
 	// The relative path should be clean from internal dotdots and similar
@@ -268,10 +306,10 @@ func Canonicalize(file string) (string, error) {
 
 	// It is not acceptable to attempt to traverse upwards.
 	if file == ".." {
-		return "", errNotRelative
+		return "", errPathTraversingUpwards
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {
-		return "", errNotRelative
+		return "", errPathTraversingUpwards
 	}
 
 	if strings.HasPrefix(file, pathSep) {
@@ -282,21 +320,6 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
-}
-
-// wrapFilesystem should always be used when wrapping a Filesystem.
-// It ensures proper wrapping order, which right now means:
-// `logFilesystem` needs to be the outermost wrapper for caller lookup.
-func wrapFilesystem(fs Filesystem, wrapFn func(Filesystem) Filesystem) Filesystem {
-	logFs, ok := fs.(*logFilesystem)
-	if ok {
-		fs = logFs.Filesystem
-	}
-	fs = wrapFn(fs)
-	if ok {
-		fs = &logFilesystem{fs}
-	}
-	return fs
 }
 
 // unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.

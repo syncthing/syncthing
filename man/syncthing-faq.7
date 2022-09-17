@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -45,7 +45,7 @@ syncthing-faq \- Frequently Asked Questions
 .IP \(bu 2
 \fI\%How does Syncthing differ from BitTorrent/Resilio Sync?\fP
 .IP \(bu 2
-\fI\%Why is there no iOS client?\fP
+\fI\%Is there an iOS client?\fP
 .IP \(bu 2
 \fI\%Should I keep my device IDs secret?\fP
 .UNINDENT
@@ -92,6 +92,8 @@ syncthing-faq \- Frequently Asked Questions
 \fI\%Does Syncthing support syncing between folders on the same system?\fP
 .IP \(bu 2
 \fI\%When I do have two distinct Syncthing\-managed folders on two hosts, how does Syncthing handle moving files between them?\fP
+.IP \(bu 2
+\fI\%Can I help initial sync by copying files manually?\fP
 .IP \(bu 2
 \fI\%Is Syncthing my ideal backup application?\fP
 .IP \(bu 2
@@ -153,7 +155,11 @@ File or directory owners and Groups (not preserved)
 .IP \(bu 2
 Directory modification times (not preserved)
 .IP \(bu 2
-Hard links and Windows directory junctions (followed, not preserved)
+Hard links (followed, not preserved)
+.IP \(bu 2
+Windows junctions (synced as ordinary directories; require enabling in
+\fBthe configuration\fP on a per\-folder
+basis)
 .IP \(bu 2
 Extended attributes, resource forks (not preserved)
 .IP \(bu 2
@@ -172,9 +178,9 @@ the faster an additional device will receive the data
 because small blocks will be fetched from all devices in parallel.
 .sp
 Syncthing handles renaming files and updating their metadata in an efficient
-manner. This means that renaming a large file will not cause a retransmission of
-that file. Additionally, appending data to existing large files should be
-handled efficiently as well.
+manner. This means that renaming a file will not cause a retransmission of
+that file. Additionally, appending data to existing files should be handled
+efficiently as well.
 .sp
 Temporary files are used to store partial data
 downloaded from other devices. They are automatically removed whenever a file
@@ -195,12 +201,16 @@ mechanisms in use are well defined and visible in the source code. Resilio
 Sync uses an undocumented, closed protocol with unknown security properties.
 .IP [1] 5
 \fI\%https://en.wikipedia.org/wiki/Resilio_Sync\fP
-.SS Why is there no iOS client?
+.SS Is there an iOS client?
 .sp
-There is an alternative implementation of Syncthing (using the same network
-protocol) called \fBfsync()\fP\&. There are no plans by the current Syncthing
-team to support iOS in the foreseeable future, as the code required to do so
-would be quite different from what Syncthing is today.
+There are no plans by the current Syncthing team to officially support iOS in the foreseeable future.
+.sp
+iOS has significant restrictions on background processing that make it very hard to
+run Syncthing reliably and integrate it into the system.
+.sp
+However, there is a commercial packaging of Syncthing for iOS that attempts to work within these limitations. [2]
+.IP [2] 5
+\fI\%https://www.mobiussync.com\fP
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it’s possible to find the IP
@@ -225,8 +235,10 @@ device\-ids
 .sp
 Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
-\-paths\fP to see where that is). The command line option \fB\-logfile\fP can be
-used to specify a user\-defined logfile.
+\-\-paths\fP to see where that is). The command line option \fB\-\-logfile\fP can be
+used to specify a user\-defined logfile.  If you only have access to a running
+instance’s GUI, check under the \fIActions\fP \- \fIAbout\fP menu item to see the used
+paths.
 .sp
 If you’re running a process manager like systemd, check there. If you’re
 using a GUI wrapper integration, it may keep the logs for you.
@@ -274,8 +286,8 @@ causes a certain amount of extra CPU usage to calculate the summary data it
 presents. Note however that once things are \fIin sync\fP CPU usage should be
 negligible.
 .sp
-To minimize the impact of this, Syncthing attempts to lower the
-process priority when starting up.
+To minimize the impact of this, Syncthing attempts to \fBlower the
+process priority\fP when starting up.
 .sp
 To further limit the amount of CPU used when syncing and scanning, set the
 environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
@@ -297,7 +309,7 @@ is bound to localhost \- namely that the browser is talking to localhost.
 This protects against most forms of \fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP> against the GUI.
 .sp
 To pass this test, ensure that you are accessing the GUI using an URL that
-begins with \fIhttp://localhost\fP, \fIhttp://127.0.0.1\fP or \fIhttp://[::1]\fP\&. HTTPS
+begins with \fBhttp://localhost\fP, \fBhttp://127.0.0.1\fP or \fBhttp://[::1]\fP\&. HTTPS
 is fine too, of course.
 .sp
 If you are using a proxy in front of Syncthing you may need to disable this
@@ -305,9 +317,9 @@ check, after ensuring that the proxy provides sufficient authentication to
 protect against unauthorized access. Either:
 .INDENT 0.0
 .IP \(bu 2
-Make sure the proxy sets a \fIHost\fP header containing \fIlocalhost\fP, or
+Make sure the proxy sets a \fBHost\fP header containing \fBlocalhost\fP, or
 .IP \(bu 2
-Set \fIinsecureSkipHostcheck\fP in the advanced settings, or
+Set \fBgui.insecureSkipHostcheck\fP in the advanced settings, or
 .IP \(bu 2
 Bind the GUI/API to a non\-localhost listen port.
 .UNINDENT
@@ -316,13 +328,12 @@ In all cases, username/password authentication and HTTPS should be used.
 .SS My Syncthing database is corrupt
 .sp
 This is almost always a result of bad RAM, storage device or other hardware.
-When the index database is found to be corrupt Syncthing cannot operate and
-will note this in the logs and exit. To overcome this delete the \fI\%database
-folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside
-Syncthing’s home directory and re\-start Syncthing. It will then need to
-perform a full re\-hashing of all shared folders. You should check your
-system in case the underlying cause is indeed faulty hardware which may put
-the system at risk of further data loss.
+When the index database is found to be corrupt Syncthing cannot operate and will
+note this in the logs and exit. To overcome this delete the database
+folder inside Syncthing’s data directory and re\-start
+Syncthing. It will then need to perform a full re\-hashing of all shared
+folders. You should check your system in case the underlying cause is indeed
+faulty hardware which may put the system at risk of further data loss.
 .SS Why do I see Syncthing twice in task manager?
 .sp
 One process manages the other, to capture logs and manage restarts. This
@@ -332,7 +343,7 @@ crashes and other bugs.
 .SS How can I view the history of changes?
 .sp
 The web GUI contains a \fBRecent Changes\fP button under the device list which
-displays changes since the last (re)start of Syncthing. With the \fB\-audit\fP
+displays changes since the last (re)start of Syncthing. With the \fB\-\-audit\fP
 option you can enable a persistent, detailed log of changes and most
 activities, which contains a \fBJSON\fP formatted  sequence of events in the
 \fB~/.config/syncthing/audit\-_date_\-_time_.log\fP file.
@@ -397,18 +408,18 @@ The easy way to rename or move a synced folder on the local system is to
 remove the folder in the Syncthing UI, move it on disk, then re\-add it using
 the new path.
 .sp
-It’s best to do this when the folder is already in sync between your
+It’s important to do this when the folder is already in sync between your
 devices, as it is otherwise unpredictable which changes will “win” after the
 move. Changes made on other devices may be overwritten, or changes made
 locally may be overwritten by those on other devices.
 .sp
 An alternative way is to shut down Syncthing, move the folder on disk (including
 the \fB\&.stfolder\fP marker), edit the path directly in \fBconfig.xml\fP in the
-configuration folder (see config) and then start Syncthing again.
+configuration folder (see /users/config) and then start Syncthing again.
 .SS How do I configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
-to configure listening ports such that they do not overlap (see config).
+to configure listening ports such that they do not overlap (see /users/config).
 .SS Does Syncthing support syncing between folders on the same system?
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
@@ -432,6 +443,19 @@ block) from A, and then as A gets rescanned, it will remove the files from A.
 .sp
 A workaround would be to copy first from A to B, rescan B, wait for B to
 copy the files on the remote side, and then delete from A.
+.SS Can I help initial sync by copying files manually?
+.sp
+If you have a large folder that you want to keep in sync over a not\-so\-fast network, and you have the possibility to move all files to the remote device in a faster manner, here is a procedure to follow:
+.INDENT 0.0
+.IP \(bu 2
+Create the folder on the local device, but don’t share it with the remote device yet.
+.IP \(bu 2
+Copy the files from the local device to the remote device using regular file copy. If this takes a long time (perhaps requiring travelling there physically), it may be a good idea to make sure that the files on the local device are not updated while you are doing this.
+.IP \(bu 2
+Create the folder on the remote device, and copy the Folder ID from the folder on the local device, as we want the folders to be considered the same. Then wait until scanning the folder is done.
+.IP \(bu 2
+Now share the folder with the other device, on both sides. Syncthing will exchange file information, updating the database, but existing files will not be transferred. This may still take a while initially, be patient and wait until it settled.
+.UNINDENT
 .SS Is Syncthing my ideal backup application?
 .sp
 No. Syncthing is not a great backup application because all changes to your
@@ -517,8 +541,8 @@ $ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 If only your remote computer is Unix\-like,
 you can still access it with ssh from Windows.
 .sp
-Under Windows 10 (64 bit) you can use the same ssh command if you install
-the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install-win10\fP>\&.
+Under Windows 10 or later (64\-bit only) you can use the same ssh command
+if you install the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install\fP>\&.
 .sp
 Another Windows way to run ssh is to install \fI\%gow (Gnu On Windows)\fP <\fBhttps://github.com/bmatzelle/gow\fP>\&. The easiest way to install gow is with the \fI\%chocolatey\fP <\fBhttps://chocolatey.org/\fP> package manager.
 .SS I don’t like the GUI or the theme. Can it be changed?
@@ -531,7 +555,7 @@ own.
 By default, Syncthing will look for a directory \fBgui\fP inside the Syncthing
 home folder. To change the directory to look for themes, you need to set the
 STGUIASSETS environment variable. To get the concrete directory, run
-syncthing with the \fB\-paths\fP parameter. It will print all the relevant paths,
+syncthing with the \fB\-\-paths\fP parameter. It will print all the relevant paths,
 including the “GUI override directory”.
 .sp
 To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
@@ -553,7 +577,7 @@ upgrade itself automatically within 24 hours of a new release.
 The upgrade button appears in the web GUI when a new version has been
 released. Pressing it will perform an upgrade.
 .IP \(bu 2
-To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
+To force an upgrade from the command line, run \fBsyncthing \-\-upgrade\fP\&.
 .UNINDENT
 .sp
 Note that your system should have CA certificates installed which allows a
@@ -632,7 +656,22 @@ echo 204800 | sudo tee /proc/sys/fs/inotify/max_user_watches
 .UNINDENT
 .SS How do I reset the GUI password?
 .sp
-If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on the OS and is described in the configuration documentation.
+If you’ve forgotten / lost the GUI password, you can reset it using the
+\fB\-\-gui\-password\fP (and possibly \fB\-\-gui\-user\fP) options to the
+\fBsyncthing generate\fP subcommand.  This should be done while Syncthing is not
+running.
+.INDENT 0.0
+.IP 1. 3
+Stop Syncthing: \fBsyncthing cli operations shutdown\fP
+.IP 2. 3
+\fBsyncthing generate \-\-gui\-password=myNewPassword \-\-gui\-user=newUserName\fP
+.IP 3. 3
+Restart Syncthing as usual.
+.UNINDENT
+.sp
+\fIAlternatively, in step 2\fP, you can manually delete the \fB<user>\fP and \fB<password>\fP XML tags from the
+\fB<gui>\fP block in file \fBconfig.xml\fP\&.  The location of the file depends on the
+OS and is described in the configuration documentation\&.
 .sp
 For example, the two emphasized lines below would be removed from the file.
 .INDENT 0.0

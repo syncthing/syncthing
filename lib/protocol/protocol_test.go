@@ -10,14 +10,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
-	"runtime"
+	"os"
 	"sync"
 	"testing"
 	"testing/quick"
 	"time"
 
-	lz4 "github.com/bkaradzic/go-lz4"
+	lz4 "github.com/pierrec/lz4/v4"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 )
@@ -432,8 +432,8 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	bs1, _ := json.MarshalIndent(m1, "", "  ")
 	bs2, _ := json.MarshalIndent(m2, "", "  ")
 	if !bytes.Equal(bs1, bs2) {
-		ioutil.WriteFile(prefix+"-1.txt", bs1, 0644)
-		ioutil.WriteFile(prefix+"-2.txt", bs2, 0644)
+		os.WriteFile(prefix+"-1.txt", bs1, 0644)
+		os.WriteFile(prefix+"-2.txt", bs2, 0644)
 		return false
 	}
 
@@ -466,7 +466,7 @@ func TestWriteCompressed(t *testing.T) {
 			t.Error("received the wrong message")
 		}
 
-		hdr := Header{Type: c.typeOf(msg)}
+		hdr := Header{Type: typeOf(msg)}
 		size := int64(2 + hdr.ProtoSize() + 4 + msg.ProtoSize())
 		if c.cr.tot > size {
 			t.Errorf("compression enlarged message from %d to %d",
@@ -484,7 +484,7 @@ func TestLZ4Compression(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		comp := make([]byte, lz4.CompressBound(dataLen))
+		comp := make([]byte, lz4.CompressBlockBound(dataLen))
 		compLen, err := lz4Compress(data, comp)
 		if err != nil {
 			t.Errorf("compressing %d bytes: %v", dataLen, err)
@@ -503,6 +503,36 @@ func TestLZ4Compression(t *testing.T) {
 			t.Error("Incorrect decompressed data")
 		}
 		t.Logf("OK #%d, %d -> %d -> %d", i, dataLen, len(comp), dataLen)
+	}
+}
+
+func TestLZ4CompressionUpdate(t *testing.T) {
+	uncompressed := []byte("this is some arbitrary yet fairly compressible data")
+
+	// Compressed, as created by the LZ4 implementation in Syncthing 1.18.6 and earlier.
+	oldCompressed, _ := hex.DecodeString("00000033f0247468697320697320736f6d65206172626974726172792079657420666169726c7920636f6d707265737369626c652064617461")
+
+	// Verify that we can decompress
+
+	res, err := lz4Decompress(oldCompressed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(uncompressed, res) {
+		t.Fatal("result does not match")
+	}
+
+	// Verify that our current compression is equivalent
+
+	buf := make([]byte, 128)
+	n, err := lz4Compress(uncompressed, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(oldCompressed, buf[:n]) {
+		t.Logf("%x", oldCompressed)
+		t.Logf("%x", buf[:n])
+		t.Fatal("compression does not match")
 	}
 }
 
@@ -818,7 +848,7 @@ func TestIsEquivalent(t *testing.T) {
 		},
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// On windows we only check the user writable bit of the permission
 		// set, so these are equivalent.
 		cases = append(cases, testCase{
@@ -842,10 +872,10 @@ func TestIsEquivalent(t *testing.T) {
 					continue
 				}
 
-				if res := tc.a.isEquivalent(tc.b, 0, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+				if res := tc.a.isEquivalent(tc.b, FileInfoComparison{IgnorePerms: ignPerms, IgnoreBlocks: ignBlocks, IgnoreFlags: tc.ignFlags}); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
-				if res := tc.b.isEquivalent(tc.a, 0, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+				if res := tc.b.isEquivalent(tc.a, FileInfoComparison{IgnorePerms: ignPerms, IgnoreBlocks: ignBlocks, IgnoreFlags: tc.ignFlags}); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
 			}

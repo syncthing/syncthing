@@ -44,7 +44,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{
-		folderFs:   cfg.Filesystem(),
+		folderFs:   cfg.Filesystem(nil),
 		versionsFs: versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions

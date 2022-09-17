@@ -15,6 +15,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,8 +24,7 @@ import (
 	"sync"
 	"time"
 
-	lz4 "github.com/bkaradzic/go-lz4"
-	"github.com/pkg/errors"
+	lz4 "github.com/pierrec/lz4/v4"
 )
 
 const (
@@ -62,6 +62,10 @@ var sha256OfEmptyBlock = map[int][sha256.Size]byte{
 	8 << MiB:   {0x2d, 0xae, 0xb1, 0xf3, 0x60, 0x95, 0xb4, 0x4b, 0x31, 0x84, 0x10, 0xb3, 0xf4, 0xe8, 0xb5, 0xd9, 0x89, 0xdc, 0xc7, 0xbb, 0x2, 0x3d, 0x14, 0x26, 0xc4, 0x92, 0xda, 0xb0, 0xa3, 0x5, 0x3e, 0x74},
 	16 << MiB:  {0x8, 0xa, 0xcf, 0x35, 0xa5, 0x7, 0xac, 0x98, 0x49, 0xcf, 0xcb, 0xa4, 0x7d, 0xc2, 0xad, 0x83, 0xe0, 0x1b, 0x75, 0x66, 0x3a, 0x51, 0x62, 0x79, 0xc8, 0xb9, 0xd2, 0x43, 0xb7, 0x19, 0x64, 0x3e},
 }
+
+var (
+	errNotCompressible = errors.New("not compressible")
+)
 
 func init() {
 	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
@@ -176,13 +180,11 @@ type rawConnection struct {
 	cw     *countingWriter
 	closer io.Closer // Closing the underlying connection and thus cr and cw
 
+	awaitingMut sync.Mutex // Protects awaiting and nextID.
 	awaiting    map[int]chan asyncResult
-	awaitingMut sync.Mutex
+	nextID      int
 
 	idxMut sync.Mutex // ensures serialization of Index calls
-
-	nextID    int
-	nextIDMut sync.Mutex
 
 	inbox                 chan message
 	outbox                chan asyncMessage
@@ -332,17 +334,15 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, folder string, idx []Fi
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *rawConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	c.nextIDMut.Lock()
-	id := c.nextID
-	c.nextID++
-	c.nextIDMut.Unlock()
+	rc := make(chan asyncResult, 1)
 
 	c.awaitingMut.Lock()
+	id := c.nextID
+	c.nextID++
 	if _, ok := c.awaiting[id]; ok {
 		c.awaitingMut.Unlock()
 		panic("id taken")
 	}
-	rc := make(chan asyncResult, 1)
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
@@ -499,7 +499,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	// First comes a 4 byte message length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
-		return nil, errors.Wrap(err, "reading message length")
+		return nil, fmt.Errorf("reading message length: %w", err)
 	}
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
@@ -513,7 +513,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	buf := BufferPool.Get(int(msgLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		BufferPool.Put(buf)
-		return nil, errors.Wrap(err, "reading message")
+		return nil, fmt.Errorf("reading message: %w", err)
 	}
 
 	// ... which might be compressed
@@ -526,7 +526,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		decomp, err := lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
-			return nil, errors.Wrap(err, "decompressing message")
+			return nil, fmt.Errorf("decompressing message: %w", err)
 		}
 		buf = decomp
 
@@ -536,14 +536,14 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	// ... and is then unmarshalled
 
-	msg, err := c.newMessage(hdr.Type)
+	msg, err := newMessage(hdr.Type)
 	if err != nil {
 		BufferPool.Put(buf)
 		return nil, err
 	}
 	if err := msg.Unmarshal(buf); err != nil {
 		BufferPool.Put(buf)
-		return nil, errors.Wrap(err, "unmarshalling message")
+		return nil, fmt.Errorf("unmarshalling message: %w", err)
 	}
 	BufferPool.Put(buf)
 
@@ -554,7 +554,7 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	// First comes a 2 byte header length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
-		return Header{}, errors.Wrap(err, "reading length")
+		return Header{}, fmt.Errorf("reading length: %w", err)
 	}
 	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
 	if hdrLen < 0 {
@@ -566,14 +566,14 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	buf := BufferPool.Get(int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		BufferPool.Put(buf)
-		return Header{}, errors.Wrap(err, "reading header")
+		return Header{}, fmt.Errorf("reading header: %w", err)
 	}
 
 	var hdr Header
 	err := hdr.Unmarshal(buf)
 	BufferPool.Put(buf)
 	if err != nil {
-		return Header{}, errors.Wrap(err, "unmarshalling header")
+		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
 	}
 
 	return hdr, nil
@@ -594,7 +594,7 @@ func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
 func checkIndexConsistency(fs []FileInfo) error {
 	for _, f := range fs {
 		if err := checkFileInfoConsistency(f); err != nil {
-			return errors.Wrapf(err, "%q", f.Name)
+			return fmt.Errorf("%q: %w", f.Name, err)
 		}
 	}
 	return nil
@@ -743,7 +743,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 
 	size := msg.ProtoSize()
 	hdr := Header{
-		Type: c.typeOf(msg),
+		Type: typeOf(msg),
 	}
 	hdrSize := hdr.ProtoSize()
 	if hdrSize > 1<<16-1 {
@@ -757,11 +757,11 @@ func (c *rawConnection) writeMessage(msg message) error {
 
 	// Message
 	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
-		return errors.Wrap(err, "marshalling message")
+		return fmt.Errorf("marshalling message: %w", err)
 	}
 
 	if c.shouldCompressMessage(msg) {
-		ok, err := c.writeCompressedMessage(msg, buf[overhead:], overhead)
+		ok, err := c.writeCompressedMessage(msg, buf[overhead:])
 		if ok {
 			return err
 		}
@@ -771,7 +771,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return errors.Wrap(err, "marshalling header")
+		return fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
@@ -780,18 +780,18 @@ func (c *rawConnection) writeMessage(msg message) error {
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
 	if err != nil {
-		return errors.Wrap(err, "writing message")
+		return fmt.Errorf("writing message: %w", err)
 	}
 	return nil
 }
 
-// Write msg out compressed, given its uncompressed marshaled payload and overhead.
+// Write msg out compressed, given its uncompressed marshaled payload.
 //
 // The first return value indicates whether compression succeeded.
 // If not, the caller should retry without compression.
-func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, overhead int) (ok bool, err error) {
+func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (ok bool, err error) {
 	hdr := Header{
-		Type:        c.typeOf(msg),
+		Type:        typeOf(msg),
 		Compression: MessageCompressionLZ4,
 	}
 	hdrSize := hdr.ProtoSize()
@@ -800,13 +800,16 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, ov
 	}
 
 	cOverhead := 2 + hdrSize + 4
-	maxCompressed := cOverhead + lz4.CompressBound(len(marshaled))
+	// The compressed size may be at most n-n/32 = .96875*n bytes,
+	// I.e., if we can't save at least 3.125% bandwidth, we forgo compression.
+	// This number is arbitrary but cheap to compute.
+	maxCompressed := cOverhead + len(marshaled) - len(marshaled)/32
 	buf := BufferPool.Get(maxCompressed)
 	defer BufferPool.Put(buf)
 
 	compressedSize, err := lz4Compress(marshaled, buf[cOverhead:])
 	totSize := compressedSize + cOverhead
-	if err != nil || totSize >= len(marshaled)+overhead {
+	if err != nil {
 		return false, nil
 	}
 
@@ -814,7 +817,7 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, ov
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return true, errors.Wrap(err, "marshalling header")
+		return true, fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(compressedSize))
@@ -822,12 +825,12 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte, ov
 	n, err := c.cw.Write(buf[:totSize])
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, compressedSize, len(marshaled), err)
 	if err != nil {
-		return true, errors.Wrap(err, "writing message")
+		return true, fmt.Errorf("writing message: %w", err)
 	}
 	return true, nil
 }
 
-func (c *rawConnection) typeOf(msg message) MessageType {
+func typeOf(msg message) MessageType {
 	switch msg.(type) {
 	case *ClusterConfig:
 		return MessageTypeClusterConfig
@@ -850,7 +853,7 @@ func (c *rawConnection) typeOf(msg message) MessageType {
 	}
 }
 
-func (c *rawConnection) newMessage(t MessageType) (message, error) {
+func newMessage(t MessageType) (message, error) {
 	switch t {
 	case MessageTypeClusterConfig:
 		return new(ClusterConfig), nil
@@ -994,10 +997,10 @@ func (c *rawConnection) pingReceiver() {
 }
 
 type Statistics struct {
-	At            time.Time
-	InBytesTotal  int64
-	OutBytesTotal int64
-	StartedAt     time.Time
+	At            time.Time `json:"at"`
+	InBytesTotal  int64     `json:"inBytesTotal"`
+	OutBytesTotal int64     `json:"outBytesTotal"`
+	StartedAt     time.Time `json:"startedAt"`
 }
 
 func (c *rawConnection) Statistics() Statistics {
@@ -1010,32 +1013,30 @@ func (c *rawConnection) Statistics() Statistics {
 }
 
 func lz4Compress(src, buf []byte) (int, error) {
-	compressed, err := lz4.Encode(buf, src)
+	n, err := lz4.CompressBlock(src, buf[4:], nil)
 	if err != nil {
 		return -1, err
-	}
-	if &compressed[0] != &buf[0] {
-		panic("bug: lz4.Compress allocated, which it must not (should use buffer pool)")
+	} else if n == 0 {
+		return -1, errNotCompressible
 	}
 
-	binary.BigEndian.PutUint32(compressed, binary.LittleEndian.Uint32(compressed))
-	return len(compressed), nil
+	// The compressed block is prefixed by the size of the uncompressed data.
+	binary.BigEndian.PutUint32(buf, uint32(len(src)))
+
+	return n + 4, nil
 }
 
 func lz4Decompress(src []byte) ([]byte, error) {
 	size := binary.BigEndian.Uint32(src)
-	binary.LittleEndian.PutUint32(src, size)
-	var err error
 	buf := BufferPool.Get(int(size))
-	decoded, err := lz4.Decode(buf, src)
+
+	n, err := lz4.UncompressBlock(src[4:], buf)
 	if err != nil {
 		BufferPool.Put(buf)
 		return nil, err
 	}
-	if &decoded[0] != &buf[0] {
-		panic("bug: lz4.Decode allocated, which it must not (should use buffer pool)")
-	}
-	return decoded, nil
+
+	return buf[:n], nil
 }
 
 func newProtocolError(err error, msgContext string) error {

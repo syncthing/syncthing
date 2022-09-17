@@ -17,8 +17,7 @@ import (
 // Test creating temporary file inside read-only directory
 func TestReadOnlyDir(t *testing.T) {
 	// Create a read only directory, clean it up afterwards.
-	tmpDir := createTmpDir()
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	if err := os.Chmod(tmpDir, 0555); err != nil {
 		t.Fatal(err)
 	}

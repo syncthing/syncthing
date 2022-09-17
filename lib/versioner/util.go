@@ -8,13 +8,13 @@ package versioner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -200,11 +200,11 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 		case info.IsSymlink():
 			// Remove existing symlinks (as we don't want to archive them)
 			if err := dst.Remove(filePath); err != nil {
-				return errors.Wrap(err, "removing existing symlink")
+				return fmt.Errorf("removing existing symlink: %w", err)
 			}
 		case info.IsRegular():
 			if err := archiveFile(method, dst, src, filePath, tagger); err != nil {
-				return errors.Wrap(err, "archiving existing file")
+				return fmt.Errorf("archiving existing file: %w", err)
 			}
 		default:
 			panic("bug: unknown item type")
@@ -256,7 +256,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 }
 
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
-	folderFs := cfg.Filesystem()
+	folderFs := cfg.Filesystem(nil)
 	if cfg.Versioning.FSPath == "" {
 		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
 	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {

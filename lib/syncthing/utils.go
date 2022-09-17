@@ -8,12 +8,10 @@ package syncthing
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -24,26 +22,48 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
-func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
+func EnsureDir(dir string, mode fs.FileMode) error {
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	err := fs.MkdirAll(".", mode)
 	if err != nil {
-		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		return tlsutil.NewCertificate(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
-			tlsDefaultCommonName,
-			deviceCertLifetimeDays,
-		)
+		return err
+	}
+
+	if fi, err := fs.Stat("."); err == nil {
+		// Apprently the stat may fail even though the mkdirall passed. If it
+		// does, we'll just assume things are in order and let other things
+		// fail (like loading or creating the config...).
+		currentMode := fi.Mode() & 0777
+		if currentMode != mode {
+			err := fs.Chmod(".", mode)
+			// This can fail on crappy filesystems, nothing we can do about it.
+			if err != nil {
+				l.Warnln(err)
+			}
+		}
+	}
+	return nil
+}
+
+func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return GenerateCertificate(certFile, keyFile)
 	}
 	return cert, nil
 }
 
-func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
-	newCfg, err := config.NewWithFreePorts(myID)
-	if err != nil {
+func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
+	l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
+	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
+}
+
+func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
+	newCfg := config.New(myID)
+
+	if skipPortProbing {
+		l.Infoln("Using default network port numbers instead of probing for free ports")
+	} else if err := newCfg.ProbeFreePorts(); err != nil {
 		return nil, err
 	}
 
@@ -66,23 +86,23 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 // creates a default one, without the default folder if noDefaultFolder is true.
 // Otherwise it checks the version, and archives and upgrades the config if
 // necessary or returns an error, if the version isn't compatible.
-func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder bool) (config.Wrapper, error) {
+func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
 	myID := protocol.NewDeviceID(cert.Certificate[0])
 	cfg, originalVersion, err := config.Load(path, myID, evLogger)
 	if fs.IsNotExist(err) {
-		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder)
+		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder, skipPortProbing)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate default config")
+			return nil, fmt.Errorf("failed to generate default config: %w", err)
 		}
 		err = cfg.Save()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to save default config")
+			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
 		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
 		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to load config")
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	if originalVersion != config.CurrentVersion {
@@ -90,11 +110,11 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
 		}
 		if originalVersion > config.CurrentVersion && !allowNewerConfig {
-			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", originalVersion, config.CurrentVersion)
+			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use --allow-newer-config to override.", originalVersion, config.CurrentVersion)
 		}
 		err = archiveAndSaveConfig(cfg, originalVersion)
 		if err != nil {
-			return nil, errors.Wrap(err, "config archive")
+			return nil, fmt.Errorf("config archive: %w", err)
 		}
 	}
 
@@ -114,12 +134,12 @@ func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 }
 
 func copyFile(src, dst string) error {
-	bs, err := ioutil.ReadFile(src)
+	bs, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(dst, bs, 0600); err != nil {
+	if err := os.WriteFile(dst, bs, 0600); err != nil {
 		// Attempt to clean up
 		os.Remove(dst)
 		return err

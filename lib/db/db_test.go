@@ -14,7 +14,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -42,11 +41,11 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	fs := newFileSet(t, "test", db)
 
 	// The contents of the database are like this:
 	//
-	// 	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	// 	fs := newFileSet(t, "test", db)
 	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 	// 		{ // invalid (ignored) file
 	// 			Name:    "foo",
@@ -134,13 +133,13 @@ var (
 	update0to3Folder             = "UpdateSchema0to3"
 	invalid                      = "invalid"
 	slashPrefixed                = "/notgood"
-	haveUpdate0to3               map[protocol.DeviceID]fileList
+	haveUpdate0to3               map[protocol.DeviceID][]protocol.FileInfo
 )
 
 func init() {
 	remoteDevice0, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	remoteDevice1, _ = protocol.DeviceIDFromString("I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU")
-	haveUpdate0to3 = map[protocol.DeviceID]fileList{
+	haveUpdate0to3 = map[protocol.DeviceID][]protocol.FileInfo{
 		protocol.LocalDeviceID: {
 			protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
 			protocol.FileInfo{Name: slashPrefixed, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -213,7 +212,7 @@ func TestUpdate0to3(t *testing.T) {
 			t.Error("Unexpected additional file via sequence", f.FileName())
 			return true
 		}
-		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalentOptional(e, 0, true, true, 0) {
+		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalentOptional(e, protocol.FileInfoComparison{IgnorePerms: true, IgnoreBlocks: true}) {
 			found = true
 		} else {
 			t.Errorf("Wrong file via sequence, got %v, expected %v", f, e)
@@ -282,7 +281,7 @@ func TestUpdate0to3(t *testing.T) {
 		}
 		f := fi.(protocol.FileInfo)
 		delete(need, f.Name)
-		if !f.IsEquivalentOptional(e, 0, true, true, 0) {
+		if !f.IsEquivalentOptional(e, protocol.FileInfoComparison{IgnorePerms: true, IgnoreBlocks: true}) {
 			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
 		}
 	}
@@ -498,7 +497,7 @@ func TestCheckGlobals(t *testing.T) {
 	db := newLowlevelMemory(t)
 	defer db.Close()
 
-	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, "test", db)
 
 	// Add any file
 	name := "foo"
@@ -854,7 +853,7 @@ func TestCheckLocalNeed(t *testing.T) {
 	defer db.Close()
 
 	folderStr := "test"
-	fs := newFileSet(t, folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, folderStr, db)
 
 	// Add files such that we are in sync for a and b, and need c and d.
 	files := []protocol.FileInfo{
@@ -929,9 +928,8 @@ func TestDuplicateNeedCount(t *testing.T) {
 	defer db.Close()
 
 	folder := "test"
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := newFileSet(t, folder, testFs, db)
+	fs := newFileSet(t, folder, db)
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1}}
 	fs.Update(protocol.LocalDeviceID, files)
 	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
@@ -939,7 +937,7 @@ func TestDuplicateNeedCount(t *testing.T) {
 
 	db.checkRepair()
 
-	fs = newFileSet(t, folder, testFs, db)
+	fs = newFileSet(t, folder, db)
 	found := false
 	for _, c := range fs.meta.counts.Counts {
 		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {
@@ -959,9 +957,8 @@ func TestNeedAfterDropGlobal(t *testing.T) {
 	defer db.Close()
 
 	folder := "test"
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := newFileSet(t, folder, testFs, db)
+	fs := newFileSet(t, folder, db)
 
 	// Initial:
 	// Three devices and a file "test": local has Version 1, remoteDevice0

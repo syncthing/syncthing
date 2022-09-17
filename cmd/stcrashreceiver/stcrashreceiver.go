@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +59,7 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // serveGet responds to GET requests by serving the uncompressed report.
-func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http.Request) {
+func (*crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http.Request) {
 	fd, err := os.Open(fullPath)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -78,7 +77,7 @@ func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http
 
 // serveHead responds to HEAD requests by checking if the named report
 // already exists in the system.
-func (r *crashReceiver) serveHead(fullPath string, w http.ResponseWriter, _ *http.Request) {
+func (*crashReceiver) serveHead(fullPath string, w http.ResponseWriter, _ *http.Request) {
 	if _, err := os.Lstat(fullPath); err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 	}
@@ -96,7 +95,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 	// Read at most maxRequestSize of report data.
 	log.Println("Receiving report", reportID)
 	lr := io.LimitReader(req.Body, maxRequestSize)
-	bs, err := ioutil.ReadAll(lr)
+	bs, err := io.ReadAll(lr)
 	if err != nil {
 		log.Println("Reading report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -110,7 +109,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 	gw.Close()
 
 	// Create an output file with the compressed report
-	err = ioutil.WriteFile(fullPath, buf.Bytes(), 0644)
+	err = os.WriteFile(fullPath, buf.Bytes(), 0644)
 	if err != nil {
 		log.Println("Saving report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -137,6 +136,6 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 }
 
 // 01234567890abcdef... => 01/23
-func (r *crashReceiver) dirFor(base string) string {
+func (*crashReceiver) dirFor(base string) string {
 	return filepath.Join(base[0:2], base[2:4])
 }

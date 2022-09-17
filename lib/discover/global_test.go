@@ -9,13 +9,14 @@ package discover
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -56,15 +57,17 @@ func TestGlobalOverHTTP(t *testing.T) {
 	// is only allowed in combination with the "insecure" and "noannounce"
 	// parameters.
 
-	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil, events.NoopLogger); err == nil {
+	registry := registry.New()
+
+	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil, events.NoopLogger, registry); err == nil {
 		t.Fatal("http is not allowed without insecure and noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil, events.NoopLogger); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil, events.NoopLogger, registry); err == nil {
 		t.Fatal("http is not allowed without noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil, events.NoopLogger); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil, events.NoopLogger, registry); err == nil {
 		t.Fatal("http is not allowed without insecure")
 	}
 
@@ -107,13 +110,8 @@ func TestGlobalOverHTTP(t *testing.T) {
 }
 
 func TestGlobalOverHTTPS(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificateInMemory("syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,10 +142,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	url = "https://" + list.Addr().String() + "?insecure"
 	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	} else {
-		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect addresses list: %+v", addresses)
-		}
+	} else if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+		t.Errorf("incorrect addresses list: %+v", addresses)
 	}
 
 	// With "id" set to something incorrect, the checks should fail again.
@@ -164,21 +160,14 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	url = "https://" + list.Addr().String() + "?id=" + id.String()
 	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	} else {
-		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect addresses list: %+v", addresses)
-		}
+	} else if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+		t.Errorf("incorrect addresses list: %+v", addresses)
 	}
 }
 
 func TestGlobalAnnounce(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
+	cert, err := tlsutil.NewCertificateInMemory("syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +184,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	go func() { _ = http.Serve(list, mux) }()
 
 	url := "https://" + list.Addr().String() + "?insecure"
-	disco, err := NewGlobal(url, cert, new(fakeAddressLister), events.NoopLogger)
+	disco, err := NewGlobal(url, cert, new(fakeAddressLister), events.NoopLogger, registry.New())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +209,7 @@ func TestGlobalAnnounce(t *testing.T) {
 }
 
 func testLookup(url string) ([]string, error) {
-	disco, err := NewGlobal(url, tls.Certificate{}, nil, events.NoopLogger)
+	disco, err := NewGlobal(url, tls.Certificate{}, nil, events.NoopLogger, registry.New())
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +231,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "POST" {
-		s.announce, _ = ioutil.ReadAll(r.Body)
+		s.announce, _ = io.ReadAll(r.Body)
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")

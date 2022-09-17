@@ -16,7 +16,7 @@ import (
 
 func ParseSize(s string) (Size, error) {
 	s = strings.TrimSpace(s)
-	if len(s) == 0 {
+	if s == "" {
 		return Size{}, nil
 	}
 
@@ -83,10 +83,10 @@ func CheckFreeSpace(minFree Size, usage fs.Usage) error {
 	if minFree.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if freePct < val {
-			return fmt.Errorf("%.1f %% < %v", freePct, minFree)
+			return fmt.Errorf("current %.2f %% < required %v", freePct, minFree)
 		}
 	} else if float64(usage.Free) < val {
-		return fmt.Errorf("%sB < %v", formatSI(usage.Free), minFree)
+		return fmt.Errorf("current %sB < required %v", formatSI(usage.Free), minFree)
 	}
 
 	return nil
@@ -94,12 +94,12 @@ func CheckFreeSpace(minFree Size, usage fs.Usage) error {
 
 // checkAvailableSpace checks that the free space does not fall below the minimum
 // required free space, considering additional required space for a future operation.
-func checkAvailableSpace(req uint64, minFree Size, usage fs.Usage) bool {
+func checkAvailableSpace(req uint64, minFree Size, usage fs.Usage) error {
 	if usage.Free < req {
-		return false
+		return fmt.Errorf("current %sB < required %sB", formatSI(usage.Free), formatSI(req))
 	}
 	usage.Free -= req
-	return CheckFreeSpace(minFree, usage) == nil
+	return CheckFreeSpace(minFree, usage)
 }
 
 func formatSI(b uint64) string {

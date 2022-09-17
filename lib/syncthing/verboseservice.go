@@ -9,8 +9,10 @@ package syncthing
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
 )
 
 // The verbose logging service subscribes to events and prints these in
@@ -31,7 +33,11 @@ func (s *verboseService) Serve(ctx context.Context) error {
 	defer sub.Unsubscribe()
 	for {
 		select {
-		case ev := <-sub.C():
+		case ev, ok := <-sub.C():
+			if !ok {
+				<-ctx.Done()
+				return ctx.Err()
+			}
 			formatted := s.formatEvent(ev)
 			if formatted != "" {
 				l.Verboseln(formatted)
@@ -42,7 +48,9 @@ func (s *verboseService) Serve(ctx context.Context) error {
 	}
 }
 
-func (s *verboseService) formatEvent(ev events.Event) string {
+var folderSummaryRemoveDeprecatedRe = regexp.MustCompile(`(Invalid|IgnorePatterns|StateChanged):\S+\s?`)
+
+func (*verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
 	case events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
@@ -109,18 +117,11 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 
 	case events.FolderCompletion:
 		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", data["folder"], data["device"], data["completion"])
+		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s)", data["folder"], data["device"], data["completion"], data["remoteState"])
 
 	case events.FolderSummary:
-		data := ev.Data.(map[string]interface{})
-		sum := make(map[string]interface{})
-		for k, v := range data["summary"].(map[string]interface{}) {
-			if k == "invalid" || k == "ignorePatterns" || k == "stateChanged" {
-				continue
-			}
-			sum[k] = v
-		}
-		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], sum)
+		data := ev.Data.(model.FolderSummaryEventData)
+		return folderSummaryRemoveDeprecatedRe.ReplaceAllString(fmt.Sprintf("Summary for folder %q is %+v", data.Folder, data.Summary), "")
 
 	case events.FolderScanProgress:
 		data := ev.Data.(map[string]interface{})
@@ -143,6 +144,10 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
+
+	case events.ClusterConfigReceived:
+		data := ev.Data.(model.ClusterConfigReceivedEventData)
+		return fmt.Sprintf("Received ClusterConfig from device %v", data.Device)
 
 	case events.FolderPaused:
 		data := ev.Data.(map[string]string)

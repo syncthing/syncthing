@@ -162,8 +162,10 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg confi
 		select {
 		case event := <-in:
 			a.newEvent(event, inProgress)
-		case event := <-inProgressItemSubscription.C():
-			updateInProgressSet(event, inProgress)
+		case event, ok := <-inProgressItemSubscription.C():
+			if ok {
+				updateInProgressSet(event, inProgress)
+			}
 		case <-a.notifyTimer.C:
 			a.actOnTimer(out)
 		case interval := <-a.notifyTimerResetChan:
@@ -419,11 +421,7 @@ func (a *aggregator) String() string {
 	return fmt.Sprintf("aggregator/%s:", a.folderCfg.Description())
 }
 
-func (a *aggregator) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-func (a *aggregator) CommitConfiguration(from, to config.Configuration) bool {
+func (a *aggregator) CommitConfiguration(_, to config.Configuration) bool {
 	for _, folderCfg := range to.Folders {
 		if folderCfg.ID == a.folderID {
 			select {

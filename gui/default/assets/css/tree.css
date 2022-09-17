@@ -1,0 +1,58 @@
+/*
+// Copyright (C) 2021 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
+*/
+
+.fancytree-container {
+    cursor: pointer;
+    width: 100%;
+}
+
+.fancytree-hide {
+    visibility: collapse;
+}
+
+/* Node needs to be block, and expander, icon and title
+   inline-block to properly wrap unbreakable text. */
+.fancytree-node {
+    display: block;
+    white-space: nowrap;
+    /* expander 16px + icon 16px + title padding 8px */
+    padding-right: 40px;
+}
+.fancytree-expander,
+.fancytree-icon,
+.fancytree-title {
+    display: inline-block;
+}
+
+.fancytree-expander,
+.fancytree-icon {
+    margin-top: 4px;
+    vertical-align: top;
+    width: 16px;
+}
+
+.fancytree-childcounter {
+    background: #777;
+    border-radius: 10px;
+    border: 1px solid gray;
+    color: #fff;
+    font-size: 13px;
+    opacity: .75;
+    padding: 2px 3px;
+    position: relative;
+    right: 8px;
+    top: -9px;
+    user-select: none;
+}
+
+.fancytree-title {
+    padding-left: 8px;
+    white-space: normal;
+    word-break: break-all;
+}

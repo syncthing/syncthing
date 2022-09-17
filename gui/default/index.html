@@ -12,8 +12,6 @@
   <meta charset="utf-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="description" content=""/>
-  <meta name="author" content=""/>
   <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png"/>
   <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
@@ -23,9 +21,9 @@
   <link href="assets/font/raleway.css" rel="stylesheet"/>
   <link href="vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
   <link href="vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
+  <link href="assets/css/tree.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
-  <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
 </head>
 
 <body>
@@ -89,7 +87,7 @@
           </li>
           <li class="dropdown" language-select></li>
           <li>
-            <a class="navbar-link" href="https://docs.syncthing.net/intro/gui.html" target="_blank">
+            <a class="navbar-link" href="{{docsURL('intro/gui')}}" target="_blank">
               <span class="fas fa-question-circle"></span>
               <span class="hidden-xs" translate>Help</span>
             </a>
@@ -106,11 +104,11 @@
               <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
               <li class="divider" aria-hidden="true"></li>
               <li class="visible-xs">
-                <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
+                <a href="{{docsURL('intro/gui')}}" target="_blank">
                   <span class="fas fa-fw fa-question-circle"></span>&nbsp;<span translate>Help</span>
                 </a>
               </li>
-              <li><a href="" data-toggle="modal" data-target="#about"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
+              <li><a href="" ng-click="about.show()"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
               <li class="divider" aria-hidden="true"></li>
               <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
               <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
@@ -419,12 +417,21 @@
                         <td class="text-right">
                           <div>
                             <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
-                            <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                              <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                            </span>
                           </div>
                           <div ng-if="model[folder.id].ignorePatterns">
                             <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
+                          </div>
+                          <div ng-if="folder.ignoreDelete">
+                            <i class="small">
+                              <span translate>Altered by ignoring deletes.</span>
+                              <a href="{{docsURL('advanced/folder-ignoredelete')}}" target="_blank">
+                                <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
+                              </a>
+                            </i>
                           </div>
                         </td>
                       </tr>
@@ -451,12 +458,6 @@
                         <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                         <td class="text-right">
                           <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
-                        </td>
-                      </tr>
-                      <tr ng-if="hasReceiveEncryptedItems(folder)">
-                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
-                        <td class="text-right">
-                          <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{receiveEncryptedItemsCount(folder) | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
                       <tr ng-if="folder.type != 'sendreceive'">
@@ -518,17 +519,39 @@
                         </td>
                       </tr>
                       <tr ng-if="folder.versioning.type">
-                        <th><span class="far fa-fw fa-copy"></span>&nbsp;<span translate>File Versioning</span></th>
-                        <td class="text-right" ng-switch="folder.versioning.type">
-                          <span ng-switch-when="trashcan" translate>Trash Can File Versioning</span>
-                          <span ng-switch-when="staggered" translate>Staggered File Versioning</span>
-                          <span ng-switch-when="simple" translate>Simple File Versioning</span>
-                          <span ng-switch-when="external" translate>External File Versioning</span>
+                        <th><span class="fa fa-fw fa-file"></span>&nbsp;<span translate>File Versioning</span></th>
+                        <td class="text-right">
+                          <span ng-switch="folder.versioning.type">
+                            <span ng-switch-when="trashcan" translate>Trash Can</span>
+                            <span ng-switch-when="simple" translate>Simple</span>
+                            <span ng-switch-when="staggered" translate>Staggered</span>
+                            <span ng-switch-when="external" tooltip data-original-title="<span class='text-monospace'>{{folder.versioning.params.command}}</span>" translate>External</span>
+                          </span>
+                          <span ng-if="folder.versioning.type != 'external'">
+                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple') && folder.versioning.params.cleanoutDays != versioningDefaults.trashcanClean" tooltip data-original-title="{{'Clean out after' | translate}}">
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}
+                            </span>
+                            <span ng-if="folder.versioning.type == 'simple' && folder.versioning.params.keep != versioningDefaults.simpleKeep" tooltip data-original-title="{{'Keep Versions' | translate}}">
+                              &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
+                            </span>
+                            <span ng-if="folder.versioning.type == 'staggered' && folder.versioning.params.maxAge / 86400 != versioningDefaults.staggeredMaxAge" tooltip data-original-title="{{'Maximum Age' | translate}}">
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.maxAge == 0" translate>Forever</span><span ng-if="folder.versioning.params.maxAge > 0">{{folder.versioning.params.maxAge | duration}}</span>
+                            </span>
+                            <span ng-if="folder.versioning.cleanupIntervalS != versioningDefaults.cleanupIntervalS" tooltip data-original-title="{{'Cleanup Interval' | translate}}">
+                              &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
+                            </span>
+                            <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
+                            <span ng-if="folder.versioning.fsPath != ''" tooltip data-original-title="{{folder.versioning.fsPath}}">
+                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath}}
+                            </span>
+                          </span>
                         </td>
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
+                        <td class="text-right">
+                          <span tooltip data-original-title="{{sharesFolder(folder)}} {{folderHasUnacceptedDevices(folder) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : ''}} {{folderHasPausedDevices(folder) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : ''}}" ng-bind-html="sharesFolder(folder)"></span>
+                        </td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
                         <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
@@ -541,9 +564,8 @@
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
                         <td class="text-right">
                           <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
-                            <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
-                            <span translate ng-if="folderStats[folder.id].lastFile.deleted">Deleted</span>
-                            {{folderStats[folder.id].lastFile.filename | basename}}
+                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="!folderStats[folder.id].lastFile.deleted">Updated {%file%}</span>
+                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="folderStats[folder.id].lastFile.deleted">Deleted {%file%}</span>
                           </span>
                         </td>
                       </tr>
@@ -665,9 +687,9 @@
                       <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed listener status' | translate}}.">
-                          <a href="" ng-class="{'text-success': listenersFailed.length == 0, 'text-danger': listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
-			    {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
-			  </a>
+                          <a href="" ng-class="{'text-success': listenersTotal > 0 && listenersFailed.length == 0, 'text-danger': listenersTotal > 0 && listenersFailed.length == listenersTotal}" ng-click="showListenerStatus()">
+                            {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
+                          </a>
                         </span>
                       </td>
                     </tr>
@@ -676,8 +698,8 @@
                       <td class="text-right">
                         <span class="data" tooltip data-original-title="{{'Show detailed discovery status' | translate}}.">
                           <a href="" ng-class="{'text-success': discoveryFailed.length == 0, 'text-danger': discoveryFailed.length == discoveryTotal}" ng-click="showDiscoveryStatus()">
-			    {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
-			  </a>
+                            {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+                          </a>
                         </span>
                       </td>
                     </tr>
@@ -737,6 +759,13 @@
                         <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
                         <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                       </tr>
+                      <tr ng-if="!connections[deviceCfg.deviceID].connected && deviceFolders(deviceCfg).length > 0">
+                        <th><span class="fas fa-fw fa-cloud"></span>&nbsp;<span translate>Sync Status</span></th>
+                        <td translate ng-if="completion[deviceCfg.deviceID]._total == 100" class="text-right">Up to Date</td>
+                        <td ng-if="completion[deviceCfg.deviceID]._total < 100" class="text-right">
+                            <span class="hidden-xs" translate>Out of Sync</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                        </td>
+                      </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                         <td class="text-right">
@@ -776,7 +805,7 @@
                         </td>
                       </tr>
                       <tr>
-                        <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
+                        <th><span class="fas fa-fw fa-link"></span>&nbsp;<span translate>Address</span></th>
                         <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
                           <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}">
                             {{deviceAddr(deviceCfg)}}
@@ -832,7 +861,9 @@
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                        <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
+                        <td class="text-right">
+                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}} {{deviceHasUnacceptedFolders(deviceCfg) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : '' }} {{deviceHasPausedFolders(deviceCfg) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : '' }}" ng-bind-html="sharedFolders(deviceCfg)"></span>
+                        </td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
                         <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
@@ -891,12 +922,12 @@
     <div class="container">
       <ul class="nav navbar-nav">
         <li><a class="navbar-link" href="https://mobiussync.com/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
-        <li><a class="navbar-link" href="https://docs.syncthing.net/" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Syncthing Documentation</span></a></li>
+        <li><a class="navbar-link" href="{{docsURL()}}" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Syncthing Documentation</span></a></li>
         <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Syncthing Support</span></a></li>
         <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
         <li><a class="navbar-link" href="https://github.com/MobiusSync/MobiusSync/issues" target="_blank"><span class="fas fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
         <li><a class="navbar-link" href="https://github.com/MobiusSync/syncthing" target="_blank"><span class="fas fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>
-        <li><a class="navbar-link" href="https://twitter.com/MobiusSync" target="_blank"><span class="fab fa-twitter"></span>&nbsp;Twitter</a></li>
+        <li><a class="navbar-link" href="https://twitter.com/MobiusSync" target="_blank"><span class="fab fa-twitter"></span translate>&nbsp;Twitter</a></li>
       </ul>
     </div>
   </nav>

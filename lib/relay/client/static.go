@@ -5,12 +5,11 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
@@ -141,7 +140,17 @@ func (c *staticClient) connect(ctx context.Context) error {
 		return err
 	}
 
-	conn := tls.Client(tcpConn, c.config)
+	// Copy the TLS config and set the server name we're connecting to. In
+	// many cases this will be an IP address, in which case it's a no-op. In
+	// other cases it will be a hostname, which will cause the TLS stack to
+	// send SNI.
+	cfg := c.config
+	if host, _, err := net.SplitHostPort(c.uri.Host); err == nil {
+		cfg = cfg.Clone()
+		cfg.ServerName = host
+	}
+
+	conn := tls.Client(tcpConn, cfg)
 
 	if err := conn.SetDeadline(time.Now().Add(c.connectTimeout)); err != nil {
 		conn.Close()
@@ -194,7 +203,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	}
 
 	cs := conn.ConnectionState()
-	if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != protocol.ProtocolName {
+	if cs.NegotiatedProtocol != protocol.ProtocolName {
 		return errors.New("protocol negotiation error")
 	}
 
@@ -203,7 +212,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	if relayIDs != "" {
 		relayID, err := syncthingprotocol.DeviceIDFromString(relayIDs)
 		if err != nil {
-			return errors.Wrap(err, "relay address contains invalid verification id")
+			return fmt.Errorf("relay address contains invalid verification id: %w", err)
 		}
 
 		certs := cs.PeerCertificates

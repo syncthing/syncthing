@@ -28,7 +28,7 @@
         <span translate>You can read more about the two release channels at the link below.</span>
       </p>
       <p translate>You can change your choice at any time in the Settings dialog.</p>
-      <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="{{docsURL('users/releases')}}"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer">
       <button type="button" class="btn btn-sm btn-default pull-right" ng-click="showSettings(); dismissNotification('channelNotification')">
@@ -49,7 +49,7 @@
     </div>
     <div class="panel-body">
       <p translate>Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.</p>
-      <p><a href="https://docs.syncthing.net/users/syncing.html#scanning"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="{{docsURL('users/syncing#scanning')}}"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
       <p>
         <span translate>Do you want to enable watching for changes for all your folders?</span><br />
         <span translate>Additionally the full rescan interval will be increased (times 60, i.e. new default of 1h). You can also configure it manually for every folder later after choosing No.</span>
@@ -77,7 +77,7 @@
     </div>
     <div class="panel-body">
       <p translate>Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.</p>
-      <p><a href="https://docs.syncthing.net/users/crashrep.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="{{docsURL('users/crashrep')}}"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer clearfix">
       <div class="pull-right">
@@ -101,7 +101,7 @@
     <div class="panel-body">
       <p translate>Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.</p>
       <p translate>However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.</p>
-      <p><a href="https://docs.syncthing.net/users/crashrep.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="{{docsURL('users/crashrep')}}"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer clearfix">
       <div class="pull-right">

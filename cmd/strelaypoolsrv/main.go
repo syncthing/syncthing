@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -369,6 +368,11 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Canonicalize the URL. In particular, parse and re-encode the query
+	// string so that it's guaranteed to be valid.
+	uri.RawQuery = uri.Query().Encode()
+	newRelay.URL = uri.String()
+
 	if relayCert != nil {
 		advertisedId := uri.Query().Get("id")
 		idFromCert := protocol.NewDeviceID(relayCert.Raw).String()
@@ -560,7 +564,7 @@ func limit(addr string, cache *lru.Cache, lock sync.Mutex, intv time.Duration, b
 }
 
 func loadRelays(file string) []*relay {
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	if err != nil {
 		log.Println("Failed to load relays: " + err.Error())
 		return nil
@@ -568,7 +572,7 @@ func loadRelays(file string) []*relay {
 
 	var relays []*relay
 	for _, line := range strings.Split(string(content), "\n") {
-		if len(line) == 0 {
+		if line == "" {
 			continue
 		}
 
@@ -598,11 +602,11 @@ func saveRelays(file string, relays []*relay) error {
 	for _, relay := range relays {
 		content += relay.uri.String() + "\n"
 	}
-	return ioutil.WriteFile(file, []byte(content), 0777)
+	return os.WriteFile(file, []byte(content), 0777)
 }
 
 func createTestCertificate() tls.Certificate {
-	tmpDir, err := ioutil.TempDir("", "relaypoolsrv")
+	tmpDir, err := os.MkdirTemp("", "relaypoolsrv")
 	if err != nil {
 		log.Fatal(err)
 	}

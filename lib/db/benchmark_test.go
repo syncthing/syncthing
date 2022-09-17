@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -47,7 +46,7 @@ func getBenchFileSet(b testing.TB) (*db.Lowlevel, *db.FileSet) {
 	lazyInitBenchFiles()
 
 	ldb := newLowlevelMemory(b)
-	benchS := newFileSet(b, "test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	benchS := newFileSet(b, "test)", ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
 
@@ -60,7 +59,7 @@ func BenchmarkReplaceAll(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := newFileSet(b, "test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+		m := newFileSet(b, "test)", ldb)
 		replace(m, protocol.LocalDeviceID, files)
 	}
 
@@ -202,7 +201,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 func BenchmarkNeedHalfRemote(b *testing.B) {
 	ldb := newLowlevelMemory(b)
 	defer ldb.Close()
-	fset := newFileSet(b, "test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	fset := newFileSet(b, "test)", ldb)
 	replace(fset, remoteDevice0, firstHalf)
 	replace(fset, protocol.LocalDeviceID, files)
 

@@ -166,7 +166,7 @@ func (k defaultKeyer) GenerateDeviceFileKey(key, folder, device, name []byte) (d
 	return key, nil
 }
 
-func (k defaultKeyer) NameFromDeviceFileKey(key []byte) []byte {
+func (defaultKeyer) NameFromDeviceFileKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen+keyDeviceLen:]
 }
 
@@ -196,7 +196,7 @@ func (k defaultKeyer) GenerateGlobalVersionKey(key, folder, name []byte) (global
 	return key, nil
 }
 
-func (k defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
+func (defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen:]
 }
 
@@ -215,7 +215,7 @@ func (k defaultKeyer) GenerateBlockMapKey(key, folder, hash, name []byte) (block
 	return key, nil
 }
 
-func (k defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
+func (defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
 }
 
@@ -238,7 +238,7 @@ func (k defaultKeyer) GenerateBlockListMapKey(key, folder, hash, name []byte) (b
 	return key, nil
 }
 
-func (k defaultKeyer) NameFromBlockListMapKey(key []byte) []byte {
+func (defaultKeyer) NameFromBlockListMapKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
 }
 
@@ -282,7 +282,7 @@ func (k defaultKeyer) GenerateSequenceKey(key, folder []byte, seq int64) (sequen
 	return key, nil
 }
 
-func (k defaultKeyer) SequenceFromSequenceKey(key []byte) int64 {
+func (defaultKeyer) SequenceFromSequenceKey(key []byte) int64 {
 	return int64(binary.BigEndian.Uint64(key[keyPrefixLen+keyFolderLen:]))
 }
 
@@ -336,7 +336,7 @@ func (k defaultKeyer) GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, 
 
 type blockListKey []byte
 
-func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey {
+func (defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey {
 	key = resize(key, keyPrefixLen+len(hash))
 	key[0] = KeyTypeBlockList
 	copy(key[keyPrefixLen:], hash)
@@ -349,7 +349,7 @@ func (k blockListKey) Hash() []byte {
 
 type versionKey []byte
 
-func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
+func (defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
 	key = resize(key, keyPrefixLen+len(hash))
 	key[0] = KeyTypeVersion
 	copy(key[keyPrefixLen:], hash)
@@ -374,7 +374,7 @@ func (k defaultKeyer) GeneratePendingFolderKey(key, device, folder []byte) (pend
 	return key, nil
 }
 
-func (k defaultKeyer) FolderFromPendingFolderKey(key []byte) []byte {
+func (defaultKeyer) FolderFromPendingFolderKey(key []byte) []byte {
 	return key[keyPrefixLen+keyDeviceLen:]
 }
 
@@ -384,14 +384,14 @@ func (k defaultKeyer) DeviceFromPendingFolderKey(key []byte) ([]byte, bool) {
 
 type pendingDeviceKey []byte
 
-func (k defaultKeyer) GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey {
+func (defaultKeyer) GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey {
 	key = resize(key, keyPrefixLen+len(device))
 	key[0] = KeyTypePendingDevice
 	copy(key[keyPrefixLen:], device)
 	return key
 }
 
-func (k defaultKeyer) DeviceFromPendingDeviceKey(key []byte) []byte {
+func (defaultKeyer) DeviceFromPendingDeviceKey(key []byte) []byte {
 	return key[keyPrefixLen:]
 }
 

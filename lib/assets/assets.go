@@ -44,7 +44,7 @@ func Serve(w http.ResponseWriter, r *http.Request, asset Asset) {
 	header.Set("ETag", etag)
 	header.Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
 
-	t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since"))
+	t, err := http.ParseTime(r.Header.Get("If-Modified-Since"))
 	if err == nil && !asset.Modified.After(t) {
 		w.WriteHeader(http.StatusNotModified)
 		return
@@ -86,18 +86,22 @@ func MimeTypeForFile(file string) string {
 		return "text/html; charset=utf-8"
 	case ".css":
 		return "text/css; charset=utf-8"
+	case ".eot":
+		return "application/vnd.ms-fontobject"
 	case ".js":
 		return "application/javascript; charset=utf-8"
 	case ".json":
 		return "application/json; charset=utf-8"
 	case ".png":
 		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
 	case ".svg":
 		return "image/svg+xml; charset=utf-8"
+	case ".ttf":
+		return "font/ttf"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
 	default:
 		return mime.TypeByExtension(ext)
 	}

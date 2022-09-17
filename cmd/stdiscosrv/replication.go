@@ -135,7 +135,7 @@ func (s *replicationSender) String() string {
 	return fmt.Sprintf("replicationSender(%q)", s.dst)
 }
 
-func (s *replicationSender) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *replicationSender) send(key string, ps []DatabaseAddress, _ int64) {
 	item := ReplicationRecord{
 		Key:       key,
 		Addresses: ps,

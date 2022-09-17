@@ -7,7 +7,7 @@
 package versioner
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -133,11 +133,8 @@ func TestCreateVersionPath(t *testing.T) {
 	)
 
 	// Create a test dir and file
-	tmpDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -54,6 +54,7 @@ func FailureDataWithGoroutines(description string) FailureData {
 	return FailureData{
 		Description: description,
 		Goroutines:  buf.String(),
+		Extra:       make(map[string]string),
 	}
 }
 
@@ -188,10 +189,6 @@ func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
 	}
 }
 
-func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
-	return nil
-}
-
 func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.CREnabled != to.Options.CREnabled || from.Options.CRURL != to.Options.CRURL {
 		h.optsChan <- to.Options
@@ -199,7 +196,7 @@ func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool
 	return true
 }
 
-func (h *failureHandler) String() string {
+func (*failureHandler) String() string {
 	return "FailureHandler"
 }
 
@@ -231,7 +228,6 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 		return
 	}
 	resp.Body.Close()
-	return
 }
 
 func newFailureReport(stat *failureStat) FailureReport {

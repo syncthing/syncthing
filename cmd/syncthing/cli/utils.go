@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -23,7 +23,7 @@ import (
 )
 
 func responseToBArray(response *http.Response) ([]byte, error) {
-	bytes, err := ioutil.ReadAll(response.Body)
+	bytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +105,8 @@ func getConfig(c APIClient) (config.Configuration, error) {
 		return cfg, err
 	}
 	err = json.Unmarshal(bytes, &cfg)
-	if err == nil {
-		return cfg, err
+	if err != nil {
+		return config.Configuration{}, err
 	}
 	return cfg, nil
 }

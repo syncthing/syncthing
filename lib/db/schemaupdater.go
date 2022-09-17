@@ -519,7 +519,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemaTo9(prev int) error {
+func (db *schemaUpdater) updateSchemaTo9(_ int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
 
 	t, err := db.newReadWriteTransaction()
@@ -841,6 +841,7 @@ func rewriteGlobals(t readWriteTransaction) error {
 		return err
 	}
 	defer it.Release()
+
 	for it.Next() {
 		var vl VersionListDeprecated
 		if err := vl.Unmarshal(it.Value()); err != nil {
@@ -858,10 +859,7 @@ func rewriteGlobals(t readWriteTransaction) error {
 			}
 		}
 
-		newVl, err := convertVersionList(vl)
-		if err != nil {
-			return err
-		}
+		newVl := convertVersionList(vl)
 		if err := t.Put(it.Key(), mustMarshal(&newVl)); err != nil {
 			return err
 		}
@@ -869,11 +867,10 @@ func rewriteGlobals(t readWriteTransaction) error {
 			return err
 		}
 	}
-	it.Release()
 	return it.Error()
 }
 
-func convertVersionList(vl VersionListDeprecated) (VersionList, error) {
+func convertVersionList(vl VersionListDeprecated) VersionList {
 	var newVl VersionList
 	var newPos, oldPos int
 	var lastVersion protocol.Vector
@@ -893,7 +890,7 @@ func convertVersionList(vl VersionListDeprecated) (VersionList, error) {
 	}
 
 	if oldPos == len(vl.Versions) {
-		return newVl, nil
+		return newVl
 	}
 
 	if len(newVl.RawVersions) == 0 {
@@ -923,7 +920,7 @@ outer:
 		newPos++
 	}
 
-	return newVl, nil
+	return newVl
 }
 
 func getGlobalVersionsByKeyBefore11(key []byte, t readOnlyTransaction) (VersionListDeprecated, error) {

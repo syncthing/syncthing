@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-BEP" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
@@ -48,7 +48,7 @@ for the last block which may be smaller.
 .sp
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
 “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this
-document are to be interpreted as described in [RFC 2119](\fI\%https://tools.ietf.org/html/rfc2119\fP).
+document are to be interpreted as described in \fI\%RFC 2119\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc2119.html\fP>\&.
 .SH TRANSPORT AND AUTHENTICATION
 .sp
 BEP is deployed as the highest level in a protocol stack, with the lower
@@ -173,7 +173,7 @@ values SHOULD  be simple strings identifying the implementation name, as a
 user would expect to see it, and the version string in the same manner. An
 example client name is “syncthing” and an example client version is “v0.7.2”.
 The client version field SHOULD follow the patterns laid out in the \fI\%Semantic
-Versioning\fP <\fBhttp://semver.org/\fP> standard.
+Versioning\fP <\fBhttps://semver.org/\fP> standard.
 .sp
 Immediately after exchanging Hello messages, the connection MUST be dropped
 if the remote device does not pass authentication.

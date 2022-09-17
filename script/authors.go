@@ -15,7 +15,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -28,9 +28,15 @@ import (
 const htmlFile = "gui/default/syncthing/core/aboutModalView.html"
 
 var (
-	nicknameRe = regexp.MustCompile(`\(([^\s]*)\)`)
-	emailRe    = regexp.MustCompile(`<([^\s]*)>`)
+	nicknameRe        = regexp.MustCompile(`\(([^\s]*)\)`)
+	emailRe           = regexp.MustCompile(`<([^\s]*)>`)
+	authorBotsRegexps = []string{
+		`\[bot\]`,
+		`Syncthing.*Automation`,
+	}
 )
+
+var authorBotsRe = regexp.MustCompile(strings.Join(authorBotsRegexps, "|"))
 
 const authorsHeader = `# This is the official list of Syncthing authors for copyright purposes.
 #
@@ -100,15 +106,20 @@ func main() {
 
 	var lines []string
 	for _, author := range authors {
+		if authorBotsRe.MatchString(author.name) {
+			// Only humans are eligible, pending future legislation to the
+			// contrary.
+			continue
+		}
 		lines = append(lines, author.name)
 	}
 	replacement := strings.Join(lines, ", ")
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</div>`)
 	bs := readAll(htmlFile)
-	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n    </div>"))
+	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
-	if err := ioutil.WriteFile(htmlFile, bs, 0644); err != nil {
+	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
 	}
 
@@ -173,7 +184,7 @@ func readAll(path string) []byte {
 	}
 	defer fd.Close()
 
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		log.Fatal(err)
 	}

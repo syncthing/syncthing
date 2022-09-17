@@ -7,27 +7,22 @@
 package osutil_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestTraversesSymlink(t *testing.T) {
-	tmpDir, err := ioutil.TempDir(".", ".test-TraversesSymlink-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 	testFs.MkdirAll("a/b/c", 0755)
-	if err = fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
-		if runtime.GOOS == "windows" {
+	if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
+		if build.IsWindows {
 			t.Skip("Symlinks aren't working")
 		}
 		t.Fatal(err)
@@ -71,16 +66,12 @@ func TestTraversesSymlink(t *testing.T) {
 }
 
 func TestIssue4875(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", ".test-Issue4875-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 	testFs.MkdirAll(filepath.Join("a", "b", "c"), 0755)
-	if err = fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
-		if runtime.GOOS == "windows" {
+	if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
+		if build.IsWindows {
 			t.Skip("Symlinks aren't working")
 		}
 		t.Fatal(err)

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -31,7 +30,7 @@ func compress(s string) string {
 func decompress(p []byte) (out []byte) {
 	r, err := gzip.NewReader(bytes.NewBuffer(p))
 	if err == nil {
-		out, err = ioutil.ReadAll(r)
+		out, err = io.ReadAll(r)
 	}
 	if err != nil {
 		panic(err)
@@ -81,7 +80,7 @@ func testServe(t *testing.T, gzip bool) {
 			t.Errorf("unexpected ETag %q", etag)
 		}
 
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 
 		// Content-Length is the number of bytes in the encoded (compressed) body
 		// (https://stackoverflow.com/a/3819303).

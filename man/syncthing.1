@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -36,13 +36,34 @@ syncthing \- Syncthing
 .sp
 .nf
 .ft C
-syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [device\-id]
-          [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
-          [\-home=<dir> | \-config=<dir> \-data=<dir>]
-          [\-logfile=<filename>] [\-logflags=<flags>]
-          [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
-          [\-reset\-database] [\-reset\-deltas] [\-unpaused] [\-upgrade]
-          [\-upgrade\-check] [\-upgrade\-to=<url>] [\-verbose] [\-version]
+syncthing [serve]
+          [\-\-audit] [\-\-auditfile=<file|\-|\-\->] [\-\-browser\-only] [\-\-device\-id]
+          [\-\-generate=<dir>] [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-logfile=<filename>] [\-\-logflags=<flags>]
+          [\-\-log\-max\-old\-files=<num>] [\-\-log\-max\-size=<num>]
+          [\-\-no\-browser] [\-\-no\-console] [\-\-no\-restart] [\-\-paths] [\-\-paused]
+          [\-\-no\-default\-folder] [\-\-skip\-port\-probing]
+          [\-\-reset\-database] [\-\-reset\-deltas] [\-\-unpaused] [\-\-allow\-newer\-config]
+          [\-\-upgrade] [\-\-no\-upgrade] [\-\-upgrade\-check] [\-\-upgrade\-to=<url>]
+          [\-\-verbose] [\-\-version] [\-\-help] [\-\-debug\-*]
+
+syncthing generate
+          [\-\-home=<dir> | \-\-config=<dir>]
+          [\-\-gui\-user=<username>] [\-\-gui\-password=<password|\->]
+          [\-\-no\-default\-folder] [\-\-skip\-port\-probing] [\-\-no\-console]
+          [\-\-help]
+
+syncthing decrypt (\-\-to=<dir> | \-\-verify\-only)
+          [\-\-password=<pw>] [\-\-folder\-id=<id>] [\-\-token\-path=<file>]
+          [\-\-continue] [\-\-verbose] [\-\-version] [\-\-help]
+          <path>
+
+syncthing cli
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
+          [\-\-help]
+          <command> [command options...] [arguments...]
 .ft P
 .fi
 .UNINDENT
@@ -66,39 +87,69 @@ few log messages.
 .SH OPTIONS
 .INDENT 0.0
 .TP
-.B \-audit
+.B \-\-allow\-newer\-config
+Try loading a config file written by a newer program version, instead of
+failing immediately.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-audit
 Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-auditfile=<file|\-|\-\->
+.B \-\-auditfile=<file|\-|\-\->
 Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for
 audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-browser\-only
+.B \-\-browser\-only
 Open the web UI in a browser for an already running Syncthing instance.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-device\-id
+.B \-\-device\-id
 Print device ID to command line.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-generate=<dir>
+.B \-\-generate=<dir>
 Generate key and config in specified dir, then exit.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-gui\-address=<address>
+.B \-\-gui\-address=<address>
 Override GUI listen address. Set this to an address (\fB0.0.0.0:8384\fP)
 or file path (\fB/var/run/st.sock\fP, for UNIX sockets).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-home=<dir>
+.B \-\-gui\-apikey=<string>
+Override the API key needed to access the GUI / REST API.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-gui\-password=<password|\->
+Specify new GUI authentication password, to update the config file.  Read
+from the standard input stream if only a single dash (\fB\-\fP) is given.  The
+password is hashed before writing to the config file.  As a special case,
+giving the existing password hash as password will leave it untouched.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-gui\-user=<username>
+Specify new GUI authentication user name, to update the config file.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-help, \-h
+Show help text about command line usage.  Context\-sensitive depending on the
+given subcommand.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-home=<dir>
 Set common configuration and data directory. The default configuration
 directory is \fB$HOME/.config/syncthing\fP (Unix\-like),
 \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
@@ -106,26 +157,26 @@ directory is \fB$HOME/.config/syncthing\fP (Unix\-like),
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-config=<dir>
-Set configuration directory. Alternative to \fB\-home\fP and must be used
-together with \fB\-data\fP\&.
+.B \-\-config=<dir>
+Set configuration directory. Alternative to \fB\-\-home\fP and must be used
+together with \fB\-\-data\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-data=<dir>
-Set data (e.g. database) directory. Alternative to \fB\-home\fP and must be used
-together with \fB\-config\fP\&.
+.B \-\-data=<dir>
+Set data (e.g. database) directory. Alternative to \fB\-\-home\fP and must be used
+together with \fB\-\-config\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-logfile=<filename>
+.B \-\-logfile=<filename>
 Set destination filename for logging (use \fB"\-"\fP for stdout, which is the
 default option).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-logflags=<flags>
-Select information in log line prefix. The \fB\-logflags\fP value is a sum of
+.B \-\-logflags=<flags>
+Select information in log line prefix. The \fB\-\-logflags\fP value is a sum of
 the following:
 .INDENT 7.0
 .IP \(bu 2
@@ -140,40 +191,63 @@ the following:
 16: Short filename
 .UNINDENT
 .sp
-To prefix each log line with date and time, set \fB\-logflags=3\fP (1 + 2 from
+To prefix each log line with date and time, set \fB\-\-logflags=3\fP (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-no\-browser
+.B \-\-log\-max\-old\-files=<num>
+Number of old files to keep (zero to keep only current).  Applies only when
+log rotation is enabled through \fB\-\-log\-max\-size\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-log\-max\-size=<num>
+Maximum size of any log file (zero to disable log rotation).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-browser
 Do not start a browser.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-no\-console
+.B \-\-no\-console
 Hide the console window. (On Windows only)
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-no\-restart
+.B \-\-no\-default\-folder
+Don’t create a default folder when generating an initial configuration /
+starting for the first time.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-restart
 Do not restart Syncthing when it exits. The monitor process will still run
 to handle crashes and writing to logfiles (if configured to).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-paths
+.B \-\-no\-upgrade
+Disable automatic upgrades.  Equivalent to the \fBSTNOUPGRADE\fP environment
+variable, see below.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-paths
 Print the paths used for configuration, keys, database, GUI overrides,
 default sync folder and the log file.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-paused
+.B \-\-paused
 Start with all devices and folders paused.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-reset\-database
+.B \-\-reset\-database
 Reset the database, forcing a full rescan and resync. Create \fI\&.stfolder\fP
 folders in each sync folder if they do not already exist. \fBCaution\fP:
 Ensure that all sync folders which are mountpoints are already mounted.
@@ -182,38 +256,76 @@ contains older versions.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-reset\-deltas
+.B \-\-reset\-deltas
 Reset delta index IDs, forcing a full index exchange.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-unpaused
+.B \-\-skip\-port\-probing
+Don’t try to find unused random ports for the GUI and listen address when
+generating an initial configuration / starting for the first time.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-unpaused
 Start with all devices and folders unpaused.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-upgrade
+.B \-\-upgrade
 Perform upgrade.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-upgrade\-check
+.B \-\-upgrade\-check
 Check for available upgrade.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-upgrade\-to=<url>
+.B \-\-upgrade\-to=<url>
 Force upgrade directly from specified URL.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-verbose
+.B \-\-verbose
 Print verbose log output.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-version
+.B \-\-version
 Show version.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-to=<dir>
+Destination directory where files should be stored after decryption.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-verify\-only
+Don’t write decrypted files to disk (but verify plaintext hashes).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-password=<pw>
+Folder password for decryption / verification.  Can be passed through the
+\fBFOLDER_PASSWORD\fP environment variable instead to avoid recording in a
+shell’s history buffer or sniffing from the running processes list.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-folder\-id=<id>
+Folder ID of the encrypted folder, if it cannot be determined automatically.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-token\-path=<file>
+Path to the token file within the folder (used to determine folder ID).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-continue
+Continue processing next file in case of error, instead of aborting.
 .UNINDENT
 .SH EXIT CODES
 .INDENT 0.0
@@ -237,6 +349,63 @@ Upgrading
 Exit codes over 125 are usually returned by the shell/binary loader/default
 signal handler. Exit codes over 128+N on Unix usually represent the signal which
 caused the process to exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
+.SH SUBCOMMANDS
+.sp
+The command line syntax actually supports different modes of operation through
+several subcommands, specified as the first argument.  If omitted, the default
+\fBserve\fP is assumed.
+.sp
+The initial setup of a device ID and default configuration can be called
+explicitly with the \fBgenerate\fP subcommand.  It can also update the configured
+GUI authentication credentials, without going through the REST API.  An existing
+device certificate is left untouched.  If the configuration file already exists,
+it is validated and updated to the latest configuration schema, including adding
+default values for any new options.
+.sp
+The \fBdecrypt\fP subcommand is used in conjunction with untrusted (encrypted)
+devices, see the relevant section on decryption for
+details.  It does not depend on Syncthing to be running, but works on offline
+data.
+.sp
+To work with the REST API for debugging or automating things in Syncthing, the
+\fBcli\fP subcommand provides easy access to individual features.  It basically
+saves the hassle of handling HTTP connections and API authentication.
+.sp
+The available subcommands are grouped into several nested hierarchies and some
+parts dynamically generated from the running Syncthing instance.  On every
+level, the \fB\-\-help\fP option lists the available properties, actions and
+commands for the user to discover interactively.  The top\-level groups are:
+.INDENT 0.0
+.TP
+.B config
+Access the live configuration in a running instance over the REST API to
+retrieve (get) or update (set) values in a fine\-grained way.  The hierarchy
+is based on the same structure as used in the JSON / XML representations.
+.TP
+.B show
+Show system properties and status of a running instance.  The output is
+passed on directly from the REST API response and therefore requires parsing
+JSON format.
+.TP
+.B operations
+Control the overall program operation such as restarting or handling
+upgrades, as well as triggering some actions on a per\-folder basis.  Can
+also configure the default ignore patterns from a plain text ignore file.
+.TP
+.B errors
+Examine pending error conditions that need attention from the user, or
+acknowledge (clear) them.
+.TP
+.B debug
+Various tools to aid in diagnosing problems or collection information for
+bug reports.  Some of these commands access the database directly and can
+therefore only work when Syncthing is not running.
+.TP
+.B \fB\-\fP (a single dash)
+Reads subsequent commands from the standard input stream, without needing to
+call the \fBsyncthing cli\fP command over and over.  Exits on any invalid
+command or when EOF (end\-of\-file) is received.
+.UNINDENT
 .SH PROXIES
 .sp
 Syncthing can use a SOCKS, HTTP, or HTTPS proxy to talk to the outside
@@ -267,7 +436,7 @@ path expansion may not be supported.
 Used to increase the debugging verbosity in specific or all facilities,
 generally mapping to a Go package. Enabling any of these also enables
 microsecond timestamps, file names plus line numbers. Enter a
-comma\-separated string of facilities to trace. \fBsyncthing \-help\fP always
+comma\-separated string of facilities to trace. \fBsyncthing \-\-help\fP always
 outputs an up\-to\-date list. The valid facility strings are:
 .INDENT 7.0
 .TP
@@ -369,9 +538,16 @@ Write a CPU profile to \fBcpu\-$pid.pprof\fP on exit.
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
 under direction of a developer.
 .TP
-.B STDEADLOCKTHRESHOLD
+.B STLOCKTHRESHOLD
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
 under direction of a developer.
+.TP
+.B STGUIADDRESS
+Override GUI listen address.  Equivalent to passing \fI\%\-\-gui\-address\fP\&.
+.TP
+.B STGUIAPIKEY
+Override the API key needed to access the GUI / REST API.  Equivalent to
+passing \fI\%\-\-gui\-apikey\fP\&.
 .TP
 .B STGUIASSETS
 Directory to load GUI assets from. Overrides compiled in assets. Useful for
@@ -388,13 +564,14 @@ increases.
 .TP
 .B STNODEFAULTFOLDER
 Don’t create a default folder when starting for the first time. This
-variable will be ignored anytime after the first run.
+variable will be ignored anytime after the first run.  Equivalent to the
+\fI\%\-\-no\-default\-folder\fP flag.
 .TP
 .B STNORESTART
-Equivalent to the \fB\-no\-restart\fP flag
+Equivalent to the \fI\%\-\-no\-restart\fP flag.
 .TP
 .B STNOUPGRADE
-Disable automatic upgrades.
+Disable automatic upgrades.  Equivalent to the \fI\%\-\-no\-upgrade\fP flag.
 .TP
 .B STPROFILER
 Set to a listen address such as “127.0.0.1:9090” to start the profiler with
@@ -408,9 +585,13 @@ Windows.
 .TP
 .B STRECHECKDBEVERY
 Time before folder statistics (file, dir, … counts) are recalculated from
-scratch. The given duration must be parseable by Go’s time.ParseDuration. If
+scratch. The given duration must be parseable by Go’s \fBtime.ParseDuration\fP\&. If
 missing or not parseable, the default value of 1 month is used. To force
 recalculation on every startup, set it to \fB1s\fP\&.
+.TP
+.B STGCINDIRECTEVERY
+Sets the time interval in between database garbage collection runs.  The
+given duration must be parseable by Go’s \fBtime.ParseDuration\fP\&.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU
@@ -420,6 +601,10 @@ cores.
 Percentage of heap growth at which to trigger GC. Default is 100. Lower
 numbers keep peak memory usage down, at the price of CPU usage
 (i.e. performance).
+.TP
+.B LOGGER_DISCARD
+Hack to completely disable logging, for example when running benchmarks.
+Set to any nonempty value to use it.
 .UNINDENT
 .SH SEE ALSO
 .sp
