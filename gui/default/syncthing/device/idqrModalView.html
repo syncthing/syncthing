@@ -4,7 +4,7 @@
     <div ng-if="currentDevice.deviceID">
       <img class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" alt="qr code" />
       <div class="btn-group-vertical" style="vertical-align: top;">
-        <button type="button" class="btn btn-default" ng-click="copyToClipboard(currentDevice.deviceID)">
+        <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)">
           <span class="fa fa-lg fa-clone text-left"></span>&nbsp;<span translate>Copy</span>
         </button>
         <button type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('email')">

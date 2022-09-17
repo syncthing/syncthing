@@ -3186,7 +3186,7 @@ angular.module('syncthing.core')
             }
         }
 
-        $scope.showTemporaryTooltip = function (tooltip) {
+        $scope.showTemporaryTooltip = function (event, tooltip) {
             // This function can be used to display a temporary tooltip above
             // the current element. This way, we can dynamically add a tooltip
             // with explanatory text after the user performs an interactive
@@ -3206,7 +3206,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.copyToClipboard = function (content) {
+        $scope.copyToClipboard = function (event, content) {
             var success = $translate.instant("Copied!");
             var failure = $translate.instant("Copy failed! Try to select and copy manually.");
             var message = success;
@@ -3248,7 +3248,7 @@ angular.module('syncthing.core')
                 message = failure;
             }
 
-            $scope.showTemporaryTooltip(message);
+            $scope.showTemporaryTooltip(event, message);
         };
     })
     .directive('shareTemplate', function () {
