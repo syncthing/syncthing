@@ -23,10 +23,6 @@
     <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.body}}<button type="button" class="btn btn-default pull-right" ng-click="copyToClipboard($event, shareDeviceIdParams.body)" tooltip data-original-title="{{ 'Copy' | translate }}">
       <span class="fa fa-clone"></span>
     </button></pre>
-    <p>In addition, you can download and attach the ID encoded as QR code as well!</p>
-    <div>
-      <a href="qr/?text={{currentDevice.deviceID}}" target="_blank" download="{{currentDevice.deviceID}}.png"><img class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" height="109" width="109" alt="{{'QR code' | translate}}"></a>
-    </div>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="shareDeviceId()">
