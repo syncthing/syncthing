@@ -472,7 +472,7 @@
    "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.",
    "Yes": "Yes",
    "Yesterday": "Yesterday",
-   "You can also copy and paste the content into the message manually.": "You can also copy and paste the content into the message manually.",
+   "You can also copy and paste the text into a new message manually.": "You can also copy and paste the text into a new message manually.",
    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
    "You can change your choice at any time in the Settings dialog.": "You can change your choice at any time in the Settings dialog.",
    "You can read more about the two release channels at the link below.": "You can read more about the two release channels at the link below.",
