@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "Oct 17, 2021" "v1" "Syncthing"
+.TH "STRELAYSRV" "1" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -196,14 +196,24 @@ procedure for your operating system.
 Syncthing can be configured to use specific relay servers (exclusively of the public pool) by adding the required servers to the Sync Protocol Listen Address field, under Actions and Settings. The format is as follows:
 .INDENT 0.0
 .INDENT 3.5
+.sp
+.nf
+.ft C
 relay://<host name|IP>[:port]/?id=<relay device ID>
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .sp
 For example:
 .INDENT 0.0
 .INDENT 3.5
+.sp
+.nf
+.ft C
 relay://private\-relay\-1.example.com:443/?id=ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .sp
@@ -223,7 +233,7 @@ to forward traffic from port 443 to port 22067, for example:
 .sp
 .nf
 .ft C
-iptables \-t nat \-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+iptables \-t nat \-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
 .ft P
 .fi
 .UNINDENT
@@ -239,7 +249,7 @@ Or, if you’re using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\f
 :PREROUTING ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
 
-\-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+\-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
 
 COMMIT
 .ft P

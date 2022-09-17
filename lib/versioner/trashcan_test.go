@@ -7,7 +7,7 @@
 package versioner
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -19,15 +19,9 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 	// This tests that trashcan versioner restoration correctly archives existing file, because trashcan versioner
 	// files are untagged, archiving existing file to replace with a restored version technically should collide in
 	// in names.
-	tmpDir1, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tmpDir1 := t.TempDir()
 
-	tmpDir2, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tmpDir2 := t.TempDir()
 
 	cfg := config.FolderConfiguration{
 		FilesystemType: fs.FilesystemTypeBasic,
@@ -37,7 +31,7 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 			FSPath: tmpDir2,
 		},
 	}
-	folderFs := cfg.Filesystem()
+	folderFs := cfg.Filesystem(nil)
 
 	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
 
@@ -105,7 +99,7 @@ func readFile(t *testing.T, filesystem fs.Filesystem, name string) string {
 		t.Fatal(err)
 	}
 	defer fd.Close()
-	buf, err := ioutil.ReadAll(fd)
+	buf, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,6 +36,12 @@ var showCommand = cli.Command{
 			Action: expects(0, indexDumpOutput("system/connections")),
 		},
 		{
+			Name:   "discovery",
+			Usage:  "Show the discovered addresses of remote devices (from cache of the running syncthing instance)",
+			Action: expects(0, indexDumpOutput("system/discovery")),
+		},
+		pendingCommand,
+		{
 			Name:   "usage",
 			Usage:  "Show usage report",
 			Action: expects(0, indexDumpOutput("svc/report")),

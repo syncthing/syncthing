@@ -9,8 +9,8 @@ package osutil
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -43,7 +43,7 @@ func CreateAtomic(path string) (*AtomicWriter, error) {
 // permissions.
 func CreateAtomicFilesystem(filesystem fs.Filesystem, path string) (*AtomicWriter, error) {
 	// The security of this depends on the tempfile having secure
-	// permissions, 0600, from the beginning. This is what ioutil.TempFile
+	// permissions, 0600, from the beginning. This is what os.CreateTemp
 	// does. We have a test that verifies that that is the case, should this
 	// ever change in the standard library in the future.
 	fd, err := TempFile(filesystem, filepath.Dir(path), TempPrefix)
@@ -97,7 +97,7 @@ func (w *AtomicWriter) Close() error {
 		return infoErr
 	}
 	err := w.fs.Rename(w.next.Name(), w.path)
-	if runtime.GOOS == "windows" && fs.IsPermission(err) {
+	if build.IsWindows && fs.IsPermission(err) {
 		// On Windows, we might not be allowed to rename over the file
 		// because it's read-only. Get us some write permissions and try
 		// again.

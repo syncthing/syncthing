@@ -4,7 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Checks for authors that are not mentioned in AUTHORS
 package meta
 
 import (
@@ -17,6 +16,7 @@ import (
 
 var gofmtCheckDirs = []string{".", "../cmd", "../lib", "../test", "../script"}
 
+// Checks that files are properly gofmt:ed.
 func TestCheckGoFmt(t *testing.T) {
 	for _, dir := range gofmtCheckDirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

@@ -14,12 +14,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -86,11 +86,11 @@ func SecureDefaultWithTLS12() *tls.Config {
 	}
 }
 
-// NewCertificate generates and returns a new TLS certificate.
-func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls.Certificate, error) {
+// generateCertificate generates a PEM formatted key pair and self-signed certificate in memory.
+func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.Block, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "generate key")
+		return nil, nil, fmt.Errorf("generate key: %w", err)
 	}
 
 	notBefore := time.Now().Truncate(24 * time.Hour)
@@ -117,42 +117,58 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "create cert")
+		return nil, nil, fmt.Errorf("create cert: %w", err)
+	}
+
+	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}
+	keyBlock, err := pemBlockForKey(priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("save key: %w", err)
+	}
+
+	return certBlock, keyBlock, nil
+}
+
+// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.
+func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
-	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+	if err = pem.Encode(certOut, certBlock); err != nil {
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
-	err = certOut.Close()
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+	if err = certOut.Close(); err != nil {
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
 
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
+	}
+	if err = pem.Encode(keyOut, keyBlock); err != nil {
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
+	}
+	if err = keyOut.Close(); err != nil {
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
 	}
 
-	block, err := pemBlockForKey(priv)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+}
+
+// NewCertificateInMemory generates and returns a new TLS certificate, kept only in memory.
+func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, err
 	}
 
-	err = pem.Encode(keyOut, block)
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
-	}
-	err = keyOut.Close()
-	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
-	}
-
-	return tls.LoadX509KeyPair(certFile, keyFile)
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 }
 
 type DowngradingListener struct {

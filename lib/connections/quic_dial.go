@@ -12,12 +12,12 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -41,6 +41,7 @@ func init() {
 
 type quicDialer struct {
 	commonDialer
+	registry *registry.Registry
 }
 
 func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
@@ -58,7 +59,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	// Given we always pass the connection to quic, it assumes it's a remote connection it never closes it,
 	// So our wrapper around it needs to close it, but it only needs to close it if it's not the listening connection.
 	var createdConn net.PacketConn
-	listenConn := registry.Get(uri.Scheme, packetConnUnspecified)
+	listenConn := d.registry.Get(uri.Scheme, packetConnUnspecified)
 	if listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
@@ -78,7 +79,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, errors.Wrap(err, "dial")
+		return internalConn{}, fmt.Errorf("dial: %w", err)
 	}
 
 	stream, err := session.OpenStreamSync(ctx)
@@ -88,7 +89,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, errors.Wrap(err, "open stream")
+		return internalConn{}, fmt.Errorf("open stream: %w", err)
 	}
 
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority), nil
@@ -96,7 +97,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 
 type quicDialerFactory struct{}
 
-func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, registry *registry.Registry) genericDialer {
 	// So the idea is that we should probably try dialing every 20 seconds.
 	// However it would still be nice if this was adjustable/proportional to ReconnectIntervalS
 	// But prevent something silly like 1/3 = 0 etc.
@@ -104,10 +105,13 @@ func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Confi
 	if quicInterval < 10 {
 		quicInterval = 10
 	}
-	return &quicDialer{commonDialer{
-		reconnectInterval: time.Duration(quicInterval) * time.Second,
-		tlsCfg:            tlsCfg,
-	}}
+	return &quicDialer{
+		commonDialer: commonDialer{
+			reconnectInterval: time.Duration(quicInterval) * time.Second,
+			tlsCfg:            tlsCfg,
+		},
+		registry: registry,
+	}
 }
 
 func (quicDialerFactory) Priority() int {

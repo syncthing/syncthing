@@ -38,7 +38,11 @@ func (s *auditService) Serve(ctx context.Context) error {
 
 	for {
 		select {
-		case ev := <-sub.C():
+		case ev, ok := <-sub.C():
+			if !ok {
+				<-ctx.Done()
+				return ctx.Err()
+			}
 			enc.Encode(ev)
 		case <-ctx.Done():
 			return ctx.Err()

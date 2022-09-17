@@ -23,7 +23,7 @@ type stunFilter struct {
 	mut sync.Mutex
 }
 
-func (f *stunFilter) Outgoing(out []byte, addr net.Addr) {
+func (f *stunFilter) Outgoing(out []byte, _ net.Addr) {
 	if !f.isStunPayload(out) {
 		panic("not a stun payload")
 	}
@@ -33,7 +33,7 @@ func (f *stunFilter) Outgoing(out []byte, addr net.Addr) {
 	f.mut.Unlock()
 }
 
-func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
+func (f *stunFilter) ClaimIncoming(in []byte, _ net.Addr) bool {
 	if f.isStunPayload(in) {
 		f.mut.Lock()
 		_, ok := f.ids[string(in[8:20])]
@@ -44,7 +44,7 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 	return false
 }
 
-func (f *stunFilter) isStunPayload(data []byte) bool {
+func (*stunFilter) isStunPayload(data []byte) bool {
 	// Need at least 20 bytes
 	if len(data) < 20 {
 		return false

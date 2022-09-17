@@ -10,9 +10,8 @@
 package osutil
 
 import (
+	"fmt"
 	"syscall"
-
-	"github.com/pkg/errors"
 )
 
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
@@ -30,6 +29,8 @@ func SetLowPriority() error {
 		return nil
 	}
 
-	err := syscall.Setpriority(syscall.PRIO_PROCESS, pidSelf, wantNiceLevel)
-	return errors.Wrap(err, "set niceness") // wraps nil as nil
+	if err := syscall.Setpriority(syscall.PRIO_PROCESS, pidSelf, wantNiceLevel); err != nil {
+		return fmt.Errorf("set niceness: %w", err)
+	}
+	return nil
 }

@@ -10,19 +10,17 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
@@ -30,7 +28,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 35
+	CurrentVersion       = 36
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -101,14 +99,14 @@ func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
 
-	if runtime.GOOS != "ios" {
+	if build.IsIOS {
 		// FIXME
 		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 	}
 
 	util.SetDefaults(&cfg)
 
-	if runtime.GOOS == "ios" {
+	if build.IsIOS {
 		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
 		cfg.Options.DeprecatedDefaultFolderPath = "."
 		// FIXME Find better solution than blank user and password, but suppress this notification for now
@@ -125,18 +123,16 @@ func New(myID protocol.DeviceID) Configuration {
 	return cfg
 }
 
-func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
-	cfg := New(myID)
-
+func (cfg *Configuration) ProbeFreePorts() error {
 	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
 	if err != nil {
-		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
+		return fmt.Errorf("get free port (GUI): %w", err)
 	}
 	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
-		return Configuration{}, errors.Wrap(err, "get free port (BEP)")
+		return fmt.Errorf("get free port (BEP): %w", err)
 	}
 	if port == DefaultTCPPort {
 		cfg.Options.RawListenAddresses = []string{"default"}
@@ -148,7 +144,7 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
 
 type xmlConfiguration struct {
@@ -174,7 +170,7 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	bs, err := ioutil.ReadAll(r)
+	bs, err := io.ReadAll(r)
 	if err != nil {
 		return Configuration{}, err
 	}
@@ -563,7 +559,7 @@ loop:
 }
 
 func cleanSymlinks(filesystem fs.Filesystem, dir string) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// We don't do symlinks on Windows. Additionally, there may
 		// be things that look like symlinks that are not, which we
 		// should leave alone. Deduplicated files, for example.
@@ -604,7 +600,7 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 // a random high port is returned.
 func getFreePort(host string, ports ...int) (int, error) {
 	for _, port := range ports {
-		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			c.Close()
 			return port, nil
@@ -634,4 +630,10 @@ func ensureZeroForNodefault(empty interface{}, target interface{}) {
 		}
 		return len(v) > 0
 	})
+}
+
+func (i Ignores) Copy() Ignores {
+	out := Ignores{Lines: make([]string, len(i.Lines))}
+	copy(out.Lines, i.Lines)
+	return out
 }

@@ -9,9 +9,9 @@ package fs
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 func tempPrefix() string {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		return WindowsTempPrefix
 	} else {
 		return UnixTempPrefix

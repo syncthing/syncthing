@@ -70,7 +70,7 @@ func isGometalinterInstalled() bool {
 	return true
 }
 
-func gometalinter(t *testing.T, dirs []string, excludes ...string) bool {
+func gometalinter(_ *testing.T, dirs []string, excludes ...string) bool {
 	params := []string{"--disable-all", "--concurrency=2", "--deadline=300s"}
 
 	for _, linter := range fastLinters {

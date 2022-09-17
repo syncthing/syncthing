@@ -15,16 +15,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -50,7 +48,7 @@ func MonitorMain(options ServeOptions) int {
 
 	var dst io.Writer = os.Stdout
 
-	logFile := options.LogFile
+	logFile := locations.Get(locations.LogFile)
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
@@ -68,7 +66,7 @@ func MonitorMain(options ServeOptions) int {
 		if err != nil {
 			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
 		} else {
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				// Translate line breaks to Windows standard
 				fileDst = osutil.ReplacingWriter{
 					Writer: fileDst,
@@ -85,6 +83,15 @@ func MonitorMain(options ServeOptions) int {
 	}
 
 	args := os.Args
+	binary := args[0]
+	if build.IsWindows {
+		var err error
+		binary, err = expandExecutableInCurrentDirectory(binary)
+		if err != nil {
+			l.Warnln("Error starting the main Syncthing process:", err)
+			panic("Error starting the main Syncthing process")
+		}
+	}
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -106,7 +113,7 @@ func MonitorMain(options ServeOptions) int {
 		copy(restarts[0:], restarts[1:])
 		restarts[len(restarts)-1] = time.Now()
 
-		cmd := exec.Command(args[0], args[1:]...)
+		cmd := exec.Command(binary, args[1:]...)
 		cmd.Env = childEnv
 
 		stderr, err := cmd.StderrPipe()
@@ -182,7 +189,7 @@ func MonitorMain(options ServeOptions) int {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				l.Infoln("Restarting monitor...")
-				if err = restartMonitor(args); err != nil {
+				if err = restartMonitor(binary, args); err != nil {
 					l.Warnln("Restart:", err)
 				}
 				return exitCode
@@ -203,6 +210,21 @@ func MonitorMain(options ServeOptions) int {
 			first = false
 		}
 	}
+}
+
+func expandExecutableInCurrentDirectory(args0 string) (string, error) {
+	// Works around a restriction added in go1.19 that executables in the
+	// current directory are not resolved when specifying just an executable
+	// name (like e.g. "syncthing")
+	if !strings.ContainsRune(args0, os.PathSeparator) {
+		// Check if it's in PATH
+		_, err := exec.LookPath(args0)
+		if err != nil {
+			// Try to get the path to the current executable
+			return os.Executable()
+		}
+	}
+	return args0, nil
 }
 
 func copyStderr(stderr io.Reader, dst io.Writer) {
@@ -311,29 +333,30 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 	}
 }
 
-func restartMonitor(args []string) error {
+func restartMonitor(binary string, args []string) error {
 	// Set the STRESTART environment variable to indicate to the next
 	// process that this is a restart and not initial start. This prevents
 	// opening the browser on startup.
 	os.Setenv("STRESTART", "yes")
 
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		// syscall.Exec is the cleanest way to restart on Unixes as it
 		// replaces the current process with the new one, keeping the pid and
 		// controlling terminal and so on
-		return restartMonitorUnix(args)
+		return restartMonitorUnix(binary, args)
 	}
 
 	// but it isn't supported on Windows, so there we start a normal
 	// exec.Command and return.
-	return restartMonitorWindows(args)
+	return restartMonitorWindows(binary, args)
 }
 
-func restartMonitorUnix(args []string) error {
-	if !strings.ContainsRune(args[0], os.PathSeparator) {
+func restartMonitorUnix(binary string, args []string) error {
+	if !strings.ContainsRune(binary, os.PathSeparator) {
 		// The path to the binary doesn't contain a slash, so it should be
 		// found in $PATH.
-		binary, err := exec.LookPath(args[0])
+		var err error
+		binary, err = exec.LookPath(binary)
 		if err != nil {
 			return err
 		}
@@ -343,8 +366,8 @@ func restartMonitorUnix(args []string) error {
 	return syscall.Exec(args[0], args, os.Environ())
 }
 
-func restartMonitorWindows(args []string) error {
-	cmd := exec.Command(args[0], args[1:]...)
+func restartMonitorWindows(binary string, args []string) error {
+	cmd := exec.Command(binary, args[1:]...)
 	// Retain the standard streams
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -564,7 +587,7 @@ func childEnv() []string {
 // panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig()
 	if err != nil {
 		l.Warnln("Couldn't load config; not reporting crash")
 		return

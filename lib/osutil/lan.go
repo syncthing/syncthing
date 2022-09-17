@@ -11,9 +11,20 @@ import (
 )
 
 func GetLans() ([]*net.IPNet, error) {
-	addrs, err := net.InterfaceAddrs()
+	ifs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
+	}
+	addrs := []net.Addr{}
+	for _, currentIf := range ifs {
+		if currentIf.Flags&net.FlagUp != net.FlagUp {
+			continue
+		}
+		currentAddrs, err := currentIf.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		addrs = append(addrs, currentAddrs...)
 	}
 
 	nets := make([]*net.IPNet, 0, len(addrs))

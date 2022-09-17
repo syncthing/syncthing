@@ -19,6 +19,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -44,12 +45,13 @@ type manager struct {
 	cert          tls.Certificate
 	evLogger      events.Logger
 	addressLister AddressLister
+	registry      *registry.Registry
 
 	finders map[string]cachedFinder
 	mut     sync.RWMutex
 }
 
-func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister) Manager {
+func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
 	m := &manager{
 		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger(l)),
 		myID:          myID,
@@ -57,6 +59,7 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		cert:          cert,
 		evLogger:      evLogger,
 		addressLister: lister,
+		registry:      registry,
 
 		finders: make(map[string]cachedFinder),
 		mut:     sync.NewRWMutex(),
@@ -227,10 +230,6 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 	return res
 }
 
-func (m *manager) VerifyConfiguration(_, _ config.Configuration) error {
-	return nil
-}
-
 func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
@@ -261,7 +260,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			if _, ok := m.finders[identity]; ok {
 				continue
 			}
-			gd, err := NewGlobal(srv, m.cert, m.addressLister, m.evLogger)
+			gd, err := NewGlobal(srv, m.cert, m.addressLister, m.evLogger, m.registry)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue

@@ -18,4 +18,7 @@ const (
 	subEventMask  = notify.NoteDelete | notify.NoteWrite | notify.NoteRename | notify.Create | notify.NoteAttrib | notify.NoteExtend
 	permEventMask = 0
 	rmEventMask   = notify.NoteDelete | notify.NoteRename
+
+	// WatchKqueue indicates if kqueue is used for filesystem watching
+	WatchKqueue = true
 )

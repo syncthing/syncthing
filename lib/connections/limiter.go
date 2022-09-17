@@ -122,10 +122,6 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 	}
 }
 
-func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
@@ -177,7 +173,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (lim *limiter) String() string {
+func (*limiter) String() string {
 	// required by config.Committer interface
 	return "connections.limiter"
 }

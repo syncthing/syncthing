@@ -7,7 +7,6 @@
 package nat
 
 import (
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -60,7 +59,7 @@ func TestMappingValidGateway(t *testing.T) {
 }
 
 func TestMappingClearAddresses(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		t.Fatal(err)
 	}

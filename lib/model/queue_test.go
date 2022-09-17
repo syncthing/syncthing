@@ -8,6 +8,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -251,16 +252,19 @@ func TestSortByAge(t *testing.T) {
 }
 
 func BenchmarkJobQueueBump(b *testing.B) {
-	files := genFiles(b.N)
+	files := genFiles(10000)
 
 	q := newJobQueue()
 	for _, f := range files {
 		q.Push(f.Name, 0, time.Time{})
 	}
 
+	rng := rand.New(rand.NewSource(int64(b.N)))
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.BringToFront(files[i].Name)
+		r := rng.Intn(len(files))
+		q.BringToFront(files[r].Name)
 	}
 }
 

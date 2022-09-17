@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -43,11 +43,18 @@ the configuration file. To use an API key, set the request header
 \fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
 "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
 with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
+.SH RESULT PAGINATION
+.sp
+Some \fIGET\fP endpoints take optional \fBpage\fP and \fBperpage\fP arguments for
+pagination.  No more than \fBperpage\fP (defaults to 65536 if not given) result
+entries are returned in an array.  To access further entries, passing the
+\fBpage\fP parameter will advance in the results by that many pages.  The actually
+used parameters are always returned as attributes in the response object.
 .SH SYSTEM ENDPOINTS
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A ‘*’ will always be appended
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://pkg.go.dev/path/filepath#Match\fP>\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0
@@ -87,7 +94,7 @@ $ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var
 .fi
 .UNINDENT
 .UNINDENT
-.SS GET /rest/system/config
+.SS GET /rest/system/config (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use rest\-config
 instead.
@@ -100,22 +107,23 @@ Returns the current configuration.
 .nf
 .ft C
 {
-  "version": 30,
+  "version": 35,
   "folders": [
     {
-      "id": "GXWxf\-3zgnU",
-      "label": "MyFolder",
+      "id": "default",
+      "label": "Default Folder",
       "filesystemType": "basic",
       "path": "...",
       "type": "sendreceive",
       "devices": [
         {
           "deviceID": "...",
-          "introducedBy": ""
+          "introducedBy": "",
+          "encryptionPassword": ""
         }
       ],
-      "rescanIntervalS": 60,
-      "fsWatcherEnabled": false,
+      "rescanIntervalS": 3600,
+      "fsWatcherEnabled": true,
       "fsWatcherDelayS": 10,
       "ignorePerms": false,
       "autoNormalize": true,
@@ -124,10 +132,11 @@ Returns the current configuration.
         "unit": "%"
       },
       "versioning": {
-        "type": "simple",
-        "params": {
-          "keep": "5"
-        }
+        "type": "",
+        "params": {},
+        "cleanupIntervalS": 3600,
+        "fsPath": "",
+        "fsType": "basic"
       },
       "copiers": 0,
       "pullerMaxPendingKiB": 0,
@@ -136,14 +145,20 @@ Returns the current configuration.
       "ignoreDelete": false,
       "scanProgressIntervalS": 0,
       "pullerPauseS": 0,
-      "maxConflicts": 10,
+      "maxConflicts": \-1,
       "disableSparseFiles": false,
       "disableTempIndexes": false,
       "paused": false,
       "weakHashThresholdPct": 25,
       "markerName": ".stfolder",
       "copyOwnershipFromParent": false,
-      "modTimeWindowS": 0
+      "modTimeWindowS": 0,
+      "maxConcurrentWrites": 2,
+      "disableFsync": false,
+      "blockPullOrder": "standard",
+      "copyRangeMethod": "standard",
+      "caseSensitiveFS": false,
+      "junctionsAsDirs": true
     }
   ],
   "devices": [
@@ -164,18 +179,27 @@ Returns the current configuration.
       "autoAcceptFolders": false,
       "maxSendKbps": 0,
       "maxRecvKbps": 0,
-      "ignoredFolders": [],
-      "maxRequestKiB": 0
+      "ignoredFolders": [
+        {
+          "time": "2022\-01\-09T19:09:52Z",
+          "id": "br63e\-wyhb7",
+          "label": "Foo"
+        }
+      ],
+      "maxRequestKiB": 0,
+      "untrusted": false,
+      "remoteGUIPort": 0
     }
   ],
   "gui": {
     "enabled": true,
     "address": "127.0.0.1:8384",
+    "unixSocketPermissions": "",
     "user": "Username",
     "password": "$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6",
     "authMode": "static",
     "useTLS": false,
-    "apiKey": "pGahcht56664QU5eoFQW6szbEG6Ec2Cr",
+    "apiKey": "k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1",
     "insecureAdminAccess": false,
     "theme": "default",
     "debugging": false,
@@ -186,7 +210,9 @@ Returns the current configuration.
     "address": "",
     "bindDN": "",
     "transport": "plain",
-    "insecureSkipVerify": false
+    "insecureSkipVerify": false,
+    "searchBaseDN": "",
+    "searchFilter": ""
   },
   "options": {
     "listenAddresses": [
@@ -204,14 +230,14 @@ Returns the current configuration.
     "reconnectionIntervalS": 60,
     "relaysEnabled": true,
     "relayReconnectIntervalM": 10,
-    "startBrowser": false,
+    "startBrowser": true,
     "natEnabled": true,
     "natLeaseMinutes": 60,
     "natRenewalMinutes": 30,
     "natTimeoutSeconds": 10,
-    "urAccepted": \-1,
-    "urSeen": 2,
-    "urUniqueId": "",
+    "urAccepted": 0,
+    "urSeen": 0,
+    "urUniqueId": "...",
     "urURL": "https://data.syncthing.net/newdata",
     "urPostInsecurely": false,
     "urInitialDelayS": 1800,
@@ -230,9 +256,10 @@ Returns the current configuration.
     "alwaysLocalNets": [],
     "overwriteRemoteDeviceNamesOnConnect": false,
     "tempIndexMinBlocks": 10,
-    "unackedNotificationIDs": [],
+    "unackedNotificationIDs": [
+      "authenticationUserAndPassword"
+    ],
     "trafficClass": 0,
-    "defaultFolderPath": "~",
     "setLowPriority": true,
     "maxFolderConcurrency": 0,
     "crURL": "https://crash.syncthing.net/newcrash",
@@ -243,15 +270,102 @@ Returns the current configuration.
       "default"
     ],
     "databaseTuning": "auto",
-    "maxConcurrentIncomingRequestKiB": 0
+    "maxConcurrentIncomingRequestKiB": 0,
+    "announceLANAddresses": true,
+    "sendFullIndexOnUpgrade": false,
+    "featureFlags": [],
+    "connectionLimitEnough": 0,
+    "connectionLimitMax": 0,
+    "insecureAllowOldTLSVersions": false
   },
-  "remoteIgnoredDevices": []
+  "remoteIgnoredDevices": [
+    {
+      "time": "2022\-01\-09T20:02:01Z",
+      "deviceID": "...",
+      "name": "...",
+      "address": "192.168.0.20:22000"
+    }
+  ],
+  "defaults": {
+    "folder": {
+      "id": "",
+      "label": "",
+      "filesystemType": "basic",
+      "path": "~",
+      "type": "sendreceive",
+      "devices": [
+        {
+          "deviceID": "...",
+          "introducedBy": "",
+          "encryptionPassword": ""
+        }
+      ],
+      "rescanIntervalS": 3600,
+      "fsWatcherEnabled": true,
+      "fsWatcherDelayS": 10,
+      "ignorePerms": false,
+      "autoNormalize": true,
+      "minDiskFree": {
+        "value": 1,
+        "unit": "%"
+      },
+      "versioning": {
+        "type": "",
+        "params": {},
+        "cleanupIntervalS": 3600,
+        "fsPath": "",
+        "fsType": "basic"
+      },
+      "copiers": 0,
+      "pullerMaxPendingKiB": 0,
+      "hashers": 0,
+      "order": "random",
+      "ignoreDelete": false,
+      "scanProgressIntervalS": 0,
+      "pullerPauseS": 0,
+      "maxConflicts": 10,
+      "disableSparseFiles": false,
+      "disableTempIndexes": false,
+      "paused": false,
+      "weakHashThresholdPct": 25,
+      "markerName": ".stfolder",
+      "copyOwnershipFromParent": false,
+      "modTimeWindowS": 0,
+      "maxConcurrentWrites": 2,
+      "disableFsync": false,
+      "blockPullOrder": "standard",
+      "copyRangeMethod": "standard",
+      "caseSensitiveFS": false,
+      "junctionsAsDirs": false
+    },
+    "device": {
+      "deviceID": "",
+      "name": "",
+      "addresses": [
+        "dynamic"
+      ],
+      "compression": "metadata",
+      "certName": "",
+      "introducer": false,
+      "skipIntroductionRemovals": false,
+      "introducedBy": "",
+      "paused": false,
+      "allowedNetworks": [],
+      "autoAcceptFolders": false,
+      "maxSendKbps": 0,
+      "maxRecvKbps": 0,
+      "ignoredFolders": [],
+      "maxRequestKiB": 0,
+      "untrusted": false,
+      "remoteGUIPort": 0
+    }
+  }
 }
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
-.SS GET /rest/system/config/insync
+.SS GET /rest/system/config/insync (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use
 rest\-config\-insync instead.
@@ -271,9 +385,9 @@ configuration is the same as that on disk.
 .fi
 .UNINDENT
 .UNINDENT
-.SS POST /rest/system/config
+.SS POST /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use rest\-config
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated.  Use config
 instead.
 
 .sp
@@ -290,7 +404,7 @@ config, modify the needed parts and post it again.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Return format changed in 0.13.0.
+Return format changed in versions 0.13.0 and 1.19.0.
 .UNINDENT
 .UNINDENT
 .sp
@@ -305,14 +419,9 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .ft C
 {
    "total" : {
-          "paused" : false,
-          "clientVersion" : "",
           "at" : "2015\-11\-07T17:29:47.691637262+01:00",
-          "connected" : false,
           "inBytesTotal" : 1479,
-          "type" : "",
           "outBytesTotal" : 1318,
-          "address" : ""
    },
    "connections" : {
           "YZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC" : {
@@ -320,6 +429,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "inBytesTotal" : 556,
              "paused" : false,
              "at" : "2015\-11\-07T17:29:47.691548971+01:00",
+             "startedAt" : "2015\-11\-07T00:09:47Z",
              "clientVersion" : "v0.12.1",
              "address" : "127.0.0.1:22002",
              "type" : "TCP (Client)",
@@ -330,6 +440,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "type" : "",
              "address" : "",
              "at" : "0001\-01\-01T00:00:00Z",
+             "startedAt" : "0001\-01\-01T00:00:00Z",
              "clientVersion" : "",
              "paused" : false,
              "inBytesTotal" : 0,
@@ -343,6 +454,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
              "inBytesTotal" : 0,
              "paused" : false,
              "at" : "0001\-01\-01T00:00:00Z",
+             "startedAt" : "0001\-01\-01T00:00:00Z",
              "clientVersion" : ""
           }
    }
@@ -489,7 +601,8 @@ error. The new error will be displayed on any active GUI clients.
 New in version 0.12.0.
 
 .sp
-Returns the list of recent log entries.
+Returns the list of recent log entries.  The optional \fBsince\fP parameter limits
+the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc3339.html\fP> format.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -502,6 +615,42 @@ Returns the list of recent log entries.
       "message": "This is a log entry"
     }
   ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/system/log.txt
+.sp
+Returns the same information, formatted as a text log instead of a JSON object.
+.SS GET /rest/system/paths
+.sp
+New in version 1.21.0.
+
+.sp
+Returns the path locations used internally for storing configuration, database,
+and others.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "auditLog": "/home/user/.local/share/syncthing/audit\-${timestamp}.log",
+  "baseDir\-config": "/home/user/.config/syncthing",
+  "baseDir\-data": "/home/user/.local/share/syncthing",
+  "baseDir\-userHome": "/home/user",
+  "certFile": "/home/user/.config/syncthing/cert.pem",
+  "config": "/home/user/.config/syncthing/config.xml",
+  "csrfTokens": "/home/user/.config/syncthing/csrftokens.txt",
+  "database": "/home/user/.local/share/syncthing/index\-v0.14.0.db",
+  "defFolder": "/home/user/Sync",
+  "guiAssets": "/home/user/src/syncthing/gui",
+  "httpsCertFile": "/home/user/.config/syncthing/https\-cert.pem",
+  "httpsKeyFile": "/home/user/.config/syncthing/https\-key.pem",
+  "keyFile": "/home/user/.config/syncthing/key.pem",
+  "logFile": "\-",
+  "panicLog": "/home/user/.local/share/syncthing/panic\-${timestamp}.log"
 }
 .ft P
 .fi
@@ -543,13 +692,14 @@ information for that folder will be erased:
 .sp
 .nf
 .ft C
-$ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
+curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fB\-reset\-database\fP for \fB\&.stfolder\fP creation side\-effect and caution regarding mountpoints.
+\fBCaution\fP: See \fB\-\-reset\-database\fP for \fB\&.stfolder\fP creation
+side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
@@ -722,8 +872,8 @@ Returns the current Syncthing version information.
 New in version 1.12.0.
 
 .sp
-These endpoints facilitate access and modification of the configuration in a granular way. Config sent to the endpoints must be in the same
-format as returned by the corresponding GET request. When posting the
+These endpoints facilitate access and modification of the configuration in a granular way. Config sent to the endpoints must be in the
+same format as returned by the corresponding GET request. When posting the
 configuration succeeds, the posted configuration is immediately applied, except
 for changes that require a restart. Query \fI\%/rest/config/restart\-required\fP to check if
 a restart is required.
@@ -752,6 +902,20 @@ Put the desired folder\- respectively device\-ID in place of *id*. \fBGET\fP
 returns the folder/device for the given ID, \fBPUT\fP replaces the entire config,
 \fBPATCH\fP replaces only the given child objects and \fBDELETE\fP removes the
 folder/device.
+.SS /rest/config/defaults/folder, /rest/config/defaults/device
+.sp
+\fBGET\fP returns a template folder / device configuration object with all default
+values, which only needs a unique ID to be applied.  \fBPUT\fP replaces the
+default config (omitted values are reset to the hard\-coded defaults), \fBPATCH\fP
+replaces only the given child objects.
+.SS /rest/config/defaults/ignores
+.sp
+New in version 1.19.0.
+
+.sp
+\fBGET\fP returns an object with a single \fBlines\fP attribute listing ignore
+patterns to be used by default on folders, as an array of single\-line strings.
+\fBPUT\fP replaces the default ignore patterns from an object of the same format.
 .SS /rest/config/options, /rest/config/ldap, /rest/config/gui
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and
@@ -764,9 +928,9 @@ Concerns the mesh network structure.
 New in version 1.18.0.
 
 .sp
-Remove records about a pending remote device which tried to connect.
-Valid values for the \fBdevice\fP parameter are those from the
-corresponding /rest/cluster\-pending\-devices\-get endpoint.
+Remove records about a pending remote device which tried to connect.  Valid
+values for the \fBdevice\fP parameter are those from the corresponding
+cluster\-pending\-devices\-get endpoint.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -812,12 +976,11 @@ configured in our instance.
 New in version 1.18.0.
 
 .sp
-Remove records about a pending folder announced from a remote device.
-Valid values for the \fBfolder\fP and \fBdevice\fP parameters are those
-from the corresponding /rest/cluster\-pending\-folders\-get
-endpoint.  The \fBdevice\fP parameter is optional and affects
-announcements of this folder from the given device, or from \fIany\fP
-device if omitted.
+Remove records about a pending folder announced from a remote device.  Valid
+values for the \fBfolder\fP and \fBdevice\fP parameters are those from the
+corresponding cluster\-pending\-folders\-get endpoint.  The \fBdevice\fP
+parameter is optional and affects announcements of this folder from the given
+device, or from \fIany\fP device if omitted.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -829,12 +992,13 @@ $ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/p
 .UNINDENT
 .UNINDENT
 .sp
-Returns status 200 and no content upon success, or status 500 and a
-plain text error on failure.  A /events/pendingfolderschanged
-event will be generated in response.
+Returns status 200 and no content upon success, or status 500 and a plain text
+error on failure.  A /events/pendingfolderschanged event will be
+generated in response.
 .sp
-For a more permanent effect, also for future announcements of the same
-folder ID, the folder should be ignored in the configuration instead.
+For a more permanent effect, also for future announcements of the same folder
+ID, the folder should be ignored in the configuration
+instead.
 .SS GET /rest/cluster/pending/folders
 .sp
 New in version 1.13.0.
@@ -877,6 +1041,115 @@ Other offering devices are also omitted from the result.
     }
   }
 }
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH FOLDER ENDPOINTS
+.sp
+Runtime state of the individual shared folders.
+.SS GET /rest/folder/errors
+.sp
+New in version 0.14.53.
+
+.sp
+Takes one mandatory parameter, \fBfolder\fP, and returns the list of errors
+encountered during scanning or pulling.
+.sp
+The results can be paginated using the common pagination parameters\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "folder": "nnhic\-sxuae",
+  "errors": [
+    {
+      "path": "noperm.txt",
+      "error": "hashing: open /path/to/folder/noperm.txt: permission denied"
+    }
+  ],
+  "page": 1,
+  "perpage": 100
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/folder/pullerrors (DEPRECATED)
+.sp
+Deprecated since version v0.14.53: This endpoint still works as before but is deprecated.  Use
+folder\-errors\-get instead, which returns the same information.
+.sp
+See \fI\%d510e3cca3d5caae42121fa206b3decc981ae59e\fP <\fBhttps://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP>
+
+.SS GET /rest/folder/versions
+.sp
+New in version 0.14.44.
+
+.sp
+Takes one mandatory parameter, \fBfolder\fP, and returns the list of archived
+files that could be recovered.  How many versions are available depends on the
+/users/versioning configuration.  Each entry specifies when the file
+version was archived as the \fBversionTime\fP, the \fBmodTime\fP when it was last
+modified before being archived, and the size in bytes.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "dir1/dir2/bar": [
+    {
+      "versionTime": "2022\-02\-06T20:44:12+01:00",
+      "modTime": "2021\-01\-14T13:21:22+01:00",
+      "size": 4
+    }
+  ],
+  "baz": [
+    {
+      "versionTime": "2022\-02\-06T20:44:20+01:00",
+      "modTime": "2021\-01\-14T13:23:49+01:00",
+      "size": 4
+    }
+  ],
+  "foo": [
+    {
+      "versionTime": "2022\-02\-06T20:55:31+01:00",
+      "modTime": "2022\-02\-06T20:44:13+01:00",
+      "size": 4
+    },
+    {
+      "versionTime": "2022\-02\-06T20:44:20+01:00",
+      "modTime": "2021\-01\-14T13:21:16+01:00",
+      "size": 4
+    }
+  ]
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS POST /rest/folder/versions
+.sp
+Restore archived versions of a given set of files.  Expects an object with
+attributes named after the relative file paths, with timestamps as values
+matching valid \fBversionTime\fP entries in the corresponding
+folder\-versions\-get response object.
+.sp
+Takes the mandatory parameter \fBfolder\fP (folder ID).  Returns an object
+containing any error messages that occurred during restoration of the file, with
+the file path as attribute name.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST \-H X\-API\-key:... http://127.0.0.1:8384/rest/folder/versions?folder=default \-d \(aq{
+  "dir1/dir2/bar": "2022\-02\-06T20:44:12+01:00",
+  "baz": "2022\-02\-06T20:44:20+01:00"
+}\(aq
 .ft P
 .fi
 .UNINDENT
@@ -1033,7 +1306,9 @@ Aggregated completion status for all folders on the local device:
   "needBytes": 9789241,
   "globalItems": 7823,
   "needItems": 412,
-  "needDeletes": 0
+  "needDeletes": 0,
+  "remoteState": "valid",
+  "sequence": 12
 }
 .ft P
 .fi
@@ -1043,6 +1318,13 @@ Aggregated completion status for all folders on the local device:
 New in version 1.8.0: The ability to aggregate multiple folders by leaving out the folder ID.
 Querying data for the local device by leaving out the device ID. Returning
 the \fBglobalItems\fP counter in the response.
+
+.sp
+New in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
+us) as well, and whether it is paused.  The \fBremoteState\fP field is
+meaningless for aggregated responses, \fBunknown\fP when the remote device is
+not connected.  Otherwise it can be either \fBpaused\fP, \fBnotSharing\fP, or
+\fBvalid\fP if the remote is sharing back.
 
 .SS GET /rest/db/file
 .sp
@@ -1128,19 +1410,62 @@ provides a list of strings which represent globbing patterns described by gobwas
 .UNINDENT
 .SS POST /rest/db/ignores
 .sp
-Expects a format similar to the output of \fBGET\fP call, but only
+Expects a format similar to the output of db\-ignores\-get call, but only
 containing the \fBignore\fP field (\fBexpanded\fP field should be omitted).
 It takes one parameter, \fBfolder\fP, and either updates the content of
 the \fB\&.stignore\fP echoing it back as a response, or returns an error.
+.SS GET /rest/db/localchanged
+.sp
+New in version 0.14.55.
+
+.sp
+Takes one mandatory parameter, \fBfolder\fP, and returns the list of files which
+were changed locally in a receive\-only folder.  Thus they differ from the global
+state and could be reverted by pulling from remote devices again, see
+db\-revert\-post\&.
+.sp
+The results can be paginated using the common pagination parameters\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "files": [
+    {
+      "flags": "0755",
+      "sequence": 6,
+      "modified": "2015\-04\-20T23:06:12+09:00",
+      "name": "ls",
+      "size": 34640,
+      "version": [
+        "5157751870738175669:1"
+      ]
+    }
+  ],
+  "page": 1,
+  "perpage": 100
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is an expensive call, increasing CPU and RAM usage on the device.
+Use sparingly.
+.UNINDENT
+.UNINDENT
 .SS GET /rest/db/need
 .sp
 Takes one mandatory parameter, \fBfolder\fP, and returns lists of files which are
 needed by this device in order for it to become in sync.
 .sp
-Furthermore takes an optional \fBpage\fP and \fBperpage\fP arguments for pagination.
-Pagination happens, across the union of all needed files, that is \- across all
-3 sections of the response.
-For example, given the current need state is as follows:
+The results can be paginated using the common pagination parameters\&.  Pagination happens, across the union of all needed files,
+that is \- across all 3 sections of the response.  For example, given the current
+need state is as follows:
 .INDENT 0.0
 .IP 1. 3
 \fBprogress\fP has 15 items
@@ -1157,8 +1482,13 @@ section in the response will have 10 items. If you issue a request query with
 2 items. If you issue a query for \fBpage=3\fP and \fBperpage=10\fP, you will only
 have the last 10 items of the \fBrest\fP section.
 .sp
-In all these calls, \fBtotal\fP will be 30 to indicate the total number of
-available items.
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Return format changed in version 0.14.43, removing the \fBtotal\fP count
+attribute.
+.UNINDENT
+.UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1188,8 +1518,7 @@ available items.
       ...
   ],
   "page": 1,
-  "perpage": 100,
-  "total": 2000
+  "perpage": 100
 }
 .ft P
 .fi
@@ -1199,7 +1528,8 @@ available items.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+This is an expensive call, increasing CPU and RAM usage on the device.
+Use sparingly.
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/override
@@ -1233,7 +1563,50 @@ curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
 .UNINDENT
 .UNINDENT
 .sp
-Response contains the same output as \fBGET /rest/db/need\fP
+Response contains the same output as db\-need\-get\&.
+.SS GET /rest/db/remoteneed
+.sp
+New in version 0.14.43.
+
+.sp
+Takes the mandatory parameters \fBfolder\fP and \fBdevice\fP, and returns the list
+of files which are needed by that remote device in order for it to become in
+sync with the shared folder.
+.sp
+The results can be paginated using the common pagination parameters\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "files": [
+    {
+      "flags": "0755",
+      "sequence": 6,
+      "modified": "2015\-04\-20T23:06:12+09:00",
+      "name": "ls",
+      "size": 34640,
+      "version": [
+        "5157751870738175669:1"
+      ]
+    }
+  ],
+  "page": 1,
+  "perpage": 100
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is an expensive call, increasing CPU and RAM usage on the device.
+Use sparingly.
+.UNINDENT
+.UNINDENT
 .SS POST /rest/db/revert
 .sp
 New in version 0.14.50.
@@ -1377,9 +1750,11 @@ This is an expensive call, increasing CPU and RAM usage on the device. Use spari
 .sp
 To receive events, perform a HTTP GET of \fB/rest/events\fP\&.
 .sp
-To filter the event list, in effect creating a specific subscription for
-only the desired event types, add a parameter
-\fBevents=EventTypeA,EventTypeB,...\fP where the event types are any of the event\-types\&.
+To filter the event list, in effect creating a specific subscription for only
+the desired event types, add a parameter \fBevents=EventTypeA,EventTypeB,...\fP
+where the event types are any of the event\-types\&.  If no filter is
+specified, all events \fIexcept\fP /events/localchangedetected and
+/events/remotechangedetected are included.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
 you’ve already seen. Syncthing returns a JSON encoded array of event objects,
@@ -1398,6 +1773,11 @@ To receive only a limited number of events, add the \fBlimit=<n>\fP parameter wi
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
 can be used to catch up with the latest event ID after a disconnection for
 example: \fB/rest/events?since=0&limit=1\fP\&.
+.SS GET /rest/events/disk
+.sp
+This convenience endpoint provides the same event stream, but pre\-filtered to show
+only /events/localchangedetected and /events/remotechangedetected
+event types.  The \fBevents\fP parameter is not used.
 .SH STATISTICS ENDPOINTS
 .SS GET /rest/stats/device
 .sp
@@ -1427,14 +1807,13 @@ last scan time and the last synced file.
 .sp
 .nf
 .ft C
-$ curl \-s http://localhost:8384/rest/stats/folder | json
 {
-  "folderid" : {
+  "folderid": {
     "lastScan": "2016\-06\-02T13:28:01.288181412\-04:00",
-    "lastFile" : {
-      "filename" : "file/name",
-        "at" : "2015\-04\-16T22:04:18.3066971+01:00"
-      }
+    "lastFile": {
+      "filename": "file/name",
+      "at": "2015\-04\-16T22:04:18.3066971+01:00"
+    }
   }
 }
 .ft P
@@ -1558,6 +1937,50 @@ Returns the data sent in the anonymous usage report.
 .fi
 .UNINDENT
 .UNINDENT
+.SH DEBUG ENDPOINTS
+.SS Debug Endpoints
+.sp
+These endpoints require the \fBgui.debugging\fP configuration option to
+be enabled and yield an access denied error code otherwise.
+.SS GET /rest/debug/peerCompletion
+.sp
+Summarizes the completion precentage for each remote device.  Returns an object
+with device IDs as keys and an integer percentage as values.
+.SS GET /rest/debug/httpmetrics
+.sp
+Returns statistics about each served REST API endpoint, to diagnose how much
+time was spent generating the responses.
+.SS GET /rest/debug/cpuprof
+.sp
+Used to capture a profile of what Syncthing is doing on the CPU.  See
+/users/profiling\&.
+.SS GET /rest/debug/heapprof
+.sp
+Used to capture a profile of what Syncthing is doing with the heap memory.  See
+/users/profiling\&.
+.SS GET /rest/debug/support
+.sp
+Collects information about the running instance for troubleshooting purposes.
+Returns a “support bundle” as a zipped archive, which should be sent to the
+developers after verifying it contains no sensitive personal information.
+Credentials for the web GUI and the API key are automatically redacted already.
+.SS GET /rest/debug/file
+.sp
+Shows diagnostics about a certain file in a shared folder.  Takes the \fBfolder\fP
+(folder ID) and \fBfile\fP (folder relative path) parameters.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-H X\-API\-Key:... "http://localhost:8384/rest/debug/file?folder=default&file=foo/bar"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The returned object contains the same info as db\-file\-get, plus a summary
+of \fBglobalVersions\fP\&.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

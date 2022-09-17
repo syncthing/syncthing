@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -74,7 +73,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 		}
 
 		if info.Mode().IsRegular() {
-			data, err := ioutil.ReadFile(name)
+			data, err := os.ReadFile(name)
 			if err != nil {
 				return err
 			}

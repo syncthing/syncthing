@@ -107,6 +107,7 @@ message FileInfo {
     uint32             permissions    = 4;
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
+    PlatformData       platform       = 14;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
@@ -145,6 +146,29 @@ message Vector {
 message Counter {
     uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
+}
+
+message PlatformData {
+    UnixData    unix    = 1 [(gogoproto.nullable) = true];
+    WindowsData windows = 2 [(gogoproto.nullable) = true];
+}
+
+message UnixData {
+    // The owner name and group name are set when known (i.e., could be
+    // resolved on the source device), while the UID and GID are always set
+    // as they come directly from the stat() call.
+    string owner_name = 1;
+    string group_name = 2;
+    int32  uid        = 3 [(ext.goname) = "UID"];
+    int32  gid        = 4 [(ext.goname) = "GID"];
+}
+
+message WindowsData {
+    // Windows file objects have a single owner, which may be a user or a
+    // group. We keep the name of that account, and a flag to indicate what
+    // type it is.
+    string owner_name     = 1;
+    bool   owner_is_group = 2;
 }
 
 // Request

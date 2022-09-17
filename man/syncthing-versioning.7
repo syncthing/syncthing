@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Oct 17, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Aug 14, 2022" "v1.20.4" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -205,21 +205,21 @@ rem Enable UTF\-8 encoding to deal with multilingual folder and file names
 chcp 65001
 
 rem We need command extensions for md to create intermediate folders in one go
-setlocal EnableExtensions
+setlocal enableextensions
 
 rem Where I want my versions stored
-set "VERSIONS_PATH=%USERPROFILE%\e.trashcan"
+set "versions_path=%USERPROFILE%\e.trashcan"
 
 rem The parameters we get from Syncthing, \(aq~\(aq removes quotes if any
-set "FOLDER_PATH=%~1"
-set "FILE_PATH=%~2"
+set "folder_path=%~1"
+set "file_path=%~2"
 
 rem First ensure the dir where we need to store the file exists
-for %%F in ("%VERSIONS_PATH%\e%FILE_PATH%") do set "OUTPUT_PATH=%%~dpF"
-if not exist "%OUTPUT_PATH%" md "%OUTPUT_PATH%" || exit /B
+for %%f in ("%versions_path%\e%file_path%") do set "output_path=%%~dpf"
+if not exist "%output_path%" md "%output_path%" || exit /b
 
 rem Finally move the file, overwrite existing file if any
-move /Y "%FOLDER_PATH%\e%FILE_PATH%" "%VERSIONS_PATH%\e%FILE_PATH%"
+move /y "%folder_path%\e%file_path%" "%versions_path%\e%file_path%"
 .ft P
 .fi
 .UNINDENT

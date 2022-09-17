@@ -12,7 +12,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -140,7 +140,7 @@ func loadValidLangs() []string {
 		log.Fatal(err)
 	}
 	defer fd.Close()
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		log.Fatal(err)
 	}

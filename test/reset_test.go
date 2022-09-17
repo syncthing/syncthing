@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -147,7 +146,7 @@ func createFiles(t *testing.T) int {
 	const n = 8
 	for i := 0; i < n; i++ {
 		file := fmt.Sprintf("f%d", i)
-		if err := ioutil.WriteFile(filepath.Join("s1", file), []byte("data"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join("s1", file), []byte("data"), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}

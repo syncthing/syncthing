@@ -14,8 +14,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
-	// "github.com/syncthing/syncthing/lib/protocol"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
@@ -83,9 +81,9 @@ func newLowlevelMemory(t testing.TB) *Lowlevel {
 	return newLowlevel(t, backend.OpenMemory())
 }
 
-func newFileSet(t testing.TB, folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
+func newFileSet(t testing.TB, folder string, db *Lowlevel) *FileSet {
 	t.Helper()
-	fset, err := NewFileSet(folder, fs, db)
+	fset, err := NewFileSet(folder, db)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,11 +8,11 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/AudriusButkevicius/recli"
-	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )
@@ -60,7 +60,7 @@ func (h *configHandler) configBefore(c *cli.Context) error {
 	return h.err
 }
 
-func (h *configHandler) configAfter(c *cli.Context) error {
+func (h *configHandler) configAfter(_ *cli.Context) error {
 	if h.err != nil {
 		// Error was already returned in configBefore
 		return nil

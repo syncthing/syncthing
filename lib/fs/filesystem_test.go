@@ -8,8 +8,9 @@ package fs
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestIsInternal(t *testing.T) {
@@ -120,7 +121,7 @@ func TestIsParent(t *testing.T) {
 	testBoth := func(path, parent string, expected bool) {
 		t.Helper()
 		test(path, parent, expected)
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			test("C:/"+path, "C:/"+parent, expected)
 		} else {
 			test("/"+path, "/"+parent, expected)
@@ -130,7 +131,7 @@ func TestIsParent(t *testing.T) {
 	// rel - abs
 	for _, parent := range []string{"/", "/foo", "/foo/bar"} {
 		for _, path := range []string{"", ".", "foo", "foo/bar", "bas", "bas/baz"} {
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				parent = "C:/" + parent
 			}
 			test(parent, path, false)
@@ -140,7 +141,7 @@ func TestIsParent(t *testing.T) {
 
 	// equal
 	for i, path := range []string{"/", "/foo", "/foo/bar", "", ".", "foo", "foo/bar"} {
-		if i < 3 && runtime.GOOS == "windows" {
+		if i < 3 && build.IsWindows {
 			path = "C:" + path
 		}
 		test(path, path, false)
@@ -164,7 +165,7 @@ func TestIsParent(t *testing.T) {
 		for _, path := range []string{"foo/bar/baz", "foo/bar/baz/bas"} {
 			testBoth(path, parent, true)
 			testBoth(parent, path, false)
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				test("C:/"+path, "D:/"+parent, false)
 			}
 		}

@@ -8,10 +8,11 @@ package fs
 
 import (
 	"math/rand"
-	"runtime"
 	"testing"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestCommonPrefix(t *testing.T) {
@@ -23,7 +24,7 @@ func TestCommonPrefix(t *testing.T) {
 		}
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		test(`c:\Audrius\Downloads`, `c:\Audrius\Docs`, `c:\Audrius`)
 		test(`c:\Audrius\Downloads`, `C:\Audrius\Docs`, ``) // Case differences :(
 		test(`C:\Audrius-a\Downloads`, `C:\Audrius-b\Docs`, `C:\`)
@@ -116,4 +117,16 @@ func TestSanitizePathFuzz(t *testing.T) {
 			}
 		}
 	}
+}
+
+func benchmarkWindowsInvalidFilename(b *testing.B, name string) {
+	for i := 0; i < b.N; i++ {
+		WindowsInvalidFilename(name)
+	}
+}
+func BenchmarkWindowsInvalidFilenameValid(b *testing.B) {
+	benchmarkWindowsInvalidFilename(b, "License.txt.gz")
+}
+func BenchmarkWindowsInvalidFilenameNUL(b *testing.B) {
+	benchmarkWindowsInvalidFilename(b, "nul.txt.gz")
 }

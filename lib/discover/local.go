@@ -64,7 +64,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		return nil, err
 	}
 
-	if len(host) == 0 {
+	if host == "" {
 		// A broadcast client
 		c.name = "IPv4 local"
 		bcPort, err := strconv.Atoi(port)
@@ -109,6 +109,13 @@ func (c *localClient) Error() error {
 // send.
 func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, bool) {
 	addrs := c.addrList.AllAddresses()
+
+	// The list of all addresses can include unspecified addresses intended
+	// for a discovery server to complete, based on the packet source. We
+	// don't do that for local discovery, so filter out addresses that are
+	// usable as-is.
+	addrs = filterUnspecifiedLocal(addrs)
+
 	if len(addrs) == 0 {
 		// Nothing to announce
 		return msg, false
@@ -280,4 +287,31 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	}
 
 	return isNewDevice
+}
+
+// filterUnspecifiedLocal returns the list of addresses after removing any
+// unspecified, localhost, multicast, broadcast or port-zero addresses.
+func filterUnspecifiedLocal(addrs []string) []string {
+	filtered := addrs[:0]
+	for _, addr := range addrs {
+		u, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+
+		tcpAddr, err := net.ResolveTCPAddr("tcp", u.Host)
+		if err != nil {
+			continue
+		}
+
+		switch {
+		case len(tcpAddr.IP) == 0:
+		case tcpAddr.Port == 0:
+		case tcpAddr.IP.IsUnspecified():
+		case !tcpAddr.IP.IsGlobalUnicast() && !tcpAddr.IP.IsLinkLocalUnicast():
+		default:
+			filtered = append(filtered, addr)
+		}
+	}
+	return filtered
 }
