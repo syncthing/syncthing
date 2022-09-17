@@ -480,6 +480,15 @@ ul.three-columns li, ul.two-columns li {
         padding-bottom: 5px;
     }
 
+    table.table-auto td,
+    table.table-auto th,
+    table.table-condensed td,
+    table.table-condensed th {
+        /* for mobile phones to allow linebreaks in long repro folder/shared with
+        * columns. */
+        white-space: normal;
+    }
+
     /* Move share buttons below device ID on small screens. */
     #shareDeviceIdButtons {
         display: inline-block;
