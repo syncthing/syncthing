@@ -18,8 +18,8 @@
             <td ng-if="changeEvent.data.modifiedBy">{{friendlyNameFromShort(changeEvent.data.modifiedBy)}}</td>
             <td ng-if="!changeEvent.data.modifiedBy"><span translate>Unknown</span></td>
             <td ng-switch="changeEvent.data.action">
-              <span ng-switch-when="modified" translate>modified</span>
-              <span ng-switch-when="deleted" translate>deleted</span>
+              <span ng-switch-when="modified" translate="change-action-modified">modified</span>
+              <span ng-switch-when="deleted" translate="change-action-deleted">deleted</span>
               <span ng-switch-default>{{changeEvent.data.action}}</span>
             </td>
             <td ng-switch="changeEvent.data.type">
