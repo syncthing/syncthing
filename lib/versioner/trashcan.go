@@ -114,7 +114,7 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 	// there already exists a file at the same location
 
 	// If we restore a deleted file, there won't be a conflict and archiving won't happen thus there won't be anything
-	// in the archive to rename afterwards.
+	// in the archive to rename afterwards. Log whether the file exists prior to restoring.
 	_, dstPathErr := t.folderFs.Lstat(filepath)
 
 	taggedName := ""
