@@ -863,8 +863,8 @@ angular.module('syncthing.core')
             $http.get(urlbase + "/stats/device").success(function (data) {
                 $scope.deviceStats = data;
                 for (var device in $scope.deviceStats) {
+                    $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
                     if ($scope.deviceStats[device].lastSeen.toISOString() !== '1970-01-01T00:00:00.000Z') {
-                        $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
                         $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
                     }
                 }
@@ -1097,7 +1097,7 @@ angular.module('syncthing.core')
 
             // Disconnected
             if ($scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
-                return status + 'inactive-disconnected';
+                return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
             }
