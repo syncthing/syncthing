@@ -1095,7 +1095,7 @@ angular.module('syncthing.core')
 
             // Disconnected
             if ($scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
-                return 'disconnected-stale';
+                return status + 'inactive-disconnected';
             } else {
                 return status + 'disconnected';
             }
