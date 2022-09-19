@@ -301,7 +301,7 @@
                 <input type="checkbox" ng-disabled="currentFolder.type == 'receiveonly' || currentFolder.type == 'receiveencrypted' || currentFolder.syncOwnership" ng-checked="currentFolder.sendOwnership || currentFolder.syncOwnership" ng-model="currentFolder.sendOwnership" /> <span translate>Send Ownership</span>
               </label>
               <p translate class="help-block">
-                Enables sending ownership to other devices, but not applying incoming ownership information. This can have a significant performance impact. Always enabled when "Sync Ownership" is enabled.
+                Enables sending ownership information to other devices, but not applying incoming ownership information. This can have a significant performance impact. Always enabled when "Sync Ownership" is enabled.
               </p>
             </div>
             <div class="col-md-6 form-group">
