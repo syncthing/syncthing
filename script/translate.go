@@ -41,6 +41,7 @@ var aboutRe = regexp.MustCompile(`^([^/]+/[^/]+|(The Go Pro|Font Awesome ).+|Bui
 
 func generalNode(n *html.Node, filename string) {
 	translate := false
+	keyname := ""
 	if n.Type == html.ElementNode {
 		if n.Data == "translate" { // for <translate>Text</translate>
 			translate = true
@@ -50,6 +51,9 @@ func generalNode(n *html.Node, filename string) {
 			for _, a := range n.Attr {
 				if a.Key == "translate" {
 					translate = true
+					if len(a.Val) > 0 {
+						keyname = a.Val
+					}
 				} else if a.Key == "id" && (a.Val == "contributor-list" ||
 					a.Val == "copyright-notices") {
 					// Don't translate a list of names and
@@ -57,11 +61,11 @@ func generalNode(n *html.Node, filename string) {
 					return
 				} else {
 					for _, matches := range attrRe.FindAllStringSubmatch(a.Val, -1) {
-						translation(matches[1])
+						translation(matches[1], "")
 					}
 					for _, matches := range attrReCond.FindAllStringSubmatch(a.Val, -1) {
-						translation(matches[1])
-						translation(matches[2])
+						translation(matches[1], "")
+						translation(matches[2], "")
 					}
 					if a.Key == "data-content" &&
 						!noStringRe.MatchString(a.Val) {
@@ -82,16 +86,16 @@ func generalNode(n *html.Node, filename string) {
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if translate {
-			inTranslate(c, filename)
+			inTranslate(c, filename, keyname)
 		} else {
 			generalNode(c, filename)
 		}
 	}
 }
 
-func inTranslate(n *html.Node, filename string) {
+func inTranslate(n *html.Node, filename string, keyname string) {
 	if n.Type == html.TextNode {
-		translation(n.Data)
+		translation(n.Data, keyname)
 	} else {
 		log.Println("translate node with non-text child < (" + filename + ")")
 		log.Println(n)
@@ -102,12 +106,17 @@ func inTranslate(n *html.Node, filename string) {
 	}
 }
 
-func translation(v string) {
+func translation(v string, k string) {
 	v = strings.TrimSpace(v)
 	if _, ok := trans[v]; !ok {
 		av := strings.Replace(v, "{%", "{{", -1)
 		av = strings.Replace(av, "%}", "}}", -1)
-		trans[v] = av
+		if len(k) > 0 {
+			log.Print(k)
+			trans[k] = av
+		} else {
+			trans[v] = av
+		}
 	}
 }
 
@@ -136,7 +145,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			for s := bufio.NewScanner(fd); s.Scan(); {
 				for _, re := range jsRe {
 					for _, matches := range re.FindAllStringSubmatch(s.Text(), -1) {
-						translation(matches[1])
+						translation(matches[1], "")
 					}
 				}
 			}
