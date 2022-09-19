@@ -863,8 +863,10 @@ angular.module('syncthing.core')
             $http.get(urlbase + "/stats/device").success(function (data) {
                 $scope.deviceStats = data;
                 for (var device in $scope.deviceStats) {
-                    $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
-                    $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    if ($scope.deviceStats[device].lastSeen !== '1970-01-01T01:00:00+01:00') {
+                        $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
+                        $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    }
                 }
                 console.log("refreshDeviceStats", data);
             }).error($scope.emitHTTPError);
