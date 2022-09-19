@@ -112,7 +112,6 @@ func translation(v string, k string) {
 		av := strings.Replace(v, "{%", "{{", -1)
 		av = strings.Replace(av, "%}", "}}", -1)
 		if len(k) > 0 {
-			log.Print(k)
 			trans[k] = av
 		} else {
 			trans[v] = av
