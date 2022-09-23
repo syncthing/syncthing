@@ -1220,11 +1220,11 @@ angular.module('syncthing.core')
                 case 1:
                     return $translate.instant('Relay');
                 case 2:
-                    return 'QUIC';
+                    return $translate.instant('QUIC');
                 case 3:
-                    return 'TCP WAN';
+                    return $translate.instant('TCP WAN');
                 case 4:
-                    return 'TCP LAN';
+                    return $translate.instant('TCP LAN');
                 default:
                     return $translate.instant('Unknown');
             }

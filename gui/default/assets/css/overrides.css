@@ -167,6 +167,10 @@ table.table-auto td {
     display: none;
 }
 
+.remote-device-panel {
+    display: inline-block;
+}
+
 li[language-select] > .dropdown-menu {
     column-count: 2;
     column-gap: 0;

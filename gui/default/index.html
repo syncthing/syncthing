@@ -739,13 +739,13 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <span class="pull-right">
-                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="panel-icon hidden-xs" tooltip data-delay='{"hide":1000}' data-original-title="{{'Connection type' | translate}}: {{rdConnTypeTooltip(rdConnType(deviceCfg.deviceID))}} <a href='{{docsURL('intro/gui#device-view')}}'><span class='fas fa-fw fa-question-circle'></span></a>">
+                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-device-panel" tooltip data-delay='{"hide":1000}' data-original-title="{{'Connection quality' | translate}}: {{rdConnTypeTooltip(rdConnType(deviceCfg.deviceID))}} <a href='{{docsURL('intro/gui#device-view')}}'><span class='fas fa-fw fa-question-circle'></span></a>">
                       <span ng-switch-when="4" class="bi bi-reception-4"></span>
                       <span ng-switch-when="3" class="bi bi-reception-3"></span>
                       <span ng-switch-when="2" class="bi bi-reception-2"></span>
                       <span ng-switch-when="1" class="bi bi-reception-1"></span>
                     </span>
-                    <span ng-switch="deviceStatus(deviceCfg)" class="text-{{deviceClass(deviceCfg)}}"> 
+                    <span ng-switch="deviceStatus(deviceCfg)" style="display:inline-block" class="text-{{deviceClass(deviceCfg)}} remote-device-panel"> 
                       <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                       <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                       <span ng-switch-when="syncing">
@@ -757,7 +757,6 @@
                       <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                     </span>
                   </span>
-                  
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>
