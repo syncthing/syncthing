@@ -745,7 +745,7 @@
                       <span ng-switch-when="2" class="bi bi-reception-2"></span>
                       <span ng-switch-when="1" class="bi bi-reception-1"></span>
                     </span>
-                    <span ng-switch="deviceStatus(deviceCfg)" style="display:inline-block" class="text-{{deviceClass(deviceCfg)}} remote-device-panel"> 
+                    <span ng-switch="deviceStatus(deviceCfg)" class="text-{{deviceClass(deviceCfg)}} remote-device-panel"> 
                       <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                       <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                       <span ng-switch-when="syncing">
