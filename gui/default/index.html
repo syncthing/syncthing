@@ -17,6 +17,7 @@
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="vendor/bootstrap/css/bootstrap-icons.css" rel="stylesheet"/>
   <link href="vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
   <link href="vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
@@ -737,17 +738,26 @@
                 <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                  <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="syncing">
-                      <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                  <span class="pull-right">
+                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="panel-icon hidden-xs" tooltip data-delay='{"hide":1000}' data-original-title="{{'Connection type' | translate}}: {{rdConnTypeTooltip(rdConnType(deviceCfg.deviceID))}} <a href='{{docsURL('intro/gui#device-view')}}'><span class='fas fa-fw fa-question-circle'></span></a>">
+                      <span ng-switch-when="4" class="bi bi-reception-4"></span>
+                      <span ng-switch-when="3" class="bi bi-reception-3"></span>
+                      <span ng-switch-when="2" class="bi bi-reception-2"></span>
+                      <span ng-switch-when="1" class="bi bi-reception-1"></span>
                     </span>
-                    <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                    <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                    <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                    <span ng-switch="deviceStatus(deviceCfg)" class="text-{{deviceClass(deviceCfg)}}"> 
+                      <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
+                      <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                      <span ng-switch-when="syncing">
+                        <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                      </span>
+                      <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                      <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                      <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
+                      <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                    </span>
                   </span>
+                  
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>

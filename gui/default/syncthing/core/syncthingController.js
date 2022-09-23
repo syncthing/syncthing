@@ -1192,6 +1192,44 @@ angular.module('syncthing.core')
             return '?';
         };
 
+        $scope.rdConnType = function(deviceID){
+            var conn = $scope.connections[deviceID];
+            if(!conn)
+                return -1;
+                
+            if (conn.type.startsWith('relay'))
+                return 1;
+            
+            if (conn.type.startsWith('quic'))
+                return 2;
+            
+            if(conn.type.startsWith('tcp'))
+                return 3+rdAddrType(conn.address);
+        }
+
+        function rdAddrType(address){
+            var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
+            if(re.test(address)) 
+                return 1;
+        
+            return 0;
+        }
+
+        $scope.rdConnTypeTooltip = function(type){
+            switch (type) {
+                case 1:
+                    return $translate.instant('Relay');
+                case 2:
+                    return 'QUIC';
+                case 3:
+                    return 'TCP WAN';
+                case 4:
+                    return 'TCP LAN';
+                default:
+                    return $translate.instant('Unknown');
+            }
+        }
+
         $scope.hasRemoteGUIAddress = function (deviceCfg) {
             if (!deviceCfg.remoteGUIPort)
                 return false;
