@@ -739,7 +739,7 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <span class="pull-right">
-                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-device-panel" tooltip data-delay='{"hide":1000}' data-original-title="{{'Connection quality' | translate}}: {{rdConnTypeTooltip(rdConnType(deviceCfg.deviceID))}} <a href='{{docsURL('intro/gui#device-view')}}'><span class='fas fa-fw fa-question-circle'></span></a>">
+                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-device-panel" tooltip data-delay='{"hide":1000}' data-original-title="{{'Connection type' | translate}}: {{rdConnTypeTooltip(rdConnType(deviceCfg.deviceID))}} <a href='{{docsURL('intro/gui#device-view')}}'><span class='fas fa-fw fa-question-circle'></span></a>">
                       <span ng-switch-when="4" class="bi bi-reception-4"></span>
                       <span ng-switch-when="3" class="bi bi-reception-3"></span>
                       <span ng-switch-when="2" class="bi bi-reception-2"></span>
