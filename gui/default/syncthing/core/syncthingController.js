@@ -1074,8 +1074,11 @@ angular.module('syncthing.core')
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
-
             if ($scope.deviceFolders(deviceCfg).length === 0) {
+                var unused = true;
+            }
+
+            if (unused) {
                 status = 'unused-';
             }
 
@@ -1096,7 +1099,7 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            if (status !== 'unused-' && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+            if (unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
                 return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
