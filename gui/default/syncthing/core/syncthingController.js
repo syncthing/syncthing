@@ -2591,17 +2591,21 @@ angular.module('syncthing.core')
 
                     var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder))
                         .success(function (data) {
-                            $.each(data, function (key, values) {
-                                $.each(values, function (idx, value) {
-                                    value.modTime = new Date(value.modTime);
-                                    value.versionTime = new Date(value.versionTime);
+                            if (isEmptyObject(data)) {
+                                $scope.restoreVersions.noversions = true;
+                            } else {
+                                $.each(data, function (key, values) {
+                                    $.each(values, function (idx, value) {
+                                        value.modTime = new Date(value.modTime);
+                                        value.versionTime = new Date(value.versionTime);
+                                    });
+                                    values.sort(function (a, b) {
+                                        return b.versionTime - a.versionTime;
+                                    });
                                 });
-                                values.sort(function (a, b) {
-                                    return b.versionTime - a.versionTime;
-                                });
-                            });
-                            if (closed) return;
-                            $scope.restoreVersions.versions = data;
+                                if (closed) return;
+                                $scope.restoreVersions.versions = data;
+                            }
                         });
 
                     $q.all([dataReceived, modalShown.promise]).then(function () {
@@ -2611,8 +2615,8 @@ angular.module('syncthing.core')
                                 return;
                             }
 
-                            // Skip tree generation if there are no versioned files.
-                            if (JSON.stringify($scope.restoreVersions.versions) === '{}') {
+                            if ($scope.restoreVersions.noversions) {
+                                alert($scope.restoreVersions.noversions)
                                 return;
                             }
 

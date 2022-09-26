@@ -7,8 +7,8 @@
             <tr>
               <td>
                 <span ng-if="!restoreVersions.errors">
-                  <span ng-if="!restoreVersions.versions" translate>Loading data...</span>
-                  <span ng-if="(restoreVersions.versions | json) === '{}'" translate>There are no file versions to restore.</span>
+                  <span ng-if="restoreVersions.versions" translate>Loading data...</span>
+                  <span ng-if="restoreVersions.noversions" translate>There are no file versions to restore.</span>
                 </span>
               </td>
               <td></td>
@@ -21,13 +21,13 @@
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionSearch"><span translate>Filter by name</span>:&nbsp</label>
-            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text" ng-disabled="restoreVersions.errors || !restoreVersions.versions || (restoreVersions.versions | json) === '{}'">
+            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text" ng-disabled="restoreVersions.errors || !restoreVersions.versions || restoreVersions.noversions">
           </div>
         </div>
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionDate"><span translate>Filter by date</span>:&nbsp</label>
-            <input id="restoreVersionDateRange" class="form-control" ng-disabled="restoreVersions.errors || !restoreVersions.versions || (restoreVersions.versions | json) === '{}'">
+            <input id="restoreVersionDateRange" class="form-control" ng-disabled="restoreVersions.errors || !restoreVersions.versions || restoreVersions.noversions">
           </div>
         </div>
       </div>
