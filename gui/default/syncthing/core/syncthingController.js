@@ -2592,7 +2592,7 @@ angular.module('syncthing.core')
                     var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder))
                         .success(function (data) {
                             if (isEmptyObject(data)) {
-                                $scope.restoreVersions.noversions = true;
+                                $scope.restoreVersions.noVersionsToRestore = true;
                             } else {
                                 $.each(data, function (key, values) {
                                     $.each(values, function (idx, value) {
@@ -2603,20 +2603,17 @@ angular.module('syncthing.core')
                                         return b.versionTime - a.versionTime;
                                     });
                                 });
-                                if (closed) return;
-                                $scope.restoreVersions.versions = data;
                             }
+                            if (closed) return;
+                            $scope.restoreVersions.versions = data;
                         });
 
                     $q.all([dataReceived, modalShown.promise]).then(function () {
                         $timeout(function () {
-                            if (closed) {
-                                resetRestoreVersions();
+                            if ($scope.restoreVersions.noVersionsToRestore) {
                                 return;
-                            }
-
-                            if ($scope.restoreVersions.noversions) {
-                                alert($scope.restoreVersions.noversions)
+                            } else if (closed) {
+                                resetRestoreVersions();
                                 return;
                             }
 
