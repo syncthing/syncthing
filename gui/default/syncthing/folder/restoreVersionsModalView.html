@@ -1,13 +1,13 @@
 <modal id="restoreVersions" status="default" icon="fas fa-undo" heading="{{'Restore Versions' | translate}} ({{folderLabel(restoreVersions.folder)}})" large="yes" closeable="yes">
   <div class="modal-body">
-    <div ng-if="!restoreVersions.errors && restoreVersions.versions">
+    <div ng-if="!restoreVersions.errors">
       <div id="restoreTree-container">
         <table id="restoreTree">
           <tbody>
             <tr>
               <td>
-                <span ng-if="!restoreVersions.noVersionsToRestore" translate>Loading data...</span>
-                <span ng-if="restoreVersions.noVersionsToRestore" translate>There are no file versions to restore.</span>
+                <span ng-if="restoreVersions.versions"translate>Loading data...</span>
+                <span ng-if="!restoreVersions.versions" translate>There are no file versions to restore.</span>
               </td>
               <td></td>
             </tr>
@@ -19,13 +19,13 @@
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionSearch"><span translate>Filter by name</span>:&nbsp</label>
-            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text" ng-disabled="restoreVersions.noVersionsToRestore">
+            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text" ng-disabled="!restoreVersions.versions">
           </div>
         </div>
         <div class="col-md-6">
           <div class="form-group">
             <label for="restoreVersionDate"><span translate>Filter by date</span>:&nbsp</label>
-            <input id="restoreVersionDateRange" class="form-control" ng-disabled="restoreVersions.noVersionsToRestore">
+            <input id="restoreVersionDateRange" class="form-control" ng-disabled="!restoreVersions.versions">
           </div>
         </div>
       </div>
