@@ -1074,9 +1074,7 @@ angular.module('syncthing.core')
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
-            if ($scope.deviceFolders(deviceCfg).length === 0) {
-                var unused = true;
-            }
+            var unused = $scope.deviceFolders(deviceCfg).length === 0;
 
             if (unused) {
                 status = 'unused-';
