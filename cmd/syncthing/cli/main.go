@@ -70,7 +70,7 @@ func runInternal(c preCli, cliArgs []string) error {
 	fakeFlags := []cli.Flag{
 		cli.StringFlag{
 			Name:  "gui-address",
-			Usage: "Override GUI address to `URL` (e.g. \"http://192.0.2.42:8443\")",
+			Usage: "Override GUI address to `URL` (e.g. \"192.0.2.42:8443\")",
 		},
 		cli.StringFlag{
 			Name:  "gui-apikey",
