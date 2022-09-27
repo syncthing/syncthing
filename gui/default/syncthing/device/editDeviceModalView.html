@@ -171,6 +171,14 @@
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
+    <div class="btn-group">
+      <button type="button" class="btn btn-default btn-sm" ng-click="switchFolderOrDevice('previous')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3">
+        <span class="fas fa-arrow-left"></span>
+      </button>
+      <button type="button" class="btn btn-default btn-sm" ng-click="switchFolderOrDevice('next')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3">
+        <span class="fas fa-arrow-right"></span>
+      </button>
+    </div>
     <div ng-if="editingDeviceExisting()" class="pull-left">
       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation">
         <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>

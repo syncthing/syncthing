@@ -520,3 +520,9 @@ html[lang|="ko"] i {
 .select-on-click {
     user-select: all;
 }
+
+/* Apply the same margin to button group as to button.
+   Required for folder/device switch buttons. */
+.modal-footer .btn + .btn-group {
+    margin-left: 5px;
+}

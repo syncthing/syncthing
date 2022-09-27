@@ -2086,6 +2086,56 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.switchFolderOrDevice = function(direction) {
+            // This function can be used to switch back and forth between
+            // folders and devices. The switching works like a never-ending
+            // carousel, i.e. going back from the first item moves us to the
+            // last item, and going forth from the last item moves us to the
+            // first item. The own device with index of 0 is skipped over on
+            // purpose, as it is not supposed to be edited this way.
+
+            var list = '';
+            if ($scope.currentFolder._editing) {
+                var folder = $scope.currentFolder.id;
+                list = folderList($scope.folders);
+            } else if ($scope.currentDevice._editing) {
+                var device = $scope.currentDevice.deviceID;
+                list = deviceList($scope.devices);
+            }
+
+            i = list.length;
+            while (i--) {
+                if ((folder && list[i].id === folder) || (device && list[i].deviceID === device)) {
+                    var index = i;
+                    if (direction === 'previous') {
+                        index = i - 1;
+                        if (!list[index] || (device && index === 0)) {
+                            index = list.length - 1;
+                        }
+                    } else if (direction === 'next') {
+                        index = i + 1;
+                        if (!list[index]) {
+                            if (folder) {
+                                index = 0;
+                            } else if (device) {
+                                index = 1;
+                            }
+                        }
+                    }
+                    if (list[index]) {
+                        var url = window.location.href;
+                        if (folder) {
+                            var tab = '#' + url.split('/#')[1];
+                            $scope.editFolderExisting(list[index], tab);
+                        } else if (device) {
+                            $scope.editDeviceExisting(list[index]);
+                        }
+                    }
+                    break;
+                }
+            }
+        };
+
         $scope.editFolderExisting = function(folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
