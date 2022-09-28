@@ -17,6 +17,7 @@ var (
 	ResponseSuccess           = Response{0, "success"}
 	ResponseNotFound          = Response{1, "not found"}
 	ResponseAlreadyConnected  = Response{2, "already connected"}
+	ResponseWrongToken	  = Response{3, "wrong token"}
 	ResponseUnexpectedMessage = Response{100, "unexpected message"}
 )
 

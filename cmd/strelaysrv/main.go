@@ -56,6 +56,7 @@ var (
 	networkBufferSize int
 
 	statusAddr       string
+	token		 string
 	poolAddrs        string
 	pools            []string
 	providedBy       string
@@ -89,6 +90,7 @@ func main() {
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
+	flag.StringVar(&token, "token", "", "optional token for private relay")
 	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
 	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
 	flag.StringVar(&extAddress, "ext-address", "", "An optional address to advertise as being available on.\n\tAllows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443.")
