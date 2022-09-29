@@ -173,7 +173,7 @@ func (c *staticClient) disconnect() {
 }
 
 func (c *staticClient) join() error {
-	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{c.uri.Query().Get("token")}); err != nil {
+	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{Token: c.uri.Query().Get("token")}); err != nil {
 		return err
 	}
 
