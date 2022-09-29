@@ -56,7 +56,7 @@ var (
 	networkBufferSize int
 
 	statusAddr       string
-	token		 string
+	token            string
 	poolAddrs        string
 	pools            []string
 	providedBy       string
