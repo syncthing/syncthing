@@ -89,15 +89,15 @@ func (Ping) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (Ping) MarshalXDRInto(m *xdr.Marshaller) error {
+func (Ping) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (*Ping) UnmarshalXDR(bs []byte) error {
+func (*Ping) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (*Ping) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*Ping) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -123,15 +123,15 @@ func (Pong) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (Pong) MarshalXDRInto(m *xdr.Marshaller) error {
+func (Pong) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (*Pong) UnmarshalXDR(bs []byte) error {
+func (*Pong) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (*Pong) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*Pong) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -157,15 +157,15 @@ func (RelayFull) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (RelayFull) MarshalXDRInto(m *xdr.Marshaller) error {
+func (RelayFull) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (*RelayFull) UnmarshalXDR(bs []byte) error {
+func (*RelayFull) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (*RelayFull) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*RelayFull) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
