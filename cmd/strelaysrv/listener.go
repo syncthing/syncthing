@@ -119,7 +119,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 
 			switch msg := message.(type) {
 			case protocol.JoinRelayRequest:
-				if msg.Token != token {
+				if len(token) > 0 && msg.Token != token {
 					if debug {
 						log.Printf("invalid token %s\n", msg.Token)
 					}
