@@ -113,6 +113,10 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 	// tag but when the restoration is finished, we rename it (untag it). This is only important if when restoring A,
 	// there already exists a file at the same location
 
+	// If we restore a deleted file, there won't be a conflict and archiving won't happen thus there won't be anything
+	// in the archive to rename afterwards. Log whether the file exists prior to restoring.
+	_, dstPathErr := t.folderFs.Lstat(filepath)
+
 	taggedName := ""
 	tagger := func(name, tag string) string {
 		// We also abuse the fact that tagger gets called twice, once for tagging the restoration version, which
@@ -126,9 +130,18 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 		return name
 	}
 
-	err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger)
-	if taggedName == "" {
+	if err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger); taggedName == "" {
 		return err
+	}
+
+	// If a deleted file was restored, even though the RenameOrCopy method is robust, check if the file exists and
+	// skip the renaming function if this is the case.
+	if fs.IsNotExist(dstPathErr) {
+		if _, err := t.folderFs.Lstat(filepath); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	return t.versionsFs.Rename(taggedName, filepath)
