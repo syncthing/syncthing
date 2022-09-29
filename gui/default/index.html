@@ -739,7 +739,7 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <span class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-device-panel"> 
+                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel"> 
                       <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                       <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                       <span ng-switch-when="syncing">
@@ -750,7 +750,7 @@
                       <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
                       <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                     </span>
-                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-device-panel" tooltip data-original-title="{{ rdConnTypeString(rdConnType(deviceCfg.deviceID)) }}">
+                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-devices-panel" tooltip data-original-title="{{ rdConnTypeString(rdConnType(deviceCfg.deviceID)) }}">
                       <span ng-switch-when="4" class="rd-rec-4 rd-rec rd-rec-clr"></span>
                       <span ng-switch-when="3" class="rd-rec-3 rd-rec rd-rec-clr"></span>
                       <span ng-switch-when="2" class="rd-rec-2 rd-rec rd-rec-clr"></span> 

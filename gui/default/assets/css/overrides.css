@@ -167,10 +167,6 @@ table.table-auto td {
     display: none;
 }
 
-.remote-device-panel {
-    display: inline-block;
-}
-
 li[language-select] > .dropdown-menu {
     column-count: 2;
     column-gap: 0;
@@ -519,4 +515,51 @@ html[lang|="zh"] i,
 html[lang="ja"] i,
 html[lang|="ko"] i {
     font-style: normal;
+}
+
+.select-on-click {
+    user-select: all;
+}
+
+/* Remote Devices connection-quality indicator */
+.rd-rec-0 {
+    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
+    mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
+}
+
+.rd-rec-1 {
+    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
+    mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
+}
+
+.rd-rec-2 {
+    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
+    mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
+}
+
+.rd-rec-3 {
+    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
+    mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
+}
+
+.rd-rec-4 {
+    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
+    mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
+}
+  
+.rd-rec { 
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    font-size: 1em;
+    line-height: 0.75em;
+    vertical-align: -15%;
+}
+
+.rd-rec-clr {
+    background-color: #aaa; 
+}
+
+.remote-devices-panel {
+    display: inline-block;
 }
