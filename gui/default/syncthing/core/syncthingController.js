@@ -1205,6 +1205,8 @@ angular.module('syncthing.core')
             
             if(conn.type.startsWith('tcp'))
                 return 3+rdAddrType(conn.address);
+
+            return -1;
         }
 
         function rdAddrType(address){
@@ -1215,7 +1217,7 @@ angular.module('syncthing.core')
             return 0;
         }
 
-        $scope.rdConnTypeTooltip = function(type){
+        $scope.rdConnTypeString = function(type){
             switch (type) {
                 case 1:
                     return $translate.instant('Relay');
@@ -1226,7 +1228,22 @@ angular.module('syncthing.core')
                 case 4:
                     return $translate.instant('TCP LAN');
                 default:
-                    return $translate.instant('Unknown');
+                    return $translate.instant('Disconnected');
+            }
+        }
+
+        $scope.rdConnDetails = function(type) {
+            switch (type) {
+                case 1:
+                    return $translate.instant('Connections via relays might be rate limited by the relay');
+                case 2:
+                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                case 3:
+                    return $translate.instant('Using a TCP connection over WAN');
+                case 4:
+                    return $translate.instant('Using a direct TCP connection over LAN');
+                default:
+                    return $translate.instant('Disconnected');
             }
         }
 

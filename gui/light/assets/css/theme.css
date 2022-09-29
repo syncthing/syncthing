@@ -36,3 +36,8 @@
 .fancytree-focused {
     background-color: #eeeeee;
 }
+
+/* Remote Devices 'connection quality'-icon */
+.rd-rec-clr {
+    background-color: #333;
+}

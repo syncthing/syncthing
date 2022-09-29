@@ -285,3 +285,8 @@ code.ng-binding{
 .fancytree-focused {
     background-color: #424242;
 }
+
+/* Remote Devices 'connection quality'-icon */
+.rd-rec-clr {
+    background-color: #aaa;
+}
