@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -590,7 +591,7 @@ func TestXattr(t *testing.T) {
 	}
 
 	// Set the xattrs, read them back and compare
-	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); errors.Is(err, ErrXattrsNotSupported) {
+	if err := tfs.SetXattr("/test", attrs, noopXattrFilter{}); errors.Is(err, ErrXattrsNotSupported) || errors.Is(err, syscall.EOPNOTSUPP) {
 		t.Skip("xattrs not supported")
 	} else if err != nil {
 		t.Fatal(err)
