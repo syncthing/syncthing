@@ -1192,12 +1192,12 @@ angular.module('syncthing.core')
             return '?';
         };
 
-        $scope.rdConnType = function(deviceID){
+        $scope.rdConnType = function(deviceID) {
             var conn = $scope.connections[deviceID];
             if(!conn)
                 return "-1";
                 
-            if (conn.type.indexOf('relay') == 0)
+            if (conn.type.indexOf('relay') === 0)
                 return "relay";
             
             if (conn.type.indexOf('quic') === 0)
@@ -1209,7 +1209,7 @@ angular.module('syncthing.core')
             return "disconnected";
         }
 
-        function rdAddrType(address){
+        function rdAddrType(address) {
             var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
             if(re.test(address)) 
                 return "lan";
@@ -1217,7 +1217,7 @@ angular.module('syncthing.core')
             return "wan";
         }
 
-        $scope.rdConnTypeString = function(type){
+        $scope.rdConnTypeString = function(type) {
             switch (type) {
                 case "relay":
                     return $translate.instant('Relay');
@@ -1243,7 +1243,7 @@ angular.module('syncthing.core')
                 case "tcplan":
                     return $translate.instant('Using a direct TCP connection over LAN');
                 default:
-                    return $translate.instant('Unkown');
+                    return $translate.instant('Unknown');
             }
         }
 
