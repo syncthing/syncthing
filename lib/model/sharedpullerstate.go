@@ -193,7 +193,7 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 		size := s.file.Size
 		// Trailer added to encrypted files
 		if len(s.file.Encrypted) > 0 {
-			size += encryptionTrailerSize(s.file)
+			size += protocol.EncryptionTrailerSize(s.file)
 		}
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
@@ -363,7 +363,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 	wireFile := file
 	wireFile.Name = osutil.NormalizedFilename(wireFile.Name)
 
-	trailerSize := encryptionTrailerSize(wireFile)
+	trailerSize := protocol.EncryptionTrailerSize(wireFile)
 	bs := make([]byte, trailerSize)
 	n, err := wireFile.MarshalTo(bs)
 	if err != nil {
@@ -377,10 +377,6 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 	}
 
 	return trailerSize, nil
-}
-
-func encryptionTrailerSize(file protocol.FileInfo) int64 {
-	return int64(file.ProtoSize()) + 4
 }
 
 // Progress returns the momentarily progress for the puller
