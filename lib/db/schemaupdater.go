@@ -20,7 +20,7 @@ import (
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
-	dbMigrationVersion    = 19
+	dbMigrationVersion    = 20
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -103,6 +103,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{14, 16, "v1.9.0", db.checkRepairMigration},
 		{14, 17, "v1.9.0", db.migration17},
 		{14, 19, "v1.9.0", db.dropIndexIDsMigration},
+		{14, 20, "v1.9.0", db.fixRecvEncFileSize},
 	}
 
 	for _, m := range migrations {
@@ -833,6 +834,43 @@ func (db *schemaUpdater) migration17(prev int) error {
 
 func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
 	return db.dropIndexIDs()
+}
+
+func (db *schemaUpdater) fixRecvEncFileSize(_ int) error {
+	meta := newMetadataTracker(db.keyer, db.evLogger)
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var key []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		var innerErr error
+		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(fi protocol.FileIntf) bool {
+			f := fi.(protocol.FileInfo)
+			meta.removeFile(protocol.LocalDeviceID, f)
+			f.Size -= int64(f.ProtoSize())
+			meta.addFile(protocol.LocalDeviceID, f)
+			key, innerErr = t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], []byte(f.Name))
+			if innerErr != nil {
+				return false
+			}
+			innerErr = t.putFile(key, f)
+			return innerErr == nil
+		})
+		if innerErr != nil {
+			return innerErr
+		}
+		if err != nil {
+			return err
+		}
+		if err = meta.toDB(t, folder); err != nil {
+			return err
+		}
+	}
+	return t.Commit()
 }
 
 func rewriteGlobals(t readWriteTransaction) error {
