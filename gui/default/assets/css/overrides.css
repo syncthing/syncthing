@@ -145,42 +145,38 @@ table.table-auto td {
 }
 
 /* Remote Devices connection-quality indicator */
-.rd-rec-0 {
+.reception-0 {
     -webkit-mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
     mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
 }
 
-.rd-rec-1 {
+.reception-1 {
     -webkit-mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
     mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
 }
 
-.rd-rec-2 {
+.reception-2 {
     -webkit-mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
     mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
 }
 
-.rd-rec-3 {
+.reception-3 {
     -webkit-mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
     mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
 }
 
-.rd-rec-4 {
+.reception-4 {
     -webkit-mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
     mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
 }
   
-.rd-rec { 
+.reception { 
     width: 1em;
     height: 1em;
     display: inline-block;
     font-size: 1em;
     line-height: 0.75em;
     vertical-align: -15%;
-}
-
-.rd-rec-clr {
-    background-color: #aaa; 
 }
 
 .remote-devices-panel {

@@ -37,7 +37,7 @@
     background-color: #eeeeee;
 }
 
-/* Remote Devices 'connection quality'-icon */
-.rd-rec-clr {
+/* Remote Devices 'connection type'-icon */
+.reception {
     background-color: #333;
 }

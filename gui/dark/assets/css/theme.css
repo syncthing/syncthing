@@ -286,7 +286,7 @@ code.ng-binding{
     background-color: #424242;
 }
 
-/* Remote Devices 'connection quality'-icon */
-.rd-rec-clr {
+/* Remote Devices 'connection type'-icon */
+.reception{
     background-color: #aaa;
 }
