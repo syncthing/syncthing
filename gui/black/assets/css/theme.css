@@ -273,3 +273,8 @@ code.ng-binding{
 .fancytree-focused {
     background-color: #222;
 }
+
+/* Remote Devices 'connection type'-icon color set to #aaa */
+.reception {
+    filter: invert(77%) sepia(0%) saturate(724%) hue-rotate(146deg) brightness(91%) contrast(85%);
+}

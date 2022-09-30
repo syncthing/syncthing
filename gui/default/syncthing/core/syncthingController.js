@@ -1192,6 +1192,61 @@ angular.module('syncthing.core')
             return '?';
         };
 
+        $scope.rdConnType = function(deviceID) {
+            var conn = $scope.connections[deviceID];
+            if(!conn)
+                return "-1";
+                
+            if (conn.type.indexOf('relay') === 0)
+                return "relay";
+            
+            if (conn.type.indexOf('quic') === 0)
+                return "quic";
+            
+            if(conn.type.indexOf('tcp') === 0)
+                return "tcp"+rdAddrType(conn.address);
+
+            return "disconnected";
+        }
+
+        function rdAddrType(address) {
+            var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
+            if(re.test(address)) 
+                return "lan";
+        
+            return "wan";
+        }
+
+        $scope.rdConnTypeString = function(type) {
+            switch (type) {
+                case "relay":
+                    return $translate.instant('Relay');
+                case "quic":
+                    return $translate.instant('QUIC');
+                case "tcpwan":
+                    return $translate.instant('TCP WAN');
+                case "tcplan":
+                    return $translate.instant('TCP LAN');
+                default:
+                    return $translate.instant('Disconnected');
+            }
+        }
+
+        $scope.rdConnDetails = function(type) {
+            switch (type) {
+                case "relay":
+                    return $translate.instant('Connections via relays might be rate limited by the relay');
+                case "quic":
+                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                case "tcpwan":
+                    return $translate.instant('Using a direct TCP connection over WAN');
+                case "tcplan":
+                    return $translate.instant('Using a direct TCP connection over LAN');
+                default:
+                    return $translate.instant('Unknown');
+            }
+        }
+
         $scope.hasRemoteGUIAddress = function (deviceCfg) {
             if (!deviceCfg.remoteGUIPort)
                 return false;
