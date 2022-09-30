@@ -108,6 +108,14 @@ func ReadMessage(r io.Reader) (interface{}, error) {
 		return msg, err
 	case messageTypeJoinRelayRequest:
 		var msg JoinRelayRequest
+
+		// In prior versions of the protocol JoinRelayRequest did not have a
+		// token field. Trying to unmarshal such a request will result in
+		// an error, return msg with an empty token instead.
+		if header.messageLength == 0 {
+			return msg, nil
+		}
+
 		err := msg.UnmarshalXDR(buf)
 		return msg, err
 	case messageTypeJoinSessionRequest:
