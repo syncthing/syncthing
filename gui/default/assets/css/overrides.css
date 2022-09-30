@@ -146,37 +146,30 @@ table.table-auto td {
 
 /* Remote Devices connection-quality indicator */
 .reception-0 {
-    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
-    mask: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat 50% 50%;
+    background: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat;
 }
 
 .reception-1 {
-    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
-    mask: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat 50% 50%;
+    background: url('../../vendor/bootstrap/fonts/reception-1.svg') no-repeat;
 }
 
 .reception-2 {
-    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
-    mask: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat 50% 50%;
+    background: url('../../vendor/bootstrap/fonts/reception-2.svg') no-repeat;
 }
 
 .reception-3 {
-    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
-    mask: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat 50% 50%;
+    background: url('../../vendor/bootstrap/fonts/reception-3.svg') no-repeat;
 }
 
 .reception-4 {
-    -webkit-mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
-    mask: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat 50% 50%;
+    background: url('../../vendor/bootstrap/fonts/reception-4.svg') no-repeat;
 }
   
 .reception { 
     width: 1em;
     height: 1em;
     display: inline-block;
-    font-size: 1em;
-    line-height: 0.75em;
-    vertical-align: -15%;
+    vertical-align: -20%;
 }
 
 .remote-devices-panel {

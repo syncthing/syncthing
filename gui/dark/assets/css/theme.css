@@ -286,7 +286,7 @@ code.ng-binding{
     background-color: #424242;
 }
 
-/* Remote Devices 'connection type'-icon */
-.reception{
-    background-color: #aaa;
+/* Remote Devices 'connection type'-icon color set to #aaa */
+.reception {
+    filter: invert(77%) sepia(0%) saturate(724%) hue-rotate(146deg) brightness(91%) contrast(85%);
 }
