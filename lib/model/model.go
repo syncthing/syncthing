@@ -1682,7 +1682,9 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 				// Override the user-configured defaults, as normally done by the GUI
 				fcfg.FSWatcherEnabled = false
-				fcfg.RescanIntervalS = 3600 * 24
+				if fcfg.RescanIntervalS == 60 || fcfg.RescanIntervalS == 3600 {
+					fcfg.RescanIntervalS = 3600 * 24
+				}
 				fcfg.Versioning.Reset()
 				// Other necessary settings are ensured by FolderConfiguration itself
 			} else {
