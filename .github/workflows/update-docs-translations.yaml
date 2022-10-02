@@ -4,9 +4,14 @@ on:
   schedule:
     - cron:  '42 3 * * 1'
 
+permissions:
+  contents: read
+
 jobs:
 
   update_transifex_docs:
+    permissions:
+      contents: write  # for Git to git push
     runs-on: ubuntu-latest
     name: Update translations and documentation
     steps:
