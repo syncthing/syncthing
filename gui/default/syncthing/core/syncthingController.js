@@ -1988,10 +1988,10 @@ angular.module('syncthing.core')
                 return;
             }
             var idx;
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                idx = 1;
-            } else if ($scope.currentFolder.type === 'receiveencrypted') {
+            if ($scope.currentFolder.type === 'receiveencrypted') {
                 idx = 2;
+            } else if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
             } else {
                 idx = 0;
             }
