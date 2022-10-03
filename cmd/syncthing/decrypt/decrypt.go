@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -88,7 +89,7 @@ func (c *CLI) walk() error {
 		if !info.IsRegular() {
 			return nil
 		}
-		if fs.IsInternal(path) {
+		if fs.IsInternal(path) && !strings.HasPrefix(path, ".stversions") {
 			return nil
 		}
 
@@ -156,23 +157,25 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 		return fmt.Errorf("%s: decrypting metadata: %w", path, err)
 	}
 
+	outName := addVersionToName(plainFi.Name, path)
+
 	if c.Verbose {
-		log.Printf("Plaintext filename is %q", plainFi.Name)
+		log.Printf("Plaintext filename is %q", outName)
 	}
 
 	var plainFd fs.File
 	if dstFs != nil {
-		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0700); err != nil {
-			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		if err := dstFs.MkdirAll(filepath.Dir(outName), 0700); err != nil {
+			return fmt.Errorf("%s: %w", outName, err)
 		}
 
-		plainFd, err = dstFs.Create(plainFi.Name)
+		plainFd, err = dstFs.Create(outName)
 		if err != nil {
-			return fmt.Errorf("%s: %w", plainFi.Name, err)
+			return fmt.Errorf("%s: %w", outName, err)
 		}
 		defer plainFd.Close() // also closed explicitly in the return
-		if err := dstFs.Chmod(plainFi.Name, fs.FileMode(plainFi.Permissions&uint32(retainBits))); err != nil {
-			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		if err := dstFs.Chmod(outName, fs.FileMode(plainFi.Permissions&uint32(retainBits))); err != nil {
+			return fmt.Errorf("%s: %w", outName, err)
 		}
 	}
 
@@ -184,17 +187,17 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 		if plainFd != nil {
 			_ = dstFs.Remove(plainFd.Name())
 		}
-		return fmt.Errorf("%s: %s: %w", path, plainFi.Name, err)
+		return fmt.Errorf("%s: %s: %w", path, outName, err)
 	} else if c.Verbose {
-		log.Printf("Data verified for %q", plainFi.Name)
+		log.Printf("Data verified for %q", outName)
 	}
 
 	if plainFd != nil {
 		if err := plainFd.Close(); err != nil {
-			return fmt.Errorf("%s: %w", plainFi.Name, err)
+			return fmt.Errorf("%s: %w", outName, err)
 		}
-		if err := dstFs.Chtimes(plainFi.Name, plainFi.ModTime(), plainFi.ModTime()); err != nil {
-			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		if err := dstFs.Chtimes(outName, plainFi.ModTime(), plainFi.ModTime()); err != nil {
+			return fmt.Errorf("%s: %w", outName, err)
 		}
 	}
 	return nil
@@ -284,4 +287,19 @@ func loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
 	}
 
 	return &encFi, nil
+}
+
+func addVersionToName(name, path string) string {
+	if strings.HasPrefix(path, ".stversions") {
+		name = filepath.Join(".stversions", name)
+	}
+
+	suffixPos := strings.IndexByte(path, '~')
+	if suffixPos != -1 {
+		suffix := path[suffixPos:]
+		ext := filepath.Ext(name)
+		name = strings.TrimSuffix(name, ext) + suffix + ext
+	}
+
+	return name
 }
