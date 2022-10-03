@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -35,7 +36,8 @@ type CLI struct {
 	Verbose    bool   `help:"Show verbose progress information"`
 	TokenPath  string `placeholder:"PATH" help:"Path to the token file within the folder (used to determine folder ID)"`
 
-	folderKey *[32]byte
+	folderKey             *[32]byte
+	reconstructNameRegexp *regexp.Regexp
 }
 
 type storedEncryptionToken struct {
@@ -70,6 +72,9 @@ func (c *CLI) Run() error {
 	}
 
 	c.folderKey = protocol.KeyFromPassword(c.FolderID, c.Password)
+
+	// Match [*/]X.syncthing-enc/XX/*[~date-time]
+	c.reconstructNameRegexp = regexp.MustCompile(`^(.*?[\/\\])?[0-9A-V].syncthing-enc[\/\\][0-9A-V]{2}[\/\\].*?(~\d{8}-\d{6})?$`)
 
 	return c.walk()
 }
@@ -157,7 +162,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 		return fmt.Errorf("%s: decrypting metadata: %w", path, err)
 	}
 
-	outName := addVersionToName(plainFi.Name, path)
+	outName := c.reconstructName(plainFi.Name, path)
 
 	if c.Verbose {
 		log.Printf("Plaintext filename is %q", outName)
@@ -289,16 +294,25 @@ func loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
 	return &encFi, nil
 }
 
-func addVersionToName(name, path string) string {
-	if strings.HasPrefix(path, ".stversions") {
-		name = filepath.Join(".stversions", name)
+func (c *CLI) reconstructName(name, path string) string {
+	submatch := c.reconstructNameRegexp.FindStringSubmatch(path)
+	if submatch == nil {
+		return name
+	}
+	versionsDir := submatch[1]
+	dateTime := submatch[2]
+
+	if versionsDir != "" {
+		name = filepath.ToSlash(versionsDir) + name
 	}
 
-	suffixPos := strings.IndexByte(path, '~')
-	if suffixPos != -1 {
-		suffix := path[suffixPos:]
+	if dateTime != "" {
 		ext := filepath.Ext(name)
-		name = strings.TrimSuffix(name, ext) + suffix + ext
+		if ext != "" {
+			name = strings.TrimSuffix(name, ext) + dateTime + ext
+		} else {
+			name = name + dateTime
+		}
 	}
 
 	return name
