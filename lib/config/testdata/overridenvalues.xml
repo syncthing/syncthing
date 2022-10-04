@@ -45,6 +45,7 @@
         <unackedNotificationID>asdfasdf</unackedNotificationID>
         <announceLANAddresses>false</announceLANAddresses>
         <featureFlag>feature</featureFlag>
+        <encryptedFolderVersioningDisabled>false</encryptedFolderVersioningDisabled>
     </options>
     <defaults>
         <folder id="" label="" path="/media/syncthing" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
