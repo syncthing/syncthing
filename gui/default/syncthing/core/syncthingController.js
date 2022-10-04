@@ -2002,7 +2002,9 @@ angular.module('syncthing.core')
             if ($scope.currentFolder.type === 'receiveencrypted') {
                 $scope.currentFolder.fsWatcherEnabled = false;
                 $scope.currentFolder.ignorePerms = true;
-                delete $scope.currentFolder.versioning;
+                if ($scope.config.options.encryptedFolderVersioningDisabled) {
+                    delete $scope.currentFolder.versioning;
+                }
             } else {
                 $scope.currentFolder.fsWatcherEnabled = true;
             }

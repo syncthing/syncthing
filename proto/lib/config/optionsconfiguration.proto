@@ -70,6 +70,8 @@ message OptionsConfiguration {
     // default to TLS 1.3+ only.
     bool insecure_allow_old_tls_versions = 53 [(ext.goname)= "InsecureAllowOldTLSVersions", (ext.xml) = "insecureAllowOldTLSVersions", (ext.json) = "insecureAllowOldTLSVersions"];
 
+    bool encrypted_folder_versioning_disabled = 54 [(ext.goname) = "EncryptedFolderVersioningDisabled", (ext.default) = "true"];
+
     // Legacy deprecated
     bool            upnp_enabled           = 9000 [deprecated = true, (ext.goname) = "DeprecatedUPnPEnabled"];
     int32           upnp_lease_m           = 9001 [deprecated = true, (ext.goname) = "DeprecatedUPnPLeaseM", (ext.xml) = "upnpLeaseMinutes,omitempty"];
