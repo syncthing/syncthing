@@ -627,7 +627,7 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error(function(data, status, headers, config) {
+            }).error(function (data, status, headers, config) {
                 if (status === 404) {
                     console.log("refreshCompletion:", data);
                 } else {
@@ -814,7 +814,7 @@ angular.module('syncthing.core')
             });
         }
 
-        $scope.pendingIsRemoteEncrypted = function(folderID, deviceID) {
+        $scope.pendingIsRemoteEncrypted = function (folderID, deviceID) {
             var pending = $scope.pendingFolders[folderID];
             if (!pending || !pending.offeredBy || !pending.offeredBy[deviceID]) {
                 return false;
@@ -1193,7 +1193,7 @@ angular.module('syncthing.core')
             return '?';
         };
 
-        $scope.rdConnType = function(deviceID) {
+        $scope.rdConnType = function (deviceID) {
             var conn = $scope.connections[deviceID];
             if (!conn) return "-1";
             if (conn.type.indexOf('relay') === 0) return "relay";
@@ -1208,7 +1208,7 @@ angular.module('syncthing.core')
             return "wan";
         }
 
-        $scope.rdConnTypeString = function(type) {
+        $scope.rdConnTypeString = function (type) {
             switch (type) {
                 case "relay":
                     return $translate.instant('Relay');
@@ -1223,7 +1223,7 @@ angular.module('syncthing.core')
             }
         }
 
-        $scope.rdConnDetails = function(type) {
+        $scope.rdConnDetails = function (type) {
             switch (type) {
                 case "relay":
                     return $translate.instant('Connections via relays might be rate limited by the relay');
@@ -2096,7 +2096,7 @@ angular.module('syncthing.core')
             editFolderModal(initialTab);
         }
 
-        $scope.internalVersioningEnabled = function(guiVersioning) {
+        $scope.internalVersioningEnabled = function (guiVersioning) {
             if (!$scope.currentFolder._guiVersioning) {
                 return false;
             }
@@ -2133,7 +2133,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editFolderExisting = function(folderCfg, initialTab) {
+        $scope.editFolderExisting = function (folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
             editFolderLoadIgnores();
@@ -2148,7 +2148,7 @@ angular.module('syncthing.core')
 
         function editFolderGetIgnores() {
             return $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .then(function(r) {
+                .then(function (r) {
                     return r.data;
                 }, function (response) {
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
@@ -2158,7 +2158,7 @@ angular.module('syncthing.core')
 
         function editFolderLoadIgnores() {
             editFolderLoadingIgnores();
-            return editFolderGetIgnores().then(function(data) {
+            return editFolderGetIgnores().then(function (data) {
                 if (!data) {
                     return;
                 }
@@ -2355,7 +2355,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder._editing = "new-ignores";
                 $('.nav-tabs a[href="#folder-ignores"]').tab('show');
                 return editFolderGetIgnores();
-            }).then(function(data) {
+            }).then(function (data) {
                 // Error getting ignores -> leave error message.
                 if (!data) {
                     return;
@@ -2363,7 +2363,7 @@ angular.module('syncthing.core')
                 if ((data.ignore && data.ignore.length > 0) || data.error) {
                     editFolderInitIgnores(data.ignore, data.error);
                 } else {
-                    getDefaultIgnores().then(function(lines) {
+                    getDefaultIgnores().then(function (lines) {
                         setIgnoresText(lines);
                         $scope.ignores.defaultLines = lines;
                         $scope.ignores.disabled = false;
@@ -2379,7 +2379,7 @@ angular.module('syncthing.core')
             var ignores = ignoresArray();
 
             function arrayDiffers(a, b) {
-                return !a !== !b || a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
+                return !a !== !b || a.length !== b.length || a.some(function (v, i) { return v !== b[i]; });
             }
             if (arrayDiffers(ignores, $scope.ignores.originalLines)) {
                 return saveIgnores(ignores);
@@ -2683,7 +2683,7 @@ angular.module('syncthing.core')
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
                                     // Case insensitive sort with folders on top.
-                                    var cmp = function(a, b) {
+                                    var cmp = function (a, b) {
                                         var x = (a.isFolder() ? "0" : "1") + a.title.toLowerCase(),
                                             y = (b.isFolder() ? "0" : "1") + b.title.toLowerCase();
                                         return x === y ? 0 : x > y ? 1 : -1;
@@ -3183,7 +3183,7 @@ angular.module('syncthing.core')
                 folderType: '@',
                 untrusted: '=',
             },
-            link: function(scope, elem, attrs) {
+            link: function (scope, elem, attrs) {
                 var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
