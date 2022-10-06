@@ -44,6 +44,12 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
+		if strings.HasPrefix(r.URL.Path, "/rest/status") {
+			// This page should be available without authentication.
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
