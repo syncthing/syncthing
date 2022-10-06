@@ -74,6 +74,13 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, "/rest/status") {
+		// The Status page should be accessible without a CSRF-token
+		// so other services or devices can monitor it freely
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
 	// Allow requests for anything not under the protected path prefix,
 	// and set a CSRF cookie if there isn't already a valid one.
 	if !strings.HasPrefix(r.URL.Path, m.prefix) {
