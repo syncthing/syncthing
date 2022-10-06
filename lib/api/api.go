@@ -864,7 +864,7 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 	device := qs.Get("device")
 	deviceID, err := protocol.DeviceIDFromString(device)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1017,7 +1017,7 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 
 	if len(folder) > 0 {
 		if _, ok := s.cfg.Folders()[folder]; !ok {
-			http.Error(w, "Invalid folder ID", 500)
+			http.Error(w, "Invalid folder ID", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1291,7 +1291,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 		version = val
 	}
 	if r, err := s.urService.ReportDataPreview(context.TODO(), version); err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	} else {
 		sendJSON(w, r)
@@ -1316,7 +1316,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	lines, patterns, err := s.model.LoadIgnores(folder)
 	if err != nil && !ignore.IsParseError(err) {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1333,20 +1333,20 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var data map[string][]string
 	err = json.Unmarshal(bs, &data)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = s.model.SetIgnores(qs.Get("folder"), data["ignore"])
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1430,11 +1430,7 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		if err == upgrade.ErrUpgradeUnsupported {
-			http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
-			return
-		}
-		http.Error(w, err.Error(), 500)
+		httpError(w, err)
 		return
 	}
 	res := make(map[string]interface{})
@@ -1476,12 +1472,7 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		if err == upgrade.ErrUpgradeUnsupported {
-			http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
-			return
-		}
-		l.Warnln("getting latest release:", err)
-		http.Error(w, err.Error(), 500)
+		httpError(w, err)
 		return
 	}
 
@@ -1489,7 +1480,7 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -1536,7 +1527,7 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		if msg != "" {
 			http.Error(w, msg, status)
 		} else if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
@@ -1548,7 +1539,7 @@ func (s *service) postDBScan(w http.ResponseWriter, r *http.Request) {
 		subs := qs["sub"]
 		err := s.model.ScanFolderSubdirs(folder, subs)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		nextStr := qs.Get("next")
@@ -1559,7 +1550,7 @@ func (s *service) postDBScan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		errors := s.model.ScanFolders()
 		if len(errors) > 0 {
-			http.Error(w, "Error scanning folders", 500)
+			http.Error(w, "Error scanning folders", http.StatusInternalServerError)
 			sendJSON(w, errors)
 			return
 		}
@@ -1579,7 +1570,7 @@ func (*service) getQR(w http.ResponseWriter, r *http.Request) {
 	var text = qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
-		http.Error(w, "Invalid", 500)
+		http.Error(w, "Invalid", http.StatusInternalServerError)
 		return
 	}
 
@@ -1620,7 +1611,7 @@ func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	versions, err := s.model.GetFolderVersions(qs.Get("folder"))
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	sendJSON(w, versions)
@@ -1632,20 +1623,20 @@ func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Reque
 	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var versions map[string]time.Time
 	err = json.Unmarshal(bs, &versions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	ferr, err := s.model.RestoreFolderVersions(qs.Get("folder"), versions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	sendJSON(w, errorStringMap(ferr))
@@ -2022,4 +2013,12 @@ func isFolderNotFound(err error) bool {
 		}
 	}
 	return false
+}
+
+func httpError(w http.ResponseWriter, err error) {
+	if errors.Is(err, upgrade.ErrUpgradeUnsupported) {
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
