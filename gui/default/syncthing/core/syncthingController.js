@@ -183,8 +183,9 @@ angular.module('syncthing.core')
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
-                } else if (arg.status >= 400 && arg.status <= 599) {
-                    // A genuine HTTP error
+                } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
+                    // A genuine HTTP error. 501/NotImplemented is considered intentional 
+                    // and not an error which we need to act upon.
                     $('#networkError').modal('hide');
                     $('#restarting').modal('hide');
                     $('#shutdown').modal('hide');
