@@ -1567,7 +1567,7 @@ func (s *service) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	s.getDBNeed(w, r)
 }
 
-func (s *service) getStatus(w http.ResponseWriter, r *http.Request) {
+func (*service) getStatus(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]string{"status": "OK"})
 }
 
