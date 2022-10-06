@@ -1424,7 +1424,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 
 func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	if s.noUpgrade {
-		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusServiceUnavailable)
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
 		return
 	}
 	opts := s.cfg.Options()
