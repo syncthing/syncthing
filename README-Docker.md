@@ -7,9 +7,13 @@ Use the `/var/syncthing` volume to have the synchronized files available on the
 host. You can add more folders and map them as you prefer.
 
 Note that Syncthing runs as UID 1000 and GID 1000 by default. These may be
-altered with the ``PUID`` and ``PGID`` environment variables. In addition
+altered with the `PUID` and `PGID` environment variables. In addition
 the name of the Syncthing instance can be optionally defined by using
-``--hostname=syncthing`` parameter.
+`--hostname=syncthing` parameter.
+
+To grant Syncthing additional capabilities without running as root, use the
+`PCAP` environment variable with the same syntax as that for `setcap(8)`.
+For example, `PCAP=cap_chown,cap_fowner+ep`.
 
 ## Example Usage
 

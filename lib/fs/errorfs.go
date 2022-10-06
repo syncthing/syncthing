@@ -24,9 +24,15 @@ func (fs *errorFilesystem) Lchown(_, _, _ string) error      { return fs.err }
 func (fs *errorFilesystem) Chtimes(_ string, _ time.Time, _ time.Time) error {
 	return fs.err
 }
-func (fs *errorFilesystem) Create(_ string) (File, error)                { return nil, fs.err }
-func (fs *errorFilesystem) CreateSymlink(_, _ string) error              { return fs.err }
-func (fs *errorFilesystem) DirNames(_ string) ([]string, error)          { return nil, fs.err }
+func (fs *errorFilesystem) Create(_ string) (File, error)       { return nil, fs.err }
+func (fs *errorFilesystem) CreateSymlink(_, _ string) error     { return fs.err }
+func (fs *errorFilesystem) DirNames(_ string) ([]string, error) { return nil, fs.err }
+func (fs *errorFilesystem) GetXattr(_ string, _ XattrFilter) ([]protocol.Xattr, error) {
+	return nil, fs.err
+}
+func (fs *errorFilesystem) SetXattr(_ string, _ []protocol.Xattr, _ XattrFilter) error {
+	return fs.err
+}
 func (fs *errorFilesystem) Lstat(_ string) (FileInfo, error)             { return nil, fs.err }
 func (fs *errorFilesystem) Mkdir(_ string, _ FileMode) error             { return fs.err }
 func (fs *errorFilesystem) MkdirAll(_ string, _ FileMode) error          { return fs.err }
@@ -54,7 +60,7 @@ func (*errorFilesystem) SameFile(_, _ FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
-func (fs *errorFilesystem) PlatformData(_ string) (protocol.PlatformData, error) {
+func (fs *errorFilesystem) PlatformData(_ string, _, _ bool, _ XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, fs.err
 }
 

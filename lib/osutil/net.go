@@ -37,3 +37,15 @@ func GetLans() ([]*net.IPNet, error) {
 	}
 	return nets, nil
 }
+
+func IPFromAddr(addr net.Addr) (net.IP, error) {
+	switch a := addr.(type) {
+	case *net.TCPAddr:
+		return a.IP, nil
+	case *net.UDPAddr:
+		return a.IP, nil
+	default:
+		host, _, err := net.SplitHostPort(addr.String())
+		return net.ParseIP(host), err
+	}
+}

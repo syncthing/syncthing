@@ -13,7 +13,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func (f *BasicFilesystem) PlatformData(name string) (protocol.PlatformData, error) {
+func (f *BasicFilesystem) PlatformData(name string, scanOwnership, _ bool, _ XattrFilter) (protocol.PlatformData, error) {
+	if !scanOwnership {
+		// That's the only thing we do, currently
+		return protocol.PlatformData{}, nil
+	}
+
 	rootedName, err := f.rooted(name)
 	if err != nil {
 		return protocol.PlatformData{}, fmt.Errorf("rooted for %s: %w", name, err)

@@ -18,6 +18,7 @@ import (
 	natpmp "github.com/jackpal/go-nat-pmp"
 
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -66,10 +67,8 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	conn, err := (&net.Dialer{}).DialContext(timeoutCtx, "udp", net.JoinHostPort(ip.String(), "5351"))
 	if err == nil {
 		conn.Close()
-		localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())
-		if err == nil {
-			localIP = net.ParseIP(localIPAddress)
-		} else {
+		localIP, err = osutil.IPFromAddr(conn.LocalAddr())
+		if localIP == nil {
 			l.Debugln("Failed to lookup local IP", err)
 		}
 	}

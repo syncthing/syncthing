@@ -29,6 +29,12 @@ const (
 	filesystemWrapperTypeLog
 )
 
+type XattrFilter interface {
+	Permit(string) bool
+	GetMaxSingleEntrySize() int
+	GetMaxTotalSize() int
+}
+
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
@@ -62,7 +68,9 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
-	PlatformData(name string) (protocol.PlatformData, error)
+	PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error)
+	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
+	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
@@ -94,11 +102,13 @@ type FileInfo interface {
 	Size() int64
 	ModTime() time.Time
 	IsDir() bool
+	Sys() interface{}
 	// Extensions
 	IsRegular() bool
 	IsSymlink() bool
 	Owner() int
 	Group() int
+	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode
@@ -154,7 +164,10 @@ func (evType EventType) String() string {
 	}
 }
 
-var ErrWatchNotSupported = errors.New("watching is not supported")
+var (
+	ErrWatchNotSupported  = errors.New("watching is not supported")
+	ErrXattrsNotSupported = errors.New("extended attributes are not supported on this platform")
+)
 
 // Equivalents from os package.
 
