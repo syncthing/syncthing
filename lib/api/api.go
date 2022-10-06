@@ -1432,6 +1432,7 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		if err == upgrade.ErrUpgradeUnsupported {
 			http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
+			return
 		}
 		http.Error(w, err.Error(), 500)
 		return
