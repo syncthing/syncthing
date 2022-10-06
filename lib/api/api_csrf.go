@@ -74,9 +74,9 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/rest/status") {
-		// The Status page should be accessible without a CSRF-token
-		// so other services or devices can monitor it freely
+	if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+		// REST calls that don't require authentication also do not
+		// need a CSRF token.
 		m.next.ServeHTTP(w, r)
 		return
 	}

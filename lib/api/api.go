@@ -258,9 +258,9 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)         // folder (deprecated)
 	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                     // [since] [limit] [timeout] [events]
 	restMux.HandlerFunc(http.MethodGet, "/rest/events/disk", s.getDiskEvents)                 // [since] [limit] [timeout]
+	restMux.HandlerFunc(http.MethodGet, "/rest/noauth/health", s.getHealth)                   // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/device", s.getDeviceStats)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/folder", s.getFolderStats)               // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/status", s.getStatus)                          // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/svc/deviceid", s.getDeviceID)                  // id
 	restMux.HandlerFunc(http.MethodGet, "/rest/svc/lang", s.getLang)                          // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/svc/report", s.getReport)                      // -
@@ -1567,7 +1567,7 @@ func (s *service) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	s.getDBNeed(w, r)
 }
 
-func (*service) getStatus(w http.ResponseWriter, _ *http.Request) {
+func (*service) getHealth(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]string{"status": "OK"})
 }
 

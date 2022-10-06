@@ -44,8 +44,8 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/rest/status") {
-			// This page should be available without authentication.
+		// Exception for REST calls that don't require authentication.
+		if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
 			next.ServeHTTP(w, r)
 			return
 		}
