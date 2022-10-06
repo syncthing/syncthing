@@ -1430,6 +1430,9 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
+		if err == upgrade.ErrUpgradeUnsupported {
+			http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
+		}
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1472,6 +1475,10 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
+		if err == upgrade.ErrUpgradeUnsupported {
+			http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
+			return
+		}
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
 		return
