@@ -258,6 +258,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)         // folder (deprecated)
 	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                     // [since] [limit] [timeout] [events]
 	restMux.HandlerFunc(http.MethodGet, "/rest/events/disk", s.getDiskEvents)                 // [since] [limit] [timeout]
+	restMux.HandlerFunc(http.MethodGet, "/rest/noauth/health", s.getHealth)                   // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/device", s.getDeviceStats)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/folder", s.getFolderStats)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/svc/deviceid", s.getDeviceID)                  // id
@@ -1563,6 +1564,10 @@ func (s *service) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	file := qs.Get("file")
 	s.model.BringToFront(folder, file)
 	s.getDBNeed(w, r)
+}
+
+func (*service) getHealth(w http.ResponseWriter, _ *http.Request) {
+	sendJSON(w, map[string]string{"status": "OK"})
 }
 
 func (*service) getQR(w http.ResponseWriter, r *http.Request) {
