@@ -184,7 +184,7 @@ angular.module('syncthing.core')
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
                 } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
-                    // A genuine HTTP error. 501/NotImplemented is considered intentional 
+                    // A genuine HTTP error. 501/NotImplemented is considered intentional
                     // and not an error which we need to act upon.
                     $('#networkError').modal('hide');
                     $('#restarting').modal('hide');
@@ -1195,26 +1195,16 @@ angular.module('syncthing.core')
 
         $scope.rdConnType = function(deviceID) {
             var conn = $scope.connections[deviceID];
-            if(!conn)
-                return "-1";
-                
-            if (conn.type.indexOf('relay') === 0)
-                return "relay";
-            
-            if (conn.type.indexOf('quic') === 0)
-                return "quic";
-            
-            if(conn.type.indexOf('tcp') === 0)
-                return "tcp"+rdAddrType(conn.address);
-
+            if (!conn) return "-1";
+            if (conn.type.indexOf('relay') === 0) return "relay";
+            if (conn.type.indexOf('quic') === 0) return "quic";
+            if (conn.type.indexOf('tcp') === 0) return "tcp" + rdAddrType(conn.address);
             return "disconnected";
         }
 
         function rdAddrType(address) {
             var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
-            if(re.test(address)) 
-                return "lan";
-        
+            if (re.test(address)) return "lan";
             return "wan";
         }
 
