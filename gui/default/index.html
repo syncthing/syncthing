@@ -739,7 +739,7 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <span class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel"> 
+                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel">
                       <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                       <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                       <span ng-switch-when="syncing">
@@ -753,7 +753,7 @@
                     <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-devices-panel">
                       <span ng-switch-when="tcplan" class="reception reception-4 reception-theme"></span>
                       <span ng-switch-when="tcpwan" class="reception reception-3 reception-theme"></span>
-                      <span ng-switch-when="quic" class="reception reception-2 reception-theme"></span> 
+                      <span ng-switch-when="quic" class="reception reception-2 reception-theme"></span>
                       <span ng-switch-when="relay" class="reception reception-1 reception-theme"></span>
                       <span ng-switch-when="disconnected" class="reception reception-0 reception-theme"></span>
                     </span>
