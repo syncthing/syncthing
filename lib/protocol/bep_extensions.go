@@ -258,21 +258,12 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
-	// OS data comparison is special: we consider a difference only if an
-	// entry for the same OS exists on both sides and they are different.
-	// Otherwise a file would become different as soon as it's synced from
-	// Windows to Linux, as Linux would add a new POSIX entry for the file.
 	if !comp.IgnoreOwnership && f.Platform != other.Platform {
-		if f.Platform.Unix != nil && other.Platform.Unix != nil {
-			if *f.Platform.Unix != *other.Platform.Unix {
-				return false
-			}
+		if !unixOwnershipEqual(f.Platform.Unix, other.Platform.Unix) {
+			return false
 		}
-		if f.Platform.Windows != nil && other.Platform.Windows != nil {
-			if f.Platform.Windows.OwnerName != other.Platform.Windows.OwnerName ||
-				f.Platform.Windows.OwnerIsGroup != other.Platform.Windows.OwnerIsGroup {
-				return false
-			}
+		if !windowsOwnershipEqual(f.Platform.Windows, other.Platform.Windows) {
+			return false
 		}
 	}
 	if !comp.IgnoreXattrs && f.Platform != other.Platform {
@@ -542,10 +533,14 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 }
 
 func xattrsEqual(a, b *XattrData) bool {
-	if a == nil || b == nil {
-		// Having no data on either side means we have nothing to compare
-		// to, and we consider that equal.
+	aEmpty := a == nil || len(a.Xattrs) == 0
+	bEmpty := b == nil || len(b.Xattrs) == 0
+	if aEmpty && bEmpty {
 		return true
+	}
+	if aEmpty || bEmpty {
+		// Only one side is empty, so they can't be equal.
+		return false
 	}
 	if len(a.Xattrs) != len(b.Xattrs) {
 		return false
@@ -559,4 +554,24 @@ func xattrsEqual(a, b *XattrData) bool {
 		}
 	}
 	return true
+}
+
+func unixOwnershipEqual(a, b *UnixData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.UID == b.UID && a.GID == b.GID
+}
+
+func windowsOwnershipEqual(a, b *WindowsData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.OwnerName == b.OwnerName && a.OwnerIsGroup == b.OwnerIsGroup
 }

@@ -606,8 +606,8 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 		IgnorePerms:     b.f.IgnorePerms,
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-		IgnoreOwnership: !b.f.SyncOwnership,
-		IgnoreXattrs:    !b.f.SyncXattrs,
+		IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
+		IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
 	}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
