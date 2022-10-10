@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Update translations and documentation
     steps:
-      - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
+      - uses: actions/checkout@8230315d06ad95c617244d2f265d237a1682d445 # v2
         with:
           fetch-depth: 0
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
