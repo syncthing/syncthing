@@ -20,6 +20,7 @@ import (
 	"github.com/miscreant/miscreant.go"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/util"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
@@ -488,9 +489,9 @@ func knownBytes(folderID string) []byte {
 	return []byte("syncthing" + folderID)
 }
 
-// KeyFromPassword uses key derivation to generate a stronger key from a
+// keyFromPasswordUncached uses key derivation to generate a stronger key from a
 // probably weak password.
-func KeyFromPassword(folderID, password string) *[keySize]byte {
+func keyFromPasswordUncached(folderID, password string) *[keySize]byte {
 	bs, err := scrypt.Key([]byte(password), knownBytes(folderID), 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
@@ -501,6 +502,25 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 	var key [keySize]byte
 	copy(key[:], bs)
 	return &key
+}
+
+type keyFromPasswordCacheKey struct {
+	folderID, password string
+}
+
+var keyFromPasswordCache = util.NewCache[keyFromPasswordCacheKey, *[keySize]byte]()
+
+func KeyFromPassword(folderID, password string) *[keySize]byte {
+	cacheKey := keyFromPasswordCacheKey{
+		folderID: folderID,
+		password: password,
+	}
+	if key, ok := keyFromPasswordCache.Get(cacheKey); ok {
+		return key
+	}
+	key := keyFromPasswordUncached(folderID, password)
+	keyFromPasswordCache.Set(cacheKey, key)
+	return key
 }
 
 var hkdfSalt = []byte("syncthing")
