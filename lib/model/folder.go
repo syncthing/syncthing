@@ -602,12 +602,13 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			return true
 		}
 	case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-		ModTimeWindow:   b.f.modTimeWindow,
-		IgnorePerms:     b.f.IgnorePerms,
-		IgnoreBlocks:    true,
-		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-		IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
-		IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
+		StrictInodeChangeTime: true,
+		ModTimeWindow:         b.f.modTimeWindow,
+		IgnorePerms:           b.f.IgnorePerms,
+		IgnoreBlocks:          true,
+		IgnoreFlags:           protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership:       !b.f.SyncOwnership && !b.f.SendOwnership,
+		IgnoreXattrs:          !b.f.SyncXattrs && !b.f.SendXattrs,
 	}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
