@@ -402,8 +402,6 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
-		debugFile := curFile
-		debugFile.Blocks = nil
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
 			ModTimeWindow:   w.ModTimeWindow,
 			IgnorePerms:     w.IgnorePerms,
@@ -412,7 +410,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			IgnoreOwnership: !w.ScanOwnership,
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
-			l.Debugln(w, "unchanged:", debugFile)
+			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -423,7 +421,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln(w, "rescan:", debugFile)
+		l.Debugln(w, "rescan:", curFile)
 	}
 
 	l.Debugln(w, "to hash:", relPath, f)
@@ -449,8 +447,6 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
-		debugFile := curFile
-		debugFile.Blocks = nil
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
 			ModTimeWindow:   w.ModTimeWindow,
 			IgnorePerms:     w.IgnorePerms,
@@ -459,7 +455,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			IgnoreOwnership: !w.ScanOwnership,
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
-			l.Debugln(w, "unchanged:", debugFile)
+			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -470,7 +466,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln(w, "rescan:", debugFile)
+		l.Debugln(w, "rescan:", curFile)
 	}
 
 	l.Debugln(w, "dir:", relPath, f)
@@ -504,8 +500,6 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
-		debugFile := curFile
-		debugFile.Blocks = nil
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
 			ModTimeWindow:   w.ModTimeWindow,
 			IgnorePerms:     w.IgnorePerms,
@@ -525,7 +519,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln(w, "rescan:", debugFile)
+		l.Debugln(w, "rescan:", curFile)
 	}
 
 	l.Debugln(w, "symlink:", relPath, f)
