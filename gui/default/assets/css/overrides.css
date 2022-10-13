@@ -550,5 +550,6 @@ html[lang|="ko"] i {
 }
 
 .select-on-click {
+    -webkit-user-select: all;
     user-select: all;
 }
