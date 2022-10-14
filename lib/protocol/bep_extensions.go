@@ -573,7 +573,7 @@ func unixOwnershipEqual(a, b *UnixData) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	return a.UID == b.UID && a.GID == b.GID
+	return a.UID == b.UID && a.GID == b.GID && a.OwnerName == b.OwnerName && a.GroupName == b.GroupName
 }
 
 func windowsOwnershipEqual(a, b *WindowsData) bool {
