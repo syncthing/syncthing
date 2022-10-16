@@ -207,12 +207,6 @@ type FileInfoComparison struct {
 	IgnoreFlags     uint32
 	IgnoreOwnership bool
 	IgnoreXattrs    bool
-
-	// With StrictInodeChangeTime, consider the file different if inode
-	// change time is not identical -- even if one side is zero. By default,
-	// without it set, we only consider them different if both files have a
-	// non-zero inode change time
-	StrictInodeChangeTime bool
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
@@ -251,12 +245,8 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	}
 
 	// If we are recording inode change times and it changed, they are not
-	// equal. The strict check mode is used when checking for equivalency
-	// before a database insert; it is no good that we consider it equal
-	// when the database version has a zero inode change time, because that
-	// may be why we are inserting it in the first place.
-	checkInodeChangeNs := comp.StrictInodeChangeTime || (f.InodeChangeNs != 0 && other.InodeChangeNs != 0)
-	if checkInodeChangeNs && f.InodeChangeNs != other.InodeChangeNs {
+	// equal.
+	if (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 
