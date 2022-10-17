@@ -63,7 +63,7 @@
     "Connection Error": "Błąd połączenia",
     "Connection Type": "Rodzaj połączenia",
     "Connections": "Połączenia",
-    "Connections via relays might be rate limited by the relay": "Prędkość połączeń może być ograniczona przez danego przekazywacza",
+    "Connections via relays might be rate limited by the relay": "Prędkość połączeń za pośrednictwem przekazywaczy może być ograniczona przez danego przekazywacza",
     "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Ciągłe obserwowanie zmian jest już dostępne w programie Syncthing. Będzie ono wykrywać zmiany na dysku i uruchamiać skanowanie tylko w zmodyfikowanych ścieżkach. Zalety tego rozwiązania są takie, że zmiany rozsyłane są szybciej oraz że wymagane jest mniej pełnych skanowań.",
     "Copied from elsewhere": "Skopiowane z innego miejsca ",
     "Copied from original": "Skopiowane z pierwotnego pliku",
