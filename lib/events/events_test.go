@@ -259,7 +259,7 @@ func TestBufferedSub(t *testing.T) {
 	}
 }
 
-func TestBufferedSubZero(t *testing.T) {
+func TestBufferedSubZero(*testing.T) {
 	l, cancel := setupLogger()
 	defer cancel()
 
