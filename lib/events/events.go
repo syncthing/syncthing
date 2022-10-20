@@ -479,7 +479,12 @@ type BufferedSubscription interface {
 	Mask() EventType
 }
 
+// NewBufferedSubscription returns a BufferedSubscription with buffer of size,
+// or nil if size < 1
 func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
+	if size < 1 {
+		return nil
+	}
 	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),

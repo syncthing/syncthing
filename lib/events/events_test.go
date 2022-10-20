@@ -259,6 +259,15 @@ func TestBufferedSub(t *testing.T) {
 	}
 }
 
+func TestBufferedSubZero(t *testing.T) {
+	l, cancel := setupLogger()
+	defer cancel()
+
+	s := l.Subscribe(AllEvents)
+	defer s.Unsubscribe()
+	_ = NewBufferedSubscription(s, -15)
+}
+
 func BenchmarkBufferedSub(b *testing.B) {
 	l, cancel := setupLogger()
 	defer cancel()
