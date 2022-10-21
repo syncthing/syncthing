@@ -259,12 +259,17 @@ func TestBufferedSub(t *testing.T) {
 	}
 }
 
-func TestBufferedSubZero(*testing.T) {
+func TestBufferedSubZero(t *testing.T) {
 	l, cancel := setupLogger()
 	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("No panic for negative buffer size")
+		}
+	}()
 	_ = NewBufferedSubscription(s, -15)
 }
 

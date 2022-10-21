@@ -480,10 +480,10 @@ type BufferedSubscription interface {
 }
 
 // NewBufferedSubscription returns a BufferedSubscription with buffer of size,
-// or nil if size < 1
+// will panic on size < 1
 func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
 	if size < 1 {
-		return nil
+		panic("bug: buffer size <= 0")
 	}
 	bs := &bufferedSubscription{
 		sub: s,
