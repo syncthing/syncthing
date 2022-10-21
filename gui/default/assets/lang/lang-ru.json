@@ -484,7 +484,7 @@
     "items": "элементы",
     "seconds": "сек.",
     "theme-name-black": "Чёрная",
-    "theme-name-dark": "Тёманя",
+    "theme-name-dark": "Тёмная",
     "theme-name-default": "По умолчанию",
     "theme-name-light": "Светлая",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хочет поделиться папкой «{{folder}}».",
