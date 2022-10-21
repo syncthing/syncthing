@@ -336,7 +336,7 @@
         <!-- Folder list (top left) -->
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
-          <h3 id="folder_list" translate>Folders</h3>
+          <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
           <div class="panel-group" id="folders">
             <div class="panel panel-default" ng-repeat="folder in folderList()">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}" aria-expanded="false">
@@ -731,7 +731,7 @@
           </div>
 
           <!-- Remote devices -->
-          <h3 translate>Remote Devices</h3>
+          <h3><span translate>Remote Devices</span> <span ng-if="otherDevices().length > 1"> ({{otherDevices().length}})</span></h3>
           <div class="panel-group" id="devices">
             <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}" aria-expanded="false">
