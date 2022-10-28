@@ -1,0 +1,73 @@
+name: Build Syncthing
+
+on:
+  pull_request:
+  push:
+
+env:
+  GO_VERSION: "1.19.2"
+  GO386: softfloat
+  GOARM: "5"
+  GOMIPS: softfloat
+
+jobs:
+
+  build-windows:
+    runs-on: windows-latest
+    name: Build and test on Windows
+    steps:
+      - name: Set git to use LF
+        # Without this, the checkout will happen with CRLF line endings,
+        # which is fine for the source code but messes up tests that depend
+        # on data on disk being as expected. Ideally, those tests should be
+        # fixed, but not today.
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v3
+        # `fetch-depth: 0` because we want to check out the entire repo
+        # including tags and branches, not just the latest commit which
+        # lacks version info.
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v3
+        # `cache: true` gives us automatic caching of modules and build
+        # cache, speeding up builds. The cache key is dependent on the Go
+        # version and our go.sum contents.
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
+
+      - name: Build and test
+        run: |
+          go run build.go
+          go run build.go test
+
+      - name: Create packages
+        # Only run this for pushes to our branches, not on PRs. Uses secrets
+        # for code signing.
+        if: github.event_name == 'push'
+        run: |
+          go run build.go -goarch amd64 zip
+          go run build.go -goarch arm zip
+          go run build.go -goarch arm64 zip
+          go run build.go -goarch 386 zip
+        env:
+          CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
+          CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
+          CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
+          CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
+
+      - name: Archive artifacts
+        # Only run this for pushes to our branches, not on PRs
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages
+          path: syncthing-windows-*.zip
