@@ -774,7 +774,7 @@
                         <th><span class="fas fa-fw fa-cloud"></span>&nbsp;<span translate>Sync Status</span></th>
                         <td translate ng-if="completion[deviceCfg.deviceID]._total == 100" class="text-right">Up to Date</td>
                         <td ng-if="completion[deviceCfg.deviceID]._total < 100" class="text-right">
-                            <span class="hidden-xs" translate>Out of Sync</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                            <span class="hidden-xs" translate>Out of Sync</span> ({{completion[deviceCfg.deviceID]._total | percent}})
                         </td>
                       </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
@@ -809,7 +809,7 @@
                           </a>
                         </td>
                       </tr>
-                      <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
+                      <tr ng-if="completion[deviceCfg.deviceID]._needItems">
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                         <td class="text-right">
                           <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
