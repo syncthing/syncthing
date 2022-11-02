@@ -5,7 +5,7 @@ on:
   push:
 
 env:
-  GO_VERSION: "1.19.2"
+  GO_VERSION: "1.19.3"
   GO386: softfloat
   GOARM: "5"
   GOMIPS: softfloat
@@ -26,11 +26,6 @@ jobs:
           git config --global core.eol lf
 
       - uses: actions/checkout@v3
-        # `fetch-depth: 0` because we want to check out the entire repo
-        # including tags and branches, not just the latest commit which
-        # lacks version info.
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v3
         # `cache: true` gives us automatic caching of modules and build
@@ -40,19 +35,47 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install dependencies
-        run: |
-          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
-
       - name: Build and test
         run: |
           go run build.go
           go run build.go test
 
+  package-windows:
+    runs-on: windows-latest
+    name: Create packages for Windows
+    environment: signing
+    needs:
+      - build-windows
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v3
+        # `fetch-depth: 0` because we want to check out the entire repo
+        # including tags and branches, not just the latest commit which
+        # lacks version info.
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\go-build
+            ~\go\pkg\mod
+          key: ${{ runner.os }}-go-${{ env.GOVERSION }}-package-${{ hashFiles('**/go.sum') }}
+
+      - name: Install dependencies
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
+
       - name: Create packages
-        # Only run this for pushes to our branches, not on PRs. Uses secrets
-        # for code signing.
-        if: github.event_name == 'push'
         run: |
           go run build.go -goarch amd64 zip
           go run build.go -goarch arm zip
@@ -65,8 +88,6 @@ jobs:
           CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
 
       - name: Archive artifacts
-        # Only run this for pushes to our branches, not on PRs
-        if: github.event_name == 'push'
         uses: actions/upload-artifact@v3
         with:
           name: packages
