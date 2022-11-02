@@ -9,6 +9,7 @@ env:
   GO386: softfloat
   GOARM: "5"
   GOMIPS: softfloat
+  LOGGER_DISCARD: "1"
 
 jobs:
 
