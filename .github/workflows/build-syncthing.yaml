@@ -5,13 +5,29 @@ on:
   push:
 
 env:
+  # The go version to use for builds.
   GO_VERSION: "1.19.3"
+
+  # Optimize compatibility on the slow archictures.
   GO386: softfloat
   GOARM: "5"
   GOMIPS: softfloat
+
+  # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
 
+# A note on actions and third party code... The actions under actions/ (like
+# `uses: actions/checkout`) are maintained by GitHub, and we need to trust
+# GitHub to maintain their code and infrastructure or we're in deep shit in
+# general. The same doesn't necessarily apply to other actions authors, so
+# some care needs to be taken when adding steps, especially in the paths
+# that lead up to code being packaged and signed.
+
 jobs:
+
+  #
+  # Windows, quick build and test, runs always
+  #
 
   build-windows:
     name: Build and test on Windows
@@ -40,6 +56,10 @@ jobs:
         run: |
           go run build.go
           go run build.go test
+
+  #
+  # Windows, build signed packages
+  #
 
   package-windows:
     name: Create packages for Windows
