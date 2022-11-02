@@ -13,8 +13,8 @@ env:
 jobs:
 
   build-windows:
-    runs-on: windows-latest
     name: Build and test on Windows
+    runs-on: windows-latest
     steps:
       - name: Set git to use LF
         # Without this, the checkout will happen with CRLF line endings,
@@ -41,8 +41,11 @@ jobs:
           go run build.go test
 
   package-windows:
-    runs-on: windows-latest
     name: Create packages for Windows
+    runs-on: windows-latest
+    # We only run this job for release pushes.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release')
+    # This is also enforced by the environment which contains the secrets.
     environment: signing
     needs:
       - build-windows
@@ -62,7 +65,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
 
       - uses: actions/cache@v3
         with:
