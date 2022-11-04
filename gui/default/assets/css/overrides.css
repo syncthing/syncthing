@@ -169,7 +169,8 @@ table.table-auto td {
     width: 1em;
     height: 1em;
     display: inline-block;
-    vertical-align: -20%;
+    vertical-align: -10%;
+    background-size: contain;
 }
 
 .remote-devices-panel {
