@@ -171,6 +171,9 @@ table.table-auto td {
     display: inline-block;
     vertical-align: -10%;
     background-size: contain;
+    /* Simulate same width as Fork Awesome icons. */
+    margin-left: .14285715em;
+    margin-right: .14285715em;
 }
 
 .remote-devices-panel {
