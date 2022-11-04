@@ -391,6 +391,48 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr class="visible-xs">
+                        <th ng-switch="folderStatus(folder)">
+                          <span ng-switch-when="paused" class="fas fa-fw fa-pause"></span><span
+                          ng-switch-when="unknown" class="fas fa-fw fa-question-circle"></span><span
+                          ng-switch-when="unshared" class="fas fa-fw fa-unlink"></span><span
+                          ng-switch-when="scan-waiting" class="fas fa-fw fa-hourglass-half"></span><span
+                          ng-switch-when="cleaning" class="fas fa-fw fa-recycle"></span><span
+                          ng-switch-when="clean-waiting" class="fas fa-fw fa-hourglass-half"></span><span
+                          ng-switch-when="stopped" class="fas fa-fw fa-stop"></span><span
+                          ng-switch-when="scanning" class="fas fa-fw fa-search"></span><span
+                          ng-switch-when="idle" class="fas fa-fw fa-check"></span><span
+                          ng-switch-when="localadditions" class="fas fa-fw fa-check"></span><span
+                          ng-switch-when="sync-waiting" class="fas fa-fw fa-hourglass-half"></span><span
+                          ng-switch-when="sync-preparing" class="fas fa-fw fa-hourglass-half"></span><span
+                          ng-switch-when="syncing" class="fas fa-fw fa-sync"></span><span
+                          ng-switch-when="outofsync" class="fas fa-fw fa-exclamation-circle"></span><span
+                          ng-switch-when="faileditems" class="fas fa-fw fa-exclamation-circle"></span><span
+                          ng-switch-when="localunencrypted" class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span
+                          translate>Folder Status</span>
+                        </th>
+                        <td ng-switch="folderStatus(folder)" class="text-right">
+                          <span ng-switch-when="paused" translate>Paused</span>
+                          <span ng-switch-when="unknown" translate>Unknown</span>
+                          <span ng-switch-when="unshared" translate>Unshared</span>
+                          <span ng-switch-when="scan-waiting" translate>Waiting to Scan</span>
+                          <span ng-switch-when="cleaning" translate>Cleaning Versions</span>
+                          <span ng-switch-when="clean-waiting" translate>Waiting to Clean</span>
+                          <span ng-switch-when="stopped" translate>Stopped</span>
+                          <span ng-switch-when="scanning" translate>
+                            Scanning
+                            <span ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
+                          </span>
+                          <span ng-switch-when="idle" translate>Up to Date</span>
+                          <span ng-switch-when="localadditions" translate>Local Additions</span>
+                          <span ng-switch-when="sync-waiting" translate>Waiting to Sync</span>
+                          <span ng-switch-when="sync-preparing" translate>Preparing to Sync</span>
+                          <span ng-switch-when="syncing" translate>Syncing</span>
+                          <span ng-switch-when="outofsync" translate>Out of Sync</span>
+                          <span ng-switch-when="faileditems" translate>Failed Items</span>
+                          <span ng-switch-when="localunencrypted" translate>Unexpected Items</span>
+                        </td>
+                      </tr>
                       <tr ng-show="folder.label != undefined && folder.label.length > 0">
                         <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
                         <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
@@ -766,6 +808,29 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr class="visible-xs">
+                        <th ng-switch="deviceStatus(deviceCfg)">
+                          <span ng-switch-when="insync" class="fas fa-fw fa-check"></span><span
+                          ng-switch-when="unused-insync" class="fas fa-fw fa-unlink"></span><span
+                          ng-switch-when="syncing" class="fas fa-fw fa-sync"></span><span
+                          ng-switch-when="paused" class="fas fa-fw fa-pause"></span><span
+                          ng-switch-when="unused-paused" class="fas fa-fw fa-unlink"></span><span
+                          ng-switch-when="disconnected" class="fas fa-fw fa-power-off"></span><span
+                          ng-switch-when="disconnected-inactive" class="fas fa-fw fa-power-off"></span><span
+                          ng-switch-when="unused-disconnected" class="fas fa-fw fa-unlink"></span>&nbsp;<span
+                          translate>Device Status</span>
+                        </th>
+                        <td ng-switch="deviceStatus(deviceCfg)" class="text-right">
+                          <span ng-switch-when="insync" translate>Up to Date</span>
+                          <span ng-switch-when="unused-insync" translate>Connected (Unused)</span>
+                          <span ng-switch-when="syncing" translate>Syncing</span>
+                          <span ng-switch-when="paused" translate>Paused</span>
+                          <span ng-switch-when="unused-paused" translate>Paused (Unused)</span>
+                          <span ng-switch-when="disconnected" translate>Disconnected</span>
+                          <span ng-switch-when="disconnected-inactive" translate>Disconnected (Inactive)</span>
+                          <span ng-switch-when="unused-disconnected" translate>Disconnected (Unused)</span>
+                        </td>
+                      </tr>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
                         <td class="text-right">
