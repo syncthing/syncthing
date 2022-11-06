@@ -27,7 +27,8 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	conn *tls.Conn
+	conn  *tls.Conn
+	token string
 }
 
 func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *staticClient {
@@ -38,6 +39,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
+
+		token: uri.Query().Get("token"),
 	}
 	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
@@ -173,7 +176,7 @@ func (c *staticClient) disconnect() {
 }
 
 func (c *staticClient) join() error {
-	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{}); err != nil {
+	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{Token: c.token}); err != nil {
 		return err
 	}
 

@@ -183,8 +183,9 @@ angular.module('syncthing.core')
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
-                } else if (arg.status >= 400 && arg.status <= 599) {
-                    // A genuine HTTP error
+                } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
+                    // A genuine HTTP error. 501/NotImplemented is considered intentional
+                    // and not an error which we need to act upon.
                     $('#networkError').modal('hide');
                     $('#restarting').modal('hide');
                     $('#shutdown').modal('hide');
@@ -626,7 +627,7 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error(function(data, status, headers, config) {
+            }).error(function (data, status, headers, config) {
                 if (status === 404) {
                     console.log("refreshCompletion:", data);
                 } else {
@@ -813,7 +814,7 @@ angular.module('syncthing.core')
             });
         }
 
-        $scope.pendingIsRemoteEncrypted = function(folderID, deviceID) {
+        $scope.pendingIsRemoteEncrypted = function (folderID, deviceID) {
             var pending = $scope.pendingFolders[folderID];
             if (!pending || !pending.offeredBy || !pending.offeredBy[deviceID]) {
                 return false;
@@ -864,7 +865,9 @@ angular.module('syncthing.core')
                 $scope.deviceStats = data;
                 for (var device in $scope.deviceStats) {
                     $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
-                    $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    if ($scope.deviceStats[device].lastSeen.toISOString() !== '1970-01-01T00:00:00.000Z') {
+                        $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    }
                 }
                 console.log("refreshDeviceStats", data);
             }).error($scope.emitHTTPError);
@@ -1072,8 +1075,9 @@ angular.module('syncthing.core')
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
+            var unused = $scope.deviceFolders(deviceCfg).length === 0;
 
-            if ($scope.deviceFolders(deviceCfg).length === 0) {
+            if (unused) {
                 status = 'unused-';
             }
 
@@ -1094,7 +1098,11 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            return status + 'disconnected';
+            if (!unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+                return status + 'disconnected-inactive';
+            } else {
+                return status + 'disconnected';
+            }
         };
 
         $scope.deviceClass = function (deviceCfg) {
@@ -1192,6 +1200,51 @@ angular.module('syncthing.core')
             return '?';
         };
 
+        $scope.rdConnType = function (deviceID) {
+            var conn = $scope.connections[deviceID];
+            if (!conn) return "-1";
+            if (conn.type.indexOf('relay') === 0) return "relay";
+            if (conn.type.indexOf('quic') === 0) return "quic";
+            if (conn.type.indexOf('tcp') === 0) return "tcp" + rdAddrType(conn.address);
+            return "disconnected";
+        }
+
+        function rdAddrType(address) {
+            var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
+            if (re.test(address)) return "lan";
+            return "wan";
+        }
+
+        $scope.rdConnTypeString = function (type) {
+            switch (type) {
+                case "relay":
+                    return $translate.instant('Relay');
+                case "quic":
+                    return $translate.instant('QUIC');
+                case "tcpwan":
+                    return $translate.instant('TCP WAN');
+                case "tcplan":
+                    return $translate.instant('TCP LAN');
+                default:
+                    return $translate.instant('Disconnected');
+            }
+        }
+
+        $scope.rdConnDetails = function (type) {
+            switch (type) {
+                case "relay":
+                    return $translate.instant('Connections via relays might be rate limited by the relay');
+                case "quic":
+                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                case "tcpwan":
+                    return $translate.instant('Using a direct TCP connection over WAN');
+                case "tcplan":
+                    return $translate.instant('Using a direct TCP connection over LAN');
+                default:
+                    return $translate.instant('Unknown');
+            }
+        }
+
         $scope.hasRemoteGUIAddress = function (deviceCfg) {
             if (!deviceCfg.remoteGUIPort)
                 return false;
@@ -1202,7 +1255,8 @@ angular.module('syncthing.core')
         $scope.remoteGUIAddress = function (deviceCfg) {
             // Assume hasRemoteGUIAddress is true or we would not be here
             var conn = $scope.connections[deviceCfg.deviceID];
-            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort);
+            // Use regex to filter out scope ID from IPv6 addresses.
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace('%.*?\]:', ']:');
         };
 
         function replaceAddressPort(address, newPort) {
@@ -1932,10 +1986,10 @@ angular.module('syncthing.core')
                 return;
             }
             var idx;
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                idx = 1;
-            } else if ($scope.currentFolder.type === 'receiveencrypted') {
+            if ($scope.currentFolder.type === 'receiveencrypted') {
                 idx = 2;
+            } else if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
             } else {
                 idx = 0;
             }
@@ -2049,7 +2103,7 @@ angular.module('syncthing.core')
             editFolderModal(initialTab);
         }
 
-        $scope.internalVersioningEnabled = function(guiVersioning) {
+        $scope.internalVersioningEnabled = function (guiVersioning) {
             if (!$scope.currentFolder._guiVersioning) {
                 return false;
             }
@@ -2086,7 +2140,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editFolderExisting = function(folderCfg, initialTab) {
+        $scope.editFolderExisting = function (folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
             editFolderLoadIgnores();
@@ -2101,7 +2155,7 @@ angular.module('syncthing.core')
 
         function editFolderGetIgnores() {
             return $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .then(function(r) {
+                .then(function (r) {
                     return r.data;
                 }, function (response) {
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
@@ -2111,7 +2165,7 @@ angular.module('syncthing.core')
 
         function editFolderLoadIgnores() {
             editFolderLoadingIgnores();
-            return editFolderGetIgnores().then(function(data) {
+            return editFolderGetIgnores().then(function (data) {
                 if (!data) {
                     return;
                 }
@@ -2308,7 +2362,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder._editing = "new-ignores";
                 $('.nav-tabs a[href="#folder-ignores"]').tab('show');
                 return editFolderGetIgnores();
-            }).then(function(data) {
+            }).then(function (data) {
                 // Error getting ignores -> leave error message.
                 if (!data) {
                     return;
@@ -2316,7 +2370,7 @@ angular.module('syncthing.core')
                 if ((data.ignore && data.ignore.length > 0) || data.error) {
                     editFolderInitIgnores(data.ignore, data.error);
                 } else {
-                    getDefaultIgnores().then(function(lines) {
+                    getDefaultIgnores().then(function (lines) {
                         setIgnoresText(lines);
                         $scope.ignores.defaultLines = lines;
                         $scope.ignores.disabled = false;
@@ -2332,7 +2386,7 @@ angular.module('syncthing.core')
             var ignores = ignoresArray();
 
             function arrayDiffers(a, b) {
-                return !a !== !b || a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
+                return !a !== !b || a.length !== b.length || a.some(function (v, i) { return v !== b[i]; });
             }
             if (arrayDiffers(ignores, $scope.ignores.originalLines)) {
                 return saveIgnores(ignores);
@@ -2636,7 +2690,7 @@ angular.module('syncthing.core')
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
                                     // Case insensitive sort with folders on top.
-                                    var cmp = function(a, b) {
+                                    var cmp = function (a, b) {
                                         var x = (a.isFolder() ? "0" : "1") + a.title.toLowerCase(),
                                             y = (b.isFolder() ? "0" : "1") + b.title.toLowerCase();
                                         return x === y ? 0 : x > y ? 1 : -1;
@@ -3262,7 +3316,7 @@ angular.module('syncthing.core')
                 folderType: '@',
                 untrusted: '=',
             },
-            link: function(scope, elem, attrs) {
+            link: function (scope, elem, attrs) {
                 var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;

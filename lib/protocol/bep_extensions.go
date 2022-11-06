@@ -55,14 +55,14 @@ func (Hello) Magic() uint32 {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x, Platform:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash, f.Platform)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
 	default:
 		panic("mystery file type detected")
 	}
@@ -246,7 +246,7 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 
 	// If we are recording inode change times and it changed, they are not
 	// equal.
-	if f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
+	if (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 
@@ -258,21 +258,12 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
-	// OS data comparison is special: we consider a difference only if an
-	// entry for the same OS exists on both sides and they are different.
-	// Otherwise a file would become different as soon as it's synced from
-	// Windows to Linux, as Linux would add a new POSIX entry for the file.
 	if !comp.IgnoreOwnership && f.Platform != other.Platform {
-		if f.Platform.Unix != nil && other.Platform.Unix != nil {
-			if *f.Platform.Unix != *other.Platform.Unix {
-				return false
-			}
+		if !unixOwnershipEqual(f.Platform.Unix, other.Platform.Unix) {
+			return false
 		}
-		if f.Platform.Windows != nil && other.Platform.Windows != nil {
-			if f.Platform.Windows.OwnerName != other.Platform.Windows.OwnerName ||
-				f.Platform.Windows.OwnerIsGroup != other.Platform.Windows.OwnerIsGroup {
-				return false
-			}
+		if !windowsOwnershipEqual(f.Platform.Windows, other.Platform.Windows) {
+			return false
 		}
 	}
 	if !comp.IgnoreXattrs && f.Platform != other.Platform {
@@ -542,10 +533,14 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 }
 
 func xattrsEqual(a, b *XattrData) bool {
-	if a == nil || b == nil {
-		// Having no data on either side means we have nothing to compare
-		// to, and we consider that equal.
+	aEmpty := a == nil || len(a.Xattrs) == 0
+	bEmpty := b == nil || len(b.Xattrs) == 0
+	if aEmpty && bEmpty {
 		return true
+	}
+	if aEmpty || bEmpty {
+		// Only one side is empty, so they can't be equal.
+		return false
 	}
 	if len(a.Xattrs) != len(b.Xattrs) {
 		return false
@@ -559,4 +554,24 @@ func xattrsEqual(a, b *XattrData) bool {
 		}
 	}
 	return true
+}
+
+func unixOwnershipEqual(a, b *UnixData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.UID == b.UID && a.GID == b.GID && a.OwnerName == b.OwnerName && a.GroupName == b.GroupName
+}
+
+func windowsOwnershipEqual(a, b *WindowsData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.OwnerName == b.OwnerName && a.OwnerIsGroup == b.OwnerIsGroup
 }

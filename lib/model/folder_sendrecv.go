@@ -1792,7 +1792,7 @@ loop:
 				// use this change time to check for changes to xattrs etc
 				// on next scan.
 				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
-					l.Warnln("Error updating metadata for %q at database commit: %v", job.file.Name, err)
+					l.Warnf("Error updating metadata for %v at database commit: %v", job.file.Name, err)
 				}
 			}
 			job.file.Sequence = 0

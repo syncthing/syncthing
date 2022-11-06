@@ -2,7 +2,7 @@
   <div class="modal-body text-center">
     <div class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
     <div ng-if="currentDevice.deviceID">
-      <img class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" alt="qr code" />
+      <img class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" height="328" width="328" alt="{{'QR code' | translate}}" />
       <div class="btn-group-vertical" style="vertical-align: top;">
         <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, currentDevice.deviceID)">
           <span class="fa fa-lg fa-clone text-left"></span>&nbsp;<span translate>Copy</span>

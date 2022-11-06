@@ -36,3 +36,8 @@
 .fancytree-focused {
     background-color: #eeeeee;
 }
+
+/* Remote Devices 'connection type'-icon color set to #333 */
+.reception {
+    filter: invert(12%) sepia(11%) saturate(20%) hue-rotate(318deg) brightness(100%) contrast(80%);
+}

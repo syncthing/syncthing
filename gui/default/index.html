@@ -24,6 +24,7 @@
   <link href="assets/css/tree.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
+  <link href="assets/css/customicons.css" rel="stylesheet"/>
 </head>
 
 <body>
@@ -335,7 +336,7 @@
         <!-- Folder list (top left) -->
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
-          <h3 id="folder_list" translate>Folders</h3>
+          <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
           <div class="panel-group" id="folders">
             <div class="panel panel-default" ng-repeat="folder in folderList()">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}" aria-expanded="false">
@@ -730,23 +731,33 @@
           </div>
 
           <!-- Remote devices -->
-          <h3 translate>Remote Devices</h3>
+          <h3><span translate>Remote Devices</span> <span ng-if="otherDevices().length > 1"> ({{otherDevices().length}})</span></h3>
           <div class="panel-group" id="devices">
             <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}" aria-expanded="false">
                 <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                  <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="syncing">
-                      <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                  <span class="pull-right text-{{deviceClass(deviceCfg)}}">
+                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel">
+                      <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
+                      <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                      <span ng-switch-when="syncing">
+                        <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                      </span>
+                      <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                      <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                      <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
+                      <span ng-switch-when="disconnected-inactive"><span class="hidden-xs" translate>Disconnected (Inactive)</span><span class="visible-xs" aria-label="{{'Disconnected (Inactive)' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
+                      <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                     </span>
-                    <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                    <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                    <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-devices-panel">
+                      <span ng-switch-when="tcplan" class="reception reception-4 reception-theme"></span>
+                      <span ng-switch-when="tcpwan" class="reception reception-3 reception-theme"></span>
+                      <span ng-switch-when="quic" class="reception reception-2 reception-theme"></span>
+                      <span ng-switch-when="relay" class="reception reception-1 reception-theme"></span>
+                      <span ng-switch-when="disconnected" class="reception reception-0 reception-theme"></span>
+                    </span>
                   </span>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
@@ -757,14 +768,27 @@
                     <tbody>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
-                        <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+                        <td class="text-right">
+                          <div ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays" translate>
+                            Never
+                          </div>
+                          <div ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays">
+                            <div>
+                              {{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}
+                            </div>
+                            <div ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays >= 7">
+                              <i ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 30" translate>More than a week ago</i>
+                              <i class="text-warning" ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays >= 30 && deviceStats[deviceCfg.deviceID].lastSeenDays < 365" translate>More than a month ago</i>
+                              <i class="text-danger" ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" translate>More than a year ago</i>
+                            </div>
+                          </div>
+                        </td>
                       </tr>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected && deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-cloud"></span>&nbsp;<span translate>Sync Status</span></th>
                         <td translate ng-if="completion[deviceCfg.deviceID]._total == 100" class="text-right">Up to Date</td>
                         <td ng-if="completion[deviceCfg.deviceID]._total < 100" class="text-right">
-                            <span class="hidden-xs" translate>Out of Sync</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
+                            <span class="hidden-xs" translate>Out of Sync</span> ({{completion[deviceCfg.deviceID]._total | percent}})
                         </td>
                       </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
@@ -799,7 +823,7 @@
                           </a>
                         </td>
                       </tr>
-                      <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
+                      <tr ng-if="completion[deviceCfg.deviceID]._needItems">
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                         <td class="text-right">
                           <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
@@ -823,9 +847,13 @@
                           </span>
                         </td>
                       </tr>
-                      <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
-                        <th><span class="fas fa-fw fa-exclamation-triangle text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
-                        <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
+                      <tr ng-if="connections[deviceCfg.deviceID].connected">
+                        <th><span class="reception reception-4 reception-theme"></span>&nbsp;<span translate>Connection Type</span></th>
+                        <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
+                          <span tooltip data-original-title="{{rdConnDetails(rdConnType(deviceCfg.deviceID))}}">
+                            {{rdConnTypeString(rdConnType(deviceCfg.deviceID))}}
+                          </span>
+                        </td>
                       </tr>
                       <tr ng-if="deviceCfg.allowedNetworks.length > 0">
                         <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
@@ -995,7 +1023,6 @@
   <script type="text/javascript" src="syncthing/core/notificationDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/popoverDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/selectOnClickDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
