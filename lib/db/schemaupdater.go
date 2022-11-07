@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -848,8 +849,24 @@ func (db *schemaUpdater) fixRecvEncFileSize(_ int) error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		var innerErr error
+		encParent := ""
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(fi protocol.FileIntf) bool {
 			f := fi.(protocol.FileInfo)
+			switch f.Type {
+			case protocol.FileInfoTypeDirectory:
+				if protocol.IsEncryptedParent(fs.PathComponents(f.Name)) {
+					encParent = f.Name
+				} else {
+					encParent = ""
+				}
+				return true
+			case protocol.FileInfoTypeFile:
+			default:
+				return true
+			}
+			if !strings.HasPrefix(f.Name, encParent) {
+				return true
+			}
 			meta.removeFile(protocol.LocalDeviceID, f)
 			f.Size -= int64(f.ProtoSize())
 			meta.addFile(protocol.LocalDeviceID, f)
