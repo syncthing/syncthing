@@ -13,7 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestWindowsPaths(t *testing.T) {
@@ -190,5 +193,33 @@ func TestGetFinalPath(t *testing.T) {
 				t.Errorf("EvalSymlinks got different results %q %s", evlPath, err1)
 			}
 		}
+	}
+}
+
+func TestRemoveWindowsDirIcon(t *testing.T) {
+
+	if !build.IsWindows {
+		t.Skip("only Windows")
+		return
+	}
+
+	fs, dir := setup(t)
+	relativePath := "folder_with_icon"
+	path := filepath.Join(dir, relativePath)
+
+	//Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
+	err := os.Mkdir(path, os.ModeDir)
+
+	a, e := syscall.UTF16PtrFromString(path)
+	if e == nil {
+		syscall.SetFileAttributes(a, uint32(syscall.FILE_ATTRIBUTE_DIRECTORY+syscall.FILE_ATTRIBUTE_READONLY))
+	} else {
+		t.Fatal(e)
+	}
+
+	err = fs.Remove(relativePath)
+
+	if err != nil {
+		t.Fatal(err)
 	}
 }
