@@ -178,14 +178,6 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	return basicFileInfo{fi}, err
 }
 
-func (f *BasicFilesystem) Remove(name string) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return os.Remove(name)
-}
-
 func (f *BasicFilesystem) RemoveAll(name string) error {
 	name, err := f.rooted(name)
 	if err != nil {
