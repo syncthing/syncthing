@@ -15,8 +15,6 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-
-	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestWindowsPaths(t *testing.T) {
@@ -208,7 +206,7 @@ func TestRemoveWindowsDirIcon(t *testing.T) {
 	}
 	ptr, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		t.Fatal(e)
+		t.Fatal(err)
 	}
 	if err := syscall.SetFileAttributes(ptr, uint32(syscall.FILE_ATTRIBUTE_DIRECTORY+syscall.FILE_ATTRIBUTE_READONLY)); err != nil {
 		t.Fatal(err)
