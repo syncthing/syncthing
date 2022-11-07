@@ -3178,6 +3178,132 @@ angular.module('syncthing.core')
                     address.indexOf('unix://') == 0 ||
                     address.indexOf('unixs://') == 0);
         };
+
+        $scope.shareDeviceIdDialog = function (method) {
+            // This function can be used to share both user's own and remote
+            // device IDs. Three sharing methods are used - copy to clipboard,
+            // send by email, and send by SMS.
+            var params = {
+                method: method,
+            };
+            var deviceID = $scope.currentDevice.deviceID;
+            var deviceName = $scope.deviceName($scope.currentDevice);
+
+            // Title and footer can be reused between different sharing
+            // methods, hence we define them separately before the body.
+            var title = $translate.instant('Syncthing device ID for "{%devicename%}"', {devicename: deviceName});
+            var footer = $translate.instant("Learn more at {%url%}", {url: "https://syncthing.net"});
+
+            switch (method) {
+                case "email":
+                    params.heading = $translate.instant("Share by Email");
+                    params.icon = "fa fa-envelope-o";
+                    // Email message format requires using CRLF for line breaks.
+                    // Ref: https://datatracker.ietf.org/doc/html/rfc5322
+                    params.subject = title;
+                    params.body = [
+                        $translate.instant('To connect with the Syncthing device named "{%devicename%}", add a new remote device on your end with this ID:', {devicename: deviceName}),
+                        deviceID,
+                        $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet."),
+                        footer
+                    ].join('\r\n\r\n');
+                    break;
+                case "sms":
+                    params.heading = $translate.instant("Share by SMS");
+                    params.icon = "fa fa-comments-o";
+                    // SMS is limited to 160 characters (non-Unicode), so we keep
+                    // it as short as possible, e.g. by stripping hyphens from
+                    // device ID. The current minimum length is around 140 chars,
+                    // but some room is required for longer sharing device names.
+                    params.body = [
+                        title,
+                        deviceID.replace(/-/g, ''),
+                        footer
+                    ].join('\n');
+                    break;
+            }
+
+            $scope.shareDeviceIdParams = params;
+            $('#share-device-id-dialog').modal('show');
+        };
+
+        $scope.shareDeviceId = function () {
+            switch ($scope.shareDeviceIdParams.method) {
+                case 'email':
+                    location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceIdParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
+                    break;
+                case 'sms':
+                    // Ref1: https://rfc-editor.org/rfc/rfc5724
+                    // Ref2: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link
+                    location.href = 'sms:?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
+                    break;
+            }
+        }
+
+        $scope.showTemporaryTooltip = function (event, tooltip) {
+            // This function can be used to display a temporary tooltip above
+            // the current element. This way, we can dynamically add a tooltip
+            // with explanatory text after the user performs an interactive
+            // operation, e.g. clicks a button. If the element already has a
+            // tooltip, it will be saved first and then restored once the user
+            // moves focus to a different element.
+            var e = event.currentTarget;
+            var oldTooltip = e.getAttribute('data-original-title');
+
+            e.setAttribute('data-original-title', tooltip);
+            $(e).tooltip('show');
+
+            if (oldTooltip) {
+                e.setAttribute('data-original-title', oldTooltip);
+            } else {
+                e.removeAttribute('data-original-title');
+            }
+        };
+
+        $scope.copyToClipboard = function (event, content) {
+            var success = $translate.instant("Copied!");
+            var failure = $translate.instant("Copy failed! Try to select and copy manually.");
+            var message = success;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Default for modern browsers on localhost or HTTPS. Doesn't
+                // work on unencrypted HTTP for security reasons.
+                navigator.clipboard.writeText(content);
+            } else if (window.clipboardData && window.clipboardData.setData) {
+                // Fallback for Internet Explorer. Needs to go second before
+                // "document.queryCommandSupported", as the browser supports the
+                // other method too, yet it can often be disabled for security
+                // reasons, causing the copy to fail. The IE-specific method is
+                // more reliable.
+                window.clipboardData.setData('Text', content);
+            } else if (document.queryCommandSupported) {
+                // Fallback for modern browsers on HTTP and non-IE old browsers.
+                // Check for document.queryCommandSupported("copy") support is
+                // omitted on purpose, as old Chrome versions reported "false"
+                // despite supporting the feature. The position and opacity
+                // hacks are needed to work inside Bootstrap modals.
+                var e = event.currentTarget;
+                var textarea = document.createElement("textarea");
+
+                e.appendChild(textarea);
+                textarea.style.position = "fixed";
+                textarea.style.opacity = "0";
+                textarea.textContent = content;
+                textarea.select();
+
+                try {
+                    document.execCommand("copy");
+                } catch (ex) {
+                    message = failure;
+                } finally {
+                    e.removeChild(textarea);
+                }
+            } else {
+                message = failure;
+            }
+
+            $scope.showTemporaryTooltip(event, message);
+        };
     })
     .directive('shareTemplate', function () {
         return {

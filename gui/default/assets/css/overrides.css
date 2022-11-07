@@ -524,6 +524,11 @@ ul.three-columns li, ul.two-columns li {
         * columns. */
         white-space: normal;
     }
+
+    /* Move share buttons below device ID on small screens. */
+    #shareDeviceIdButtons {
+        display: inline-block;
+    }
 }
 
 .form-horizontal .form-group {
@@ -551,6 +556,13 @@ html[lang|="zh"] i,
 html[lang="ja"] i,
 html[lang|="ko"] i {
     font-style: normal;
+}
+
+/* Prevent buttons from jumping up and down
+   when a tooltip is shown for one of them. */
+.btn-group-vertical > .tooltip + .btn,
+.btn-group-vertical > .tooltip + .btn-group {
+    margin-top: -1px;
 }
 
 .select-on-click {
