@@ -655,6 +655,7 @@ func TestRemoveWindowsDirIcon(t *testing.T) {
 
 	if !build.IsWindows {
 		t.Skip("only Windows")
+		return
 	}
 
 	fs, dir := setup(t)
