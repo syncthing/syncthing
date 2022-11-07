@@ -1426,10 +1426,10 @@ func (db *Lowlevel) checkErrorForRepair(err error) {
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.
-// Local flags or the invalid bit might change without the version
+// Local flags, the invalid bit and inode time might change without the version
 // being bumped.
 func unchanged(nf, ef protocol.FileIntf) bool {
-	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
+	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags() && ef.InodeChangeTime() == nf.InodeChangeTime()
 }
 
 func (db *Lowlevel) handleFailure(err error) {

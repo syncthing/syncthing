@@ -207,6 +207,7 @@ type FileInfoComparison struct {
 	IgnoreFlags     uint32
 	IgnoreOwnership bool
 	IgnoreXattrs    bool
+	IgnoreInodeTime bool
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
@@ -246,7 +247,7 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 
 	// If we are recording inode change times and it changed, they are not
 	// equal.
-	if (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
+	if !comp.IgnoreInodeTime && (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 

@@ -367,13 +367,13 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 		err = w.walkDir(ctx, path, info, finishedChan)
 
 	case info.IsRegular():
-		err = w.walkRegular(ctx, path, info, toHashChan)
+		err = w.walkRegular(ctx, path, info, toHashChan, finishedChan)
 	}
 
 	return err
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	blockSize := protocol.BlockSize(info.Size())
@@ -402,16 +402,30 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
+		comp := protocol.FileInfoComparison{
 			ModTimeWindow:   w.ModTimeWindow,
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
 			IgnoreOwnership: !w.ScanOwnership,
 			IgnoreXattrs:    !w.ScanXattrs,
-		}) {
+		}
+		if curFile.IsEquivalentOptional(f, comp) {
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
+		}
+		if !(comp.IgnoreOwnership && comp.IgnoreXattrs) {
+			comp.IgnoreInodeTime = true
+			if curFile.IsEquivalentOptional(f, comp) {
+				f.Version = curFile.Version
+				l.Debugln(w, "only inode time changed, updating without bumping version:", f)
+				select {
+				case finishedChan <- ScanResult{File: f}:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				return nil
+			}
 		}
 		if curFile.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
