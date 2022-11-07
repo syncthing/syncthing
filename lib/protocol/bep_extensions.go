@@ -244,9 +244,9 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
-	// If we are recording inode change times and it changed, they are not
-	// equal.
-	if (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
+	// If we care about either ownership or xattrs, are recording inode change
+	// times and it changed, they are not equal.
+	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 
