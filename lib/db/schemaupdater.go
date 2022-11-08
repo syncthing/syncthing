@@ -850,7 +850,7 @@ func (db *schemaUpdater) fixRecvEncFileSize(_ int) error {
 		var innerErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(fi protocol.FileIntf) bool {
 			f := fi.(protocol.FileInfo)
-			if len(f.Encrypted) == 0 {
+			if len(f.Encrypted) == 0 || f.Type != protocol.FileInfoTypeFile {
 				return true
 			}
 			meta.removeFile(protocol.LocalDeviceID, f)
