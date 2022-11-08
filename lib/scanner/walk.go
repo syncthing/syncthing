@@ -718,7 +718,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		// Read the size of the encrypted trailer and subtract that from the
 		// size on disk. This is best effort because we might be looking at
 		// local additions that are not valid encrypted files, and we need
-		// the scanner to return those files so they can behandled as the
+		// the scanner to return those files so they can be handled as the
 		// local additions they are.
 		size, err := sizeOfEncryptedTrailer(filesystem, name)
 		if err != nil {
