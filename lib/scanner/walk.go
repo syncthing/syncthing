@@ -715,14 +715,21 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.InodeChangeNs = 0
 	}
 	if recvEnc {
+		// Read the size of the encrypted trailer and subtract that from the
+		// size on disk. This is best effort because we might be looking at
+		// local additions that are not valid encrypted files, and we need
+		// the scanner to return those files so they can behandled as the
+		// local additions they are.
 		size, err := sizeOfEncryptedTrailer(filesystem, name)
 		if err != nil {
-			return protocol.FileInfo{}, fmt.Errorf("reading encrypted trailer size: %w", err)
+			l.Debugln("reading encrypted trailer size: %s: %w", name, err)
+			return f, nil
+		}
+		if int64(size) > f.Size {
+			l.Debugln("encrypted trailer size larger than file size: %s: %d > %d", name, size, f.Size)
+			return f, nil
 		}
 		f.Size -= int64(size)
-		if f.Size < 0 {
-			return protocol.FileInfo{}, fmt.Errorf("invalid encrypted file size (became negative: %d)", f.Size)
-		}
 	}
 	return f, nil
 }
