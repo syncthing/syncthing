@@ -190,6 +190,21 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 	return windows.SetSecurityInfo(hdl, windows.SE_FILE_OBJECT, si, (*windows.SID)(ownerSID), (*windows.SID)(groupSID), nil, nil)
 }
 
+func (f *BasicFilesystem) Remove(name string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(name)
+	if os.IsPermission(err) {
+		// Try to remove the read-only attribute and try again
+		if os.Chmod(name, 0600) == nil {
+			err = os.Remove(name)
+		}
+	}
+	return err
+}
+
 // unrootedChecked returns the path relative to the folder root (same as
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing

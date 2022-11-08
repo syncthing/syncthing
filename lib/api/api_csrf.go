@@ -74,6 +74,13 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+		// REST calls that don't require authentication also do not
+		// need a CSRF token.
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
 	// Allow requests for anything not under the protected path prefix,
 	// and set a CSRF cookie if there isn't already a valid one.
 	if !strings.HasPrefix(r.URL.Path, m.prefix) {

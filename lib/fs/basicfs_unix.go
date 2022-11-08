@@ -74,6 +74,14 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 	return os.Lchown(name, nuid, ngid)
 }
 
+func (f *BasicFilesystem) Remove(name string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	return os.Remove(name)
+}
+
 // unrootedChecked returns the path relative to the folder root (same as
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing

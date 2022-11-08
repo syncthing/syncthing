@@ -98,6 +98,8 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				return
 			}
 
+			l.Debugln("started hashing:", f)
+
 			if f.IsDirectory() || f.IsDeleted() {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
@@ -120,6 +122,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				f.Size += int64(b.Size)
 			}
 
+			l.Debugln("completed hashing:", f)
 			select {
 			case ph.outbox <- ScanResult{File: f}:
 			case <-ctx.Done():
