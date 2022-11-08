@@ -854,10 +854,7 @@ func (db *schemaUpdater) fixRecvEncFileSize(_ int) error {
 				return true
 			}
 			meta.removeFile(protocol.LocalDeviceID, f)
-			// Subtract the size of the encrypted file trailer, which is the
-			// size of the encrypted data that we have in the fileinfo plus
-			// the four byte size word.
-			f.Size -= int64(len(f.Encrypted) + 4)
+			f.Size -= int64(protocol.EncryptionTrailerSize(f))
 			meta.addFile(protocol.LocalDeviceID, f)
 			key, innerErr = t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], []byte(f.Name))
 			if innerErr != nil {
