@@ -626,8 +626,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return err
 			}
 
-			// Adjust the metadata (ownership, xattrs, etc).
-			if err := f.adjustCommonMetadata(&file, path); err != nil {
+			// Set the platform data (ownership, xattrs, etc).
+			if err := f.setPlatformData(&file, path); err != nil {
 				return err
 			}
 
@@ -663,7 +663,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 			f.newPullError(file.Name, fmt.Errorf("handling dir (setting permissions): %w", err))
 			return
 		}
-		if err := f.adjustCommonMetadata(&file, file.Name); err != nil {
+		if err := f.setPlatformData(&file, file.Name); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir (setting metadata): %w", err))
 			return
 		}
@@ -757,7 +757,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		if err := f.mtimefs.CreateSymlink(file.SymlinkTarget, path); err != nil {
 			return err
 		}
-		return f.adjustCommonMetadata(&file, path)
+		return f.setPlatformData(&file, path)
 	}
 
 	if err = f.inWritableDir(createLink, file.Name); err == nil {
@@ -1237,7 +1237,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		}
 	}
 
-	if err := f.adjustCommonMetadata(&file, file.Name); err != nil {
+	if err := f.setPlatformData(&file, file.Name); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("shortcut file (setting metadata): %w", err))
 		return
 	}
@@ -1607,8 +1607,8 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
-	// Set file metadata and ownership.
-	if err := f.adjustCommonMetadata(&file, tempName); err != nil {
+	// Set file xattrs and ownership.
+	if err := f.setPlatformData(&file, tempName); err != nil {
 		return fmt.Errorf("setting metadata: %w", err)
 	}
 
@@ -2114,10 +2114,10 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
 }
 
-// adjustCommonMetadata makes adjustments to the metadata that should happen
-// for all types (files, directories, symlinks). This should be one of the
-// last things we do to a file when syncing changes to it.
-func (f *sendReceiveFolder) adjustCommonMetadata(file *protocol.FileInfo, name string) error {
+// setPlatformData makes adjustments to the metadata that should happen for
+// all types (files, directories, symlinks). This should be one of the last
+// things we do to a file when syncing changes to it.
+func (f *sendReceiveFolder) setPlatformData(file *protocol.FileInfo, name string) error {
 	if f.SyncXattrs {
 		// Set extended attributes.
 		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
