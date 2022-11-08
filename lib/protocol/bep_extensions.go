@@ -5,6 +5,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +47,7 @@ type FileIntf interface {
 	ModTime() time.Time
 	PlatformData() PlatformData
 	InodeChangeTime() time.Time
+	BlocksHashStr() string
 }
 
 func (Hello) Magic() uint32 {
@@ -168,6 +170,10 @@ func (f FileInfo) PlatformData() PlatformData {
 
 func (f FileInfo) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
+}
+
+func (f FileInfo) BlocksHashStr() string {
+	return hex.EncodeToString(f.BlocksHash)
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in

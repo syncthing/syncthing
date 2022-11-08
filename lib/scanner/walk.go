@@ -8,8 +8,10 @@ package scanner
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -713,7 +715,36 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.InodeChangeNs = 0
 	}
 	if recvEnc {
-		f.Size -= protocol.EncryptionTrailerSize(f)
+		size, err := sizeOfEncryptedTrailer(filesystem, name)
+		if err != nil {
+			return protocol.FileInfo{}, fmt.Errorf("reading encrypted trailer size: %w", err)
+		}
+		f.Size -= int64(size)
+		if f.Size < 0 {
+			return protocol.FileInfo{}, fmt.Errorf("invalid encrypted file size (became negative: %d)", f.Size)
+		}
 	}
 	return f, nil
+}
+
+// sizeOfEncryptedTrailer returns the size of the encrypted trailer on disk.
+// This amount of bytes should be subtracted from the file size to get the
+// original file size.
+func sizeOfEncryptedTrailer(fs fs.Filesystem, name string) (int, error) {
+	f, err := fs.Open(name)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	if _, err := f.Seek(-4, io.SeekEnd); err != nil {
+		return 0, err
+	}
+	var buf [4]byte
+	if _, err := io.ReadFull(f, buf[:]); err != nil {
+		return 0, err
+	}
+	// The stored size is the size of the encrypted data.
+	size := int(binary.BigEndian.Uint32(buf[:]))
+	// We add the size of the length word itself as well.
+	return size + 4, nil
 }
