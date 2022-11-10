@@ -79,7 +79,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      -v /wherever/st-sync:/var/syncthing \
+      - /wherever/st-sync:/var/syncthing
     network_mode: host
     restart: unless-stopped
 ```
