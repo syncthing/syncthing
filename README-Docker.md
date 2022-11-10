@@ -4,7 +4,8 @@ Use the Dockerfile in this repo, or pull the `syncthing/syncthing` image
 from Docker Hub.
 
 Use the `/var/syncthing` volume to have the synchronized files and Syncthing's
-configuration files available on the host, You can add more folders and map them as you prefer.
+configuration files available on the host, you can found the configuration files
+under `/var/syncthing/config`. You can also add more folders and map them as you prefer.
 
 Note that Syncthing runs as UID 1000 and GID 1000 by default. These may be
 altered with the `PUID` and `PGID` environment variables. In addition
@@ -21,8 +22,7 @@ For example, `PCAP=cap_chown,cap_fowner+ep`.
 ```
 $ docker pull syncthing/syncthing
 $ docker run -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp -p 21027:21027/udp \
-    -v /wherever/sync-files:/var/syncthing/Sync \
-    -v /wherever/sync-conf:/var/syncthing/config \
+    -v /wherever/st-sync:/var/syncthing \
     --hostname=my-syncthing \
     syncthing/syncthing:latest
 ```
@@ -40,8 +40,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - /wherever/sync-files:/var/syncthing/Sync # Synchronized files
-      - /wherever/sync-conf:/var/syncthing/config # Configurations
+      - /wherever/st-sync:/var/syncthing
     ports:
       - 8384:8384 # Web UI
       - 22000:22000/tcp # TCP file transfers
@@ -63,8 +62,7 @@ It is therefore advisable to use the [host network mode](https://docs.docker.com
 ```
 $ docker pull syncthing/syncthing
 $ docker run --network=host \
-    -v /wherever/sync-files:/var/syncthing/Sync \
-    -v /wherever/sync-conf:/var/syncthing/config \
+    -v /wherever/st-sync:/var/syncthing \
     syncthing/syncthing:latest
 ```
 
@@ -81,8 +79,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - /wherever/sync-files:/var/syncthing/Sync # Synchronized files
-      - /wherever/sync-conf:/var/syncthing/config # Configurations
+      -v /wherever/st-sync:/var/syncthing \
     network_mode: host
     restart: unless-stopped
 ```
@@ -105,8 +102,7 @@ on 127.0.0.1:
 ```
 $ docker pull syncthing/syncthing
 $ docker run -e STGUIADDRESS= \
-    -v /wherever/sync-files:/var/syncthing/Sync \
-    -v /wherever/sync-conf:/var/syncthing/config \
+    -v /wherever/st-sync:/var/syncthing \
     syncthing/syncthing:latest
 ```
 
