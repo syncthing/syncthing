@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -396,7 +396,7 @@ type defaultRealCaser struct {
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
-	cache, err := lru.New2Q(caseCacheItemLimit)
+	cache, err := lru.New2Q[string, *caseNode](caseCacheItemLimit)
 	// New2Q only errors if given invalid parameters, which we don't.
 	if err != nil {
 		panic(err)
@@ -441,7 +441,7 @@ func (r *defaultRealCaser) dropCache() {
 }
 
 type caseCache struct {
-	*lru.TwoQueueCache
+	*lru.TwoQueueCache[string, *caseNode]
 	fs  Filesystem
 	mut sync.Mutex
 }
@@ -451,13 +451,12 @@ type caseCache struct {
 func (c *caseCache) getExpireAdd(key string) *caseNode {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	v, ok := c.Get(key)
+	node, ok := c.Get(key)
 	if !ok {
 		node := newCaseNode(key, c.fs)
 		c.Add(key, node)
 		return node
 	}
-	node := v.(*caseNode)
 	if node.expires.Before(time.Now()) {
 		node = newCaseNode(key, c.fs)
 		c.Add(key, node)
