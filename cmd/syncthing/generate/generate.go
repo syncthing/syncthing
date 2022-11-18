@@ -24,6 +24,11 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
+	"github.com/syncthing/syncthing/lib/logger"
+)
+
+var (
+	l = logger.DefaultLogger.NewFacility("app", "Main run facility")
 )
 
 type CLI struct {
@@ -88,8 +93,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortPro
 		}
 	}
 	myID = protocol.NewDeviceID(cert.Certificate[0])
-	log.Println("Device ID:", myID)
-
+	l.Infoln("Device ID:", myID)
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
 	if fs.IsNotExist(err) {
