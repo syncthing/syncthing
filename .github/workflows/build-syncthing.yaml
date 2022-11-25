@@ -96,7 +96,7 @@ jobs:
           path: |
             ~\AppData\Local\go-build
             ~\go\pkg\mod
-          key: ${{ runner.os }}-go-${{ env.GOVERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
