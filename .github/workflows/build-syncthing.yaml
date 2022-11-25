@@ -16,6 +16,10 @@ env:
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
 
+  # Our build metadata
+  BUILD_USER: builder
+  BUILD_HOST: github.syncthing.net
+
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
 # GitHub to maintain their code and infrastructure or we're in deep shit in
