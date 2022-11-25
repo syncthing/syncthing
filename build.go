@@ -1115,12 +1115,7 @@ func buildStamp() int64 {
 		return time.Now().Unix()
 	}
 
-	s, err := strconv.ParseInt(string(bs), 10, 64)
-	if err != nil {
-		// Fall back to "now".
-		log.Printf("Failed to parse git output: %q: %v", string(bs), err)
-		return time.Now().Unix()
-	}
+	s, _ := strconv.ParseInt(string(bs), 10, 64)
 	return s
 }
 
