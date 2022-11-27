@@ -845,7 +845,7 @@
                       </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].connected">
                         <th><span class="reception reception-4 reception-theme"></span>&nbsp;<span translate>Connection Type</span></th>
-                        <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
+                        <td class="text-right">
                           <span tooltip data-original-title="{{rdConnDetails(rdConnType(deviceCfg.deviceID))}}">
                             {{rdConnTypeString(rdConnType(deviceCfg.deviceID))}}
                           </span>
