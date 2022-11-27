@@ -752,7 +752,7 @@
                       <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                     </span>
                     <span class="remote-devices-panel">
-                      <span class="reception {{rdConnTypeIcon(rdConnType(deviceCfg.deviceID))}} reception-theme"></span>
+                      <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
                     </span>
                   </span>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
