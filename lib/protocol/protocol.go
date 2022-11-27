@@ -162,6 +162,7 @@ type Connection interface {
 type ConnectionInfo interface {
 	Type() string
 	Transport() string
+	IsLocal() bool
 	RemoteAddr() net.Addr
 	Priority() int
 	String() string

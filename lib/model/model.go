@@ -709,6 +709,7 @@ type ConnectionInfo struct {
 	Address       string `json:"address"`
 	ClientVersion string `json:"clientVersion"`
 	Type          string `json:"type"`
+	IsLocal       bool   `json:"isLocal"`
 	Crypto        string `json:"crypto"`
 }
 
@@ -739,6 +740,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
+			ci.IsLocal = conn.IsLocal()
 			ci.Crypto = conn.Crypto()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
