@@ -751,12 +751,8 @@
                       <span ng-switch-when="disconnected-inactive"><span class="hidden-xs" translate>Disconnected (Inactive)</span><span class="visible-xs" aria-label="{{'Disconnected (Inactive)' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
                       <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                     </span>
-                    <span ng-switch="rdConnType(deviceCfg.deviceID)" class="remote-devices-panel">
-                      <span ng-switch-when="tcplan" class="reception reception-4 reception-theme"></span>
-                      <span ng-switch-when="tcpwan" class="reception reception-3 reception-theme"></span>
-                      <span ng-switch-when="quic" class="reception reception-2 reception-theme"></span>
-                      <span ng-switch-when="relay" class="reception reception-1 reception-theme"></span>
-                      <span ng-switch-when="disconnected" class="reception reception-0 reception-theme"></span>
+                    <span class="remote-devices-panel">
+                      <span class="reception {{rdConnTypeIcon(rdConnType(deviceCfg.deviceID))}} reception-theme"></span>
                     </span>
                   </span>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>

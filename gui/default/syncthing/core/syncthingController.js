@@ -1233,6 +1233,23 @@ angular.module('syncthing.core')
             }
         }
 
+        $scope.rdConnTypeIcon = function (type) {
+            switch (type) {
+            case "tcplan":
+            case "quiclan":
+                return "reception-4";
+            case "tcpwan":
+            case "quicwan":
+                return "reception-3";
+            case "relaylan":
+                return "reception-2";
+            case "relaywan":
+                return "reception-1";
+            case "disconnected":
+                return "reception-0";
+            }
+        }
+
         $scope.rdConnDetails = function (type) {
             switch (type) {
                 case "relaylan":
