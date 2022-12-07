@@ -236,7 +236,7 @@ var excludeCommits = stringSetFromStrings([]string{
 // in excluded commits.
 func allAuthors() map[string]string {
 	// Format is hash, email, name, newline, body. The body is indented with
-	// one space, to differntiate from the hash lines.
+	// one space, to differentiate from the hash lines.
 	args := append([]string{"log", "--format=%H %ae %an%n%w(,1,1)%b"})
 	cmd := exec.Command("git", args...)
 	bs, err := cmd.Output()
