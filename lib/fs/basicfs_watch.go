@@ -12,6 +12,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"runtime"
 
 	"github.com/syncthing/notify"
 )
@@ -35,6 +36,10 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		eventMask |= permEventMask
 	}
 
+	if (runtime.GOOS == "android" && runtime.GOARCH == "amd64") {
+		err = errors.New("failed to setup inotify handler, see https://github.com/Catfriend1/syncthing-android/issues/583")
+		return nil, nil, err
+	}
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
 			rel, err := f.unrootedChecked(absPath, roots)
