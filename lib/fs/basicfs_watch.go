@@ -36,7 +36,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		eventMask |= permEventMask
 	}
 
-	if (runtime.GOOS == "android" && runtime.GOARCH == "amd64") {
+	if runtime.GOOS == "android" && runtime.GOARCH == "amd64" {
 		err = errors.New("failed to setup inotify handler, see https://github.com/Catfriend1/syncthing-android/issues/583")
 		return nil, nil, err
 	}
