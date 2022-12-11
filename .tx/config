@@ -1,0 +1,10 @@
+[main]
+host = https://www.transifex.com
+
+[o:syncthing:p:syncthing:r:gui]
+source_file = gui/default/assets/lang/lang-en.json
+file_filter = gui/default/assets/lang/lang-<lang>.json
+type = json
+resource_name = GUI
+minimum_perc = 75
+

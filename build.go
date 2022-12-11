@@ -317,9 +317,6 @@ func runCommand(cmd string, target target) {
 	case "translate":
 		translate()
 
-	case "transifex":
-		transifex()
-
 	case "tar":
 		buildTar(target, tags)
 
@@ -946,11 +943,6 @@ func translate() {
 		log.Fatal(err)
 	}
 	os.Chdir("../../../..")
-}
-
-func transifex() {
-	os.Chdir("gui/default/assets/lang")
-	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
 func ldflags(tags []string) string {
