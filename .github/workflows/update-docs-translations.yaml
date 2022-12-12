@@ -25,4 +25,4 @@ jobs:
           bash build.sh prerelease
           git push
         env:
-          TRANSIFEX_USER: ${{ secrets.TRANSIFEX_TOKEN }}
+          TRANSIFEX_TOKEN: ${{ secrets.TRANSIFEX_TOKEN }}
