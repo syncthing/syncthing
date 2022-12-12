@@ -48,7 +48,7 @@ require (
 	github.com/thejerf/suture/v4 v4.0.2
 	github.com/urfave/cli v1.22.10
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.3.0
+	golang.org/x/crypto v0.4.0
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.3.0
 	golang.org/x/sys v0.3.0
