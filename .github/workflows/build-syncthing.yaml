@@ -6,7 +6,7 @@ on:
 
 env:
   # The go version to use for builds.
-  GO_VERSION: "1.19.3"
+  GO_VERSION: "1.19.4"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
