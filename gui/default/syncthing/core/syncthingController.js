@@ -54,6 +54,10 @@ angular.module('syncthing.core')
         $scope.currentSharing = {};
         $scope.currentFolder = {};
         $scope.currentDevice = {};
+        $scope.newXattrFilterEntry = {
+            permit: false,
+            match: '',
+        };
         $scope.ignores = {
             text: '',
             error: null,
@@ -2043,6 +2047,7 @@ angular.module('syncthing.core')
                     p = saveFolderAddIgnores($scope.currentFolder.id, true);
                 }
                 p.then(function () {
+                    $scope.xattrResetInput();
                     window.location.hash = "";
                     $scope.currentFolder = {};
                     $scope.ignores = {};
@@ -2279,6 +2284,7 @@ angular.module('syncthing.core')
                 return;
             }
 
+            $scope.xattrResetInput();
             var folderCfg = angular.copy($scope.currentFolder);
             $scope.currentSharing.selected[$scope.myID] = true;
             var newDevices = [];
@@ -3304,6 +3310,75 @@ angular.module('syncthing.core')
 
             $scope.showTemporaryTooltip(event, message);
         };
+
+        $scope.addXattrEntry = function () {
+            var entries = $scope.currentFolder.xattrFilter.entries;
+            var newEntry = {match: $scope.newXattrFilterEntry.match, permit: $scope.newXattrFilterEntry.permit};
+            $scope.xattrResetInput();
+
+            // If the last entry is already a wildcard, we'll add only non-wildcards as second-last entry.
+            // Otherwise we just append the newly added rule to the end.
+            if (entries.length > 0 && entries[entries.length -1].match === "*"){
+                if (newEntry.match !== "*") {
+                    entries.splice(entries.length - 1, 0, newEntry);
+                }
+
+                return;
+            }
+
+            $scope.currentFolder.xattrFilter.entries.push(newEntry);
+        };
+
+        $scope.removeXattrEntry = function (entry) {
+            $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(n => n !== entry);
+        };
+
+        $scope.getXattrHint = function () {
+            var xattrFilter = $scope.currentFolder.xattrFilter;
+            if (xattrFilter == null || xattrFilter == {}) {
+                return "";
+            }
+            var filterEntries = xattrFilter.entries;
+            if (filterEntries.length === 0) {
+                return "";
+            }
+
+            // When the user explicitely added a wild-card, we don't show hints.
+            if (filterEntries.length === 1 && filterEntries[0].match === "*") {
+                return "";
+            }
+            // If all the filter entries are 'deny', we suggest adding a permit-any
+            // rule in the end since the default is already deny in that case.
+            if (filterEntries.every(entry => entry.permit === false)) {
+                return  $translate.instant("Hint: only deny-rules detected while the default is deny. Consider adding `permit any` as last rule.");
+            }
+
+            return "";
+        };
+
+        $scope.getXattrDefault = function () {
+            var xattrFilter = $scope.currentFolder.xattrFilter;
+            if (xattrFilter == null || xattrFilter == {}) {
+                return "";
+            }
+
+            var filterEntries = xattrFilter.entries;
+            // No entries present, default is thus 'allow'
+            if (filterEntries.length === 0) {
+                return $translate.instant("allow");
+            }
+            // If any rule is present and the last entry isn't a wild-card, the default is deny.
+            if (filterEntries[filterEntries.length -1].match !== "*") {
+                return $translate.instant("deny");
+            }
+
+            return "";
+        };
+
+        $scope.xattrResetInput = function () {
+            $scope.newXattrFilterEntry.permit = false;
+            $scope.newXattrFilterEntry.match = '';
+        }
     })
     .directive('shareTemplate', function () {
         return {
