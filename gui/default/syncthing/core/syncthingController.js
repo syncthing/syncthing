@@ -541,7 +541,7 @@ angular.module('syncthing.core')
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
 
-            if (guiCfg.user && guiCfg.password) {
+            if ((guiCfg.user && guiCfg.password) || guiCfg.authMode === 'ldap') {
                 $scope.dismissNotification('authenticationUserAndPassword');
             }
         }
@@ -1207,24 +1207,27 @@ angular.module('syncthing.core')
         $scope.rdConnType = function (deviceID) {
             var conn = $scope.connections[deviceID];
             if (!conn) return "-1";
-            if (conn.type.indexOf('relay') === 0) return "relay";
-            if (conn.type.indexOf('quic') === 0) return "quic";
-            if (conn.type.indexOf('tcp') === 0) return "tcp" + rdAddrType(conn.address);
-            return "disconnected";
-        }
+            var type = "disconnected";
+            if (conn.type.indexOf('relay') === 0) type = "relay";
+            else if (conn.type.indexOf('quic') === 0) type = "quic";
+            else if (conn.type.indexOf('tcp') === 0) type = "tcp";
+            else return type;
 
-        function rdAddrType(address) {
-            var re = /(^(?:127\.|0?10\.|172\.0?1[6-9]\.|172\.0?2[0-9]\.|172\.0?3[01]\.|192\.168\.|169\.254\.|::1|[fF][cCdD][0-9a-fA-F]{2}:|[fF][eE][89aAbB][0-9a-fA-F]:))/
-            if (re.test(address)) return "lan";
-            return "wan";
+            if (conn.isLocal) type += "lan";
+            else type += "wan";
+            return type;
         }
 
         $scope.rdConnTypeString = function (type) {
             switch (type) {
-                case "relay":
-                    return $translate.instant('Relay');
-                case "quic":
-                    return $translate.instant('QUIC');
+                case "relaywan":
+                    return $translate.instant('Relay WAN');
+                case "relaylan":
+                    return $translate.instant('Relay LAN');
+                case "quicwan":
+                    return $translate.instant('QUIC WAN');
+                case "quiclan":
+                    return $translate.instant('QUIC LAN');
                 case "tcpwan":
                     return $translate.instant('TCP WAN');
                 case "tcplan":
@@ -1234,11 +1237,30 @@ angular.module('syncthing.core')
             }
         }
 
+        $scope.rdConnTypeIcon = function (type) {
+            switch (type) {
+            case "tcplan":
+            case "quiclan":
+                return "reception-4";
+            case "tcpwan":
+            case "quicwan":
+                return "reception-3";
+            case "relaylan":
+                return "reception-2";
+            case "relaywan":
+                return "reception-1";
+            case "disconnected":
+                return "reception-0";
+            }
+        }
+
         $scope.rdConnDetails = function (type) {
             switch (type) {
-                case "relay":
+                case "relaylan":
+                case "relaywan":
                     return $translate.instant('Connections via relays might be rate limited by the relay');
-                case "quic":
+                case "quiclan":
+                case "quicwan":
                     return $translate.instant('QUIC connections are in most cases considered suboptimal');
                 case "tcpwan":
                     return $translate.instant('Using a direct TCP connection over WAN');

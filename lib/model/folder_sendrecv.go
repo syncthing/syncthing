@@ -2120,7 +2120,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 func (f *sendReceiveFolder) setPlatformData(file *protocol.FileInfo, name string) error {
 	if f.SyncXattrs {
 		// Set extended attributes.
-		if err := f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
+		if err := f.mtimefs.SetXattr(name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
 			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
 		} else if err != nil {
 			return err

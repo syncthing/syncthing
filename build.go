@@ -897,7 +897,7 @@ func updateDependencies() {
 	}
 	goVersion := string(matches[1])
 
-	runPrint(goCmd, "get", "-u", "all")
+	runPrint(goCmd, "get", "-u", "./...")
 	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
 
 	// We might have updated the protobuf package and should regenerate to match.
