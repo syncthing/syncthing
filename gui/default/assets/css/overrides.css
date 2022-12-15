@@ -152,18 +152,6 @@ td button {
     margin-top: 1px;
 }
 
-.twenty-perc {
-    width: 20%;
-}
-
-.ten-perc {
-    width: 10%;
-}
-
-.seventy-perc {
-    width: 70%;
-}
-
 /* Remote Devices connection-quality indicator */
 .reception-0 {
     background: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat;

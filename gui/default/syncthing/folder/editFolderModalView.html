@@ -335,9 +335,9 @@
               <label translate>Active filter rules</label>
               <table class="table table-condensed table-dynamic">
                 <colgroup>
-                  <col class="twenty-perc"/>
-                  <col class="seventy-perc"/>
-                  <col class="ten-perc"/>
+                  <col class="col-xs-3"/>
+                  <col class="col-xs-8"/>
+                  <col class="col-xs-1"/>
                 </colgroup>
                 <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
                   <td>
@@ -356,21 +356,15 @@
                   <span class="fas fa-plus"></span>&nbsp;<span translate>Add new filter entry</span>
                 </button>
               </div>
-              <div ng-if="currentFolder.xattrFilter.entries.length === 0">
-                <p>
-                  <i translate>No rules set</i>
-                </p>
-              </div>
-              <div class="form-group" ng-if="getXattrDefault() !== ''">
-                <p>
-                  <i translate>Default: {{getXattrDefault()}}</i>
-                </p>
-              </div>
-             <div ng-if="getXattrHint() !== ''">
-                <p>
-                  <i>{{getXattrHint()}}</i>
-                </p>
-              </div>
+              <p ng-if="currentFolder.xattrFilter.entries.length === 0">
+                <i translate>No rules set</i>
+              </p>
+              <p ng-if="getXattrDefault() !== ''">
+                <i translate>Default: {{getXattrDefault()}}</i>
+              </p>
+              <p ng-if="getXattrHint() !== ''">
+                <i>{{getXattrHint()}}</i>
+              </p>
             </div>
             <div class="col-md-6">
               <div class="col-md-12 form-group">
