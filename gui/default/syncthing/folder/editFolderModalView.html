@@ -335,13 +335,15 @@
               <label translate>Active filter rules</label>
               <table class="table table-condensed table-dynamic">
                 <colgroup>
-                  <col class="five-perc"/>
-                  <col class="eightyfive-perc"/>
+                  <col class="twenty-perc"/>
+                  <col class="seventy-perc"/>
                   <col class="ten-perc"/>
                 </colgroup>
                 <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
-                  <td><input type="checkbox" ng-model="entry.permit"/></td>
-                  <td><input class="form-control text-left" required="" aria-required="true" ng-model="entry.match" /></td>
+                  <td>
+                    <select class="form-control" ng-model="entry.permit" ng-options="xattrOptionToString(item) for item in [true, false]"></select>
+                  </td>
+                  <td><input class="form-control text-left" aria-required="true" ng-model="entry.match"/></td>
                   <td>
                     <button type="button" class="btn btn-default" ng-click="removeXattrEntry(entry)">
                       <span class="fas fa-trash-alt"></span>
@@ -349,6 +351,11 @@
                   </td>
                 </tr>
               </table>
+              <div class="form-group">
+                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
+                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add new filter entry</span>
+                </button>
+              </div>
               <div ng-if="currentFolder.xattrFilter.entries.length === 0">
                 <p>
                   <i translate>No rules set</i>
@@ -363,25 +370,6 @@
                 <p>
                   <i>{{getXattrHint()}}</i>
                 </p>
-              </div>
-              <div class="form-group">
-                <label translate>Add a new rule</label>
-                <table class="table table-condensed table-dynamic">
-                  <colgroup>
-                    <col class="five-perc"/>
-                    <col class="eightyfive-perc"/>
-                    <col class="ten-perc"/>
-                  </colgroup>
-                  <tr>
-                    <td><input type="checkbox" ng-model="newXattrFilterEntry.permit"/></td>
-                    <td><input class="form-control text-left" ng-model="newXattrFilterEntry.match" /></td>
-                    <td>
-                      <button type="button" class="btn btn-default" ng-click="addXattrEntry()">
-                        <span class="fas fa-plus"></span>
-                      </button>
-                    </td>
-                  </tr>
-                </table>
               </div>
             </div>
             <div class="col-md-6">
