@@ -357,11 +357,14 @@ func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
 	if f.IsReceiveOnlyChanged() {
 		f.Version = protocol.Vector{}
 	}
+	// The trailer with the encrypted fileinfo is device local, don't send info
+	// about that to remotes
+	f.Size -= int64(f.EncryptionTrailerSize)
+	f.EncryptionTrailerSize = 0
 	// never sent externally
 	f.LocalFlags = 0
 	f.VersionHash = nil
 	f.InodeChangeNs = 0
-	f.EncryptionTrailerSize = 0
 	return f
 }
 

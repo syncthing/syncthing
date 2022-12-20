@@ -49,7 +49,12 @@ func encryptionTrailerSizeMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 	if len(encFolders) == 0 {
 		return nil
 	}
+
 	l.Infoln("Running global migration to fix encryption file sizes")
+
+	// Trigger index re-transfer with fixed up sizes
+	db.DropDeltaIndexIDs(ll)
+
 	for folderID, folderCfg := range encFolders {
 		fset, err := db.NewFileSet(folderID, ll)
 		if err != nil {
@@ -82,7 +87,6 @@ func encryptionTrailerSizeMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 				return true
 			}
 			fi.EncryptionTrailerSize = size
-			fi.Size -= int64(size)
 			batch.Append(fi)
 			err = batch.FlushIfFull()
 			if err != nil {
@@ -100,6 +104,7 @@ func encryptionTrailerSizeMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
