@@ -8,7 +8,6 @@ package db
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -132,10 +131,6 @@ func (f FileInfoTruncated) PlatformData() protocol.PlatformData {
 
 func (f FileInfoTruncated) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
-}
-
-func (f FileInfoTruncated) BlocksHashStr() string {
-	return hex.EncodeToString(f.BlocksHash)
 }
 
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {

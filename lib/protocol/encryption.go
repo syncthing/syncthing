@@ -592,10 +592,6 @@ func IsEncryptedParent(pathComponents []string) bool {
 	return true
 }
 
-func EncryptionTrailerSize(file FileInfo) int64 {
-	return int64(file.ProtoSize()) + 4
-}
-
 type folderKeyRegistry struct {
 	keys map[string]*[keySize]byte // folder ID -> key
 	mut  sync.RWMutex

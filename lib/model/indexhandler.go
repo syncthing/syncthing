@@ -361,6 +361,7 @@ func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
 	f.LocalFlags = 0
 	f.VersionHash = nil
 	f.InodeChangeNs = 0
+	f.EncryptionTrailerSize = 0
 	return f
 }
 

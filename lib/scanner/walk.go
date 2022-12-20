@@ -8,10 +8,8 @@ package scanner
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -65,8 +63,7 @@ type Config struct {
 	// If ScanXattrs is true, we pick up extended attributes on files while scanning.
 	ScanXattrs bool
 	// Filter for extended attributes
-	XattrFilter            XattrFilter
-	FolderReceiveEncrypted bool
+	XattrFilter XattrFilter
 }
 
 type CurrentFiler interface {
@@ -395,7 +392,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, w.FolderReceiveEncrypted)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, curFile.EncryptionTrailerSize)
 	if err != nil {
 		return err
 	}
@@ -441,7 +438,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, w.FolderReceiveEncrypted)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, curFile.EncryptionTrailerSize)
 	if err != nil {
 		return err
 	}
@@ -492,13 +489,14 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, w.FolderReceiveEncrypted)
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter, curFile.EncryptionTrailerSize)
 	if err != nil {
 		handleError(ctx, "reading link", relPath, err, finishedChan)
 		return nil
 	}
 
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 	f = w.updateFileInfo(f, curFile)
 	l.Debugln(w, "checking:", f)
 
@@ -681,7 +679,7 @@ func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter XattrFilter, recvEnc bool) (protocol.FileInfo, error) {
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter XattrFilter, encryptionTrailerSize int) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
 	if scanOwnership || scanXattrs {
 		if plat, err := filesystem.PlatformData(name, scanOwnership, scanXattrs, xattrFilter); err == nil {
@@ -707,51 +705,12 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil
 	}
-	f.Size = fi.Size()
+	f.Size = fi.Size() - int64(encryptionTrailerSize)
 	f.Type = protocol.FileInfoTypeFile
 	if ct := fi.InodeChangeTime(); !ct.IsZero() {
 		f.InodeChangeNs = ct.UnixNano()
 	} else {
 		f.InodeChangeNs = 0
 	}
-	if recvEnc {
-		// Read the size of the encrypted trailer and subtract that from the
-		// size on disk. This is best effort because we might be looking at
-		// local additions that are not valid encrypted files, and we need
-		// the scanner to return those files so they can be handled as the
-		// local additions they are.
-		size, err := sizeOfEncryptedTrailer(filesystem, name)
-		if err != nil {
-			l.Debugln("reading encrypted trailer size: %s: %w", name, err)
-			return f, nil
-		}
-		if int64(size) > f.Size {
-			l.Debugln("encrypted trailer size larger than file size: %s: %d > %d", name, size, f.Size)
-			return f, nil
-		}
-		f.Size -= int64(size)
-	}
 	return f, nil
-}
-
-// sizeOfEncryptedTrailer returns the size of the encrypted trailer on disk.
-// This amount of bytes should be subtracted from the file size to get the
-// original file size.
-func sizeOfEncryptedTrailer(fs fs.Filesystem, name string) (int, error) {
-	f, err := fs.Open(name)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-	if _, err := f.Seek(-4, io.SeekEnd); err != nil {
-		return 0, err
-	}
-	var buf [4]byte
-	if _, err := io.ReadFull(f, buf[:]); err != nil {
-		return 0, err
-	}
-	// The stored size is the size of the encrypted data.
-	size := int(binary.BigEndian.Uint32(buf[:]))
-	// We add the size of the length word itself as well.
-	return size + 4, nil
 }
