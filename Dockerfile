@@ -26,4 +26,5 @@ HEALTHCHECK --interval=1m --timeout=10s \
   CMD curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
 
 ENV STGUIADDRESS=0.0.0.0:8384
+RUN chmod 755 /bin/entrypoint.sh
 ENTRYPOINT ["/bin/entrypoint.sh", "/bin/syncthing", "-home", "/var/syncthing/config"]

@@ -13,7 +13,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -21,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
@@ -32,9 +32,7 @@ type CLI struct {
 	GUIPassword string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
 }
 
-func (c *CLI) Run() error {
-	log.SetFlags(0)
-
+func (c *CLI) Run(l logger.Logger) error {
 	if c.HideConsole {
 		osutil.HideConsole()
 	}
@@ -59,13 +57,13 @@ func (c *CLI) Run() error {
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
+	if err := Generate(l, c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
 		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil
 }
 
-func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortProbing bool) error {
+func Generate(l logger.Logger, confDir, guiUser, guiPassword string, noDefaultFolder, skipPortProbing bool) error {
 	dir, err := fs.ExpandTilde(confDir)
 	if err != nil {
 		return err
@@ -80,7 +78,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortPro
 	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
-		log.Println("WARNING: Key exists; will not overwrite.")
+		l.Warnln("Key exists; will not overwrite.")
 	} else {
 		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
 		if err != nil {
@@ -88,7 +86,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortPro
 		}
 	}
 	myID = protocol.NewDeviceID(cert.Certificate[0])
-	log.Println("Device ID:", myID)
+	l.Infoln("Device ID:", myID)
 
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
@@ -106,7 +104,7 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortPro
 
 	var updateErr error
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
-		updateErr = updateGUIAuthentication(&cfg.GUI, guiUser, guiPassword)
+		updateErr = updateGUIAuthentication(l, &cfg.GUI, guiUser, guiPassword)
 	})
 	if err != nil {
 		return fmt.Errorf("modify config: %w", err)
@@ -122,17 +120,17 @@ func Generate(confDir, guiUser, guiPassword string, noDefaultFolder, skipPortPro
 	return nil
 }
 
-func updateGUIAuthentication(guiCfg *config.GUIConfiguration, guiUser, guiPassword string) error {
+func updateGUIAuthentication(l logger.Logger, guiCfg *config.GUIConfiguration, guiUser, guiPassword string) error {
 	if guiUser != "" && guiCfg.User != guiUser {
 		guiCfg.User = guiUser
-		log.Println("Updated GUI authentication user name:", guiUser)
+		l.Infoln("Updated GUI authentication user name:", guiUser)
 	}
 
 	if guiPassword != "" && guiCfg.Password != guiPassword {
 		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
 			return fmt.Errorf("failed to set GUI authentication password: %w", err)
 		}
-		log.Println("Updated GUI authentication password.")
+		l.Infoln("Updated GUI authentication password.")
 	}
 	return nil
 }

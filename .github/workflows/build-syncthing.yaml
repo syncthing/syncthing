@@ -6,7 +6,7 @@ on:
 
 env:
   # The go version to use for builds.
-  GO_VERSION: "1.19.3"
+  GO_VERSION: "1.19.4"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -15,6 +15,10 @@ env:
 
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
+
+  # Our build metadata
+  BUILD_USER: builder
+  BUILD_HOST: github.syncthing.net
 
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
@@ -92,7 +96,7 @@ jobs:
           path: |
             ~\AppData\Local\go-build
             ~\go\pkg\mod
-          key: ${{ runner.os }}-go-${{ env.GOVERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
