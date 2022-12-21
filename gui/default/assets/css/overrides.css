@@ -148,9 +148,9 @@ td input[type="checkbox"] {
     margin-top: 13px;
 }
 
-td button {
+/* td button {
     margin-top: 1px;
-}
+} */
 
 /* Remote Devices connection-quality indicator */
 .reception-0 {

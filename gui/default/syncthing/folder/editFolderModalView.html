@@ -335,27 +335,22 @@
               <label translate>Active filter rules</label>
               <table class="table table-condensed table-dynamic">
                 <colgroup>
-                  <col class="col-xs-3"/>
+                  <col class="col-xs-1"/>
                   <col class="col-xs-8"/>
                   <col class="col-xs-1"/>
                 </colgroup>
                 <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
                   <td>
-                    <select class="form-control" ng-model="entry.permit" ng-options="xattrOptionToString(item) for item in [true, false]"></select>
+                    <input type="checkbox" ng-model="entry.permit">
                   </td>
                   <td><input class="form-control text-left" aria-required="true" ng-model="entry.match"/></td>
                   <td>
-                    <button type="button" class="btn btn-default" ng-click="removeXattrEntry(entry)">
+                    <button type="button" class="btn btn-default form-control" ng-click="removeXattrEntry(entry)">
                       <span class="fas fa-trash-alt"></span>
                     </button>
                   </td>
                 </tr>
               </table>
-              <div class="form-group">
-                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
-                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add new filter entry</span>
-                </button>
-              </div>
               <p ng-if="currentFolder.xattrFilter.entries.length === 0">
                 <i translate>No rules set</i>
               </p>
@@ -365,16 +360,22 @@
               <p ng-if="getXattrHint() !== ''">
                 <i>{{getXattrHint()}}</i>
               </p>
+              <div class="form-group">
+                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
+                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add filter entry</span>
+                </button>
+              </div>
+              <p translate class="help-block">
+                Checking the check-box will permit the matching pattern, leaving it unchecked will deny the matches.
+              </p>
             </div>
-            <div class="col-md-6">
-              <div class="col-md-12 form-group">
-                <label for="maxSingleEntrySize" translate>Maximum single entry size</label>
-                <input name="maxSingleEntrySize" id="maxSingleEntrySize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxSingleEntrySize" required="" aria-required="true" min="0" />
-              </div>
-              <div class="col-md-12 form-group">
-                <label for="maxTotalSize" translate>Maximum total size</label>
-                <input name="maxTotalSize" id="maxTotalSize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxTotalSize" required="" aria-required="true" min="0" />
-              </div>
+            <div class="col-md-6 form-group">
+              <label for="maxSingleEntrySize" translate>Maximum single entry size</label>
+              <input name="maxSingleEntrySize" id="maxSingleEntrySize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxSingleEntrySize" required="" aria-required="true" min="0" />
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="maxTotalSize" translate>Maximum total size</label>
+              <input name="maxTotalSize" id="maxTotalSize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxTotalSize" required="" aria-required="true" min="0" />
             </div>
           </div>
         </div>
