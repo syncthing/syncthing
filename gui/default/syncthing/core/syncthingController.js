@@ -3396,10 +3396,6 @@ angular.module('syncthing.core')
         $scope.validateXattrFilter = function () {
             // Fitlering out empty rules when saving the config
             $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(n => n.match !== "");
-        }
-
-        $scope.xattrOptionToString = function(option) {
-            return option ? $translate.instant('Permit') : $translate.instant('Deny');
         };
     })
     .directive('shareTemplate', function () {
