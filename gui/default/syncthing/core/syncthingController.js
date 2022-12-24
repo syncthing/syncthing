@@ -3079,6 +3079,10 @@ angular.module('syncthing.core')
                 's390x': '64-bit z/Architecture',
             }[$scope.version.arch] || $scope.version.arch;
 
+            if ($scope.version.container) {
+                arch += " Container";
+            }
+
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
