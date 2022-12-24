@@ -61,7 +61,7 @@ require (
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/calmh/incontainer v0.0.0-20221224114231-8fd484b086d2 // indirect
+	github.com/calmh/incontainer v0.0.0-20221224151841-a0bf9955b52f // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
