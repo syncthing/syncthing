@@ -31,6 +31,8 @@ github.com/calmh/incontainer v0.0.0-20221224114231-8fd484b086d2 h1:1e21mRtyPbUn5
 github.com/calmh/incontainer v0.0.0-20221224114231-8fd484b086d2/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
 github.com/calmh/incontainer v0.0.0-20221224151841-a0bf9955b52f h1:a0rHjaYZeQgEn/oB956REp1A2mUFQY83iQlICIu7Oo4=
 github.com/calmh/incontainer v0.0.0-20221224151841-a0bf9955b52f/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
+github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a h1:CjrQbpvnV4BMzPHf0r8p2FAvzEp/bp761CmBBeNIHXI=
+github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
 github.com/calmh/xdr v1.1.0 h1:U/Dd4CXNLoo8EiQ4ulJUXkgO1/EyQLgDKLgpY1SOoJE=
 github.com/calmh/xdr v1.1.0/go.mod h1:E8sz2ByAdXC8MbANf1LCRYzedSnnc+/sXXJs/PVqoeg=
 github.com/ccding/go-stun v0.1.4 h1:lC0co3Q3vjAuu2Jz098WivVPBPbemYFqbwE1syoka4M=
