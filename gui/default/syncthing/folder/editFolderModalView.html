@@ -351,6 +351,11 @@
                   </td>
                 </tr>
               </table>
+              <div class="form-group">
+                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
+                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add filter entry</span>
+                </button>
+              </div>
               <p ng-if="currentFolder.xattrFilter.entries.length === 0">
                 <i translate>No rules set</i>
               </p>
@@ -360,11 +365,7 @@
               <p ng-if="getXattrHint() !== ''">
                 <i>{{getXattrHint()}}</i>
               </p>
-              <div class="form-group">
-                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
-                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add filter entry</span>
-                </button>
-              </div>
+              <hr />
               <p translate class="help-block">
                 Checking the check-box will permit entries which match the pattern, leaving it unchecked will deny the matches.
               </p>
