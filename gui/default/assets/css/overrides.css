@@ -148,10 +148,6 @@ td input[type="checkbox"] {
     margin-top: 13px;
 }
 
-/* td button {
-    margin-top: 1px;
-} */
-
 /* Remote Devices connection-quality indicator */
 .reception-0 {
     background: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat;
