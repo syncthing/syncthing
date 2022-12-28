@@ -1098,7 +1098,7 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            if (!unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+            if (!unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
                 return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
@@ -3079,6 +3079,10 @@ angular.module('syncthing.core')
                 'riscv64': '64-bit RISC-V',
                 's390x': '64-bit z/Architecture',
             }[$scope.version.arch] || $scope.version.arch;
+
+            if ($scope.version.container) {
+                arch += " Container";
+            }
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };

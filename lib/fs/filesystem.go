@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -192,20 +193,25 @@ const OptWriteOnly = os.O_WRONLY
 // as an error by any function.
 var SkipDir = filepath.SkipDir
 
-// IsExist is the equivalent of os.IsExist
-var IsExist = os.IsExist
+func IsExist(err error) bool {
+	return errors.Is(err, ErrExist)
+}
 
-// IsExist is the equivalent of os.ErrExist
-var ErrExist = os.ErrExist
+// ErrExist is the equivalent of os.ErrExist
+var ErrExist = fs.ErrExist
 
 // IsNotExist is the equivalent of os.IsNotExist
-var IsNotExist = os.IsNotExist
+func IsNotExist(err error) bool {
+	return errors.Is(err, ErrNotExist)
+}
 
 // ErrNotExist is the equivalent of os.ErrNotExist
-var ErrNotExist = os.ErrNotExist
+var ErrNotExist = fs.ErrNotExist
 
 // IsPermission is the equivalent of os.IsPermission
-var IsPermission = os.IsPermission
+func IsPermission(err error) bool {
+	return errors.Is(err, fs.ErrPermission)
+}
 
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator

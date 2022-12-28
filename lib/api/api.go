@@ -30,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
@@ -721,6 +722,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 		"tags":        build.TagsList(),
 		"stamp":       build.Stamp,
 		"user":        build.User,
+		"container":   incontainer.Detect(),
 	})
 }
 
