@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# If NOCREATE is defined, check if configuration exists.
+# Missing configuration is treated as volume not yet mounted (boot time race condition)
+# and container exits for Docker to handle restart.
+if [ ! -z "${NOCREATE}" -a ! -f "/var/syncthing/config/config.xml" ]; then
+  echo "Volume is not mounted; waiting and quitting."
+  sleep 1
+  exit 1
+fi
+
 set -eu
 
 if [ "$(id -u)" = '0' ]; then
