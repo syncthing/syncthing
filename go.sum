@@ -27,10 +27,6 @@ github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBT
 github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7hK1yFx9hf58LP0zeX7UjIGs20ufpu3evjr+s=
 github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b h1:Fjm4GuJ+TGMgqfGHN42IQArJb77CfD/mAwLbDUoJe6g=
 github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b/go.mod h1:91K7jfEsgJSyfSrX+gmrRfZMtntx6JsHolWubGXDopg=
-github.com/calmh/incontainer v0.0.0-20221224114231-8fd484b086d2 h1:1e21mRtyPbUn5W/lFvk+rCBVuzkfiiflv1vn8p4Btho=
-github.com/calmh/incontainer v0.0.0-20221224114231-8fd484b086d2/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
-github.com/calmh/incontainer v0.0.0-20221224151841-a0bf9955b52f h1:a0rHjaYZeQgEn/oB956REp1A2mUFQY83iQlICIu7Oo4=
-github.com/calmh/incontainer v0.0.0-20221224151841-a0bf9955b52f/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
 github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a h1:CjrQbpvnV4BMzPHf0r8p2FAvzEp/bp761CmBBeNIHXI=
 github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
 github.com/calmh/xdr v1.1.0 h1:U/Dd4CXNLoo8EiQ4ulJUXkgO1/EyQLgDKLgpY1SOoJE=
@@ -250,8 +246,8 @@ github.com/sasha-s/go-deadlock v0.3.1 h1:sqv7fDNShgjcaxkO0JNcOAlr8B9+cV5Ey/OB71e
 github.com/sasha-s/go-deadlock v0.3.1/go.mod h1:F73l+cr82YSh10GxyRI6qZiCgK64VaZjwesgfQ1/iLM=
 github.com/sclevine/spec v1.4.0 h1:z/Q9idDcay5m5irkZ28M7PtQM4aOISzOpj4bUPkDee8=
 github.com/sergi/go-diff v1.0.0/go.mod h1:0CfEIISq7TuYL3j771MWULgwwjU+GofnZX9QAmXWZgo=
-github.com/shirou/gopsutil/v3 v3.22.11 h1:kxsPKS+Eeo+VnEQ2XCaGJepeP6KY53QoRTETx3+1ndM=
-github.com/shirou/gopsutil/v3 v3.22.11/go.mod h1:xl0EeL4vXJ+hQMAGN8B9VFpxukEMA0XdevQOe5MZ1oY=
+github.com/shirou/gopsutil/v3 v3.22.12 h1:oG0ns6poeUSxf78JtOsfygNWuEHYYz8hnnNg7P04TJs=
+github.com/shirou/gopsutil/v3 v3.22.12/go.mod h1:Xd7P1kwZcp5VW52+9XsirIKd/BROzbb2wdX3Kqlz9uI=
 github.com/shurcooL/component v0.0.0-20170202220835-f88ec8f54cc4/go.mod h1:XhFIlyj5a1fBNx5aJTbKoIq0mNaPvOagO+HjB3EtxrY=
 github.com/shurcooL/events v0.0.0-20181021180414-410e4ca65f48/go.mod h1:5u70Mqkb5O5cxEA8nxTsgrgLehJeAw6Oc4Ab1c/P1HM=
 github.com/shurcooL/github_flavored_markdown v0.0.0-20181002035957-2122de532470/go.mod h1:2dOwnU2uBioM+SGy2aZoq1f/Sd1l9OkAeAUvjSyvgU0=
