@@ -107,3 +107,13 @@ $ docker run -e STGUIADDRESS= \
 
 With the environment variable unset Syncthing will follow what is set in the
 configuration file / GUI settings dialog.
+
+## Remote Mounted Volume
+
+In case the volume is temporarily unreachable during boot time, container may
+start re-creating configuration locally before volume gets mounted and data
+becomes available.
+
+Flagging dedicated `NOCREATE` environment variable combined with
+`--restart=unless-stopped` shall make container self-restart until volume
+mounts and data becomes available.
