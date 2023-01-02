@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Dec 09, 2022" "v1.22.2" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Dec 29, 2022" "v1.22.2" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -129,7 +129,9 @@ A pattern beginning with a \fB(?d)\fP prefix enables removal of these files if
 they are preventing directory deletion. This prefix should be used by any OS
 generated files which you are happy to be removed.
 .IP \(bu 2
-A line beginning with \fB//\fP is a comment and has no effect.
+A line beginning with \fB//\fP is a comment and has no effect. The same double
+slashes in any other place are interpreted literally, e.g. trying to do
+\fBfile // comment\fP will make Syncthing look for a file called \fBfile // comment\fP\&.
 .UNINDENT
 .sp
 \fBNOTE:\fP
