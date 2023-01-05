@@ -1805,7 +1805,7 @@ angular.module('syncthing.core')
 
         $scope.saveDevice = function (action) {
             if (action !== 'switch') {
-              $('#editDevice').modal('hide');
+                $('#editDevice').modal('hide');
             }
             $scope.currentDevice.addresses = $scope.currentDevice._addressesStr.split(',').map(function (x) {
                 return x.trim();
@@ -2419,7 +2419,7 @@ angular.module('syncthing.core')
 
             if ($scope.currentFolder._editing == "existing") {
                 if (action !== 'switch') {
-                  hideFolderModal();
+                    hideFolderModal();
                 }
                 saveFolderIgnoresExisting();
                 $scope.saveConfig();
