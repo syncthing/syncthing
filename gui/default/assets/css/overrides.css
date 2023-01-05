@@ -572,6 +572,6 @@ html[lang|="ko"] i {
 
 /* Apply the same margin to button group as to button.
    Required for folder/device switch buttons. */
-.modal-footer .btn + .btn-group {
+.modal-footer .btn-group + .btn {
     margin-left: 5px;
 }

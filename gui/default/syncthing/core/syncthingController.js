@@ -1803,8 +1803,10 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.saveDevice = function () {
-            $('#editDevice').modal('hide');
+        $scope.saveDevice = function (action) {
+            if (action !== 'switch') {
+              $('#editDevice').modal('hide');
+            }
             $scope.currentDevice.addresses = $scope.currentDevice._addressesStr.split(',').map(function (x) {
                 return x.trim();
             });
@@ -2201,9 +2203,11 @@ angular.module('syncthing.core')
                     if (list[index]) {
                         var url = window.location.href;
                         if (folder) {
+                            $scope.saveFolder('switch');
                             var tab = '#' + url.split('/#')[1];
                             $scope.editFolderExisting(list[index], tab);
                         } else if (device) {
+                            $scope.saveDevice('switch');
                             $scope.editDeviceExisting(list[index]);
                         }
                     }
@@ -2342,7 +2346,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.saveFolder = function () {
+        $scope.saveFolder = function (action) {
             if ($scope.currentFolder._editing == "new-ignores") {
                 // On modal being hidden without clicking save, the defaults will be saved.
                 $scope.ignores.saved = true;
@@ -2414,7 +2418,9 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
 
             if ($scope.currentFolder._editing == "existing") {
-                hideFolderModal();
+                if (action !== 'switch') {
+                  hideFolderModal();
+                }
                 saveFolderIgnoresExisting();
                 $scope.saveConfig();
                 return;
