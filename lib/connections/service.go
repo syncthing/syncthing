@@ -403,11 +403,13 @@ func (s *service) handleHellos(ctx context.Context) error {
 			continue
 		}
 
+		// Determine only once whether a connection is considered local
+		// according to our configuration, then cache the decision.
+		c.isLocal = s.isLAN(c.RemoteAddr())
 		// Wrap the connection in rate limiters. The limiter itself will
 		// keep up with config changes to the rate and whether or not LAN
 		// connections are limited.
-		isLAN := s.isLAN(c.RemoteAddr())
-		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
+		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID))
 		go func() {

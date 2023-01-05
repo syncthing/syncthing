@@ -626,8 +626,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return err
 			}
 
-			// Adjust the ownership, if we are supposed to do that.
-			if err := f.maybeAdjustOwnership(&file, path); err != nil {
+			// Set the platform data (ownership, xattrs, etc).
+			if err := f.setPlatformData(&file, path); err != nil {
 				return err
 			}
 
@@ -655,12 +655,16 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		return
 	}
 
-	// The directory already exists, so we just correct the mode bits. (We
+	// The directory already exists, so we just correct the metadata. (We
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(file.Name, mode|(info.Mode()&retainBits)); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir (setting permissions): %w", err))
+			return
+		}
+		if err := f.setPlatformData(&file, file.Name); err != nil {
+			f.newPullError(file.Name, fmt.Errorf("handling dir (setting metadata): %w", err))
 			return
 		}
 	}
@@ -753,7 +757,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		if err := f.mtimefs.CreateSymlink(file.SymlinkTarget, path); err != nil {
 			return err
 		}
-		return f.maybeAdjustOwnership(&file, path)
+		return f.setPlatformData(&file, path)
 	}
 
 	if err = f.inWritableDir(createLink, file.Name); err == nil {
@@ -1233,17 +1237,8 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		}
 	}
 
-	if f.SyncXattrs {
-		if err = f.mtimefs.SetXattr(file.Name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
-			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
-		} else if err != nil {
-			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting xattrs): %w", err))
-			return
-		}
-	}
-
-	if err := f.maybeAdjustOwnership(&file, file.Name); err != nil {
-		f.newPullError(file.Name, fmt.Errorf("shortcut file (setting ownership): %w", err))
+	if err := f.setPlatformData(&file, file.Name); err != nil {
+		f.newPullError(file.Name, fmt.Errorf("shortcut file (setting metadata): %w", err))
 		return
 	}
 
@@ -1612,18 +1607,9 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
-	// Set extended attributes
-	if f.SyncXattrs {
-		if err := f.mtimefs.SetXattr(tempName, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
-			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
-		} else if err != nil {
-			return fmt.Errorf("setting xattrs: %w", err)
-		}
-	}
-
-	// Set ownership based on file metadata or parent, maybe.
-	if err := f.maybeAdjustOwnership(&file, tempName); err != nil {
-		return fmt.Errorf("setting ownership: %w", err)
+	// Set file xattrs and ownership.
+	if err := f.setPlatformData(&file, tempName); err != nil {
+		return fmt.Errorf("setting metadata: %w", err)
 	}
 
 	if stat, err := f.mtimefs.Lstat(file.Name); err == nil {
@@ -1792,7 +1778,11 @@ loop:
 				// use this change time to check for changes to xattrs etc
 				// on next scan.
 				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
-					l.Warnln("Error updating metadata for %q at database commit: %v", job.file.Name, err)
+					// This means on next scan the likely incorrect change time
+					// (resp. whatever caused the error) will cause this file to
+					// change. Log at info level to leave a trace if a user
+					// notices, but no need to warn
+					l.Infof("Error updating metadata for %v at database commit: %v", job.file.Name, err)
 				}
 			}
 			job.file.Sequence = 0
@@ -2128,7 +2118,19 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
 }
 
-func (f *sendReceiveFolder) maybeAdjustOwnership(file *protocol.FileInfo, name string) error {
+// setPlatformData makes adjustments to the metadata that should happen for
+// all types (files, directories, symlinks). This should be one of the last
+// things we do to a file when syncing changes to it.
+func (f *sendReceiveFolder) setPlatformData(file *protocol.FileInfo, name string) error {
+	if f.SyncXattrs {
+		// Set extended attributes.
+		if err := f.mtimefs.SetXattr(name, file.Platform.Xattrs(), f.XattrFilter); errors.Is(err, fs.ErrXattrsNotSupported) {
+			l.Debugf("Cannot set xattrs on %q: %v", file.Name, err)
+		} else if err != nil {
+			return err
+		}
+	}
+
 	if f.SyncOwnership {
 		// Set ownership based on file metadata.
 		if err := f.syncOwnership(file, name); err != nil {
@@ -2140,7 +2142,7 @@ func (f *sendReceiveFolder) maybeAdjustOwnership(file *protocol.FileInfo, name s
 			return err
 		}
 	}
-	// Nothing to do
+
 	return nil
 }
 

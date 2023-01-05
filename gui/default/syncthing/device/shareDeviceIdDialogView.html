@@ -1,0 +1,35 @@
+<modal id="share-device-id-dialog" status="warning" icon="{{shareDeviceIdParams.icon}}" heading="{{shareDeviceIdParams.heading}}" large="{{ shareDeviceIdParams.method == 'email' ? 'yes' : 'no' }}" closeable="yes">
+  <div class="modal-body" ng-switch="shareDeviceIdParams.method">
+    <p>
+      <span translate>The following text will automatically be inserted into a new message.</span>
+      <span>
+        <span ng-switch-when="email">
+          <span translate>Your email app should open to let you choose the recipient and send it from your own address.</span>
+        </span>
+        <span ng-switch-when="sms">
+          <span translate>Your SMS app should open to let you choose the recipient and send it from your own number.</span>
+        </span>
+      </span>
+      <span translate>You can also copy and paste the text into a new message manually.</span>
+    </p>
+    <div ng-switch-when="email">
+      <hr>
+      <h5 translate>Subject:</h5>
+      <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.subject}}<button type="button" class="btn btn-default pull-right" ng-click="copyToClipboard($event, shareDeviceIdParams.subject)" tooltip data-original-title="{{ 'Copy' | translate }}">
+        <span class="fa fa-clone"></span>
+      </button></pre>
+      <h5 translate>Body:</h5>
+    </div>
+    <pre style="word-break: normal; white-space: pre-wrap;">{{shareDeviceIdParams.body}}<button type="button" class="btn btn-default pull-right" ng-click="copyToClipboard($event, shareDeviceIdParams.body)" tooltip data-original-title="{{ 'Copy' | translate }}">
+      <span class="fa fa-clone"></span>
+    </button></pre>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary btn-sm" ng-click="shareDeviceId()">
+      <span class="{{shareDeviceIdParams.icon}}"></span>&nbsp;<span translate>Share</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Cancel</span>
+    </button>
+  </div>
+</modal>

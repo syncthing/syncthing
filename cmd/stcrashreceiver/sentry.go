@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	raven "github.com/getsentry/raven-go"
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/stack"
 )
 
 const reportServer = "https://crash.syncthing.net/report/"
@@ -93,9 +93,12 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 	}
 
 	r := bytes.NewReader(report)
-	ctx, err := stack.ParseDump(r, io.Discard, false)
-	if err != nil {
+	ctx, _, err := stack.ScanSnapshot(r, io.Discard, stack.DefaultOpts())
+	if err != nil && err != io.EOF {
 		return nil, err
+	}
+	if ctx == nil || len(ctx.Goroutines) == 0 {
+		return nil, errors.New("no goroutines found")
 	}
 
 	// Lock the source code loader to the version we are processing here.
@@ -116,7 +119,7 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 		if gr.First {
 			trace.Frames = make([]*raven.StacktraceFrame, len(gr.Stack.Calls))
 			for i, sc := range gr.Stack.Calls {
-				trace.Frames[len(trace.Frames)-1-i] = raven.NewStacktraceFrame(0, sc.Func.Name(), sc.SrcPath, sc.Line, 3, nil)
+				trace.Frames[len(trace.Frames)-1-i] = raven.NewStacktraceFrame(0, sc.Func.Name, sc.RemoteSrcPath, sc.Line, 3, nil)
 			}
 			break
 		}

@@ -39,6 +39,7 @@ type tlsConn interface {
 type internalConn struct {
 	tlsConn
 	connType      connType
+	isLocal       bool
 	priority      int
 	establishedAt time.Time
 }
@@ -105,6 +106,10 @@ func (c internalConn) Close() error {
 
 func (c internalConn) Type() string {
 	return c.connType.String()
+}
+
+func (c internalConn) IsLocal() bool {
+	return c.isLocal
 }
 
 func (c internalConn) Priority() int {

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Sep 14, 2022" "v1.21.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Dec 29, 2022" "v1.22.2" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -115,7 +115,7 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="35">
+<configuration version="37">
     <folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
@@ -150,6 +150,8 @@ may no longer correspond to the defaults.
         <junctionsAsDirs>false</junctionsAsDirs>
         <syncOwnership>false</syncOwnership>
         <sendOwnership>false</sendOwnership>
+        <syncXattrs>false</syncXattrs>
+        <sendXattrs>false</sendXattrs>
     </folder>
     <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
@@ -255,6 +257,8 @@ may no longer correspond to the defaults.
             <junctionsAsDirs>false</junctionsAsDirs>
             <syncOwnership>false</syncOwnership>
             <sendOwnership>false</sendOwnership>
+            <syncXattrs>false</syncXattrs>
+            <sendXattrs>false</sendXattrs>
         </folder>
         <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
             <address>dynamic</address>
@@ -278,7 +282,7 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="35">
+<configuration version="37">
     <folder></folder>
     <device></device>
     <gui></gui>
@@ -349,6 +353,8 @@ GUI.
     <junctionsAsDirs>false</junctionsAsDirs>
     <syncOwnership>false</syncOwnership>
     <sendOwnership>false</sendOwnership>
+    <syncXattrs>false</syncXattrs>
+    <sendXattrs>false</sendXattrs>
 </folder>
 .ft P
 .fi
@@ -686,6 +692,19 @@ File and directory ownership is synced when this is set to \fBtrue\fP\&. See
 .B sendOwnership
 File and directory ownership information is scanned when this is set to
 \fBtrue\fP\&. See /advanced/folder\-send\-ownership for more information.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B syncXattrs
+File and directory extended attributes are synced when this is set to
+\fBtrue\fP\&. See /advanced/folder\-sync\-xattrs for more information.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sendXattrs
+File and directory extended attributes are scanned and sent to other
+devices when this is set to \fBtrue\fP\&. See
+/advanced/folder\-send\-xattrs for more information.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
