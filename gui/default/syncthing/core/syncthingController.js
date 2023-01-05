@@ -2667,26 +2667,22 @@ angular.module('syncthing.core')
 
                     var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder))
                         .success(function (data) {
-                            if (!isEmptyObject(data)) {
-                                $.each(data, function (key, values) {
-                                    $.each(values, function (idx, value) {
-                                        value.modTime = new Date(value.modTime);
-                                        value.versionTime = new Date(value.versionTime);
-                                    });
-                                    values.sort(function (a, b) {
-                                        return b.versionTime - a.versionTime;
-                                    });
+                            $.each(data, function (key, values) {
+                                $.each(values, function (idx, value) {
+                                    value.modTime = new Date(value.modTime);
+                                    value.versionTime = new Date(value.versionTime);
                                 });
-                                if (closed) return;
-                                $scope.restoreVersions.versions = data;
-                            }
+                                values.sort(function (a, b) {
+                                    return b.versionTime - a.versionTime;
+                                });
+                            });
+                            if (closed) return;
+                            $scope.restoreVersions.versions = data;
                         });
 
                     $q.all([dataReceived, modalShown.promise]).then(function () {
                         $timeout(function () {
-                            if (!$scope.restoreVersions.versions) {
-                                return;
-                            } else if (closed) {
+                            if (closed) {
                                 resetRestoreVersions();
                                 return;
                             }
