@@ -183,8 +183,9 @@ angular.module('syncthing.core')
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
-                } else if (arg.status >= 400 && arg.status <= 599) {
-                    // A genuine HTTP error
+                } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
+                    // A genuine HTTP error. 501/NotImplemented is considered intentional
+                    // and not an error which we need to act upon.
                     $('#networkError').modal('hide');
                     $('#restarting').modal('hide');
                     $('#shutdown').modal('hide');
@@ -536,7 +537,7 @@ angular.module('syncthing.core')
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
 
-            if (guiCfg.user && guiCfg.password) {
+            if ((guiCfg.user && guiCfg.password) || guiCfg.authMode === 'ldap') {
                 $scope.dismissNotification('authenticationUserAndPassword');
             }
         }
@@ -626,7 +627,7 @@ angular.module('syncthing.core')
                 }
                 $scope.completion[device][folder] = data;
                 recalcCompletion(device);
-            }).error(function(data, status, headers, config) {
+            }).error(function (data, status, headers, config) {
                 if (status === 404) {
                     console.log("refreshCompletion:", data);
                 } else {
@@ -813,7 +814,7 @@ angular.module('syncthing.core')
             });
         }
 
-        $scope.pendingIsRemoteEncrypted = function(folderID, deviceID) {
+        $scope.pendingIsRemoteEncrypted = function (folderID, deviceID) {
             var pending = $scope.pendingFolders[folderID];
             if (!pending || !pending.offeredBy || !pending.offeredBy[deviceID]) {
                 return false;
@@ -864,7 +865,9 @@ angular.module('syncthing.core')
                 $scope.deviceStats = data;
                 for (var device in $scope.deviceStats) {
                     $scope.deviceStats[device].lastSeen = new Date($scope.deviceStats[device].lastSeen);
-                    $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    if ($scope.deviceStats[device].lastSeen.toISOString() !== '1970-01-01T00:00:00.000Z') {
+                        $scope.deviceStats[device].lastSeenDays = (new Date() - $scope.deviceStats[device].lastSeen) / 1000 / 86400;
+                    }
                 }
                 console.log("refreshDeviceStats", data);
             }).error($scope.emitHTTPError);
@@ -1072,8 +1075,9 @@ angular.module('syncthing.core')
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
+            var unused = $scope.deviceFolders(deviceCfg).length === 0;
 
-            if ($scope.deviceFolders(deviceCfg).length === 0) {
+            if (unused) {
                 status = 'unused-';
             }
 
@@ -1094,7 +1098,11 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            return status + 'disconnected';
+            if (!unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+                return status + 'disconnected-inactive';
+            } else {
+                return status + 'disconnected';
+            }
         };
 
         $scope.deviceClass = function (deviceCfg) {
@@ -1192,6 +1200,73 @@ angular.module('syncthing.core')
             return '?';
         };
 
+        $scope.rdConnType = function (deviceID) {
+            var conn = $scope.connections[deviceID];
+            if (!conn) return "-1";
+            var type = "disconnected";
+            if (conn.type.indexOf('relay') === 0) type = "relay";
+            else if (conn.type.indexOf('quic') === 0) type = "quic";
+            else if (conn.type.indexOf('tcp') === 0) type = "tcp";
+            else return type;
+
+            if (conn.isLocal) type += "lan";
+            else type += "wan";
+            return type;
+        }
+
+        $scope.rdConnTypeString = function (type) {
+            switch (type) {
+                case "relaywan":
+                    return $translate.instant('Relay WAN');
+                case "relaylan":
+                    return $translate.instant('Relay LAN');
+                case "quicwan":
+                    return $translate.instant('QUIC WAN');
+                case "quiclan":
+                    return $translate.instant('QUIC LAN');
+                case "tcpwan":
+                    return $translate.instant('TCP WAN');
+                case "tcplan":
+                    return $translate.instant('TCP LAN');
+                default:
+                    return $translate.instant('Disconnected');
+            }
+        }
+
+        $scope.rdConnTypeIcon = function (type) {
+            switch (type) {
+            case "tcplan":
+            case "quiclan":
+                return "reception-4";
+            case "tcpwan":
+            case "quicwan":
+                return "reception-3";
+            case "relaylan":
+                return "reception-2";
+            case "relaywan":
+                return "reception-1";
+            case "disconnected":
+                return "reception-0";
+            }
+        }
+
+        $scope.rdConnDetails = function (type) {
+            switch (type) {
+                case "relaylan":
+                case "relaywan":
+                    return $translate.instant('Connections via relays might be rate limited by the relay');
+                case "quiclan":
+                case "quicwan":
+                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                case "tcpwan":
+                    return $translate.instant('Using a direct TCP connection over WAN');
+                case "tcplan":
+                    return $translate.instant('Using a direct TCP connection over LAN');
+                default:
+                    return $translate.instant('Unknown');
+            }
+        }
+
         $scope.hasRemoteGUIAddress = function (deviceCfg) {
             if (!deviceCfg.remoteGUIPort)
                 return false;
@@ -1202,7 +1277,8 @@ angular.module('syncthing.core')
         $scope.remoteGUIAddress = function (deviceCfg) {
             // Assume hasRemoteGUIAddress is true or we would not be here
             var conn = $scope.connections[deviceCfg.deviceID];
-            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort);
+            // Use regex to filter out scope ID from IPv6 addresses.
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace('%.*?\]:', ']:');
         };
 
         function replaceAddressPort(address, newPort) {
@@ -1932,10 +2008,10 @@ angular.module('syncthing.core')
                 return;
             }
             var idx;
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                idx = 1;
-            } else if ($scope.currentFolder.type === 'receiveencrypted') {
+            if ($scope.currentFolder.type === 'receiveencrypted') {
                 idx = 2;
+            } else if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
             } else {
                 idx = 0;
             }
@@ -2049,7 +2125,7 @@ angular.module('syncthing.core')
             editFolderModal(initialTab);
         }
 
-        $scope.internalVersioningEnabled = function(guiVersioning) {
+        $scope.internalVersioningEnabled = function (guiVersioning) {
             if (!$scope.currentFolder._guiVersioning) {
                 return false;
             }
@@ -2086,7 +2162,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editFolderExisting = function(folderCfg, initialTab) {
+        $scope.editFolderExisting = function (folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
             editFolderLoadIgnores();
@@ -2101,7 +2177,7 @@ angular.module('syncthing.core')
 
         function editFolderGetIgnores() {
             return $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .then(function(r) {
+                .then(function (r) {
                     return r.data;
                 }, function (response) {
                     $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
@@ -2111,7 +2187,7 @@ angular.module('syncthing.core')
 
         function editFolderLoadIgnores() {
             editFolderLoadingIgnores();
-            return editFolderGetIgnores().then(function(data) {
+            return editFolderGetIgnores().then(function (data) {
                 if (!data) {
                     return;
                 }
@@ -2308,7 +2384,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder._editing = "new-ignores";
                 $('.nav-tabs a[href="#folder-ignores"]').tab('show');
                 return editFolderGetIgnores();
-            }).then(function(data) {
+            }).then(function (data) {
                 // Error getting ignores -> leave error message.
                 if (!data) {
                     return;
@@ -2316,7 +2392,7 @@ angular.module('syncthing.core')
                 if ((data.ignore && data.ignore.length > 0) || data.error) {
                     editFolderInitIgnores(data.ignore, data.error);
                 } else {
-                    getDefaultIgnores().then(function(lines) {
+                    getDefaultIgnores().then(function (lines) {
                         setIgnoresText(lines);
                         $scope.ignores.defaultLines = lines;
                         $scope.ignores.disabled = false;
@@ -2332,7 +2408,7 @@ angular.module('syncthing.core')
             var ignores = ignoresArray();
 
             function arrayDiffers(a, b) {
-                return !a !== !b || a.length !== b.length || a.some(function(v, i) { return v !== b[i]; });
+                return !a !== !b || a.length !== b.length || a.some(function (v, i) { return v !== b[i]; });
             }
             if (arrayDiffers(ignores, $scope.ignores.originalLines)) {
                 return saveIgnores(ignores);
@@ -2636,7 +2712,7 @@ angular.module('syncthing.core')
                                 source: buildTree($scope.restoreVersions.versions),
                                 renderColumns: function (event, data) {
                                     // Case insensitive sort with folders on top.
-                                    var cmp = function(a, b) {
+                                    var cmp = function (a, b) {
                                         var x = (a.isFolder() ? "0" : "1") + a.title.toLowerCase(),
                                             y = (b.isFolder() ? "0" : "1") + b.title.toLowerCase();
                                         return x === y ? 0 : x > y ? 1 : -1;
@@ -3003,6 +3079,10 @@ angular.module('syncthing.core')
                 's390x': '64-bit z/Architecture',
             }[$scope.version.arch] || $scope.version.arch;
 
+            if ($scope.version.container) {
+                arch += " Container";
+            }
+
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
@@ -3124,6 +3204,132 @@ angular.module('syncthing.core')
                     address.indexOf('unix://') == 0 ||
                     address.indexOf('unixs://') == 0);
         };
+
+        $scope.shareDeviceIdDialog = function (method) {
+            // This function can be used to share both user's own and remote
+            // device IDs. Three sharing methods are used - copy to clipboard,
+            // send by email, and send by SMS.
+            var params = {
+                method: method,
+            };
+            var deviceID = $scope.currentDevice.deviceID;
+            var deviceName = $scope.deviceName($scope.currentDevice);
+
+            // Title and footer can be reused between different sharing
+            // methods, hence we define them separately before the body.
+            var title = $translate.instant('Syncthing device ID for "{%devicename%}"', {devicename: deviceName});
+            var footer = $translate.instant("Learn more at {%url%}", {url: "https://syncthing.net"});
+
+            switch (method) {
+                case "email":
+                    params.heading = $translate.instant("Share by Email");
+                    params.icon = "fa fa-envelope-o";
+                    // Email message format requires using CRLF for line breaks.
+                    // Ref: https://datatracker.ietf.org/doc/html/rfc5322
+                    params.subject = title;
+                    params.body = [
+                        $translate.instant('To connect with the Syncthing device named "{%devicename%}", add a new remote device on your end with this ID:', {devicename: deviceName}),
+                        deviceID,
+                        $translate.instant("Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet."),
+                        footer
+                    ].join('\r\n\r\n');
+                    break;
+                case "sms":
+                    params.heading = $translate.instant("Share by SMS");
+                    params.icon = "fa fa-comments-o";
+                    // SMS is limited to 160 characters (non-Unicode), so we keep
+                    // it as short as possible, e.g. by stripping hyphens from
+                    // device ID. The current minimum length is around 140 chars,
+                    // but some room is required for longer sharing device names.
+                    params.body = [
+                        title,
+                        deviceID.replace(/-/g, ''),
+                        footer
+                    ].join('\n');
+                    break;
+            }
+
+            $scope.shareDeviceIdParams = params;
+            $('#share-device-id-dialog').modal('show');
+        };
+
+        $scope.shareDeviceId = function () {
+            switch ($scope.shareDeviceIdParams.method) {
+                case 'email':
+                    location.href = 'mailto:?subject=' + encodeURIComponent($scope.shareDeviceIdParams.subject) + '&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
+                    break;
+                case 'sms':
+                    // Ref1: https://rfc-editor.org/rfc/rfc5724
+                    // Ref2: https://stackoverflow.com/questions/6480462/how-to-pre-populate-the-sms-body-text-via-an-html-link
+                    location.href = 'sms:?&body=' + encodeURIComponent($scope.shareDeviceIdParams.body);
+                    break;
+            }
+        }
+
+        $scope.showTemporaryTooltip = function (event, tooltip) {
+            // This function can be used to display a temporary tooltip above
+            // the current element. This way, we can dynamically add a tooltip
+            // with explanatory text after the user performs an interactive
+            // operation, e.g. clicks a button. If the element already has a
+            // tooltip, it will be saved first and then restored once the user
+            // moves focus to a different element.
+            var e = event.currentTarget;
+            var oldTooltip = e.getAttribute('data-original-title');
+
+            e.setAttribute('data-original-title', tooltip);
+            $(e).tooltip('show');
+
+            if (oldTooltip) {
+                e.setAttribute('data-original-title', oldTooltip);
+            } else {
+                e.removeAttribute('data-original-title');
+            }
+        };
+
+        $scope.copyToClipboard = function (event, content) {
+            var success = $translate.instant("Copied!");
+            var failure = $translate.instant("Copy failed! Try to select and copy manually.");
+            var message = success;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Default for modern browsers on localhost or HTTPS. Doesn't
+                // work on unencrypted HTTP for security reasons.
+                navigator.clipboard.writeText(content);
+            } else if (window.clipboardData && window.clipboardData.setData) {
+                // Fallback for Internet Explorer. Needs to go second before
+                // "document.queryCommandSupported", as the browser supports the
+                // other method too, yet it can often be disabled for security
+                // reasons, causing the copy to fail. The IE-specific method is
+                // more reliable.
+                window.clipboardData.setData('Text', content);
+            } else if (document.queryCommandSupported) {
+                // Fallback for modern browsers on HTTP and non-IE old browsers.
+                // Check for document.queryCommandSupported("copy") support is
+                // omitted on purpose, as old Chrome versions reported "false"
+                // despite supporting the feature. The position and opacity
+                // hacks are needed to work inside Bootstrap modals.
+                var e = event.currentTarget;
+                var textarea = document.createElement("textarea");
+
+                e.appendChild(textarea);
+                textarea.style.position = "fixed";
+                textarea.style.opacity = "0";
+                textarea.textContent = content;
+                textarea.select();
+
+                try {
+                    document.execCommand("copy");
+                } catch (ex) {
+                    message = failure;
+                } finally {
+                    e.removeChild(textarea);
+                }
+            } else {
+                message = failure;
+            }
+
+            $scope.showTemporaryTooltip(event, message);
+        };
     })
     .directive('shareTemplate', function () {
         return {
@@ -3136,7 +3342,7 @@ angular.module('syncthing.core')
                 folderType: '@',
                 untrusted: '=',
             },
-            link: function(scope, elem, attrs) {
+            link: function (scope, elem, attrs) {
                 var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;

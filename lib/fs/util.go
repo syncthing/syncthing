@@ -53,9 +53,17 @@ const windowsDisallowedCharacters = (`<>:"|?*` +
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f")
 
 func WindowsInvalidFilename(name string) error {
+	// The path must not contain any disallowed characters.
+	if strings.ContainsAny(name, windowsDisallowedCharacters) {
+		return errInvalidFilenameWindowsReservedChar
+	}
+
 	// None of the path components should end in space or period, or be a
 	// reserved name.
-	for _, part := range strings.Split(name, `\`) {
+	for len(name) > 0 {
+		part, rest, _ := strings.Cut(name, `\`)
+		name = rest
+
 		if part == "" {
 			continue
 		}
@@ -67,11 +75,6 @@ func WindowsInvalidFilename(name string) error {
 		if windowsIsReserved(part) {
 			return errInvalidFilenameWindowsReservedName
 		}
-	}
-
-	// The path must not contain any disallowed characters
-	if strings.ContainsAny(name, windowsDisallowedCharacters) {
-		return errInvalidFilenameWindowsReservedChar
 	}
 
 	return nil

@@ -30,6 +30,16 @@ type ConnectionInfo struct {
 	establishedAtReturnsOnCall map[int]struct {
 		result1 time.Time
 	}
+	IsLocalStub        func() bool
+	isLocalMutex       sync.RWMutex
+	isLocalArgsForCall []struct {
+	}
+	isLocalReturns struct {
+		result1 bool
+	}
+	isLocalReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	PriorityStub        func() int
 	priorityMutex       sync.RWMutex
 	priorityArgsForCall []struct {
@@ -187,6 +197,59 @@ func (fake *ConnectionInfo) EstablishedAtReturnsOnCall(i int, result1 time.Time)
 	}
 	fake.establishedAtReturnsOnCall[i] = struct {
 		result1 time.Time
+	}{result1}
+}
+
+func (fake *ConnectionInfo) IsLocal() bool {
+	fake.isLocalMutex.Lock()
+	ret, specificReturn := fake.isLocalReturnsOnCall[len(fake.isLocalArgsForCall)]
+	fake.isLocalArgsForCall = append(fake.isLocalArgsForCall, struct {
+	}{})
+	stub := fake.IsLocalStub
+	fakeReturns := fake.isLocalReturns
+	fake.recordInvocation("IsLocal", []interface{}{})
+	fake.isLocalMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConnectionInfo) IsLocalCallCount() int {
+	fake.isLocalMutex.RLock()
+	defer fake.isLocalMutex.RUnlock()
+	return len(fake.isLocalArgsForCall)
+}
+
+func (fake *ConnectionInfo) IsLocalCalls(stub func() bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = stub
+}
+
+func (fake *ConnectionInfo) IsLocalReturns(result1 bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = nil
+	fake.isLocalReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConnectionInfo) IsLocalReturnsOnCall(i int, result1 bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = nil
+	if fake.isLocalReturnsOnCall == nil {
+		fake.isLocalReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isLocalReturnsOnCall[i] = struct {
+		result1 bool
 	}{result1}
 }
 
@@ -462,6 +525,8 @@ func (fake *ConnectionInfo) Invocations() map[string][][]interface{} {
 	defer fake.cryptoMutex.RUnlock()
 	fake.establishedAtMutex.RLock()
 	defer fake.establishedAtMutex.RUnlock()
+	fake.isLocalMutex.RLock()
+	defer fake.isLocalMutex.RUnlock()
 	fake.priorityMutex.RLock()
 	defer fake.priorityMutex.RUnlock()
 	fake.remoteAddrMutex.RLock()

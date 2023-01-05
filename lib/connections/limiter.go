@@ -37,8 +37,7 @@ type waiter interface {
 }
 
 const (
-	limiterBurstSize   = 4 * 128 << 10
-	maxSingleWriteSize = 8 << 10
+	limiterBurstSize = 4 * 128 << 10
 )
 
 func newLimiter(myId protocol.DeviceID, cfg config.Wrapper) *limiter {
@@ -251,10 +250,20 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	}
 
 	// This does (potentially) multiple smaller writes in order to be less
-	// bursty with large writes and slow rates.
+	// bursty with large writes and slow rates. At the same time we don't
+	// want to do hilarious amounts of tiny writes when the rate is high, so
+	// try to be a bit adaptable. We range from the minimum write size of 1
+	// KiB up to the limiter burst size, aiming for about a write every
+	// 10ms.
+	singleWriteSize := int(w.waiter.Limit() / 100)          // 10ms worth of data
+	singleWriteSize = ((singleWriteSize / 1024) + 1) * 1024 // round up to the next kibibyte
+	if singleWriteSize > limiterBurstSize {
+		singleWriteSize = limiterBurstSize
+	}
+
 	written := 0
 	for written < len(buf) {
-		toWrite := maxSingleWriteSize
+		toWrite := singleWriteSize
 		if toWrite > len(buf)-written {
 			toWrite = len(buf) - written
 		}
@@ -294,7 +303,7 @@ func (w waiterHolder) take(tokens int) {
 	// into the lower level reads so we might get a large amount of data and
 	// end up in the loop further down.
 
-	if tokens < limiterBurstSize {
+	if tokens <= limiterBurstSize {
 		// Fast path. We won't get an error from WaitN as we don't pass a
 		// context with a deadline.
 		_ = w.waiter.WaitN(context.TODO(), tokens)

@@ -178,7 +178,7 @@ func main() {
 	filepath.Walk(guiDir, walkerFor(guiDir))
 	collectThemes(guiDir)
 
-	bs, err := json.MarshalIndent(trans, "", "   ")
+	bs, err := json.MarshalIndent(trans, "", "    ")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -56,6 +56,7 @@ var (
 	networkBufferSize int
 
 	statusAddr       string
+	token            string
 	poolAddrs        string
 	pools            []string
 	providedBy       string
@@ -89,6 +90,7 @@ func main() {
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
+	flag.StringVar(&token, "token", "", "Token to restrict access to the relay (optional). Disables joining any pools.")
 	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
 	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
 	flag.StringVar(&extAddress, "ext-address", "", "An optional address to advertise as being available on.\n\tAllows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443.")
@@ -256,6 +258,10 @@ func main() {
 
 	log.Println("URI:", uri.String())
 
+	if token != "" {
+		poolAddrs = ""
+	}
+
 	if poolAddrs == defaultPoolAddrs {
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 		log.Println("!!  Joining default relay pools, this relay will be available for public use. !!")
@@ -271,7 +277,7 @@ func main() {
 		}
 	}
 
-	go listener(proto, listen, tlsCfg)
+	go listener(proto, listen, tlsCfg, token)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

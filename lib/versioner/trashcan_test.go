@@ -96,6 +96,78 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 	}
 }
 
+func TestTrashcanRestoreDeletedFile(t *testing.T) {
+	// This tests that the Trash Can restore function works correctly when the file
+	// to be restored was deleted/nonexistent in the folder where the file/folder is
+	// going to be restored in. (Issue: #7965)
+
+	tmpDir1 := t.TempDir()
+
+	tmpDir2 := t.TempDir()
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           tmpDir1,
+		Versioning: config.VersioningConfiguration{
+			FSType: fs.FilesystemTypeBasic,
+			FSPath: tmpDir2,
+		},
+	}
+
+	folderFs := cfg.Filesystem(nil)
+
+	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
+
+	versioner := newTrashcan(cfg)
+
+	writeFile(t, folderFs, "file", "Some content")
+
+	if err := versioner.Archive("file"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Shouldn't be in the default folder anymore, thus "deleted"
+	if _, err := folderFs.Stat("file"); !fs.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// It should, however, be in the archive
+	if _, err := versionsFs.Lstat("file"); fs.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	versions, err := versioner.GetVersions()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fileVersions := versions["file"]
+	if len(fileVersions) != 1 {
+		t.Fatalf("unexpected number of versions: %d != 1", len(fileVersions))
+	}
+
+	fileVersion := fileVersions[0]
+
+	if !fileVersion.ModTime.Equal(fileVersion.VersionTime) {
+		t.Error("time mismatch")
+	}
+
+	// Restore the file from the archive.
+	if err := versioner.Restore("file", fileVersion.VersionTime); err != nil {
+		t.Fatal(err)
+	}
+
+	// The file should be correctly restored
+	if content := readFile(t, folderFs, "file"); content != "Some content" {
+		t.Errorf("expected A got %s", content)
+	}
+
+	// It should no longer be in the archive
+	if _, err := versionsFs.Lstat("file"); !fs.IsNotExist(err) {
+		t.Fatal(err)
+	}
+}
+
 func readFile(t *testing.T, filesystem fs.Filesystem, name string) string {
 	t.Helper()
 	fd, err := filesystem.Open(name)
