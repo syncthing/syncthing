@@ -175,14 +175,14 @@
   </div>
   <div class="modal-footer">
     <div class="btn-group">
+      <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
+        <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
+      </button>
       <button type="button" class="btn btn-primary btn-sm" aria-label="{{'Previous Device' | translate}}" ng-click="switchFolderOrDevice('previous')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
         <span class="fas fa-arrow-left"></span>
       </button>
       <button type="button" class="btn btn-primary btn-sm" aria-label="{{'Next Device' | translate}}" ng-click="switchFolderOrDevice('next')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
         <span class="fas fa-arrow-right"></span>
-      </button>
-      <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
-        <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
       </button>
     </div>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
