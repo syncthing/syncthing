@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -83,7 +84,7 @@ func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.F
 	writeFile(t, fs, name, nil)
 	fi, err := fs.Stat(name)
 	must(t, err)
-	file, err := scanner.CreateFileInfo(fi, name, fs, false)
+	file, err := scanner.CreateFileInfo(fi, name, fs, false, false, config.XattrFilter{})
 	must(t, err)
 	return file
 }
@@ -777,9 +778,12 @@ func TestDeleteIgnorePerms(t *testing.T) {
 
 	stat, err := file.Stat()
 	must(t, err)
-	fi, err := scanner.CreateFileInfo(stat, name, ffs, false)
+	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0600)
+	if info, err := ffs.Stat(name); err == nil {
+		fi.InodeChangeNs = info.InodeChangeTime().UnixNano()
+	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)

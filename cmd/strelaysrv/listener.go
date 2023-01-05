@@ -23,7 +23,7 @@ var (
 	numConnections int64
 )
 
-func listener(_, addr string, config *tls.Config) {
+func listener(_, addr string, config *tls.Config, token string) {
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -49,7 +49,7 @@ func listener(_, addr string, config *tls.Config) {
 		}
 
 		if isTLS {
-			go protocolConnectionHandler(conn, config)
+			go protocolConnectionHandler(conn, config, token)
 		} else {
 			go sessionConnectionHandler(conn)
 		}
@@ -57,7 +57,7 @@ func listener(_, addr string, config *tls.Config) {
 	}
 }
 
-func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
+func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token string) {
 	conn := tls.Server(tcpConn, config)
 	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
 		if debug {
@@ -119,6 +119,15 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 
 			switch msg := message.(type) {
 			case protocol.JoinRelayRequest:
+				if token != "" && msg.Token != token {
+					if debug {
+						log.Printf("invalid token %s\n", msg.Token)
+					}
+					protocol.WriteMessage(conn, protocol.ResponseWrongToken)
+					conn.Close()
+					continue
+				}
+
 				if atomic.LoadInt32(&overLimit) > 0 {
 					protocol.WriteMessage(conn, protocol.RelayFull{})
 					if debug {

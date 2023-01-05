@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Aug 24, 2022" "v1.20.4" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Dec 29, 2022" "v1.22.2" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -146,12 +146,16 @@ File permissions (when supported by file system; on Windows only the
 read only bit is synchronized)
 .IP \(bu 2
 Symbolic links (synced, except on Windows, but never followed)
+.IP \(bu 2
+File or directory owners and groups (when enabled)
+.IP \(bu 2
+Extended attributes (when enabled)
+.IP \(bu 2
+POSIX or NFS ACLs (as part of extended attributes)
 .UNINDENT
 .sp
 The following are \fInot\fP synchronized;
 .INDENT 0.0
-.IP \(bu 2
-File or directory owners and Groups (not preserved)
 .IP \(bu 2
 Directory modification times (not preserved)
 .IP \(bu 2
@@ -161,9 +165,9 @@ Windows junctions (synced as ordinary directories; require enabling in
 \fBthe configuration\fP on a per\-folder
 basis)
 .IP \(bu 2
-Extended attributes, resource forks (not preserved)
+Resource forks (not preserved)
 .IP \(bu 2
-Windows, POSIX or NFS ACLs (not preserved)
+Windows ACLs (not preserved)
 .IP \(bu 2
 Devices, FIFOs, and other specials (ignored)
 .IP \(bu 2

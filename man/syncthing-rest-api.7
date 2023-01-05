@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Aug 24, 2022" "v1.20.4" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Dec 29, 2022" "v1.22.2" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -43,6 +43,11 @@ the configuration file. To use an API key, set the request header
 \fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
 "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
 with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
+.sp
+One exception to this requirement is \fB/rest/noauth\fP, you do not need an API
+key to use those endpoints. This way third\-party devices and services can do
+simple calls that don’t expose sensitive information without having to expose
+your API key.
 .SH RESULT PAGINATION
 .sp
 Some \fIGET\fP endpoints take optional \fBpage\fP and \fBperpage\fP arguments for
@@ -404,7 +409,7 @@ config, modify the needed parts and post it again.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Return format changed in versions 0.13.0 and 1.19.0.
+Return format changed in versions 0.13.0, 1.19.0 and 1.23.0.
 .UNINDENT
 .UNINDENT
 .sp
@@ -418,46 +423,49 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .nf
 .ft C
 {
-   "total" : {
-          "at" : "2015\-11\-07T17:29:47.691637262+01:00",
-          "inBytesTotal" : 1479,
-          "outBytesTotal" : 1318,
-   },
-   "connections" : {
-          "YZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC" : {
-             "connected" : true,
-             "inBytesTotal" : 556,
-             "paused" : false,
-             "at" : "2015\-11\-07T17:29:47.691548971+01:00",
-             "startedAt" : "2015\-11\-07T00:09:47Z",
-             "clientVersion" : "v0.12.1",
-             "address" : "127.0.0.1:22002",
-             "type" : "TCP (Client)",
-             "outBytesTotal" : 550
-          },
-          "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA" : {
-             "outBytesTotal" : 0,
-             "type" : "",
-             "address" : "",
-             "at" : "0001\-01\-01T00:00:00Z",
-             "startedAt" : "0001\-01\-01T00:00:00Z",
-             "clientVersion" : "",
-             "paused" : false,
-             "inBytesTotal" : 0,
-             "connected" : false
-          },
-          "UYGDMA4\-TPHOFO5\-2VQYDCC\-7CWX7XW\-INZINQT\-LE4B42N\-4JUZTSM\-IWCSXA4" : {
-             "address" : "",
-             "type" : "",
-             "outBytesTotal" : 0,
-             "connected" : false,
-             "inBytesTotal" : 0,
-             "paused" : false,
-             "at" : "0001\-01\-01T00:00:00Z",
-             "startedAt" : "0001\-01\-01T00:00:00Z",
-             "clientVersion" : ""
-          }
-   }
+  "connections": {
+    "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA": {
+      "address": "",
+      "at": "0001\-01\-01T00:00:00Z",
+      "clientVersion": "",
+      "connected": false,
+      "inBytesTotal": 0,
+      "isLocal": false,
+      "outBytesTotal": 0,
+      "paused": false,
+      "startedAt": "0001\-01\-01T00:00:00Z",
+      "type": ""
+    },
+    "UYGDMA4\-TPHOFO5\-2VQYDCC\-7CWX7XW\-INZINQT\-LE4B42N\-4JUZTSM\-IWCSXA4": {
+      "address": "",
+      "at": "0001\-01\-01T00:00:00Z",
+      "clientVersion": "",
+      "connected": false,
+      "inBytesTotal": 0,
+      "isLocal": false,
+      "outBytesTotal": 0,
+      "paused": false,
+      "startedAt": "0001\-01\-01T00:00:00Z",
+      "type": ""
+    },
+    "YZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC": {
+      "address": "127.0.0.1:22002",
+      "at": "2015\-11\-07T17:29:47.691548971+01:00",
+      "clientVersion": "v0.12.1",
+      "connected": true,
+      "inBytesTotal": 556,
+      "isLocal": true,
+      "outBytesTotal": 550,
+      "paused": false,
+      "startedAt": "2015\-11\-07T00:09:47Z",
+      "type": "TCP (Client)"
+    }
+  },
+  "total": {
+    "at": "2015\-11\-07T17:29:47.691637262+01:00",
+    "inBytesTotal": 1479,
+    "outBytesTotal": 1318
+  }
 }
 .ft P
 .fi
@@ -1329,7 +1337,9 @@ not connected.  Otherwise it can be either \fBpaused\fP, \fBnotSharing\fP, or
 .SS GET /rest/db/file
 .sp
 Returns most data available about a given file, including version and
-availability. Takes \fBfolder\fP and \fBfile\fP parameters.
+availability. Takes \fBfolder\fP and \fBfile\fP parameters. \fBlocal\fP and
+\fBglobal\fP refer to the current file on disk and the globally newest file,
+respectively.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1342,44 +1352,83 @@ availability. Takes \fBfolder\fP and \fBfile\fP parameters.
       "fromTemporary": false
     }
   ],
-  "global": {
+  "global": { /* a file entry */ },
+  "local": { /* a file entry */ }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+A file entry looks like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  {
     "deleted": false,
     "ignored": false,
+    "inodeChange": "1970\-01\-01T01:00:00+01:00",
     "invalid": false,
     "localFlags": 0,
-    "modified": "2018\-08\-18T12:21:13.836784059+02:00",
-    "modifiedBy": "SYNO4VL",
+    "modified": "2022\-09\-28T08:07:19.979723+02:00",
+    "modifiedBy": "523ITIE",
     "mustRescan": false,
-    "name": "testfile",
+    "name": "img",
     "noPermissions": false,
-    "numBlocks": 1,
+    "numBlocks": 0,
     "permissions": "0755",
-    "sequence": 107499,
-    "size": 1234,
-    "type": 0,
+    "platform": { /* platform specific data */ },
+    "sequence": 914,
+    "size": 128,
+    "type": "FILE_INFO_TYPE_DIRECTORY",
     "version": [
-      "SYNO4VL:1"
+      "523ITIE:1664345275"
     ]
   },
-  "local": {
-    "deleted": false,
-    "ignored": false,
-    "invalid": false,
-    "localFlags": 0,
-    "modified": "2018\-08\-18T12:21:13.836784059+02:00",
-    "modifiedBy": "SYNO4VL",
-    "mustRescan": false,
-    "name": "testfile",
-    "noPermissions": false,
-    "numBlocks": 1,
-    "permissions": "0755",
-    "sequence": 111038,
-    "size": 1234,
-    "type": 0,
-    "version": [
-      "SYNO4VL:1"
-    ]
+  "mtime": {
+    "err": null,
+    "value": {
+      "real": "0001\-01\-01T00:00:00Z",
+      "virtual": "0001\-01\-01T00:00:00Z"
+    }
   }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Platform specific data may be ownership, extended attributes, etc. and is
+divided into entries per operating system / platform. An example platform
+entry containing ownership information for Unix systems and an extended
+attribute for macOS (“darwin”) looks as follows:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "darwin": {
+    "xattrs": [
+      {
+        "name": "net.kastelo.xattrtest",
+        "value": "aGVsbG8="
+      }
+    ]
+  },
+  "freebsd": null,
+  "linux": null,
+  "netbsd": null,
+  "unix": {
+    "gid": 20,
+    "groupName": "staff",
+    "ownerName": "jb",
+    "uid": 501
+  },
+  "windows": null
 }
 .ft P
 .fi
@@ -1981,6 +2030,24 @@ $ curl \-H X\-API\-Key:... "http://localhost:8384/rest/debug/file?folder=default
 .sp
 The returned object contains the same info as db\-file\-get, plus a summary
 of \fBglobalVersions\fP\&.
+.SH NOAUTH ENDPOINTS
+.sp
+Calls that do not require authentication.
+.SS GET /rest/noauth/health
+.sp
+Returns a \fB{"status": "OK"}\fP object.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "status": "OK"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

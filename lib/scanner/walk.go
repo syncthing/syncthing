@@ -42,8 +42,6 @@ type Config struct {
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected.
 	IgnorePerms bool
-	// If IgnoreOwnership is true, changes to ownership will not be detected.
-	IgnoreOwnership bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
 	AutoNormalize bool
@@ -62,11 +60,21 @@ type Config struct {
 	EventLogger events.Logger
 	// If ScanOwnership is true, we pick up ownership information on files while scanning.
 	ScanOwnership bool
+	// If ScanXattrs is true, we pick up extended attributes on files while scanning.
+	ScanXattrs bool
+	// Filter for extended attributes
+	XattrFilter XattrFilter
 }
 
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
 	CurrentFile(name string) (protocol.FileInfo, bool)
+}
+
+type XattrFilter interface {
+	Permit(string) bool
+	GetMaxSingleEntrySize() int
+	GetMaxTotalSize() int
 }
 
 type ScanResult struct {
@@ -384,13 +392,14 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		return err
 	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = blockSize
+	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
@@ -398,9 +407,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
-			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -411,7 +421,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln(w, "rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+		l.Debugln(w, "rescan:", curFile)
 	}
 
 	l.Debugln(w, "to hash:", relPath, f)
@@ -428,12 +438,13 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		return err
 	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
+	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
@@ -441,9 +452,10 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
-			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -454,6 +466,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
+		l.Debugln(w, "rescan:", curFile)
 	}
 
 	l.Debugln(w, "dir:", relPath, f)
@@ -476,15 +489,15 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
-	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
-		handleError(ctx, "reading link:", relPath, err, finishedChan)
+		handleError(ctx, "reading link", relPath, err, finishedChan)
 		return nil
 	}
 
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
-
 	f = w.updateFileInfo(f, curFile)
+	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
@@ -492,7 +505,8 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			IgnorePerms:     w.IgnorePerms,
 			IgnoreBlocks:    true,
 			IgnoreFlags:     w.LocalFlags,
-			IgnoreOwnership: w.IgnoreOwnership,
+			IgnoreOwnership: !w.ScanOwnership,
+			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
@@ -505,9 +519,10 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
+		l.Debugln(w, "rescan:", curFile)
 	}
 
-	l.Debugln(w, "symlink changedb:", relPath, f)
+	l.Debugln(w, "symlink:", relPath, f)
 
 	select {
 	case finishedChan <- ScanResult{File: f}:
@@ -591,12 +606,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.LocalFlags = w.LocalFlags
 
 	// Copy OS data from src to dst, unless it was already set on dst.
-	if dst.Platform.Unix == nil {
-		dst.Platform.Unix = src.Platform.Unix
-	}
-	if dst.Platform.Windows == nil {
-		dst.Platform.Windows = src.Platform.Windows
-	}
+	dst.Platform.MergeWith(&src.Platform)
 
 	return dst
 }
@@ -668,10 +678,10 @@ func (noCurrentFiler) CurrentFile(_ string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool) (protocol.FileInfo, error) {
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanOwnership bool, scanXattrs bool, xattrFilter XattrFilter) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
-	if scanOwnership {
-		if plat, err := filesystem.PlatformData(name); err == nil {
+	if scanOwnership || scanXattrs {
+		if plat, err := filesystem.PlatformData(name, scanOwnership, scanXattrs, xattrFilter); err == nil {
 			f.Platform = plat
 		} else {
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
@@ -696,5 +706,10 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 	}
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
+	if ct := fi.InodeChangeTime(); !ct.IsZero() {
+		f.InodeChangeNs = ct.UnixNano()
+	} else {
+		f.InodeChangeNs = 0
+	}
 	return f, nil
 }

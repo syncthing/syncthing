@@ -601,13 +601,15 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			b.Remove(fi.Name)
 			return true
 		}
-	case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-		ModTimeWindow:   b.f.modTimeWindow,
-		IgnorePerms:     b.f.IgnorePerms,
-		IgnoreBlocks:    true,
-		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-		IgnoreOwnership: !b.f.SyncOwnership,
-	}):
+	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
+		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+			ModTimeWindow:   b.f.modTimeWindow,
+			IgnorePerms:     b.f.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+			IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
+			IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
+		}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
 		fi = gf
@@ -637,7 +639,6 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		CurrentFiler:          cFiler{snap},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
-		IgnoreOwnership:       !f.SyncOwnership,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
@@ -645,7 +646,9 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
-		ScanOwnership:         f.ScanOwnership || f.SyncOwnership,
+		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
+		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
+		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {
