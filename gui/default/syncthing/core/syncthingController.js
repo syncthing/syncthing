@@ -2204,14 +2204,14 @@ angular.module('syncthing.core')
                     }
                     if (list[index]) {
                         if (folder) {
-                            if ($scope.folderEditor.$dirty && !folderEditor.$invalid) {
+                            if ($scope.folderEditor.$dirty && $scope.folderEditor.$valid) {
                                 $scope.saveFolder('switch');
                             }
                             var url = window.location.href;
                             var tab = '#' + url.split('/#')[1];
                             $scope.editFolderExisting(list[index], tab);
                         } else if (device) {
-                            if ($scope.deviceEditor.$dirty && !deviceEditor.$invalid) {
+                            if ($scope.deviceEditor.$dirty && $scope.deviceEditor.$valid) {
                                 $scope.saveDevice('switch');
                             }
                             $scope.editDeviceExisting(list[index]);
