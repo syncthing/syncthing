@@ -2418,7 +2418,6 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._addIgnores) {
                 folderCfg.paused = true;
             }
-
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
