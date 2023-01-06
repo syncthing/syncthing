@@ -2170,7 +2170,9 @@ angular.module('syncthing.core')
             // carousel, i.e. going back from the first item moves us to the
             // last item, and going forth from the last item moves us to the
             // first item. The own device with index of 0 is skipped over on
-            // purpose, as it is not supposed to be edited this way.
+            // purpose, as it is not supposed to be edited this way. When
+            // switching, save changes only when present and valid, and do not
+            // save them when there are none or they are invalid.
 
             var list = '';
             if ($scope.currentFolder._editing) {
@@ -2201,15 +2203,15 @@ angular.module('syncthing.core')
                         }
                     }
                     if (list[index]) {
-                        var url = window.location.href;
                         if (folder) {
-                            if ($scope.folderEditor.$dirty) {
+                            if ($scope.folderEditor.$dirty && !folderEditor.$invalid) {
                                 $scope.saveFolder('switch');
                             }
+                            var url = window.location.href;
                             var tab = '#' + url.split('/#')[1];
                             $scope.editFolderExisting(list[index], tab);
                         } else if (device) {
-                            if ($scope.deviceEditor.$dirty) {
+                            if ($scope.deviceEditor.$dirty && !deviceEditor.$invalid) {
                                 $scope.saveDevice('switch');
                             }
                             $scope.editDeviceExisting(list[index]);
