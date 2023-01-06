@@ -2203,11 +2203,15 @@ angular.module('syncthing.core')
                     if (list[index]) {
                         var url = window.location.href;
                         if (folder) {
-                            $scope.saveFolder('switch');
+                            if ($scope.folderEditor.$dirty) {
+                                $scope.saveFolder('switch');
+                            }
                             var tab = '#' + url.split('/#')[1];
                             $scope.editFolderExisting(list[index], tab);
                         } else if (device) {
-                            $scope.saveDevice('switch');
+                            if ($scope.deviceEditor.$dirty) {
+                                $scope.saveDevice('switch');
+                            }
                             $scope.editDeviceExisting(list[index]);
                         }
                     }
@@ -2414,6 +2418,7 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._addIgnores) {
                 folderCfg.paused = true;
             }
+
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 

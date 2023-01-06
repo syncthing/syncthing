@@ -175,10 +175,10 @@
   </div>
   <div class="modal-footer">
     <div class="btn-group">
-      <button type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty) ? 'btn-primary' : 'btn-default'" aria-label="{{'Previous Device' | translate}}" ng-click="switchFolderOrDevice('previous')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
+      <button type="button" class="btn btn-sm" ng-class="deviceEditor.$dirty ? 'btn-primary' : 'btn-default'" aria-label="{{'Previous Device' | translate}}" ng-click="switchFolderOrDevice('previous')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
         <span class="fas fa-arrow-left"></span>
       </button>
-      <button type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty) ? 'btn-primary' : 'btn-default'" aria-label="{{'Next Device' | translate}}" ng-click="switchFolderOrDevice('next')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
+      <button type="button" class="btn btn-sm" ng-class="deviceEditor.$dirty ? 'btn-primary' : 'btn-default'" aria-label="{{'Next Device' | translate}}" ng-click="switchFolderOrDevice('next')" ng-disabled="deviceEditor.$invalid || !editingDeviceExisting() || deviceList().length < 3">
         <span class="fas fa-arrow-right"></span>
       </button>
     </div>
