@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -31,6 +32,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	buildpkg "github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -393,7 +396,7 @@ func test(tags []string, pkgs ...string) {
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
-		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+		case buildpkg.Darwin, buildpkg.Linux, buildpkg.FreeBSD: // , "windows": # See https://github.com/golang/go/issues/27089
 			args = append(args, "-race")
 		}
 	}
@@ -882,8 +885,20 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func updateDependencies() {
-	runPrint(goCmd, "get", "-u", "./cmd/...")
-	runPrint(goCmd, "mod", "tidy", "-go=1.17", "-compat=1.17")
+	// Figure out desired Go version
+	bs, err := os.ReadFile("go.mod")
+	if err != nil {
+		log.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^go\s+([0-9.]+)`)
+	matches := re.FindSubmatch(bs)
+	if len(matches) != 2 {
+		log.Fatal("failed to parse go.mod")
+	}
+	goVersion := string(matches[1])
+
+	runPrint(goCmd, "get", "-u", "./...")
+	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
 
 	// We might have updated the protobuf package and should regenerate to match.
 	proto()
@@ -1369,6 +1384,33 @@ func windowsCodesign(file string) {
 		args := []string{"sign", "/fd", algo}
 		if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
 			args = append(args, "/f", f)
+		} else if b := os.Getenv("CODESIGN_CERTIFICATE_BASE64"); b != "" {
+			// Decode the PFX certificate from base64.
+			bs, err := base64.RawStdEncoding.DecodeString(b)
+			if err != nil {
+				log.Println("Codesign: signing failed: decoding base64:", err)
+				return
+			}
+
+			// Write it to a temporary file
+			f, err := os.CreateTemp("", "codesign-*.pfx")
+			if err != nil {
+				log.Println("Codesign: signing failed: creating temp file:", err)
+				return
+			}
+			_ = f.Chmod(0600) // best effort remove other users' access
+			defer os.Remove(f.Name())
+			if _, err := f.Write(bs); err != nil {
+				log.Println("Codesign: signing failed: writing temp file:", err)
+				return
+			}
+			if err := f.Close(); err != nil {
+				log.Println("Codesign: signing failed: closing temp file:", err)
+				return
+			}
+
+			// Use that when signing
+			args = append(args, "/f", f.Name())
 		}
 		if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
 			args = append(args, "/p", p)
@@ -1388,7 +1430,7 @@ func windowsCodesign(file string) {
 
 		bs, err := runError(st, args...)
 		if err != nil {
-			log.Println("Codesign: signing failed:", string(bs))
+			log.Printf("Codesign: signing failed: %v: %s", err, string(bs))
 			return
 		}
 		log.Println("Codesign: successfully signed", file, "using", algo)

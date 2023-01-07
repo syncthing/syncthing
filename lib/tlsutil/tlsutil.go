@@ -14,12 +14,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -90,7 +90,7 @@ func SecureDefaultWithTLS12() *tls.Config {
 func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.Block, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "generate key")
+		return nil, nil, fmt.Errorf("generate key: %w", err)
 	}
 
 	notBefore := time.Now().Truncate(24 * time.Hour)
@@ -115,15 +115,15 @@ func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.
 		BasicConstraintsValid: true,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "create cert")
+		return nil, nil, fmt.Errorf("create cert: %w", err)
 	}
 
 	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}
 	keyBlock, err := pemBlockForKey(priv)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "save key")
+		return nil, nil, fmt.Errorf("save key: %w", err)
 	}
 
 	return certBlock, keyBlock, nil
@@ -138,24 +138,24 @@ func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays in
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
 	if err = pem.Encode(certOut, certBlock); err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
 	if err = certOut.Close(); err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save cert")
+		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
 
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
 	}
 	if err = pem.Encode(keyOut, keyBlock); err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
 	}
 	if err = keyOut.Close(); err != nil {
-		return tls.Certificate{}, errors.Wrap(err, "save key")
+		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
 	}
 
 	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
@@ -233,17 +233,6 @@ func (c *UnionedConnection) Read(b []byte) (n int, err error) {
 		return 1, nil
 	}
 	return c.Conn.Read(b)
-}
-
-func publicKey(priv interface{}) interface{} {
-	switch k := priv.(type) {
-	case *rsa.PrivateKey:
-		return &k.PublicKey
-	case *ecdsa.PrivateKey:
-		return &k.PublicKey
-	default:
-		return nil
-	}
 }
 
 func pemBlockForKey(priv interface{}) (*pem.Block, error) {

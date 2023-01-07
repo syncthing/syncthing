@@ -68,6 +68,12 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 			return
 		}
 
+		// Exception for REST calls that don't require authentication.
+		if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()

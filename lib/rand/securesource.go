@@ -33,7 +33,7 @@ func newSecureSource() *secureSource {
 	}
 }
 
-func (s *secureSource) Seed(int64) {
+func (*secureSource) Seed(int64) {
 	panic("SecureSource is not seedable")
 }
 

@@ -15,11 +15,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -48,7 +48,7 @@ func monitorMain(options serveOptions) {
 
 	var dst io.Writer = os.Stdout
 
-	logFile := options.LogFile
+	logFile := locations.Get(locations.LogFile)
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
@@ -66,7 +66,7 @@ func monitorMain(options serveOptions) {
 		if err != nil {
 			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
 		} else {
-			if runtime.GOOS == "windows" {
+			if build.IsWindows {
 				// Translate line breaks to Windows standard
 				fileDst = osutil.ReplacingWriter{
 					Writer: fileDst,
@@ -83,6 +83,11 @@ func monitorMain(options serveOptions) {
 	}
 
 	args := os.Args
+	binary, err := getBinary(args[0])
+	if err != nil {
+		l.Warnln("Error starting the main Syncthing process:", err)
+		panic("Error starting the main Syncthing process")
+	}
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -104,7 +109,7 @@ func monitorMain(options serveOptions) {
 		copy(restarts[0:], restarts[1:])
 		restarts[len(restarts)-1] = time.Now()
 
-		cmd := exec.Command(args[0], args[1:]...)
+		cmd := exec.Command(binary, args[1:]...)
 		cmd.Env = childEnv
 
 		stderr, err := cmd.StderrPipe()
@@ -180,7 +185,7 @@ func monitorMain(options serveOptions) {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				l.Infoln("Restarting monitor...")
-				if err = restartMonitor(args); err != nil {
+				if err = restartMonitor(binary, args); err != nil {
 					l.Warnln("Restart:", err)
 				}
 				os.Exit(exitCode)
@@ -201,6 +206,19 @@ func monitorMain(options serveOptions) {
 			first = false
 		}
 	}
+}
+
+func getBinary(args0 string) (string, error) {
+	e, err := os.Executable()
+	if err == nil {
+		return e, nil
+	}
+	// Check if args0 cuts it
+	e, lerr := exec.LookPath(args0)
+	if lerr == nil {
+		return e, nil
+	}
+	return "", err
 }
 
 func copyStderr(stderr io.Reader, dst io.Writer) {
@@ -255,7 +273,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 * This crash usually occurs due to one of the following reasons:                *
 *  - Syncthing being stopped abruptly (killed/loss of power)                    *
 *  - Bad hardware (memory/disk issues)                                          *
-*  - Software that affects disk writes (SSD caching software and simillar)      *
+*  - Software that affects disk writes (SSD caching software and similar)       *
 *                                                                               *
 * Please see the following URL for instructions on how to recover:              *
 *   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *
@@ -309,40 +327,30 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 	}
 }
 
-func restartMonitor(args []string) error {
+func restartMonitor(binary string, args []string) error {
 	// Set the STRESTART environment variable to indicate to the next
 	// process that this is a restart and not initial start. This prevents
 	// opening the browser on startup.
 	os.Setenv("STRESTART", "yes")
 
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		// syscall.Exec is the cleanest way to restart on Unixes as it
 		// replaces the current process with the new one, keeping the pid and
 		// controlling terminal and so on
-		return restartMonitorUnix(args)
+		return restartMonitorUnix(binary, args)
 	}
 
 	// but it isn't supported on Windows, so there we start a normal
 	// exec.Command and return.
-	return restartMonitorWindows(args)
+	return restartMonitorWindows(binary, args)
 }
 
-func restartMonitorUnix(args []string) error {
-	if !strings.ContainsRune(args[0], os.PathSeparator) {
-		// The path to the binary doesn't contain a slash, so it should be
-		// found in $PATH.
-		binary, err := exec.LookPath(args[0])
-		if err != nil {
-			return err
-		}
-		args[0] = binary
-	}
-
+func restartMonitorUnix(binary string, args []string) error {
 	return syscall.Exec(args[0], args, os.Environ())
 }
 
-func restartMonitorWindows(args []string) error {
-	cmd := exec.Command(args[0], args[1:]...)
+func restartMonitorWindows(binary string, args []string) error {
+	cmd := exec.Command(binary, args[1:]...)
 	// Retain the standard streams
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout

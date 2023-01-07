@@ -12,10 +12,11 @@ package fs
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
-func (BasicFilesystem) SymlinksSupported() bool {
+func (*BasicFilesystem) SymlinksSupported() bool {
 	return true
 }
 
@@ -35,7 +36,7 @@ func (f *BasicFilesystem) ReadSymlink(name string) (string, error) {
 	return os.Readlink(name)
 }
 
-func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
+func (*BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
@@ -53,8 +54,32 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return err
 }
 
-func (f *BasicFilesystem) Roots() ([]string, error) {
+func (*BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
+}
+
+func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	nuid, err := strconv.Atoi(uid)
+	if err != nil {
+		return err
+	}
+	ngid, err := strconv.Atoi(gid)
+	if err != nil {
+		return err
+	}
+	return os.Lchown(name, nuid, ngid)
+}
+
+func (f *BasicFilesystem) Remove(name string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	return os.Remove(name)
 }
 
 // unrootedChecked returns the path relative to the folder root (same as

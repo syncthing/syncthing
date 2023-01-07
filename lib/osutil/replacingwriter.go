@@ -9,7 +9,8 @@ package osutil
 import (
 	"bytes"
 	"io"
-	"runtime"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 type ReplacingWriter struct {
@@ -51,7 +52,7 @@ func (w ReplacingWriter) Write(bs []byte) (int, error) {
 // LineEndingsWriter returns a writer that writes platform-appropriate line
 // endings. (This is a no-op on non-Windows platforms.)
 func LineEndingsWriter(w io.Writer) io.Writer {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		return w
 	}
 	return &ReplacingWriter{

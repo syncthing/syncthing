@@ -107,15 +107,21 @@ message FileInfo {
     uint32             permissions    = 4;
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
+    PlatformData       platform       = 14;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
     // received (we make sure to zero it), nonetheless we need it on our
     // struct and to be able to serialize it to/from the database.
     uint32 local_flags = 1000;
+
     // The version_hash is an implementation detail and not part of the wire
     // format.
     bytes version_hash = 1001;
+
+    // The time when the inode was last changed (i.e., permissions, xattrs
+    // etc changed). This is host-local, not sent over the wire.
+    int64 inode_change_ns = 1002;
 
     bool deleted        = 6;
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];
@@ -145,6 +151,42 @@ message Vector {
 message Counter {
     uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
+}
+
+message PlatformData {
+    UnixData    unix    = 1 [(gogoproto.nullable) = true];
+    WindowsData windows = 2 [(gogoproto.nullable) = true];
+    XattrData   linux   = 3 [(gogoproto.nullable) = true];
+    XattrData   darwin  = 4 [(gogoproto.nullable) = true];
+    XattrData   freebsd = 5 [(gogoproto.nullable) = true, (ext.goname) = "FreeBSD"];
+    XattrData   netbsd  = 6 [(gogoproto.nullable) = true, (ext.goname) = "NetBSD"];
+}
+
+message UnixData {
+    // The owner name and group name are set when known (i.e., could be
+    // resolved on the source device), while the UID and GID are always set
+    // as they come directly from the stat() call.
+    string owner_name = 1;
+    string group_name = 2;
+    int32  uid        = 3 [(ext.goname) = "UID"];
+    int32  gid        = 4 [(ext.goname) = "GID"];
+}
+
+message WindowsData {
+    // Windows file objects have a single owner, which may be a user or a
+    // group. We keep the name of that account, and a flag to indicate what
+    // type it is.
+    string owner_name     = 1;
+    bool   owner_is_group = 2;
+}
+
+message XattrData {
+    repeated Xattr xattrs = 1;
+}
+
+message Xattr {
+    string name  = 1;
+    bytes  value = 2;
 }
 
 // Request

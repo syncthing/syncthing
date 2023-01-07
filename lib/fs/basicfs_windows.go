@@ -17,6 +17,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var errNotSupported = errors.New("symlinks not supported")
@@ -150,6 +152,57 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	}
 
 	return drives, nil
+}
+
+func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+
+	hdl, err := windows.Open(name, windows.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.Close(hdl)
+
+	// Depending on whether we got an uid or a gid, we need to set the
+	// appropriate flag and parse the corresponding SID. The one we're not
+	// setting remains nil, which is what we want in the call to
+	// SetSecurityInfo.
+
+	var si windows.SECURITY_INFORMATION
+	var ownerSID, groupSID *syscall.SID
+	if uid != "" {
+		ownerSID, err = syscall.StringToSid(uid)
+		if err == nil {
+			si |= windows.OWNER_SECURITY_INFORMATION
+		}
+	} else if gid != "" {
+		groupSID, err = syscall.StringToSid(uid)
+		if err == nil {
+			si |= windows.GROUP_SECURITY_INFORMATION
+		}
+	} else {
+		return errors.New("neither uid nor gid specified")
+	}
+
+	return windows.SetSecurityInfo(hdl, windows.SE_FILE_OBJECT, si, (*windows.SID)(ownerSID), (*windows.SID)(groupSID), nil, nil)
+}
+
+func (f *BasicFilesystem) Remove(name string) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(name)
+	if os.IsPermission(err) {
+		// Try to remove the read-only attribute and try again
+		if os.Chmod(name, 0600) == nil {
+			err = os.Remove(name)
+		}
+	}
+	return err
 }
 
 // unrootedChecked returns the path relative to the folder root (same as

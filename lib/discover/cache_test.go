@@ -79,19 +79,19 @@ type fakeDiscovery struct {
 	addresses []string
 }
 
-func (f *fakeDiscovery) Lookup(_ context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+func (f *fakeDiscovery) Lookup(_ context.Context, _ protocol.DeviceID) (addresses []string, err error) {
 	return f.addresses, nil
 }
 
-func (f *fakeDiscovery) Error() error {
+func (*fakeDiscovery) Error() error {
 	return nil
 }
 
-func (f *fakeDiscovery) String() string {
+func (*fakeDiscovery) String() string {
 	return "fake"
 }
 
-func (f *fakeDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
+func (*fakeDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
 	return nil
 }
 
@@ -127,20 +127,20 @@ type slowDiscovery struct {
 	started chan struct{}
 }
 
-func (f *slowDiscovery) Lookup(_ context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+func (f *slowDiscovery) Lookup(_ context.Context, _ protocol.DeviceID) (addresses []string, err error) {
 	close(f.started)
 	time.Sleep(f.delay)
 	return nil, nil
 }
 
-func (f *slowDiscovery) Error() error {
+func (*slowDiscovery) Error() error {
 	return nil
 }
 
-func (f *slowDiscovery) String() string {
+func (*slowDiscovery) String() string {
 	return "fake"
 }
 
-func (f *slowDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
+func (*slowDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
 	return nil
 }

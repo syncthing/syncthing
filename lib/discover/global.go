@@ -137,7 +137,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		evLogger:       evLogger,
 	}
 	if !opts.noAnnounce {
-		// If we are supposed to annonce, it's an error until we've done so.
+		// If we are supposed to announce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
 	}
 
@@ -301,7 +301,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	timer.Reset(defaultReannounceInterval)
 }
 
-func (c *globalClient) Cache() map[protocol.DeviceID]CacheEntry {
+func (*globalClient) Cache() map[protocol.DeviceID]CacheEntry {
 	// The globalClient doesn't do caching
 	return nil
 }

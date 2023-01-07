@@ -519,7 +519,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemaTo9(prev int) error {
+func (db *schemaUpdater) updateSchemaTo9(_ int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
 
 	t, err := db.newReadWriteTransaction()

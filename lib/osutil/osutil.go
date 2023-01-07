@@ -9,9 +9,9 @@ package osutil
 
 import (
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -90,7 +90,7 @@ func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() erro
 	}
 
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		filesystem.Chmod(to, 0666)
 		if !strings.EqualFold(from, to) {
 			err := filesystem.Remove(to)

@@ -28,7 +28,7 @@ func (c GUIConfiguration) IsAuthEnabled() bool {
 	return c.IsPasswordAuthEnabled() || c.WebauthnReady()
 }
 
-func (c GUIConfiguration) IsOverridden() bool {
+func (GUIConfiguration) IsOverridden() bool {
 	return os.Getenv("STGUIADDRESS") != ""
 }
 

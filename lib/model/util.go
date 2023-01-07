@@ -7,13 +7,13 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ur"

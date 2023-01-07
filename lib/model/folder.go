@@ -8,14 +8,13 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
 	"sort"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -237,11 +236,11 @@ func (f *folder) Serve(ctx context.Context) error {
 	}
 }
 
-func (f *folder) BringToFront(string) {}
+func (*folder) BringToFront(string) {}
 
-func (f *folder) Override() {}
+func (*folder) Override() {}
 
-func (f *folder) Revert() {}
+func (*folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	select {
@@ -275,7 +274,7 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+func (*folder) Jobs(_, _ int) ([]string, []string, int) {
 	return nil, nil, 0
 }
 
@@ -317,7 +316,7 @@ func (f *folder) getHealthErrorAndLoadIgnores() error {
 	}
 	if f.Type != config.FolderTypeReceiveEncrypted {
 		if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-			return errors.Wrap(err, "loading ignores")
+			return fmt.Errorf("loading ignores: %w", err)
 		}
 	}
 	return nil
@@ -602,7 +601,15 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			b.Remove(fi.Name)
 			return true
 		}
-	case gf.IsEquivalentOptional(fi, b.f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
+	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
+		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+			ModTimeWindow:   b.f.modTimeWindow,
+			IgnorePerms:     b.f.IgnorePerms,
+			IgnoreBlocks:    true,
+			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+			IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
+			IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
+		}):
 		// What we have locally is equivalent to the global file.
 		l.Debugf("%v scanning: Merging identical locally changed item with global", b.f, fi)
 		fi = gf
@@ -639,6 +646,9 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
+		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
+		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
+		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {
@@ -1052,6 +1062,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
 			}
 		case <-ctx.Done():
+			aggrCancel() // for good measure and keeping the linters happy
 			return
 		}
 	}

@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/assets"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
@@ -1189,7 +1189,7 @@ func TestBrowse(t *testing.T) {
 		current string
 		returns []string
 	}{
-		// The direcotory without slash is completed to one with slash.
+		// The directory without slash is completed to one with slash.
 		{tmpDir, []string{tmpDir + pathSep}},
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
@@ -1201,7 +1201,7 @@ func TestBrowse(t *testing.T) {
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
-		// Globbing is case-insensitve
+		// Globbing is case-insensitive
 		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 
@@ -1255,7 +1255,7 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 		t.Error("expected no error:", err)
 	}
 
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		// Certificates with too long an expiry time are not allowed on macOS
 		crt, err = tlsutil.NewCertificateInMemory("foo.example.com", 1000)
 		if err != nil {
@@ -1387,7 +1387,7 @@ func TestConfigChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	if opts.MaxSendKbps != 50 {
-		t.Error("Exepcted 50 for MaxSendKbps, got", opts.MaxSendKbps)
+		t.Error("Expected 50 for MaxSendKbps, got", opts.MaxSendKbps)
 	}
 }
 
@@ -1416,7 +1416,7 @@ func TestSanitizedHostname(t *testing.T) {
 // be prone to false negatives if things change in the future, but likely
 // not false positives.
 func runningInContainer() bool {
-	if runtime.GOOS != "linux" {
+	if !build.IsLinux {
 		return false
 	}
 

@@ -31,7 +31,7 @@ struct header {
 
 */
 
-func (o header) XDRSize() int {
+func (header) XDRSize() int {
 	return 4 + 4 + 4
 }
 
@@ -78,26 +78,26 @@ struct Ping {
 
 */
 
-func (o Ping) XDRSize() int {
+func (Ping) XDRSize() int {
 	return 0
 }
-func (o Ping) MarshalXDR() ([]byte, error) {
+func (Ping) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (o Ping) MustMarshalXDR() []byte {
+func (Ping) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Ping) MarshalXDRInto(m *xdr.Marshaller) error {
+func (Ping) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *Ping) UnmarshalXDR(bs []byte) error {
+func (*Ping) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *Ping) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*Ping) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -112,60 +112,26 @@ struct Pong {
 
 */
 
-func (o Pong) XDRSize() int {
+func (Pong) XDRSize() int {
 	return 0
 }
-func (o Pong) MarshalXDR() ([]byte, error) {
+func (Pong) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (o Pong) MustMarshalXDR() []byte {
+func (Pong) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o Pong) MarshalXDRInto(m *xdr.Marshaller) error {
+func (Pong) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *Pong) UnmarshalXDR(bs []byte) error {
+func (*Pong) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *Pong) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
-	return nil
-}
-
-/*
-
-JoinRelayRequest Structure:
-(contains no fields)
-
-
-struct JoinRelayRequest {
-}
-
-*/
-
-func (o JoinRelayRequest) XDRSize() int {
-	return 0
-}
-func (o JoinRelayRequest) MarshalXDR() ([]byte, error) {
-	return nil, nil
-}
-
-func (o JoinRelayRequest) MustMarshalXDR() []byte {
-	return nil
-}
-
-func (o JoinRelayRequest) MarshalXDRInto(m *xdr.Marshaller) error {
-	return nil
-}
-
-func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
-	return nil
-}
-
-func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*Pong) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -180,27 +146,78 @@ struct RelayFull {
 
 */
 
-func (o RelayFull) XDRSize() int {
+func (RelayFull) XDRSize() int {
 	return 0
 }
-func (o RelayFull) MarshalXDR() ([]byte, error) {
+func (RelayFull) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (o RelayFull) MustMarshalXDR() []byte {
+func (RelayFull) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (o RelayFull) MarshalXDRInto(m *xdr.Marshaller) error {
+func (RelayFull) MarshalXDRInto(_ *xdr.Marshaller) error {
 	return nil
 }
 
-func (o *RelayFull) UnmarshalXDR(bs []byte) error {
+func (*RelayFull) UnmarshalXDR(_ []byte) error {
 	return nil
 }
 
-func (o *RelayFull) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (*RelayFull) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
 	return nil
+}
+
+/*
+
+JoinRelayRequest Structure:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                 Token (length + padded data)                  \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+struct JoinRelayRequest {
+	string Token<>;
+}
+
+*/
+
+func (o JoinRelayRequest) XDRSize() int {
+	return 4 + len(o.Token) + xdr.Padding(len(o.Token))
+}
+
+func (o JoinRelayRequest) MarshalXDR() ([]byte, error) {
+	buf := make([]byte, o.XDRSize())
+	m := &xdr.Marshaller{Data: buf}
+	return buf, o.MarshalXDRInto(m)
+}
+
+func (o JoinRelayRequest) MustMarshalXDR() []byte {
+	bs, err := o.MarshalXDR()
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (o JoinRelayRequest) MarshalXDRInto(m *xdr.Marshaller) error {
+	m.MarshalString(o.Token)
+	return m.Error
+}
+
+func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
+	u := &xdr.Unmarshaller{Data: bs}
+	return o.UnmarshalXDRFrom(u)
+}
+func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+	o.Token = u.UnmarshalString()
+	return u.Error
 }
 
 /*

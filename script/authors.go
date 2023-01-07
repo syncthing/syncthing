@@ -117,7 +117,7 @@ func main() {
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</div>`)
 	bs := readAll(htmlFile)
-	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n    </div>"))
+	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
 	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
@@ -235,27 +235,63 @@ var excludeCommits = stringSetFromStrings([]string{
 // allAuthors returns the set of authors in the git commit log, except those
 // in excluded commits.
 func allAuthors() map[string]string {
-	args := append([]string{"log", "--format=%H %ae %an"})
+	// Format is hash, email, name, newline, body. The body is indented with
+	// one space, to differentiate from the hash lines.
+	args := append([]string{"log", "--format=%H %ae %an%n%w(,1,1)%b"})
 	cmd := exec.Command("git", args...)
 	bs, err := cmd.Output()
 	if err != nil {
 		log.Fatal("git:", err)
 	}
 
+	coAuthoredPrefix := "Co-authored-by: "
 	names := make(map[string]string)
+	skipCommit := false
 	for _, line := range bytes.Split(bs, []byte{'\n'}) {
-		fields := strings.SplitN(string(line), " ", 3)
-		if len(fields) != 3 {
-			continue
-		}
-		hash, email, name := fields[0], fields[1], fields[2]
-
-		if excludeCommits.has(hash) {
+		if len(line) == 0 {
 			continue
 		}
 
-		if names[email] == "" {
-			names[email] = name
+		switch line[0] {
+		case ' ':
+			// Look for Co-authored-by: lines in the commit body.
+			if skipCommit {
+				continue
+			}
+
+			line = line[1:]
+			if bytes.HasPrefix(line, []byte(coAuthoredPrefix)) {
+				// Co-authored-by: Name Name <email@example.com>
+				line = line[len(coAuthoredPrefix):]
+				if name, email, ok := strings.Cut(string(line), "<"); ok {
+					name = strings.TrimSpace(name)
+					email = strings.Trim(strings.TrimSpace(email), "<>")
+					if email == "@" {
+						// GitHub special for users who hide their email.
+						continue
+					}
+					if names[email] == "" {
+						names[email] = name
+					}
+				}
+			}
+
+		default: // hash email name
+			fields := strings.SplitN(string(line), " ", 3)
+			if len(fields) != 3 {
+				continue
+			}
+			hash, email, name := fields[0], fields[1], fields[2]
+
+			if excludeCommits.has(hash) {
+				skipCommit = true
+				continue
+			}
+			skipCommit = false
+
+			if names[email] == "" {
+				names[email] = name
+			}
 		}
 	}
 

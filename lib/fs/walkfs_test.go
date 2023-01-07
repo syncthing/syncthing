@@ -11,12 +11,13 @@ import (
 	"fmt"
 	osexec "os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Symlinks skipping is not tested on windows")
 	}
 
@@ -53,7 +54,7 @@ func createDirJunct(target string, name string) error {
 }
 
 func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Directory junctions are available and tested on windows only")
 	}
 
@@ -86,7 +87,7 @@ func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 }
 
 func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Infinite recursion detection is tested on windows only")
 	}
 

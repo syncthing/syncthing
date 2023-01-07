@@ -66,6 +66,10 @@ func (c *configMuxBuilder) registerFolders(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		data, err := unmarshalToRawMessages(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		folders := make([]config.FolderConfiguration, len(data))
 		defaultFolder := c.cfg.DefaultFolder()
 		for i, bs := range data {
@@ -97,6 +101,10 @@ func (c *configMuxBuilder) registerDevices(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		data, err := unmarshalToRawMessages(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		devices := make([]config.DeviceConfiguration, len(data))
 		defaultDevice := c.cfg.DefaultDevice()
 		for i, bs := range data {

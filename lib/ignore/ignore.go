@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gobwas/glob"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -35,7 +35,7 @@ const (
 var defaultResult Result = resultInclude
 
 func init() {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if build.IsDarwin || build.IsWindows {
 		defaultResult |= resultFoldCase
 	}
 }
@@ -289,10 +289,8 @@ func (m *Matcher) Match(file string) (result Result) {
 			if pattern.match.Match(lowercaseFile) {
 				return pattern.result
 			}
-		} else {
-			if pattern.match.Match(file) {
-				return pattern.result
-			}
+		} else if pattern.match.Match(file) {
+			return pattern.result
 		}
 	}
 
@@ -558,7 +556,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			} else {
 				// Wrap the error, as if the include does not exist, we get a
 				// IsNotExists(err) == true error, which we use to check
-				// existance of the .stignore file, and just end up assuming
+				// existence of the .stignore file, and just end up assuming
 				// there is none, rather than a broken include.
 				err = parseError(fmt.Errorf("failed to load include file %s: %w", includeFile, err))
 			}

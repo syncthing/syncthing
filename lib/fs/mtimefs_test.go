@@ -10,9 +10,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 func TestMtimeFS(t *testing.T) {
@@ -181,11 +182,10 @@ func TestMtimeFSOpen(t *testing.T) {
 }
 
 func TestMtimeFSInsensitive(t *testing.T) {
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		// blatantly assume file systems here are case insensitive. Might be
 		// a spurious failure on oddly configured systems.
-	default:
+	} else {
 		t.Skip("need case insensitive FS")
 	}
 
@@ -205,7 +205,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 			t.Error("Should not have failed:", err)
 		}
 
-		// Check that we get back the mtime we set, if we were supposed to succed.
+		// Check that we get back the mtime we set, if we were supposed to succeed.
 		info, err := fs.Lstat("testdata/FILE")
 		if err != nil {
 			t.Error("Lstat shouldn't fail:", err)
@@ -245,7 +245,7 @@ func (s mapStore) Delete(key string) error {
 }
 
 // failChtimes does nothing, and fails
-func failChtimes(name string, mtime, atime time.Time) error {
+func failChtimes(_ string, _, _ time.Time) error {
 	return errors.New("no")
 }
 

@@ -8,6 +8,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -38,11 +38,20 @@ func Run() error {
 	// add flags there...
 	c := preCli{}
 	parseFlags(&c)
+	return runInternal(c, os.Args)
+}
 
+func RunWithArgs(cliArgs []string) error {
+	c := preCli{}
+	parseFlagsWithArgs(cliArgs, &c)
+	return runInternal(c, cliArgs)
+}
+
+func runInternal(c preCli, cliArgs []string) error {
 	// Not set as default above because the strings can be really long.
 	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
-		return errors.Wrap(err, "Command line options:")
+		return fmt.Errorf("Command line options: %w", err)
 	}
 	clientFactory := &apiClientFactory{
 		cfg: config.GUIConfiguration{
@@ -61,7 +70,7 @@ func Run() error {
 	fakeFlags := []cli.Flag{
 		cli.StringFlag{
 			Name:  "gui-address",
-			Usage: "Override GUI address to `URL` (e.g. \"http://192.0.2.42:8443\")",
+			Usage: "Override GUI address to `URL` (e.g. \"192.0.2.42:8443\")",
 		},
 		cli.StringFlag{
 			Name:  "gui-apikey",
@@ -107,15 +116,15 @@ func Run() error {
 					}
 
 					// Drop the `-` not to recurse into self.
-					args := make([]string, len(os.Args)-1)
-					copy(args, os.Args)
+					args := make([]string, len(cliArgs)-1)
+					copy(args, cliArgs)
 
 					fmt.Println("Reading commands from stdin...", args)
 					scanner := bufio.NewScanner(os.Stdin)
 					for scanner.Scan() {
 						input, err := shlex.Split(scanner.Text())
 						if err != nil {
-							return errors.Wrap(err, "parsing input")
+							return fmt.Errorf("parsing input: %w", err)
 						}
 						if len(input) == 0 {
 							continue
@@ -131,7 +140,7 @@ func Run() error {
 		},
 	}}
 
-	return app.Run(os.Args)
+	return app.Run(cliArgs)
 }
 
 func parseFlags(c *preCli) error {
@@ -140,7 +149,10 @@ func parseFlags(c *preCli) error {
 	if len(os.Args) <= 2 {
 		return nil
 	}
-	args := os.Args[2:]
+	return parseFlagsWithArgs(os.Args[2:], c)
+}
+
+func parseFlagsWithArgs(args []string, c *preCli) error {
 	for i := 0; i < len(args); i++ {
 		if !strings.HasPrefix(args[i], "--") {
 			args = args[:i]

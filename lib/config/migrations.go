@@ -11,11 +11,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
 		{34, migrateToConfigV34},
@@ -93,6 +94,14 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV37(cfg *Configuration) {
+	// "scan ownership" changed name to "send ownership"
+	for i := range cfg.Folders {
+		cfg.Folders[i].SendOwnership = cfg.Folders[i].DeprecatedScanOwnership
+		cfg.Folders[i].DeprecatedScanOwnership = false
+	}
 }
 
 func migrateToConfigV36(cfg *Configuration) {
@@ -189,7 +198,7 @@ func migrateToConfigV24(cfg *Configuration) {
 
 func migrateToConfigV23(cfg *Configuration) {
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700

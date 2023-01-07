@@ -242,7 +242,7 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string, otherOpE
 }
 
 func TestStressCaseFS(t *testing.T) {
-	// Exercise a bunch of paralell operations for stressing out race
+	// Exercise a bunch of parallel operations for stressing out race
 	// conditions in the realnamer cache etc.
 
 	const limit = 10 * time.Second

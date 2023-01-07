@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -24,9 +25,9 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -198,7 +199,6 @@ var (
 	errEncryptionTokenWrite               = errors.New("failed to write encryption token")
 	errMissingRemoteInClusterConfig       = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig        = errors.New("local device missing in cluster config")
-	errConnLimitReached                   = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -511,7 +511,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
-	if len(to.ID) == 0 {
+	if to.ID == "" {
 		panic("bug: cannot restart empty folder ID")
 	}
 	if to.ID != from.ID {
@@ -709,6 +709,7 @@ type ConnectionInfo struct {
 	Address       string `json:"address"`
 	ClientVersion string `json:"clientVersion"`
 	Type          string `json:"type"`
+	IsLocal       bool   `json:"isLocal"`
 	Crypto        string `json:"crypto"`
 }
 
@@ -739,6 +740,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
+			ci.IsLocal = conn.IsLocal()
 			ci.Crypto = conn.Crypto()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
@@ -877,9 +879,14 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 	// We want completion for all (shared) folders as an aggregate.
 	var comp FolderCompletion
 	for _, fcfg := range m.cfg.FolderList() {
+		if fcfg.Paused {
+			continue
+		}
 		if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
 			folderComp, err := m.folderCompletion(device, fcfg.ID)
-			if err != nil {
+			if errors.Is(err, ErrFolderPaused) {
+				continue
+			} else if err != nil {
 				return FolderCompletion{}, err
 			}
 			comp.add(folderComp)
@@ -1122,10 +1129,10 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Infof("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
-		return errors.Wrap(ErrFolderMissing, folder)
+		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
-		return errors.Wrap(ErrFolderPaused, folder)
+		return fmt.Errorf("%s: %w", folder, ErrFolderPaused)
 	}
 
 	m.pmut.RLock()
@@ -1137,7 +1144,7 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		// connection
 		m.evLogger.Log(events.Failure, "index sender does not exist for connection on which indexes were received")
 		l.Debugf("%v for folder (ID %q) sent from device %q: missing index handler", op, folder, deviceID)
-		return errors.Wrap(errors.New("index handler missing"), folder)
+		return fmt.Errorf("index handler missing: %s", folder)
 	}
 
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
@@ -1271,7 +1278,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
 			}
-			cfg.Devices = make([]config.DeviceConfiguration, len(devices))
+			cfg.Devices = make([]config.DeviceConfiguration, 0, len(devices))
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
@@ -1428,7 +1435,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if !(hasTokenRemote || hasTokenLocal || isEncryptedRemote || isEncryptedLocal) {
-		// Noone cares about encryption here
+		// No one cares about encryption here
 		return nil
 	}
 
@@ -1510,7 +1517,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Lock()
 			m.folderEncryptionPasswordTokens[fcfg.ID] = ccToken
 			m.fmut.Unlock()
-			// We can only announce ourselfs once we have the token,
+			// We can only announce ourselves once we have the token,
 			// thus we need to resend CCs now that we have it.
 			m.sendClusterConfig(fcfg.DeviceIDs())
 			return nil
@@ -1604,7 +1611,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 }
 
 // handleDeintroductions handles removals of devices/shares that are removed by an introducer device
-func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
+func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
 	if introducerCfg.SkipIntroductionRemovals {
 		return folders, devices, false
 	}
@@ -1675,6 +1682,16 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
 				fcfg.Type = config.FolderTypeReceiveEncrypted
+				// Override the user-configured defaults, as normally done by the GUI
+				fcfg.FSWatcherEnabled = false
+				if fcfg.RescanIntervalS != 0 {
+					minRescanInterval := 3600 * 24
+					if fcfg.RescanIntervalS < minRescanInterval {
+						fcfg.RescanIntervalS = minRescanInterval
+					}
+				}
+				fcfg.Versioning.Reset()
+				// Other necessary settings are ensured by FolderConfiguration itself
 			} else {
 				ignores := m.cfg.DefaultIgnores()
 				if err := m.setIgnores(fcfg, ignores.Lines); err != nil {
@@ -1801,7 +1818,7 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
@@ -2113,7 +2130,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
 		if err = cfg.CreateRoot(); err != nil {
-			return errors.Wrap(err, "failed to create folder root")
+			return fmt.Errorf("failed to create folder root: %w", err)
 		}
 		err = cfg.CheckPath()
 	}
@@ -2395,7 +2412,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "android" {
+	if build.IsWindows || build.IsDarwin || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1
@@ -2772,7 +2789,7 @@ func (m *model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }
 
-func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+func (*model) VerifyConfiguration(from, to config.Configuration) error {
 	toFolders := to.FolderMap()
 	for _, from := range from.Folders {
 		to, ok := toFolders[from.ID]
@@ -2846,9 +2863,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				_, ok := m.folderEncryptionPasswordTokens[toCfg.ID]
 				m.fmut.RUnlock()
 				if !ok {
-					for _, id := range toCfg.DeviceIDs() {
-						closeDevices = append(closeDevices, id)
-					}
+					closeDevices = append(closeDevices, toCfg.DeviceIDs()...)
 				} else {
 					clusterConfigDevices.add(toCfg.DeviceIDs())
 				}

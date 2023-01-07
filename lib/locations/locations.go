@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -32,9 +33,8 @@ const (
 	CsrfTokens    LocationEnum = "csrfTokens"
 	PanicLog      LocationEnum = "panicLog"
 	AuditLog      LocationEnum = "auditLog"
-	GUIAssets     LocationEnum = "GUIAssets"
+	GUIAssets     LocationEnum = "guiAssets"
 	DefFolder     LocationEnum = "defFolder"
-	FailuresFile  LocationEnum = "FailuresFile"
 )
 
 type BaseDirEnum string
@@ -64,6 +64,24 @@ func init() {
 		fmt.Println(err)
 		panic("Failed to expand locations at init time")
 	}
+}
+
+// Set overrides a location to the given path, making sure to it points to an
+// absolute path first.  Only the special "-" value will be used verbatim.
+func Set(locationName LocationEnum, path string) error {
+	if !filepath.IsAbs(path) && path != "-" {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
+	_, ok := locationTemplates[locationName]
+	if !ok {
+		return fmt.Errorf("unknown location: %s", locationName)
+	}
+	locations[locationName] = filepath.Clean(path)
+	return nil
 }
 
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
@@ -104,7 +122,6 @@ var locationTemplates = map[LocationEnum]string{
 	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
 	DefFolder:     "${userHome}/Sync",
-	FailuresFile:  "${data}/failures-unreported.txt",
 }
 
 var locations = make(map[LocationEnum]string)
@@ -128,18 +145,44 @@ func expandLocations() error {
 	return nil
 }
 
+// ListExpandedPaths returns a machine-readable mapping of the currently configured locations.
+func ListExpandedPaths() map[string]string {
+	res := make(map[string]string, len(locations))
+	for key, path := range baseDirs {
+		res["baseDir-"+string(key)] = path
+	}
+	for key, path := range locations {
+		res[string(key)] = path
+	}
+	return res
+}
+
+// PrettyPaths returns a nicely formatted, human-readable listing
+func PrettyPaths() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Configuration file:\n\t%s\n\n", Get(ConfigFile))
+	fmt.Fprintf(&b, "Device private key & certificate files:\n\t%s\n\t%s\n\n", Get(KeyFile), Get(CertFile))
+	fmt.Fprintf(&b, "GUI / API HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", Get(HTTPSKeyFile), Get(HTTPSCertFile))
+	fmt.Fprintf(&b, "Database location:\n\t%s\n\n", Get(Database))
+	fmt.Fprintf(&b, "Log file:\n\t%s\n\n", Get(LogFile))
+	fmt.Fprintf(&b, "GUI override directory:\n\t%s\n\n", Get(GUIAssets))
+	fmt.Fprintf(&b, "CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens))
+	fmt.Fprintf(&b, "Default sync folder directory:\n\t%s\n\n", Get(DefFolder))
+	return b.String()
+}
+
 // defaultConfigDir returns the default configuration directory, as figured
 // out by various the environment variables present on each platform, or dies
 // trying.
 func defaultConfigDir(userHome string) string {
 	switch runtime.GOOS {
-	case "windows":
+	case build.Windows:
 		if p := os.Getenv("LocalAppData"); p != "" {
 			return filepath.Join(p, "Syncthing")
 		}
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
-	case "darwin":
+	case build.Darwin:
 		return filepath.Join(userHome, "Library/Application Support/Syncthing")
 
 	default:
@@ -153,30 +196,28 @@ func defaultConfigDir(userHome string) string {
 // defaultDataDir returns the default data directory, which usually is the
 // config directory but might be something else.
 func defaultDataDir(userHome, config string) string {
-	switch runtime.GOOS {
-	case "windows", "darwin":
-		return config
-
-	default:
-		// If a database exists at the "normal" location, use that anyway.
-		if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
-			return config
-		}
-		// Always use this env var, as it's explicitly set by the user
-		if xdgHome := os.Getenv("XDG_DATA_HOME"); xdgHome != "" {
-			return filepath.Join(xdgHome, "syncthing")
-		}
-		// Only use the XDG default, if a syncthing specific dir already
-		// exists. Existence of ~/.local/share is not deemed enough, as
-		// it may also exist erroneously on non-XDG systems.
-		xdgDefault := filepath.Join(userHome, ".local/share/syncthing")
-		if _, err := os.Lstat(xdgDefault); err == nil {
-			return xdgDefault
-		}
-		// FYI: XDG_DATA_DIRS is not relevant, as it is for system-wide
-		// data dirs, not user specific ones.
+	if build.IsWindows || build.IsDarwin {
 		return config
 	}
+
+	// If a database exists at the "normal" location, use that anyway.
+	if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
+		return config
+	}
+	// Always use this env var, as it's explicitly set by the user
+	if xdgHome := os.Getenv("XDG_DATA_HOME"); xdgHome != "" {
+		return filepath.Join(xdgHome, "syncthing")
+	}
+	// Only use the XDG default, if a syncthing specific dir already
+	// exists. Existence of ~/.local/share is not deemed enough, as
+	// it may also exist erroneously on non-XDG systems.
+	xdgDefault := filepath.Join(userHome, ".local/share/syncthing")
+	if _, err := os.Lstat(xdgDefault); err == nil {
+		return xdgDefault
+	}
+	// FYI: XDG_DATA_DIRS is not relevant, as it is for system-wide
+	// data dirs, not user specific ones.
+	return config
 }
 
 // userHomeDir returns the user's home directory, or dies trying.

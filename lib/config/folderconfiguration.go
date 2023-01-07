@@ -9,13 +9,14 @@ package config
 import (
 	"errors"
 	"fmt"
-	"runtime"
+	"path"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -45,7 +46,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 
 // Filesystem creates a filesystem for the path and options of this folder.
 // The fset parameter may be nil, in which case no mtime handling on top of
-// the fileystem is provided.
+// the filesystem is provided.
 func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem(nil) should be valid.
@@ -64,7 +65,7 @@ func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	dur := time.Duration(f.RawModTimeWindowS) * time.Second
-	if f.RawModTimeWindowS < 1 && runtime.GOOS == "android" {
+	if f.RawModTimeWindowS < 1 && build.IsAndroid {
 		if usage, err := disk.Usage(f.Filesystem(nil).URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
@@ -90,7 +91,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	}
 
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700
@@ -145,7 +146,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700
@@ -271,4 +272,25 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 		return fmt.Errorf("insufficient space in folder %v (%v): %w", f.Description(), fs.URI(), err)
 	}
 	return nil
+}
+
+func (f XattrFilter) Permit(s string) bool {
+	if len(f.Entries) == 0 {
+		return true
+	}
+
+	for _, entry := range f.Entries {
+		if ok, _ := path.Match(entry.Match, s); ok {
+			return entry.Permit
+		}
+	}
+	return false
+}
+
+func (f XattrFilter) GetMaxSingleEntrySize() int {
+	return f.MaxSingleEntrySize
+}
+
+func (f XattrFilter) GetMaxTotalSize() int {
+	return f.MaxTotalSize
 }

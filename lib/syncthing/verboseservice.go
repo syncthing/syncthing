@@ -50,7 +50,7 @@ func (s *verboseService) Serve(ctx context.Context) error {
 
 var folderSummaryRemoveDeprecatedRe = regexp.MustCompile(`(Invalid|IgnorePatterns|StateChanged):\S+\s?`)
 
-func (s *verboseService) formatEvent(ev events.Event) string {
+func (*verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
 	case events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip

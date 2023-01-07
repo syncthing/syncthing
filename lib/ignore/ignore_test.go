@@ -12,11 +12,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -210,10 +210,9 @@ func TestCaseSensitivity(t *testing.T) {
 	match := []string{"test"}
 	dontMatch := []string{"foo"}
 
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		match = append(match, "TEST", "Test", "tESt")
-	default:
+	} else {
 		dontMatch = append(dontMatch, "TEST", "Test", "tESt")
 	}
 
@@ -618,7 +617,7 @@ func TestHashOfEmpty(t *testing.T) {
 func TestWindowsPatterns(t *testing.T) {
 	// We should accept patterns as both a/b and a\b and match that against
 	// both kinds of slash as well.
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific test")
 		return
 	}
@@ -643,7 +642,7 @@ func TestWindowsPatterns(t *testing.T) {
 
 func TestAutomaticCaseInsensitivity(t *testing.T) {
 	// We should do case insensitive matching by default on some platforms.
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+	if !build.IsWindows && !build.IsDarwin {
 		t.Skip("Windows/Mac specific test")
 		return
 	}
@@ -997,8 +996,8 @@ func TestIssue4901(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		if fs.IsNotExist(err) {
-			t.Fatal("unexpected error type")
+		if err == fs.ErrNotExist {
+			t.Fatalf("unexpected error type: %T", err)
 		}
 		if !IsParseError(err) {
 			t.Fatal("failure to load included file should be a parse error")
@@ -1205,7 +1204,7 @@ func TestEmptyPatterns(t *testing.T) {
 }
 
 func TestWindowsLineEndings(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific")
 	}
 

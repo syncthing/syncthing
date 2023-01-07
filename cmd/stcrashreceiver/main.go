@@ -90,7 +90,7 @@ func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *ht
 			for k, v := range r.Extra {
 				pkt.Extra[k] = v
 			}
-			if len(r.Goroutines) != 0 {
+			if r.Goroutines != "" {
 				url, err := saveFailureWithGoroutines(r.FailureData, failureDir)
 				if err != nil {
 					log.Println("Saving failure report:", err)

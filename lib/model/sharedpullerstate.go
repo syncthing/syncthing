@@ -8,10 +8,9 @@ package model
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -177,12 +176,12 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 		// what the umask dictates.
 
 		if err := s.fs.Chmod(s.tempName, mode); err != nil {
-			return errors.Wrap(err, "setting perms on temp file")
+			return fmt.Errorf("setting perms on temp file: %w", err)
 		}
 	}
 	fd, err := s.fs.OpenFile(s.tempName, flags, mode)
 	if err != nil {
-		return errors.Wrap(err, "opening temp file")
+		return fmt.Errorf("opening temp file: %w", err)
 	}
 
 	// Hide the temporary file

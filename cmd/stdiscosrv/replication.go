@@ -120,7 +120,7 @@ func (s *replicationSender) Serve(ctx context.Context) error {
 			if _, err := conn.Write(buf[:4+n]); err != nil {
 				replicationSendsTotal.WithLabelValues("error").Inc()
 				log.Println("Replication write:", err)
-				// Yes, we are loosing the replication event here.
+				// Yes, we are losing the replication event here.
 				return err
 			}
 			replicationSendsTotal.WithLabelValues("success").Inc()
@@ -135,7 +135,7 @@ func (s *replicationSender) String() string {
 	return fmt.Sprintf("replicationSender(%q)", s.dst)
 }
 
-func (s *replicationSender) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *replicationSender) send(key string, ps []DatabaseAddress, _ int64) {
 	item := ReplicationRecord{
 		Key:       key,
 		Addresses: ps,

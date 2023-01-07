@@ -64,7 +64,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		return nil, err
 	}
 
-	if len(host) == 0 {
+	if host == "" {
 		// A broadcast client
 		c.name = "IPv4 local"
 		bcPort, err := strconv.Atoi(port)

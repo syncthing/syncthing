@@ -69,7 +69,7 @@ func deduplicateObservedFoldersToMap(input []ObservedFolder) map[string]Observed
 
 func (cfg *DeviceConfiguration) Description() string {
 	if cfg.Name == "" {
-		return fmt.Sprintf("%s", cfg.DeviceID.Short())
+		return cfg.DeviceID.Short().String()
 	}
 	return fmt.Sprintf("%s (%s)", cfg.Name, cfg.DeviceID.Short())
 }

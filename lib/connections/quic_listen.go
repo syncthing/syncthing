@@ -214,11 +214,11 @@ func (t *quicListener) NATType() string {
 
 type quicListenerFactory struct{}
 
-func (f *quicListenerFactory) Valid(config.Configuration) error {
+func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, registry *registry.Registry) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry) genericListener {
 	l := &quicListener{
 		uri:      fixupPort(uri, config.DefaultQUICPort),
 		cfg:      cfg,
@@ -232,6 +232,6 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 	return l
 }
 
-func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
+func (quicListenerFactory) Enabled(_ config.Configuration) bool {
 	return true
 }

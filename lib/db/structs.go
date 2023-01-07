@@ -125,6 +125,14 @@ func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfoTruncated) PlatformData() protocol.PlatformData {
+	return f.Platform
+}
+
+func (f FileInfoTruncated) InodeChangeTime() time.Time {
+	return time.Unix(0, f.InodeChangeNs)
+}
+
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {
 	file := f.copyToFileInfo()
 	file.SetIgnored()

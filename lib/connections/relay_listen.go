@@ -9,11 +9,10 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net/url"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -172,13 +171,13 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
-func (t *relayListener) NATType() string {
+func (*relayListener) NATType() string {
 	return "unknown"
 }
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, _ *registry.Registry) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, _ *registry.Registry) genericListener {
 	t := &relayListener{
 		uri:     uri,
 		cfg:     cfg,

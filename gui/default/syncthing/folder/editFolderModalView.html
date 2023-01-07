@@ -204,9 +204,12 @@
               <div class="row">
                 <div class="col-md-6">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="setFSWatcherIntervalDefault()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="setFSWatcherIntervalDefault()">&nbsp;<span translate>Watch for Changes</span>
                   </label>
-                  <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
+                  <p class="help-block">
+                    <span translate>Use notifications from the filesystem to detect changed items.</span>
+                    <span translate>Watching for changes discovers most changes without periodic scanning.</span>
+                  </p>
                 </div>
                 <div class="col-md-6">
                   <label for="rescanIntervalS" translate>Full Rescan Interval (s)</label>
@@ -278,6 +281,45 @@
               </label>
               <p translate class="help-block">
                 Disables comparing and syncing file permissions. Useful on systems with nonexistent or custom permissions (e.g. FAT, exFAT, Synology, Android).
+              </p>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <p>
+                <label translate>Ownership</label>
+                &nbsp;<a href="{{docsURL('advanced/folder-sync-ownership')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.type == 'sendonly' || currentFolder.type == 'receiveencrypted'" ng-model="currentFolder.syncOwnership" /> <span translate>Sync Ownership</span>
+              </label>
+              <p translate class="help-block">
+                Enables sending ownership information to other devices, and applying incoming ownership information. Typically requires running with elevated privileges.
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.type == 'receiveonly' || currentFolder.type == 'receiveencrypted' || currentFolder.syncOwnership" ng-checked="currentFolder.sendOwnership || currentFolder.syncOwnership" ng-model="currentFolder.sendOwnership" /> <span translate>Send Ownership</span>
+              </label>
+              <p translate class="help-block">
+                Enables sending ownership information to other devices, but not applying incoming ownership information. This can have a significant performance impact. Always enabled when "Sync Ownership" is enabled.
+              </p>
+            </div>
+            <div class="col-md-6 form-group">
+              <p>
+                <label translate>Extended Attributes</label>
+                &nbsp;<a href="{{docsURL('advanced/folder-sync-xattrs')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.type == 'sendonly' || currentFolder.type == 'receiveencrypted'" ng-model="currentFolder.syncXattrs" /> <span translate>Sync Extended Attributes</span>
+              </label>
+              <p translate class="help-block">
+                Enables sending extended attributes to other devices, and applying incoming extended attributes. May require running with elevated privileges.
+              </p>
+              <label>
+                <input type="checkbox" ng-disabled="currentFolder.type == 'receiveonly' || currentFolder.type == 'receiveencrypted' || currentFolder.syncXattrs" ng-checked="currentFolder.sendXattrs || currentFolder.syncXattrs" ng-model="currentFolder.sendXattrs" /> <span translate>Send Extended Attributes</span>
+              </label>
+              <p translate class="help-block">
+                Enables sending extended attributes to other devices, but not applying incoming extended attributes. This can have a significant performance impact. Always enabled when "Sync Extended Attributes" is enabled.
               </p>
             </div>
           </div>

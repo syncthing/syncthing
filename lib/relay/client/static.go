@@ -5,14 +5,14 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/osutil"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
@@ -27,7 +27,8 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	conn *tls.Conn
+	conn  *tls.Conn
+	token string
 }
 
 func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *staticClient {
@@ -38,6 +39,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
+
+		token: uri.Query().Get("token"),
 	}
 	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
@@ -88,7 +91,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
 				if len(ip) == 0 || ip.IsUnspecified() {
-					msg.Address = remoteIPBytes(c.conn)
+					msg.Address, _ = osutil.IPFromAddr(c.conn.RemoteAddr())
 				}
 				select {
 				case c.invitations <- msg:
@@ -173,7 +176,7 @@ func (c *staticClient) disconnect() {
 }
 
 func (c *staticClient) join() error {
-	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{}); err != nil {
+	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{Token: c.token}); err != nil {
 		return err
 	}
 
@@ -204,7 +207,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	}
 
 	cs := conn.ConnectionState()
-	if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != protocol.ProtocolName {
+	if cs.NegotiatedProtocol != protocol.ProtocolName {
 		return errors.New("protocol negotiation error")
 	}
 
@@ -213,7 +216,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	if relayIDs != "" {
 		relayID, err := syncthingprotocol.DeviceIDFromString(relayIDs)
 		if err != nil {
-			return errors.Wrap(err, "relay address contains invalid verification id")
+			return fmt.Errorf("relay address contains invalid verification id: %w", err)
 		}
 
 		certs := cs.PeerCertificates
