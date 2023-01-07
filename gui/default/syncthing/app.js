@@ -19,23 +19,28 @@ var urlbase = 'rest';
 var authnUrlbase = urlbase + '/noauth/authn';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
-    if (window.metadata) {
-        var deviceIDShort = metadata.deviceID.substr(0, 5);
-        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
-        $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
-        $httpProvider.useApplyAsync(true);
+    // language and localisation
 
-        // language and localisation
+    $translateProvider.useSanitizeValueStrategy('escape');
+    $translateProvider.useStaticFilesLoader({
+        prefix: 'assets/lang/lang-',
+        suffix: '.json'
+    });
 
-        $translateProvider.useSanitizeValueStrategy('escape');
-        $translateProvider.useStaticFilesLoader({
-          prefix: 'assets/lang/lang-',
-          suffix: '.json'
-        });
+    LocaleServiceProvider.setAvailableLocales(validLangs);
+    LocaleServiceProvider.setDefaultLocale('en');
 
-        LocaleServiceProvider.setAvailableLocales(validLangs);
-        LocaleServiceProvider.setDefaultLocale('en');
+    $httpProvider.useApplyAsync(true);
+
+    if (!window.metadata) {
+        // Most likely we're not authenticated yet, in which case we can't proceed with the rest of the setup.
+        // Do nothing and wait for the page reload on successful login.
+        return;
     }
+
+    var deviceIDShort = metadata.deviceID.substr(0, 5);
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
+    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
 });
 
 // @TODO: extract global level functions into separate service(s)

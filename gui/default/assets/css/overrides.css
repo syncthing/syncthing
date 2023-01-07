@@ -108,7 +108,7 @@ ul+h5 {
 }
 
 .table td.stretch {
-  width: 100%;
+    width: 100%;
 }
 
 /* Removing text decoration on anchor link hover pull request: #4135 */

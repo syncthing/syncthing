@@ -11,18 +11,23 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+        var authenticated = !!window.metadata;
 
         function initController() {
-            if (window.metadata) {
-                LocaleService.autoConfigLocale();
-                setInterval($scope.refresh, 10000);
-                Events.start();
+            LocaleService.autoConfigLocale();
+
+            if (!authenticated) {
+                // Can't proceed yet - wait for the page reload after successful login.
+                return;
             }
+
+            setInterval($scope.refresh, 10000);
+            Events.start();
         }
 
         // public/scope definitions
 
-        $scope.authenticated = !!window.metadata;
+        $scope.authenticated = authenticated;
         $scope.login = {
             username: '',
             password: '',
@@ -72,6 +77,7 @@ angular.module('syncthing.core')
         };
         $scope.webauthn = {
             errors: {},
+            request: false,
         };
         resetRemoteNeed();
 
@@ -118,12 +124,15 @@ angular.module('syncthing.core')
             return $location.host();
         };
 
-        $scope.getLocationProtocol = function() {
-            return $location.protocol();
+        $scope.isLocationInsecure = function() {
+            return $location.protocol() !== 'https';
         };
 
+        var ipv4Pattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}(:.*)?$/;
+        var ipv6Pattern = /^\[[0-9a-fA-F:]+\](:.*)?/;
         $scope.isRawIpAddress = function (host) {
-            return (host || $location.host()).match(/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(:.*)?$/) !== null;
+            var h = host || $location.host();
+            return h.match(ipv4Pattern) !== null || h.match(ipv6Pattern) !== null;
         };
 
         $(window).bind('beforeunload', function () {
@@ -1572,122 +1581,186 @@ angular.module('syncthing.core')
         };
 
         if ($scope.webauthnAvailable()) {
-            $scope.registerWebauthnCredential = function () {
-                $scope.webauthn.errors = {};
-                $http.post(urlbase + '/config/webauthn/register-start')
-                    .then(function (resp) {
-                        // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                        resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
-                          return { type: "public-key", id: cred.id };
+            if (authenticated) {
+                // Functions for use in the settings dialog
+
+                $scope.registerWebauthnCredential = function () {
+                    $scope.webauthn.errors = {};
+                    $http.post(urlbase + '/config/webauthn/register-start')
+                        .then(function (resp) {
+                            // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
+                            resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
+                              return { type: "public-key", id: cred.id };
+                            });
+                          return webauthnJSON.create(resp.data);
+                        })
+                        .then(function (pkc) {
+                            return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
+                        })
+                        .then(function (resp) {
+                            $scope.tmpGUI.webauthnCredentials.push(resp.data);
+                        })
+                        .catch(function (e) {
+                            if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
+                                $scope.webauthn.errors.alreadyRegistered = true;
+                            } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
+                              $scope.webauthn.errors.aborted = true;
+                            } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                              $scope.webauthn.errors.notAllowed = true;
+                            } else {
+                                $scope.webauthn.errors.registrationFailed = true;
+                                console.log('Credential creation failed.', e);
+                            }
                         });
-                      return webauthnJSON.create(resp.data);
-                    })
-                    .then(function (pkc) {
-                        return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
-                    })
-                    .then(function (resp) {
-                        $scope.tmpGUI.webauthnCredentials.push(resp.data);
-                    })
-                    .catch(function (e) {
-                        if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
-                            $scope.webauthn.errors.alreadyRegistered = true;
-                        } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
-                          $scope.webauthn.errors.aborted = true;
-                        } else if (e instanceof DOMException && e.name === "NotAllowedError") {
-                          $scope.webauthn.errors.notAllowed = true;
-                        } else {
-                            $scope.webauthn.errors.registrationFailed = true;
-                            console.log('Credential creation failed.', e);
-                        }
+                };
+
+                $scope.deleteWebauthnCredential = function (cfg, cred) {
+                    // Array.filter is fine since WebAuthn only works in modern browsers
+                    cfg.webauthnCredentials = cfg.webauthnCredentials.filter(function (cr) {
+                        return cr.id !== cred.id;
                     });
-            };
+                };
 
-            $scope.authenticateWebauthn = function () {
-              $scope.webauthn.errors = {};
-                $http.post(authnUrlbase + '/webauthn-start')
-                    .then(function (resp) {
-                        if (resp && resp.data && resp.data.publicKey) {
-                            return webauthnJSON.get(resp.data);
-                        } else {
-                            return Promise.reject('noCredentials');
-                        }
-                    })
-                    .then(function (pkc) {
-                        return $http.post(authnUrlbase + '/webauthn-finish', pkc);
-                    })
-                    .then(function () {
-                        location.reload();
-                    })
-                    .catch(function (e) {
-                      if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
-                          $scope.webauthn.errors.notRegistered = true;
-                      } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
-                          $scope.webauthn.errors.aborted = true;
-                      } else if (e instanceof DOMException && e.name === "NotAllowedError") {
-                          $scope.webauthn.errors.notAllowed = true;
-                      } else if (e === 'noCredentials') {
-                          $scope.webauthn.errors.noCredentials = true;
-                      } else {
-                          $scope.webauthn.errors.authenticationFailed = true;
-                          console.log('WebAuthn authentication failed.', e);
-                      }
-                    });
-            };
-
-            $scope.deleteWebauthnCredential = function (cfg, cred) {
-                // Array.filter is fine since WebAuthn only works in modern browsers
-                cfg.webauthnCredentials = cfg.webauthnCredentials.filter(function(cr) {
-                    return cr.id !== cred.id;
-                });
-            };
-
-            $scope.webauthnRpIdChanged = function (fromCfg, toCfg) {
-                return fromCfg && toCfg
-                    && fromCfg.webauthnRpId !== toCfg.webauthnRpId
-                    && !(
-                        (fromCfg.webauthnRpId === 'localhost' && toCfg.webauthnRpId === '')
+                $scope.webauthnRpIdChanged = function (fromCfg, toCfg) {
+                    return fromCfg && toCfg
+                        && fromCfg.webauthnRpId !== toCfg.webauthnRpId
+                        && !(
+                            (fromCfg.webauthnRpId === 'localhost' && toCfg.webauthnRpId === '')
                             || (fromCfg.webauthnRpId === '' && toCfg.webauthnRpId === 'localhost')
-                    );
-            };
+                        );
+                };
 
-            $scope.webauthnRpIdMatchesLocation = function (cfg) {
-                return cfg && ($location.host() === (cfg.webauthnRpId || 'localhost') || $location.host().endsWith('.' + cfg.webauthnRpId));
-            };
+                $scope.webauthnRpIdMatchesLocation = function (cfg) {
+                    return cfg && ($location.host() === (cfg.webauthnRpId || 'localhost') || $location.host().endsWith('.' + cfg.webauthnRpId));
+                };
 
-            $scope.webauthnOriginChanged = function (fromCfg, toCfg) {
-                return fromCfg && toCfg
-                    && fromCfg.webauthnOrigin !== toCfg.webauthnOrigin
-                    && !(
-                        (fromCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(fromCfg) && toCfg.webauthnOrigin === '')
+                $scope.webauthnOriginChanged = function (fromCfg, toCfg) {
+                    return fromCfg && toCfg
+                        && fromCfg.webauthnOrigin !== toCfg.webauthnOrigin
+                        && !(
+                            (fromCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(fromCfg) && toCfg.webauthnOrigin === '')
                             || (fromCfg.webauthnOrigin === '' && toCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(toCfg))
-                    );
-            };
+                        );
+                };
 
-            $scope.getDefaultWebauthnOrigin = function (cfg) {
-                if (cfg) {
-                    var splits = (cfg.address || '').split(':');
-                    var port = '';
-                    if (splits.length > 0) {
-                        port = splits[splits.length - 1];
+                $scope.getDefaultWebauthnOrigin = function (cfg) {
+                    if (cfg) {
+                        var splits = (cfg.address || '').split(':');
+                        var port = '';
+                        if (splits.length > 0) {
+                            port = splits[splits.length - 1];
+                        }
+                        return 'https://' + (cfg.webauthnRpId || 'localhost') + (port ? ':' : '') + port;
+                    } else {
+                        return '';
                     }
-                    return 'https://' + (cfg.webauthnRpId || 'localhost') + (port ? ':' : '') + port;
-                } else {
-                    return '';
-                }
-            };
+                };
 
-            $scope.locationMatchesWebauthnOrigin = function (cfg) {
-                return cfg && $location.absUrl().startsWith(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
-            };
+                $scope.locationMatchesWebauthnOrigin = function (cfg) {
+                    return cfg && $location.absUrl().startsWith(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+                };
 
-            $scope.reloadAtWebauthnAddress = function (save, cfg) {
-                (save
-                  ? $scope.saveSettings()
-                  : Promise.resolve()
-                ).then(function() {
-                    location.assign(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
-                });
-            };
+                $scope.reloadAtWebauthnAddress = function (save, cfg) {
+                    (save
+                        ? $scope.saveSettings()
+                        : Promise.resolve()
+                    ).then(function () {
+                        location.assign(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+                    });
+                };
+
+            } else {
+                // Functions for use on the login page
+
+                $scope.authenticateWebauthnStart = function () {
+                    $scope.webauthn.errors = {};
+                    return $http.post(authnUrlbase + '/webauthn-start')
+                        .then(function (resp) {
+                            if (resp && resp.data && resp.data.publicKey) {
+                                $scope.webauthn.request = resp.data;
+                                return resp.data;
+                            } else {
+                                return Promise.reject('noCredentials');
+                            }
+                        })
+                        .catch(function (e) {
+                            if (e === 'noCredentials') {
+                                $scope.webauthn.errors.noCredentials = true;
+                            } else {
+                                $scope.webauthn.errors.initFailed = true;
+                                console.log('WebAuthn initialization failed.', e);
+                            }
+
+                            // Re-reject the Promise, otherwise consumers of the Promise will consider it succeeded
+                            return Promise.reject(e);
+                        });
+                };
+
+                $scope.authenticateWebauthnFinish = function () {
+                    var finish = function (request) {
+                        return webauthnJSON.get(request)
+                            .then(function (pkc) {
+                                return $http.post(authnUrlbase + '/webauthn-finish', pkc);
+                            })
+                            .then(function () {
+                                location.reload();
+                            })
+                            .catch(function (e) {
+                                if (e instanceof DOMException && e.code === DOMException.INVALID_STATE_ERR) {
+                                    $scope.webauthn.errors.notRegistered = true;
+                                } else if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
+                                    $scope.webauthn.errors.aborted = true;
+                                } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                                    $scope.webauthn.errors.notAllowed = true;
+                                } else {
+                                    $scope.webauthn.errors.authenticationFailed = true;
+                                    console.log('WebAuthn authentication failed.', e);
+                                }
+
+                                $scope.webauthn.request = false;
+                            });
+                    };
+
+                    $scope.webauthn.errors = {};
+                    if ($scope.webauthn.request) {
+                        finish($scope.webauthn.request);
+                    } else {
+                        $scope.authenticateWebauthnStart().then(finish);
+                    }
+                };
+
+                $scope.locationDoesNotMatchWebauthnRpId = function () {
+                    if ($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId) {
+                        var exactMatch = $location.host() === $scope.webauthn.request.publicKey.rpId;
+                        var subdomainMatch = $location.host().endsWith('.' + $scope.webauthn.request.publicKey.rpId);
+                        return !(exactMatch || subdomainMatch);
+                    }
+                    // If we don't know, don't show an error message.
+                    return false;
+                };
+
+                $scope.inferWebauthnAddress = function () {
+                    // This isn't guaranteed to match the "WebAuthn Origin" config setting,
+                    // but it's the best we can do with the public information (only the rpId property in the WebAuthn parameter object).
+                    // The exact WebAuthn Origin setting is a private security property, so we should not disclose it without authentication.
+
+                    if (!($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId)) {
+                        return false;
+                    }
+
+                    var portPart = $location.port() ? ':' + $location.port() : '';
+                    return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
+                };
+
+                $scope.reloadAtWebauthnAddress = function () {
+                    var address = $scope.inferWebauthnAddress();
+                    if (address) {
+                        location.assign(address);
+                    }
+                };
+
+                $scope.authenticateWebauthnStart();
+            }
         }
 
         $scope.saveConfig = function () {

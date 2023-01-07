@@ -350,7 +350,7 @@
                 Incorrect username and/or password.
               </p>
               <p class="text-danger" ng-if="login.errors.failed">
-                Login failed, see server log for details.
+                Login failed, see Syncthing logs for details.
               </p>
             </div>
             <div class="col-md-3" style="text-align: right; padding-right: 0">
@@ -363,14 +363,17 @@
           <p translate>
             Or...
           </p>
-          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || isRawIpAddress() || getLocationProtocol() !== 'https'" tabindex="3">
+          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
             <span translate>Log in with WebAuthn</span>
           </button>
 
-          <p class="text-info" ng-if="isRawIpAddress()" translate>
-            WebAuthn is not supported on raw IP address hosts.
+          <p class="text-info" ng-if="!webauthnAvailable()" translate>
+            Your browser does not support WebAuthn.
           </p>
-          <p class="text-info" ng-if="getLocationProtocol() !== 'https'" translate>
+          <p class="text-info" ng-if="locationDoesNotMatchWebauthnRpId()" translate>
+            Current location does not match WebAuthn configuration.
+          </p>
+          <p class="text-info" ng-if="isLocationInsecure()" translate>
             WebAuthn requires HTTPS.
           </p>
           <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
@@ -382,12 +385,19 @@
           <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
             Authentication failed - possibly aborted, timed out, or blocked by the browser.
           </p>
+          <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
+            Initialization failed, see Syncthing logs for details.
+          </p>
           <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
-            Authentication failed, see server log for details.
+            Authentication failed, see Syncthing logs for details.
           </p>
           <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>
             User has not configured any WebAuthn credentials.
           </p>
+
+          <button ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress()" translate>
+            Reload page at {{inferWebauthnAddress()}}
+          </button>
         </div>
       </div>
 

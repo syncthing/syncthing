@@ -241,7 +241,7 @@
                         WebAuthn requires HTTPS.
                       </p>
 
-                      <p class="text-success" ng-if="tmpGUI.useTLS && getLocationProtocol() !== 'https'" translate>
+                      <p class="text-success" ng-if="tmpGUI.useTLS && isLocationInsecure()" translate>
                         Save and reload in HTTPS to enable WebAuthn.
                       </p>
 
@@ -258,7 +258,7 @@
                       </p>
 
                       <p class="text-danger" ng-if="webauthn.errors.registrationFailed" translate>
-                        Failed to create credential, see server log for details.
+                        Failed to create credential, see Syncthing logs for details.
                       </p>
 
                       <p class="text-info" ng-if="webauthnRpIdChanged(config.gui, tmpGUI)" translate>
@@ -280,7 +280,7 @@
 
                     <td></td>
                     <td class="small-data">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential(tmpGUI)" ng-disabled="!config.gui.user || getLocationProtocol() !== 'https' || !webauthnAvailable() || webauthnRpIdChanged(config.gui, tmpGUI) || webauthnOriginChanged(config.gui, tmpGUI) || isRawIpAddress()">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential(tmpGUI)" ng-disabled="!config.gui.user || isLocationInsecure() || !webauthnAvailable() || webauthnRpIdChanged(config.gui, tmpGUI) || webauthnOriginChanged(config.gui, tmpGUI) || isRawIpAddress()">
                         <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
                       </button>
                     </td>
