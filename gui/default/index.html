@@ -363,7 +363,7 @@
           <p translate>
             Or...
           </p>
-          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || isRawIpAddress() || getLocationProtocol() !== 'https'" tabindex="3">
+          <button type="button" class="btn btn-primary" ng-click="authenticateWebauthn()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || isRawIpAddress() || getLocationProtocol() !== 'https'" tabindex="3">
             <span translate>Log in with WebAuthn</span>
           </button>
 
@@ -384,6 +384,9 @@
           </p>
           <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
             Authentication failed, see server log for details.
+          </p>
+          <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>
+            User has not configured any WebAuthn credentials.
           </p>
         </div>
       </div>

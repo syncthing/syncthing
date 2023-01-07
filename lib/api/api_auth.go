@@ -335,12 +335,18 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 	webauthn, err := config.NewWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)
+		internalServerError(w)
 		return
 	}
 
 	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI())
 	if err != nil {
-		l.Warnln("Failed to initialize WebAuthn login", err)
+		badRequest, ok := err.(*webauthnProtocol.Error)
+		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
+			sendJSON(w, make(map[string]string))
+		} else {
+			l.Warnln("Failed to initialize WebAuthn login", err)
+		}
 		return
 	}
 

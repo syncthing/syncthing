@@ -1606,7 +1606,11 @@ angular.module('syncthing.core')
               $scope.webauthn.errors = {};
                 $http.post(authnUrlbase + '/webauthn-start')
                     .then(function (resp) {
-                        return webauthnJSON.get(resp.data);
+                        if (resp && resp.data && resp.data.publicKey) {
+                            return webauthnJSON.get(resp.data);
+                        } else {
+                            return Promise.reject('noCredentials');
+                        }
                     })
                     .then(function (pkc) {
                         return $http.post(authnUrlbase + '/webauthn-finish', pkc);
@@ -1621,6 +1625,8 @@ angular.module('syncthing.core')
                           $scope.webauthn.errors.aborted = true;
                       } else if (e instanceof DOMException && e.name === "NotAllowedError") {
                           $scope.webauthn.errors.notAllowed = true;
+                      } else if (e === 'noCredentials') {
+                          $scope.webauthn.errors.noCredentials = true;
                       } else {
                           $scope.webauthn.errors.authenticationFailed = true;
                           console.log('WebAuthn authentication failed.', e);
