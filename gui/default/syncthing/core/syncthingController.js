@@ -2165,14 +2165,13 @@ angular.module('syncthing.core')
         };
 
         $scope.switchFolderOrDevice = function(direction) {
-            // This function can be used to switch back and forth between
-            // folders and devices. The switching works like a never-ending
-            // carousel, i.e. going back from the first item moves us to the
-            // last item, and going forth from the last item moves us to the
-            // first item. The own device with index of 0 is skipped over on
-            // purpose, as it is not supposed to be edited this way. When
-            // switching, save changes only when present and valid, and do not
-            // save them when there are none or they are invalid.
+            // This function is used to switch between folders and devices. The
+            // switching works like a never-ending carousel, i.e. going back
+            // from the first item moves us to the last item, and going forth
+            // forth from the last item moves us to the first item. The own
+            // device with index of 0 is skipped over on purpose, as it is not
+            // supposed to be edited this way. When switching, changes are only
+            // saved when present and valid, and not saved when none or invalid.
 
             var list = '';
             if ($scope.currentFolder._editing) {
