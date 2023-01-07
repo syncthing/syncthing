@@ -820,7 +820,7 @@ angular.module('syncthing.core')
                     document.documentElement.style.display = 'none';
                     document.head.insertAdjacentHTML(
                         'beforeend',
-                        '<link id="fallback-theme-css" rel="stylesheet" href="static/theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+                        '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
                     );
                 }
             }
@@ -935,7 +935,7 @@ angular.module('syncthing.core')
         }, 2500);
 
         var refreshThemes = debounce(function () {
-            $http.get("/static/themes.json").success(function (data) { // no urlbase here as this is served by the asset handler
+            $http.get("themes.json").success(function (data) { // no urlbase here as this is served by the asset handler
                 $scope.themes = data.themes;
             }).error($scope.emitHTTPError);
         }, 2500);
@@ -2898,9 +2898,9 @@ angular.module('syncthing.core')
                                         $tdList = $(node.tr).find(">td"),
                                         template;
                                     if (node.folder) {
-                                        template = '<div ng-include="\'static/syncthing/folder/restoreVersionsMassActions.html\'"/>';
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'"/>';
                                     } else {
-                                        template = '<div ng-include="\'static/syncthing/folder/restoreVersionsVersionSelector.html\'"/>';
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'"/>';
                                     }
 
                                     var scope = $rootScope.$new(true);
@@ -3508,7 +3508,7 @@ angular.module('syncthing.core')
     })
     .directive('shareTemplate', function () {
         return {
-            templateUrl: 'static/syncthing/core/editShareTemplate.html',
+            templateUrl: 'syncthing/core/editShareTemplate.html',
             scope: {
                 selected: '=',
                 encryptionPasswords: '=',

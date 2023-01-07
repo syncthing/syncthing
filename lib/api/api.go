@@ -342,19 +342,16 @@ func (s *service) Serve(ctx context.Context) error {
 	// A handler that disables caching
 	noCacheRestMux := noCacheMiddleware(metricsMiddleware(restMux))
 
-	// The main routing handler for everything behind auth
+	// The main routing handler
 	mux := http.NewServeMux()
 	mux.Handle("/rest/", noCacheRestMux)
 	mux.HandleFunc("/qr/", s.getQR)
 
+	// Serve compiled in assets unless an asset directory was set (for development)
+	mux.Handle("/", s.statics)
+
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
-
-	// The main routing handler
-	unauthenticatedMux := http.NewServeMux()
-
-	// Serve compiled in assets unless an asset directory was set (for development)
-	unauthenticatedMux.Handle("/static/", http.StripPrefix("/static", s.statics))
 
 	guiCfg := s.cfg.GUI()
 
@@ -366,8 +363,8 @@ func (s *service) Serve(ctx context.Context) error {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
-	cookieName := "sessionid-"+s.id.String()[:5]
 	if guiCfg.IsAuthEnabled() {
+		cookieName := "sessionid-"+s.id.String()[:5]
 
 		var handlePasswordAuth http.Handler
 		handler, handlePasswordAuth = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
@@ -379,7 +376,12 @@ func (s *service) Serve(ctx context.Context) error {
 		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-start", webauthnService.startWebauthnAuthentication)
 		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-finish", webauthnService.finishWebauthnAuthentication)
 
-		unauthenticatedMux.Handle("/authn/", authnRouter)
+		mux.Handle("/authn/", authnRouter)
+	}
+
+	// Redirect to HTTPS if we are supposed to
+	if guiCfg.UseTLS() {
+		handler = redirectToHTTPSMiddleware(handler)
 	}
 
 	// Add the CORS handling
@@ -390,33 +392,10 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = localhostMiddleware(handler)
 	}
 
-	// Everything except /static/ and /index.html falls back to the authenticated handler
-	unauthenticatedMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "" || r.URL.Path == "/" || r.URL.Path == "/index.html" {
-
-			if guiCfg.IsPasswordAuthEnabled() && guiCfg.SendBasicAuthPrompt {
-				if username, ok := attemptBasicAuth(r, guiCfg, s.cfg.LDAP(), s.evLogger); ok {
-					createSession(cookieName, username, guiCfg, s.evLogger, w, r)
-					// And fall through to serve index.html
-
-				} else {
-					// Browsers don't send the Authorization request header if not challenged.
-					// This enables https://user:pass@localhost style URLs keep working.
-					unauthorized(w)
-					return
-				}
-			}
-
-			s.statics.ServeHTTP(w, r)
-			return
-		}
-		handler.ServeHTTP(w, r)
-		return
-	})
+	handler = debugMiddleware(handler)
 
 	srv := http.Server{
-		// Redirect to HTTPS if we are supposed to
-		Handler: debugMiddleware(redirectToHTTPSMiddleware(guiCfg.UseTLS(), unauthenticatedMux)),
+		Handler: handler,
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
@@ -617,21 +596,17 @@ func metricsMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func redirectToHTTPSMiddleware(enabled bool, h http.Handler) http.Handler {
-	if enabled {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.TLS == nil {
-				// Redirect HTTP requests to HTTPS
-				r.URL.Host = r.Host
-				r.URL.Scheme = "https"
-				http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
-			} else {
-				h.ServeHTTP(w, r)
-			}
-		})
-	} else {
-		return h
-	}
+func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil {
+			// Redirect HTTP requests to HTTPS
+			r.URL.Host = r.Host
+			r.URL.Scheme = "https"
+			http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
+		} else {
+			h.ServeHTTP(w, r)
+		}
+	})
 }
 
 func noCacheMiddleware(h http.Handler) http.Handler {

@@ -60,6 +60,48 @@ func badRequest(w http.ResponseWriter) {
 	http.Error(w, "Bad request", http.StatusBadRequest)
 }
 
+func equalsAny(s string, values []string) bool {
+	for _, value := range values {
+		if s == value {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func noAuthPaths() []string {
+	return []string{
+		"/",
+		"/index.html",
+		"/modal.html",
+	}
+}
+
+func noAuthPrefixes() []string {
+	return []string{
+		// Static assets
+		"/assets/",
+		"/syncthing/",
+		"/vendor/",
+		"/theme-assets/", // This leaks information from config, but probably not sensitive
+
+		// No-auth API endpoints
+		"/rest/noauth",
+
+		// API endpoints for authentication
+		"/authn/",
+	}
+}
+
 func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) (http.Handler, http.Handler) {
 
 	handleAuthzPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +110,8 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 			return
 		}
 
-		// Exception for REST calls that don't require authentication.
-		if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+		// Exception for static assets and REST calls that don't require authentication.
+		if equalsAny(r.URL.Path, noAuthPaths()) || hasAnyPrefix(r.URL.Path, noAuthPrefixes()) {
 			next.ServeHTTP(w, r)
 			return
 		}
