@@ -113,7 +113,7 @@ angular.module('syncthing.core')
                     $scope.login.errors.badLogin = true;
                 } else {
                     $scope.login.errors.failed = true;
-                    console.log(response);
+                    console.log('Password authentication failed:', response);
                 }
             }).finally(function () {
                 $scope.login.inProgress = false;
@@ -1609,7 +1609,7 @@ angular.module('syncthing.core')
                               $scope.webauthn.errors.notAllowed = true;
                             } else {
                                 $scope.webauthn.errors.registrationFailed = true;
-                                console.log('Credential creation failed.', e);
+                                console.log('Credential creation failed:', e);
                             }
                         });
                 };
@@ -1688,7 +1688,7 @@ angular.module('syncthing.core')
                                 $scope.webauthn.errors.noCredentials = true;
                             } else {
                                 $scope.webauthn.errors.initFailed = true;
-                                console.log('WebAuthn initialization failed.', e);
+                                console.log('WebAuthn initialization failed:', e);
                             }
 
                             // Re-reject the Promise, otherwise consumers of the Promise will consider it succeeded
@@ -1714,7 +1714,7 @@ angular.module('syncthing.core')
                                     $scope.webauthn.errors.notAllowed = true;
                                 } else {
                                     $scope.webauthn.errors.authenticationFailed = true;
-                                    console.log('WebAuthn authentication failed.', e);
+                                    console.log('WebAuthn authentication failed:', e);
                                 }
 
                                 $scope.webauthn.request = false;
@@ -1785,7 +1785,6 @@ angular.module('syncthing.core')
 
         $scope.settingsModified = function () {
             if ($scope.tmpGUI) {
-                console.log($scope);
                 // Options has artificial properties injected into the temp config.
                 // Need to recompute them before we can check equality
                 var options = angular.copy($scope.config.options);
