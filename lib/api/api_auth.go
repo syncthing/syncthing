@@ -96,9 +96,6 @@ func noAuthPrefixes() []string {
 
 		// No-auth API endpoints
 		"/rest/noauth",
-
-		// API endpoints for authentication
-		"/authn/",
 	}
 }
 

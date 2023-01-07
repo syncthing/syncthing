@@ -369,14 +369,10 @@ func (s *service) Serve(ctx context.Context) error {
 		var handlePasswordAuth http.Handler
 		handler, handlePasswordAuth = authAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 
-		authnRouter := httprouter.New()
-		authnRouter.Handler(http.MethodPost, "/authn/password", handlePasswordAuth)
-
 		webauthnService := newWebauthnService(s.cfg, cookieName, s.evLogger)
-		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-start", webauthnService.startWebauthnAuthentication)
-		authnRouter.HandlerFunc(http.MethodPost, "/authn/webauthn/authenticate-finish", webauthnService.finishWebauthnAuthentication)
-
-		mux.Handle("/authn/", authnRouter)
+		restMux.Handler(http.MethodPost, "/rest/noauth/authn/password", handlePasswordAuth)
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/authn/webauthn-start", webauthnService.startWebauthnAuthentication)
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/authn/webauthn-finish", webauthnService.finishWebauthnAuthentication)
 	}
 
 	// Redirect to HTTPS if we are supposed to

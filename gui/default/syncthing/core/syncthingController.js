@@ -1604,12 +1604,12 @@ angular.module('syncthing.core')
 
             $scope.authenticateWebauthn = function () {
               $scope.webauthn.errors = {};
-                $http.post(authnUrlbase + '/webauthn/authenticate-start')
+                $http.post(authnUrlbase + '/webauthn-start')
                     .then(function (resp) {
                         return webauthnJSON.get(resp.data);
                     })
                     .then(function (pkc) {
-                        return $http.post(authnUrlbase + '/webauthn/authenticate-finish', pkc);
+                        return $http.post(authnUrlbase + '/webauthn-finish', pkc);
                     })
                     .then(function () {
                         location.reload();
