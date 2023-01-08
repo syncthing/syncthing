@@ -320,6 +320,9 @@ func runCommand(cmd string, target target) {
 	case "transifex":
 		transifex()
 
+	case "weblate":
+		weblate()
+
 	case "tar":
 		buildTar(target, tags)
 
@@ -951,6 +954,11 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
+}
+
+func weblate() {
+	os.Chdir("gui/default/assets/lang")
+	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
 }
 
 func ldflags(tags []string) string {
