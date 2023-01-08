@@ -38,9 +38,9 @@ func main() {
 		log.Fatal("Need environment variable WEBLATE_TOKEN")
 	}
 
-	curValidLangs := map[string]bool{}
+	curValidLangs := make(map[string]struct{})
 	for _, lang := range loadValidLangs() {
-		curValidLangs[lang] = true
+		curValidLangs[lang] = struct{}{}
 	}
 	log.Println(curValidLangs)
 
@@ -59,7 +59,7 @@ func main() {
 	for _, stat := range stats {
 		code := reformatLanguageCode(stat.Code)
 		pct := 100 * stat.Translated / stat.Total
-		if pct < 75 || !curValidLangs[code] && pct < 95 {
+		if _, valid := curValidLangs[code]; pct < 75 || !valid && pct < 95 {
 			log.Printf("Language %q too low completion ratio %d%%", code, pct)
 		} else {
 			langs = append(langs, code)
