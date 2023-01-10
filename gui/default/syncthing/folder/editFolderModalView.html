@@ -324,10 +324,10 @@
             </div>
           </div>
 
-          <div class="row">
+          <div class="row" ng-if="currentFolder.syncXattrs">
             <div class="col-md-12">
               <p>
-                <label translate>Xattr Filter</label>
+                <label translate>Extended Attributes Filter</label>
                 &nbsp;<a href="{{docsURL('advanced/folder-xattr-filter')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
               </p>
             </div>
@@ -335,8 +335,8 @@
               <label translate>Active filter rules</label>
               <table class="table table-condensed">
                 <colgroup>
-                  <col class="col-xs-1"/>
-                  <col class="col-xs-8"/>
+                  <col class="col-xs-1 center"/>
+                  <col class="col-xs-7"/>
                   <col class="col-xs-1"/>
                 </colgroup>
                 <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
