@@ -124,9 +124,9 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// The error returned by serve() may well be a network timeout, which as
 	// of Go 1.19 is a context.DeadlineExceeded, which Suture interprets as
-	// a signal to stop the service instead of restarting it. This
-	// typicallyisn't what we want, so we make sure to remove the context
-	// specific error types unless the context is actually cancelled.
+	// a signal to stop the service instead of restarting it. This typically
+	// isn't what we want, so we make sure to remove the context specific
+	// error types unless *our* context is actually cancelled.
 	err := asNonContextError(ctx, s.serve(ctx))
 
 	s.mut.Lock()
