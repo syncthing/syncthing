@@ -65,8 +65,9 @@ func (t *relayListener) serve(ctx context.Context) error {
 	// The error returned by Serve() may well be a dial timeout, which as of
 	// Go 1.19 is a context.DeadlineExceeded, which Suture interprets as a
 	// signal to stop the service instead of restarting it. This isn't what
-	// we want, so we make sure to remove the context specific error types.
-	return svcutil.AsNonContextError(clnt.Serve(ctx))
+	// we want, so we make sure to remove the context specific error types
+	// unless the context is actually cancelled.
+	return svcutil.AsNonContextError(ctx, clnt.Serve(ctx))
 }
 
 func (t *relayListener) handleInvitations(ctx context.Context, clnt client.RelayClient) {

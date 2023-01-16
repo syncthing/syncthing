@@ -205,8 +205,14 @@ func infoEventHook(l logger.Logger) suture.EventHook {
 
 // AsNonContextError returns err, except if it is context.Canceled or
 // context.DeadlineExceeded in which case the error will be a simple string
-// representation instead.
-func AsNonContextError(err error) error {
+// representation instead. The given context is checked for cancellation,
+// and if it is cancelled then that error is returned instead of err.
+func AsNonContextError(ctx context.Context, err error) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Errorf("%s (context erased)", err.Error())
 	}
