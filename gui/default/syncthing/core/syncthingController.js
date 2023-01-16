@@ -3336,7 +3336,9 @@ angular.module('syncthing.core')
             var entries = $scope.currentFolder.xattrFilter.entries;
             var newEntry = {match: '', permit: false};
 
-            if (entries.some(n => n.match == '')) {
+            if (entries.some(function (n) {
+                return n.match == '';
+            })) {
                 return;
             }
 
@@ -3352,7 +3354,9 @@ angular.module('syncthing.core')
         };
 
         $scope.removeXattrEntry = function (entry) {
-            $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(n => n !== entry);
+            $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(function (n) {
+                return n !== entry;
+            });
         };
 
         $scope.getXattrHint = function () {
@@ -3371,7 +3375,9 @@ angular.module('syncthing.core')
             }
             // If all the filter entries are 'deny', we suggest adding a permit-any
             // rule in the end since the default is already deny in that case.
-            if (filterEntries.every(entry => entry.permit === false)) {
+            if (filterEntries.every(function (entry) {
+                return entry.permit === false;
+            })) {
                 return  $translate.instant('Hint: only deny-rules detected while the default is deny. Consider adding `permit any` as last rule.');
             }
 
@@ -3399,7 +3405,9 @@ angular.module('syncthing.core')
 
         $scope.validateXattrFilter = function () {
             // Fitlering out empty rules when saving the config
-            $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(n => n.match !== "");
+            $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(function (n) {
+                return n.match !== "";
+            });
         };
     })
     .directive('shareTemplate', function () {

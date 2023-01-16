@@ -332,6 +332,9 @@
               </p>
             </div>
             <div class="col-md-6">
+              <p translate class="help-block">
+                To permit a rule, have the checkbox checked. To deny a rule, leave it unchecked.
+              </p>
               <label translate>Active filter rules</label>
               <table class="table table-condensed">
                 <colgroup>
@@ -364,10 +367,6 @@
               </p>
               <p ng-if="getXattrHint() !== ''">
                 <i>{{getXattrHint()}}</i>
-              </p>
-              <hr />
-              <p translate class="help-block">
-                Checking the check-box will permit entries which match the pattern, leaving it unchecked will deny the matches.
               </p>
             </div>
             <div class="col-md-6 form-group">
