@@ -139,7 +139,6 @@ func (s *service) Error() error {
 
 func (s *service) String() string {
 	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
-
 }
 
 type doneService func()
@@ -202,4 +201,14 @@ func infoEventHook(l logger.Logger) suture.EventHook {
 			l.Infoln(e)
 		}
 	}
+}
+
+// AsNonContextError returns err, except if it is context.Canceled or
+// context.DeadlineExceeded in which case the error will be a simple string
+// representation instead.
+func AsNonContextError(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s (context erased)", err.Error())
+	}
+	return err
 }
