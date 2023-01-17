@@ -3378,7 +3378,7 @@ angular.module('syncthing.core')
             if (filterEntries.every(function (entry) {
                 return entry.permit === false;
             })) {
-                return  $translate.instant('Hint: only deny-rules detected while the default is deny. Consider adding `permit any` as last rule.');
+                return  $translate.instant('Hint: only deny-rules detected while the default is deny. Consider adding "permit any" as last rule.');
             }
 
             return '';
