@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -66,18 +67,75 @@ type target struct {
 	debdeps           []string
 	debpre            string
 	description       string
-	buildPkgs         []string
-	binaryName        string
+	buildPkgs         []buildPkg
 	archiveFiles      []archiveFile
 	systemdService    string
 	installationFiles []archiveFile
 	tags              []string
 }
 
+func (t target) buildPkgStrings() []string {
+	var pkgs []string
+	for _, pkg := range t.activeBuildPkgs() {
+		pkgs = append(pkgs, pkg.pkg)
+	}
+	return pkgs
+}
+
+func (t target) activeBuildPkgs() []buildPkg {
+	var pkgs []buildPkg
+	for _, pkg := range t.buildPkgs {
+		if pkg.goos != "" && pkg.goos != goos {
+			continue
+		}
+		pkgs = append(pkgs, pkg)
+	}
+	return pkgs
+}
+
+func (t *target) expandedArchiveFiles() []archiveFile {
+	return t.expandFileList(t.archiveFiles)
+}
+
+func (t *target) expandedInstallationFiles() []archiveFile {
+	return t.expandFileList(t.installationFiles)
+}
+
+func (t *target) expandFileList(files []archiveFile) []archiveFile {
+	var fs []archiveFile
+	for _, f := range files {
+		if strings.Contains(f.src, "{{binary}}") || strings.Contains(f.dst, "{{binary}}") {
+			for _, pkg := range t.activeBuildPkgs() {
+				fs = append(fs, archiveFile{
+					src: strings.Replace(f.src, "{{binary}}", pkg.binaryName(), 1),
+					dst: strings.Replace(f.dst, "{{binary}}", pkg.binaryName(), 1),
+				})
+			}
+			continue
+		}
+		fs = append(fs, f)
+	}
+	return fs
+}
+
+type buildPkg struct {
+	pkg  string
+	goos string
+}
+
+func (p buildPkg) binaryName() string {
+	base := path.Base(p.pkg)
+	if goos == "windows" {
+		return base + ".exe"
+	}
+	return base
+}
+
 type archiveFile struct {
 	src  string
 	dst  string
 	perm os.FileMode
+	goos string
 }
 
 var targets = map[string]target{
@@ -92,8 +150,10 @@ var targets = map[string]target{
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
 		description: "Open Source Continuous File Synchronization",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
-		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
+		buildPkgs: []buildPkg{
+			{pkg: "github.com/syncthing/syncthing/cmd/syncthing"},
+			{pkg: "github.com/syncthing/syncthing/cmd/syncthingw", goos: "windows"},
+		},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "README.md", dst: "README.txt", perm: 0644},
@@ -138,8 +198,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/stdiscosrv/scripts/preinst",
 		description: "Syncthing Discovery Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stdiscosrv"},
-		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
+		buildPkgs:   []buildPkg{{pkg: "github.com/syncthing/syncthing/cmd/stdiscosrv"}},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
@@ -165,8 +224,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/strelaysrv/scripts/preinst",
 		description: "Syncthing Relay Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaysrv"},
-		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
+		buildPkgs:   []buildPkg{{pkg: "github.com/syncthing/syncthing/cmd/strelaysrv"}},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
@@ -192,8 +250,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaypoolsrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaypoolsrv"},
-		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
+		buildPkgs:   []buildPkg{{pkg: "github.com/syncthing/syncthing/cmd/strelaypoolsrv"}},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
@@ -221,7 +278,7 @@ func initTargets() {
 		if noupgrade && pkg == "stupgrades" {
 			continue
 		}
-		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
+		all.buildPkgs = append(all.buildPkgs, buildPkg{pkg: fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg)})
 	}
 	targets["all"] = all
 
@@ -482,7 +539,7 @@ func install(target target, tags []string) {
 	}
 
 	args := []string{"install", "-v"}
-	args = appendParameters(args, tags, target.buildPkgs...)
+	args = appendParameters(args, tags, target.buildPkgStrings()...)
 	runPrint(goCmd, args...)
 }
 
@@ -494,7 +551,9 @@ func build(target target, tags []string) {
 	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
 
-	rmr(target.BinaryName())
+	for _, pkg := range target.activeBuildPkgs() {
+		rmr(pkg.binaryName())
+	}
 
 	setBuildEnvVars()
 
@@ -513,12 +572,14 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
-	if buildOut != "" {
-		args = append(args, "-o", buildOut)
+	for _, pkg := range target.activeBuildPkgs() {
+		args := []string{"build", "-v"}
+		if buildOut != "" {
+			args = append(args, "-o", buildOut)
+		}
+		args = appendParameters(args, tags, pkg.pkg)
+		runPrint(goCmd, args...)
 	}
-	args = appendParameters(args, tags, target.buildPkgs...)
-	runPrint(goCmd, args...)
 }
 
 func setBuildEnvVars() {
@@ -576,13 +637,7 @@ func buildTar(target target, tags []string) {
 	build(target, tags)
 	codesign(target)
 
-	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
-		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
-	}
-
-	tarGz(filename, target.archiveFiles)
+	tarGz(filename, target.expandedArchiveFiles())
 	fmt.Println(filename)
 }
 
@@ -600,13 +655,7 @@ func buildZip(target target, tags []string) {
 	build(target, tags)
 	codesign(target)
 
-	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
-		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
-	}
-
-	zipFile(filename, target.archiveFiles)
+	zipFile(filename, target.expandedArchiveFiles())
 	fmt.Println(filename)
 }
 
@@ -626,12 +675,7 @@ func buildDeb(target target) {
 
 	build(target, []string{"noupgrade"})
 
-	for i := range target.installationFiles {
-		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.BinaryName(), 1)
-		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
-	}
-
-	for _, af := range target.installationFiles {
+	for _, af := range target.expandedInstallationFiles() {
 		if err := copyFile(af.src, af.dst, af.perm); err != nil {
 			log.Fatal(err)
 		}
@@ -691,7 +735,7 @@ func createPostInstScript(target target) (string, error) {
 	if err = t.Execute(w, struct {
 		Service, Command string
 	}{
-		target.systemdService, target.binaryName,
+		target.systemdService, target.buildPkgs[0].binaryName(),
 	}); err != nil {
 		return "", err
 	}
@@ -1354,11 +1398,13 @@ func zipFile(out string, files []archiveFile) {
 }
 
 func codesign(target target) {
-	switch goos {
-	case "windows":
-		windowsCodesign(target.BinaryName())
-	case "darwin":
-		macosCodesign(target.BinaryName())
+	for _, pkg := range target.activeBuildPkgs() {
+		switch goos {
+		case "windows":
+			windowsCodesign(pkg.binaryName())
+		case "darwin":
+			macosCodesign(pkg.binaryName())
+		}
 	}
 }
 
@@ -1453,13 +1499,6 @@ func metalint() {
 func metalintShort() {
 	lazyRebuildAssets()
 	runPrint(goCmd, "test", "-short", "-run", "Metalint", "./meta")
-}
-
-func (t target) BinaryName() string {
-	if goos == "windows" {
-		return t.binaryName + ".exe"
-	}
-	return t.binaryName
 }
 
 func protobufVersion() string {

@@ -1,7 +1,8 @@
 /syncthing
 /stdiscosrv
-syncthing.exe
-stdiscosrv.exe
+/syncthing.exe
+/syncthingw.exe
+/stdiscosrv.exe
 *.tar.gz
 *.zip
 *.asc
