@@ -362,7 +362,9 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		var handlePasswordAuth http.Handler
+		handler, handlePasswordAuth = authAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		restMux.Handler(http.MethodPost, "/rest/noauth/authn/password", handlePasswordAuth)
 	}
 
 	// Redirect to HTTPS if we are supposed to

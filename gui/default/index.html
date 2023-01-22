@@ -329,9 +329,39 @@
         </div>
       </div>
 
-      <!-- First regular row -->
+      <!-- Login form -->
+      <div class="center-block" ng-if="!authenticated">
+        <h3 translate>Authentication required</h3>
 
-      <div class="row">
+        <form ng-submit="authenticatePassword()">
+          <div class="row form-group">
+            <label translate for="Username">Username</label>
+            <input id="Username" class="form-control" type="text" ng-model="login.username" tabindex="1" />
+          </div>
+
+          <div class="row form-group">
+            <label translate for="Password">Password</label>
+            <input id="Password" class="form-control" type="password" ng-model="login.password" ng-trim="false" tabindex="2" />
+          </div>
+
+          <div class="row">
+            <div class="col-md-9">
+              <p class="text-danger" ng-if="login.errors.badLogin">
+                Incorrect username and/or password.
+              </p>
+              <p class="text-danger" ng-if="login.errors.failed">
+                Login failed, see Syncthing logs for details.
+              </p>
+            </div>
+            <div class="col-md-3" style="text-align: right; padding-right: 0">
+              <button type="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log in</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- First regular row -->
+      <div class="row" ng-if="authenticated">
 
         <!-- Folder list (top left) -->
 

@@ -37,10 +37,18 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
-func unauthorized(w http.ResponseWriter) {
+func forbidden(w http.ResponseWriter) {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
-	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
-	http.Error(w, "Not Authorized", http.StatusUnauthorized)
+	http.Error(w, "Forbidden", http.StatusForbidden)
+}
+
+func equalsAny(s string, values []string) bool {
+	for _, value := range values {
+		if s == value {
+			return true
+		}
+	}
+	return false
 }
 
 func hasAnyPrefix(s string, prefixes []string) bool {
@@ -52,21 +60,37 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
+func noAuthPaths() []string {
+	return []string{
+		"/",
+		"/index.html",
+		"/modal.html",
+	}
+}
+
 func noAuthPrefixes() []string {
 	return []string{
+		// Static assets
+		"/assets/",
+		"/syncthing/",
+		"/vendor/",
+		"/theme-assets/", // This leaks information from config, but probably not sensitive
+
+		// No-auth API endpoints
 		"/rest/noauth",
 	}
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) (http.Handler, http.Handler) {
+
+	handleAuthzPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Exception for REST calls that don't require authentication.
-		if hasAnyPrefix(r.URL.Path, noAuthPrefixes()) {
+		// Exception for static assets and REST calls that don't require authentication.
+		if equalsAny(r.URL.Path, noAuthPaths()) || hasAnyPrefix(r.URL.Path, noAuthPrefixes()) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -82,14 +106,36 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			}
 		}
 
+		// Fall back to Basic auth if provided, but don't prompt for it
 		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
 			createSession(cookieName, username, guiCfg, evLogger, w, r)
 			next.ServeHTTP(w, r)
+		}
+
+		forbidden(w)
+	})
+
+	handlePasswordLogin := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct{Username string; Password string}
+		err := unmarshalTo(r.Body, &req)
+		if err != nil {
+			l.Debugln("Failed to parse username and password:", err)
+			http.Error(w, "Failed to parse username and password.", 400)
 			return
 		}
 
-		unauthorized(w)
+		if auth(req.Username, req.Password, guiCfg, ldapCfg) {
+			createSession(cookieName, req.Username, guiCfg, evLogger, w, r)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
+		forbidden(w)
+		return
 	})
+
+	return handleAuthzPassthrough, handlePasswordLogin
 }
 
 func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
