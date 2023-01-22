@@ -338,6 +338,12 @@ ul.three-columns li, ul.two-columns li {
     z-index: 980;
 }
 
+
+.login-form-buttons {
+  padding: 0;
+  text-align: right;
+}
+
 /*
  * Restore Versions tweaks
  */

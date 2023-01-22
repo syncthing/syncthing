@@ -348,7 +348,7 @@
           </div>
 
           <div class="row">
-            <div class="col-md-9">
+            <div class="col-md-9 login-form-messages">
               <p ng-if="login.errors.badLogin" class="text-danger">
                 Incorrect username and/or password.
               </p>
@@ -356,7 +356,7 @@
                 Login failed, see Syncthing logs for details.
               </p>
             </div>
-            <div class="col-md-3" style="text-align: right; padding-right: 0">
+            <div class="col-md-3 login-form-buttons">
               <button type="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log in</button>
             </div>
           </div>
