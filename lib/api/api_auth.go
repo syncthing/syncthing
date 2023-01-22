@@ -37,6 +37,12 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
+func unauthorized(w http.ResponseWriter) {
+	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
+	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
+	http.Error(w, "Not Authorized", http.StatusUnauthorized)
+}
+
 func hasAnyPrefix(s string, prefixes []string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(s, prefix) {
@@ -78,15 +84,9 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
-		error := func() {
-			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
-			w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
-			http.Error(w, "Not Authorized", http.StatusUnauthorized)
-		}
-
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			error()
+			unauthorized(w)
 			return
 		}
 
@@ -102,7 +102,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 		if !authOk {
 			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			error()
+			unauthorized(w)
 			return
 		}
 
