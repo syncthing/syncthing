@@ -82,33 +82,40 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			}
 		}
 
-		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
-
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			unauthorized(w)
+		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
+			createSession(cookieName, username, guiCfg, evLogger, w, r)
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		authOk := auth(username, password, guiCfg, ldapCfg)
-		if !authOk {
-			usernameIso := string(iso88591ToUTF8([]byte(username)))
-			passwordIso := string(iso88591ToUTF8([]byte(password)))
-			authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
-			if authOk {
-				username = usernameIso
-			}
-		}
-
-		if !authOk {
-			emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-			unauthorized(w)
-			return
-		}
-
-		createSession(cookieName, username, guiCfg, evLogger, w, r)
-		next.ServeHTTP(w, r)
+		unauthorized(w)
 	})
+}
+
+func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		return "", false
+	}
+
+	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+
+	authOk := auth(username, password, guiCfg, ldapCfg)
+	if !authOk {
+		usernameIso := string(iso88591ToUTF8([]byte(username)))
+		passwordIso := string(iso88591ToUTF8([]byte(password)))
+		authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+		if authOk {
+			username = usernameIso
+		}
+	}
+
+	if authOk {
+		return username, true
+	}
+
+	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	return "", false
 }
 
 func createSession(cookieName string, username string, guiCfg config.GUIConfiguration, evLogger events.Logger, w http.ResponseWriter, r *http.Request) {
