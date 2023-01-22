@@ -72,7 +72,7 @@
           <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
           <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
         </span>
-        <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
+        <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}" ng-if="authenticated">{{thisDeviceName()}}</p>
         <ul class="nav navbar-nav navbar-right">
           <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
             <button type="button" class="btn navbar-btn btn-primary btn-sm" data-toggle="modal" data-target="#upgrade">
@@ -100,23 +100,26 @@
               <span class="caret"></span>
             </a>
             <ul class="dropdown-menu">
-              <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
-              <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-              <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated"><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated"><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
+
               <li class="visible-xs">
                 <a href="{{docsURL('intro/gui')}}" target="_blank">
                   <span class="fas fa-fw fa-question-circle"></span>&nbsp;<span translate>Help</span>
                 </a>
               </li>
               <li><a href="" ng-click="about.show()"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
-              <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
-              <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
-              <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
-              <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
+
+              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated"><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+
+              <li ng-if="config.gui.debugging" class="divider" aria-hidden="true"></li>
+              <li ng-if="config.gui.debugging"><a href="/rest/debug/support" target="_blank"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
             </ul>
           </li>
         </ul>
