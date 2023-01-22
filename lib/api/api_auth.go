@@ -37,6 +37,21 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func noAuthPrefixes() []string {
+	return []string{
+		"/rest/noauth",
+	}
+}
+
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
@@ -45,7 +60,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		}
 
 		// Exception for REST calls that don't require authentication.
-		if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+		if hasAnyPrefix(r.URL.Path, noAuthPrefixes()) {
 			next.ServeHTTP(w, r)
 			return
 		}
