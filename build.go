@@ -152,7 +152,7 @@ var targets = map[string]target{
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs: []buildPkg{
 			{pkg: "github.com/syncthing/syncthing/cmd/syncthing"},
-			{pkg: "github.com/syncthing/syncthing/cmd/syncthingw", goos: "windows"},
+			{pkg: "github.com/syncthing/syncthing/cmd/syncthing/syncthingw", goos: "windows"},
 		},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
