@@ -72,7 +72,7 @@
           <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
           <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
         </span>
-        <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}" ng-if="authenticated">{{thisDeviceName()}}</p>
+        <p ng-if="authenticated" class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
         <ul class="nav navbar-nav navbar-right">
           <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
             <button type="button" class="btn navbar-btn btn-primary btn-sm" data-toggle="modal" data-target="#upgrade">
@@ -333,7 +333,7 @@
       </div>
 
       <!-- Login form -->
-      <div class="center-block" ng-if="!authenticated">
+      <div ng-if="!authenticated" class="center-block">
         <h3 translate>Authentication required</h3>
 
         <form ng-submit="authenticatePassword()">
@@ -349,10 +349,10 @@
 
           <div class="row">
             <div class="col-md-9">
-              <p class="text-danger" ng-if="login.errors.badLogin">
+              <p ng-if="login.errors.badLogin" class="text-danger">
                 Incorrect username and/or password.
               </p>
-              <p class="text-danger" ng-if="login.errors.failed">
+              <p ng-if="login.errors.failed" class="text-danger">
                 Login failed, see Syncthing logs for details.
               </p>
             </div>
@@ -364,7 +364,7 @@
       </div>
 
       <!-- First regular row -->
-      <div class="row" ng-if="authenticated">
+      <div ng-if="authenticated" class="row">
 
         <!-- Folder list (top left) -->
 

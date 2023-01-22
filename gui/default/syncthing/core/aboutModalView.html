@@ -3,18 +3,18 @@
     <h1 class="text-center">
       <img alt="Syncthing" src="assets/img/logo-horizontal.svg" style="max-width: 366px; vertical-align: -16px" />
     </h1>
-    <h1 class="text-center" ng-if="version.version">
+    <h1 ng-if="version.version" class="text-center">
       <small>{{versionString()}}</small>
       <br />
       <small><i>"{{version.codename}}"</i></small>
     </h1>
-    <p class="text-center" ng-if="version.version">
+    <p ng-if="version.version" class="text-center">
       Build {{version.date | date:"yyyy-MM-dd"}}
       <span ng-if="version.tags.length">({{version.tags.join(", ")}})</span>
       <br />
       Copyright &copy; 2014-{{version.date | date:"yyyy"}} the Syncthing Authors.
     </p>
-    <p class="text-center" ng-if="!version.version" translate>
+    <p ng-if="!version.version" class="text-center" translate>
       Log in to see version information.
     </p>
     <p class="text-center" translate>Syncthing is Free and Open Source Software licensed as MPL v2.0.</p>
@@ -88,7 +88,7 @@ Jakob Borg, Audrius Butkevicius, Jesse Lucas, Simon Frei, Alexander Graf, Alexan
         <p ng-if="!authenticated" tranlate>
           Log in to see paths information.
         </p>
-        <table class="table table-striped table-auto" ng-if="authenticated">
+        <table ng-if="authenticated" class="table table-striped table-auto">
           <caption><label translate>Internally used paths:</label></caption>
           <tbody>
             <tr>
