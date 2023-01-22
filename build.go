@@ -119,8 +119,9 @@ func (t *target) expandFileList(files []archiveFile) []archiveFile {
 }
 
 type buildPkg struct {
-	pkg  string
-	goos string
+	pkg     string
+	goos    string
+	ldflags string
 }
 
 func (p buildPkg) binaryName() string {
@@ -152,7 +153,7 @@ var targets = map[string]target{
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs: []buildPkg{
 			{pkg: "github.com/syncthing/syncthing/cmd/syncthing"},
-			{pkg: "github.com/syncthing/syncthing/cmd/syncthing/syncthingw", goos: "windows"},
+			{pkg: "github.com/syncthing/syncthing/cmd/syncthing/syncthingw", goos: "windows", ldflags: "-H windowsgui"},
 		},
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -577,7 +578,7 @@ func build(target target, tags []string) {
 		if buildOut != "" {
 			args = append(args, "-o", buildOut)
 		}
-		args = appendParameters(args, tags, pkg.pkg)
+		args = appendParameters(args, tags, pkg)
 		runPrint(goCmd, args...)
 	}
 }
@@ -595,7 +596,7 @@ func setBuildEnvVars() {
 	}
 }
 
-func appendParameters(args []string, tags []string, pkgs ...string) []string {
+func appendParameters(args []string, tags []string, pkg buildPkg) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -611,7 +612,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-trimpath", "-ldflags", ldflags(tags))
+		args = append(args, "-trimpath", "-ldflags", ldflags(pkg, tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -620,7 +621,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 		args = append(args, "-gcflags", "all=-N -l")
 	}
 
-	return append(args, pkgs...)
+	return append(args, pkg.pkg)
 }
 
 func buildTar(target target, tags []string) {
@@ -1005,7 +1006,7 @@ func weblate() {
 	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
 }
 
-func ldflags(tags []string) string {
+func ldflags(pkg buildPkg, tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
@@ -1013,6 +1014,9 @@ func ldflags(tags []string) string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Tags=%s", strings.Join(tags, ","))
+	if pkg.ldflags != "" {
+		fmt.Fprintf(b, " %s", pkg.ldflags)
+	}
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
