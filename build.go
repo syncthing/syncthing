@@ -74,23 +74,19 @@ type target struct {
 	tags              []string
 }
 
-func (t target) buildPkgStrings() []string {
-	var pkgs []string
-	for _, pkg := range t.activeBuildPkgs() {
-		pkgs = append(pkgs, pkg.pkg)
-	}
-	return pkgs
-}
-
-func (t target) activeBuildPkgs() []buildPkg {
-	var pkgs []buildPkg
+func (t target) activeBuildPkgs() [][]buildPkg {
+	pkgs := make(map[string][]buildPkg)
 	for _, pkg := range t.buildPkgs {
 		if pkg.goos != "" && pkg.goos != goos {
 			continue
 		}
-		pkgs = append(pkgs, pkg)
+		pkgs[pkg.ldflags] = append(pkgs[pkg.ldflags], pkg)
 	}
-	return pkgs
+	var ret [][]buildPkg
+	for _, pkgs := range pkgs {
+		ret = append(ret, pkgs)
+	}
+	return ret
 }
 
 func (t *target) expandedArchiveFiles() []archiveFile {
@@ -105,11 +101,13 @@ func (t *target) expandFileList(files []archiveFile) []archiveFile {
 	var fs []archiveFile
 	for _, f := range files {
 		if strings.Contains(f.src, "{{binary}}") || strings.Contains(f.dst, "{{binary}}") {
-			for _, pkg := range t.activeBuildPkgs() {
-				fs = append(fs, archiveFile{
-					src: strings.Replace(f.src, "{{binary}}", pkg.binaryName(), 1),
-					dst: strings.Replace(f.dst, "{{binary}}", pkg.binaryName(), 1),
-				})
+			for _, pkgs := range t.activeBuildPkgs() {
+				for _, pkg := range pkgs {
+					fs = append(fs, archiveFile{
+						src: strings.Replace(f.src, "{{binary}}", pkg.binaryName(), 1),
+						dst: strings.Replace(f.dst, "{{binary}}", pkg.binaryName(), 1),
+					})
+				}
 			}
 			continue
 		}
@@ -539,9 +537,11 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
-	args = appendParameters(args, tags, target.buildPkgStrings()...)
-	runPrint(goCmd, args...)
+	for _, pkgs := range target.activeBuildPkgs() {
+		args := []string{"install", "-v"}
+		args = appendParameters(args, tags, pkgs...)
+		runPrint(goCmd, args...)
+	}
 }
 
 func build(target target, tags []string) {
@@ -552,8 +552,10 @@ func build(target target, tags []string) {
 	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
 
-	for _, pkg := range target.activeBuildPkgs() {
-		rmr(pkg.binaryName())
+	for _, pkgs := range target.activeBuildPkgs() {
+		for _, pkg := range pkgs {
+			rmr(pkg.binaryName())
+		}
 	}
 
 	setBuildEnvVars()
@@ -573,12 +575,12 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	for _, pkg := range target.activeBuildPkgs() {
+	for _, pkgs := range target.activeBuildPkgs() {
 		args := []string{"build", "-v"}
 		if buildOut != "" {
 			args = append(args, "-o", buildOut)
 		}
-		args = appendParameters(args, tags, pkg)
+		args = appendParameters(args, tags, pkgs...)
 		runPrint(goCmd, args...)
 	}
 }
@@ -596,7 +598,7 @@ func setBuildEnvVars() {
 	}
 }
 
-func appendParameters(args []string, tags []string, pkg buildPkg) []string {
+func appendParameters(args []string, tags []string, pkgs ...buildPkg) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -612,7 +614,7 @@ func appendParameters(args []string, tags []string, pkg buildPkg) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-trimpath", "-ldflags", ldflags(pkg, tags))
+		args = append(args, "-trimpath", "-ldflags", ldflags(pkgs[0], tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -621,7 +623,10 @@ func appendParameters(args []string, tags []string, pkg buildPkg) []string {
 		args = append(args, "-gcflags", "all=-N -l")
 	}
 
-	return append(args, pkg.pkg)
+	for _, pkg := range pkgs {
+		args = append(args, pkg.pkg)
+	}
+	return args
 }
 
 func buildTar(target target, tags []string) {
@@ -1402,12 +1407,14 @@ func zipFile(out string, files []archiveFile) {
 }
 
 func codesign(target target) {
-	for _, pkg := range target.activeBuildPkgs() {
-		switch goos {
-		case "windows":
-			windowsCodesign(pkg.binaryName())
-		case "darwin":
-			macosCodesign(pkg.binaryName())
+	for _, pkgs := range target.activeBuildPkgs() {
+		for _, pkg := range pkgs {
+			switch goos {
+			case "windows":
+				windowsCodesign(pkg.binaryName())
+			case "darwin":
+				macosCodesign(pkg.binaryName())
+			}
 		}
 	}
 }
