@@ -6,6 +6,7 @@ require (
 	github.com/AudriusButkevicius/pfilter v0.0.10
 	github.com/AudriusButkevicius/recli v0.0.6
 	github.com/alecthomas/kong v0.7.1
+	github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.4
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/jackpal/gateway v1.0.7
 	github.com/jackpal/go-nat-pmp v1.0.2
+	github.com/josephspurrier/goversioninfo v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/klauspost/cpuid/v2 v2.2.2 // indirect
@@ -56,11 +58,6 @@ require (
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.4.0
 	google.golang.org/protobuf v1.28.1
-)
-
-require (
-	github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a
-	github.com/josephspurrier/goversioninfo v1.4.0
 )
 
 require (

@@ -19,9 +19,6 @@ func main() {
 	}
 
 	cmd := exec.Command(binary, os.Args[1:]...)
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
-	// cmd.Stdin = os.Stdin
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	err = cmd.Run()
 	if err != nil {
