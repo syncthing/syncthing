@@ -85,15 +85,6 @@ func attachConsole(pid int) error {
 	return errors.New("could not find AttachConsole")
 }
 
-func getFileType(fd windows.Handle) uintptr {
-	getFileTypeCall := syscall.NewLazyDLL("kernel32.dll").NewProc("GetFileType")
-	if getFileTypeCall.Find() == nil {
-		t, _, _ := getFileTypeCall.Call(uintptr(fd))
-		return t
-	}
-	return 9000
-}
-
 func initConsoleHandles() error {
 	// Retrieve standard handles.
 	hIn, err := windows.GetStdHandle(windows.STD_INPUT_HANDLE)
