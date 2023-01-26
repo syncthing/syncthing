@@ -482,8 +482,28 @@ func install(target target, tags []string) {
 	}
 
 	args := []string{"install", "-v"}
-	args = appendParameters(args, tags, target.buildPkgs...)
-	runPrint(goCmd, args...)
+
+	splitPackagesAndRun(goCmd, tags, args, target)
+}
+
+func splitPackagesAndRun(goCmd string, tags []string, args []string, target target) {
+	var nonSyncthingPkgs []string
+	for _, pkgName := range target.buildPkgs {
+		if pkgName == "github.com/syncthing/syncthing/cmd/syncthing" {
+			syncthingArgs := append([]string(nil), args...)
+			syncthingArgs = appendParameters(syncthingArgs, tags, true)
+			syncthingArgs = append(syncthingArgs, pkgName)
+			runPrint(goCmd, syncthingArgs...)
+		} else {
+			nonSyncthingPkgs = append(nonSyncthingPkgs, pkgName)
+		}
+	}
+
+	if len(nonSyncthingPkgs) > 0 {
+		args = appendParameters(args, tags, false)
+		args = append(args, nonSyncthingPkgs...)
+		runPrint(goCmd, args...)
+	}
 }
 
 func build(target target, tags []string) {
@@ -517,8 +537,8 @@ func build(target target, tags []string) {
 	if buildOut != "" {
 		args = append(args, "-o", buildOut)
 	}
-	args = appendParameters(args, tags, target.buildPkgs...)
-	runPrint(goCmd, args...)
+
+	splitPackagesAndRun(goCmd, tags, args, target)
 }
 
 func setBuildEnvVars() {
@@ -534,7 +554,7 @@ func setBuildEnvVars() {
 	}
 }
 
-func appendParameters(args []string, tags []string, pkgs ...string) []string {
+func appendParameters(args []string, tags []string, windowsGui bool) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -550,7 +570,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-trimpath", "-ldflags", ldflags(tags))
+		args = append(args, "-trimpath", "-ldflags", ldflags(tags, windowsGui))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -559,7 +579,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 		args = append(args, "-gcflags", "all=-N -l")
 	}
 
-	return append(args, pkgs...)
+	return args
 }
 
 func buildTar(target target, tags []string) {
@@ -961,7 +981,7 @@ func weblate() {
 	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
 }
 
-func ldflags(tags []string) string {
+func ldflags(tags []string, windowsGui bool) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
@@ -969,6 +989,9 @@ func ldflags(tags []string) string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Tags=%s", strings.Join(tags, ","))
+	if goos == "windows" && windowsGui {
+		fmt.Fprintf(b, " -H=windowsgui")
+	}
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}

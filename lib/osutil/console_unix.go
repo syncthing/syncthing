@@ -9,4 +9,6 @@
 
 package osutil
 
-func HideConsole() {}
+func AttachOrAllocateConsole() error {
+	return nil
+}

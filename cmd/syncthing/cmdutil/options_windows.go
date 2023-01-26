@@ -7,5 +7,5 @@
 package cmdutil
 
 type buildCommonOptions struct {
-	HideConsole bool `name:"no-console" help:"Hide console window"`
+	HideConsole bool `name:"no-console" help:"Hide console window"` // Actually unused, and handled as first thing in main
 }

@@ -146,7 +146,7 @@ type serveOptions struct {
 	BrowserOnly      bool   `help:"Open GUI in browser"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` //DEPRECATED: replaced by subcommand!
+	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
@@ -208,6 +208,19 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+	// Do this very early on, we might not get to the point where
+	// arguments were successfully parsed to read the HideConsole flag,
+	// to be able to print the error message.
+	allocateConsole := true
+	for _, arg := range os.Args {
+		if arg == "-no-console" || arg == "--no-console" {
+			allocateConsole = false
+		}
+	}
+	if allocateConsole {
+		osutil.AttachOrAllocateConsole()
+	}
+
 	// The "cli" subcommand uses a different command line parser, and e.g. help
 	// gets mangled when integrating it as a subcommand -> detect it here at the
 	// beginning.
@@ -279,10 +292,6 @@ func (options serveOptions) Run() error {
 	if options.GUIAPIKey != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIAPIKEY", options.GUIAPIKey)
-	}
-
-	if options.HideConsole {
-		osutil.HideConsole()
 	}
 
 	// Not set as default above because the strings can be really long.

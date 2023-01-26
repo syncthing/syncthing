@@ -21,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
 )
@@ -33,10 +32,6 @@ type CLI struct {
 }
 
 func (c *CLI) Run(l logger.Logger) error {
-	if c.HideConsole {
-		osutil.HideConsole()
-	}
-
 	if c.HomeDir != "" {
 		if c.ConfDir != "" {
 			return errors.New("--home must not be used together with --config")
