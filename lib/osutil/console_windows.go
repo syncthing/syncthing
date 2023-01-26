@@ -22,6 +22,11 @@ const ATTACH_PARENT_PROCESS = -1
 
 func AttachOrAllocateConsole() error {
 	if hasConsoleWindow() {
+		// This should never happen, and could only happen if you've screwed up the build scripts
+		// and somehow compiled without the gui linker flags.
+		// If that does happen, we'd be throwing a message box below as we fail to attach and fail to allocate
+		// so this check if to prevent that.
+		// However, if you end up here, -hide-console actually does nothing.
 		return errors.New("already attached")
 	}
 
