@@ -211,6 +211,8 @@ func main() {
 	// Do this very early on, we might not get to the point where
 	// arguments were successfully parsed to read the HideConsole flag,
 	// to be able to print the error message.
+	// Also, there are things that capture os.Stdout very early on for their own purposes
+	// (i.e, cli parsers for logging), so we want to make sure os.Stdout etc are setup as early as possible.
 	allocateConsole := true
 	for _, arg := range os.Args {
 		if arg == "-no-console" || arg == "--no-console" {
