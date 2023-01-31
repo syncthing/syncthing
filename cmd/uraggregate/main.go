@@ -53,13 +53,6 @@ func runAggregation(db *sql.DB) {
 	}
 	log.Println("Inserted", rows, "rows")
 
-	log.Println("Aggregating UserMovement data")
-	rows, err = aggregateUserMovement(db)
-	if err != nil {
-		log.Println("aggregate:", err)
-	}
-	log.Println("Inserted", rows, "rows")
-
 	since = maxIndexedDay(db, "Performance")
 	log.Println("Aggregating Performance data since", since)
 	rows, err = aggregatePerformance(db, since.Add(24*time.Hour))

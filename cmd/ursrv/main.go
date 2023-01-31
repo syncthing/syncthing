@@ -582,7 +582,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 
 	for rows.Next() {
 		err := rows.Scan(&rep.Received, &rep)
-
 		if err != nil {
 			log.Println("sql:", err)
 			return nil
@@ -1158,9 +1157,11 @@ type sortableFeatureList []feature
 func (l sortableFeatureList) Len() int {
 	return len(l)
 }
+
 func (l sortableFeatureList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
+
 func (l sortableFeatureList) Less(a, b int) bool {
 	if l[a].Pct != l[b].Pct {
 		return l[a].Pct < l[b].Pct
