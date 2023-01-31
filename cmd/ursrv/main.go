@@ -25,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/oschwald/geoip2-golang"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
