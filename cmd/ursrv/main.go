@@ -1022,7 +1022,7 @@ func (s *summary) filter(min int) {
 func getSummary(db *sql.DB, min int) (summary, error) {
 	s := newSummary()
 
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '2 year'::INTERVAL;`)
+	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '3 year'::INTERVAL;`)
 	if err != nil {
 		return summary{}, err
 	}
@@ -1055,7 +1055,7 @@ func getSummary(db *sql.DB, min int) (summary, error) {
 }
 
 func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '2 year'::INTERVAL ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1088,7 +1088,7 @@ func getMovement(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getPerformance(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > '2014-06-20'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > now() - '5 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1115,7 +1115,7 @@ func getPerformance(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getBlockStats(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > '2017-10-23'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
