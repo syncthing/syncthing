@@ -119,13 +119,13 @@ func setupDB(db *sql.DB) error {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS BlockStats (
 		Day TIMESTAMP NOT NULL,
 		Reports INTEGER NOT NULL,
-		Total INTEGER NOT NULL,
-		Renamed INTEGER NOT NULL,
-		Reused INTEGER NOT NULL,
-		Pulled INTEGER NOT NULL,
-		CopyOrigin INTEGER NOT NULL,
-		CopyOriginShifted INTEGER NOT NULL,
-		CopyElsewhere INTEGER NOT NULL
+		Total BIGINT NOT NULL,
+		Renamed BIGINT NOT NULL,
+		Reused BIGINT NOT NULL,
+		Pulled BIGINT NOT NULL,
+		CopyOrigin BIGINT NOT NULL,
+		CopyOriginShifted BIGINT NOT NULL,
+		CopyElsewhere BIGINT NOT NULL
 	)`)
 	if err != nil {
 		return err
@@ -306,13 +306,13 @@ func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
 	SELECT
 		DATE_TRUNC('day', Received) AS Day,
 		COUNT(1) As Reports,
-		SUM((Report->'blockStats'->>'total')::numeric) AS Total,
-		SUM((Report->'blockStats'->>'renamed')::numeric) AS Renamed,
-		SUM((Report->'blockStats'->>'reused')::numeric) AS Reused,
-		SUM((Report->'blockStats'->>'pulled')::numeric) AS Pulled,
-		SUM((Report->'blockStats'->>'copyOrigin')::numeric) AS CopyOrigin,
-		SUM((Report->'blockStats'->>'copyOriginShifted')::numeric) AS CopyOriginShifted,
-		SUM((Report->'blockStats'->>'copyElsewhere')::numeric) AS CopyElsewhere
+		SUM((Report->'blockStats'->>'total')::numeric)::bigint AS Total,
+		SUM((Report->'blockStats'->>'renamed')::numeric)::bigint AS Renamed,
+		SUM((Report->'blockStats'->>'reused')::numeric)::bigint AS Reused,
+		SUM((Report->'blockStats'->>'pulled')::numeric)::bigint AS Pulled,
+		SUM((Report->'blockStats'->>'copyOrigin')::numeric)::bigint AS CopyOrigin,
+		SUM((Report->'blockStats'->>'copyOriginShifted')::numeric)::bigint AS CopyOriginShifted,
+		SUM((Report->'blockStats'->>'copyElsewhere')::numeric)::bigint AS CopyElsewhere
 		FROM ReportsJson
 		WHERE
 			Received > $1

@@ -1133,6 +1133,10 @@ func getBlockStats(db *sql.DB) ([][]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Legacy bad data on certain days
+		if reports <= 0 || pulled < 0 || renamed < 0 || reused < 0 || copyOrigin < 0 || copyOriginShifted < 0 || copyElsewhere < 0 {
+			continue
+		}
 		row := []interface{}{
 			day.Format("2006-01-02"),
 			reports,
