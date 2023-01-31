@@ -131,11 +131,6 @@ func setupDB(db *sql.DB) error {
 		}
 	}
 
-	// Migrate from old schema to new schema if the table exists.
-	if err := migrate(db); err != nil {
-		return err
-	}
-
 	return nil
 }
 
