@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"strings"
 	stdsync "sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -166,7 +167,7 @@ type model struct {
 	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
 
 	// for testing only
-	foldersRunning int32
+	foldersRunning atomic.Int32
 }
 
 var _ config.Verifier = &model{}
