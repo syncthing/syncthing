@@ -31,8 +31,11 @@ type header struct {
 
 type Ping struct{}
 type Pong struct{}
-type JoinRelayRequest struct{}
 type RelayFull struct{}
+
+type JoinRelayRequest struct {
+	Token string
+}
 
 type JoinSessionRequest struct {
 	Key []byte // max:32

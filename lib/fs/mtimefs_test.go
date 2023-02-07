@@ -205,7 +205,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 			t.Error("Should not have failed:", err)
 		}
 
-		// Check that we get back the mtime we set, if we were supposed to succed.
+		// Check that we get back the mtime we set, if we were supposed to succeed.
 		info, err := fs.Lstat("testdata/FILE")
 		if err != nil {
 			t.Error("Lstat shouldn't fail:", err)

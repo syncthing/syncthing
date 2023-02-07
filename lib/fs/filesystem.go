@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,12 @@ const (
 	filesystemWrapperTypeWalk
 	filesystemWrapperTypeLog
 )
+
+type XattrFilter interface {
+	Permit(string) bool
+	GetMaxSingleEntrySize() int
+	GetMaxTotalSize() int
+}
 
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
@@ -62,7 +69,9 @@ type Filesystem interface {
 	URI() string
 	Options() []Option
 	SameFile(fi1, fi2 FileInfo) bool
-	PlatformData(name string) (protocol.PlatformData, error)
+	PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error)
+	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
+	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
@@ -94,11 +103,13 @@ type FileInfo interface {
 	Size() int64
 	ModTime() time.Time
 	IsDir() bool
+	Sys() interface{}
 	// Extensions
 	IsRegular() bool
 	IsSymlink() bool
 	Owner() int
 	Group() int
+	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode
@@ -154,7 +165,10 @@ func (evType EventType) String() string {
 	}
 }
 
-var ErrWatchNotSupported = errors.New("watching is not supported")
+var (
+	ErrWatchNotSupported  = errors.New("watching is not supported")
+	ErrXattrsNotSupported = errors.New("extended attributes are not supported on this platform")
+)
 
 // Equivalents from os package.
 
@@ -179,20 +193,25 @@ const OptWriteOnly = os.O_WRONLY
 // as an error by any function.
 var SkipDir = filepath.SkipDir
 
-// IsExist is the equivalent of os.IsExist
-var IsExist = os.IsExist
+func IsExist(err error) bool {
+	return errors.Is(err, ErrExist)
+}
 
-// IsExist is the equivalent of os.ErrExist
-var ErrExist = os.ErrExist
+// ErrExist is the equivalent of os.ErrExist
+var ErrExist = fs.ErrExist
 
 // IsNotExist is the equivalent of os.IsNotExist
-var IsNotExist = os.IsNotExist
+func IsNotExist(err error) bool {
+	return errors.Is(err, ErrNotExist)
+}
 
 // ErrNotExist is the equivalent of os.ErrNotExist
-var ErrNotExist = os.ErrNotExist
+var ErrNotExist = fs.ErrNotExist
 
 // IsPermission is the equivalent of os.IsPermission
-var IsPermission = os.IsPermission
+func IsPermission(err error) bool {
+	return errors.Is(err, fs.ErrPermission)
+}
 
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator

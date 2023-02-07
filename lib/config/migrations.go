@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
 		{34, migrateToConfigV34},
@@ -93,6 +94,14 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV37(cfg *Configuration) {
+	// "scan ownership" changed name to "send ownership"
+	for i := range cfg.Folders {
+		cfg.Folders[i].SendOwnership = cfg.Folders[i].DeprecatedScanOwnership
+		cfg.Folders[i].DeprecatedScanOwnership = false
+	}
 }
 
 func migrateToConfigV36(cfg *Configuration) {

@@ -996,8 +996,8 @@ func TestIssue4901(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		if fs.IsNotExist(err) {
-			t.Fatal("unexpected error type")
+		if err == fs.ErrNotExist {
+			t.Fatalf("unexpected error type: %T", err)
 		}
 		if !IsParseError(err) {
 			t.Fatal("failure to load included file should be a parse error")

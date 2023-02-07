@@ -55,7 +55,7 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
-func (infiniteFS) PlatformData(_ string) (protocol.PlatformData, error) {
+func (infiniteFS) PlatformData(_ string, _, _ bool, _ fs.XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -105,7 +105,7 @@ func (singleFileFS) Options() []fs.Option {
 	return nil
 }
 
-func (singleFileFS) PlatformData(_ string) (protocol.PlatformData, error) {
+func (singleFileFS) PlatformData(_ string, _, _ bool, _ fs.XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
 }
 
@@ -121,10 +121,12 @@ func (fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
 func (f fakeInfo) IsDir() bool {
 	return strings.Contains(filepath.Base(f.name), "dir") || f.name == "."
 }
-func (f fakeInfo) IsRegular() bool { return !f.IsDir() }
-func (fakeInfo) IsSymlink() bool   { return false }
-func (fakeInfo) Owner() int        { return 0 }
-func (fakeInfo) Group() int        { return 0 }
+func (f fakeInfo) IsRegular() bool          { return !f.IsDir() }
+func (fakeInfo) IsSymlink() bool            { return false }
+func (fakeInfo) Owner() int                 { return 0 }
+func (fakeInfo) Group() int                 { return 0 }
+func (fakeInfo) Sys() interface{}           { return nil }
+func (fakeInfo) InodeChangeTime() time.Time { return time.Time{} }
 
 type fakeFile struct {
 	name       string

@@ -253,6 +253,7 @@ func mainCmdline() {
 
 	ctx, err := parser.Parse(args)
 	parser.FatalIfErrorf(err)
+	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
 	err = ctx.Run()
 	parser.FatalIfErrorf(err)
 }
@@ -347,7 +348,7 @@ func (options ServeOptions) Run() error {
 	}
 
 	if options.GenerateDir != "" {
-		if err := generate.Generate(options.GenerateDir, "", "", options.NoDefaultFolder, options.SkipPortProbing); err != nil {
+		if err := generate.Generate(l, options.GenerateDir, "", "", options.NoDefaultFolder, options.SkipPortProbing); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
 			return err
 		}
@@ -593,7 +594,7 @@ func SyncthingMain(options ServeOptions) error {
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
-	// upgrade immedately. The auto-upgrade routine can only be started
+	// upgrade immediately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
 	autoUpgradePossible := autoUpgradePossible(options)

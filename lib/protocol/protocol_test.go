@@ -702,7 +702,7 @@ func TestIsEquivalent(t *testing.T) {
 		// Empty FileInfos are equivalent
 		{eq: true},
 
-		// Various basic attributes, all of which cause ineqality when
+		// Various basic attributes, all of which cause inequality when
 		// they differ
 		{
 			a:  FileInfo{Name: "foo"},

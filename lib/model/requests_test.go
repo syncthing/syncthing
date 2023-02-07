@@ -1174,7 +1174,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	var seq int64 = 1
 	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(myID.Short()), Sequence: seq}}
 
-	// Both devices connected, noone paused
+	// Both devices connected, none paused
 	localIndexUpdate(m, fcfg.ID, files)
 	select {
 	case <-time.After(5 * time.Second):

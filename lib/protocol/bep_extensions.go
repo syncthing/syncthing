@@ -44,6 +44,8 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
+	PlatformData() PlatformData
+	InodeChangeTime() time.Time
 }
 
 func (Hello) Magic() uint32 {
@@ -53,14 +55,14 @@ func (Hello) Magic() uint32 {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x, Platform:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash, f.Platform)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
 	default:
 		panic("mystery file type detected")
 	}
@@ -160,6 +162,14 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) PlatformData() PlatformData {
+	return f.Platform
+}
+
+func (f FileInfo) InodeChangeTime() time.Time {
+	return time.Unix(0, f.InodeChangeNs)
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func WinsConflict(f, other FileIntf) bool {
@@ -196,6 +206,7 @@ type FileInfoComparison struct {
 	IgnoreBlocks    bool
 	IgnoreFlags     uint32
 	IgnoreOwnership bool
+	IgnoreXattrs    bool
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
@@ -233,6 +244,12 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
+	// If we care about either ownership or xattrs, are recording inode change
+	// times and it changed, they are not equal.
+	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
+		return false
+	}
+
 	// Mask out the ignored local flags before checking IsInvalid() below
 	f.LocalFlags &^= comp.IgnoreFlags
 	other.LocalFlags &^= comp.IgnoreFlags
@@ -241,20 +258,26 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
-	// OS data comparison is special: we consider a difference only if an
-	// entry for the same OS exists on both sides and they are different.
-	// Otherwise a file would become different as soon as it's synced from
-	// Windows to Linux, as Linux would add a new POSIX entry for the file.
 	if !comp.IgnoreOwnership && f.Platform != other.Platform {
-		if f.Platform.Unix != nil && other.Platform.Unix != nil {
-			if *f.Platform.Unix != *other.Platform.Unix {
-				return false
-			}
+		if !unixOwnershipEqual(f.Platform.Unix, other.Platform.Unix) {
+			return false
 		}
-		if f.Platform.Windows != nil && other.Platform.Windows != nil {
-			if *f.Platform.Windows != *other.Platform.Windows {
-				return false
-			}
+		if !windowsOwnershipEqual(f.Platform.Windows, other.Platform.Windows) {
+			return false
+		}
+	}
+	if !comp.IgnoreXattrs && f.Platform != other.Platform {
+		if !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
+			return false
 		}
 	}
 
@@ -306,6 +329,76 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 
 	// Actually compare the block lists in full.
 	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+// Xattrs is a convenience method to return the extended attributes of the
+// file for the current platform.
+func (f *PlatformData) Xattrs() []Xattr {
+	switch {
+	case build.IsLinux && f.Linux != nil:
+		return f.Linux.Xattrs
+	case build.IsDarwin && f.Darwin != nil:
+		return f.Darwin.Xattrs
+	case build.IsFreeBSD && f.FreeBSD != nil:
+		return f.FreeBSD.Xattrs
+	case build.IsNetBSD && f.NetBSD != nil:
+		return f.NetBSD.Xattrs
+	default:
+		return nil
+	}
+}
+
+// SetXattrs is a convenience method to set the extended attributes of the
+// file for the current platform.
+func (p *PlatformData) SetXattrs(xattrs []Xattr) {
+	switch {
+	case build.IsLinux:
+		if p.Linux == nil {
+			p.Linux = &XattrData{}
+		}
+		p.Linux.Xattrs = xattrs
+
+	case build.IsDarwin:
+		if p.Darwin == nil {
+			p.Darwin = &XattrData{}
+		}
+		p.Darwin.Xattrs = xattrs
+
+	case build.IsFreeBSD:
+		if p.FreeBSD == nil {
+			p.FreeBSD = &XattrData{}
+		}
+		p.FreeBSD.Xattrs = xattrs
+
+	case build.IsNetBSD:
+		if p.NetBSD == nil {
+			p.NetBSD = &XattrData{}
+		}
+		p.NetBSD.Xattrs = xattrs
+	}
+}
+
+// MergeWith copies platform data from other, for platforms where it's not
+// already set on p.
+func (p *PlatformData) MergeWith(other *PlatformData) {
+	if p.Unix == nil {
+		p.Unix = other.Unix
+	}
+	if p.Windows == nil {
+		p.Windows = other.Windows
+	}
+	if p.Linux == nil {
+		p.Linux = other.Linux
+	}
+	if p.Darwin == nil {
+		p.Darwin = other.Darwin
+	}
+	if p.FreeBSD == nil {
+		p.FreeBSD = other.FreeBSD
+	}
+	if p.NetBSD == nil {
+		p.NetBSD = other.NetBSD
+	}
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
@@ -437,4 +530,48 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 	}
 	*x = FileInfoType(n)
 	return nil
+}
+
+func xattrsEqual(a, b *XattrData) bool {
+	aEmpty := a == nil || len(a.Xattrs) == 0
+	bEmpty := b == nil || len(b.Xattrs) == 0
+	if aEmpty && bEmpty {
+		return true
+	}
+	if aEmpty || bEmpty {
+		// Only one side is empty, so they can't be equal.
+		return false
+	}
+	if len(a.Xattrs) != len(b.Xattrs) {
+		return false
+	}
+	for i := range a.Xattrs {
+		if a.Xattrs[i].Name != b.Xattrs[i].Name {
+			return false
+		}
+		if !bytes.Equal(a.Xattrs[i].Value, b.Xattrs[i].Value) {
+			return false
+		}
+	}
+	return true
+}
+
+func unixOwnershipEqual(a, b *UnixData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.UID == b.UID && a.GID == b.GID && a.OwnerName == b.OwnerName && a.GroupName == b.GroupName
+}
+
+func windowsOwnershipEqual(a, b *WindowsData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.OwnerName == b.OwnerName && a.OwnerIsGroup == b.OwnerIsGroup
 }
