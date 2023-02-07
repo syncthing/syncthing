@@ -30,7 +30,7 @@ func EnsureDir(dir string, mode fs.FileMode) error {
 	}
 
 	if fi, err := fs.Stat("."); err == nil {
-		// Apprently the stat may fail even though the mkdirall passed. If it
+		// Apparently the stat may fail even though the mkdirall passed. If it
 		// does, we'll just assume things are in order and let other things
 		// fail (like loading or creating the config...).
 		currentMode := fi.Mode() & 0777

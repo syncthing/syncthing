@@ -56,7 +56,51 @@ func (t *trashcan) String() string {
 }
 
 func (t *trashcan) Clean(ctx context.Context) error {
-	return cleanByDay(ctx, t.versionsFs, t.cleanoutDays)
+	if t.cleanoutDays <= 0 {
+		return nil
+	}
+
+	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
+		return nil
+	}
+
+	cutoff := time.Now().Add(time.Duration(-24*t.cleanoutDays) * time.Hour)
+	dirTracker := make(emptyDirTracker)
+
+	walkFn := func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if info.IsDir() && !info.IsSymlink() {
+			dirTracker.addDir(path)
+			return nil
+		}
+
+		if info.ModTime().Before(cutoff) {
+			// The file is too old; remove it.
+			err = t.versionsFs.Remove(path)
+		} else {
+			// Keep this file, and remember it so we don't unnecessarily try
+			// to remove this directory.
+			dirTracker.addFile(path)
+		}
+		return err
+	}
+
+	if err := t.versionsFs.Walk(".", walkFn); err != nil {
+		return err
+	}
+
+	dirTracker.deleteEmptyDirs(t.versionsFs)
+
+	return nil
 }
 
 func (t *trashcan) GetVersions() (map[string][]FileVersion, error) {
@@ -68,6 +112,10 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 	// existing A as we'd overwrite the old A version, therefore when we archive existing file, we archive it with a
 	// tag but when the restoration is finished, we rename it (untag it). This is only important if when restoring A,
 	// there already exists a file at the same location
+
+	// If we restore a deleted file, there won't be a conflict and archiving won't happen thus there won't be anything
+	// in the archive to rename afterwards. Log whether the file exists prior to restoring.
+	_, dstPathErr := t.folderFs.Lstat(filepath)
 
 	taggedName := ""
 	tagger := func(name, tag string) string {
@@ -82,9 +130,18 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 		return name
 	}
 
-	err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger)
-	if taggedName == "" {
+	if err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger); taggedName == "" {
 		return err
+	}
+
+	// If a deleted file was restored, even though the RenameOrCopy method is robust, check if the file exists and
+	// skip the renaming function if this is the case.
+	if fs.IsNotExist(dstPathErr) {
+		if _, err := t.folderFs.Lstat(filepath); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	return t.versionsFs.Rename(taggedName, filepath)

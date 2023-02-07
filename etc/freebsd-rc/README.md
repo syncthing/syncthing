@@ -13,4 +13,4 @@ syncthing_log_file=</path/to/syncthing/log/file>
 syncthing_user=<syncthing_user>
 syncthing_group=<syncthing_group>
 ```
-See the rc.d script for more informations.
+See the rc.d script for more information.

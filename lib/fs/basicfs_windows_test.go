@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -190,5 +191,27 @@ func TestGetFinalPath(t *testing.T) {
 				t.Errorf("EvalSymlinks got different results %q %s", evlPath, err1)
 			}
 		}
+	}
+}
+
+func TestRemoveWindowsDirIcon(t *testing.T) {
+	//Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
+
+	fs, dir := setup(t)
+	relativePath := "folder_with_icon"
+	path := filepath.Join(dir, relativePath)
+
+	if err := os.Mkdir(path, os.ModeDir); err != nil {
+		t.Fatal(err)
+	}
+	ptr, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.SetFileAttributes(ptr, uint32(syscall.FILE_ATTRIBUTE_DIRECTORY+syscall.FILE_ATTRIBUTE_READONLY)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Remove(relativePath); err != nil {
+		t.Fatal(err)
 	}
 }

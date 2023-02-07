@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var execExts map[string]bool
@@ -37,7 +38,7 @@ func (e basicFileInfo) Mode() FileMode {
 		// NTFS deduped files. Remove the symlink bit.
 		m &^= os.ModeSymlink
 	}
-	// Set executable bits on files with executable extenions (.exe, .bat, etc).
+	// Set executable bits on files with executable extensions (.exe, .bat, etc).
 	if isWindowsExecutable(e.Name()) {
 		m |= 0111
 	}
@@ -55,6 +56,10 @@ func (e basicFileInfo) Owner() int {
 
 func (e basicFileInfo) Group() int {
 	return -1
+}
+
+func (basicFileInfo) InodeChangeTime() time.Time {
+	return time.Time{}
 }
 
 // osFileInfo converts e to os.FileInfo that is suitable

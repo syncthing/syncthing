@@ -115,7 +115,7 @@ func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.
 		BasicConstraintsValid: true,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create cert: %w", err)
 	}
@@ -233,17 +233,6 @@ func (c *UnionedConnection) Read(b []byte) (n int, err error) {
 		return 1, nil
 	}
 	return c.Conn.Read(b)
-}
-
-func publicKey(priv interface{}) interface{} {
-	switch k := priv.(type) {
-	case *rsa.PrivateKey:
-		return &k.PublicKey
-	case *ecdsa.PrivateKey:
-		return &k.PublicKey
-	default:
-		return nil
-	}
 }
 
 func pemBlockForKey(priv interface{}) (*pem.Block, error) {

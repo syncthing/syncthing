@@ -1020,7 +1020,7 @@ func TestWithHaveSequence(t *testing.T) {
 }
 
 func TestStressWithHaveSequence(t *testing.T) {
-	// This races two loops against each other: one that contiously does
+	// This races two loops against each other: one that continuously does
 	// updates, and one that continuously does sequence walks. The test fails
 	// if the sequence walker sees a discontinuity.
 
@@ -1306,7 +1306,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
 	}
 	if n := receiveOnlyChangedSize(t, s).Bytes; n != 100 {
-		t.Fatal("expected 100 receive only changed btyes after local change, not", n)
+		t.Fatal("expected 100 receive only changed bytes after local change, not", n)
 	}
 
 	// Fake a revert. That's a two step process, first converting our

@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 
@@ -38,6 +39,7 @@ type tlsConn interface {
 type internalConn struct {
 	tlsConn
 	connType      connType
+	isLocal       bool
 	priority      int
 	establishedAt time.Time
 }
@@ -106,6 +108,10 @@ func (c internalConn) Type() string {
 	return c.connType.String()
 }
 
+func (c internalConn) IsLocal() bool {
+	return c.isLocal
+}
+
 func (c internalConn) Priority() int {
 	return c.priority
 }
@@ -117,12 +123,8 @@ func (c internalConn) Crypto() string {
 
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
-	host, _, err := net.SplitHostPort(c.LocalAddr().String())
+	ip, err := osutil.IPFromAddr(c.LocalAddr())
 	if err != nil {
-		return transport
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
 		return transport
 	}
 	if ip.To4() != nil {

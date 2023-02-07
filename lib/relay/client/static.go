@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/osutil"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
@@ -26,7 +27,8 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	conn *tls.Conn
+	conn  *tls.Conn
+	token string
 }
 
 func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *staticClient {
@@ -37,6 +39,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
+
+		token: uri.Query().Get("token"),
 	}
 	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
@@ -87,7 +91,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
 				if len(ip) == 0 || ip.IsUnspecified() {
-					msg.Address = remoteIPBytes(c.conn)
+					msg.Address, _ = osutil.IPFromAddr(c.conn.RemoteAddr())
 				}
 				select {
 				case c.invitations <- msg:
@@ -172,7 +176,7 @@ func (c *staticClient) disconnect() {
 }
 
 func (c *staticClient) join() error {
-	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{}); err != nil {
+	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{Token: c.token}); err != nil {
 		return err
 	}
 

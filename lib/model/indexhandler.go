@@ -360,6 +360,7 @@ func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
 	// never sent externally
 	f.LocalFlags = 0
 	f.VersionHash = nil
+	f.InodeChangeNs = 0
 	return f
 }
 

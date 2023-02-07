@@ -20,5 +20,9 @@ SystemCallArchitectures=native
 MemoryDenyWriteExecute=true
 NoNewPrivileges=true
 
+# Elevated permissions to sync ownership (disabled by default),
+# see https://docs.syncthing.net/advanced/folder-sync-ownership
+#AmbientCapabilities=CAP_CHOWN CAP_FOWNER
+
 [Install]
 WantedBy=multi-user.target

@@ -189,7 +189,7 @@ func (opts OptionsConfiguration) FeatureFlag(name string) bool {
 
 // LowestConnectionLimit is the lower of ConnectionLimitEnough or
 // ConnectionLimitMax, or whichever of them is actually set if only one of
-// them is set. It's the point where we should stop dialling.
+// them is set. It's the point where we should stop dialing.
 func (opts OptionsConfiguration) LowestConnectionLimit() int {
 	limit := opts.ConnectionLimitEnough
 	if limit == 0 || (opts.ConnectionLimitMax != 0 && opts.ConnectionLimitMax < limit) {

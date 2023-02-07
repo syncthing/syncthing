@@ -710,6 +710,7 @@ type ConnectionInfo struct {
 	Address       string `json:"address"`
 	ClientVersion string `json:"clientVersion"`
 	Type          string `json:"type"`
+	IsLocal       bool   `json:"isLocal"`
 	Crypto        string `json:"crypto"`
 }
 
@@ -740,6 +741,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
+			ci.IsLocal = conn.IsLocal()
 			ci.Crypto = conn.Crypto()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
@@ -1277,7 +1279,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
 			}
-			cfg.Devices = make([]config.DeviceConfiguration, len(devices))
+			cfg.Devices = make([]config.DeviceConfiguration, 0, len(devices))
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
@@ -1434,7 +1436,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if !(hasTokenRemote || hasTokenLocal || isEncryptedRemote || isEncryptedLocal) {
-		// Noone cares about encryption here
+		// No one cares about encryption here
 		return nil
 	}
 
@@ -1516,7 +1518,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Lock()
 			m.folderEncryptionPasswordTokens[fcfg.ID] = ccToken
 			m.fmut.Unlock()
-			// We can only announce ourselfs once we have the token,
+			// We can only announce ourselves once we have the token,
 			// thus we need to resend CCs now that we have it.
 			m.sendClusterConfig(fcfg.DeviceIDs())
 			return nil
@@ -1683,7 +1685,12 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 				// Override the user-configured defaults, as normally done by the GUI
 				fcfg.FSWatcherEnabled = false
-				fcfg.RescanIntervalS = 3600 * 24
+				if fcfg.RescanIntervalS != 0 {
+					minRescanInterval := 3600 * 24
+					if fcfg.RescanIntervalS < minRescanInterval {
+						fcfg.RescanIntervalS = minRescanInterval
+					}
+				}
 				fcfg.Versioning.Reset()
 				// Other necessary settings are ensured by FolderConfiguration itself
 			} else {
