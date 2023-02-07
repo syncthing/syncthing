@@ -25,7 +25,7 @@ type limiter struct {
 	mu                  sync.Mutex
 	write               *rate.Limiter
 	read                *rate.Limiter
-	limitsLAN           atomicBool
+	limitsLAN           atomic.Bool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
 }
@@ -157,7 +157,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		limited = true
 	}
 
-	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
+	lim.limitsLAN.Store(to.Options.LimitBandwidthInLan)
 
 	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
 
@@ -282,13 +282,13 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 // waiter, valid for both writers and readers
 type waiterHolder struct {
 	waiter    waiter
-	limitsLAN *atomicBool
+	limitsLAN *atomic.Bool
 	isLAN     bool
 }
 
 // unlimited returns true if the waiter is not limiting the rate
 func (w waiterHolder) unlimited() bool {
-	if w.isLAN && !w.limitsLAN.get() {
+	if w.isLAN && !w.limitsLAN.Load() {
 		return true
 	}
 	return w.waiter.Limit() == rate.Inf
@@ -320,20 +320,6 @@ func (w waiterHolder) take(tokens int) {
 			tokens = 0
 		}
 	}
-}
-
-type atomicBool int32
-
-func (b *atomicBool) set(v bool) {
-	if v {
-		atomic.StoreInt32((*int32)(b), 1)
-	} else {
-		atomic.StoreInt32((*int32)(b), 0)
-	}
-}
-
-func (b *atomicBool) get() bool {
-	return atomic.LoadInt32((*int32)(b)) != 0
 }
 
 // totalWaiter waits for all of the waiters

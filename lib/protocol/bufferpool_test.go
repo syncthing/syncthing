@@ -108,13 +108,13 @@ func TestStressBufferPool(t *testing.T) {
 	default:
 	}
 
-	t.Log(bp.puts, bp.skips, bp.misses, bp.hits)
-	if bp.puts == 0 || bp.skips == 0 || bp.misses == 0 {
+	t.Log(bp.puts.Load(), bp.skips.Load(), bp.misses.Load(), bp.hits)
+	if bp.puts.Load() == 0 || bp.skips.Load() == 0 || bp.misses.Load() == 0 {
 		t.Error("didn't exercise some paths")
 	}
 	var hits int64
-	for _, h := range bp.hits {
-		hits += h
+	for i := range bp.hits {
+		hits += bp.hits[i].Load()
 	}
 	if hits == 0 {
 		t.Error("didn't exercise some paths")
