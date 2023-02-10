@@ -392,7 +392,7 @@
         <span class="fas fa-arrow-right"></span>
       </button>
     </div>
-    <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid || folderEditor.$pristine">
+    <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid || (editingFolderExisting() && folderEditor.$pristine)">
       <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
