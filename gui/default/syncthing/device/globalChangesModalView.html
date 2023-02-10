@@ -17,8 +17,16 @@
           <tr ng-repeat="changeEvent in globalChangeEvents">
             <td ng-if="changeEvent.data.modifiedBy">{{friendlyNameFromShort(changeEvent.data.modifiedBy)}}</td>
             <td ng-if="!changeEvent.data.modifiedBy"><span translate>Unknown</span></td>
-            <td>{{changeEvent.data.action}}</td>
-            <td>{{changeEvent.data.type}}</td>
+            <td ng-switch="changeEvent.data.action">
+              <span ng-switch-when="modified" translate>modified</span>
+              <span ng-switch-when="deleted" translate>deleted</span>
+              <span ng-switch-default>{{changeEvent.data.action}}</span>
+            </td>
+            <td ng-switch="changeEvent.data.type">
+              <span ng-switch-when="file" translate>file</span>
+              <span ng-switch-when="folder" translate>folder</span>
+              <span ng-switch-default>{{changeEvent.data.type}}</span>
+            </td>
             <td class="no-overflow-ellipse">{{folderLabel(changeEvent.data.folder)}}</td>
             <td class="file-path no-overflow-ellipse">{{changeEvent.data.path}}</td>
             <td class="no-overflow-ellipse">{{changeEvent.time | date:"yyyy-MM-dd HH:mm:ss"}}</td>

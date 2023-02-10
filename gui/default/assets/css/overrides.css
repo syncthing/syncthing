@@ -144,6 +144,10 @@ table.table-auto td {
     max-width: 0px;
 }
 
+td input[type="checkbox"] {
+    margin-top: 13px;
+}
+
 /* Remote Devices connection-quality indicator */
 .reception-0 {
     background: url('../../vendor/bootstrap/fonts/reception-0.svg') no-repeat;

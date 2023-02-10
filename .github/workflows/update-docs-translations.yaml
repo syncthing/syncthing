@@ -25,5 +25,4 @@ jobs:
           bash build.sh prerelease
           git push
         env:
-          TRANSIFEX_USER: ${{ secrets.TRANSIFEX_USER }}
-          TRANSIFEX_PASS: ${{ secrets.TRANSIFEX_PASS }}
+          WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
