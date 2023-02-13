@@ -32,7 +32,7 @@
     "Are you sure you want to override all remote changes?": "Tüm uzak değişiklikleri geçersiz kılmak istediğinize emin misiniz?",
     "Are you sure you want to permanently delete all these files?": "Tüm bu dosyaları kalıcı olarak silmek istediğinize emin misiniz?",
     "Are you sure you want to remove device {%name%}?": "\"{{name}}\" cihazını kaldırmak istediğinize emin misiniz?",
-    "Are you sure you want to remove folder {%label%}?": " \"{{label}}\" klasörünü kaldırmak istediğinize emin misiniz?",
+    "Are you sure you want to remove folder {%label%}?": "\"{{label}}\" klasörünü kaldırmak istediğinize emin misiniz?",
     "Are you sure you want to restore {%count%} files?": "{{count}} dosyayı geri yüklemek istediğinize emin misiniz?",
     "Are you sure you want to revert all local changes?": "Tüm yerel değişiklikleri geri almak istediğinize emin misiniz?",
     "Are you sure you want to upgrade?": "Yükseltmek istediğinize emin misiniz?",
