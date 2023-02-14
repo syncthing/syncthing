@@ -100,19 +100,14 @@ func New(myID protocol.DeviceID) Configuration {
 	cfg.Version = CurrentVersion
 
 	if build.IsIOS {
-		// FIXME
-		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
-	}
-
-	util.SetDefaults(&cfg)
-
-	if build.IsIOS {
 		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
 		cfg.Options.DeprecatedDefaultFolderPath = "."
 		// FIXME Find better solution than blank user and password, but suppress this notification for now
 	} else {
 		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 	}
+
+	util.SetDefaults(&cfg)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
