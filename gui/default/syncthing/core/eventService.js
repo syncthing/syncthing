@@ -39,11 +39,13 @@ angular.module('syncthing.core')
         }
 
         function errorFn(statusString, status) {
-            $rootScope.$broadcast(self.OFFLINE);
             if (status === 403) {
                 // Auth error - reload login page
                 location.reload();
+                return;
             }
+
+            $rootScope.$broadcast(self.OFFLINE);
 
             $timeout(function () {
                 $http.get(urlbase + '/events?limit=1')
