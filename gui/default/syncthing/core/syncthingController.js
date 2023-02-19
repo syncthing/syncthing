@@ -102,7 +102,7 @@ angular.module('syncthing.core')
             $http.post(authnUrlbase + '/password', {
               username: $scope.login.username,
               password: $scope.login.password,
-            }).success(function () {
+            }).then(function () {
                 location.reload();
             }).catch(function (response) {
                 if (response.status === 403) {
