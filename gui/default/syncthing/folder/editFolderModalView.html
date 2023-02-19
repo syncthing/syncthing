@@ -34,6 +34,7 @@
             <datalist id="directory-list">
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
+            <!-- %PICK_IOS_FOLDER% -->
             <p class="help-block">
               <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist.</span>
               <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty && !editingFolderDefaults()">The folder path cannot be blank.</span>
