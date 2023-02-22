@@ -57,7 +57,7 @@ type announcement struct {
 func (a announcement) MarshalJSON() ([]byte, error) {
 	type announcementCopy announcement
 
-	a.Addresses = stripRelayToken(a.Addresses)
+	a.Addresses = sanitizeRelayAddresses(a.Addresses)
 
 	aCopy := announcementCopy(a)
 	return json.Marshal(aCopy)
