@@ -79,7 +79,7 @@ func (r *responseRecorder) Header() http.Header {
 }
 
 func (s *SinglePathCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		s.next.ServeHTTP(w, r)
 		return
 	}
