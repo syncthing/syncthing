@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
-	github.com/quic-go/quic-go v0.32.0
+	github.com/quic-go/quic-go v0.33.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/shirou/gopsutil/v3 v3.23.1
@@ -72,9 +72,8 @@ require (
 	github.com/petermattis/goid v0.0.0-20221215004737-a150e88a970d // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
+	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
+	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
