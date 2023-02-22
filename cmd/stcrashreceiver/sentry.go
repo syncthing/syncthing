@@ -8,8 +8,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -30,6 +32,44 @@ var (
 	clients    = make(map[string]*raven.Client)
 	clientsMut sync.Mutex
 )
+
+type sentryService struct {
+	dsn   string
+	inbox chan sentryRequest
+}
+
+type sentryRequest struct {
+	reportID string
+	data     []byte
+}
+
+func (s *sentryService) Serve(ctx context.Context) {
+	for {
+		select {
+		case req := <-s.inbox:
+			pkt, err := parseCrashReport(req.reportID, req.data)
+			if err != nil {
+				log.Println("Failed to parse crash report:", err)
+				continue
+			}
+			if err := sendReport(s.dsn, pkt, req.reportID); err != nil {
+				log.Println("Failed to send crash report:", err)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *sentryService) Send(reportID string, data []byte) bool {
+	select {
+	case s.inbox <- sentryRequest{reportID, data}:
+		return true
+	default:
+		return false
+	}
+}
 
 func sendReport(dsn string, pkt *raven.Packet, userID string) error {
 	pkt.Interfaces = append(pkt.Interfaces, &raven.User{ID: userID})
