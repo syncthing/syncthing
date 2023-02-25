@@ -6,7 +6,6 @@
 
 //go:build (!solaris && !darwin) || (solaris && cgo) || (darwin && cgo)
 // +build !solaris,!darwin solaris,cgo darwin,cgo
-// +build !ios
 
 package fs
 
