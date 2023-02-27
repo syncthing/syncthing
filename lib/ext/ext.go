@@ -7,9 +7,10 @@
 package ext
 
 type ExtCallback interface {
-  ExtCheckAvailableSpace(req uint64) bool
+	ExtCheckAvailableSpace(req uint64) bool
+	ExtAccessPath(path string) string
 }
 
 var (
-  Callback ExtCallback
+	Callback ExtCallback
 )

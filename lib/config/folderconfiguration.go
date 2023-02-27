@@ -36,7 +36,7 @@ var (
 
 var (
 	externallyDisabledMut = sync.NewMutex()
-	ExternallyDisabled = os.Getenv("STEXTDISABLED") != ""
+	ExternallyDisabled    = os.Getenv("STEXTDISABLED") != ""
 )
 
 const (
@@ -70,7 +70,11 @@ func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
 	if fset != nil {
 		opts = append(opts, fset.MtimeOption())
 	}
-	return fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
+	path := f.Path
+	if build.IsIOS {
+		path = ext.Callback.ExtAccessPath(f.Path)
+	}
+	return fs.NewFilesystem(f.FilesystemType, path, opts...)
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
@@ -283,7 +287,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	}
 
 	if ext.Callback == nil || !ext.Callback.ExtCheckAvailableSpace(req) {
-	  return ErrExceedsFree
+		return ErrExceedsFree
 	}
 
 	val := f.MinDiskFree.BaseValue()
