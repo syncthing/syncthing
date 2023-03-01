@@ -1237,3 +1237,31 @@ func TestWindowsLineEndings(t *testing.T) {
 		t.Error("expected there to be a non-zero number of Windows line endings")
 	}
 }
+
+func TestIssue8733(t *testing.T) {
+	stignore := `
+	Documents/**/{document.txt,banana.jpg}
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{"Documents/Photos/document.txt", true},
+		{"Documents/document.txt", true},
+		{"Documents/Photos/banana.jpg", true},
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
+	}
+}
