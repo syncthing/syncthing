@@ -13,10 +13,12 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
-	"github.com/gobwas/glob"
+	//"github.com/gobwas/glob"
+	"github.com/bmatcuk/doublestar/v4"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -69,7 +71,7 @@ func parseError(err error) error {
 
 type Pattern struct {
 	pattern string
-	match   glob.Glob
+	match   Glob
 	result  Result
 }
 
@@ -460,13 +462,13 @@ func parseLine(line string) ([]Pattern, error) {
 	var err error
 	if strings.HasPrefix(line, "/") {
 		// Pattern is rooted in the current dir only
-		pattern.match, err = glob.Compile(line[1:], '/')
+		pattern.match, err = Compile(line[1:], '/')
 		return []Pattern{pattern}, parseError(err)
 	}
 	patterns := make([]Pattern, 2)
 	if strings.HasPrefix(line, "**/") {
 		// Add the pattern as is, and without **/ so it matches in current dir
-		pattern.match, err = glob.Compile(line, '/')
+		pattern.match, err = Compile(line, '/')
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -474,7 +476,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 		line = line[3:]
 		pattern.pattern = line
-		pattern.match, err = glob.Compile(line, '/')
+		pattern.match, err = Compile(line, '/')
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -483,7 +485,7 @@ func parseLine(line string) ([]Pattern, error) {
 	}
 	// Path name or pattern, add it so it matches files both in
 	// current directory and subdirs.
-	pattern.match, err = glob.Compile(line, '/')
+	pattern.match, err = Compile(line, '/')
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -491,7 +493,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 	line = "**/" + line
 	pattern.pattern = line
-	pattern.match, err = glob.Compile(line, '/')
+	pattern.match, err = Compile(line, '/')
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -501,7 +503,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var patterns []Pattern
-
+	interDoubleStar, _ := regexp.Compile(`(\w+)\*\*(\w+)`)
 	addPattern := func(line string) error {
 		newPatterns, err := parseLine(line)
 		if err != nil {
@@ -563,7 +565,10 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
-			err = addPattern(line + "**")
+			err = addPattern(line + "*")
+		case interDoubleStar.MatchString(line):
+			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1*/**/*$2`))
+			err = addPattern(strings.ReplaceAll(line, "**", "*"))
 		default:
 			err = addPattern(line)
 			if err == nil {
@@ -647,4 +652,32 @@ func (c *modtimeChecker) Changed() bool {
 	}
 
 	return false
+}
+
+type Glob interface {
+	Match(string) bool
+}
+
+type myGlob struct {
+	pattern    string
+	separators string
+}
+
+func (s *myGlob) Match(path string) bool {
+	doesMatch, _ := doublestar.Match(s.pattern, path)
+	return doesMatch
+}
+
+func Compile(pattern string, separators ...rune) (Glob, error) {
+	didValidate := doublestar.ValidatePattern(pattern)
+	var err error
+	if didValidate {
+		err = nil
+	} else {
+		err = doublestar.ErrBadPattern
+	}
+	return &myGlob{
+		pattern,
+		string(separators),
+	}, err
 }
