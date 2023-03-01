@@ -2468,7 +2468,11 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id));
+                    var name = $scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id);
+                    if (device.encryptionPassword !== '') {
+                        name = '<span class="fa fa-lock"></span>&nbsp;' + name;
+                    }
+                    names.push(name);
                 }
             });
             names.sort();
