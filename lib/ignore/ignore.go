@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -502,7 +503,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var patterns []Pattern
-
+	interDoubleStar, _ := regexp.Compile(`(\w+)\*\*(\w+)`)
 	addPattern := func(line string) error {
 		newPatterns, err := parseLine(line)
 		if err != nil {
@@ -564,7 +565,9 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
-			err = addPattern(line + "**")
+			err = addPattern(line + "*")
+		case interDoubleStar.MatchString(line):
+			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1\*/\*\*/\*$2`))
 		default:
 			err = addPattern(line)
 			if err == nil {
