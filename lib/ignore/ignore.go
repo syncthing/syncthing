@@ -567,7 +567,8 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line + "*")
 		case interDoubleStar.MatchString(line):
-			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1\*/\*\*/\*$2`))
+			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1*/**/*$2`))
+			err = addPattern(strings.ReplaceAll(line, "**", "*"))
 		default:
 			err = addPattern(line)
 			if err == nil {
