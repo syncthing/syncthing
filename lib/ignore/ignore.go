@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	//"github.com/gobwas/glob"
 	"github.com/bmatcuk/doublestar/v4"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -566,6 +565,8 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line + "*")
+		// Used to widen the pattern accepted by ** in accordance to
+		// the specified behavior in syncthing.
 		case interDoubleStar.MatchString(line):
 			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1*/**/*$2`))
 			err = addPattern(strings.ReplaceAll(line, "**", "*"))
@@ -658,6 +659,7 @@ type Glob interface {
 	Match(string) bool
 }
 
+// Glue code to integrate the new Glob library.
 type myGlob struct {
 	pattern    string
 	separators string
@@ -669,6 +671,9 @@ func (s *myGlob) Match(path string) bool {
 }
 
 func Compile(pattern string, separators ...rune) (Glob, error) {
+	// Validate the pattern in advance to emulate the original behavior
+	// of Compile i.e. that errors in the pattern are thrown here instead
+	// of in Match.
 	didValidate := doublestar.ValidatePattern(pattern)
 	var err error
 	if didValidate {
