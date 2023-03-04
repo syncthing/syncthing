@@ -54,6 +54,15 @@ type announcement struct {
 	Addresses []string `json:"addresses"`
 }
 
+func (a announcement) MarshalJSON() ([]byte, error) {
+	type announcementCopy announcement
+
+	a.Addresses = sanitizeRelayAddresses(a.Addresses)
+
+	aCopy := announcementCopy(a)
+	return json.Marshal(aCopy)
+}
+
 type serverOptions struct {
 	insecure   bool   // don't check certificate
 	noAnnounce bool   // don't announce
