@@ -321,7 +321,7 @@ func filterUnspecifiedLocal(addrs []string) []string {
 
 func sanitizeRelayAddresses(addrs []string) []string {
 	filtered := addrs[:0]
-	whitelist := []string{"id"}
+	allowlist := []string{"id"}
 
 	for _, addr := range addrs {
 		u, err := url.Parse(addr)
@@ -333,7 +333,7 @@ func sanitizeRelayAddresses(addrs []string) []string {
 			s := url.Values{}
 			q := u.Query()
 
-			for _, w := range whitelist {
+			for _, w := range allowlist {
 				if q.Has(w) {
 					s.Add(w, q.Get(w))
 				}
