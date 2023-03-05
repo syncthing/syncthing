@@ -51,9 +51,9 @@ func getStatus(w http.ResponseWriter, _ *http.Request) {
 	status["numPendingSessionKeys"] = len(pendingSessions)
 	status["numActiveSessions"] = len(activeSessions)
 	sessionMut.Unlock()
-	status["numConnections"] = atomic.LoadInt64(&numConnections)
-	status["numProxies"] = atomic.LoadInt64(&numProxies)
-	status["bytesProxied"] = atomic.LoadInt64(&bytesProxied)
+	status["numConnections"] = numConnections.Load()
+	status["numProxies"] = numProxies.Load()
+	status["bytesProxied"] = bytesProxied.Load()
 	status["goVersion"] = runtime.Version()
 	status["goOS"] = runtime.GOOS
 	status["goArch"] = runtime.GOARCH
@@ -88,13 +88,13 @@ func getStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 type rateCalculator struct {
-	counter   *int64 // atomic, must remain 64-bit aligned
+	counter   *atomic.Int64
 	rates     []int64
 	prev      int64
 	startTime time.Time
 }
 
-func newRateCalculator(keepIntervals int, interval time.Duration, counter *int64) *rateCalculator {
+func newRateCalculator(keepIntervals int, interval time.Duration, counter *atomic.Int64) *rateCalculator {
 	r := &rateCalculator{
 		rates:     make([]int64, keepIntervals),
 		counter:   counter,
@@ -112,7 +112,7 @@ func (r *rateCalculator) updateRates(interval time.Duration) {
 		next := now.Truncate(interval).Add(interval)
 		time.Sleep(next.Sub(now))
 
-		cur := atomic.LoadInt64(r.counter)
+		cur := r.counter.Load()
 		rate := int64(float64(cur-r.prev) / interval.Seconds())
 		copy(r.rates[1:], r.rates)
 		r.rates[0] = rate

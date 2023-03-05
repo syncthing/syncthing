@@ -12,6 +12,7 @@ import (
 	crand "crypto/rand"
 	"io"
 	"math/rand"
+	"sync/atomic"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -234,7 +235,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 		writer: cw,
 		waiterHolder: waiterHolder{
 			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
-			limitsLAN: new(atomicBool),
+			limitsLAN: new(atomic.Bool),
 			isLAN:     false, // enables limiting
 		},
 	}
@@ -263,7 +264,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 		writer: cw,
 		waiterHolder: waiterHolder{
 			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
-			limitsLAN: new(atomicBool),
+			limitsLAN: new(atomic.Bool),
 			isLAN:     true, // disables limiting
 		},
 	}
@@ -287,7 +288,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 		writer: cw,
 		waiterHolder: waiterHolder{
 			waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
-			limitsLAN: new(atomicBool),
+			limitsLAN: new(atomic.Bool),
 			isLAN:     false, // enables limiting
 		},
 	}
@@ -315,7 +316,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 				rate.NewLimiter(rate.Limit(42), limiterBurstSize),
 				rate.NewLimiter(rate.Inf, limiterBurstSize),
 			},
-			limitsLAN: new(atomicBool),
+			limitsLAN: new(atomic.Bool),
 			isLAN:     false, // enables limiting
 		},
 	}

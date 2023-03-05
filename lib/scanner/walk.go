@@ -628,7 +628,7 @@ func (w *walker) String() string {
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
-	total int64 // atomic, must remain 64-bit aligned
+	total atomic.Int64
 	metrics.EWMA
 	stop chan struct{}
 }
@@ -658,13 +658,11 @@ func (c *byteCounter) ticker() {
 }
 
 func (c *byteCounter) Update(bytes int64) {
-	atomic.AddInt64(&c.total, bytes)
+	c.total.Add(bytes)
 	c.EWMA.Update(bytes)
 }
 
-func (c *byteCounter) Total() int64 {
-	return atomic.LoadInt64(&c.total)
-}
+func (c *byteCounter) Total() int64 { return c.total.Load() }
 
 func (c *byteCounter) Close() {
 	close(c.stop)
