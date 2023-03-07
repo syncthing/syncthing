@@ -122,7 +122,12 @@ func (s *service) Serve(ctx context.Context) error {
 	s.err = nil
 	s.mut.Unlock()
 
-	err := s.serve(ctx)
+	// The error returned by serve() may well be a network timeout, which as
+	// of Go 1.19 is a context.DeadlineExceeded, which Suture interprets as
+	// a signal to stop the service instead of restarting it. This typically
+	// isn't what we want, so we make sure to remove the context specific
+	// error types unless *our* context is actually cancelled.
+	err := asNonContextError(ctx, s.serve(ctx))
 
 	s.mut.Lock()
 	s.err = err
@@ -139,7 +144,6 @@ func (s *service) Error() error {
 
 func (s *service) String() string {
 	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
-
 }
 
 type doneService func()
@@ -202,4 +206,20 @@ func infoEventHook(l logger.Logger) suture.EventHook {
 			l.Infoln(e)
 		}
 	}
+}
+
+// asNonContextError returns err, except if it is context.Canceled or
+// context.DeadlineExceeded in which case the error will be a simple string
+// representation instead. The given context is checked for cancellation,
+// and if it is cancelled then that error is returned instead of err.
+func asNonContextError(ctx context.Context, err error) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s (non-context)", err.Error())
+	}
+	return err
 }

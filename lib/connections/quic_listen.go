@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -36,7 +36,7 @@ func init() {
 
 type quicListener struct {
 	svcutil.ServiceWithError
-	nat atomic.Value
+	nat atomic.Uint64 // Holds a stun.NATType.
 
 	onAddressesChangedNotifier
 
@@ -56,7 +56,7 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
 		l.Infof("%s detected NAT type: %s", t.uri, natType)
 	}
-	t.nat.Store(natType)
+	t.nat.Store(uint64(natType))
 }
 
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
@@ -205,7 +205,7 @@ func (t *quicListener) Factory() listenerFactory {
 }
 
 func (t *quicListener) NATType() string {
-	v := t.nat.Load().(stun.NATType)
+	v := stun.NATType(t.nat.Load())
 	if v == stun.NATUnknown || v == stun.NATError {
 		return "unknown"
 	}
@@ -228,7 +228,7 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		registry: registry,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
-	l.nat.Store(stun.NATUnknown)
+	l.nat.Store(uint64(stun.NATUnknown))
 	return l
 }
 

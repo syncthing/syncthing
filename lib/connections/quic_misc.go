@@ -15,17 +15,16 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
+
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-var (
-	quicConfig = &quic.Config{
-		ConnectionIDLength: 4,
-		MaxIdleTimeout:     30 * time.Second,
-		KeepAlivePeriod:    15 * time.Second,
-	}
-)
+var quicConfig = &quic.Config{
+	ConnectionIDLength: 4,
+	MaxIdleTimeout:     30 * time.Second,
+	KeepAlivePeriod:    15 * time.Second,
+}
 
 func quicNetwork(uri *url.URL) string {
 	switch uri.Scheme {

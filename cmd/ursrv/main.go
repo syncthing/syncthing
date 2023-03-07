@@ -25,6 +25,7 @@ import (
 	"time"
 	"unicode"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/oschwald/geoip2-golang"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -129,11 +130,6 @@ func setupDB(db *sql.DB) error {
 		if _, err = db.Exec(`CREATE INDEX ReportVersionJsonIndex ON ReportsJson (cast((Report->>'urVersion') as numeric))`); err != nil {
 			return err
 		}
-	}
-
-	// Migrate from old schema to new schema if the table exists.
-	if err := migrate(db); err != nil {
-		return err
 	}
 
 	return nil
@@ -582,7 +578,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 
 	for rows.Next() {
 		err := rows.Scan(&rep.Received, &rep)
-
 		if err != nil {
 			log.Println("sql:", err)
 			return nil
@@ -1023,7 +1018,7 @@ func (s *summary) filter(min int) {
 func getSummary(db *sql.DB, min int) (summary, error) {
 	s := newSummary()
 
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '2 year'::INTERVAL;`)
+	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '3 year'::INTERVAL;`)
 	if err != nil {
 		return summary{}, err
 	}
@@ -1056,7 +1051,7 @@ func getSummary(db *sql.DB, min int) (summary, error) {
 }
 
 func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '2 year'::INTERVAL ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1089,7 +1084,7 @@ func getMovement(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getPerformance(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > '2014-06-20'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > now() - '5 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1111,7 @@ func getPerformance(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getBlockStats(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > '2017-10-23'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1132,6 +1127,10 @@ func getBlockStats(db *sql.DB) ([][]interface{}, error) {
 		err := rows.Scan(&day, &reports, &pulled, &renamed, &reused, &copyOrigin, &copyOriginShifted, &copyElsewhere)
 		if err != nil {
 			return nil, err
+		}
+		// Legacy bad data on certain days
+		if reports <= 0 || pulled < 0 || renamed < 0 || reused < 0 || copyOrigin < 0 || copyOriginShifted < 0 || copyElsewhere < 0 {
+			continue
 		}
 		row := []interface{}{
 			day.Format("2006-01-02"),
@@ -1154,9 +1153,11 @@ type sortableFeatureList []feature
 func (l sortableFeatureList) Len() int {
 	return len(l)
 }
+
 func (l sortableFeatureList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
+
 func (l sortableFeatureList) Less(a, b int) bool {
 	if l[a].Pct != l[b].Pct {
 		return l[a].Pct < l[b].Pct
