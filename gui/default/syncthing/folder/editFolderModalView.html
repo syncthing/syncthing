@@ -202,15 +202,6 @@
 
               <div class="row">
                 <div class="col-md-6">
-                  <label>
-                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="setFSWatcherIntervalDefault()">&nbsp;<span translate>Watch for Changes</span>
-                  </label>
-                  <p class="help-block">
-                    <span translate>Use notifications from the filesystem to detect changed items.</span>
-                    <span translate>Watching for changes discovers most changes without periodic scanning.</span>
-                  </p>
-                </div>
-                <div class="col-md-6">
                   <label for="rescanIntervalS" translate>Full Rescan Interval (s)</label>
                   <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required="" aria-required="true" min="0" />
                   <p class="help-block" ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty" translate>
