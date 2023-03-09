@@ -1828,6 +1828,7 @@ func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 		"localFlags":    f.FileLocalFlags(),
 		"platform":      f.PlatformData(),
 		"inodeChange":   f.InodeChangeTime(),
+		"blocksHash":    f.FileBlocksHash(),
 	}
 	if f.HasPermissionBits() {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())

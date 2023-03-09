@@ -116,6 +116,9 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 	// usable as-is.
 	addrs = filterUnspecifiedLocal(addrs)
 
+	// do not leak relay tokens to discovery
+	addrs = sanitizeRelayAddresses(addrs)
+
 	if len(addrs) == 0 {
 		// Nothing to announce
 		return msg, false
@@ -312,6 +315,35 @@ func filterUnspecifiedLocal(addrs []string) []string {
 		default:
 			filtered = append(filtered, addr)
 		}
+	}
+	return filtered
+}
+
+func sanitizeRelayAddresses(addrs []string) []string {
+	filtered := addrs[:0]
+	allowlist := []string{"id"}
+
+	for _, addr := range addrs {
+		u, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+
+		if u.Scheme == "relay" {
+			s := url.Values{}
+			q := u.Query()
+
+			for _, w := range allowlist {
+				if q.Has(w) {
+					s.Add(w, q.Get(w))
+				}
+			}
+
+			u.RawQuery = s.Encode()
+			addr = u.String()
+		}
+
+		filtered = append(filtered, addr)
 	}
 	return filtered
 }
