@@ -68,7 +68,7 @@ func (c *CLI) Run() error {
 		}
 	}
 
-	c.folderKey = protocol.KeyFromPassword(c.FolderID, c.Password)
+	c.folderKey = protocol.DefaultFolderKeyGenerator.KeyFromPassword(c.FolderID, c.Password)
 
 	return c.walk()
 }
@@ -162,7 +162,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 
 	var plainFd fs.File
 	if dstFs != nil {
-		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0700); err != nil {
+		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0o700); err != nil {
 			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 
@@ -209,7 +209,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 		return fmt.Errorf("block count mismatch: encrypted %d != plaintext %d", len(encFi.Blocks), len(plainFi.Blocks))
 	}
 
-	fileKey := protocol.FileKey(plainFi.Name, c.folderKey)
+	fileKey := protocol.DefaultFileKeyGenerator.FileKey(plainFi.Name, c.folderKey)
 	for i, encBlock := range encFi.Blocks {
 		// Read the encrypted block
 		buf := make([]byte, encBlock.Size)

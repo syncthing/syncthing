@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/miscreant/miscreant.go"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -34,6 +35,8 @@ const (
 	maxPathComponent      = 200              // characters
 	encryptedDirExtension = ".syncthing-enc" // for top level dirs
 	miscreantAlgo         = "AES-SIV"
+	folderKeyCacheEntries = 1000
+	fileKeyCacheEntries   = 5000
 )
 
 // The encryptedModel sits between the encrypted device and the model. It
@@ -86,7 +89,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 
 	// Decrypt the block hash.
 
-	fileKey := FileKey(realName, folderKey)
+	fileKey := DefaultFileKeyGenerator.FileKey(realName, folderKey)
 	var additional [8]byte
 	binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
 	realHash, err := decryptDeterministic(hash, fileKey, additional[:])
@@ -200,7 +203,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	fileKey := FileKey(name, folderKey)
+	fileKey := DefaultFileKeyGenerator.FileKey(name, folderKey)
 	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
 		return nil, err
@@ -241,7 +244,7 @@ func encryptFileInfos(files []FileInfo, folderKey *[keySize]byte) {
 // encryptFileInfo encrypts a FileInfo and wraps it into a new fake FileInfo
 // with an encrypted name.
 func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
-	fileKey := FileKey(fi.Name, folderKey)
+	fileKey := DefaultFileKeyGenerator.FileKey(fi.Name, folderKey)
 
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
@@ -319,7 +322,7 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 	enc := FileInfo{
 		Name:        encryptName(fi.Name, folderKey),
 		Type:        typ,
-		Permissions: 0644,
+		Permissions: 0o644,
 		ModifiedS:   1234567890, // Sat Feb 14 00:31:30 CET 2009
 		Deleted:     fi.Deleted,
 		RawInvalid:  fi.IsInvalid(),
@@ -355,7 +358,7 @@ func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
 		return FileInfo{}, err
 	}
 
-	fileKey := FileKey(realName, folderKey)
+	fileKey := DefaultFileKeyGenerator.FileKey(realName, folderKey)
 	dec, err := DecryptBytes(fi.Encrypted, fileKey)
 	if err != nil {
 		return FileInfo{}, err
@@ -479,7 +482,7 @@ func randomNonce() *[nonceSize]byte {
 func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 	res := make(map[string]*[keySize]byte, len(passwords))
 	for folder, password := range passwords {
-		res[folder] = KeyFromPassword(folder, password)
+		res[folder] = DefaultFolderKeyGenerator.KeyFromPassword(folder, password)
 	}
 	return res
 }
@@ -488,9 +491,30 @@ func knownBytes(folderID string) []byte {
 	return []byte("syncthing" + folderID)
 }
 
+type FolderKeyGenerator struct {
+	mut   sync.Mutex
+	cache *lru.TwoQueueCache[folderKeyGeneratorCacheKey, *[keySize]byte]
+}
+
+var DefaultFolderKeyGenerator FolderKeyGenerator
+
+type folderKeyGeneratorCacheKey struct {
+	folderID string
+	password string
+}
+
 // KeyFromPassword uses key derivation to generate a stronger key from a
 // probably weak password.
-func KeyFromPassword(folderID, password string) *[keySize]byte {
+func (g *FolderKeyGenerator) KeyFromPassword(folderID, password string) *[keySize]byte {
+	cacheKey := folderKeyGeneratorCacheKey{folderID, password}
+	g.mut.Lock()
+	defer g.mut.Unlock()
+	if g.cache == nil {
+		g.cache, _ = lru.New2Q[folderKeyGeneratorCacheKey, *[keySize]byte](folderKeyCacheEntries)
+	}
+	if key, ok := g.cache.Get(cacheKey); ok {
+		return key
+	}
 	bs, err := scrypt.Key([]byte(password), knownBytes(folderID), 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
@@ -500,23 +524,46 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 	}
 	var key [keySize]byte
 	copy(key[:], bs)
+	g.cache.Add(cacheKey, &key)
 	return &key
 }
 
 var hkdfSalt = []byte("syncthing")
 
-func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
+type FileKeyGenerator struct {
+	mut   sync.Mutex
+	cache *lru.TwoQueueCache[fileKeyGeneratorCacheKey, *[keySize]byte]
+}
+
+var DefaultFileKeyGenerator FileKeyGenerator
+
+type fileKeyGeneratorCacheKey struct {
+	file string
+	key  [keySize]byte
+}
+
+func (g *FileKeyGenerator) FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
+	g.mut.Lock()
+	defer g.mut.Unlock()
+	if g.cache == nil {
+		g.cache, _ = lru.New2Q[fileKeyGeneratorCacheKey, *[keySize]byte](fileKeyCacheEntries)
+	}
+	cacheKey := fileKeyGeneratorCacheKey{filename, *folderKey}
+	if key, ok := g.cache.Get(cacheKey); ok {
+		return key
+	}
 	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), hkdfSalt, nil)
 	var fileKey [keySize]byte
 	n, err := io.ReadFull(kdf, fileKey[:])
 	if err != nil || n != keySize {
 		panic("hkdf failure")
 	}
+	g.cache.Add(cacheKey, &fileKey)
 	return &fileKey
 }
 
 func PasswordToken(folderID, password string) []byte {
-	return encryptDeterministic(knownBytes(folderID), KeyFromPassword(folderID, password), nil)
+	return encryptDeterministic(knownBytes(folderID), DefaultFolderKeyGenerator.KeyFromPassword(folderID, password), nil)
 }
 
 // slashify inserts slashes (and file extension) in the string to create an
