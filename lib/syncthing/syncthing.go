@@ -243,6 +243,11 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
+	if err := globalMigration(a.ll, a.cfg); err != nil {
+		l.Warnln("Global migration:", err)
+		return err
+	}
+
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
 
 	if a.opts.DeadlockTimeoutS > 0 {

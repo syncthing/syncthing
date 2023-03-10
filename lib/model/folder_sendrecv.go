@@ -1251,6 +1251,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			}
 			defer fd.Close()
 			trailerSize, err := writeEncryptionTrailer(file, fd)
+			file.EncryptionTrailerSize = int(trailerSize)
 			if err != nil {
 				return err
 			}
