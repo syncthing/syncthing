@@ -207,6 +207,18 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
+	"stupgrades": {
+		name:        "stupgrades",
+		description: "Syncthing Upgrade Check Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stupgrades"},
+		binaryName:  "stupgrades",
+	},
+	"stcrashreceiver": {
+		name:        "stupgrastcrashreceiverdes",
+		description: "Syncthing Crash Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
+		binaryName:  "stcrashreceiver",
+	},
 }
 
 func initTargets() {
@@ -319,6 +331,9 @@ func runCommand(cmd string, target target) {
 
 	case "transifex":
 		transifex()
+
+	case "weblate":
+		weblate()
 
 	case "tar":
 		buildTar(target, tags)
@@ -951,6 +966,11 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
+}
+
+func weblate() {
+	os.Chdir("gui/default/assets/lang")
+	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
 }
 
 func ldflags(tags []string) string {

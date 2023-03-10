@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"path/filepath"
 	"sort"
-	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -142,8 +141,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 }
 
 func (f *folder) Serve(ctx context.Context) error {
-	atomic.AddInt32(&f.model.foldersRunning, 1)
-	defer atomic.AddInt32(&f.model.foldersRunning, -1)
+	f.model.foldersRunning.Add(1)
+	defer f.model.foldersRunning.Add(-1)
 
 	f.ctx = ctx
 

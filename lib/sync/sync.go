@@ -116,16 +116,16 @@ type loggedRWMutex struct {
 	readHolders    map[int][]holder
 	readHoldersMut sync.Mutex
 
-	logUnlockers int32
+	logUnlockers atomic.Bool
 	unlockers    chan holder
 }
 
 func (m *loggedRWMutex) Lock() {
 	start := timeNow()
 
-	atomic.StoreInt32(&m.logUnlockers, 1)
+	m.logUnlockers.Store(true)
 	m.RWMutex.Lock()
-	atomic.StoreInt32(&m.logUnlockers, 0)
+	m.logUnlockers.Store(false)
 
 	holder := getHolder()
 	m.holder.Store(holder)
@@ -173,7 +173,7 @@ func (m *loggedRWMutex) RUnlock() {
 		m.readHolders[id] = current[:len(current)-1]
 	}
 	m.readHoldersMut.Unlock()
-	if atomic.LoadInt32(&m.logUnlockers) == 1 {
+	if m.logUnlockers.Load() {
 		holder := getHolder()
 		select {
 		case m.unlockers <- holder:

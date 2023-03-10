@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"strings"
 	stdsync "sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -166,7 +167,7 @@ type model struct {
 	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
 
 	// for testing only
-	foldersRunning int32
+	foldersRunning atomic.Int32
 }
 
 var _ config.Verifier = &model{}
@@ -1684,7 +1685,12 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 				// Override the user-configured defaults, as normally done by the GUI
 				fcfg.FSWatcherEnabled = false
-				fcfg.RescanIntervalS = 3600 * 24
+				if fcfg.RescanIntervalS != 0 {
+					minRescanInterval := 3600 * 24
+					if fcfg.RescanIntervalS < minRescanInterval {
+						fcfg.RescanIntervalS = minRescanInterval
+					}
+				}
 				fcfg.Versioning.Reset()
 				// Other necessary settings are ensured by FolderConfiguration itself
 			} else {

@@ -133,6 +133,10 @@ func (f FileInfoTruncated) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
 }
 
+func (f FileInfoTruncated) FileBlocksHash() []byte {
+	return f.BlocksHash
+}
+
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {
 	file := f.copyToFileInfo()
 	file.SetIgnored()
