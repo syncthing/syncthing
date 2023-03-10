@@ -190,17 +190,18 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 	encName := encryptName(name, folderKey)
 	encOffset := offset + int64(blockNo*blockOverhead)
 	encSize := size + blockOverhead
+	fileKey := FileKey(name, folderKey)
+	encHash := encryptDeterministic(hash, fileKey, nil)
 
-	// Perform that request, getting back and encrypted block.
+	// Perform that request, getting back an encrypted block.
 
-	bs, err := e.conn.Request(ctx, folder, encName, blockNo, encOffset, encSize, nil, 0, false)
+	bs, err := e.conn.Request(ctx, folder, encName, blockNo, encOffset, encSize, encHash, 0, false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	fileKey := FileKey(name, folderKey)
 	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
 		return nil, err
