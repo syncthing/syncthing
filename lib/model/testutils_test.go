@@ -154,7 +154,7 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
+	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{

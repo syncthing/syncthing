@@ -12,12 +12,12 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
+
+var testKeyGen = NewKeyGenerator()
 
 func TestEnDecryptName(t *testing.T) {
 	pattern := regexp.MustCompile(
@@ -72,13 +72,13 @@ func TestEnDecryptName(t *testing.T) {
 }
 
 func TestKeyDerivation(t *testing.T) {
-	folderKey := DefaultFolderKeyGenerator.KeyFromPassword("my folder", "my password")
+	folderKey := testKeyGen.KeyFromPassword("my folder", "my password")
 	encryptedName := encryptDeterministic([]byte("filename.txt"), folderKey, nil)
 	if base32Hex.EncodeToString(encryptedName) != "3T5957I4IOA20VEIEER6JSQG0PEPIRV862II3K7LOF75Q" {
 		t.Error("encrypted name mismatch")
 	}
 
-	fileKey := DefaultFileKeyGenerator.FileKey("filename.txt", folderKey)
+	fileKey := testKeyGen.FileKey("filename.txt", folderKey)
 	// fmt.Println(base32Hex.EncodeToString(encryptBytes([]byte("hello world"), fileKey))) => A1IPD...
 	const encrypted = `A1IPD28ISL7VNPRSSSQM2L31L3IJPC08283RO89J5UG0TI9P38DO9RFGK12DK0KD7PKQP6U51UL2B6H96O`
 	bs, _ := base32Hex.DecodeString(encrypted)
@@ -159,7 +159,7 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	var key [32]byte
 	fi := encFileInfo()
 
-	enc := encryptFileInfo(fi, &key)
+	enc := encryptFileInfo(testKeyGen, fi, &key)
 	if bytes.Equal(enc.Blocks[0].Hash, enc.Blocks[1].Hash) {
 		t.Error("block hashes should not repeat when on different offsets")
 	}
@@ -169,7 +169,7 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	if enc.Sequence != fi.Sequence {
 		t.Error("encrypted fileinfo didn't maintain sequence number")
 	}
-	again := encryptFileInfo(fi, &key)
+	again := encryptFileInfo(testKeyGen, fi, &key)
 	if !bytes.Equal(enc.Blocks[0].Hash, again.Blocks[0].Hash) {
 		t.Error("block hashes should remain stable (0)")
 	}
@@ -180,7 +180,7 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	// Simulate the remote setting the sequence number when writing to db
 	enc.Sequence = 10
 
-	dec, err := DecryptFileInfo(enc, &key)
+	dec, err := DecryptFileInfo(testKeyGen, enc, &key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -201,7 +201,7 @@ func TestEncryptedFileInfoConsistency(t *testing.T) {
 	}
 	files[1].SetIgnored()
 	for i, f := range files {
-		enc := encryptFileInfo(f, &key)
+		enc := encryptFileInfo(testKeyGen, f, &key)
 		if err := checkFileInfoConsistency(enc); err != nil {
 			t.Errorf("%v: %v", i, err)
 		}
@@ -233,24 +233,5 @@ func TestIsEncryptedParent(t *testing.T) {
 		if res := IsEncryptedParent(strings.Split(tc.path, "/")); res != tc.is {
 			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
 		}
-	}
-}
-
-var benchmarkFileKey struct {
-	key [keySize]byte
-	sync.Once
-}
-
-func BenchmarkFileKey(b *testing.B) {
-	benchmarkFileKey.Do(func() {
-		sha256.SelectAlgo()
-		rand.Read(benchmarkFileKey.key[:])
-	})
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		DefaultFileKeyGenerator.FileKey("a_kind_of_long_filename.ext", &benchmarkFileKey.key)
 	}
 }

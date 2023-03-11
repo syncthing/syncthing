@@ -55,7 +55,7 @@ func TestRequestSimple(t *testing.T) {
 
 	// Send an update for the test file, wait for it to sync and be reported back.
 	contents := []byte("test file contents\n")
-	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, contents)
+	fc.addFile("testfile", 0o644, protocol.FileInfoTypeFile, contents)
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
@@ -101,7 +101,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
 	contents := []byte("..")
-	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
+	fc.addFile("symlink", 0o644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 	<-done
 
@@ -151,7 +151,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
 	contents := []byte("..")
-	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
+	fc.addFile("symlink", 0o644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 	<-done
 
@@ -159,9 +159,9 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	// blocks for any of them to come back, or index entries. Hopefully none
 	// of that should happen.
 	contents = []byte("testdata testdata\n")
-	fc.addFile("symlink/testfile", 0644, protocol.FileInfoTypeFile, contents)
-	fc.addFile("symlink/testdir", 0644, protocol.FileInfoTypeDirectory, contents)
-	fc.addFile("symlink/testsyml", 0644, protocol.FileInfoTypeSymlink, contents)
+	fc.addFile("symlink/testfile", 0o644, protocol.FileInfoTypeFile, contents)
+	fc.addFile("symlink/testdir", 0o644, protocol.FileInfoTypeDirectory, contents)
+	fc.addFile("symlink/testsyml", 0o644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 
 	select {
@@ -203,7 +203,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	})
 
 	// Send an update for the test file, wait for it to sync and be reported back.
-	fc.addFile(name, 0644, protocol.FileInfoTypeSymlink, []byte(".."))
+	fc.addFile(name, 0o644, protocol.FileInfoTypeSymlink, []byte(".."))
 	fc.sendIndexUpdate()
 
 	select {
@@ -257,7 +257,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 
 	// Send an update for the test file, wait for it to sync and be reported back.
-	fc.addFile("foo", 0644, protocol.FileInfoTypeSymlink, []byte(tmpdir))
+	fc.addFile("foo", 0o644, protocol.FileInfoTypeSymlink, []byte(tmpdir))
 	fc.sendIndexUpdate()
 	waitForIdx()
 
@@ -267,8 +267,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	waitForIdx()
 
 	// Recreate foo and a file in it with some data
-	fc.updateFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
-	fc.addFile("foo/test", 0644, protocol.FileInfoTypeFile, []byte("testtesttest"))
+	fc.updateFile("foo", 0o755, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile("foo/test", 0o644, protocol.FileInfoTypeFile, []byte("testtesttest"))
 	fc.sendIndexUpdate()
 	waitForIdx()
 
@@ -286,7 +286,6 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 func TestPullInvalidIgnoredSO(t *testing.T) {
 	t.Skip("flaky")
 	pullInvalidIgnored(t, config.FolderTypeSendOnly)
-
 }
 
 func TestPullInvalidIgnoredSR(t *testing.T) {
@@ -322,11 +321,11 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	ign := "ignoredNonExisting"
 	ignExisting := "ignoredExisting"
 
-	fc.addFile(invIgn, 0644, protocol.FileInfoTypeFile, contents)
-	fc.addFile(invDel, 0644, protocol.FileInfoTypeFile, contents)
+	fc.addFile(invIgn, 0o644, protocol.FileInfoTypeFile, contents)
+	fc.addFile(invDel, 0o644, protocol.FileInfoTypeFile, contents)
 	fc.deleteFile(invDel)
-	fc.addFile(ign, 0644, protocol.FileInfoTypeFile, contents)
-	fc.addFile(ignExisting, 0644, protocol.FileInfoTypeFile, contents)
+	fc.addFile(ign, 0o644, protocol.FileInfoTypeFile, contents)
+	fc.addFile(ignExisting, 0o644, protocol.FileInfoTypeFile, contents)
 	writeFile(t, fss, ignExisting, otherContents)
 
 	done := make(chan struct{})
@@ -549,8 +548,8 @@ func TestParentDeletion(t *testing.T) {
 	child := filepath.Join(parent, "bar")
 
 	received := make(chan []protocol.FileInfo)
-	fc.addFile(parent, 0777, protocol.FileInfoTypeDirectory, nil)
-	fc.addFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile(parent, 0o777, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile(child, 0o777, protocol.FileInfoTypeDirectory, nil)
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
 		received <- fs
 		return nil
@@ -588,7 +587,7 @@ func TestParentDeletion(t *testing.T) {
 	}
 
 	// Recreate the child dir on the remote
-	fc.updateFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.updateFile(child, 0o777, protocol.FileInfoTypeDirectory, nil)
 	fc.sendIndexUpdate()
 
 	// Wait for the child dir to be recreated and sent to the remote
@@ -634,7 +633,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		return nil
 	})
 
-	fc.addFile("link", 0644, protocol.FileInfoTypeSymlink, nil)
+	fc.addFile("link", 0o644, protocol.FileInfoTypeSymlink, nil)
 	fc.sendIndexUpdate()
 
 	select {
@@ -714,7 +713,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		b: []byte("bData"),
 	}
 	for _, n := range [2]string{a, b} {
-		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+		fc.addFile(n, 0o644, protocol.FileInfoTypeFile, data[n])
 	}
 	fc.sendIndexUpdate()
 	select {
@@ -772,7 +771,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		return nil
 	})
 
-	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -784,7 +783,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 
 	// rename
 	fc.deleteFile(a)
-	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.updateFile(b, 0o644, protocol.FileInfoTypeFile, data[a])
 	// Make sure the remote file for b is newer and thus stays global -> local conflict
 	fc.mut.Lock()
 	for i := range fc.files {
@@ -843,7 +842,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 		b: []byte("bData"),
 	}
 	for _, n := range [2]string{a, b} {
-		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+		fc.addFile(n, 0o644, protocol.FileInfoTypeFile, data[n])
 	}
 	fc.sendIndexUpdate()
 	select {
@@ -859,7 +858,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 		must(t, equalContents(filepath.Join(tmpDir, n), data[n]))
 	}
 
-	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -883,7 +882,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 
 	// rename
 	fc.deleteFile(a)
-	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.updateFile(b, 0o644, protocol.FileInfoTypeFile, data[a])
 	fc.sendIndexUpdate()
 	select {
 	case <-recv:
@@ -933,7 +932,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 	// setup
 	a := "a"
 	data := []byte("aData")
-	fc.addFile(a, 0644, protocol.FileInfoTypeFile, data)
+	fc.addFile(a, 0o644, protocol.FileInfoTypeFile, data)
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
@@ -952,7 +951,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 		return nil
 	})
 
-	fd, err := tfs.OpenFile(a, fs.OptReadWrite, 0644)
+	fd, err := tfs.OpenFile(a, fs.OptReadWrite, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -999,7 +998,7 @@ func TestNeedFolderFiles(t *testing.T) {
 	data := []byte("foo")
 	num := 20
 	for i := 0; i < num; i++ {
-		fc.addFile(strconv.Itoa(i), 0644, protocol.FileInfoTypeFile, data)
+		fc.addFile(strconv.Itoa(i), 0o644, protocol.FileInfoTypeFile, data)
 	}
 	fc.sendIndexUpdate()
 
@@ -1146,7 +1145,7 @@ func TestRequestLastFileProgress(t *testing.T) {
 	})
 
 	contents := []byte("test file contents\n")
-	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, contents)
+	fc.addFile("testfile", 0o644, protocol.FileInfoTypeFile, contents)
 	fc.sendIndexUpdate()
 
 	select {
@@ -1280,7 +1279,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	dir2 := "bar"
 
 	// Initialise db with an entry and then stop everything again
-	must(t, tfs.Mkdir(dir1, 0777))
+	must(t, tfs.Mkdir(dir1, 0o777))
 	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 	m.ServeBackground()
@@ -1290,7 +1289,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Add connection (sends incoming cluster config) before starting the new model
 	m = &testModel{
-		model:    NewModel(m.cfg, m.id, m.clientName, m.clientVersion, m.db, m.protectedFiles, m.evLogger).(*model),
+		model:    NewModel(m.cfg, m.id, m.clientName, m.clientVersion, m.db, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
 		evCancel: m.evCancel,
 		stopped:  make(chan struct{}),
 	}
@@ -1326,7 +1325,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	}
 
 	// Check that an index is sent for the newly added item
-	must(t, tfs.Mkdir(dir2, 0777))
+	must(t, tfs.Mkdir(dir2, 0o777))
 	m.ScanFolders()
 	select {
 	case <-timeout:
@@ -1346,8 +1345,9 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	fcfg.Type = config.FolderTypeReceiveEncrypted
 	setFolder(t, w, fcfg)
 
-	encToken := protocol.PasswordToken(fcfg.ID, "pw")
-	must(t, tfs.Mkdir(config.DefaultMarkerName, 0777))
+	keyGen := protocol.NewKeyGenerator()
+	encToken := protocol.PasswordToken(keyGen, fcfg.ID, "pw")
+	must(t, tfs.Mkdir(config.DefaultMarkerName, 0o777))
 	must(t, writeEncryptionToken(encToken, fcfg))
 
 	m := setupModel(t, w)
@@ -1407,7 +1407,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	name := "foo"
 	data := make([]byte, 2000)
 	rand.Read(data)
-	fc.addFile(name, 0664, protocol.FileInfoTypeFile, data)
+	fc.addFile(name, 0o664, protocol.FileInfoTypeFile, data)
 	fc.sendIndexUpdate()
 
 	select {
@@ -1467,7 +1467,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 
 	// Setup device with valid file, do not send index yet
 	contents := []byte("test file contents\n")
-	fc.addFile(name, 0644, protocol.FileInfoTypeFile, contents)
+	fc.addFile(name, 0o644, protocol.FileInfoTypeFile, contents)
 
 	// Third device ignoring the same file
 	fc.mut.Lock()

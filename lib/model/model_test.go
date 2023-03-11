@@ -271,7 +271,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 	fc := newFakeConnection(device1, m)
 	for _, f := range files {
-		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
+		fc.addFile(f.Name, 0o644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.Hello{})
 	must(b, m.Index(device1, "default", files))
@@ -296,7 +296,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	rand.Read(buf)
 	mustRemove(b, defaultFs.RemoveAll("request"))
 	defer func() { mustRemove(b, defaultFs.RemoveAll("request")) }()
-	must(b, defaultFs.MkdirAll("request/for/a/file/in/a/couple/of/dirs", 0755))
+	must(b, defaultFs.MkdirAll("request/for/a/file/in/a/couple/of/dirs", 0o755))
 	writeFile(b, defaultFs, "request/for/a/file/in/a/couple/of/dirs/128k", buf)
 
 	b.ResetTimer()
@@ -1148,8 +1148,8 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 
 	id := srand.String(8)
 	label := srand.String(8)
-	testOs.MkdirAll(id, 0777)
-	testOs.MkdirAll(label, 0777)
+	testOs.MkdirAll(id, 0o777)
+	testOs.MkdirAll(label, 0o777)
 	defer os.RemoveAll(id)
 	defer os.RemoveAll(label)
 	m, cancel := newState(t, defaultAutoAcceptCfg)
@@ -1198,7 +1198,7 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	id := srand.String(8)
 	label := srand.String(8)
 	t.Log(id, label)
-	testOs.MkdirAll(label, 0777)
+	testOs.MkdirAll(label, 0o777)
 	defer os.RemoveAll(label)
 	defer os.RemoveAll(id)
 	defer cleanupModel(m)
@@ -1330,7 +1330,8 @@ func TestAutoAcceptEnc(t *testing.T) {
 			Folders: []protocol.Folder{{
 				ID:    id,
 				Label: id,
-			}}}
+			}},
+		}
 	}
 
 	// Earlier tests might cause the connection to get closed, thus ClusterConfig
@@ -1486,7 +1487,7 @@ func changeIgnores(t *testing.T, m *testModel, expected []string) {
 func TestIgnores(t *testing.T) {
 	// Assure a clean start state
 	mustRemove(t, defaultFs.RemoveAll(config.DefaultMarkerName))
-	mustRemove(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0644))
+	mustRemove(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0o644))
 	writeFile(t, defaultFs, ".stignore", []byte(".*\nquux\n"))
 
 	m := setupModel(t, defaultCfgWrapper)
@@ -1548,7 +1549,7 @@ func TestIgnores(t *testing.T) {
 func TestEmptyIgnores(t *testing.T) {
 	// Assure a clean start state
 	mustRemove(t, defaultFs.RemoveAll(config.DefaultMarkerName))
-	must(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0644))
+	must(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0o644))
 
 	m := setupModel(t, defaultCfgWrapper)
 	defer cleanupModel(m)
@@ -1634,7 +1635,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	waitForState(t, sub, "default", "folder path missing")
 
-	testOs.Mkdir(fcfg.Path, 0700)
+	testOs.Mkdir(fcfg.Path, 0o700)
 
 	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
@@ -1687,7 +1688,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	waitForState(t, sub, "default", "folder path missing")
 
-	testOs.Mkdir(fcfg.Path, 0700)
+	testOs.Mkdir(fcfg.Path, 0o700)
 
 	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
@@ -2147,10 +2148,10 @@ func TestIssue2782(t *testing.T) {
 	if err := os.RemoveAll(testDir); err != nil {
 		t.Skip(err)
 	}
-	if err := os.MkdirAll(testDir+"/syncdir", 0755); err != nil {
+	if err := os.MkdirAll(testDir+"/syncdir", 0o755); err != nil {
 		t.Skip(err)
 	}
-	if err := os.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
+	if err := os.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0o644); err != nil {
 		t.Skip(err)
 	}
 	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
@@ -2480,7 +2481,7 @@ func TestIssue2571(t *testing.T) {
 	defer os.RemoveAll(testFs.URI())
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
-		must(t, testFs.MkdirAll(dir, 0775))
+		must(t, testFs.MkdirAll(dir, 0o775))
 		fd, err := testFs.Create(filepath.Join(dir, "a"))
 		must(t, err)
 		fd.Close()
@@ -2518,8 +2519,8 @@ func TestIssue4573(t *testing.T) {
 	testFs := fcfg.Filesystem(nil)
 	defer os.RemoveAll(testFs.URI())
 
-	must(t, testFs.MkdirAll("inaccessible", 0755))
-	defer testFs.Chmod("inaccessible", 0777)
+	must(t, testFs.MkdirAll("inaccessible", 0o755))
+	defer testFs.Chmod("inaccessible", 0o777)
 
 	file := filepath.Join("inaccessible", "a")
 	fd, err := testFs.Create(file)
@@ -2529,7 +2530,7 @@ func TestIssue4573(t *testing.T) {
 	m := setupModel(t, w)
 	defer cleanupModel(m)
 
-	must(t, testFs.Chmod("inaccessible", 0000))
+	must(t, testFs.Chmod("inaccessible", 0o000))
 
 	m.ScanFolder("default")
 
@@ -2561,7 +2562,7 @@ func TestInternalScan(t *testing.T) {
 	for _, dir := range baseDirs {
 		sub := filepath.Join(dir, "subDir")
 		for _, dir := range []string{dir, sub} {
-			if err := testFs.MkdirAll(dir, 0775); err != nil {
+			if err := testFs.MkdirAll(dir, 0o775); err != nil {
 				t.Fatalf("%v: %v", dir, err)
 			}
 		}
@@ -2633,7 +2634,7 @@ func TestCustomMarkerName(t *testing.T) {
 
 	waitForState(t, sub, "default", "folder path missing")
 
-	testOs.Mkdir(fcfg.Path, 0700)
+	testOs.Mkdir(fcfg.Path, 0o700)
 	fd := testOs.Create(filepath.Join(fcfg.Path, "myfile"))
 	fd.Close()
 
@@ -2646,7 +2647,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
-	tfs.MkdirAll("dirwith", 0755)
+	tfs.MkdirAll("dirwith", 0o755)
 	content := filepath.Join("dirwith", "content")
 	fd, err := tfs.Create(content)
 	must(t, err)
@@ -2712,7 +2713,7 @@ func TestIssue4475(t *testing.T) {
 	// This should result in the directory being recreated and added to the
 	// db locally.
 
-	must(t, testFs.MkdirAll("delDir", 0755))
+	must(t, testFs.MkdirAll("delDir", 0o755))
 
 	m.ScanFolder("default")
 
@@ -2721,7 +2722,7 @@ func TestIssue4475(t *testing.T) {
 	}
 
 	fileName := filepath.Join("delDir", "file")
-	conn.addFile(fileName, 0644, protocol.FileInfoTypeFile, nil)
+	conn.addFile(fileName, 0o644, protocol.FileInfoTypeFile, nil)
 	conn.sendIndexUpdate()
 
 	// Is there something we could trigger on instead of just waiting?
@@ -2805,7 +2806,7 @@ func TestVersionRestore(t *testing.T) {
 			file = filepath.FromSlash(file)
 		}
 		dir := filepath.Dir(file)
-		must(t, filesystem.MkdirAll(dir, 0755))
+		must(t, filesystem.MkdirAll(dir, 0o755))
 		if fd, err := filesystem.Create(file); err != nil {
 			t.Fatal(err)
 		} else if _, err := fd.Write([]byte(file)); err != nil {
@@ -3185,7 +3186,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -3654,7 +3655,7 @@ func TestBlockListMap(t *testing.T) {
 
 	// Change type
 	must(t, ffs.Remove("four"))
-	must(t, ffs.Mkdir("four", 0644))
+	must(t, ffs.Mkdir("four", 0o644))
 
 	m.ScanFolders()
 
@@ -3933,7 +3934,7 @@ func TestIssue6961(t *testing.T) {
 	// Remote, invalid (receive-only) and existing file
 	must(t, m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}))
 	// Create a local file
-	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0666); err != nil {
+	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0o666); err != nil {
 		t.Fatal(err)
 	} else {
 		fd.Close()
@@ -4038,7 +4039,7 @@ func TestCcCheckEncryption(t *testing.T) {
 	defer cleanupModel(m)
 
 	pw := "foo"
-	token := protocol.PasswordToken(fcfg.ID, pw)
+	token := protocol.PasswordToken(m.keyGen, fcfg.ID, pw)
 	m.folderEncryptionPasswordTokens[fcfg.ID] = token
 
 	testCases := []struct {

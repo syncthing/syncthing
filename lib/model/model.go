@@ -142,6 +142,7 @@ type model struct {
 	folderIOLimiter *util.Semaphore
 	fatalChan       chan error
 	started         chan struct{}
+	keyGen          *protocol.KeyGenerator
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -174,9 +175,7 @@ var _ config.Verifier = &model{}
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
 
-var (
-	folderFactories = make(map[config.FolderType]folderFactory)
-)
+var folderFactories = make(map[config.FolderType]folderFactory)
 
 var (
 	errDeviceUnknown    = errors.New("unknown device")
@@ -205,7 +204,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
@@ -1462,7 +1461,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if isEncryptedRemote {
-		passwordToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
+		passwordToken := protocol.PasswordToken(m.keyGen, fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenLocal {
 			match = bytes.Equal(passwordToken, ccDeviceInfos.local.EncryptionPasswordToken)
@@ -2483,7 +2482,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 			if deviceCfg.DeviceID == m.id && hasEncryptionToken {
 				protocolDevice.EncryptionPasswordToken = encryptionToken
 			} else if folderDevice.EncryptionPassword != "" {
-				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, folderDevice.EncryptionPassword)
+				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(m.keyGen, folderCfg.ID, folderDevice.EncryptionPassword)
 				if folderDevice.DeviceID == device {
 					passwords[folderCfg.ID] = folderDevice.EncryptionPassword
 				}
@@ -3264,7 +3263,7 @@ func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
 
 func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	tokenName := encryptionTokenPath(cfg)
-	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
 	if err != nil {
 		return err
 	}

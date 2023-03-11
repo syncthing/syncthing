@@ -35,6 +35,7 @@ type CLI struct {
 	TokenPath  string `placeholder:"PATH" help:"Path to the token file within the folder (used to determine folder ID)"`
 
 	folderKey *[32]byte
+	keyGen    *protocol.KeyGenerator
 }
 
 type storedEncryptionToken struct {
@@ -68,7 +69,8 @@ func (c *CLI) Run() error {
 		}
 	}
 
-	c.folderKey = protocol.DefaultFolderKeyGenerator.KeyFromPassword(c.FolderID, c.Password)
+	c.keyGen = protocol.NewKeyGenerator()
+	c.folderKey = c.keyGen.KeyFromPassword(c.FolderID, c.Password)
 
 	return c.walk()
 }
@@ -151,7 +153,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	// in native format, while protocol expects wire format (slashes).
 	encFi.Name = osutil.NormalizedFilename(encFi.Name)
 
-	plainFi, err := protocol.DecryptFileInfo(*encFi, c.folderKey)
+	plainFi, err := protocol.DecryptFileInfo(c.keyGen, *encFi, c.folderKey)
 	if err != nil {
 		return fmt.Errorf("%s: decrypting metadata: %w", path, err)
 	}
@@ -209,7 +211,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 		return fmt.Errorf("block count mismatch: encrypted %d != plaintext %d", len(encFi.Blocks), len(plainFi.Blocks))
 	}
 
-	fileKey := protocol.DefaultFileKeyGenerator.FileKey(plainFi.Name, c.folderKey)
+	fileKey := c.keyGen.FileKey(plainFi.Name, c.folderKey)
 	for i, encBlock := range encFi.Blocks {
 		// Read the encrypted block
 		buf := make([]byte, encBlock.Size)
