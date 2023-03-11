@@ -287,13 +287,14 @@ type Model struct {
 		result1 fs.MtimeMapping
 		result2 error
 	}
-	GlobalDirectoryTreeStub        func(string, string, int, bool) ([]*model.TreeEntry, error)
+	GlobalDirectoryTreeStub        func(string, string, int, bool, string) ([]*model.TreeEntry, error)
 	globalDirectoryTreeMutex       sync.RWMutex
 	globalDirectoryTreeArgsForCall []struct {
 		arg1 string
 		arg2 string
 		arg3 int
 		arg4 bool
+		arg5 string
 	}
 	globalDirectoryTreeReturns struct {
 		result1 []*model.TreeEntry
@@ -1923,7 +1924,7 @@ func (fake *Model) GetMtimeMappingReturnsOnCall(i int, result1 fs.MtimeMapping, 
 	}{result1, result2}
 }
 
-func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 bool) ([]*model.TreeEntry, error) {
+func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 bool, arg5 string) ([]*model.TreeEntry, error) {
 	fake.globalDirectoryTreeMutex.Lock()
 	ret, specificReturn := fake.globalDirectoryTreeReturnsOnCall[len(fake.globalDirectoryTreeArgsForCall)]
 	fake.globalDirectoryTreeArgsForCall = append(fake.globalDirectoryTreeArgsForCall, struct {
@@ -1931,13 +1932,14 @@ func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 
 		arg2 string
 		arg3 int
 		arg4 bool
-	}{arg1, arg2, arg3, arg4})
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.GlobalDirectoryTreeStub
 	fakeReturns := fake.globalDirectoryTreeReturns
-	fake.recordInvocation("GlobalDirectoryTree", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("GlobalDirectoryTree", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.globalDirectoryTreeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -1951,17 +1953,17 @@ func (fake *Model) GlobalDirectoryTreeCallCount() int {
 	return len(fake.globalDirectoryTreeArgsForCall)
 }
 
-func (fake *Model) GlobalDirectoryTreeCalls(stub func(string, string, int, bool) ([]*model.TreeEntry, error)) {
+func (fake *Model) GlobalDirectoryTreeCalls(stub func(string, string, int, bool, string) ([]*model.TreeEntry, error)) {
 	fake.globalDirectoryTreeMutex.Lock()
 	defer fake.globalDirectoryTreeMutex.Unlock()
 	fake.GlobalDirectoryTreeStub = stub
 }
 
-func (fake *Model) GlobalDirectoryTreeArgsForCall(i int) (string, string, int, bool) {
+func (fake *Model) GlobalDirectoryTreeArgsForCall(i int) (string, string, int, bool, string) {
 	fake.globalDirectoryTreeMutex.RLock()
 	defer fake.globalDirectoryTreeMutex.RUnlock()
 	argsForCall := fake.globalDirectoryTreeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *Model) GlobalDirectoryTreeReturns(result1 []*model.TreeEntry, result2 error) {

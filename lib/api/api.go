@@ -760,12 +760,13 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	prefix := qs.Get("prefix")
 	dirsOnly := qs.Get("dirsonly") != ""
+	filenameContains := qs.Get("filenamecontains")
 
 	levels, err := strconv.Atoi(qs.Get("levels"))
 	if err != nil {
 		levels = -1
 	}
-	result, err := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsOnly)
+	result, err := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsOnly, filenameContains)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -115,7 +115,7 @@ type Model interface {
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool, filenameContains string) ([]*TreeEntry, error)
 }
 
 type model struct {
@@ -2591,7 +2591,7 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 	return nil
 }
 
-func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error) {
+func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool, filenameContains string) ([]*TreeEntry, error) {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -2628,6 +2628,10 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		base := filepath.Base(f.Name)
 
 		if levels > -1 && strings.Count(f.Name, sep) > levels {
+			return true
+		}
+
+		if filenameContains != "" && !strings.Contains(base, filenameContains) {
 			return true
 		}
 
