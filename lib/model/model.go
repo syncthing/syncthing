@@ -226,6 +226,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIOLimiter:      util.NewSemaphore(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
+		keyGen:               keyGen,
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
