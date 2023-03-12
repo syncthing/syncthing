@@ -2594,7 +2594,6 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 // use depth first search to delete empty folders
 func truncateEmptyDirs(slice []*TreeEntry) []*TreeEntry {
 	if slice == nil {
-		fmt.Printf("end search: returning nil\n")
 		return nil
 	}
 	for index, entry := range slice {
