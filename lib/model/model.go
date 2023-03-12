@@ -2591,6 +2591,28 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 	return nil
 }
 
+// use depth first search to delete empty folders
+func truncateEmptyDirs(slice []*TreeEntry) []*TreeEntry {
+	if slice == nil {
+		fmt.Printf("end search: returning nil\n")
+		return nil
+	}
+	for index, entry := range slice {
+		if entry.Type == protocol.FileInfoTypeDirectory {
+			entry.Children = truncateEmptyDirs(entry.Children)
+			if entry.Children == nil {
+				slice = append(slice[:index], slice[index+1:]...)
+			}
+		}
+	}
+
+	if len(slice) == 0 {
+		return nil
+	} else {
+		return slice
+	}
+}
+
 func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool, filenameContains string) ([]*TreeEntry, error) {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
@@ -2631,10 +2653,6 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			return true
 		}
 
-		if filenameContains != "" && !strings.Contains(base, filenameContains) {
-			return true
-		}
-
 		parent := root
 		if dir != "." {
 			for _, path := range strings.Split(dir, sep) {
@@ -2651,6 +2669,10 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			return true
 		}
 
+		if filenameContains != "" && !f.IsDirectory() && !strings.Contains(base, filenameContains) {
+			return true
+		}
+
 		parent.Children = append(parent.Children, &TreeEntry{
 			Name:    base,
 			Type:    f.Type,
@@ -2662,6 +2684,14 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if filenameContains != "" {
+		// since what we care is about files, there is no need to return empty dirs
+		root.Children = truncateEmptyDirs(root.Children)
+		if root.Children == nil {
+			root.Children = make([]*TreeEntry, 0)
+		}
 	}
 
 	return root.Children, nil
