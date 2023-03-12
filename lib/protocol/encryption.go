@@ -213,7 +213,9 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 	encOffset := offset + int64(blockNo*blockOverhead)
 	encSize := size + blockOverhead
 	fileKey := e.keyGen.FileKey(name, folderKey)
-	encHash := encryptDeterministic(hash, fileKey, nil)
+	var additional [8]byte
+	binary.BigEndian.PutUint64(additional[:], uint64(offset))
+	encHash := encryptDeterministic(hash, fileKey, additional[:])
 
 	// Perform that request, getting back an encrypted block.
 
