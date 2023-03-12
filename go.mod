@@ -11,7 +11,7 @@ require (
 	github.com/ccding/go-stun v0.1.4
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
+	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
