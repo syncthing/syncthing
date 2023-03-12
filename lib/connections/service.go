@@ -161,6 +161,7 @@ type service struct {
 	natService           *nat.Service
 	evLogger             events.Logger
 	registry             *registry.Registry
+	keyGen               *protocol.KeyGenerator
 
 	dialNow           chan struct{}
 	dialNowDevices    map[protocol.DeviceID]struct{}
@@ -171,7 +172,7 @@ type service struct {
 	listenerTokens map[string]suture.ServiceToken
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry) Service {
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
 	spec := svcutil.SpecWithInfoLogger(l)
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
@@ -190,6 +191,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
 		registry:             registry,
+		keyGen:               keyGen,
 
 		dialNowDevicesMut: sync.NewMutex(),
 		dialNow:           make(chan struct{}, 1),
@@ -411,7 +413,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID))
+		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
 		go func() {
 			<-protoConn.Closed()
 			s.dialNowDevicesMut.Lock()
@@ -426,6 +428,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		continue
 	}
 }
+
 func (s *service) connect(ctx context.Context) error {
 	// Map of when to earliest dial each given device + address again
 	nextDialAt := make(nextDialRegistry)
@@ -1020,8 +1023,10 @@ func urlsToStrings(urls []*url.URL) []string {
 	return strings
 }
 
-var warningLimiters = make(map[protocol.DeviceID]*rate.Limiter)
-var warningLimitersMut = sync.NewMutex()
+var (
+	warningLimiters    = make(map[protocol.DeviceID]*rate.Limiter)
+	warningLimitersMut = sync.NewMutex()
+)
 
 func warningFor(dev protocol.DeviceID, msg string) {
 	warningLimitersMut.Lock()

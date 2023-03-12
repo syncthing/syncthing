@@ -63,9 +63,7 @@ var sha256OfEmptyBlock = map[int][sha256.Size]byte{
 	16 << MiB:  {0x8, 0xa, 0xcf, 0x35, 0xa5, 0x7, 0xac, 0x98, 0x49, 0xcf, 0xcb, 0xa4, 0x7d, 0xc2, 0xad, 0x83, 0xe0, 0x1b, 0x75, 0x66, 0x3a, 0x51, 0x62, 0x79, 0xc8, 0xb9, 0xd2, 0x43, 0xb7, 0x19, 0x64, 0x3e},
 }
 
-var (
-	errNotCompressible = errors.New("not compressible")
-)
+var errNotCompressible = errors.New("not compressible")
 
 func init() {
 	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
@@ -231,16 +229,16 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := makeNative(receiver)
-	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry(passwords)}
+	em := newEncryptedModel(nm, newFolderKeyRegistry(keyGen, passwords), keyGen)
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
-	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: em.folderKeys}
+	ec := newEncryptedConnection(rc, rc, em.folderKeys, keyGen)
 	wc := wireFormatConnection{ec}
 
 	return wc
