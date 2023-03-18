@@ -254,7 +254,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
-			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
+			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, int(cfg.FSWatcherDelayS))
 			if cfg.MarkerName != config.DefaultMarkerName {
 				report.FolderUsesV3.CustomMarkerName++
 			}
@@ -310,7 +310,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if err == nil {
 				if addr.IP.IsLoopback() {
 					report.GUIStats.ListenLocal++
-
 				} else if addr.IP.IsUnspecified() {
 					report.GUIStats.ListenUnspecified++
 				}

@@ -456,10 +456,12 @@ func updateInProgressSet(event events.Event, inProgress map[string]struct{}) {
 // air, they were just considered as a sensible compromise between fast updates and
 // saving resources. For short delays the timeout is 6 times the delay, capped at 1
 // minute. For delays longer than 1 minute, the delay and timeout are equal.
-func notifyTimeout(eventDelayS int) time.Duration {
-	shortDelayS := 10
-	shortDelayMultiplicator := 6
-	longDelayS := 60
+func notifyTimeout(eventDelayS float64) time.Duration {
+	const (
+		shortDelayS             = 10
+		shortDelayMultiplicator = 6
+		longDelayS              = 60
+	)
 	longDelayTimeout := time.Duration(1) * time.Minute
 	if eventDelayS < shortDelayS {
 		return time.Duration(eventDelayS*shortDelayMultiplicator) * time.Second

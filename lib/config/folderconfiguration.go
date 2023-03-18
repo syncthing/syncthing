@@ -198,6 +198,8 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	if f.FSWatcherDelayS <= 0 {
 		f.FSWatcherEnabled = false
 		f.FSWatcherDelayS = 10
+	} else if f.FSWatcherDelayS < 0.01 {
+		f.FSWatcherDelayS = 0.01
 	}
 
 	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
