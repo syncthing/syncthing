@@ -13,13 +13,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/assets"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	loggermocks "github.com/syncthing/syncthing/lib/logger/mocks"
+	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -73,10 +74,10 @@ func TestMain(m *testing.M) {
 func TestCSRFToken(t *testing.T) {
 	t.Parallel()
 
-	max := 250
+	max := 10 * maxCsrfTokens
 	int := 5
 	if testing.Short() {
-		max = 20
+		max = 1 + maxCsrfTokens
 		int = 2
 	}
 
@@ -88,6 +89,11 @@ func TestCSRFToken(t *testing.T) {
 	t3 := m.newToken()
 	if !m.validToken(t3) {
 		t.Fatal("t3 should be valid")
+	}
+
+	valid := make(map[string]struct{}, maxCsrfTokens)
+	for _, token := range m.tokens {
+		valid[token] = struct{}{}
 	}
 
 	for i := 0; i < max; i++ {
@@ -102,10 +108,26 @@ func TestCSRFToken(t *testing.T) {
 			}
 		}
 
+		if len(m.tokens) == maxCsrfTokens {
+			// We're about to add a token, which will remove the last token
+			// from m.tokens.
+			delete(valid, m.tokens[len(m.tokens)-1])
+		}
+
 		// The newly generated token is always valid
 		t4 := m.newToken()
 		if !m.validToken(t4) {
 			t.Fatal("t4 should be valid at iteration", i)
+		}
+		valid[t4] = struct{}{}
+
+		v := make(map[string]struct{}, maxCsrfTokens)
+		for _, token := range m.tokens {
+			v[token] = struct{}{}
+		}
+
+		if !reflect.DeepEqual(v, valid) {
+			t.Fatalf("want valid tokens %v, got %v", valid, v)
 		}
 	}
 
@@ -223,7 +245,7 @@ func expectURLToContain(t *testing.T, url, exp string) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
 		t.Error(err)
@@ -261,7 +283,7 @@ func TestAPIServiceRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -298,6 +320,12 @@ func TestAPIServiceRequests(t *testing.T) {
 			Code:   200,
 			Type:   "application/json",
 			Prefix: "null",
+		},
+		{
+			URL:    "/rest/db/status?folder=default",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
 		},
 
 		// /rest/stats
@@ -467,14 +495,17 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Log("Testing", tc.URL, "...")
-		testHTTPRequest(t, baseURL, tc, testAPIKey)
+		t.Run(cases[0].URL, func(t *testing.T) {
+			testHTTPRequest(t, baseURL, tc, testAPIKey)
+		})
 	}
 }
 
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
+	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
+
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -508,7 +539,7 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 		return
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Unexpected error reading %s: %v", tc.URL, err)
 		return
@@ -609,7 +640,7 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	}
 	addrChan := make(chan string)
 	mockedSummary := &modelmocks.FolderSummaryService{}
-	mockedSummary.SummaryReturns(map[string]interface{}{"mocked": true}, nil)
+	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
@@ -1137,16 +1168,12 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
@@ -1162,7 +1189,7 @@ func TestBrowse(t *testing.T) {
 		current string
 		returns []string
 	}{
-		// The direcotory without slash is completed to one with slash.
+		// The directory without slash is completed to one with slash.
 		{tmpDir, []string{tmpDir + pathSep}},
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
@@ -1174,7 +1201,7 @@ func TestBrowse(t *testing.T) {
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
-		// Globbing is case-insensitve
+		// Globbing is case-insensitive
 		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 
@@ -1209,15 +1236,9 @@ func TestPrefixMatch(t *testing.T) {
 }
 
 func TestShouldRegenerateCertificate(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
 	// Self signed certificates expiring in less than a month are errored so we
 	// can regenerate in time.
-	crt, err := tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 29)
+	crt, err := tlsutil.NewCertificateInMemory("foo.example.com", 29)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1226,7 +1247,7 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 	}
 
 	// Certificates with at least 31 days of life left are fine.
-	crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 31)
+	crt, err = tlsutil.NewCertificateInMemory("foo.example.com", 31)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1234,9 +1255,9 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 		t.Error("expected no error:", err)
 	}
 
-	if runtime.GOOS == "darwin" {
+	if build.IsDarwin {
 		// Certificates with too long an expiry time are not allowed on macOS
-		crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 1000)
+		crt, err = tlsutil.NewCertificateInMemory("foo.example.com", 1000)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1257,7 +1278,7 @@ func TestConfigChanges(t *testing.T) {
 			APIKey:     testAPIKey,
 		},
 	}
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -1366,7 +1387,7 @@ func TestConfigChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	if opts.MaxSendKbps != 50 {
-		t.Error("Exepcted 50 for MaxSendKbps, got", opts.MaxSendKbps)
+		t.Error("Expected 50 for MaxSendKbps, got", opts.MaxSendKbps)
 	}
 }
 
@@ -1395,11 +1416,11 @@ func TestSanitizedHostname(t *testing.T) {
 // be prone to false negatives if things change in the future, but likely
 // not false positives.
 func runningInContainer() bool {
-	if runtime.GOOS != "linux" {
+	if !build.IsLinux {
 		return false
 	}
 
-	bs, err := ioutil.ReadFile("/proc/1/cgroup")
+	bs, err := os.ReadFile("/proc/1/cgroup")
 	if err != nil {
 		return false
 	}

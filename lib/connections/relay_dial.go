@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/client"
@@ -68,7 +69,7 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 
 type relayDialerFactory struct{}
 
-func (relayDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+func (relayDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, _ *registry.Registry) genericDialer {
 	return &relayDialer{commonDialer{
 		trafficClass:      opts.TrafficClass,
 		reconnectInterval: time.Duration(opts.RelayReconnectIntervalM) * time.Minute,

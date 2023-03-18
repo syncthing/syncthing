@@ -10,14 +10,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -211,10 +210,9 @@ func TestCaseSensitivity(t *testing.T) {
 	match := []string{"test"}
 	dontMatch := []string{"foo"}
 
-	switch runtime.GOOS {
-	case "darwin", "windows":
+	if build.IsDarwin || build.IsWindows {
 		match = append(match, "TEST", "Test", "tESt")
-	default:
+	} else {
 		dontMatch = append(dontMatch, "TEST", "Test", "tESt")
 	}
 
@@ -232,10 +230,7 @@ func TestCaseSensitivity(t *testing.T) {
 }
 
 func TestCaching(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -425,10 +420,7 @@ flamingo
 *.crow
 	`
 	// Caches per file, hence write the patterns to a file.
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		b.Fatal(err)
-	}
+	dir := b.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -466,10 +458,7 @@ flamingo
 }
 
 func TestCacheReload(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
@@ -628,7 +617,7 @@ func TestHashOfEmpty(t *testing.T) {
 func TestWindowsPatterns(t *testing.T) {
 	// We should accept patterns as both a/b and a\b and match that against
 	// both kinds of slash as well.
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip("Windows specific test")
 		return
 	}
@@ -653,7 +642,7 @@ func TestWindowsPatterns(t *testing.T) {
 
 func TestAutomaticCaseInsensitivity(t *testing.T) {
 	// We should do case insensitive matching by default on some platforms.
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+	if !build.IsWindows && !build.IsDarwin {
 		t.Skip("Windows/Mac specific test")
 		return
 	}
@@ -989,19 +978,14 @@ func TestIssue4689(t *testing.T) {
 }
 
 func TestIssue4901(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	stignore := `
 	#include unicorn-lazor-death
 	puppy
 	`
 
-	if err := ioutil.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -1012,19 +996,19 @@ func TestIssue4901(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		if fs.IsNotExist(err) {
-			t.Fatal("unexpected error type")
+		if err == fs.ErrNotExist {
+			t.Fatalf("unexpected error type: %T", err)
 		}
 		if !IsParseError(err) {
 			t.Fatal("failure to load included file should be a parse error")
 		}
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	err = pats.Load(".stignore")
+	err := pats.Load(".stignore")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -1079,6 +1063,31 @@ func TestSpecialChars(t *testing.T) {
 		"#nosync",
 		"$RECYCLE.BIN",
 		filepath.FromSlash("$RECYCLE.BIN/S-1-5-18/desktop.ini"),
+	}
+
+	for _, c := range cases {
+		if !pats.Match(c).IsIgnored() {
+			t.Errorf("%q should be ignored", c)
+		}
+	}
+}
+
+func TestIntlWildcards(t *testing.T) {
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+
+	stignore := `1000春
+200?春
+300[0-9]春
+400[0-9]?`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []string{
+		"1000春",
+		"2002春",
+		"3003春",
+		"4004春",
 	}
 
 	for _, c := range cases {
@@ -1191,5 +1200,40 @@ func TestEmptyPatterns(t *testing.T) {
 		if !IsParseError(err) {
 			t.Fatal("bad pattern should be a parse error")
 		}
+	}
+}
+
+func TestWindowsLineEndings(t *testing.T) {
+	if !build.IsWindows {
+		t.Skip("Windows specific")
+	}
+
+	lines := "foo\nbar\nbaz\n"
+
+	dir := t.TempDir()
+
+	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	m := New(ffs)
+	if err := m.Parse(strings.NewReader(lines), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteIgnores(ffs, ".stignore", m.Lines()); err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := ffs.Open(".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs, err := io.ReadAll(fd)
+	fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unixLineEndings := bytes.Count(bs, []byte("\n"))
+	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
+	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
+		t.Error("expected there to be a non-zero number of Windows line endings")
 	}
 }

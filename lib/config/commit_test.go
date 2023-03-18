@@ -34,7 +34,7 @@ type validationError struct{}
 func (validationError) VerifyConfiguration(_, _ Configuration) error {
 	return errors.New("some error")
 }
-func (c validationError) CommitConfiguration(_, _ Configuration) bool {
+func (validationError) CommitConfiguration(_, _ Configuration) bool {
 	return true
 }
 func (validationError) String() string {

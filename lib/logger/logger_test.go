@@ -6,7 +6,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -186,12 +186,12 @@ func TestControlStripper(t *testing.T) {
 }
 
 func BenchmarkLog(b *testing.B) {
-	l := newLogger(controlStripper{ioutil.Discard})
+	l := newLogger(controlStripper{io.Discard})
 	benchmarkLogger(b, l)
 }
 
 func BenchmarkLogNoStripper(b *testing.B) {
-	l := newLogger(ioutil.Discard)
+	l := newLogger(io.Discard)
 	benchmarkLogger(b, l)
 }
 

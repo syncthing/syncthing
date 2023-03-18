@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 
@@ -37,6 +39,7 @@ type tlsConn interface {
 type internalConn struct {
 	tlsConn
 	connType      connType
+	isLocal       bool
 	priority      int
 	establishedAt time.Time
 }
@@ -105,6 +108,10 @@ func (c internalConn) Type() string {
 	return c.connType.String()
 }
 
+func (c internalConn) IsLocal() bool {
+	return c.isLocal
+}
+
 func (c internalConn) Priority() int {
 	return c.priority
 }
@@ -116,12 +123,8 @@ func (c internalConn) Crypto() string {
 
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
-	host, _, err := net.SplitHostPort(c.LocalAddr().String())
+	ip, err := osutil.IPFromAddr(c.LocalAddr())
 	if err != nil {
-		return transport
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
 		return transport
 	}
 	if ip.To4() != nil {
@@ -139,7 +142,7 @@ func (c internalConn) String() string {
 }
 
 type dialerFactory interface {
-	New(config.OptionsConfiguration, *tls.Config) genericDialer
+	New(config.OptionsConfiguration, *tls.Config, *registry.Registry) genericDialer
 	Priority() int
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
@@ -162,7 +165,7 @@ type genericDialer interface {
 }
 
 type listenerFactory interface {
-	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
+	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service, *registry.Registry) genericListener
 	Valid(config.Configuration) error
 }
 

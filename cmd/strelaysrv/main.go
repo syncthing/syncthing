@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -50,13 +49,14 @@ var (
 
 	sessionLimitBps   int
 	globalLimitBps    int
-	overLimit         int32
+	overLimit         atomic.Bool
 	descriptorLimit   int64
 	sessionLimiter    *rate.Limiter
 	globalLimiter     *rate.Limiter
 	networkBufferSize int
 
 	statusAddr       string
+	token            string
 	poolAddrs        string
 	pools            []string
 	providedBy       string
@@ -90,6 +90,7 @@ func main() {
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
+	flag.StringVar(&token, "token", "", "Token to restrict access to the relay (optional). Disables joining any pools.")
 	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
 	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
 	flag.StringVar(&extAddress, "ext-address", "", "An optional address to advertise as being available on.\n\tAllows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443.")
@@ -146,7 +147,7 @@ func main() {
 		log.Println("Connection limit", descriptorLimit)
 
 		go monitorLimits()
-	} else if err != nil && runtime.GOOS != "windows" {
+	} else if err != nil && !build.IsWindows {
 		log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
 	}
 
@@ -200,7 +201,7 @@ func main() {
 		go natSvc.Serve(ctx)
 		defer cancel()
 		found := make(chan struct{})
-		mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
+		mapping.OnChanged(func() {
 			select {
 			case found <- struct{}{}:
 			default:
@@ -230,13 +231,36 @@ func main() {
 		go statusService(statusAddr)
 	}
 
-	uri, err := url.Parse(fmt.Sprintf("relay://%s/?id=%s&pingInterval=%s&networkTimeout=%s&sessionLimitBps=%d&globalLimitBps=%d&statusAddr=%s&providedBy=%s", mapping.Address(), id, pingInterval, networkTimeout, sessionLimitBps, globalLimitBps, statusAddr, providedBy))
+	uri, err := url.Parse(fmt.Sprintf("relay://%s/", mapping.Address()))
 	if err != nil {
 		log.Fatalln("Failed to construct URI", err)
 		return
 	}
 
+	// Add properly encoded query string parameters to URL.
+	query := make(url.Values)
+	query.Set("id", id.String())
+	query.Set("pingInterval", pingInterval.String())
+	query.Set("networkTimeout", networkTimeout.String())
+	if sessionLimitBps > 0 {
+		query.Set("sessionLimitBps", fmt.Sprint(sessionLimitBps))
+	}
+	if globalLimitBps > 0 {
+		query.Set("globalLimitBps", fmt.Sprint(globalLimitBps))
+	}
+	if statusAddr != "" {
+		query.Set("statusAddr", statusAddr)
+	}
+	if providedBy != "" {
+		query.Set("providedBy", providedBy)
+	}
+	uri.RawQuery = query.Encode()
+
 	log.Println("URI:", uri.String())
+
+	if token != "" {
+		poolAddrs = ""
+	}
 
 	if poolAddrs == defaultPoolAddrs {
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -253,7 +277,7 @@ func main() {
 		}
 	}
 
-	go listener(proto, listen, tlsCfg)
+	go listener(proto, listen, tlsCfg, token)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -284,10 +308,10 @@ func main() {
 func monitorLimits() {
 	limitCheckTimer = time.NewTimer(time.Minute)
 	for range limitCheckTimer.C {
-		if atomic.LoadInt64(&numConnections)+atomic.LoadInt64(&numProxies) > descriptorLimit {
-			atomic.StoreInt32(&overLimit, 1)
+		if numConnections.Load()+numProxies.Load() > descriptorLimit {
+			overLimit.Store(true)
 			log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")
-		} else if atomic.CompareAndSwapInt32(&overLimit, 1, 0) {
+		} else if overLimit.CompareAndSwap(true, false) {
 			log.Println("Dropped below our connection limits. Accepting new connections.")
 		}
 		limitCheckTimer.Reset(time.Minute)

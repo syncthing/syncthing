@@ -13,14 +13,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -77,22 +78,20 @@ func setupFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
+func createEmptyFileInfo(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 	t.Helper()
 
-	f, err := fs.Create(name)
-	must(t, err)
-	f.Close()
+	writeFile(t, fs, name, nil)
 	fi, err := fs.Stat(name)
 	must(t, err)
-	file, err := scanner.CreateFileInfo(fi, name, fs)
+	file, err := scanner.CreateFileInfo(fi, name, fs, false, false, config.XattrFilter{})
 	must(t, err)
 	return file
 }
 
 // Sets up a folder and model, but makes sure the services aren't actually running.
 func setupSendReceiveFolder(t testing.TB, files ...protocol.FileInfo) (*testModel, *sendReceiveFolder, context.CancelFunc) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper(t)
 	// Initialise model and stop immediately.
 	model := setupModel(t, w)
 	model.cancel()
@@ -112,7 +111,7 @@ func setupSendReceiveFolder(t testing.TB, files ...protocol.FileInfo) (*testMode
 func cleanupSRFolder(f *sendReceiveFolder, m *testModel, wrapperCancel context.CancelFunc) {
 	wrapperCancel()
 	os.Remove(m.cfg.ConfigPath())
-	os.RemoveAll(f.Filesystem().URI())
+	os.RemoveAll(f.Filesystem(nil).URI())
 }
 
 // Layout of the files: (indexes from the above array)
@@ -147,7 +146,7 @@ func TestHandleFile(t *testing.T) {
 	for _, block := range blocks[1:] {
 		found := false
 		for _, toCopyBlock := range toCopy.blocks {
-			if string(toCopyBlock.Hash) == string(block.Hash) {
+			if bytes.Equal(toCopyBlock.Hash, block.Hash) {
 				found = true
 				break
 			}
@@ -175,7 +174,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t, existingFile)
 	defer cleanupSRFolder(f, m, wcfgCancel)
 
-	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
+	if _, err := prepareTmpFile(f.Filesystem(nil)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +193,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 		found := false
 		block := blocks[idx]
 		for _, toCopyBlock := range toCopy.blocks {
-			if string(toCopyBlock.Hash) == string(block.Hash) {
+			if bytes.Equal(toCopyBlock.Hash, block.Hash) {
 				found = true
 				break
 			}
@@ -207,7 +206,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 
 func TestCopierFinder(t *testing.T) {
 	methods := []fs.CopyRangeMethod{fs.CopyRangeMethodStandard, fs.CopyRangeMethodAllWithFallback}
-	if runtime.GOOS == "linux" {
+	if build.IsLinux {
 		methods = append(methods, fs.CopyRangeMethodSendFile)
 	}
 	for _, method := range methods {
@@ -233,7 +232,7 @@ func TestCopierFinder(t *testing.T) {
 
 			defer cleanupSRFolder(f, m, wcfgCancel)
 
-			if _, err := prepareTmpFile(f.Filesystem()); err != nil {
+			if _, err := prepareTmpFile(f.Filesystem(nil)); err != nil {
 				t.Fatal(err)
 			}
 
@@ -279,7 +278,7 @@ func TestCopierFinder(t *testing.T) {
 				found := false
 				block := blocks[idx]
 				for _, pulledBlock := range pulls {
-					if string(pulledBlock.block.Hash) == string(block.Hash) {
+					if bytes.Equal(pulledBlock.block.Hash, block.Hash) {
 						found = true
 						break
 					}
@@ -287,19 +286,19 @@ func TestCopierFinder(t *testing.T) {
 				if !found {
 					t.Errorf("Did not find block %s", block.String())
 				}
-				if string(finish.file.Blocks[idx-1].Hash) != string(blocks[idx].Hash) {
+				if !bytes.Equal(finish.file.Blocks[idx-1].Hash, blocks[idx].Hash) {
 					t.Errorf("Block %d mismatch: %s != %s", idx, finish.file.Blocks[idx-1].String(), blocks[idx].String())
 				}
 			}
 
 			// Verify that the fetched blocks have actually been written to the temp file
-			blks, err := scanner.HashFile(context.TODO(), f.Filesystem(), tempFile, protocol.MinBlockSize, nil, false)
+			blks, err := scanner.HashFile(context.TODO(), f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
 			if err != nil {
 				t.Log(err)
 			}
 
 			for _, eq := range []int{2, 3, 4, 7} {
-				if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
+				if !bytes.Equal(blks[eq-1].Hash, blocks[eq].Hash) {
 					t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
 				}
 			}
@@ -311,7 +310,7 @@ func TestWeakHash(t *testing.T) {
 	// Setup the model/pull environment
 	model, fo, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(fo, model, wcfgCancel)
-	ffs := fo.Filesystem()
+	ffs := fo.Filesystem(nil)
 
 	tempFile := fs.TempName("weakhash")
 	var shift int64 = 10
@@ -338,13 +337,13 @@ func TestWeakHash(t *testing.T) {
 	// both are of the same length, for example:
 	// File 1: abcdefgh
 	// File 2: xyabcdef
-	f.Seek(0, os.SEEK_SET)
+	f.Seek(0, io.SeekStart)
 	existing, err := scanner.Blocks(context.TODO(), f, protocol.MinBlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
 
-	f.Seek(0, os.SEEK_SET)
+	f.Seek(0, io.SeekStart)
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)
@@ -676,14 +675,14 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 func TestIssue3164(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 	tmpDir := ffs.URI()
 
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
 	must(t, ffs.MkdirAll(subDir, 0777))
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644))
+	must(t, os.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644))
+	must(t, os.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644))
 	file := protocol.FileInfo{
 		Name: "issue3164",
 	}
@@ -767,7 +766,7 @@ func TestDiffEmpty(t *testing.T) {
 func TestDeleteIgnorePerms(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 	f.IgnorePerms = true
 
 	name := "deleteIgnorePerms"
@@ -779,9 +778,12 @@ func TestDeleteIgnorePerms(t *testing.T) {
 
 	stat, err := file.Stat()
 	must(t, err)
-	fi, err := scanner.CreateFileInfo(stat, name, ffs)
+	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0600)
+	if info, err := ffs.Stat(name); err == nil {
+		fi.InodeChangeNs = info.InodeChangeTime().UnixNano()
+	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)
@@ -791,7 +793,7 @@ func TestCopyOwner(t *testing.T) {
 	// Verifies that owner and group are copied from the parent, for both
 	// files and directories.
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("copying owner not supported on Windows")
 	}
 
@@ -808,13 +810,13 @@ func TestCopyOwner(t *testing.T) {
 	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
-	f.fset = newFileSet(t, f.ID, f.Filesystem(), m.db)
-	f.mtimefs = f.fset.MtimeFS()
+	f.fset = newFileSet(t, f.ID, m.db)
+	f.mtimefs = f.Filesystem(f.fset)
 
 	// Create a parent dir with a certain owner/group.
 
 	f.mtimefs.Mkdir("foo", 0755)
-	f.mtimefs.Lchown("foo", expOwner, expGroup)
+	f.mtimefs.Lchown("foo", strconv.Itoa(expOwner), strconv.Itoa(expGroup))
 
 	dir := protocol.FileInfo{
 		Name:        "foo/bar",
@@ -908,12 +910,12 @@ func TestCopyOwner(t *testing.T) {
 func TestSRConflictReplaceFileByDir(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
 	name := "foo"
 
 	// create local file
-	file := createFile(t, name, ffs)
+	file := createEmptyFileInfo(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
@@ -940,12 +942,12 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 func TestSRConflictReplaceFileByLink(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
 	name := "foo"
 
 	// create local file
-	file := createFile(t, name, ffs)
+	file := createEmptyFileInfo(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
@@ -973,23 +975,22 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 func TestDeleteBehindSymlink(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
-	destDir := createTmpDir()
-	defer os.RemoveAll(destDir)
+	destDir := t.TempDir()
 	destFs := fs.NewFilesystem(fs.FilesystemTypeBasic, destDir)
 
 	link := "link"
 	file := filepath.Join(link, "file")
 
 	must(t, ffs.MkdirAll(link, 0755))
-	fi := createFile(t, file, ffs)
+	fi := createEmptyFileInfo(t, file, ffs)
 	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
 	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
 
 	if err := fs.DebugSymlinkForTestsOnly(destFs, ffs, "", link); err != nil {
-		if runtime.GOOS == "windows" {
+		if build.IsWindows {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
 		} else {
@@ -1066,7 +1067,7 @@ func TestPullCtxCancel(t *testing.T) {
 func TestPullDeleteUnscannedDir(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
 	dir := "foobar"
 	must(t, ffs.MkdirAll(dir, 0777))
@@ -1095,11 +1096,11 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
 	name := "foo"
 	contents := []byte("contents")
-	must(t, writeFile(ffs, name, contents, 0644))
+	writeFile(t, ffs, name, contents)
 	must(t, f.scanSubdirs(nil))
 
 	var cur protocol.FileInfo
@@ -1118,11 +1119,12 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		t.Fatal("file is missing")
 	}
 
-	remote := *(&cur)
+	remote := cur
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
+
 	temp := fs.TempName(remote.Name)
-	must(t, writeFile(ffs, temp, contents, 0644))
+	writeFile(t, ffs, temp, contents)
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
@@ -1147,7 +1149,7 @@ func TestPullCaseOnlyDir(t *testing.T) {
 }
 
 func TestPullCaseOnlySymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("symlinks not supported on windows")
 	}
 	testPullCaseOnlyDirOrSymlink(t, false)
@@ -1156,7 +1158,7 @@ func TestPullCaseOnlySymlink(t *testing.T) {
 func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m, wcfgCancel)
-	ffs := f.Filesystem()
+	ffs := f.Filesystem(nil)
 
 	name := "foo"
 	if dir {
@@ -1184,7 +1186,8 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	remote := *(&cur)
+
+	remote := cur
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
 
@@ -1231,6 +1234,8 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 	cs := <-copyChan
 	if _, err := cs.tempFile(); err != nil {
 		t.Error(err)
+	} else {
+		cs.finalClose()
 	}
 }
 
@@ -1274,7 +1279,7 @@ func TestPullCaseOnlyRename(t *testing.T) {
 }
 
 func TestPullSymlinkOverExistingWindows(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if !build.IsWindows {
 		t.Skip()
 	}
 

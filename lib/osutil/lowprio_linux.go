@@ -4,15 +4,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build !android
 // +build !android
 
 package osutil
 
 import (
+	"fmt"
 	"os"
 	"syscall"
-
-	"github.com/pkg/errors"
 )
 
 const ioprioClassShift = 13
@@ -81,20 +81,22 @@ func SetLowPriority() error {
 	// so we need this workaround...
 	if pgid, err := syscall.Getpgid(pidSelf); err != nil {
 		// This error really shouldn't happen
-		return errors.Wrap(err, "get process group")
+		return fmt.Errorf("get process group: %w", err)
 	} else if pgid != os.Getpid() {
 		// We are not process group leader. Elevate!
 		if err := syscall.Setpgid(pidSelf, 0); err != nil {
-			return errors.Wrap(err, "set process group")
+			return fmt.Errorf("set process group: %w", err)
 		}
 	}
 
 	if err := syscall.Setpriority(syscall.PRIO_PGRP, pidSelf, wantNiceLevel); err != nil {
-		return errors.Wrap(err, "set niceness")
+		return fmt.Errorf("set niceness: %w", err)
 	}
 
 	// Best effort, somewhere to the end of the scale (0 through 7 being the
 	// range).
-	err := ioprioSet(ioprioClassBE, 5)
-	return errors.Wrap(err, "set I/O priority") // wraps nil as nil
+	if err := ioprioSet(ioprioClassBE, 5); err != nil {
+		return fmt.Errorf("set I/O priority: %w", err)
+	}
+	return nil
 }

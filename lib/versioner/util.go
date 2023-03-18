@@ -8,13 +8,13 @@ package versioner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -200,11 +200,11 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 		case info.IsSymlink():
 			// Remove existing symlinks (as we don't want to archive them)
 			if err := dst.Remove(filePath); err != nil {
-				return errors.Wrap(err, "removing existing symlink")
+				return fmt.Errorf("removing existing symlink: %w", err)
 			}
 		case info.IsRegular():
 			if err := archiveFile(method, dst, src, filePath, tagger); err != nil {
-				return errors.Wrap(err, "archiving existing file")
+				return fmt.Errorf("archiving existing file: %w", err)
 			}
 		default:
 			panic("bug: unknown item type")
@@ -256,7 +256,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 }
 
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
-	folderFs := cfg.Filesystem()
+	folderFs := cfg.Filesystem(nil)
 	if cfg.Versioning.FSPath == "" {
 		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
 	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {
@@ -287,50 +287,70 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	return versions
 }
 
-func cleanByDay(ctx context.Context, versionsFs fs.Filesystem, cleanoutDays int) error {
-	if cleanoutDays <= 0 {
+func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string, time.Time) []string) error {
+	l.Debugln("Versioner clean: Cleaning", versionsFs)
+
+	if _, err := versionsFs.Stat("."); fs.IsNotExist(err) {
+		// There is no need to clean a nonexistent dir.
 		return nil
 	}
 
-	if _, err := versionsFs.Lstat("."); fs.IsNotExist(err) {
-		return nil
-	}
-
-	cutoff := time.Now().Add(time.Duration(-24*cleanoutDays) * time.Hour)
+	versionsPerFile := make(map[string][]string)
 	dirTracker := make(emptyDirTracker)
 
-	walkFn := func(path string, info fs.FileInfo, err error) error {
+	walkFn := func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		if info.IsDir() && !info.IsSymlink() {
+		if f.IsDir() && !f.IsSymlink() {
 			dirTracker.addDir(path)
 			return nil
 		}
 
-		if info.ModTime().Before(cutoff) {
-			// The file is too old; remove it.
-			err = versionsFs.Remove(path)
-		} else {
-			// Keep this file, and remember it so we don't unnecessarily try
-			// to remove this directory.
-			dirTracker.addFile(path)
+		// Regular file, or possibly a symlink.
+		dirTracker.addFile(path)
+
+		name, _ := UntagFilename(path)
+		if name == "" {
+			return nil
 		}
-		return err
+
+		versionsPerFile[name] = append(versionsPerFile[name], path)
+
+		return nil
 	}
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
+		l.Warnln("Versioner: error scanning versions dir", err)
 		return err
+	}
+
+	for _, versionList := range versionsPerFile {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		cleanVersions(versionsFs, versionList, toRemove)
 	}
 
 	dirTracker.deleteEmptyDirs(versionsFs)
 
+	l.Debugln("Cleaner: Finished cleaning", versionsFs)
 	return nil
+}
+
+func cleanVersions(versionsFs fs.Filesystem, versions []string, toRemove func([]string, time.Time) []string) {
+	l.Debugln("Versioner: Expiring versions", versions)
+	for _, file := range toRemove(versions, time.Now()) {
+		if err := versionsFs.Remove(file); err != nil {
+			l.Warnf("Versioner: can't remove %q: %v", file, err)
+		}
+	}
 }

@@ -46,6 +46,7 @@ type apiKeyValidator interface {
 func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, saveLocation string) *csrfManager {
 	m := &csrfManager{
 		tokensMut:       sync.NewMutex(),
+		tokens:          make([]string, 0, maxCsrfTokens),
 		unique:          unique,
 		prefix:          prefix,
 		apiKeyValidator: apiKeyValidator,
@@ -69,6 +70,13 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/rest/debug") {
 		// Debugging functions are only available when explicitly
 		// enabled, and can be accessed without a CSRF token
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+		// REST calls that don't require authentication also do not
+		// need a CSRF token.
 		m.next.ServeHTTP(w, r)
 		return
 	}
@@ -108,7 +116,7 @@ func (m *csrfManager) validToken(token string) bool {
 				// Move this token to the head of the list. Copy the tokens at
 				// the front one step to the right and then replace the token
 				// at the head.
-				copy(m.tokens[1:], m.tokens[:i+1])
+				copy(m.tokens[1:], m.tokens[:i])
 				m.tokens[0] = token
 			}
 			return true
@@ -121,11 +129,13 @@ func (m *csrfManager) newToken() string {
 	token := rand.String(32)
 
 	m.tokensMut.Lock()
-	m.tokens = append([]string{token}, m.tokens...)
-	if len(m.tokens) > maxCsrfTokens {
-		m.tokens = m.tokens[:maxCsrfTokens]
-	}
 	defer m.tokensMut.Unlock()
+
+	if len(m.tokens) < maxCsrfTokens {
+		m.tokens = append(m.tokens, "")
+	}
+	copy(m.tokens[1:], m.tokens)
+	m.tokens[0] = token
 
 	m.save()
 

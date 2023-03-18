@@ -1,9 +1,11 @@
 <modal id="remove-device-confirmation" status="warning" icon="fas fa-question-circle" heading="{{'Remove Device' | translate}}" large="no" closeable="yes">
   <div class="modal-body">
-    <p ng-model="currentDevice.name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-      <span translate translate-value-name="{{currentDevice.name}}">Are you sure you want to remove device {%name%}?</span>
+    <p ng-model="currentDevice.name" translate translate-value-name="{{currentDevice.name}}">
+      Are you sure you want to remove device {%name%}?
     </p>
-    <p ng-if="willBeReintroducedBy" translate translate-value-reintroducer="{{willBeReintroducedBy}}">{%reintroducer%} might reintroduce this device.</p>
+    <p ng-if="willBeReintroducedBy" translate translate-value-reintroducer="{{willBeReintroducedBy}}">
+      {%reintroducer%} might reintroduce this device.
+    </p>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-warning pull-left btn-sm" data-dismiss="modal" ng-click="deleteDevice()">

@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build windows
 // +build windows
 
 package fs
@@ -12,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -48,7 +50,6 @@ func TestResolveWindows83(t *testing.T) {
 		dir = fs.resolveWin83(dir)
 		fs = newBasicFilesystem(dir)
 	}
-	defer os.RemoveAll(dir)
 
 	shortAbs, _ := fs.rooted("LFDATA~1")
 	long := "LFDataTool"
@@ -79,7 +80,6 @@ func TestIsWindows83(t *testing.T) {
 		dir = fs.resolveWin83(dir)
 		fs = newBasicFilesystem(dir)
 	}
-	defer os.RemoveAll(dir)
 
 	tempTop, _ := fs.rooted(TempName("baz"))
 	tempBelow, _ := fs.rooted(filepath.Join("foo", "bar", TempName("baz")))
@@ -191,5 +191,27 @@ func TestGetFinalPath(t *testing.T) {
 				t.Errorf("EvalSymlinks got different results %q %s", evlPath, err1)
 			}
 		}
+	}
+}
+
+func TestRemoveWindowsDirIcon(t *testing.T) {
+	//Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
+
+	fs, dir := setup(t)
+	relativePath := "folder_with_icon"
+	path := filepath.Join(dir, relativePath)
+
+	if err := os.Mkdir(path, os.ModeDir); err != nil {
+		t.Fatal(err)
+	}
+	ptr, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.SetFileAttributes(ptr, uint32(syscall.FILE_ATTRIBUTE_DIRECTORY+syscall.FILE_ATTRIBUTE_READONLY)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Remove(relativePath); err != nil {
+		t.Fatal(err)
 	}
 }

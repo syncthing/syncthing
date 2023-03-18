@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -53,5 +53,5 @@ func compressAndWrite(bs []byte, fullPath string) error {
 	gw.Close()
 
 	// Create an output file with the compressed report
-	return ioutil.WriteFile(fullPath, buf.Bytes(), 0644)
+	return os.WriteFile(fullPath, buf.Bytes(), 0644)
 }

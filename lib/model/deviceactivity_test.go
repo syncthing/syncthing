@@ -19,42 +19,42 @@ func TestDeviceActivity(t *testing.T) {
 	devices := []Availability{n0, n1, n2}
 	na := newDeviceActivity()
 
-	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
+	if lb := na.leastBusy(devices); lb != 0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
-	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
+	if lb := na.leastBusy(devices); lb != 0 {
 		t.Errorf("Least busy device should still be n0 (%v) not %v", n0, lb)
 	}
 
-	lb, _ := na.leastBusy(devices)
-	na.using(lb)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
+	lb := na.leastBusy(devices)
+	na.using(devices[lb])
+	if lb := na.leastBusy(devices); lb != 1 {
 		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 	}
-	lb, _ = na.leastBusy(devices)
-	na.using(lb)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n2 {
+	lb = na.leastBusy(devices)
+	na.using(devices[lb])
+	if lb := na.leastBusy(devices); lb != 2 {
 		t.Errorf("Least busy device should be n2 (%v) not %v", n2, lb)
 	}
 
-	lb, _ = na.leastBusy(devices)
-	na.using(lb)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
+	lb = na.leastBusy(devices)
+	na.using(devices[lb])
+	if lb := na.leastBusy(devices); lb != 0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
 
 	na.done(n1)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
+	if lb := na.leastBusy(devices); lb != 1 {
 		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 	}
 
 	na.done(n2)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n1 {
+	if lb := na.leastBusy(devices); lb != 1 {
 		t.Errorf("Least busy device should still be n1 (%v) not %v", n1, lb)
 	}
 
 	na.done(n0)
-	if lb, ok := na.leastBusy(devices); !ok || lb != n0 {
+	if lb := na.leastBusy(devices); lb != 0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
 }

@@ -24,7 +24,6 @@ import (
 
 type FileSet struct {
 	folder string
-	fs     fs.Filesystem
 	db     *Lowlevel
 	meta   *metadataTracker
 
@@ -36,7 +35,7 @@ type FileSet struct {
 // continue iteration, false to stop.
 type Iterator func(f protocol.FileIntf) bool
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error) {
+func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
 	select {
 	case <-db.oneFileSetCreated:
 	default:
@@ -49,7 +48,6 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error)
 	}
 	s := &FileSet{
 		folder:      folder,
-		fs:          fs,
 		db:          db,
 		meta:        meta,
 		updateMutex: sync.NewMutex(),
@@ -140,6 +138,22 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 	// Easy case, just update the files and we're done.
 	if err := s.db.updateRemoteFiles([]byte(s.folder), device[:], fs, s.meta); err != nil && !backend.IsClosed(err) {
+		fatalError(err, opStr, s.db)
+	}
+}
+
+func (s *FileSet) RemoveLocalItems(items []string) {
+	opStr := fmt.Sprintf("%s RemoveLocalItems([%d])", s.folder, len(items))
+	l.Debugf(opStr)
+
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
+	for i := range items {
+		items[i] = osutil.NormalizedFilename(items[i])
+	}
+
+	if err := s.db.removeLocalFiles([]byte(s.folder), items, s.meta); err != nil && !backend.IsClosed(err) {
 		fatalError(err, opStr, s.db)
 	}
 }
@@ -389,8 +403,8 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	}
 }
 
-func (s *FileSet) MtimeFS() fs.Filesystem {
-	opStr := fmt.Sprintf("%s MtimeFS()", s.folder)
+func (s *FileSet) MtimeOption() fs.Option {
+	opStr := fmt.Sprintf("%s MtimeOption()", s.folder)
 	l.Debugf(opStr)
 	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
 	if backend.IsClosed(err) {
@@ -399,7 +413,7 @@ func (s *FileSet) MtimeFS() fs.Filesystem {
 		fatalError(err, opStr, s.db)
 	}
 	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeFS(s.fs, kv)
+	return fs.NewMtimeOption(kv)
 }
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {

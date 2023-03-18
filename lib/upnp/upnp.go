@@ -37,20 +37,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -85,7 +85,7 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
-func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	var results []nat.Device
 
 	interfaces, err := net.Interfaces()
@@ -100,7 +100,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows
-		if runtime.GOOS != "windows" && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
+		if !build.IsWindows && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
 			continue
 		}
 
@@ -212,7 +212,7 @@ loop:
 			case *UnsupportedDeviceTypeError:
 				l.Debugln(err.Error())
 			default:
-				if errors.Cause(err) != context.Canceled {
+				if !errors.Is(err, context.Canceled) {
 					l.Infoln("UPnP parse:", err)
 				}
 			}
@@ -304,12 +304,7 @@ func localIP(ctx context.Context, url *url.URL) (net.IP, error) {
 	}
 	defer conn.Close()
 
-	localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())
-	if err != nil {
-		return nil, err
-	}
-
-	return net.ParseIP(localIPAddress), nil
+	return osutil.IPFromAddr(conn.LocalAddr())
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
@@ -383,7 +378,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 				l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
 
 				for _, service := range services {
-					if len(service.ControlURL) == 0 {
+					if service.ControlURL == "" {
 						l.Infoln(rootURL+"- malformed", service.Type, "description: no control URL.")
 					} else {
 						u, _ := url.Parse(rootURL)
@@ -444,11 +439,10 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 
 	body := fmt.Sprintf(tpl, message)
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
 		return resp, err
 	}
-	req.Cancel = ctx.Done()
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
@@ -467,7 +461,7 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 		return resp, err
 	}
 
-	resp, _ = ioutil.ReadAll(r.Body)
+	resp, _ = io.ReadAll(r.Body)
 	l.Debugf("SOAP Response: %s\n\n%s\n\n", r.Status, resp)
 
 	r.Body.Close()

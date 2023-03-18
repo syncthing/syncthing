@@ -39,36 +39,35 @@ const (
 )
 
 type writeTrackingUdpConn struct {
-	lastWrite int64 // atomic, must remain 64-bit aligned
 	// Needs to be UDPConn not PacketConn, as pfilter checks for WriteMsgUDP/ReadMsgUDP
 	// and even if we embed UDPConn here, in place of a PacketConn, seems the interface
 	// check fails.
 	*net.UDPConn
+	lastWrite atomic.Int64
 }
 
 func (c *writeTrackingUdpConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	c.lastWrite.Store(time.Now().Unix())
 	return c.UDPConn.WriteTo(p, addr)
 }
 
 func (c *writeTrackingUdpConn) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	c.lastWrite.Store(time.Now().Unix())
 	return c.UDPConn.WriteMsgUDP(b, oob, addr)
 }
 
 func (c *writeTrackingUdpConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	c.lastWrite.Store(time.Now().Unix())
 	return c.UDPConn.WriteToUDP(b, addr)
 }
 
 func (c *writeTrackingUdpConn) Write(b []byte) (int, error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
+	c.lastWrite.Store(time.Now().Unix())
 	return c.UDPConn.Write(b)
 }
 
 func (c *writeTrackingUdpConn) getLastWrite() time.Time {
-	unix := atomic.LoadInt64(&c.lastWrite)
-	return time.Unix(unix, 0)
+	return time.Unix(c.lastWrite.Load(), 0)
 }
 
 type Subscriber interface {
@@ -91,7 +90,7 @@ type Service struct {
 
 func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service, net.PacketConn) {
 	// Wrap the original connection to track writes on it
-	writeTrackingUdpConn := &writeTrackingUdpConn{lastWrite: 0, UDPConn: conn}
+	writeTrackingUdpConn := &writeTrackingUdpConn{UDPConn: conn}
 
 	// Wrap it in a filter and split it up, so that stun packets arrive on stun conn, others arrive on the data conn
 	filterConn := pfilter.NewPacketFilter(writeTrackingUdpConn)
@@ -107,8 +106,14 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service
 	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
 
 	// Return the service and the other conn to the client
+	name := "Stun@"
+	if local := conn.LocalAddr(); local != nil {
+		name += local.Network() + "://" + local.String()
+	} else {
+		name += "unknown"
+	}
 	s := &Service{
-		name: "Stun@" + conn.LocalAddr().Network() + "://" + conn.LocalAddr().String(),
+		name: name,
 
 		cfg:        cfg,
 		subscriber: subscriber,

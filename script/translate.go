@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -23,7 +24,13 @@ import (
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
-var jsRe = regexp.MustCompile(`\$translate.instant\("([^"]+)"\)`)
+
+// Find both $translate.instant("…") and $translate.instant("…",…) in JS.
+// Consider single quote variants too.
+var jsRe = []*regexp.Regexp{
+	regexp.MustCompile(`\$translate\.instant\(\s*"(.+?)"(,.*|\s*)\)`),
+	regexp.MustCompile(`\$translate\.instant\(\s*'(.+?)'(,.*|\s*)\)`),
+}
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
@@ -127,13 +134,31 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			generalNode(doc, filepath.Base(name))
 		case ".js":
 			for s := bufio.NewScanner(fd); s.Scan(); {
-				for _, matches := range jsRe.FindAllStringSubmatch(s.Text(), -1) {
-					translation(matches[1])
+				for _, re := range jsRe {
+					for _, matches := range re.FindAllStringSubmatch(s.Text(), -1) {
+						translation(matches[1])
+					}
 				}
 			}
 		}
 
 		return nil
+	}
+}
+
+func collectThemes(basePath string) {
+	files, err := os.ReadDir(basePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			key := "theme-name-" + f.Name()
+			if _, ok := trans[key]; !ok {
+				name := strings.Title(f.Name())
+				trans[key] = name
+			}
+		}
 	}
 }
 
@@ -151,8 +176,9 @@ func main() {
 	var guiDir = os.Args[2]
 
 	filepath.Walk(guiDir, walkerFor(guiDir))
+	collectThemes(guiDir)
 
-	bs, err := json.MarshalIndent(trans, "", "   ")
+	bs, err := json.MarshalIndent(trans, "", "    ")
 	if err != nil {
 		log.Fatal(err)
 	}

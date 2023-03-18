@@ -4,12 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -126,7 +127,7 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +141,7 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +199,7 @@ func TestOverrideIgnores(t *testing.T) {
 	log.Println("Starting sendOnly...")
 	sendOnly := syncthingProcess{ // id1
 		instance: "1",
-		argv:     []string{"-home", "h1"},
+		argv:     []string{"--home", "h1"},
 		port:     8081,
 		apiKey:   apiKey,
 	}
@@ -211,7 +212,7 @@ func TestOverrideIgnores(t *testing.T) {
 	log.Println("Starting sendRecv...")
 	sendRecv := syncthingProcess{ // id2
 		instance: "2",
-		argv:     []string{"-home", "h2"},
+		argv:     []string{"--home", "h2"},
 		port:     8082,
 		apiKey:   apiKey,
 	}
@@ -294,7 +295,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +309,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +337,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +388,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,7 +423,7 @@ func TestOverrideIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bs, err = ioutil.ReadAll(fd)
+	bs, err = io.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
 	}

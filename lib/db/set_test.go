@@ -19,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -146,7 +145,7 @@ func TestGlobalSet(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -452,7 +451,7 @@ func TestNeedWithInvalid(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -493,7 +492,7 @@ func TestUpdateToInvalid(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 	f := db.NewBlockFinder(ldb)
 
 	localHave := fileList{
@@ -549,7 +548,7 @@ func TestInvalidAvailability(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
@@ -591,7 +590,7 @@ func TestGlobalReset(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -630,7 +629,7 @@ func TestNeed(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -671,7 +670,7 @@ func TestSequence(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", ldb)
 
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -702,7 +701,7 @@ func TestListDropFolder(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s0 := newFileSet(t, "test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s0 := newFileSet(t, "test0", ldb)
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -710,7 +709,7 @@ func TestListDropFolder(t *testing.T) {
 	}
 	replace(s0, protocol.LocalDeviceID, local1)
 
-	s1 := newFileSet(t, "test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s1 := newFileSet(t, "test1", ldb)
 	local2 := []protocol.FileInfo{
 		{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
@@ -753,7 +752,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test1", ldb)
 
 	rem0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
@@ -796,7 +795,7 @@ func TestLongPath(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	var b bytes.Buffer
 	for i := 0; i < 100; i++ {
@@ -840,7 +839,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 		os.RemoveAll("testdata/benchmarkupdate.db")
 	}()
 
-	m := newFileSet(b, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(b, "test", ldb)
 	replace(m, protocol.LocalDeviceID, local0)
 	l := local0[4:5]
 
@@ -856,7 +855,7 @@ func TestIndexID(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	// The Index ID for some random device is zero by default.
 	id := s.IndexID(remoteDevice0)
@@ -888,7 +887,7 @@ func TestIndexID(t *testing.T) {
 func TestDropFiles(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 
-	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -952,7 +951,7 @@ func TestIssue4701(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -995,7 +994,7 @@ func TestWithHaveSequence(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	// The files must not be in alphabetical order
 	localHave := fileList{
@@ -1021,7 +1020,7 @@ func TestWithHaveSequence(t *testing.T) {
 }
 
 func TestStressWithHaveSequence(t *testing.T) {
-	// This races two loops against each other: one that contiously does
+	// This races two loops against each other: one that continuously does
 	// updates, and one that continuously does sequence walks. The test fails
 	// if the sequence walker sees a discontinuity.
 
@@ -1033,7 +1032,7 @@ func TestStressWithHaveSequence(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	var localHave []protocol.FileInfo
 	for i := 0; i < 100; i++ {
@@ -1078,7 +1077,7 @@ func TestIssue4925(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "dir"},
@@ -1106,7 +1105,7 @@ func TestMoveGlobalBack(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	localHave := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Blocks: genBlocks(1), ModifiedS: 10, Size: 1}}
 	remote0Have := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}, {ID: remoteDevice0.Short(), Value: 1}}}, Blocks: genBlocks(2), ModifiedS: 0, Size: 2}}
@@ -1175,7 +1174,7 @@ func TestIssue5007(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
 
@@ -1205,7 +1204,7 @@ func TestNeedDeleted(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Deleted: true}}
 
@@ -1242,7 +1241,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	local := protocol.DeviceID{1}
 	remote := protocol.DeviceID{2}
@@ -1307,7 +1306,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
 	}
 	if n := receiveOnlyChangedSize(t, s).Bytes; n != 100 {
-		t.Fatal("expected 100 receive only changed btyes after local change, not", n)
+		t.Fatal("expected 100 receive only changed bytes after local change, not", n)
 	}
 
 	// Fake a revert. That's a two step process, first converting our
@@ -1348,7 +1347,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, ldb)
 
 	remID := remoteDevice0.Short()
 
@@ -1379,7 +1378,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	files := []protocol.FileInfo{
 		{Name: "a", Size: 1234, Sequence: 42, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}},                   // valid, should count
@@ -1400,7 +1399,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "default", ldb)
 
 	rem0ID := remoteDevice0.Short()
 	rem1ID := remoteDevice1.Short()
@@ -1442,7 +1441,7 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 	defer ldb.Close()
 
 	file := "foo"
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
 
@@ -1469,7 +1468,7 @@ func TestCaseSensitive(t *testing.T) {
 
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: filepath.FromSlash("D1/f1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -1507,7 +1506,7 @@ func TestSequenceIndex(t *testing.T) {
 
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	local := []protocol.FileInfo{
 		{Name: filepath.FromSlash("banana"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -1603,7 +1602,7 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 	defer ldb.Close()
 
 	file := "foo"
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	fs := fileList{{
 		Name:       file,
@@ -1634,7 +1633,7 @@ func TestUpdateWithOneFileTwice(t *testing.T) {
 	defer ldb.Close()
 
 	file := "foo"
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	fs := fileList{{
 		Name:     file,
@@ -1671,7 +1670,7 @@ func TestNeedRemoteOnly(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
@@ -1689,7 +1688,7 @@ func TestNeedRemoteAfterReset(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	files := fileList{
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
@@ -1715,7 +1714,7 @@ func TestIgnoreLocalChanged(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	// Add locally changed file
 	files := fileList{
@@ -1749,7 +1748,7 @@ func TestNoIndexIDResetOnDrop(t *testing.T) {
 	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", ldb)
 
 	s.SetIndexID(remoteDevice0, 1)
 	s.Drop(remoteDevice0)
@@ -1772,7 +1771,7 @@ func TestConcurrentIndexID(t *testing.T) {
 	}
 	for i := 0; i < max; i++ {
 		ldb := newLowlevelMemory(t)
-		s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+		s := newFileSet(t, "test", ldb)
 		go setID(s, 0)
 		go setID(s, 1)
 		<-done
@@ -1789,9 +1788,8 @@ func TestNeedRemoveLastValid(t *testing.T) {
 	defer db.Close()
 
 	folder := "test"
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := newFileSet(t, folder, testFs, db)
+	fs := newFileSet(t, folder, db)
 
 	files := []protocol.FileInfo{
 		{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1},
@@ -1887,9 +1885,9 @@ func newLowlevelMemory(t testing.TB) *db.Lowlevel {
 	return newLowlevel(t, backend.OpenMemory())
 }
 
-func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ll *db.Lowlevel) *db.FileSet {
+func newFileSet(t testing.TB, folder string, ll *db.Lowlevel) *db.FileSet {
 	t.Helper()
-	fset, err := db.NewFileSet(folder, fs, ll)
+	fset, err := db.NewFileSet(folder, ll)
 	if err != nil {
 		t.Fatal(err)
 	}

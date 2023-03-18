@@ -8,12 +8,14 @@ package model
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type unifySubsCase struct {
@@ -96,7 +98,7 @@ func unifySubsCases() []unifySubsCase {
 		},
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Fixup path separators
 		for i := range cases {
 			for j, p := range cases[i].in {
@@ -147,5 +149,45 @@ func BenchmarkUnifySubs(b *testing.B) {
 			}
 			unifySubs(tc.in, exists)
 		}
+	}
+}
+
+func TestSetPlatformData(t *testing.T) {
+	// Checks that setPlatformData runs without error when applied to a temp
+	// file, named differently than the given FileInfo.
+
+	dir := t.TempDir()
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	if fd, err := fs.Create("file.tmp"); err != nil {
+		t.Fatal(err)
+	} else {
+		fd.Close()
+	}
+
+	xattr := []protocol.Xattr{{Name: "user.foo", Value: []byte("bar")}}
+	fi := &protocol.FileInfo{
+		Name:        "should be ignored",
+		Permissions: 0400,
+		ModifiedS:   1234567890,
+		Platform: protocol.PlatformData{
+			Linux:   &protocol.XattrData{Xattrs: xattr},
+			Darwin:  &protocol.XattrData{Xattrs: xattr},
+			FreeBSD: &protocol.XattrData{Xattrs: xattr},
+			NetBSD:  &protocol.XattrData{Xattrs: xattr},
+		},
+	}
+
+	// Minimum required to support setPlatformData
+	sr := &sendReceiveFolder{
+		folder: folder{
+			FolderConfiguration: config.FolderConfiguration{
+				SyncXattrs: true,
+			},
+			mtimefs: fs,
+		},
+	}
+
+	if err := sr.setPlatformData(fi, "file.tmp"); err != nil {
+		t.Error(err)
 	}
 }

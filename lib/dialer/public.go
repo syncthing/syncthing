@@ -104,30 +104,34 @@ func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 // DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
 // a direct connection reusing the port from the connections registry, if no proxy is defined, or connecting via proxy
 // fails. It also in parallel dials without reusing the port, just in case reusing the port affects routing decisions badly.
-func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
-	// If proxy is configured, there is no point trying to reuse listen addresses.
-	if proxy.FromEnvironment() != proxy.Direct {
-		return DialContext(ctx, network, addr)
-	}
+func DialContextReusePortFunc(registry *registry.Registry) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// If proxy is configured, there is no point trying to reuse listen addresses.
+		if proxy.FromEnvironment() != proxy.Direct {
+			return DialContext(ctx, network, addr)
+		}
 
-	localAddrInterface := registry.Get(network, tcpAddrLess)
-	if localAddrInterface == nil {
-		// Nothing listening, nothing to reuse.
-		return DialContext(ctx, network, addr)
-	}
+		localAddrInterface := registry.Get(network, func(addr interface{}) bool {
+			return addr.(*net.TCPAddr).IP.IsUnspecified()
+		})
+		if localAddrInterface == nil {
+			// Nothing listening, nothing to reuse.
+			return DialContext(ctx, network, addr)
+		}
 
-	laddr, ok := localAddrInterface.(*net.TCPAddr)
-	if !ok {
-		return nil, errUnexpectedInterfaceType
-	}
+		laddr, ok := localAddrInterface.(*net.TCPAddr)
+		if !ok {
+			return nil, errUnexpectedInterfaceType
+		}
 
-	// Dial twice, once reusing the listen address, another time not reusing it, just in case reusing the address
-	// influences routing and we fail to reach our destination.
-	dialer := net.Dialer{
-		Control:   ReusePortControl,
-		LocalAddr: laddr,
+		// Dial twice, once reusing the listen address, another time not reusing it, just in case reusing the address
+		// influences routing and we fail to reach our destination.
+		dialer := net.Dialer{
+			Control:   ReusePortControl,
+			LocalAddr: laddr,
+		}
+		return dialTwicePreferFirst(ctx, dialer.DialContext, (&net.Dialer{}).DialContext, "reuse", "non-reuse", network, addr)
 	}
-	return dialTwicePreferFirst(ctx, dialer.DialContext, (&net.Dialer{}).DialContext, "reuse", "non-reuse", network, addr)
 }
 
 type dialFunc func(ctx context.Context, network, address string) (net.Conn, error)

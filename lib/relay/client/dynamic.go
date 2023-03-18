@@ -48,12 +48,11 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 
 	l.Debugln(c, "looking up dynamic relays")
 
-	req, err := http.NewRequest("GET", uri.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", uri.String(), nil)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		return err
 	}
-	req.Cancel = ctx.Done()
 	data, err := http.DefaultClient.Do(req)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)

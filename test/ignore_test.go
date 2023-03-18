@@ -4,12 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -66,7 +66,7 @@ func TestIgnores(t *testing.T) {
 
 	// Add some of them to an ignore file
 
-	err = ioutil.WriteFile("s1/.stignore",
+	err = os.WriteFile("s1/.stignore",
 		[]byte("f1*\nf2\nd1*\nd2\ns1*\ns2\n(?i)*.txt"), // [fds][34] only non-ignored items
 		0644)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestIgnores(t *testing.T) {
 	// Change the pattern to include some of the files and dirs previously ignored
 
 	time.Sleep(1100 * time.Millisecond)
-	err = ioutil.WriteFile("s1/.stignore", []byte("f2\nd2\ns2\n"), 0644)
+	err = os.WriteFile("s1/.stignore", []byte("f2\nd2\ns2\n"), 0644)
 
 	// Rescan and verify that we see them
 

@@ -14,13 +14,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	stdsync "sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -45,12 +46,21 @@ type httpClient interface {
 const (
 	defaultReannounceInterval             = 30 * time.Minute
 	announceErrorRetryInterval            = 5 * time.Minute
-	requestTimeout                        = 5 * time.Second
+	requestTimeout                        = 30 * time.Second
 	maxAddressChangesBetweenAnnouncements = 10
 )
 
 type announcement struct {
 	Addresses []string `json:"addresses"`
+}
+
+func (a announcement) MarshalJSON() ([]byte, error) {
+	type announcementCopy announcement
+
+	a.Addresses = sanitizeRelayAddresses(a.Addresses)
+
+	aCopy := announcementCopy(a)
+	return json.Marshal(aCopy)
 }
 
 type serverOptions struct {
@@ -72,7 +82,7 @@ func (e *lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
-func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
+func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger events.Logger, registry *registry.Registry) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
 		return nil, err
@@ -89,10 +99,16 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	// The http.Client used for announcements. It needs to have our
 	// certificate to prove our identity, and may or may not verify the server
 	// certificate depending on the insecure setting.
+	var dialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	if registry != nil {
+		dialContext = dialer.DialContextReusePortFunc(registry)
+	} else {
+		dialContext = dialer.DialContext
+	}
 	var announceClient httpClient = &contextClient{&http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
-			DialContext: dialer.DialContextReusePort,
+			DialContext: dialContext,
 			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
@@ -130,7 +146,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		evLogger:       evLogger,
 	}
 	if !opts.noAnnounce {
-		// If we are supposed to annonce, it's an error until we've done so.
+		// If we are supposed to announce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
 	}
 
@@ -173,7 +189,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 		return nil, err
 	}
 
-	bs, err := ioutil.ReadAll(resp.Body)
+	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +310,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	timer.Reset(defaultReannounceInterval)
 }
 
-func (c *globalClient) Cache() map[protocol.DeviceID]CacheEntry {
+func (*globalClient) Cache() map[protocol.DeviceID]CacheEntry {
 	// The globalClient doesn't do caching
 	return nil
 }
@@ -421,26 +437,18 @@ type contextClient struct {
 }
 
 func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, error) {
-	// For <go1.13 compatibility. Use the following commented line once that
-	// isn't required anymore.
-	// req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Cancel = ctx.Done()
 	return c.Client.Do(req)
 }
 
 func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error) {
-	// For <go1.13 compatibility. Use the following commented line once that
-	// isn't required anymore.
-	// req, err := http.NewRequestWithContext(ctx, "POST", url, data)
-	req, err := http.NewRequest("POST", url, data)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, data)
 	if err != nil {
 		return nil, err
 	}
-	req.Cancel = ctx.Done()
 	req.Header.Set("Content-Type", ctype)
 	return c.Client.Do(req)
 }

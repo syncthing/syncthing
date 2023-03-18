@@ -72,17 +72,17 @@ type WriteTransaction interface {
 // there is an error preventing iteration, which is then returned by
 // Error(). For example:
 //
-//     it, err := db.NewPrefixIterator(nil)
-//     if err != nil {
-//         // problem preventing iteration
-//     }
-//     defer it.Release()
-//     for it.Next() {
-//         // ...
-//     }
-//     if err := it.Error(); err != nil {
-//         // there was a database problem while iterating
-//     }
+//	it, err := db.NewPrefixIterator(nil)
+//	if err != nil {
+//	    // problem preventing iteration
+//	}
+//	defer it.Release()
+//	for it.Next() {
+//	    // ...
+//	}
+//	if err := it.Error(); err != nil {
+//	    // there was a database problem while iterating
+//	}
 //
 // An iterator must be Released when no longer required. The Error method
 // can be called either before or after Release with the same results. If an
@@ -133,46 +133,31 @@ func OpenMemory() Backend {
 	return OpenLevelDBMemory()
 }
 
-type errClosed struct{}
+var (
+	errClosed   = errors.New("database is closed")
+	errNotFound = errors.New("key not found")
+)
 
-func (*errClosed) Error() string { return "database is closed" }
-
-type errNotFound struct{}
-
-func (*errNotFound) Error() string { return "key not found" }
-
-func IsClosed(err error) bool {
-	var e *errClosed
-	return errors.As(err, &e)
-}
-
-func IsNotFound(err error) bool {
-	var e *errNotFound
-	return errors.As(err, &e)
-}
+func IsClosed(err error) bool   { return errors.Is(err, errClosed) }
+func IsNotFound(err error) bool { return errors.Is(err, errNotFound) }
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
 	wg   *closeWaitGroup
-	once *sync.Once
+	once sync.Once
 }
 
 func newReleaser(wg *closeWaitGroup) (*releaser, error) {
 	if err := wg.Add(1); err != nil {
 		return nil, err
 	}
-	return &releaser{
-		wg:   wg,
-		once: new(sync.Once),
-	}, nil
+	return &releaser{wg: wg}, nil
 }
 
-func (r releaser) Release() {
+func (r *releaser) Release() {
 	// We use the Once because we may get called multiple times from
 	// Commit() and deferred Release().
-	r.once.Do(func() {
-		r.wg.Done()
-	})
+	r.once.Do(r.wg.Done)
 }
 
 // closeWaitGroup behaves just like a sync.WaitGroup, but does not require
@@ -188,7 +173,7 @@ func (cg *closeWaitGroup) Add(i int) error {
 	cg.closeMut.RLock()
 	defer cg.closeMut.RUnlock()
 	if cg.closed {
-		return &errClosed{}
+		return errClosed
 	}
 	cg.WaitGroup.Add(i)
 	return nil

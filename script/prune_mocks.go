@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -11,7 +12,6 @@ package main
 import (
 	"bufio"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -50,7 +50,7 @@ func pruneInterfaceCheck(path string, size int64) error {
 	}
 	defer fd.Close()
 
-	tmp, err := ioutil.TempFile(".", "")
+	tmp, err := os.CreateTemp(".", "")
 	if err != nil {
 		return err
 	}

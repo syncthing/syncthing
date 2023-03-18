@@ -116,8 +116,11 @@ func main() {
 	var replicationDestinations []string
 	parts := strings.Split(replicationPeers, ",")
 	for _, part := range parts {
-		fields := strings.Split(part, "@")
+		if part == "" {
+			continue
+		}
 
+		fields := strings.Split(part, "@")
 		switch len(fields) {
 		case 2:
 			// This is an id@address specification. Grab the address for the
@@ -136,6 +139,9 @@ func main() {
 			id, err := protocol.DeviceIDFromString(fields[0])
 			if err != nil {
 				log.Fatalln("Parsing device ID:", err)
+			}
+			if id == protocol.EmptyDeviceID {
+				log.Fatalf("Missing device ID for peer in %q", part)
 			}
 			allowedReplicationPeers = append(allowedReplicationPeers, id)
 

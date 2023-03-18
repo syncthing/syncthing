@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -41,7 +40,7 @@ func init() {
 	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
 
 	defaultFolderConfig = testFolderConfig("testdata")
-	defaultFs = defaultFolderConfig.Filesystem()
+	defaultFs = defaultFolderConfig.Filesystem(nil)
 
 	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
@@ -76,7 +75,7 @@ func init() {
 }
 
 func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -87,18 +86,13 @@ func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelF
 	return wrapper, cancel
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+func tmpDefaultWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
 	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfig(t.TempDir())
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
 	return w, fcfg, cancel
-}
-
-func testFolderConfigTmp() config.FolderConfiguration {
-	tmpDir := createTmpDir()
-	return testFolderConfig(tmpDir)
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
@@ -117,7 +111,7 @@ func testFolderConfigFake() config.FolderConfiguration {
 
 func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg, cancel := tmpDefaultWrapper()
+	w, fcfg, cancel := tmpDefaultWrapper(t)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg, cancel
 }
@@ -160,7 +154,7 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
+	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{
@@ -212,14 +206,6 @@ func cleanupModel(m *testModel) {
 func cleanupModelAndRemoveDir(m *testModel, dir string) {
 	cleanupModel(m)
 	os.RemoveAll(dir)
-}
-
-func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
 }
 
 type alwaysChangedKey struct {
@@ -308,8 +294,8 @@ func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
 func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
 	t.Helper()
 	m.removeFolder(fcfg)
-	fset := newFileSet(t, fcfg.ID, fcfg.Filesystem(), m.db)
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	fset := newFileSet(t, fcfg.ID, m.db)
+	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
 	m.fmut.Unlock()
@@ -360,9 +346,9 @@ func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.D
 	return cfg
 }
 
-func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
+func newFileSet(t testing.TB, folder string, ldb *db.Lowlevel) *db.FileSet {
 	t.Helper()
-	fset, err := db.NewFileSet(folder, fs, ldb)
+	fset, err := db.NewFileSet(folder, ldb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,4 +420,19 @@ func addDevice2(t testing.TB, w config.Wrapper, fcfg config.FolderConfiguration)
 	})
 	must(t, err)
 	waiter.Wait()
+}
+
+func writeFile(t testing.TB, filesystem fs.Filesystem, name string, data []byte) {
+	t.Helper()
+	fd, err := filesystem.Create(name)
+	must(t, err)
+	defer fd.Close()
+	_, err = fd.Write(data)
+	must(t, err)
+}
+
+func writeFilePerm(t testing.TB, filesystem fs.Filesystem, name string, data []byte, perm fs.FileMode) {
+	t.Helper()
+	writeFile(t, filesystem, name, data)
+	must(t, filesystem.Chmod(name, perm))
 }

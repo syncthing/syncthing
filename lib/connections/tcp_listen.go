@@ -32,11 +32,12 @@ type tcpListener struct {
 	svcutil.ServiceWithError
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	cfg     config.Wrapper
-	tlsCfg  *tls.Config
-	conns   chan internalConn
-	factory listenerFactory
+	uri      *url.URL
+	cfg      config.Wrapper
+	tlsCfg   *tls.Config
+	conns    chan internalConn
+	factory  listenerFactory
+	registry *registry.Registry
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -69,14 +70,14 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	registry.Register(t.uri.Scheme, tcaddr)
-	defer registry.Unregister(t.uri.Scheme, tcaddr)
+	t.registry.Register(t.uri.Scheme, tcaddr)
+	defer t.registry.Unregister(t.uri.Scheme, tcaddr)
 
 	l.Infof("TCP listener (%v) starting", tcaddr)
 	defer l.Infof("TCP listener (%v) shutting down", tcaddr)
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
-	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
+	mapping.OnChanged(func() {
 		t.notifyAddressesChanged(t)
 	})
 	// Should be called after t.mapping is nil'ed out.
@@ -213,7 +214,7 @@ func (t *tcpListener) NATType() string {
 
 type tcpListenerFactory struct{}
 
-func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, registry *registry.Registry) genericListener {
 	l := &tcpListener{
 		uri:        fixupPort(uri, config.DefaultTCPPort),
 		cfg:        cfg,
@@ -221,6 +222,7 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.C
 		conns:      conns,
 		natService: natService,
 		factory:    f,
+		registry:   registry,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	return l

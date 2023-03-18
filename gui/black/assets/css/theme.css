@@ -42,7 +42,7 @@ a:hover,a:focus,a.focus{
 .nav-tabs > li > a:hover,
 .nav-tabs > li > a:focus {
   background-color: #222222 !important;
-  border: none !important;
+  border-color: transparent !important;
 }
 
 .navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {
@@ -265,6 +265,16 @@ code.ng-binding{
     color: #222;
 }
 
-.fancytree-title {
-    color: #aaa !important;
+/*
+ * Fancytree tweaks
+ */
+
+.fancytree-container tr:hover,
+.fancytree-focused {
+    background-color: #222;
+}
+
+/* Remote Devices 'connection type'-icon color set to #aaa */
+.reception {
+    filter: invert(77%) sepia(0%) saturate(724%) hue-rotate(146deg) brightness(91%) contrast(85%);
 }

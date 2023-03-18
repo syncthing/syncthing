@@ -8,14 +8,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
-	"io/ioutil"
+	"io"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
 
 	raven "github.com/getsentry/raven-go"
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/stack"
 )
 
 const reportServer = "https://crash.syncthing.net/report/"
@@ -30,6 +32,44 @@ var (
 	clients    = make(map[string]*raven.Client)
 	clientsMut sync.Mutex
 )
+
+type sentryService struct {
+	dsn   string
+	inbox chan sentryRequest
+}
+
+type sentryRequest struct {
+	reportID string
+	data     []byte
+}
+
+func (s *sentryService) Serve(ctx context.Context) {
+	for {
+		select {
+		case req := <-s.inbox:
+			pkt, err := parseCrashReport(req.reportID, req.data)
+			if err != nil {
+				log.Println("Failed to parse crash report:", err)
+				continue
+			}
+			if err := sendReport(s.dsn, pkt, req.reportID); err != nil {
+				log.Println("Failed to send crash report:", err)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *sentryService) Send(reportID string, data []byte) bool {
+	select {
+	case s.inbox <- sentryRequest{reportID, data}:
+		return true
+	default:
+		return false
+	}
+}
 
 func sendReport(dsn string, pkt *raven.Packet, userID string) error {
 	pkt.Interfaces = append(pkt.Interfaces, &raven.User{ID: userID})
@@ -93,9 +133,12 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 	}
 
 	r := bytes.NewReader(report)
-	ctx, err := stack.ParseDump(r, ioutil.Discard, false)
-	if err != nil {
+	ctx, _, err := stack.ScanSnapshot(r, io.Discard, stack.DefaultOpts())
+	if err != nil && err != io.EOF {
 		return nil, err
+	}
+	if ctx == nil || len(ctx.Goroutines) == 0 {
+		return nil, errors.New("no goroutines found")
 	}
 
 	// Lock the source code loader to the version we are processing here.
@@ -116,7 +159,7 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 		if gr.First {
 			trace.Frames = make([]*raven.StacktraceFrame, len(gr.Stack.Calls))
 			for i, sc := range gr.Stack.Calls {
-				trace.Frames[len(trace.Frames)-1-i] = raven.NewStacktraceFrame(0, sc.Func.Name(), sc.SrcPath, sc.Line, 3, nil)
+				trace.Frames[len(trace.Frames)-1-i] = raven.NewStacktraceFrame(0, sc.Func.Name, sc.RemoteSrcPath, sc.Line, 3, nil)
 			}
 			break
 		}

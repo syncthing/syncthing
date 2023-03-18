@@ -4,14 +4,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//+build !windows
+//go:build !windows
+// +build !windows
 
 // (No syscall.Umask or the equivalent on Windows)
 
 package osutil
 
 import (
-	"io/ioutil"
 	"os"
 	"syscall"
 	"testing"
@@ -23,7 +23,7 @@ func TestTempFilePermissions(t *testing.T) {
 	oldMask := syscall.Umask(0)
 	defer syscall.Umask(oldMask)
 
-	fd, err := ioutil.TempFile("", "test")
+	fd, err := os.CreateTemp("", "test")
 	if err != nil {
 		t.Fatal(err)
 	}

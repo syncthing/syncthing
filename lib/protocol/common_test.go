@@ -32,11 +32,11 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) er
 	return nil
 }
 
-func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
+func (*TestModel) IndexUpdate(_ DeviceID, _ string, _ []FileInfo) error {
 	return nil
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (t *TestModel) Request(_ DeviceID, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
@@ -61,7 +61,7 @@ func (t *TestModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error
 	return nil
 }
 
-func (t *TestModel) DownloadProgress(DeviceID, string, []FileDownloadProgressUpdate) error {
+func (*TestModel) DownloadProgress(DeviceID, string, []FileDownloadProgressUpdate) error {
 	return nil
 }
 
@@ -82,6 +82,6 @@ func (r *fakeRequestResponse) Data() []byte {
 	return r.data
 }
 
-func (r *fakeRequestResponse) Close() {}
+func (*fakeRequestResponse) Close() {}
 
-func (r *fakeRequestResponse) Wait() {}
+func (*fakeRequestResponse) Wait() {}

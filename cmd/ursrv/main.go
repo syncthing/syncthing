@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -26,7 +25,10 @@ import (
 	"time"
 	"unicode"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/oschwald/geoip2-golang"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -48,19 +50,19 @@ var (
 	knownDistributions = []distributionMatch{
 		// Maps well known builders to the official distribution method that
 		// they represent
-		{regexp.MustCompile("android-.*teamcity@build.syncthing.net"), "Google Play"},
-		{regexp.MustCompile("teamcity@build.syncthing.net"), "GitHub"},
-		{regexp.MustCompile("deb@build.syncthing.net"), "APT"},
-		{regexp.MustCompile("docker@syncthing.net"), "Docker Hub"},
-		{regexp.MustCompile("jenkins@build.syncthing.net"), "GitHub"},
-		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
-		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
-		{regexp.MustCompile("builduser@(archlinux|svetlemodry)"), "Arch (3rd party)"},
-		{regexp.MustCompile("synology@kastelo.net"), "Synology (Kastelo)"},
-		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
-		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
+		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`teamcity@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`deb@build\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`docker@syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`jenkins@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`snap@build\.syncthing\.net`), "Snapcraft"},
+		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
+		{regexp.MustCompile(`synology@kastelo\.net`), "Synology (Kastelo)"},
+		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
+		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
-		{regexp.MustCompile("."), "Others"},
+		{regexp.MustCompile(`.`), "Others"},
 	}
 )
 
@@ -130,11 +132,6 @@ func setupDB(db *sql.DB) error {
 		}
 	}
 
-	// Migrate from old schema to new schema if the table exists.
-	if err := migrate(db); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -162,7 +159,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("template:", err)
 	}
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := io.ReadAll(fd)
 	if err != nil {
 		log.Fatalln("template:", err)
 	}
@@ -285,7 +282,7 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func locationsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func locationsHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	cacheMut.Lock()
 	defer cacheMut.Unlock()
 
@@ -324,7 +321,7 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	rep.Address = addr
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
-	bs, _ := ioutil.ReadAll(lr)
+	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
 		log.Println("decode:", err)
 		if debug {
@@ -378,7 +375,7 @@ func summaryHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func movementHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getMovement(db)
 	if err != nil {
 		log.Println("movementHandler:", err)
@@ -397,7 +394,7 @@ func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func performanceHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getPerformance(db)
 	if err != nil {
 		log.Println("performanceHandler:", err)
@@ -416,7 +413,7 @@ func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func blockStatsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func blockStatsHandler(db *sql.DB, w http.ResponseWriter, _ *http.Request) {
 	s, err := getBlockStats(db)
 	if err != nil {
 		log.Println("blockStatsHandler:", err)
@@ -581,7 +578,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 
 	for rows.Next() {
 		err := rows.Scan(&rep.Received, &rep)
-
 		if err != nil {
 			log.Println("sql:", err)
 			return nil
@@ -774,7 +770,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 			}
 
 			for transport, count := range rep.TransportStats {
-				add(featureGroups["Connection"]["v3"], "Transport", strings.Title(transport), count)
+				add(featureGroups["Connection"]["v3"], "Transport", cases.Title(language.English).String(transport), count)
 				if strings.HasSuffix(transport, "4") {
 					add(featureGroups["Connection"]["v3"], "IP version", "IPv4", count)
 				} else if strings.HasSuffix(transport, "6") {
@@ -786,72 +782,53 @@ func getReport(db *sql.DB) map[string]interface{} {
 		}
 	}
 
-	var categories []category
-	categories = append(categories, category{
-		Values: statsForInts(totFiles),
-		Descr:  "Files Managed per Device",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(maxFiles),
-		Descr:  "Files in Largest Folder",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(totMiB),
-		Descr:  "Data Managed per Device",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(maxMiB),
-		Descr:  "Data in Largest Folder",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numDevices),
-		Descr:  "Number of Devices in Cluster",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numFolders),
-		Descr:  "Number of Folders Configured",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(memoryUsage),
-		Descr:  "Memory Usage",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInt64s(memorySize),
-		Descr:  "System Memory",
-		Unit:   "B",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForFloats(sha256Perf),
-		Descr:  "SHA-256 Hashing Performance",
-		Unit:   "B/s",
-		Type:   NumberBinary,
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(numCPU),
-		Descr:  "Number of CPU cores",
-	})
-
-	categories = append(categories, category{
-		Values: statsForInts(uptime),
-		Descr:  "Uptime (v3)",
-		Type:   NumberDuration,
-	})
+	categories := []category{
+		{
+			Values: statsForInts(totFiles),
+			Descr:  "Files Managed per Device",
+		}, {
+			Values: statsForInts(maxFiles),
+			Descr:  "Files in Largest Folder",
+		}, {
+			Values: statsForInt64s(totMiB),
+			Descr:  "Data Managed per Device",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInt64s(maxMiB),
+			Descr:  "Data in Largest Folder",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInts(numDevices),
+			Descr:  "Number of Devices in Cluster",
+		}, {
+			Values: statsForInts(numFolders),
+			Descr:  "Number of Folders Configured",
+		}, {
+			Values: statsForInt64s(memoryUsage),
+			Descr:  "Memory Usage",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInt64s(memorySize),
+			Descr:  "System Memory",
+			Unit:   "B",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForFloats(sha256Perf),
+			Descr:  "SHA-256 Hashing Performance",
+			Unit:   "B/s",
+			Type:   NumberBinary,
+		}, {
+			Values: statsForInts(numCPU),
+			Descr:  "Number of CPU cores",
+		}, {
+			Values: statsForInts(uptime),
+			Descr:  "Uptime (v3)",
+			Type:   NumberDuration,
+		},
+	}
 
 	reportFeatures := make(map[string][]feature)
 	for featureType, versions := range features {
@@ -1041,7 +1018,7 @@ func (s *summary) filter(min int) {
 func getSummary(db *sql.DB, min int) (summary, error) {
 	s := newSummary()
 
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '2 year'::INTERVAL;`)
+	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '3 year'::INTERVAL;`)
 	if err != nil {
 		return summary{}, err
 	}
@@ -1074,7 +1051,7 @@ func getSummary(db *sql.DB, min int) (summary, error) {
 }
 
 func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '2 year'::INTERVAL ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1107,7 +1084,7 @@ func getMovement(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getPerformance(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > '2014-06-20'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > now() - '5 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1134,7 +1111,7 @@ func getPerformance(db *sql.DB) ([][]interface{}, error) {
 }
 
 func getBlockStats(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > '2017-10-23'::TIMESTAMP ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}
@@ -1150,6 +1127,10 @@ func getBlockStats(db *sql.DB) ([][]interface{}, error) {
 		err := rows.Scan(&day, &reports, &pulled, &renamed, &reused, &copyOrigin, &copyOriginShifted, &copyElsewhere)
 		if err != nil {
 			return nil, err
+		}
+		// Legacy bad data on certain days
+		if reports <= 0 || pulled < 0 || renamed < 0 || reused < 0 || copyOrigin < 0 || copyOriginShifted < 0 || copyElsewhere < 0 {
+			continue
 		}
 		row := []interface{}{
 			day.Format("2006-01-02"),
@@ -1172,9 +1153,11 @@ type sortableFeatureList []feature
 func (l sortableFeatureList) Len() int {
 	return len(l)
 }
+
 func (l sortableFeatureList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
+
 func (l sortableFeatureList) Less(a, b int) bool {
 	if l[a].Pct != l[b].Pct {
 		return l[a].Pct < l[b].Pct

@@ -4,14 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build integration
 // +build integration
 
 package integration
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,7 +34,7 @@ func TestHTTPGetIndex(t *testing.T) {
 	if res.StatusCode != 200 {
 		t.Errorf("Status %d != 200", res.StatusCode)
 	}
-	bs, err := ioutil.ReadAll(res.Body)
+	bs, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +58,7 @@ func TestHTTPGetIndex(t *testing.T) {
 	if res.StatusCode != 200 {
 		t.Errorf("Status %d != 200", res.StatusCode)
 	}
-	bs, err = ioutil.ReadAll(res.Body)
+	bs, err = io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +223,7 @@ func setupAPIBench() *rc.Process {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile("s1/knownfile", []byte("somedatahere"), 0644)
+	err = os.WriteFile("s1/knownfile", []byte("somedatahere"), 0644)
 	if err != nil {
 		panic(err)
 	}

@@ -7,31 +7,32 @@
 package fs
 
 import (
-	"io/ioutil"
+	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func setup(t *testing.T) (*BasicFilesystem, string) {
 	t.Helper()
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 	return newBasicFilesystem(dir), dir
 }
 
 func TestChmodFile(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
-	defer os.RemoveAll(dir)
 
 	defer os.Chmod(path, 0666)
 
@@ -59,7 +60,7 @@ func TestChmodFile(t *testing.T) {
 }
 
 func TestChownFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("Not supported on Windows")
 		return
 	}
@@ -72,7 +73,6 @@ func TestChownFile(t *testing.T) {
 
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
-	defer os.RemoveAll(dir)
 
 	defer os.Chmod(path, 0666)
 
@@ -90,7 +90,7 @@ func TestChownFile(t *testing.T) {
 	newUID := 1000 + rand.Intn(30000)
 	newGID := 1000 + rand.Intn(30000)
 
-	if err := fs.Lchown("file", newUID, newGID); err != nil {
+	if err := fs.Lchown("file", strconv.Itoa(newUID), strconv.Itoa(newGID)); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -109,10 +109,9 @@ func TestChownFile(t *testing.T) {
 func TestChmodDir(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "dir")
-	defer os.RemoveAll(dir)
 
 	mode := os.FileMode(0755)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		mode = os.FileMode(0777)
 	}
 
@@ -142,7 +141,6 @@ func TestChmodDir(t *testing.T) {
 func TestChtimes(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
-	defer os.RemoveAll(dir)
 	fd, err := os.Create(path)
 	if err != nil {
 		t.Error(err)
@@ -167,7 +165,6 @@ func TestChtimes(t *testing.T) {
 func TestCreate(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
-	defer os.RemoveAll(dir)
 
 	if _, err := os.Stat(path); err == nil {
 		t.Errorf("exists?")
@@ -185,13 +182,12 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("windows not supported")
 	}
 
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
-	defer os.RemoveAll(dir)
 
 	if err := fs.CreateSymlink("blah", "file"); err != nil {
 		t.Error(err)
@@ -216,7 +212,6 @@ func TestCreateSymlink(t *testing.T) {
 
 func TestDirNames(t *testing.T) {
 	fs, dir := setup(t)
-	defer os.RemoveAll(dir)
 
 	// Case differences
 	testCases := []string{
@@ -245,8 +240,7 @@ func TestDirNames(t *testing.T) {
 
 func TestNames(t *testing.T) {
 	// Tests that all names are without the root directory.
-	fs, dir := setup(t)
-	defer os.RemoveAll(dir)
+	fs, _ := setup(t)
 
 	expected := "file"
 	fd, err := fs.Create(expected)
@@ -285,8 +279,7 @@ func TestNames(t *testing.T) {
 
 func TestGlob(t *testing.T) {
 	// Tests that all names are without the root directory.
-	fs, dir := setup(t)
-	defer os.RemoveAll(dir)
+	fs, _ := setup(t)
 
 	for _, dirToCreate := range []string{
 		filepath.Join("a", "test", "b"),
@@ -345,11 +338,10 @@ func TestGlob(t *testing.T) {
 }
 
 func TestUsage(t *testing.T) {
-	fs, dir := setup(t)
-	defer os.RemoveAll(dir)
+	fs, _ := setup(t)
 	usage, err := fs.Usage(".")
 	if err != nil {
-		if runtime.GOOS == "netbsd" || runtime.GOOS == "openbsd" || runtime.GOOS == "solaris" {
+		if build.IsNetBSD || build.IsOpenBSD || build.IsSolaris || build.IsIllumos {
 			t.Skip()
 		}
 		t.Errorf("Unexpected error: %s", err)
@@ -442,7 +434,7 @@ func TestRooted(t *testing.T) {
 		{"/", ".", "/", true},
 	}
 
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		extraCases := []testcase{
 			{`c:\`, `foo`, `c:\foo`, true},
 			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
@@ -468,27 +460,29 @@ func TestRooted(t *testing.T) {
 		}
 
 		for _, tc := range cases {
-			// Add case where root is backslashed, rel is forward slashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    tc.rel,
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and the opposite
-			extraCases = append(extraCases, testcase{
-				root:   tc.root,
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and both backslashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
+			extraCases = append(extraCases,
+				// Add case where root is backslashed, rel is forward slashed
+				testcase{
+					root:   filepath.FromSlash(tc.root),
+					rel:    tc.rel,
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+				// and the opposite
+				testcase{
+					root:   tc.root,
+					rel:    filepath.FromSlash(tc.rel),
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+				// and both backslashed
+				testcase{
+					root:   filepath.FromSlash(tc.root),
+					rel:    filepath.FromSlash(tc.rel),
+					joined: tc.joined,
+					ok:     tc.ok,
+				},
+			)
 		}
 
 		cases = append(cases, extraCases...)
@@ -514,7 +508,7 @@ func TestRooted(t *testing.T) {
 }
 
 func TestNewBasicFilesystem(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		t.Skip("non-windows root paths")
 	}
 
@@ -561,7 +555,7 @@ func TestRel(t *testing.T) {
 		{"/", "/Test", "Test"},
 		{"/Test", "/Test/test", "test"},
 	}
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		for i := range testCases {
 			testCases[i].root = filepath.FromSlash(testCases[i].root)
 			testCases[i].abs = filepath.FromSlash(testCases[i].abs)
@@ -576,20 +570,106 @@ func TestRel(t *testing.T) {
 	}
 }
 
+func TestXattr(t *testing.T) {
+	tfs, _ := setup(t)
+	if err := tfs.Mkdir("/test", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	xattrSize := func() int { return 20 + rand.Intn(20) }
+
+	// Create a set of random attributes that we will set and read back
+	var attrs []protocol.Xattr
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, xattrSize())
+		rand.Read(value)
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
+	}
+
+	// Set the xattrs, read them back and compare
+	if err := tfs.SetXattr("/test", attrs, testXattrFilter{}); errors.Is(err, ErrXattrsNotSupported) || errors.Is(err, syscall.EOPNOTSUPP) {
+		t.Skip("xattrs not supported")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	res, err := tfs.GetXattr("/test", testXattrFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
+		}
+	}
+
+	// Remove a couple, change a couple, and add another couple of
+	// attributes. Replacing the xattrs again should work.
+	attrs = attrs[2:]
+	attrs[1].Value = make([]byte, xattrSize())
+	rand.Read(attrs[1].Value)
+	attrs[3].Value = make([]byte, xattrSize())
+	rand.Read(attrs[3].Value)
+	for i := 10; i < 12; i++ {
+		key := fmt.Sprintf("user.test-%d", i)
+		value := make([]byte, xattrSize())
+		rand.Read(value)
+		attrs = append(attrs, protocol.Xattr{
+			Name:  key,
+			Value: value,
+		})
+	}
+	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
+
+	// Set the xattrs, read them back and compare
+	if err := tfs.SetXattr("/test", attrs, testXattrFilter{}); err != nil {
+		t.Fatal(err)
+	}
+	res, err = tfs.GetXattr("/test", testXattrFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != len(attrs) {
+		t.Fatalf("length of returned xattrs does not match (%d != %d)", len(res), len(attrs))
+	}
+	for i, xa := range res {
+		if xa.Name != attrs[i].Name {
+			t.Errorf("xattr name %q != %q", xa.Name, attrs[i].Name)
+		}
+		if !bytes.Equal(xa.Value, attrs[i].Value) {
+			t.Errorf("xattr value %q != %q", xa.Value, attrs[i].Value)
+		}
+	}
+}
+
 func TestBasicWalkSkipSymlink(t *testing.T) {
 	_, dir := setup(t)
-	defer os.RemoveAll(dir)
 	testWalkSkipSymlink(t, FilesystemTypeBasic, dir)
 }
 
 func TestWalkTraverseDirJunct(t *testing.T) {
 	_, dir := setup(t)
-	defer os.RemoveAll(dir)
 	testWalkTraverseDirJunct(t, FilesystemTypeBasic, dir)
 }
 
 func TestWalkInfiniteRecursion(t *testing.T) {
 	_, dir := setup(t)
-	defer os.RemoveAll(dir)
 	testWalkInfiniteRecursion(t, FilesystemTypeBasic, dir)
 }
+
+type testXattrFilter struct{}
+
+// Permit only xattrs generated by our test, avoiding issues with SELinux etc.
+func (testXattrFilter) Permit(name string) bool { return strings.HasPrefix(name, "user.test-") }
+
+func (testXattrFilter) GetMaxSingleEntrySize() int { return 0 }
+func (testXattrFilter) GetMaxTotalSize() int       { return 0 }

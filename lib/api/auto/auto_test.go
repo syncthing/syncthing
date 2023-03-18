@@ -9,7 +9,7 @@ package auto_test
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -28,7 +28,7 @@ func TestAssets(t *testing.T) {
 
 	var gr *gzip.Reader
 	gr, _ = gzip.NewReader(strings.NewReader(idx.Content))
-	html, _ := ioutil.ReadAll(gr)
+	html, _ := io.ReadAll(gr)
 
 	if !bytes.Contains(html, []byte("<html")) {
 		t.Fatal("No html in index.html")

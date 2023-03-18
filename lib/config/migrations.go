@@ -11,11 +11,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
@@ -27,6 +27,8 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{37, migrateToConfigV37},
+		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
 		{34, migrateToConfigV34},
 		{33, migrateToConfigV33},
@@ -92,6 +94,20 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV37(cfg *Configuration) {
+	// "scan ownership" changed name to "send ownership"
+	for i := range cfg.Folders {
+		cfg.Folders[i].SendOwnership = cfg.Folders[i].DeprecatedScanOwnership
+		cfg.Folders[i].DeprecatedScanOwnership = false
+	}
+}
+
+func migrateToConfigV36(cfg *Configuration) {
+	for i := range cfg.Folders {
+		delete(cfg.Folders[i].Versioning.Params, "cleanInterval")
+	}
 }
 
 func migrateToConfigV35(cfg *Configuration) {
@@ -182,7 +198,7 @@ func migrateToConfigV24(cfg *Configuration) {
 
 func migrateToConfigV23(cfg *Configuration) {
 	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
+	if build.IsWindows {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700
@@ -192,7 +208,7 @@ func migrateToConfigV23(cfg *Configuration) {
 	// marker name in later versions.
 
 	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem()
+		fs := cfg.Folders[i].Filesystem(nil)
 		// Invalid config posted, or tests.
 		if fs == nil {
 			continue
@@ -228,18 +244,18 @@ func migrateToConfigV21(cfg *Configuration) {
 		switch folder.Versioning.Type {
 		case "simple", "trashcan":
 			// Clean out symlinks in the known place
-			cleanSymlinks(folder.Filesystem(), ".stversions")
+			cleanSymlinks(folder.Filesystem(nil), ".stversions")
 		case "staggered":
 			versionDir := folder.Versioning.Params["versionsPath"]
 			if versionDir == "" {
 				// default place
-				cleanSymlinks(folder.Filesystem(), ".stversions")
+				cleanSymlinks(folder.Filesystem(nil), ".stversions")
 			} else if filepath.IsAbs(versionDir) {
 				// absolute
 				cleanSymlinks(fs.NewFilesystem(fs.FilesystemTypeBasic, versionDir), ".")
 			} else {
 				// relative to folder
-				cleanSymlinks(folder.Filesystem(), versionDir)
+				cleanSymlinks(folder.Filesystem(nil), versionDir)
 			}
 		}
 	}

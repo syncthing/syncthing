@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -31,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
@@ -60,6 +60,8 @@ import (
 )
 
 const (
+	// Default mask excludes these very noisy event types to avoid filling the pipe.
+	// FIXME: ItemStarted and ItemFinished should be excluded for the same reason.
 	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
 	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
 	EventSubBufferSize    = 1000
@@ -93,6 +95,8 @@ type service struct {
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
 }
+
+var _ config.Verifier = &service{}
 
 type Service interface {
 	suture.Service
@@ -247,14 +251,15 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/ignores", s.getDBIgnores)                   // folder
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/need", s.getDBNeed)                         // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/remoteneed", s.getDBRemoteNeed)             // device folder [perpage] [page]
-	restMux.HandlerFunc(http.MethodGet, "/rest/db/localchanged", s.getDBLocalChanged)         // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/localchanged", s.getDBLocalChanged)         // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/status", s.getDBStatus)                     // folder
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/browse", s.getDBBrowse)                     // folder [prefix] [dirsonly] [levels]
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/versions", s.getFolderVersions)         // folder
-	restMux.HandlerFunc(http.MethodGet, "/rest/folder/errors", s.getFolderErrors)             // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/folder/errors", s.getFolderErrors)             // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)         // folder (deprecated)
 	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                     // [since] [limit] [timeout] [events]
 	restMux.HandlerFunc(http.MethodGet, "/rest/events/disk", s.getDiskEvents)                 // [since] [limit] [timeout]
+	restMux.HandlerFunc(http.MethodGet, "/rest/noauth/health", s.getHealth)                   // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/device", s.getDeviceStats)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/stats/folder", s.getFolderStats)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/svc/deviceid", s.getDeviceID)                  // id
@@ -265,6 +270,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/connections", s.getSystemConnections)   // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/discovery", s.getSystemDiscovery)       // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/error", s.getSystemError)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/paths", s.getSystemPaths)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/ping", s.restPing)                      // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)             // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)           // -
@@ -274,7 +280,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
 
 	// The POST handlers
-	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
+	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/ignores", s.postDBIgnores)                    // folder
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/override", s.postDBOverride)                  // folder
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/revert", s.postDBRevert)                      // folder
@@ -312,6 +318,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDevice("/rest/config/devices/:id")
 	configBuilder.registerDefaultFolder("/rest/config/defaults/folder")
 	configBuilder.registerDefaultDevice("/rest/config/defaults/device")
+	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
 	configBuilder.registerGUI("/rest/config/gui")
@@ -380,7 +387,7 @@ func (s *service) Serve(ctx context.Context) error {
 		ReadTimeout: 15 * time.Second,
 		// Prevent the HTTP server from logging stuff on its own. The things we
 		// care about we log ourselves from the handlers.
-		ErrorLog: log.New(ioutil.Discard, "", 0),
+		ErrorLog: log.New(io.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
@@ -452,7 +459,7 @@ func (s *service) String() string {
 	return fmt.Sprintf("api.service@%p", s)
 }
 
-func (s *service) VerifyConfiguration(from, to config.Configuration) error {
+func (*service) VerifyConfiguration(_, to config.Configuration) error {
 	if to.GUI.Network() != "tcp" {
 		return nil
 	}
@@ -627,7 +634,7 @@ func (s *service) whenDebugging(h http.Handler) http.Handler {
 	})
 }
 
-func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
+func (s *service) getPendingDevices(w http.ResponseWriter, _ *http.Request) {
 	devices, err := s.model.PendingDevices()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -685,11 +692,15 @@ func (s *service) deletePendingFolders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
+func (*service) restPing(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]string{"ping": "pong"})
 }
 
-func (s *service) getJSMetadata(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
+	sendJSON(w, locations.ListExpandedPaths())
+}
+
+func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	meta, _ := json.Marshal(map[string]string{
 		"deviceID": s.id.String(),
 	})
@@ -697,7 +708,7 @@ func (s *service) getJSMetadata(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)
 }
 
-func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"version":     build.Version,
 		"codename":    build.Codename,
@@ -711,10 +722,11 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"tags":        build.TagsList(),
 		"stamp":       build.Stamp,
 		"user":        build.User,
+		"container":   incontainer.Detect(),
 	})
 }
 
-func (s *service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
 	sort.Strings(enabled)
@@ -724,7 +736,7 @@ func (s *service) getSystemDebug(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
+func (*service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	q := r.URL.Query()
 	for _, f := range strings.Split(q.Get("enable"), ",") {
@@ -801,13 +813,13 @@ func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) postDBOverride(w http.ResponseWriter, r *http.Request) {
+func (s *service) postDBOverride(_ http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Override(folder)
 }
 
-func (s *service) postDBRevert(w http.ResponseWriter, r *http.Request) {
+func (s *service) postDBRevert(_ http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Revert(folder)
@@ -855,7 +867,7 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 	device := qs.Get("device")
 	deviceID, err := protocol.DeviceIDFromString(device)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -894,11 +906,11 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getSystemConnections(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemConnections(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, s.model.ConnectionStats())
 }
 
-func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
+func (s *service) getDeviceStats(w http.ResponseWriter, _ *http.Request) {
 	stats, err := s.model.DeviceStatistics()
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -907,7 +919,7 @@ func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, stats)
 }
 
-func (s *service) getFolderStats(w http.ResponseWriter, r *http.Request) {
+func (s *service) getFolderStats(w http.ResponseWriter, _ *http.Request) {
 	stats, err := s.model.FolderStatistics()
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -993,7 +1005,7 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemRestart(w http.ResponseWriter, _ *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
 
 	s.fatal(&svcutil.FatalErr{
@@ -1008,20 +1020,26 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 
 	if len(folder) > 0 {
 		if _, ok := s.cfg.Folders()[folder]; !ok {
-			http.Error(w, "Invalid folder ID", 500)
+			http.Error(w, "Invalid folder ID", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	if len(folder) == 0 {
+	if folder == "" {
 		// Reset all folders.
 		for folder := range s.cfg.Folders() {
-			s.model.ResetFolder(folder)
+			if err := s.model.ResetFolder(folder); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
 		// Reset a specific folder, assuming it's supposed to exist.
-		s.model.ResetFolder(folder)
+		if err := s.model.ResetFolder(folder); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
@@ -1031,7 +1049,7 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemShutdown(w http.ResponseWriter, _ *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
 	s.fatal(&svcutil.FatalErr{
 		Err:    errors.New("shutdown initiated by rest API"),
@@ -1039,13 +1057,13 @@ func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) flushResponse(resp string, w http.ResponseWriter) {
+func (*service) flushResponse(resp string, w http.ResponseWriter) {
 	w.Write([]byte(resp + "\n"))
 	f := w.(http.Flusher)
 	f.Flush()
 }
 
-func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -1083,19 +1101,19 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, res)
 }
 
-func (s *service) getSystemError(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemError(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string][]logger.Line{
 		"errors": s.guiErrors.Since(time.Time{}),
 	})
 }
 
-func (s *service) postSystemError(w http.ResponseWriter, r *http.Request) {
-	bs, _ := ioutil.ReadAll(r.Body)
+func (*service) postSystemError(_ http.ResponseWriter, r *http.Request) {
+	bs, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	l.Warnln(string(bs))
 }
 
-func (s *service) postSystemErrorClear(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemErrorClear(_ http.ResponseWriter, _ *http.Request) {
 	s.guiErrors.Clear()
 }
 
@@ -1157,7 +1175,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Panic files
 	if panicFiles, err := filepath.Glob(filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), "panic*")); err == nil {
 		for _, f := range panicFiles {
-			if panicFile, err := ioutil.ReadFile(f); err != nil {
+			if panicFile, err := os.ReadFile(f); err != nil {
 				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
 			} else {
 				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
@@ -1166,7 +1184,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Archived log (default on Windows)
-	if logFile, err := ioutil.ReadFile(locations.Get(locations.LogFile)); err == nil {
+	if logFile, err := os.ReadFile(locations.Get(locations.LogFile)); err == nil {
 		files = append(files, fileEntry{name: "log-ondisk.txt", data: logFile})
 	}
 
@@ -1225,7 +1243,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	zipFilePath := filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), zipFileName)
 
 	// Write buffer zip to local zip file (back up)
-	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
 		l.Warnln("Support bundle: support bundle zip could not be created:", err)
 	}
 
@@ -1235,7 +1253,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, &zipFilesBuffer)
 }
 
-func (s *service) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemHTTPMetrics(w http.ResponseWriter, _ *http.Request) {
 	stats := make(map[string]interface{})
 	metrics.Each(func(name string, intf interface{}) {
 		if m, ok := intf.(*metrics.StandardTimer); ok {
@@ -1255,7 +1273,7 @@ func (s *service) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
-func (s *service) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemDiscovery(w http.ResponseWriter, _ *http.Request) {
 	devices := make(map[string]discover.CacheEntry)
 
 	if s.discoverer != nil {
@@ -1276,7 +1294,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 		version = val
 	}
 	if r, err := s.urService.ReportDataPreview(context.TODO(), version); err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	} else {
 		sendJSON(w, r)
@@ -1284,7 +1302,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
+func (*service) getRandomString(w http.ResponseWriter, r *http.Request) {
 	length := 32
 	if val, _ := strconv.Atoi(r.URL.Query().Get("length")); val > 0 {
 		length = val
@@ -1301,7 +1319,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	lines, patterns, err := s.model.LoadIgnores(folder)
 	if err != nil && !ignore.IsParseError(err) {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1315,23 +1333,23 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var data map[string][]string
 	err = json.Unmarshal(bs, &data)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = s.model.SetIgnores(qs.Get("folder"), data["ignore"])
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1382,7 +1400,7 @@ func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub eve
 	sendJSON(w, evs)
 }
 
-func (s *service) getEventMask(evs string) events.EventType {
+func (*service) getEventMask(evs string) events.EventType {
 	eventMask := DefaultEventMask
 	if evs != "" {
 		eventList := strings.Split(evs, ",")
@@ -1407,15 +1425,15 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 	return bufsub
 }
 
-func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
+func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	if s.noUpgrade {
-		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusServiceUnavailable)
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
 		return
 	}
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		httpError(w, err)
 		return
 	}
 	res := make(map[string]interface{})
@@ -1427,7 +1445,7 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, res)
 }
 
-func (s *service) getDeviceID(w http.ResponseWriter, r *http.Request) {
+func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	idStr := qs.Get("id")
 	id, err := protocol.DeviceIDFromString(idStr)
@@ -1443,7 +1461,7 @@ func (s *service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) getLang(w http.ResponseWriter, r *http.Request) {
+func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
 	var langs []string
 	for _, l := range strings.Split(lang, ",") {
@@ -1453,12 +1471,11 @@ func (s *service) getLang(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, langs)
 }
 
-func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
+func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	opts := s.cfg.Options()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Warnln("getting latest release:", err)
-		http.Error(w, err.Error(), 500)
+		httpError(w, err)
 		return
 	}
 
@@ -1466,7 +1483,7 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -1513,7 +1530,7 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		if msg != "" {
 			http.Error(w, msg, status)
 		} else if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
@@ -1525,7 +1542,7 @@ func (s *service) postDBScan(w http.ResponseWriter, r *http.Request) {
 		subs := qs["sub"]
 		err := s.model.ScanFolderSubdirs(folder, subs)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		nextStr := qs.Get("next")
@@ -1536,7 +1553,7 @@ func (s *service) postDBScan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		errors := s.model.ScanFolders()
 		if len(errors) > 0 {
-			http.Error(w, "Error scanning folders", 500)
+			http.Error(w, "Error scanning folders", http.StatusInternalServerError)
 			sendJSON(w, errors)
 			return
 		}
@@ -1551,12 +1568,16 @@ func (s *service) postDBPrio(w http.ResponseWriter, r *http.Request) {
 	s.getDBNeed(w, r)
 }
 
-func (s *service) getQR(w http.ResponseWriter, r *http.Request) {
+func (*service) getHealth(w http.ResponseWriter, _ *http.Request) {
+	sendJSON(w, map[string]string{"status": "OK"})
+}
+
+func (*service) getQR(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var text = qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
-		http.Error(w, "Invalid", 500)
+		http.Error(w, "Invalid", http.StatusInternalServerError)
 		return
 	}
 
@@ -1564,7 +1585,7 @@ func (s *service) getQR(w http.ResponseWriter, r *http.Request) {
 	w.Write(code.PNG())
 }
 
-func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
+func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
@@ -1597,7 +1618,7 @@ func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	versions, err := s.model.GetFolderVersions(qs.Get("folder"))
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	sendJSON(w, versions)
@@ -1606,23 +1627,23 @@ func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
 func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var versions map[string]time.Time
 	err = json.Unmarshal(bs, &versions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	ferr, err := s.model.RestoreFolderVersions(qs.Get("folder"), versions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	sendJSON(w, errorStringMap(ferr))
@@ -1658,7 +1679,7 @@ func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
+func (*service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
 
@@ -1737,7 +1758,7 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 	return append(exactMatches, caseInsMatches...)
 }
 
-func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
+func (*service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 	duration, err := time.ParseDuration(r.FormValue("duration"))
 	if err != nil {
 		duration = 30 * time.Second
@@ -1754,7 +1775,7 @@ func (s *service) getCPUProf(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
+func (*service) getHeapProf(w http.ResponseWriter, _ *http.Request) {
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -1805,6 +1826,9 @@ func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 		"sequence":      f.SequenceNo(),
 		"version":       jsonVersionVector(f.FileVersion()),
 		"localFlags":    f.FileLocalFlags(),
+		"platform":      f.PlatformData(),
+		"inodeChange":   f.InodeChangeTime(),
+		"blocksHash":    f.FileBlocksHash(),
 	}
 	if f.HasPermissionBits() {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
@@ -1915,7 +1939,7 @@ func shouldRegenerateCertificate(cert tls.Certificate) error {
 	// On macOS, check for certificates issued on or after July 1st, 2019,
 	// with a longer validity time than 825 days.
 	cutoff := time.Date(2019, 7, 1, 0, 0, 0, 0, time.UTC)
-	if runtime.GOOS == "darwin" &&
+	if build.IsDarwin &&
 		leaf.NotBefore.After(cutoff) &&
 		leaf.NotAfter.Sub(leaf.NotBefore) > 825*24*time.Hour {
 		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
@@ -1997,4 +2021,12 @@ func isFolderNotFound(err error) bool {
 		}
 	}
 	return false
+}
+
+func httpError(w http.ResponseWriter, err error) {
+	if errors.Is(err, upgrade.ErrUpgradeUnsupported) {
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusNotImplemented)
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

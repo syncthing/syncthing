@@ -357,9 +357,14 @@ func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
 	if f.IsReceiveOnlyChanged() {
 		f.Version = protocol.Vector{}
 	}
+	// The trailer with the encrypted fileinfo is device local, don't send info
+	// about that to remotes
+	f.Size -= int64(f.EncryptionTrailerSize)
+	f.EncryptionTrailerSize = 0
 	// never sent externally
 	f.LocalFlags = 0
 	f.VersionHash = nil
+	f.InodeChangeNs = 0
 	return f
 }
 
@@ -426,6 +431,9 @@ func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fs
 	is := newIndexHandler(r.conn, r.downloads, folder, fset, runner, startInfo, r.evLogger)
 	is.token = r.sup.Add(is)
 	r.indexHandlers[folder.ID] = is
+
+	// This new connection might help us get in sync.
+	runner.SchedulePull()
 }
 
 // AddIndexInfo starts an index handler for given folder, unless it is paused.
@@ -468,7 +476,7 @@ func (r *indexHandlerRegistry) Remove(folder string) {
 // RemoveAllExcept stops all running index handlers and removes those pending to be started,
 // except mentioned ones.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]struct{}) {
+func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderState) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 

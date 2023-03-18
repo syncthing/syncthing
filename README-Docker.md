@@ -7,23 +7,27 @@ Use the `/var/syncthing` volume to have the synchronized files available on the
 host. You can add more folders and map them as you prefer.
 
 Note that Syncthing runs as UID 1000 and GID 1000 by default. These may be
-altered with the ``PUID`` and ``PGID`` environment variables. In addition
+altered with the `PUID` and `PGID` environment variables. In addition
 the name of the Syncthing instance can be optionally defined by using
-``--hostname=syncthing`` parameter.
+`--hostname=syncthing` parameter.
+
+To grant Syncthing additional capabilities without running as root, use the
+`PCAP` environment variable with the same syntax as that for `setcap(8)`.
+For example, `PCAP=cap_chown,cap_fowner+ep`.
 
 ## Example Usage
 
 **Docker cli**
 ```
 $ docker pull syncthing/syncthing
-$ docker run -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp \
+$ docker run -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp -p 21027:21027/udp \
     -v /wherever/st-sync:/var/syncthing \
     --hostname=my-syncthing \
     syncthing/syncthing:latest
 ```
 
 **Docker compose**
-```
+```yml
 ---
 version: "3"
 services:
@@ -37,25 +41,46 @@ services:
     volumes:
       - /wherever/st-sync:/var/syncthing
     ports:
-      - 8384:8384
-      - 22000:22000/tcp
-      - 22000:22000/udp
+      - 8384:8384 # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
+      - 21027:21027/udp # Receive local discovery broadcasts
     restart: unless-stopped
 ```
 
 ## Discovery
 
-Note that local device discovery will not work with the above command,
-resulting in poor local transfer rates if local device addresses are not
-manually configured.
+Note that Docker's default network mode prevents local IP addresses from
+being discovered, as Syncthing is only able to see the internal IP of the
+container on the `172.17.0.0/16` subnet. This will result in poor transfer rates
+if local device addresses are not manually configured.
 
-To allow local discovery, the docker host network can be used instead:
+It is therefore advisable to use the [host network mode](https://docs.docker.com/network/host/) instead:
 
+**Docker cli**
 ```
 $ docker pull syncthing/syncthing
 $ docker run --network=host \
     -v /wherever/st-sync:/var/syncthing \
     syncthing/syncthing:latest
+```
+
+**Docker compose**
+```yml
+---
+version: "3"
+services:
+  syncthing:
+    image: syncthing/syncthing
+    container_name: syncthing
+    hostname: my-syncthing
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /wherever/st-sync:/var/syncthing
+    network_mode: host
+    restart: unless-stopped
 ```
 
 Be aware that syncthing alone is now in control of what interfaces and ports it

@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
@@ -53,7 +54,6 @@ const (
 )
 
 type Options struct {
-	AssetDir         string
 	AuditWriter      io.Writer
 	DeadlockTimeoutS int
 	NoUpgrade        bool
@@ -206,7 +206,7 @@ func (a *App) startup() error {
 	folders := a.cfg.Folders()
 	for _, folder := range a.ll.ListFolders() {
 		if _, ok := folders[folder]; !ok {
-			l.Infof("Cleaning data for dropped folder %q", folder)
+			l.Infof("Cleaning metadata for dropped folder %q", folder)
 			db.DropFolder(a.ll, folder)
 		}
 	}
@@ -243,7 +243,13 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
+	if err := globalMigration(a.ll, a.cfg); err != nil {
+		l.Warnln("Global migration:", err)
+		return err
+	}
+
+	keyGen := protocol.NewKeyGenerator()
+	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger, keyGen)
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
@@ -276,8 +282,9 @@ func (a *App) startup() error {
 	// Create a wrapper that is then wired after they are both setup.
 	addrLister := &lateAddressLister{}
 
-	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister)
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+	connRegistry := registry.New()
+	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister, connRegistry)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger, connRegistry, keyGen)
 
 	addrLister.AddressLister = connectionsService
 
@@ -421,7 +428,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, locations.Get(locations.GUIAssets), tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {

@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -44,23 +44,26 @@ type FileIntf interface {
 	FilePermissions() uint32
 	FileModifiedBy() ShortID
 	ModTime() time.Time
+	PlatformData() PlatformData
+	InodeChangeTime() time.Time
+	FileBlocksHash() []byte
 }
 
-func (m Hello) Magic() uint32 {
+func (Hello) Magic() uint32 {
 	return HelloMessageMagic
 }
 
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v, BlocksHash:%x}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks, f.BlocksHash)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
 	default:
 		panic("mystery file type detected")
 	}
@@ -122,10 +125,10 @@ func (f FileInfo) FileSize() int64 {
 }
 
 func (f FileInfo) BlockSize() int {
-	if f.RawBlockSize == 0 {
+	if f.RawBlockSize < MinBlockSize {
 		return MinBlockSize
 	}
-	return int(f.RawBlockSize)
+	return f.RawBlockSize
 }
 
 func (f FileInfo) FileName() string {
@@ -160,6 +163,18 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) PlatformData() PlatformData {
+	return f.Platform
+}
+
+func (f FileInfo) InodeChangeTime() time.Time {
+	return time.Unix(0, f.InodeChangeNs)
+}
+
+func (f FileInfo) FileBlocksHash() []byte {
+	return f.BlocksHash
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func WinsConflict(f, other FileIntf) bool {
@@ -190,30 +205,43 @@ func WinsConflict(f, other FileIntf) bool {
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
-func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
-	return f.isEquivalent(other, modTimeWindow, false, false, 0)
+type FileInfoComparison struct {
+	ModTimeWindow   time.Duration
+	IgnorePerms     bool
+	IgnoreBlocks    bool
+	IgnoreFlags     uint32
+	IgnoreOwnership bool
+	IgnoreXattrs    bool
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
+	return f.isEquivalent(other, FileInfoComparison{ModTimeWindow: modTimeWindow})
+}
+
+func (f FileInfo) IsEquivalentOptional(other FileInfo, comp FileInfoComparison) bool {
+	return f.isEquivalent(other, comp)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
 // i.e. it does purposely not check only selected (see below) struct members.
 // Permissions (config) and blocks (scanning) can be excluded from the comparison.
 // Any file info is not "equivalent", if it has different
-//  - type
-//  - deleted flag
-//  - invalid flag
-//  - permissions, unless they are ignored
+//   - type
+//   - deleted flag
+//   - invalid flag
+//   - permissions, unless they are ignored
+//
 // A file is not "equivalent", if it has different
-//  - modification time (difference bigger than modTimeWindow)
-//  - size
-//  - blocks, unless there are no blocks to compare (scanning)
+//   - modification time (difference bigger than modTimeWindow)
+//   - size
+//   - blocks, unless there are no blocks to compare (scanning)
+//   - os data
+//
 // A symlink is not "equivalent", if it has different
-//  - target
+//   - target
+//
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -221,21 +249,50 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 		return false
 	}
 
+	// If we care about either ownership or xattrs, are recording inode change
+	// times and it changed, they are not equal.
+	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
+		return false
+	}
+
 	// Mask out the ignored local flags before checking IsInvalid() below
-	f.LocalFlags &^= ignoreFlags
-	other.LocalFlags &^= ignoreFlags
+	f.LocalFlags &^= comp.IgnoreFlags
+	other.LocalFlags &^= comp.IgnoreFlags
 
 	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
 	}
 
-	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+	if !comp.IgnoreOwnership && f.Platform != other.Platform {
+		if !unixOwnershipEqual(f.Platform.Unix, other.Platform.Unix) {
+			return false
+		}
+		if !windowsOwnershipEqual(f.Platform.Windows, other.Platform.Windows) {
+			return false
+		}
+	}
+	if !comp.IgnoreXattrs && f.Platform != other.Platform {
+		if !xattrsEqual(f.Platform.Linux, other.Platform.Linux) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.Darwin, other.Platform.Darwin) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.FreeBSD, other.Platform.FreeBSD) {
+			return false
+		}
+		if !xattrsEqual(f.Platform.NetBSD, other.Platform.NetBSD) {
+			return false
+		}
+	}
+
+	if !comp.IgnorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
 		return false
 	}
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || f.BlocksEqual(other))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), comp.ModTimeWindow) && (comp.IgnoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:
@@ -257,15 +314,13 @@ func ModTimeEqual(a, b time.Time, modTimeWindow time.Duration) bool {
 }
 
 func PermsEqual(a, b uint32) bool {
-	switch runtime.GOOS {
-	case "windows":
+	if build.IsWindows {
 		// There is only writeable and read only, represented for user, group
 		// and other equally. We only compare against user.
 		return a&0600 == b&0600
-	default:
-		// All bits count
-		return a&0777 == b&0777
 	}
+	// All bits count
+	return a&0777 == b&0777
 }
 
 // BlocksEqual returns true when the two files have identical block lists.
@@ -279,6 +334,76 @@ func (f FileInfo) BlocksEqual(other FileInfo) bool {
 
 	// Actually compare the block lists in full.
 	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+// Xattrs is a convenience method to return the extended attributes of the
+// file for the current platform.
+func (f *PlatformData) Xattrs() []Xattr {
+	switch {
+	case build.IsLinux && f.Linux != nil:
+		return f.Linux.Xattrs
+	case build.IsDarwin && f.Darwin != nil:
+		return f.Darwin.Xattrs
+	case build.IsFreeBSD && f.FreeBSD != nil:
+		return f.FreeBSD.Xattrs
+	case build.IsNetBSD && f.NetBSD != nil:
+		return f.NetBSD.Xattrs
+	default:
+		return nil
+	}
+}
+
+// SetXattrs is a convenience method to set the extended attributes of the
+// file for the current platform.
+func (p *PlatformData) SetXattrs(xattrs []Xattr) {
+	switch {
+	case build.IsLinux:
+		if p.Linux == nil {
+			p.Linux = &XattrData{}
+		}
+		p.Linux.Xattrs = xattrs
+
+	case build.IsDarwin:
+		if p.Darwin == nil {
+			p.Darwin = &XattrData{}
+		}
+		p.Darwin.Xattrs = xattrs
+
+	case build.IsFreeBSD:
+		if p.FreeBSD == nil {
+			p.FreeBSD = &XattrData{}
+		}
+		p.FreeBSD.Xattrs = xattrs
+
+	case build.IsNetBSD:
+		if p.NetBSD == nil {
+			p.NetBSD = &XattrData{}
+		}
+		p.NetBSD.Xattrs = xattrs
+	}
+}
+
+// MergeWith copies platform data from other, for platforms where it's not
+// already set on p.
+func (p *PlatformData) MergeWith(other *PlatformData) {
+	if p.Unix == nil {
+		p.Unix = other.Unix
+	}
+	if p.Windows == nil {
+		p.Windows = other.Windows
+	}
+	if p.Linux == nil {
+		p.Linux = other.Linux
+	}
+	if p.Darwin == nil {
+		p.Darwin = other.Darwin
+	}
+	if p.FreeBSD == nil {
+		p.FreeBSD = other.FreeBSD
+	}
+	if p.NetBSD == nil {
+		p.NetBSD = other.NetBSD
+	}
 }
 
 // blocksEqual returns whether two slices of blocks are exactly the same hash
@@ -410,4 +535,48 @@ func (x *FileInfoType) UnmarshalJSON(data []byte) error {
 	}
 	*x = FileInfoType(n)
 	return nil
+}
+
+func xattrsEqual(a, b *XattrData) bool {
+	aEmpty := a == nil || len(a.Xattrs) == 0
+	bEmpty := b == nil || len(b.Xattrs) == 0
+	if aEmpty && bEmpty {
+		return true
+	}
+	if aEmpty || bEmpty {
+		// Only one side is empty, so they can't be equal.
+		return false
+	}
+	if len(a.Xattrs) != len(b.Xattrs) {
+		return false
+	}
+	for i := range a.Xattrs {
+		if a.Xattrs[i].Name != b.Xattrs[i].Name {
+			return false
+		}
+		if !bytes.Equal(a.Xattrs[i].Value, b.Xattrs[i].Value) {
+			return false
+		}
+	}
+	return true
+}
+
+func unixOwnershipEqual(a, b *UnixData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.UID == b.UID && a.GID == b.GID && a.OwnerName == b.OwnerName && a.GroupName == b.GroupName
+}
+
+func windowsOwnershipEqual(a, b *WindowsData) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.OwnerName == b.OwnerName && a.OwnerIsGroup == b.OwnerIsGroup
 }

@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -14,12 +15,12 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -31,6 +32,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	buildpkg "github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -47,6 +50,7 @@ var (
 	cc             string
 	run            string
 	benchRun       string
+	buildOut       string
 	debugBinary    bool
 	coverage       bool
 	long           bool
@@ -142,13 +146,14 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdService: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
+		systemdService: "stdiscosrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
+			{src: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service", dst: "deb/lib/systemd/system/stdiscosrv.service", perm: 0644},
 			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0644},
 			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
 		},
@@ -169,7 +174,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		systemdService: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
+		systemdService: "strelaysrv.service",
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -177,6 +182,7 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
+			{src: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service", dst: "deb/lib/systemd/system/strelaysrv.service", perm: 0644},
 			{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
 			{src: "cmd/strelaysrv/etc/firewall-ufw/strelaysrv", dst: "deb/etc/ufw/applications.d/strelaysrv", perm: 0644},
 		},
@@ -200,6 +206,18 @@ var targets = map[string]target{
 			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
+	},
+	"stupgrades": {
+		name:        "stupgrades",
+		description: "Syncthing Upgrade Check Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stupgrades"},
+		binaryName:  "stupgrades",
+	},
+	"stcrashreceiver": {
+		name:        "stupgrastcrashreceiverdes",
+		description: "Syncthing Crash Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
+		binaryName:  "stcrashreceiver",
 	},
 }
 
@@ -299,6 +317,9 @@ func runCommand(cmd string, target target) {
 	case "assets":
 		rebuildAssets()
 
+	case "update-deps":
+		updateDependencies()
+
 	case "proto":
 		proto()
 
@@ -310,6 +331,9 @@ func runCommand(cmd string, target target) {
 
 	case "transifex":
 		transifex()
+
+	case "weblate":
+		weblate()
 
 	case "tar":
 		buildTar(target, tags)
@@ -369,6 +393,7 @@ func parseFlags() {
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
+	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
 	flag.Parse()
 }
 
@@ -386,7 +411,7 @@ func test(tags []string, pkgs ...string) {
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
-		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+		case buildpkg.Darwin, buildpkg.Linux, buildpkg.FreeBSD: // , "windows": # See https://github.com/golang/go/issues/27089
 			args = append(args, "-race")
 		}
 	}
@@ -501,6 +526,9 @@ func build(target target, tags []string) {
 	}
 
 	args := []string{"build", "-v"}
+	if buildOut != "" {
+		args = append(args, "-o", buildOut)
+	}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -717,7 +745,7 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	err = ioutil.WriteFile(jsonPath, bs, 0644)
+	err = os.WriteFile(jsonPath, bs, 0644)
 	if err != nil {
 		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
 	}
@@ -730,7 +758,13 @@ func shouldBuildSyso(dir string) (string, error) {
 
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
-	if _, err := runError("goversioninfo", "-o", sysoPath); err != nil {
+	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
+	armOption := ""
+	if strings.Contains(goarch, "arm") {
+		armOption = "-arm=true"
+	}
+
+	if _, err := runError("goversioninfo", "-o", sysoPath, armOption); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 
@@ -750,12 +784,12 @@ func shouldCleanupSyso(sysoFilePath string) {
 // exists. The permission bits are copied as well. If dst already exists and
 // the contents are identical to src the modification time is not updated.
 func copyFile(src, dst string, perm os.FileMode) error {
-	in, err := ioutil.ReadFile(src)
+	in, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	out, err := ioutil.ReadFile(dst)
+	out, err := os.ReadFile(dst)
 	if err != nil {
 		// The destination probably doesn't exist, we should create
 		// it.
@@ -771,7 +805,7 @@ func copyFile(src, dst string, perm os.FileMode) error {
 
 copy:
 	os.MkdirAll(filepath.Dir(dst), 0777)
-	if err := ioutil.WriteFile(dst, in, perm); err != nil {
+	if err := os.WriteFile(dst, in, perm); err != nil {
 		return err
 	}
 
@@ -865,12 +899,32 @@ func shouldRebuildAssets(target, srcdir string) bool {
 	return assetsAreNewer
 }
 
+func updateDependencies() {
+	// Figure out desired Go version
+	bs, err := os.ReadFile("go.mod")
+	if err != nil {
+		log.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^go\s+([0-9.]+)`)
+	matches := re.FindSubmatch(bs)
+	if len(matches) != 2 {
+		log.Fatal("failed to parse go.mod")
+	}
+	goVersion := string(matches[1])
+
+	runPrint(goCmd, "get", "-u", "./...")
+	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
+
+	// We might have updated the protobuf package and should regenerate to match.
+	proto()
+}
+
 func proto() {
 	pv := protobufVersion()
 	repo := "https://github.com/gogo/protobuf.git"
 	path := filepath.Join("repos", "protobuf")
 
-	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
+	runPrint(goCmd, "install", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
 
 	if _, err := os.Stat(path); err != nil {
@@ -914,6 +968,11 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
+func weblate() {
+	os.Chdir("gui/default/assets/lang")
+	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
+}
+
 func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
@@ -938,7 +997,7 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
-	bs, err := ioutil.ReadFile("RELEASE")
+	bs, err := os.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
 	}
@@ -961,7 +1020,7 @@ func getGitVersion() (string, error) {
 	v0 := string(bs)
 
 	// To be more semantic-versionish and ensure proper ordering in our
-	// upgrade process, we make sure there's only one hypen in the version.
+	// upgrade process, we make sure there's only one hyphen in the version.
 
 	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`)
 	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
@@ -1270,11 +1329,11 @@ func zipFile(out string, files []archiveFile) {
 
 		if strings.HasSuffix(f.dst, ".txt") {
 			// Text file. Read it and convert line endings.
-			bs, err := ioutil.ReadAll(sf)
+			bs, err := io.ReadAll(sf)
 			if err != nil {
 				log.Fatal(err)
 			}
-			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\n', '\r'}, -1)
+			bs = bytes.Replace(bs, []byte{'\n'}, []byte{'\r', '\n'}, -1)
 			fh.UncompressedSize = uint32(len(bs))
 			fh.UncompressedSize64 = uint64(len(bs))
 
@@ -1345,6 +1404,33 @@ func windowsCodesign(file string) {
 		args := []string{"sign", "/fd", algo}
 		if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
 			args = append(args, "/f", f)
+		} else if b := os.Getenv("CODESIGN_CERTIFICATE_BASE64"); b != "" {
+			// Decode the PFX certificate from base64.
+			bs, err := base64.RawStdEncoding.DecodeString(b)
+			if err != nil {
+				log.Println("Codesign: signing failed: decoding base64:", err)
+				return
+			}
+
+			// Write it to a temporary file
+			f, err := os.CreateTemp("", "codesign-*.pfx")
+			if err != nil {
+				log.Println("Codesign: signing failed: creating temp file:", err)
+				return
+			}
+			_ = f.Chmod(0600) // best effort remove other users' access
+			defer os.Remove(f.Name())
+			if _, err := f.Write(bs); err != nil {
+				log.Println("Codesign: signing failed: writing temp file:", err)
+				return
+			}
+			if err := f.Close(); err != nil {
+				log.Println("Codesign: signing failed: closing temp file:", err)
+				return
+			}
+
+			// Use that when signing
+			args = append(args, "/f", f.Name())
 		}
 		if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
 			args = append(args, "/p", p)
@@ -1364,7 +1450,7 @@ func windowsCodesign(file string) {
 
 		bs, err := runError(st, args...)
 		if err != nil {
-			log.Println("Codesign: signing failed:", string(bs))
+			log.Printf("Codesign: signing failed: %v: %s", err, string(bs))
 			return
 		}
 		log.Println("Codesign: successfully signed", file, "using", algo)

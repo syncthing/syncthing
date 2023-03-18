@@ -10,10 +10,11 @@ package decrypt
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -34,6 +35,7 @@ type CLI struct {
 	TokenPath  string `placeholder:"PATH" help:"Path to the token file within the folder (used to determine folder ID)"`
 
 	folderKey *[32]byte
+	keyGen    *protocol.KeyGenerator
 }
 
 type storedEncryptionToken struct {
@@ -45,7 +47,7 @@ func (c *CLI) Run() error {
 	log.SetFlags(0)
 
 	if c.To == "" && !c.VerifyOnly {
-		return fmt.Errorf("must set --to or --verify")
+		return errors.New("must set --to or --verify-only")
 	}
 
 	if c.TokenPath == "" {
@@ -67,7 +69,8 @@ func (c *CLI) Run() error {
 		}
 	}
 
-	c.folderKey = protocol.KeyFromPassword(c.FolderID, c.Password)
+	c.keyGen = protocol.NewKeyGenerator()
+	c.folderKey = c.keyGen.KeyFromPassword(c.FolderID, c.Password)
 
 	return c.walk()
 }
@@ -112,7 +115,7 @@ func (c *CLI) withContinue(err error) error {
 // error.
 func (c *CLI) getFolderID() (string, error) {
 	tokenPath := filepath.Join(c.Path, c.TokenPath)
-	bs, err := ioutil.ReadFile(tokenPath)
+	bs, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return "", fmt.Errorf("reading folder token: %w", err)
 	}
@@ -128,6 +131,9 @@ func (c *CLI) getFolderID() (string, error) {
 // process handles the file named path in srcFs, decrypting it into dstFs
 // unless dstFs is nil.
 func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) error {
+	// Which filemode bits to preserve
+	const retainBits = fs.ModePerm | fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
+
 	if c.Verbose {
 		log.Printf("Processing %q", path)
 	}
@@ -138,7 +144,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	}
 	defer encFd.Close()
 
-	encFi, err := c.loadEncryptedFileInfo(encFd)
+	encFi, err := loadEncryptedFileInfo(encFd)
 	if err != nil {
 		return fmt.Errorf("%s: loading metadata trailer: %w", path, err)
 	}
@@ -147,7 +153,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	// in native format, while protocol expects wire format (slashes).
 	encFi.Name = osutil.NormalizedFilename(encFi.Name)
 
-	plainFi, err := protocol.DecryptFileInfo(*encFi, c.folderKey)
+	plainFi, err := protocol.DecryptFileInfo(c.keyGen, *encFi, c.folderKey)
 	if err != nil {
 		return fmt.Errorf("%s: decrypting metadata: %w", path, err)
 	}
@@ -158,7 +164,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 
 	var plainFd fs.File
 	if dstFs != nil {
-		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0700); err != nil {
+		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0o700); err != nil {
 			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 
@@ -167,6 +173,9 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 		defer plainFd.Close() // also closed explicitly in the return
+		if err := dstFs.Chmod(plainFi.Name, fs.FileMode(plainFi.Permissions&uint32(retainBits))); err != nil {
+			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		}
 	}
 
 	if err := c.decryptFile(encFi, &plainFi, encFd, plainFd); err != nil {
@@ -183,7 +192,12 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	}
 
 	if plainFd != nil {
-		return plainFd.Close()
+		if err := plainFd.Close(); err != nil {
+			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		}
+		if err := dstFs.Chtimes(plainFi.Name, plainFi.ModTime(), plainFi.ModTime()); err != nil {
+			return fmt.Errorf("%s: %w", plainFi.Name, err)
+		}
 	}
 	return nil
 }
@@ -197,7 +211,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 		return fmt.Errorf("block count mismatch: encrypted %d != plaintext %d", len(encFi.Blocks), len(plainFi.Blocks))
 	}
 
-	fileKey := protocol.FileKey(plainFi.Name, c.folderKey)
+	fileKey := c.keyGen.FileKey(plainFi.Name, c.folderKey)
 	for i, encBlock := range encFi.Blocks {
 		// Read the encrypted block
 		buf := make([]byte, encBlock.Size)
@@ -246,7 +260,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 
 // loadEncryptedFileInfo loads the encrypted FileInfo trailer from a file on
 // disk.
-func (c *CLI) loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
+func loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
 	// Seek to the size of the trailer block
 	if _, err := fd.Seek(-4, io.SeekEnd); err != nil {
 		return nil, err

@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gobwas/glob"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -35,7 +35,7 @@ const (
 var defaultResult Result = resultInclude
 
 func init() {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if build.IsDarwin || build.IsWindows {
 		defaultResult |= resultFoldCase
 	}
 }
@@ -189,7 +189,7 @@ func (m *Matcher) Load(file string) error {
 		return nil
 	}
 
-	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
+	fd, info, err := loadIgnoreFile(m.fs, file)
 	if err != nil {
 		m.parseLocked(&bytes.Buffer{}, file)
 		return err
@@ -289,10 +289,8 @@ func (m *Matcher) Match(file string) (result Result) {
 			if pattern.match.Match(lowercaseFile) {
 				return pattern.result
 			}
-		} else {
-			if pattern.match.Match(file) {
-				return pattern.result
-			}
+		} else if pattern.match.Match(file) {
+			return pattern.result
 		}
 	}
 
@@ -381,7 +379,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, fs.FileInfo, error) {
+func loadIgnoreFile(fs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
 	fd, err := fs.Open(file)
 	if err != nil {
 		return fd, nil, err
@@ -411,7 +409,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 		return nil, parseError(fmt.Errorf("multiple include of ignore file %q", file))
 	}
 
-	fd, info, err := loadIgnoreFile(filesystem, file, cd)
+	fd, info, err := loadIgnoreFile(filesystem, file)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +556,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			} else {
 				// Wrap the error, as if the include does not exist, we get a
 				// IsNotExists(err) == true error, which we use to check
-				// existance of the .stignore file, and just end up assuming
+				// existence of the .stignore file, and just end up assuming
 				// there is none, rather than a broken include.
 				err = parseError(fmt.Errorf("failed to load include file %s: %w", includeFile, err))
 			}
@@ -595,8 +593,9 @@ func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error
 		return err
 	}
 
+	wr := osutil.LineEndingsWriter(fd)
 	for _, line := range content {
-		fmt.Fprintln(fd, line)
+		fmt.Fprintln(wr, line)
 	}
 
 	if err := fd.Close(); err != nil {

@@ -28,8 +28,16 @@
     text-decoration: none;
 }
 
-.fancytree-ext-filter-hide tr.fancytree-submatch span.fancytree-title,
-.fancytree-ext-filter-hide span.fancytree-node.fancytree-submatch span.fancytree-title {
-    color: black !important;
-    font-weight: lighter !important;
+/*
+ * Fancytree tweaks
+ */
+
+.fancytree-container tr:hover,
+.fancytree-focused {
+    background-color: #eeeeee;
+}
+
+/* Remote Devices 'connection type'-icon color set to #333 */
+.reception {
+    filter: invert(12%) sepia(11%) saturate(20%) hue-rotate(318deg) brightness(100%) contrast(80%);
 }

@@ -4,7 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.14,!noquic,!go1.17
+//go:build go1.15 && !noquic
+// +build go1.15,!noquic
 
 package connections
 
@@ -15,10 +16,9 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -36,15 +36,16 @@ func init() {
 
 type quicListener struct {
 	svcutil.ServiceWithError
-	nat atomic.Value
+	nat atomic.Uint64 // Holds a stun.NATType.
 
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	cfg     config.Wrapper
-	tlsCfg  *tls.Config
-	conns   chan internalConn
-	factory listenerFactory
+	uri      *url.URL
+	cfg      config.Wrapper
+	tlsCfg   *tls.Config
+	conns    chan internalConn
+	factory  listenerFactory
+	registry *registry.Registry
 
 	address *url.URL
 	laddr   net.Addr
@@ -55,7 +56,7 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
 		l.Infof("%s detected NAT type: %s", t.uri, natType)
 	}
-	t.nat.Store(natType)
+	t.nat.Store(uint64(natType))
 }
 
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
@@ -98,25 +99,12 @@ func (t *quicListener) serve(ctx context.Context) error {
 	svc, conn := stun.New(t.cfg, t, udpConn)
 	defer conn.Close()
 
-	quicWrapper := quicWrapper{
-		PacketConn: conn,
-		underlying: udpConn,
-	}
-	var wrapped net.PacketConn = &quicWrapper
-
-	if oobConn, ok := conn.(oobConn); ok {
-		l.Debugf("wrapping in oob conn")
-		wrapped = &oobConnWrapper{
-			quicWrapper, oobConn,
-		}
-	}
-
 	go svc.Serve(ctx)
 
-	registry.Register(t.uri.Scheme, wrapped)
-	defer registry.Unregister(t.uri.Scheme, wrapped)
+	t.registry.Register(t.uri.Scheme, conn)
+	defer t.registry.Unregister(t.uri.Scheme, conn)
 
-	listener, err := quic.Listen(wrapped, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
@@ -217,7 +205,7 @@ func (t *quicListener) Factory() listenerFactory {
 }
 
 func (t *quicListener) NATType() string {
-	v := t.nat.Load().(stun.NATType)
+	v := stun.NATType(t.nat.Load())
 	if v == stun.NATUnknown || v == stun.NATError {
 		return "unknown"
 	}
@@ -226,53 +214,24 @@ func (t *quicListener) NATType() string {
 
 type quicListenerFactory struct{}
 
-func (f *quicListenerFactory) Valid(config.Configuration) error {
+func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry) genericListener {
 	l := &quicListener{
-		uri:     fixupPort(uri, config.DefaultQUICPort),
-		cfg:     cfg,
-		tlsCfg:  tlsCfg,
-		conns:   conns,
-		factory: f,
+		uri:      fixupPort(uri, config.DefaultQUICPort),
+		cfg:      cfg,
+		tlsCfg:   tlsCfg,
+		conns:    conns,
+		factory:  f,
+		registry: registry,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
-	l.nat.Store(stun.NATUnknown)
+	l.nat.Store(uint64(stun.NATUnknown))
 	return l
 }
 
-func (quicListenerFactory) Enabled(cfg config.Configuration) bool {
+func (quicListenerFactory) Enabled(_ config.Configuration) bool {
 	return true
-}
-
-// quicWrapper provides methods used by quic
-// https://github.com/lucas-clemente/quic-go/blob/master/packet_handler_map.go#L85
-type quicWrapper struct {
-	net.PacketConn
-	underlying *net.UDPConn
-}
-
-// SetReadBuffer is required by QUIC
-func (s *quicWrapper) SetReadBuffer(size int) error {
-	return s.underlying.SetReadBuffer(size)
-}
-
-// SyscallConn is required by QUIC
-func (s *quicWrapper) SyscallConn() (syscall.RawConn, error) {
-	return s.underlying.SyscallConn()
-}
-
-// oobConn is used to assert that stun package returned a net.PacketConn that implements this interface.
-// If it does, we then wrap quicWrapper in oobConnWrapper, to expose those methods to QUIC package.
-type oobConn interface {
-	ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDPAddr, err error)
-	WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error)
-}
-
-// See: https://pkg.go.dev/github.com/lucas-clemente/quic-go#OOBCapablePacketConn
-type oobConnWrapper struct {
-	quicWrapper
-	oobConn
 }

@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -123,21 +123,27 @@ func (r *caseFilesystemRegistry) cleaner() {
 
 var globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*caseFilesystem)}
 
-// caseFilesystem is a BasicFilesystem with additional checks to make a
-// potentially case insensitive underlying FS behave like it's case-sensitive.
-type caseFilesystem struct {
-	Filesystem
-	realCaser
-}
-
-// NewCaseFilesystem ensures that the given, potentially case-insensitive filesystem
+// OptionDetectCaseConflicts ensures that the potentially case-insensitive filesystem
 // behaves like a case-sensitive filesystem. Meaning that it takes into account
 // the real casing of a path and returns ErrCaseConflict if the given path differs
 // from the real path. It is safe to use with any filesystem, i.e. also a
 // case-sensitive one. However it will add some overhead and thus shouldn't be
 // used if the filesystem is known to already behave case-sensitively.
-func NewCaseFilesystem(fs Filesystem) Filesystem {
-	return wrapFilesystem(fs, globalCaseFilesystemRegistry.get)
+type OptionDetectCaseConflicts struct{}
+
+func (*OptionDetectCaseConflicts) apply(fs Filesystem) Filesystem {
+	return globalCaseFilesystemRegistry.get(fs)
+}
+
+func (*OptionDetectCaseConflicts) String() string {
+	return "detectCaseConflicts"
+}
+
+// caseFilesystem is a BasicFilesystem with additional checks to make a
+// potentially case insensitive underlying FS behave like it's case-sensitive.
+type caseFilesystem struct {
+	Filesystem
+	realCaser
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
@@ -147,7 +153,7 @@ func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
 	return f.Filesystem.Chmod(name, mode)
 }
 
-func (f *caseFilesystem) Lchown(name string, uid, gid int) error {
+func (f *caseFilesystem) Lchown(name, uid, gid string) error {
 	if err := f.checkCase(name); err != nil {
 		return err
 	}
@@ -344,7 +350,7 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *caseFilesystem) wrapperType() filesystemWrapperType {
+func (*caseFilesystem) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeCase
 }
 
@@ -390,7 +396,7 @@ type defaultRealCaser struct {
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
-	cache, err := lru.New2Q(caseCacheItemLimit)
+	cache, err := lru.New2Q[string, *caseNode](caseCacheItemLimit)
 	// New2Q only errors if given invalid parameters, which we don't.
 	if err != nil {
 		panic(err)
@@ -435,7 +441,7 @@ func (r *defaultRealCaser) dropCache() {
 }
 
 type caseCache struct {
-	*lru.TwoQueueCache
+	*lru.TwoQueueCache[string, *caseNode]
 	fs  Filesystem
 	mut sync.Mutex
 }
@@ -445,13 +451,12 @@ type caseCache struct {
 func (c *caseCache) getExpireAdd(key string) *caseNode {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	v, ok := c.Get(key)
+	node, ok := c.Get(key)
 	if !ok {
 		node := newCaseNode(key, c.fs)
 		c.Add(key, node)
 		return node
 	}
-	node := v.(*caseNode)
 	if node.expires.Before(time.Now()) {
 		node = newCaseNode(key, c.fs)
 		c.Add(key, node)

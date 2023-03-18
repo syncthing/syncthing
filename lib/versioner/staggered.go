@@ -44,7 +44,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{
-		folderFs:   cfg.Filesystem(),
+		folderFs:   cfg.Filesystem(nil),
 		versionsFs: versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions
@@ -60,79 +60,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 }
 
 func (v *staggered) Clean(ctx context.Context) error {
-	l.Debugln("Versioner clean: Cleaning", v.versionsFs)
-
-	if _, err := v.versionsFs.Stat("."); fs.IsNotExist(err) {
-		// There is no need to clean a nonexistent dir.
-		return nil
-	}
-
-	versionsPerFile := make(map[string][]string)
-	dirTracker := make(emptyDirTracker)
-
-	walkFn := func(path string, f fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		if f.IsDir() && !f.IsSymlink() {
-			dirTracker.addDir(path)
-			return nil
-		}
-
-		// Regular file, or possibly a symlink.
-		dirTracker.addFile(path)
-
-		name, _ := UntagFilename(path)
-		if name == "" {
-			return nil
-		}
-
-		versionsPerFile[name] = append(versionsPerFile[name], path)
-
-		return nil
-	}
-
-	if err := v.versionsFs.Walk(".", walkFn); err != nil {
-		l.Warnln("Versioner: error scanning versions dir", err)
-		return err
-	}
-
-	for _, versionList := range versionsPerFile {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		v.expire(versionList)
-	}
-
-	dirTracker.deleteEmptyDirs(v.versionsFs)
-
-	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
-	return nil
-}
-
-func (v *staggered) expire(versions []string) {
-	l.Debugln("Versioner: Expiring versions", versions)
-	for _, file := range v.toRemove(versions, time.Now()) {
-		if fi, err := v.versionsFs.Lstat(file); err != nil {
-			l.Warnln("versioner:", err)
-			continue
-		} else if fi.IsDir() {
-			l.Infof("non-file %q is named like a file version", file)
-			continue
-		}
-
-		if err := v.versionsFs.Remove(file); err != nil {
-			l.Warnf("Versioner: can't remove %q: %v", file, err)
-		}
-	}
+	return clean(ctx, v.versionsFs, v.toRemove)
 }
 
 func (v *staggered) toRemove(versions []string, now time.Time) []string {
@@ -192,7 +120,7 @@ func (v *staggered) Archive(filePath string) error {
 		return err
 	}
 
-	v.expire(findAllVersions(v.versionsFs, filePath))
+	cleanVersions(v.versionsFs, findAllVersions(v.versionsFs, filePath), v.toRemove)
 
 	return nil
 }

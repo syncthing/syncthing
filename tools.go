@@ -2,6 +2,7 @@
 // used by go generate and build.go. See
 // https://github.com/golang/go/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module
 
+//go:build tools
 // +build tools
 
 package tools

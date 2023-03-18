@@ -1,6 +1,6 @@
 /*!
-Fork Awesome 1.1.2
-License - http://forkawesome.github.io/Fork-Awesome/license
+Fork Awesome 1.2.0
+License - https://forkaweso.me/Fork-Awesome/license
 
 Copyright 2018 Dave Gandy & Fork Awesome
 
@@ -14,10 +14,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * -------------------------- */
 @font-face {
   font-family: 'ForkAwesome';
-  src: url('../fonts/forkawesome-webfont.eot?v=1.1.2');
-  src: url('../fonts/forkawesome-webfont.eot?#iefix&v=1.1.2') format('embedded-opentype'), url('../fonts/forkawesome-webfont.woff2?v=1.1.2') format('woff2'), url('../fonts/forkawesome-webfont.woff?v=1.1.2') format('woff'), url('../fonts/forkawesome-webfont.ttf?v=1.1.2') format('truetype'), url('../fonts/forkawesome-webfont.svg?v=1.1.2#forkawesomeregular') format('svg');
+  src: url('../fonts/forkawesome-webfont.eot?v=1.2.0');
+  src: url('../fonts/forkawesome-webfont.eot?#iefix&v=1.2.0') format('embedded-opentype'), url('../fonts/forkawesome-webfont.woff2?v=1.2.0') format('woff2'), url('../fonts/forkawesome-webfont.woff?v=1.2.0') format('woff'), url('../fonts/forkawesome-webfont.ttf?v=1.2.0') format('truetype'), url('../fonts/forkawesome-webfont.svg?v=1.2.0#forkawesomeregular') format('svg');
   font-weight: normal;
   font-style: normal;
+  font-display: block;
 }
 .fa {
   display: inline-block;
@@ -282,6 +283,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 .fa-repeat:before {
   content: "\f01e";
 }
+.fa-sync:before,
 .fa-refresh:before {
   content: "\f021";
 }
@@ -2472,6 +2474,243 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 .fa-joplin:before {
   content: "\f310";
+}
+.fa-syncthing:before {
+  content: "\f311";
+}
+.fa-inkscape:before {
+  content: "\f312";
+}
+.fa-matrix-org:before {
+  content: "\f313";
+}
+.fa-pixelfed:before {
+  content: "\f314";
+}
+.fa-bootstrap:before {
+  content: "\f315";
+}
+.fa-dev-to:before {
+  content: "\f316";
+}
+.fa-hashnode:before {
+  content: "\f317";
+}
+.fa-jirafeau:before {
+  content: "\f318";
+}
+.fa-emby:before {
+  content: "\f319";
+}
+.fa-wikidata:before {
+  content: "\f31a";
+}
+.fa-gimp:before {
+  content: "\f31b";
+}
+.fa-c:before {
+  content: "\f31c";
+}
+.fa-digitalocean:before {
+  content: "\f31d";
+}
+.fa-att:before {
+  content: "\f31e";
+}
+.fa-gitea:before {
+  content: "\f31f";
+}
+.fa-file-epub:before {
+  content: "\f321";
+}
+.fa-python:before {
+  content: "\f322";
+}
+.fa-archlinux:before {
+  content: "\f323";
+}
+.fa-pleroma:before {
+  content: "\f324";
+}
+.fa-unsplash:before {
+  content: "\f325";
+}
+.fa-hackster:before {
+  content: "\f326";
+}
+.fa-spell-check:before {
+  content: "\f327";
+}
+.fa-moon:before {
+  content: "\f328";
+}
+.fa-sun:before {
+  content: "\f329";
+}
+.fa-f-droid:before {
+  content: "\f32a";
+}
+.fa-biometric:before {
+  content: "\f32b";
+}
+.fa-wire:before {
+  content: "\f32c";
+}
+.fa-tor-onion:before {
+  content: "\f32e";
+}
+.fa-volume-mute:before {
+  content: "\f32f";
+}
+.fa-bell-ringing:before {
+  content: "\f32d";
+}
+.fa-bell-ringing-o:before {
+  content: "\f330";
+}
+.fa-hal:before {
+  content: "\f333";
+}
+.fa-jupyter:before {
+  content: "\f335";
+}
+.fa-julia:before {
+  content: "\f334";
+}
+.fa-classicpress:before {
+  content: "\f331";
+}
+.fa-classicpress-circle:before {
+  content: "\f332";
+}
+.fa-open-collective:before {
+  content: "\f336";
+}
+.fa-orcid:before {
+  content: "\f337";
+}
+.fa-researchgate:before {
+  content: "\f338";
+}
+.fa-funkwhale:before {
+  content: "\f339";
+}
+.fa-askfm:before {
+  content: "\f33a";
+}
+.fa-blockstack:before {
+  content: "\f33b";
+}
+.fa-boardgamegeek:before {
+  content: "\f33c";
+}
+.fa-bunny:before {
+  content: "\f35f";
+}
+.fa-buymeacoffee:before {
+  content: "\f33d";
+}
+.fa-cc-by:before {
+  content: "\f33e";
+}
+.fa-creative-commons-alt:before,
+.fa-cc-cc:before {
+  content: "\f33f";
+}
+.fa-cc-nc-eu:before {
+  content: "\f341";
+}
+.fa-cc-nc-jp:before {
+  content: "\f342";
+}
+.fa-cc-nc:before {
+  content: "\f340";
+}
+.fa-cc-nd:before {
+  content: "\f343";
+}
+.fa-cc-pd:before {
+  content: "\f344";
+}
+.fa-cc-remix:before {
+  content: "\f345";
+}
+.fa-cc-sa:before {
+  content: "\f346";
+}
+.fa-cc-share:before {
+  content: "\f347";
+}
+.fa-cc-zero:before {
+  content: "\f348";
+}
+.fa-conway-hacker:before,
+.fa-conway-glider:before {
+  content: "\f349";
+}
+.fa-csharp:before {
+  content: "\f34a";
+}
+.fa-email-bulk:before {
+  content: "\f34b";
+}
+.fa-email-bulk-o:before {
+  content: "\f34c";
+}
+.fa-gnu:before {
+  content: "\f34d";
+}
+.fa-google-play:before {
+  content: "\f34e";
+}
+.fa-heroku:before {
+  content: "\f34f";
+}
+.fa-hassio:before,
+.fa-home-assistant:before {
+  content: "\f350";
+}
+.fa-java:before {
+  content: "\f351";
+}
+.fa-mariadb:before {
+  content: "\f352";
+}
+.fa-markdown:before {
+  content: "\f353";
+}
+.fa-mysql:before {
+  content: "\f354";
+}
+.fa-nordcast:before {
+  content: "\f355";
+}
+.fa-plume:before {
+  content: "\f356";
+}
+.fa-postgresql:before {
+  content: "\f357";
+}
+.fa-sass-alt:before {
+  content: "\f359";
+}
+.fa-sass:before {
+  content: "\f358";
+}
+.fa-skate:before {
+  content: "\f35a";
+}
+.fa-sketchfab:before {
+  content: "\f35b";
+}
+.fa-tex:before {
+  content: "\f35c";
+}
+.fa-textpattern:before {
+  content: "\f35d";
+}
+.fa-unity:before {
+  content: "\f35e";
 }
 .sr-only {
   position: absolute;

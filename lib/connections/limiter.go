@@ -25,7 +25,7 @@ type limiter struct {
 	mu                  sync.Mutex
 	write               *rate.Limiter
 	read                *rate.Limiter
-	limitsLAN           atomicBool
+	limitsLAN           atomic.Bool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
 }
@@ -37,8 +37,7 @@ type waiter interface {
 }
 
 const (
-	limiterBurstSize   = 4 * 128 << 10
-	maxSingleWriteSize = 8 << 10
+	limiterBurstSize = 4 * 128 << 10
 )
 
 func newLimiter(myId protocol.DeviceID, cfg config.Wrapper) *limiter {
@@ -122,10 +121,6 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 	}
 }
 
-func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
 func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
@@ -162,7 +157,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		limited = true
 	}
 
-	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
+	lim.limitsLAN.Store(to.Options.LimitBandwidthInLan)
 
 	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
 
@@ -177,7 +172,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (lim *limiter) String() string {
+func (*limiter) String() string {
 	// required by config.Committer interface
 	return "connections.limiter"
 }
@@ -255,10 +250,20 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	}
 
 	// This does (potentially) multiple smaller writes in order to be less
-	// bursty with large writes and slow rates.
+	// bursty with large writes and slow rates. At the same time we don't
+	// want to do hilarious amounts of tiny writes when the rate is high, so
+	// try to be a bit adaptable. We range from the minimum write size of 1
+	// KiB up to the limiter burst size, aiming for about a write every
+	// 10ms.
+	singleWriteSize := int(w.waiter.Limit() / 100)          // 10ms worth of data
+	singleWriteSize = ((singleWriteSize / 1024) + 1) * 1024 // round up to the next kibibyte
+	if singleWriteSize > limiterBurstSize {
+		singleWriteSize = limiterBurstSize
+	}
+
 	written := 0
 	for written < len(buf) {
-		toWrite := maxSingleWriteSize
+		toWrite := singleWriteSize
 		if toWrite > len(buf)-written {
 			toWrite = len(buf) - written
 		}
@@ -277,13 +282,13 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 // waiter, valid for both writers and readers
 type waiterHolder struct {
 	waiter    waiter
-	limitsLAN *atomicBool
+	limitsLAN *atomic.Bool
 	isLAN     bool
 }
 
 // unlimited returns true if the waiter is not limiting the rate
 func (w waiterHolder) unlimited() bool {
-	if w.isLAN && !w.limitsLAN.get() {
+	if w.isLAN && !w.limitsLAN.Load() {
 		return true
 	}
 	return w.waiter.Limit() == rate.Inf
@@ -298,7 +303,7 @@ func (w waiterHolder) take(tokens int) {
 	// into the lower level reads so we might get a large amount of data and
 	// end up in the loop further down.
 
-	if tokens < limiterBurstSize {
+	if tokens <= limiterBurstSize {
 		// Fast path. We won't get an error from WaitN as we don't pass a
 		// context with a deadline.
 		_ = w.waiter.WaitN(context.TODO(), tokens)
@@ -315,20 +320,6 @@ func (w waiterHolder) take(tokens int) {
 			tokens = 0
 		}
 	}
-}
-
-type atomicBool int32
-
-func (b *atomicBool) set(v bool) {
-	if v {
-		atomic.StoreInt32((*int32)(b), 1)
-	} else {
-		atomic.StoreInt32((*int32)(b), 0)
-	}
-}
-
-func (b *atomicBool) get() bool {
-	return atomic.LoadInt32((*int32)(b)) != 0
 }
 
 // totalWaiter waits for all of the waiters

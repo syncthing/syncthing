@@ -79,8 +79,10 @@ bug, feel free to report it in the [GitHub issue tracker][10].
 
 ## Building
 
-Building Syncthing from source is easy, and there's [a guide][5]
-that describes it for both Unix and Windows systems.
+Building Syncthing from source is easy. After extracting the source bundle from
+a release or checking out git, you just need to run `go run build.go` and the
+binaries are created in `./bin`. There's [a guide][5] with more details on the
+build process.
 
 ## Signed Releases
 
@@ -94,7 +96,7 @@ binaries are also properly code signed.
 
 ## Documentation
 
-Please see the [Syncthing documentation site][6].
+Please see the Syncthing [documentation site][6] [[source]][17].
 
 All code is licensed under the [MPLv2 License][7].
 
@@ -112,4 +114,4 @@ All code is licensed under the [MPLv2 License][7].
 [14]: assets/logo-text-128.png
 [15]: https://syncthing.net/
 [16]: https://github.com/syncthing/syncthing/blob/main/README-Docker.md
-
+[17]: https://github.com/syncthing/docs

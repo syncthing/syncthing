@@ -8,7 +8,7 @@ package util
 
 import "testing"
 
-func TestZeroByteSempahore(t *testing.T) {
+func TestZeroByteSempahore(_ *testing.T) {
 	// A semaphore with zero capacity is just a no-op.
 
 	s := NewSemaphore(0)

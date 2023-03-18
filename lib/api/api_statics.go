@@ -66,7 +66,7 @@ func newStaticsServer(theme, assetDir string) *staticsServer {
 func (s *staticsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/themes.json":
-		s.serveThemes(w, r)
+		s.serveThemes(w)
 	default:
 		s.serveAsset(w, r)
 	}
@@ -81,7 +81,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		file = file[1:]
 	}
 
-	if len(file) == 0 {
+	if file == "" {
 		file = "index.html"
 	}
 
@@ -136,7 +136,7 @@ func (s *staticsServer) serveFromAssetDir(file, theme string, w http.ResponseWri
 		return false
 	}
 	mtype := assets.MimeTypeForFile(file)
-	if len(mtype) != 0 {
+	if mtype != "" {
 		w.Header().Set("Content-Type", mtype)
 	}
 	http.ServeFile(w, r, p)
@@ -153,7 +153,7 @@ func (s *staticsServer) serveFromAssets(file, theme string, modificationTime tim
 	return true
 }
 
-func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
+func (s *staticsServer) serveThemes(w http.ResponseWriter) {
 	sendJSON(w, map[string][]string{
 		"themes": s.availableThemes,
 	})

@@ -64,7 +64,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		return nil, err
 	}
 
-	if len(host) == 0 {
+	if host == "" {
 		// A broadcast client
 		c.name = "IPv4 local"
 		bcPort, err := strconv.Atoi(port)
@@ -109,17 +109,20 @@ func (c *localClient) Error() error {
 // send.
 func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, bool) {
 	addrs := c.addrList.AllAddresses()
+
+	// The list of all addresses can include unspecified addresses intended
+	// for a discovery server to complete, based on the packet source. We
+	// don't do that for local discovery, so filter out addresses that are
+	// usable as-is.
+	addrs = filterUnspecifiedLocal(addrs)
+
+	// do not leak relay tokens to discovery
+	addrs = sanitizeRelayAddresses(addrs)
+
 	if len(addrs) == 0 {
 		// Nothing to announce
 		return msg, false
 	}
-
-	if cap(msg) >= 4 {
-		msg = msg[:4]
-	} else {
-		msg = make([]byte, 4)
-	}
-	binary.BigEndian.PutUint32(msg, Magic)
 
 	pkt := Announce{
 		ID:         c.myID,
@@ -127,6 +130,12 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 		InstanceID: instanceID,
 	}
 	bs, _ := pkt.Marshal()
+
+	if pktLen := 4 + len(bs); cap(msg) < pktLen {
+		msg = make([]byte, 0, pktLen)
+	}
+	msg = msg[:4]
+	binary.BigEndian.PutUint32(msg, Magic)
 	msg = append(msg, bs...)
 
 	return msg, true
@@ -281,4 +290,60 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	}
 
 	return isNewDevice
+}
+
+// filterUnspecifiedLocal returns the list of addresses after removing any
+// unspecified, localhost, multicast, broadcast or port-zero addresses.
+func filterUnspecifiedLocal(addrs []string) []string {
+	filtered := addrs[:0]
+	for _, addr := range addrs {
+		u, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+
+		tcpAddr, err := net.ResolveTCPAddr("tcp", u.Host)
+		if err != nil {
+			continue
+		}
+
+		switch {
+		case len(tcpAddr.IP) == 0:
+		case tcpAddr.Port == 0:
+		case tcpAddr.IP.IsUnspecified():
+		case !tcpAddr.IP.IsGlobalUnicast() && !tcpAddr.IP.IsLinkLocalUnicast():
+		default:
+			filtered = append(filtered, addr)
+		}
+	}
+	return filtered
+}
+
+func sanitizeRelayAddresses(addrs []string) []string {
+	filtered := addrs[:0]
+	allowlist := []string{"id"}
+
+	for _, addr := range addrs {
+		u, err := url.Parse(addr)
+		if err != nil {
+			continue
+		}
+
+		if u.Scheme == "relay" {
+			s := url.Values{}
+			q := u.Query()
+
+			for _, w := range allowlist {
+				if q.Has(w) {
+					s.Add(w, q.Get(w))
+				}
+			}
+
+			u.RawQuery = s.Encode()
+			addr = u.String()
+		}
+
+		filtered = append(filtered, addr)
+	}
+	return filtered
 }

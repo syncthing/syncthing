@@ -266,7 +266,7 @@ func (r *Report) FieldPointers() []interface{} {
 	}
 }
 
-func (r *Report) FieldNames() []string {
+func (*Report) FieldNames() []string {
 	// The database fields that back this struct in PostgreSQL
 	return []string{
 		// V1
@@ -410,7 +410,7 @@ func clear(v interface{}, since int) error {
 		tag := t.Field(i).Tag
 
 		v := tag.Get("since")
-		if len(v) == 0 {
+		if v == "" {
 			f.Set(reflect.Zero(f.Type()))
 			continue
 		}

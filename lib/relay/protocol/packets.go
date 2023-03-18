@@ -31,8 +31,11 @@ type header struct {
 
 type Ping struct{}
 type Pong struct{}
-type JoinRelayRequest struct{}
 type RelayFull struct{}
+
+type JoinRelayRequest struct {
+	Token string
+}
 
 type JoinSessionRequest struct {
 	Key []byte // max:32
@@ -60,13 +63,9 @@ func (i SessionInvitation) String() string {
 	if address, err := syncthingprotocol.DeviceIDFromBytes(i.From); err == nil {
 		device = address.String()
 	}
-	return fmt.Sprintf("%s@%s", device, i.AddressString())
+	return fmt.Sprintf("%s@%s:%d", device, net.IP(i.Address), i.Port)
 }
 
 func (i SessionInvitation) GoString() string {
 	return i.String()
-}
-
-func (i SessionInvitation) AddressString() string {
-	return fmt.Sprintf("%s:%d", net.IP(i.Address), i.Port)
 }
