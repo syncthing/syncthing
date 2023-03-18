@@ -28,7 +28,7 @@ message FolderConfiguration {
     repeated FolderDeviceConfiguration devices                    = 6;
     int32                              rescan_interval_s          = 7 [(ext.xml) = "rescanIntervalS,attr", (ext.default) = "3600"];
     bool                               fs_watcher_enabled         = 8 [(ext.goname) = "FSWatcherEnabled", (ext.xml) = "fsWatcherEnabled,attr", (ext.default) = "true"];
-    float                              fs_watcher_delay_s         = 9 [(ext.goname) = "FSWatcherDelayS", (ext.xml) = "fsWatcherDelayS,attr", (ext.default) = "10"];
+    double                             fs_watcher_delay_s         = 9 [(ext.goname) = "FSWatcherDelayS", (ext.xml) = "fsWatcherDelayS,attr", (ext.default) = "10"];
     bool                               ignore_perms               = 10 [(ext.xml) = "ignorePerms,attr"];
     bool                               auto_normalize             = 11 [(ext.xml) = "autoNormalize,attr", (ext.default) = "true"];
     Size                               min_disk_free              = 12 [(ext.default) = "1 %"];

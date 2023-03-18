@@ -120,7 +120,7 @@ type Report struct {
 		FsWatcherEnabled        int            `json:"fsWatcherEnabled,omitempty" since:"3"`
 		PullOrder               map[string]int `json:"pullOrder,omitempty" since:"3"`
 		FilesystemType          map[string]int `json:"filesystemType,omitempty" since:"3"`
-		FsWatcherDelays         []float32      `json:"fsWatcherDelays,omitempty" since:"3"`
+		FsWatcherDelays         []int          `json:"fsWatcherDelays,omitempty" since:"3"`
 		CustomMarkerName        int            `json:"customMarkerName,omitempty" since:"3"`
 		CopyOwnershipFromParent int            `json:"copyOwnershipFromParent,omitempty" since:"3"`
 		ModTimeWindowS          []int          `json:"modTimeWindowS,omitempty" since:"3"`
@@ -196,7 +196,7 @@ func (r *Report) Validate() error {
 		r.RescanIntvs = []int{}
 	}
 	if r.FolderUsesV3.FsWatcherDelays == nil {
-		r.FolderUsesV3.FsWatcherDelays = []float32{}
+		r.FolderUsesV3.FsWatcherDelays = []int{}
 	}
 
 	return nil
