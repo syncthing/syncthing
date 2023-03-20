@@ -1906,7 +1906,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size
 		if err == nil && scanner.Validate(res.data, hash, weakHash) {
 			return res, nil
 		}
-		// Fall through to reading from a non-temp file, just incase the temp
+		// Fall through to reading from a non-temp file, just in case the temp
 		// file has finished downloading.
 	}
 

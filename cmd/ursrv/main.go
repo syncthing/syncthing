@@ -894,7 +894,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["distributions"] = analyticsFor(distributions, len(knownDistributions))
 	r["featureOrder"] = featureOrder
 	r["locations"] = locations
-	r["contries"] = countryList
+	r["countries"] = countryList
 
 	return r
 }

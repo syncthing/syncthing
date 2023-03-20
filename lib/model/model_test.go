@@ -3957,7 +3957,7 @@ func TestIssue6961(t *testing.T) {
 	must(t, tfs.Remove(name))
 	m.ScanFolders()
 
-	// Drop ther remote index, add some other file.
+	// Drop the remote index, add some other file.
 	must(t, m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}))
 
 	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
