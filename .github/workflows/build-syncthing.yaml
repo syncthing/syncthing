@@ -412,5 +412,5 @@ jobs:
           file: ./Dockerfile.${{ matrix.program }}
           platforms: linux/amd64,linux/arm64
           # push: ${{ github.event_name != 'pull_request' }}
-          tags: migel0/syncthing-${{ matrix.program }}:${{ env.PKGVER }},migel0/syncthing-${{ matrix.program }}:latest
+          tags: migel0/syncthing-${{ matrix.program }}:latest
  
