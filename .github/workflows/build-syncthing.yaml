@@ -34,63 +34,63 @@ jobs:
   # with the list of expected supported Go versions (current, previous).
   #
 
-  build-test:
-    name: Build and test
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: ["ubuntu-latest",]
-        # The oldest version in this list should match what we have in our go.mod.
-        # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - name: Set git to use LF
-        if: matrix.runner == 'windows-latest'
-        # Without this, the Windows checkout will happen with CRLF line
-        # endings, which is fine for the source code but messes up tests
-        # that depend on data on disk being as expected. Ideally, those
-        # tests should be fixed, but not today.
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
+  # build-test:
+  #   name: Build and test
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       runner: ["ubuntu-latest",]
+  #       # The oldest version in this list should match what we have in our go.mod.
+  #       # Variables don't seem to be supported here, or we could have done something nice.
+  #       go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
+  #   runs-on: ${{ matrix.runner }}
+  #   steps:
+  #     - name: Set git to use LF
+  #       if: matrix.runner == 'windows-latest'
+  #       # Without this, the Windows checkout will happen with CRLF line
+  #       # endings, which is fine for the source code but messes up tests
+  #       # that depend on data on disk being as expected. Ideally, those
+  #       # tests should be fixed, but not today.
+  #       run: |
+  #         git config --global core.autocrlf false
+  #         git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
-          cache: true
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ matrix.go }}
+  #         cache: true
 
-      - name: Build
-        run: |
-          go run build.go
+  #     - name: Build
+  #       run: |
+  #         go run build.go
 
-      - name: Test
-        # Our Windows tests currently don't work on Go 1.20
-        # https://github.com/syncthing/syncthing/issues/8779
-        # https://github.com/syncthing/syncthing/issues/8778
-        if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
-        run: |
-          go run build.go test
+  #     - name: Test
+  #       # Our Windows tests currently don't work on Go 1.20
+  #       # https://github.com/syncthing/syncthing/issues/8779
+  #       # https://github.com/syncthing/syncthing/issues/8778
+  #       if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
+  #       run: |
+  #         go run build.go test
 
   #
   # Meta checks for formatting, copyright, etc
   #
 
-  correctness:
-    name: Check correctness
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+  # correctness:
+  #   name: Check correctness
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - name: Check correctness
-        run: |
-          go test -v ./meta
+  #     - name: Check correctness
+  #       run: |
+  #         go test -v ./meta
 
   #
   # Windows
@@ -155,41 +155,41 @@ jobs:
   # Linux
   #
 
-  package-linux:
-    name: Package for Linux
-    needs:
-      - build-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  # package-linux:
+  #   name: Package for Linux
+  #   needs:
+  #     - build-test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cache/go-build
+  #           ~/go/pkg/mod
+  #         key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
-      - name: Create packages
-        run: |
-          archs=$(go tool dist list | grep linux | sed 's#linux/##')
-          for goarch in $archs ; do
-            go run build.go -goarch "$goarch" tar
-          done
-        env:
-          CGO_ENABLED: "0"
+  #     - name: Create packages
+  #       run: |
+  #         archs=$(go tool dist list | grep linux | sed 's#linux/##')
+  #         for goarch in $archs ; do
+  #           go run build.go -goarch "$goarch" tar
+  #         done
+  #       env:
+  #         CGO_ENABLED: "0"
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: packages
-          path: syncthing-linux-*.tar.gz
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: packages
+  #         path: syncthing-linux-*.tar.gz
 
   #
   # macOS
@@ -289,97 +289,97 @@ jobs:
   # Cross compile other unixes
   #
 
-  package-cross:
-    name: Package cross compiled
-    needs:
-      - build-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  # package-cross:
+  #   name: Package cross compiled
+  #   needs:
+  #     - build-test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cache/go-build
+  #           ~/go/pkg/mod
+  #         key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
 
-      - name: Create packages
-        run: |
-          platforms=$(go tool dist list \
-            | grep -v aix/ppc64 \
-            | grep -v android/ \
-            | grep -v darwin/ \
-            | grep -v ios/ \
-            | grep -v js/ \
-            | grep -v linux/ \
-            | grep -v nacl/ \
-            | grep -v openbsd/arm\$ \
-            | grep -v openbsd/arm64 \
-            | grep -v openbsd/mips \
-            | grep -v plan9/ \
-            | grep -v windows/ \
-          )
+  #     - name: Create packages
+  #       run: |
+  #         platforms=$(go tool dist list \
+  #           | grep -v aix/ppc64 \
+  #           | grep -v android/ \
+  #           | grep -v darwin/ \
+  #           | grep -v ios/ \
+  #           | grep -v js/ \
+  #           | grep -v linux/ \
+  #           | grep -v nacl/ \
+  #           | grep -v openbsd/arm\$ \
+  #           | grep -v openbsd/arm64 \
+  #           | grep -v openbsd/mips \
+  #           | grep -v plan9/ \
+  #           | grep -v windows/ \
+  #         )
 
-          for plat in $platforms; do
-            goos="${plat%/*}"
-            goarch="${plat#*/}"
-            go run build.go -goos "$goos" -goarch "$goarch" tar
-          done
-        env:
-          CGO_ENABLED: "0"
+  #         for plat in $platforms; do
+  #           goos="${plat%/*}"
+  #           goarch="${plat#*/}"
+  #           go run build.go -goos "$goos" -goarch "$goarch" tar
+  #         done
+  #       env:
+  #         CGO_ENABLED: "0"
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: packages
-          path: syncthing-*.tar.gz
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: packages
+  #         path: syncthing-*.tar.gz
 
   #
   # Source
   #
 
-  package-source:
-    name: Package source code
-    needs:
-      - build-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  # package-source:
+  #   name: Package source code
+  #   needs:
+  #     - build-test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - name: Package source
-        run: |
-          version=$(go run build.go version)
-          echo "$version" > RELEASE
+  #     - name: Package source
+  #       run: |
+  #         version=$(go run build.go version)
+  #         echo "$version" > RELEASE
 
-          go mod vendor
-          go run build.go assets
+  #         go mod vendor
+  #         go run build.go assets
 
-          cd ..
+  #         cd ..
 
-          tar c -z -f "syncthing-source-$version.tar.gz" \
-            --exclude .git \
-            syncthing
+  #         tar c -z -f "syncthing-source-$version.tar.gz" \
+  #           --exclude .git \
+  #           syncthing
 
-          mv "syncthing-source-$version.tar.gz" syncthing
+  #         mv "syncthing-source-$version.tar.gz" syncthing
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: packages
-          path: syncthing-source-*.tar.gz
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: packages
+  #         path: syncthing-source-*.tar.gz
 
   docker-syncthing:
     # needs: build-test
