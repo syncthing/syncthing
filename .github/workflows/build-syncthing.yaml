@@ -381,7 +381,7 @@ jobs:
           name: packages
           path: syncthing-source-*.tar.gz
 
-  docker-syncthing:
+  docker-syncthing-programs:
     needs: build-test
     strategy:
       matrix: 
@@ -405,12 +405,23 @@ jobs:
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       -
-        name: Build and push
+        name: Build and push syncthing
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          # ,linux/arm64,linux/ppc64le,linux/arm/v6,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/syncthing:latest
+      -
+        name: Build and push syncthing programs
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile.${{ matrix.program }}
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/arm/v6,linux/arm/v7
+          platforms: linux/amd64
+          # ,linux/arm64,linux/ppc64le,linux/arm/v6,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/syncthing-${{ matrix.program }}:latest
           # tags: ${{ secrets.DOCKERHUB_USERNAME }}/syncthing-${{ matrix.program }}:${{ env.PKGVER }},${{ secrets.DOCKERHUB_USERNAME }}/syncthing-${{ matrix.program }}:latest
