@@ -751,7 +751,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 					t.Error("Got more than one index update for", f.Name)
 				}
 				if f.Version.Counter(fc.id.Short()) == 0 {
-					// This index entry might be superseeded
+					// This index entry might be superseded
 					// by the final one or sent before it separately.
 					break
 				}

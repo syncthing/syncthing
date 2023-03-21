@@ -3378,7 +3378,7 @@ angular.module('syncthing.core')
                 return '';
             }
 
-            // When the user explicitely added a wild-card, we don't show hints.
+            // When the user explicitly added a wild-card, we don't show hints.
             if (filterEntries.length === 1 && filterEntries[0].match === '*') {
                 return '';
             }
@@ -3413,7 +3413,7 @@ angular.module('syncthing.core')
         };
 
         $scope.validateXattrFilter = function () {
-            // Fitlering out empty rules when saving the config
+            // Filtering out empty rules when saving the config
             $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(function (n) {
                 return n.match !== "";
             });

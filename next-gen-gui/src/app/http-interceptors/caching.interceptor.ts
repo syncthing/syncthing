@@ -16,8 +16,8 @@ export class CachingInterceptor implements HttpInterceptor {
   constructor(private cache: RequestCacheService) { }
 
   intercept(req: HttpRequest<any>, next: HttpHandler) {
-    // continue if not cachable.
-    if (!isCachable(req)) { return next.handle(req); }
+    // continue if not cacheable.
+    if (!isCacheable(req)) { return next.handle(req); }
 
     const cachedResponse = this.cache.get(req);
     return cachedResponse ?
@@ -25,9 +25,9 @@ export class CachingInterceptor implements HttpInterceptor {
   }
 }
 
-/** Is this request cachable? */
-function isCachable(req: HttpRequest<any>) {
-  // Only GET requests are cachable
+/** Is this request cacheable? */
+function isCacheable(req: HttpRequest<any>) {
+  // Only GET requests are cacheable
   return req.method === 'GET';
   /*
   return req.method === 'GET' &&

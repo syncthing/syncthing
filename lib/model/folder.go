@@ -761,7 +761,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				fallthrough
 			case !file.IsIgnored() && !file.IsDeleted() && !file.IsUnsupported():
 				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it wont do as there are
+				// it's still here. Simply stat:ing it won't do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
 				if !osutil.IsDeleted(f.mtimefs, file.Name) {
