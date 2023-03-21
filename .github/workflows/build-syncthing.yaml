@@ -96,60 +96,60 @@ jobs:
   # Windows
   #
 
-  package-windows:
-    name: Package for Windows
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-    environment: signing
-    needs:
-      - build-test
-    runs-on: windows-latest
-    steps:
-      - name: Set git to use LF
-        # Without this, the checkout will happen with CRLF line endings,
-        # which is fine for the source code but messes up tests that depend
-        # on data on disk being as expected. Ideally, those tests should be
-        # fixed, but not today.
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
+  # package-windows:
+  #   name: Package for Windows
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+  #   environment: signing
+  #   needs:
+  #     - build-test
+  #   runs-on: windows-latest
+  #   steps:
+  #     - name: Set git to use LF
+  #       # Without this, the checkout will happen with CRLF line endings,
+  #       # which is fine for the source code but messes up tests that depend
+  #       # on data on disk being as expected. Ideally, those tests should be
+  #       # fixed, but not today.
+  #       run: |
+  #         git config --global core.autocrlf false
+  #         git config --global core.eol lf
 
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~\AppData\Local\go-build
-            ~\go\pkg\mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~\AppData\Local\go-build
+  #           ~\go\pkg\mod
+  #         key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
-      - name: Install dependencies
-        run: |
-          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
+  #     - name: Install dependencies
+  #       run: |
+  #         go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
 
-      - name: Create packages
-        run: |
-          go run build.go -goarch amd64 zip
-          go run build.go -goarch arm zip
-          go run build.go -goarch arm64 zip
-          go run build.go -goarch 386 zip
-        env:
-          CGO_ENABLED: "0"
-          CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
-          CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
-          CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
-          CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
+  #     - name: Create packages
+  #       run: |
+  #         go run build.go -goarch amd64 zip
+  #         go run build.go -goarch arm zip
+  #         go run build.go -goarch arm64 zip
+  #         go run build.go -goarch 386 zip
+  #       env:
+  #         CGO_ENABLED: "0"
+  #         CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
+  #         CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
+  #         CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
+  #         CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: packages
-          path: syncthing-windows-*.zip
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: packages
+  #         path: syncthing-windows-*.zip
 
   #
   # Linux
@@ -195,95 +195,95 @@ jobs:
   # macOS
   #
 
-  package-macos:
-    name: Package for macOS
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-    environment: signing
-    needs:
-      - build-test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  # package-macos:
+  #   name: Package for macOS
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+  #   environment: signing
+  #   needs:
+  #     - build-test
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cache/go-build
+  #           ~/go/pkg/mod
+  #         key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
-      - name: Import signing certificate
-        run: |
-          # Set up a run-specific keychain, making it available for the
-          # `codesign` tool.
-          umask 066
-          KEYCHAIN_PATH=$RUNNER_TEMP/codesign.keychain
-          KEYCHAIN_PASSWORD=$(uuidgen)
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security default-keychain -s "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+  #     - name: Import signing certificate
+  #       run: |
+  #         # Set up a run-specific keychain, making it available for the
+  #         # `codesign` tool.
+  #         umask 066
+  #         KEYCHAIN_PATH=$RUNNER_TEMP/codesign.keychain
+  #         KEYCHAIN_PASSWORD=$(uuidgen)
+  #         security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+  #         security default-keychain -s "$KEYCHAIN_PATH"
+  #         security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+  #         security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
 
-          # Import the certificate
-          CERTIFICATE_PATH=$RUNNER_TEMP/codesign.p12
-          echo "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -d -o "$CERTIFICATE_PATH"
-          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN_PATH"
+  #         # Import the certificate
+  #         CERTIFICATE_PATH=$RUNNER_TEMP/codesign.p12
+  #         echo "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -d -o "$CERTIFICATE_PATH"
+  #         security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign
+  #         security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN_PATH"
 
-          # Set the codesign identity for following steps
-          echo "CODESIGN_IDENTITY=$CODESIGN_IDENTITY" >> $GITHUB_ENV
-        env:
-          DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
-          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+  #         # Set the codesign identity for following steps
+  #         echo "CODESIGN_IDENTITY=$CODESIGN_IDENTITY" >> $GITHUB_ENV
+  #       env:
+  #         DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+  #         DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+  #         CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
 
-      - name: Create package (amd64)
-        run: |
-          go run build.go -goarch amd64 zip
-        env:
-          CGO_ENABLED: "1"
+  #     - name: Create package (amd64)
+  #       run: |
+  #         go run build.go -goarch amd64 zip
+  #       env:
+  #         CGO_ENABLED: "1"
 
-      - name: Create package (arm64 cross)
-        run: |
-          cat <<EOT > xgo.sh
-          #!/bin/bash
-          CGO_ENABLED=1 \
-            CGO_CFLAGS="-target arm64-apple-macos10.15" \
-            CGO_LDFLAGS="-target arm64-apple-macos10.15" \
-            go "\$@"
-          EOT
-          chmod 755 xgo.sh
-          go run build.go -gocmd ./xgo.sh -goarch arm64 zip
-        env:
-          CGO_ENABLED: "1"
+  #     - name: Create package (arm64 cross)
+  #       run: |
+  #         cat <<EOT > xgo.sh
+  #         #!/bin/bash
+  #         CGO_ENABLED=1 \
+  #           CGO_CFLAGS="-target arm64-apple-macos10.15" \
+  #           CGO_LDFLAGS="-target arm64-apple-macos10.15" \
+  #           go "\$@"
+  #         EOT
+  #         chmod 755 xgo.sh
+  #         go run build.go -gocmd ./xgo.sh -goarch arm64 zip
+  #       env:
+  #         CGO_ENABLED: "1"
 
-      - name: Create package (universal)
-        run: |
-          rm -rf _tmp
-          mkdir _tmp
-          pushd _tmp
+  #     - name: Create package (universal)
+  #       run: |
+  #         rm -rf _tmp
+  #         mkdir _tmp
+  #         pushd _tmp
 
-          unzip ../syncthing-macos-amd64-*.zip
-          unzip ../syncthing-macos-arm64-*.zip
-          lipo -create syncthing-macos-amd64-*/syncthing syncthing-macos-arm64-*/syncthing -o syncthing
+  #         unzip ../syncthing-macos-amd64-*.zip
+  #         unzip ../syncthing-macos-arm64-*.zip
+  #         lipo -create syncthing-macos-amd64-*/syncthing syncthing-macos-arm64-*/syncthing -o syncthing
 
-          amd64=(syncthing-macos-amd64-*)
-          universal="${amd64/amd64/universal}"
-          mv "$amd64" "$universal"
-          mv syncthing "$universal"
-          zip -r "../$universal.zip" "$universal"
+  #         amd64=(syncthing-macos-amd64-*)
+  #         universal="${amd64/amd64/universal}"
+  #         mv "$amd64" "$universal"
+  #         mv syncthing "$universal"
+  #         zip -r "../$universal.zip" "$universal"
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: packages
-          path: syncthing-*.zip
+  #     - name: Archive artifacts
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: packages
+  #         path: syncthing-*.zip
 
   #
   # Cross compile other unixes
@@ -382,8 +382,9 @@ jobs:
           path: syncthing-source-*.tar.gz
 
   docker-syncthing:
-    matrix: 
-      program: [strelaysrv, stdiscosrv]
+    strategy:
+      matrix: 
+        program: [strelaysrv, stdiscosrv]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
