@@ -382,6 +382,7 @@ jobs:
           path: syncthing-source-*.tar.gz
 
   docker-syncthing:
+    # needs: build-test
     strategy:
       matrix: 
         program: [strelaysrv, stdiscosrv]
