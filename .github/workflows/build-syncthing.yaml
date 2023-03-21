@@ -399,7 +399,7 @@ jobs:
         # if: github.event_name != 'pull_request'
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: migel0
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Set up Docker Buildx
@@ -412,5 +412,5 @@ jobs:
           file: ./Dockerfile.${{ matrix.program }}
           platforms: linux/amd64,linux/arm64
           # push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/syncthing-${{ matrix.program }}:${{ env.PKGVER }},${{ secrets.DOCKERHUB_USERNAME }}/syncthing-${{ matrix.program }}:latest
+          tags: migel0/syncthing-${{ matrix.program }}:${{ env.PKGVER }},migel0/syncthing-${{ matrix.program }}:latest
  
