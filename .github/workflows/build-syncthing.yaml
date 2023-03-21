@@ -385,7 +385,7 @@ jobs:
     # needs: build-test
     strategy:
       matrix: 
-        program: [strelaysrv, stdiscosrv]
+        program: [stcrashreceiver, stdiscosrv, strelaypoolsrv, strelaysrv, stupgrades]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
