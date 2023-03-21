@@ -34,63 +34,63 @@ jobs:
   # with the list of expected supported Go versions (current, previous).
   #
 
-  # build-test:
-  #   name: Build and test
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       runner: ["ubuntu-latest",]
-  #       # The oldest version in this list should match what we have in our go.mod.
-  #       # Variables don't seem to be supported here, or we could have done something nice.
-  #       go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
-  #   runs-on: ${{ matrix.runner }}
-  #   steps:
-  #     - name: Set git to use LF
-  #       if: matrix.runner == 'windows-latest'
-  #       # Without this, the Windows checkout will happen with CRLF line
-  #       # endings, which is fine for the source code but messes up tests
-  #       # that depend on data on disk being as expected. Ideally, those
-  #       # tests should be fixed, but not today.
-  #       run: |
-  #         git config --global core.autocrlf false
-  #         git config --global core.eol lf
+  build-test:
+    name: Build and test
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ["ubuntu-latest",]
+        # The oldest version in this list should match what we have in our go.mod.
+        # Variables don't seem to be supported here, or we could have done something nice.
+        go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set git to use LF
+        if: matrix.runner == 'windows-latest'
+        # Without this, the Windows checkout will happen with CRLF line
+        # endings, which is fine for the source code but messes up tests
+        # that depend on data on disk being as expected. Ideally, those
+        # tests should be fixed, but not today.
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
 
-  #     - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-  #     - uses: actions/setup-go@v3
-  #       with:
-  #         go-version: ${{ matrix.go }}
-  #         cache: true
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
 
-  #     - name: Build
-  #       run: |
-  #         go run build.go
+      - name: Build
+        run: |
+          go run build.go
 
-  #     - name: Test
-  #       # Our Windows tests currently don't work on Go 1.20
-  #       # https://github.com/syncthing/syncthing/issues/8779
-  #       # https://github.com/syncthing/syncthing/issues/8778
-  #       if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
-  #       run: |
-  #         go run build.go test
+      - name: Test
+        # Our Windows tests currently don't work on Go 1.20
+        # https://github.com/syncthing/syncthing/issues/8779
+        # https://github.com/syncthing/syncthing/issues/8778
+        if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
+        run: |
+          go run build.go test
 
-  #
+  
   # Meta checks for formatting, copyright, etc
-  #
+  
 
-  # correctness:
-  #   name: Check correctness
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
+  correctness:
+    name: Check correctness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - uses: actions/setup-go@v3
-  #       with:
-  #         go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-  #     - name: Check correctness
-  #       run: |
-  #         go test -v ./meta
+      - name: Check correctness
+        run: |
+          go test -v ./meta
 
   #
   # Windows
@@ -382,7 +382,7 @@ jobs:
   #         path: syncthing-source-*.tar.gz
 
   docker-syncthing:
-    # needs: build-test
+    needs: build-test
     strategy:
       matrix: 
         program: [stcrashreceiver, stdiscosrv, strelaypoolsrv, strelaysrv, stupgrades]
