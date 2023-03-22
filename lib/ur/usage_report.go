@@ -224,7 +224,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.TemporariesDisabled = opts.KeepTemporariesH == 0
 		report.TemporariesCustom = opts.KeepTemporariesH != 24
 		report.LimitBandwidthInLan = opts.LimitBandwidthInLan
-		report.CustomReleaseURL = opts.ReleasesURL != "https=//upgrades.syncthing.net/meta.json"
+		report.CustomReleaseURL = opts.ReleasesURL != "https://upgrades.syncthing.net/meta.json"
 		report.CustomStunServers = len(opts.RawStunServers) != 1 || opts.RawStunServers[0] != "default"
 
 		for _, cfg := range s.cfg.Folders() {
