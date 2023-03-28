@@ -357,6 +357,7 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 		return err
 	}
 	s.file.Size += trailerSize
+	s.file.EncryptionTrailerSize = int(trailerSize)
 	return nil
 }
 
