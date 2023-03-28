@@ -352,8 +352,12 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 			return err
 		}
 	}
-	_, err := writeEncryptionTrailer(s.file, s.writer)
-	return err
+	trailerSize, err := writeEncryptionTrailer(s.file, s.writer)
+	if err != nil {
+		return err
+	}
+	s.file.Size += trailerSize
+	return nil
 }
 
 // Returns the size of the written trailer.

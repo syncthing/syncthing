@@ -1251,11 +1251,12 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			}
 			defer fd.Close()
 			trailerSize, err := writeEncryptionTrailer(file, fd)
-			file.EncryptionTrailerSize = int(trailerSize)
 			if err != nil {
 				return err
 			}
-			return fd.Truncate(file.Size + trailerSize)
+			file.EncryptionTrailerSize = int(trailerSize)
+			file.Size += trailerSize
+			return fd.Truncate(file.Size)
 		}, f.mtimefs, file.Name, true)
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("writing encrypted file trailer: %w", err))
@@ -1744,7 +1745,6 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		return nil
 	})
 
-	recvEnc := f.Type == config.FolderTypeReceiveEncrypted
 loop:
 	for {
 		select {
@@ -1756,9 +1756,6 @@ loop:
 			switch job.jobType {
 			case dbUpdateHandleFile, dbUpdateShortcutFile:
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
-				if recvEnc {
-					job.file.Size += encryptionTrailerSize(job.file)
-				}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
 			case dbUpdateHandleSymlink, dbUpdateInvalidate:
