@@ -660,12 +660,12 @@ type Glob interface {
 }
 
 // Glue code to integrate the new Glob library.
-type myGlob struct {
+type dubblestarGlobWrapper struct {
 	pattern    string
 	separators string
 }
 
-func (s *myGlob) Match(path string) bool {
+func (s *dubblestarGlobWrapper) Match(path string) bool {
 	doesMatch, _ := doublestar.Match(s.pattern, path)
 	return doesMatch
 }
@@ -681,7 +681,7 @@ func Compile(pattern string, separators ...rune) (Glob, error) {
 	} else {
 		err = doublestar.ErrBadPattern
 	}
-	return &myGlob{
+	return &dubblestarGlobWrapper{
 		pattern,
 		string(separators),
 	}, err
