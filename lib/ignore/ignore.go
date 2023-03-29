@@ -655,25 +655,30 @@ func (c *modtimeChecker) Changed() bool {
 	return false
 }
 
+// Replaces the old Glob libraries interface so we can keep
+// compatibility with the old code.
 type Glob interface {
 	Match(string) bool
 }
 
-// Glue code to integrate the new Glob library.
+// Glue code to integrate the new Glob library while keeping the
+// old interface so we can rework it as soon as dubblestar adds
+// support for compiling the patterns in advance.
 type dubblestarGlobWrapper struct {
-	pattern    string
-	separators string
+	pattern    string // Stores the pattern, rn uncompiled.
+	separators string // Useless atm bc dubblestar
 }
 
 func (s *dubblestarGlobWrapper) Match(path string) bool {
-	doesMatch, _ := doublestar.Match(s.pattern, path)
+	doesMatch, _ := doublestar.PathMatch(s.pattern, path)
 	return doesMatch
 }
 
 func Compile(pattern string, separators ...rune) (Glob, error) {
 	// Validate the pattern in advance to emulate the original behavior
 	// of Compile i.e. that errors in the pattern are thrown here instead
-	// of in Match.
+	// of in Match. This is to keep stuff sane until dubblestar adds support
+	// for compiling patterns in advance.
 	didValidate := doublestar.ValidatePattern(pattern)
 	var err error
 	if didValidate {
