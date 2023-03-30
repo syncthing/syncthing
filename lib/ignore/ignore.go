@@ -70,7 +70,7 @@ func parseError(err error) error {
 
 type Pattern struct {
 	pattern string
-	match   Glob
+	match   *dubblestarGlobWrapper
 	result  Result
 }
 
@@ -461,13 +461,13 @@ func parseLine(line string) ([]Pattern, error) {
 	var err error
 	if strings.HasPrefix(line, "/") {
 		// Pattern is rooted in the current dir only
-		pattern.match, err = Compile(line[1:], '/')
+		pattern.match, err = validate(line[1:])
 		return []Pattern{pattern}, parseError(err)
 	}
 	patterns := make([]Pattern, 2)
 	if strings.HasPrefix(line, "**/") {
 		// Add the pattern as is, and without **/ so it matches in current dir
-		pattern.match, err = Compile(line, '/')
+		pattern.match, err = validate(line)
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -475,7 +475,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 		line = line[3:]
 		pattern.pattern = line
-		pattern.match, err = Compile(line, '/')
+		pattern.match, err = validate(line)
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -484,7 +484,7 @@ func parseLine(line string) ([]Pattern, error) {
 	}
 	// Path name or pattern, add it so it matches files both in
 	// current directory and subdirs.
-	pattern.match, err = Compile(line, '/')
+	pattern.match, err = validate(line)
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -492,7 +492,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 	line = "**/" + line
 	pattern.pattern = line
-	pattern.match, err = Compile(line, '/')
+	pattern.match, err = validate(line)
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -569,7 +569,9 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		// the specified behavior in syncthing.
 		case interDoubleStar.MatchString(line):
 			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1*/**/*$2`))
-			err = addPattern(strings.ReplaceAll(line, "**", "*"))
+			if err == nil {
+				err = addPattern(strings.ReplaceAll(line, "**", "*"))
+			}
 		default:
 			err = addPattern(line)
 			if err == nil {
@@ -655,18 +657,11 @@ func (c *modtimeChecker) Changed() bool {
 	return false
 }
 
-// Replaces the old Glob libraries interface so we can keep
-// compatibility with the old code.
-type Glob interface {
-	Match(string) bool
-}
-
 // Glue code to integrate the new Glob library while keeping the
 // old interface so we can rework it as soon as dubblestar adds
 // support for compiling the patterns in advance.
 type dubblestarGlobWrapper struct {
-	pattern    string // Stores the pattern, rn uncompiled.
-	separators string // Useless atm bc dubblestar
+	pattern string // Stores the pattern, rn uncompiled.
 }
 
 func (s *dubblestarGlobWrapper) Match(path string) bool {
@@ -674,7 +669,7 @@ func (s *dubblestarGlobWrapper) Match(path string) bool {
 	return doesMatch
 }
 
-func Compile(pattern string, separators ...rune) (Glob, error) {
+func validate(pattern string) (*dubblestarGlobWrapper, error) {
 	// Validate the pattern in advance to emulate the original behavior
 	// of Compile i.e. that errors in the pattern are thrown here instead
 	// of in Match. This is to keep stuff sane until dubblestar adds support
@@ -688,6 +683,5 @@ func Compile(pattern string, separators ...rune) (Glob, error) {
 	}
 	return &dubblestarGlobWrapper{
 		pattern,
-		string(separators),
 	}, err
 }
