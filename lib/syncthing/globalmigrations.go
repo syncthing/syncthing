@@ -33,7 +33,9 @@ func globalMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 	}
 
 	if prevVersion < 1 {
-		return encryptionTrailerSizeMigration(ll, cfg)
+		if err := encryptionTrailerSizeMigration(ll, cfg); err != nil {
+			return err
+		}
 	}
 
 	return miscDB.PutInt64(globalMigrationDBKey, globalMigrationVersion)
