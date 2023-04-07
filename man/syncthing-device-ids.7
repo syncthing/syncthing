@@ -38,7 +38,7 @@ the public key in use.
 .SH KEYS
 .sp
 To understand device IDs we need to look at the underlying mechanisms. At first
-startup, Syncthing will create a public/private keypair.
+startup, Syncthing will create a public/private key pair.
 .sp
 Currently this is a 384 bit ECDSA key (3072 bit RSA prior to v0.12.5,
 which is what is used as an example in this article). The keys are saved in
@@ -97,7 +97,7 @@ public key; the serial number is zero and the Issuer and Subject are both
 “syncthing” where a qualified name might otherwise be expected.
 .sp
 An advanced user could replace the \fBkey.pem\fP and \fBcert.pem\fP files with a
-keypair generated directly by the \fBopenssl\fP utility or other mechanism.
+key pair generated directly by the \fBopenssl\fP utility or other mechanism.
 .SH DEVICE IDS
 .sp
 To form a device ID the SHA\-256 hash of the certificate data in DER form is

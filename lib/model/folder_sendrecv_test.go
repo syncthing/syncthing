@@ -55,7 +55,7 @@ var diffTestData = []struct {
 	{"", "", 1024, []protocol.BlockInfo{}},
 	{"contents", "contents", 3, []protocol.BlockInfo{}},
 	{"contents", "cantents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}}},
-	{"contents", "contants", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}}},
+	{"contents", "constants", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}}},
 	{"contents", "cantants", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}}},
 	{"contents", "", 3, []protocol.BlockInfo{{Offset: 0, Size: 0}}},
 	{"", "contents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},

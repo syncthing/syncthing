@@ -157,7 +157,7 @@ func main() {
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		log.Println("Failed to load keypair. Generating one, this might take a while...")
+		log.Println("Failed to load key pair. Generating one, this might take a while...")
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, "strelaysrv", 20*365)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
