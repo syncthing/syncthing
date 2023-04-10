@@ -1368,7 +1368,7 @@ func startWrapper(wrapper Wrapper) *testWrapper {
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {
-	// Verify that the versioning configuration XML seralizes to something
+	// Verify that the versioning configuration XML serializes to something
 	// reasonable.
 
 	cfg := New(device1)

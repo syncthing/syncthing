@@ -323,7 +323,63 @@
               </p>
             </div>
           </div>
+
+          <div class="row" ng-if="currentFolder.syncXattrs">
+            <div class="col-md-12">
+              <p>
+                <label translate>Extended Attributes Filter</label>
+                &nbsp;<a href="{{docsURL('advanced/folder-xattr-filter')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
+            </div>
+            <div class="col-md-6">
+              <p translate class="help-block">
+                To permit a rule, have the checkbox checked. To deny a rule, leave it unchecked.
+              </p>
+              <label translate>Active filter rules</label>
+              <table class="table table-condensed">
+                <colgroup>
+                  <col class="col-xs-1 center"/>
+                  <col class="col-xs-9"/>
+                  <col class="col-xs-2"/>
+                </colgroup>
+                <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
+                  <td>
+                    <input type="checkbox" ng-model="entry.permit">
+                  </td>
+                  <td><input class="form-control text-left" aria-required="true" ng-model="entry.match"/></td>
+                  <td>
+                    <button type="button" class="btn btn-default form-control" ng-click="removeXattrEntry(entry)">
+                      <span class="fas fa-trash-alt"></span>
+                    </button>
+                  </td>
+                </tr>
+              </table>
+              <div class="form-group">
+                <button type="button" class="btn btn-default" ng-click="newXattrEntry()">
+                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add filter entry</span>
+                </button>
+              </div>
+              <p ng-if="currentFolder.xattrFilter.entries.length === 0">
+                <i translate>No rules set</i>
+              </p>
+              <p ng-if="getXattrDefault() !== ''">
+                <i><span translate>Default</span>: {{getXattrDefault()}}</i>
+              </p>
+              <p ng-if="getXattrHint() !== ''">
+                <i>{{getXattrHint()}}</i>
+              </p>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="xattrMaxSingleEntrySize" translate>Maximum single entry size</label>
+              <input name="xattrMaxSingleEntrySize" id="xattrMaxSingleEntrySize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxSingleEntrySize" required="" aria-required="true" min="0" />
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="xattrMaxTotalSize" translate>Maximum total size</label>
+              <input name="xattrMaxTotalSize" id="xattrMaxTotalSize" class="form-control" type="number" ng-model="currentFolder.xattrFilter.maxTotalSize" required="" aria-required="true" min="0" />
+            </div>
+          </div>
         </div>
+
       </div>
     </form>
   </div>

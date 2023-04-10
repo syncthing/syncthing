@@ -7,6 +7,7 @@
 package meta
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,7 +33,7 @@ func TestCheckGoFmt(t *testing.T) {
 			cmd := exec.Command("gofmt", "-s", "-d", path)
 			bs, err := cmd.CombinedOutput()
 			if err != nil {
-				return err
+				return fmt.Errorf("%w: %s", err, string(bs))
 			}
 			if len(bs) != 0 {
 				t.Errorf("File %s is not formatted correctly:\n\n%s", path, string(bs))
