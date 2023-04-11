@@ -87,10 +87,11 @@ func (t connType) Transport() string {
 	}
 }
 
-func newInternalConn(tc tlsConn, connType connType, priority int) internalConn {
+func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) internalConn {
 	return internalConn{
 		tlsConn:       tc,
 		connType:      connType,
+		isLocal:       isLocal,
 		priority:      priority,
 		establishedAt: time.Now().Truncate(time.Second),
 	}
@@ -138,12 +139,15 @@ func (c internalConn) EstablishedAt() time.Time {
 }
 
 func (c internalConn) String() string {
-	return fmt.Sprintf("%s-%s/%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type(), c.Crypto())
+	t := "WAN"
+	if c.isLocal {
+		t = "LAN"
+	}
+	return fmt.Sprintf("%s-%s/%s/%s/%s-P%d", c.LocalAddr(), c.RemoteAddr(), c.Type(), c.Crypto(), t, c.Priority())
 }
 
 type dialerFactory interface {
-	New(config.OptionsConfiguration, *tls.Config, *registry.Registry) genericDialer
-	Priority() int
+	New(config.OptionsConfiguration, *tls.Config, *registry.Registry, *lanChecker) genericDialer
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
 	String() string
@@ -153,19 +157,30 @@ type commonDialer struct {
 	trafficClass      int
 	reconnectInterval time.Duration
 	tlsCfg            *tls.Config
+	lanChecker        *lanChecker
+	lanPriority       int
+	wanPriority       int
 }
 
 func (d *commonDialer) RedialFrequency() time.Duration {
 	return d.reconnectInterval
 }
 
+func (d *commonDialer) Priority(host string) int {
+	if d.lanChecker.isLANHost(host) {
+		return d.lanPriority
+	}
+	return d.wanPriority
+}
+
 type genericDialer interface {
 	Dial(context.Context, protocol.DeviceID, *url.URL) (internalConn, error)
 	RedialFrequency() time.Duration
+	Priority(host string) int
 }
 
 type listenerFactory interface {
-	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service, *registry.Registry) genericListener
+	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service, *registry.Registry, *lanChecker) genericListener
 	Valid(config.Configuration) error
 }
 

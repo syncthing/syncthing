@@ -162,6 +162,7 @@ type service struct {
 	evLogger             events.Logger
 	registry             *registry.Registry
 	keyGen               *protocol.KeyGenerator
+	lanChecker           *lanChecker
 
 	dialNow           chan struct{}
 	dialNowDevices    map[protocol.DeviceID]struct{}
@@ -192,6 +193,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		evLogger:             evLogger,
 		registry:             registry,
 		keyGen:               keyGen,
+		lanChecker:           &lanChecker{cfg},
 
 		dialNowDevicesMut: sync.NewMutex(),
 		dialNow:           make(chan struct{}, 1),
@@ -405,9 +407,6 @@ func (s *service) handleHellos(ctx context.Context) error {
 			continue
 		}
 
-		// Determine only once whether a connection is considered local
-		// according to our configuration, then cache the decision.
-		c.isLocal = s.isLAN(c.RemoteAddr())
 		// Wrap the connection in rate limiters. The limiter itself will
 		// keep up with config changes to the rate and whether or not LAN
 		// connections are limited.
@@ -496,13 +495,14 @@ func (s *service) connect(ctx context.Context) error {
 	}
 }
 
-func (*service) bestDialerPriority(cfg config.Configuration) int {
+func (s *service) bestDialerPriority(cfg config.Configuration) int {
 	bestDialerPriority := worstDialerPriority
 	for _, df := range dialers {
 		if df.Valid(cfg) != nil {
 			continue
 		}
-		if prio := df.Priority(); prio < bestDialerPriority {
+		prio := df.New(cfg.Options, s.tlsCfg, s.registry, s.lanChecker).Priority("127.0.0.1")
+		if prio < bestDialerPriority {
 			bestDialerPriority = prio
 		}
 	}
@@ -564,7 +564,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	}
 
 	// Sort the queue in an order we think will be useful (most recent
-	// first, deprioriting unstable devices, randomizing those we haven't
+	// first, deprioritising unstable devices, randomizing those we haven't
 	// seen in a long while). If we don't do connection limiting the sorting
 	// doesn't have much effect, but it may result in getting up and running
 	// quicker if only a subset of configured devices are actually reachable
@@ -657,23 +657,14 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			continue
 		}
 
-		priority := dialerFactory.Priority()
+		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry, s.lanChecker)
+		priority := dialer.Priority(uri.Host)
 		if priority >= priorityCutoff {
-			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), priorityCutoff)
+			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d)", dialerFactory, priority, priorityCutoff)
 			continue
 		}
 
-		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry)
 		nextDialAt.set(deviceID, addr, now.Add(dialer.RedialFrequency()))
-
-		// For LAN addresses, increase the priority so that we
-		// try these first.
-		switch {
-		case dialerFactory.AlwaysWAN():
-			// Do nothing.
-		case s.isLANHost(uri.Host):
-			priority--
-		}
 
 		dialTargets = append(dialTargets, dialTarget{
 			addr:     addr,
@@ -703,7 +694,11 @@ func (s *service) resolveDeviceAddrs(ctx context.Context, cfg config.DeviceConfi
 	return util.UniqueTrimmedStrings(addrs)
 }
 
-func (s *service) isLANHost(host string) bool {
+type lanChecker struct {
+	cfg config.Wrapper
+}
+
+func (s *lanChecker) isLANHost(host string) bool {
 	// Probably we are called with an ip:port combo which we can resolve as
 	// a TCP address.
 	if addr, err := net.ResolveTCPAddr("tcp", host); err == nil {
@@ -717,7 +712,7 @@ func (s *service) isLANHost(host string) bool {
 	return false
 }
 
-func (s *service) isLAN(addr net.Addr) bool {
+func (s *lanChecker) isLAN(addr net.Addr) bool {
 	var ip net.IP
 
 	switch addr := addr.(type) {
@@ -763,7 +758,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 
 	l.Debugln("Starting listener", uri)
 
-	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService, s.registry)
+	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService, s.registry, s.lanChecker)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 
 	// Retrying a listener many times in rapid succession is unlikely to help,

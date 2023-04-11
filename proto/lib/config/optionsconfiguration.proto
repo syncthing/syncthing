@@ -70,6 +70,12 @@ message OptionsConfiguration {
     // default to TLS 1.3+ only.
     bool insecure_allow_old_tls_versions = 53 [(ext.goname)= "InsecureAllowOldTLSVersions", (ext.xml) = "insecureAllowOldTLSVersions", (ext.json) = "insecureAllowOldTLSVersions"];
 
+    int32 connection_priority_tcp_lan  = 54 [(ext.default) = "10", (ext.goname) = "ConnectionPriorityTCPLAN"];
+    int32 connection_priority_quic_lan = 55 [(ext.default) = "20", (ext.goname) = "ConnectionPriorityQUICLAN"];
+    int32 connection_priority_tcp_wan  = 56 [(ext.default) = "30", (ext.goname) = "ConnectionPriorityTCPWAN"];
+    int32 connection_priority_quic_wan = 57 [(ext.default) = "40", (ext.goname) = "ConnectionPriorityQUICWAN"];
+    int32 connection_priority_relay    = 58 [(ext.default) = "50"];
+
     // Legacy deprecated
     bool            upnp_enabled           = 9000 [deprecated = true, (ext.goname) = "DeprecatedUPnPEnabled"];
     int32           upnp_lease_m           = 9001 [deprecated = true, (ext.goname) = "DeprecatedUPnPLeaseM", (ext.xml) = "upnpLeaseMinutes,omitempty"];
