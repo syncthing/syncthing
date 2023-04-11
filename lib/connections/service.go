@@ -544,7 +544,14 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		priorityCutoff := worstDialerPriority
 		connection, connected := s.model.Connection(deviceCfg.DeviceID)
 		if connected {
+			// Set the priority cutoff to the current connection's priority,
+			// so that we don't attempt any dialers with worse priority.
 			priorityCutoff = connection.Priority()
+
+			// Reduce the priority cutoff by the upgrade threshold, so that
+			// we don't attempt dialers that aren't considered a worthy upgrade.
+			priorityCutoff -= cfg.Options.ConnectionPriorityUpgradeThreshold
+
 			if bestDialerPriority >= priorityCutoff {
 				// Our best dialer is not any better than what we already
 				// have, so nothing to do here.
