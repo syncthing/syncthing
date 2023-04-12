@@ -1019,7 +1019,7 @@ func skipDeviceconfiguration(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthDeviceconfiguration        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthDeviceconfiguration        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowDeviceconfiguration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupDeviceconfiguration = fmt.Errorf("proto: unexpected end of group")
 )

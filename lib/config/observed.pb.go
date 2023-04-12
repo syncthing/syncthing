@@ -710,7 +710,7 @@ func skipObserved(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthObserved        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthObserved        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowObserved          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupObserved = fmt.Errorf("proto: unexpected end of group")
 )

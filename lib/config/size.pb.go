@@ -330,7 +330,7 @@ func skipSize(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthSize        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthSize        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowSize          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupSize = fmt.Errorf("proto: unexpected end of group")
 )

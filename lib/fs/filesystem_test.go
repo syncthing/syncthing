@@ -39,7 +39,7 @@ func TestIsInternal(t *testing.T) {
 	for _, tc := range cases {
 		res := IsInternal(filepath.FromSlash(tc.file))
 		if res != tc.internal {
-			t.Errorf("Unexpected result: IsInteral(%q): %v should be %v", tc.file, res, tc.internal)
+			t.Errorf("Unexpected result: IsInternal(%q): %v should be %v", tc.file, res, tc.internal)
 		}
 	}
 }

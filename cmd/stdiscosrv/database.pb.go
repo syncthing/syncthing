@@ -841,7 +841,7 @@ func skipDatabase(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthDatabase        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthDatabase        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowDatabase          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupDatabase = fmt.Errorf("proto: unexpected end of group")
 )

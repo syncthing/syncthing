@@ -393,7 +393,7 @@ func skipLocal(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthLocal        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthLocal        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowLocal          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupLocal = fmt.Errorf("proto: unexpected end of group")
 )

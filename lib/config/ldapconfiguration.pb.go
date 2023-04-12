@@ -520,7 +520,7 @@ func skipLdapconfiguration(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthLdapconfiguration        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthLdapconfiguration        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowLdapconfiguration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupLdapconfiguration = fmt.Errorf("proto: unexpected end of group")
 )

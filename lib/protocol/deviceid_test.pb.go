@@ -475,7 +475,7 @@ func skipDeviceidTest(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthDeviceidTest        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthDeviceidTest        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowDeviceidTest          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupDeviceidTest = fmt.Errorf("proto: unexpected end of group")
 )

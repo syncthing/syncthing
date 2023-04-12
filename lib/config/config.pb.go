@@ -1149,7 +1149,7 @@ func skipConfig(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthConfig        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthConfig        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowConfig          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupConfig = fmt.Errorf("proto: unexpected end of group")
 )
