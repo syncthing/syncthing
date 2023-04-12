@@ -797,7 +797,7 @@ func skipGuiconfiguration(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthGuiconfiguration        = fmt.Errorf("proto: negative length found during unmarshalling")
+	ErrInvalidLengthGuiconfiguration        = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowGuiconfiguration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupGuiconfiguration = fmt.Errorf("proto: unexpected end of group")
 )

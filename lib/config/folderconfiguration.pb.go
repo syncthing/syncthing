@@ -2594,7 +2594,7 @@ func skipFolderconfiguration(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthFolderconfiguration        = fmt.Errorf("proto: negative length found during unmarshalling")
+	ErrInvalidLengthFolderconfiguration        = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowFolderconfiguration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupFolderconfiguration = fmt.Errorf("proto: unexpected end of group")
 )

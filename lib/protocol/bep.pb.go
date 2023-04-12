@@ -6801,7 +6801,7 @@ func skipBep(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthBep        = fmt.Errorf("proto: negative length found during unmarshalling")
+	ErrInvalidLengthBep        = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowBep          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupBep = fmt.Errorf("proto: unexpected end of group")
 )

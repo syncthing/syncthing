@@ -3472,7 +3472,7 @@ func skipStructs(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthStructs        = fmt.Errorf("proto: negative length found during unmarshalling")
+	ErrInvalidLengthStructs        = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowStructs          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupStructs = fmt.Errorf("proto: unexpected end of group")
 )

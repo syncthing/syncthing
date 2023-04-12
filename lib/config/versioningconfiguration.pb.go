@@ -585,7 +585,7 @@ func skipVersioningconfiguration(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthVersioningconfiguration        = fmt.Errorf("proto: negative length found during unmarshalling")
+	ErrInvalidLengthVersioningconfiguration        = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowVersioningconfiguration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupVersioningconfiguration = fmt.Errorf("proto: unexpected end of group")
 )
