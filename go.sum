@@ -1,7 +1,7 @@
 github.com/AudriusButkevicius/pfilter v0.0.11 h1:6emuvqNeH1gGlqkML35pEizyPcaxdAN4JO9sdgwcx78=
 github.com/AudriusButkevicius/pfilter v0.0.11/go.mod h1:4eF1UYuEhoycTlr9IOP1sb0lL9u4nfAIouRqt2xJbzM=
-github.com/AudriusButkevicius/recli v0.0.6 h1:hY9KH09vIbx0fYpkvdWbvnh67uDiuJEVDGhXlefysDQ=
-github.com/AudriusButkevicius/recli v0.0.6/go.mod h1:Nhfib1j/VFnLrXL9cHgA+/n2O6P5THuWelOnbfPNd78=
+github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f h1:GmH5lT+moM7PbAJFBq57nH9WJ+wRnBXr/tyaYWbSAx8=
+github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f/go.mod h1:Nhfib1j/VFnLrXL9cHgA+/n2O6P5THuWelOnbfPNd78=
 github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+s7s0MwaRv9igoPqLRdzOLzw/8Xvq8=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
