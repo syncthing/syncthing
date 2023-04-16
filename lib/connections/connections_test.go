@@ -439,7 +439,8 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	}
 	natSvc := nat.NewService(deviceId, wcfg)
 	conns := make(chan internalConn, 1)
-	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc, registry.New())
+	lanChecker := &lanChecker{wcfg}
+	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc, registry.New(), lanChecker)
 	supervisor.Add(listenSvc)
 
 	var addr *url.URL
@@ -459,7 +460,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 		b.Fatal(err)
 	}
 	// Purposely using a different registry: Don't want to reuse port between dialer and listener on the same device
-	dialer := df.New(cfg.Options, tlsCfg, registry.New())
+	dialer := df.New(cfg.Options, tlsCfg, registry.New(), lanChecker)
 
 	// Relays might take some time to register the device, so dial multiple times
 	clientConn, err := dialer.Dial(ctx, deviceId, addr)

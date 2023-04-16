@@ -32,12 +32,13 @@ type tcpListener struct {
 	svcutil.ServiceWithError
 	onAddressesChangedNotifier
 
-	uri      *url.URL
-	cfg      config.Wrapper
-	tlsCfg   *tls.Config
-	conns    chan internalConn
-	factory  listenerFactory
-	registry *registry.Registry
+	uri        *url.URL
+	cfg        config.Wrapper
+	tlsCfg     *tls.Config
+	conns      chan internalConn
+	factory    listenerFactory
+	registry   *registry.Registry
+	lanChecker *lanChecker
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -148,7 +149,12 @@ func (t *tcpListener) serve(ctx context.Context) error {
 			continue
 		}
 
-		t.conns <- newInternalConn(tc, connTypeTCPServer, tcpPriority)
+		priority := t.cfg.Options().ConnectionPriorityTCPWAN
+		isLocal := t.lanChecker.isLAN(conn.RemoteAddr())
+		if isLocal {
+			priority = t.cfg.Options().ConnectionPriorityTCPLAN
+		}
+		t.conns <- newInternalConn(tc, connTypeTCPServer, isLocal, priority)
 	}
 }
 
@@ -214,7 +220,7 @@ func (t *tcpListener) NATType() string {
 
 type tcpListenerFactory struct{}
 
-func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, registry *registry.Registry) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, registry *registry.Registry, lanChecker *lanChecker) genericListener {
 	l := &tcpListener{
 		uri:        fixupPort(uri, config.DefaultTCPPort),
 		cfg:        cfg,
@@ -223,6 +229,7 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.C
 		natService: natService,
 		factory:    f,
 		registry:   registry,
+		lanChecker: lanChecker,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	return l
