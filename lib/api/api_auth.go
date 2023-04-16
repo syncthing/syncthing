@@ -146,7 +146,6 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 
 		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
 		forbidden(w)
-		return
 	})
 
 	return handleAuthzPassthrough, handlePasswordLogin
