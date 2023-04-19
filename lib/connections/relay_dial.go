@@ -65,6 +65,10 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 	return newInternalConn(tc, connTypeRelayClient, false, d.wanPriority), nil
 }
 
+func (d *relayDialer) Priority(host string) int {
+	return d.wanPriority
+}
+
 type relayDialerFactory struct{}
 
 func (relayDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, _ *registry.Registry, _ *lanChecker) genericDialer {
