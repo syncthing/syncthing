@@ -406,12 +406,20 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 	}
 
 	if cd.Seen(filesystem, file) {
-		return nil, parseError(fmt.Errorf("multiple include of ignore file %q", file))
+		return nil, fmt.Errorf("multiple include of ignore file %q", file)
 	}
 
 	fd, info, err := loadIgnoreFile(filesystem, file)
 	if err != nil {
-		return nil, parseError(fmt.Errorf("could not load included ignore file: %v", err))
+		// isNotExist is considered "ok" in a sense of that a folder doesn't have to act
+		// upon it. This is because it is allowed for .stignore to not exist. However,
+		// included ignore files are not allowed to be missing and these errors should be
+		// acted upon on. So we don't perserve the error chain here and manually set an
+		// error instead, if the file is missing.
+		if fs.IsNotExist(err) {
+			err = errors.New("file not found")
+		}
+		return nil, err
 	}
 	defer fd.Close()
 
