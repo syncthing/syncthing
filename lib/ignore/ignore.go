@@ -411,8 +411,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 
 	fd, info, err := loadIgnoreFile(filesystem, file)
 	if err != nil {
-		err = parseError(fmt.Errorf("could not load included ignore file: %v", err))
-		return nil, err
+		return nil, parseError(fmt.Errorf("could not load included ignore file: %v", err))
 	}
 	defer fd.Close()
 
