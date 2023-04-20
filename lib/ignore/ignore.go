@@ -406,7 +406,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 	}
 
 	if cd.Seen(filesystem, file) {
-		return nil, fmt.Errorf("multiple include of ignore file %q", file)
+		return nil, errors.New("multiple include")
 	}
 
 	fd, info, err := loadIgnoreFile(filesystem, file)
