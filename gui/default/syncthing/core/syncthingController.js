@@ -14,7 +14,7 @@ angular.module('syncthing.core')
 
         // window.metadata is set in /meta.js which is behind API auth,
         // so this will be present only when authenticated.
-        var authenticated = !!window.metadata;
+        var authenticated = Boolean(window.metadata);
 
         function initController() {
             LocaleService.autoConfigLocale();
