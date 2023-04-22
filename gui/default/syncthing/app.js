@@ -16,7 +16,7 @@ var syncthing = angular.module('syncthing', [
 ]);
 
 var urlbase = 'rest';
-var authnUrlbase = urlbase + '/noauth/authn';
+var authUrlbase = urlbase + '/noauth/auth';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     // language and localisation

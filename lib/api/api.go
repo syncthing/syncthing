@@ -364,7 +364,7 @@ func (s *service) Serve(ctx context.Context) error {
 	if guiCfg.IsAuthEnabled() {
 		var handlePasswordAuth http.Handler
 		handler, handlePasswordAuth = authAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
-		restMux.Handler(http.MethodPost, "/rest/noauth/authn/password", handlePasswordAuth)
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
 	}
 
 	// Redirect to HTTPS if we are supposed to

@@ -93,7 +93,7 @@ func noAuthPrefixes() []string {
 
 func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) (http.Handler, http.Handler) {
 
-	handleAuthzPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handleAuthPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
@@ -152,7 +152,7 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 		forbidden(w)
 	})
 
-	return handleAuthzPassthrough, handlePasswordLogin
+	return handleAuthPassthrough, handlePasswordLogin
 }
 
 func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {

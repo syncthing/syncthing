@@ -102,7 +102,7 @@ angular.module('syncthing.core')
         $scope.authenticatePassword = function () {
             $scope.login.inProgress = true;
             $scope.login.errors = {};
-            $http.post(authnUrlbase + '/password', {
+            $http.post(authUrlbase + '/password', {
               username: $scope.login.username,
               password: $scope.login.password,
             }).then(function () {
