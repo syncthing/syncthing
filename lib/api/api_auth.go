@@ -164,17 +164,15 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
 	authOk := auth(username, password, guiCfg, ldapCfg)
-	if !authOk {
-		usernameIso := string(iso88591ToUTF8([]byte(username)))
-		passwordIso := string(iso88591ToUTF8([]byte(password)))
-		authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
-		if authOk {
-			username = usernameIso
-		}
-	}
-
 	if authOk {
 		return username, true
+	}
+
+	usernameIso := string(iso88591ToUTF8([]byte(username)))
+	passwordIso := string(iso88591ToUTF8([]byte(password)))
+	authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+	if authOk {
+		return usernameIso, true
 	}
 
 	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
