@@ -11,6 +11,9 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+
+        // window.metadata is set in /meta.js which is behind API auth,
+        // so this will be present only when authenticated.
         var authenticated = !!window.metadata;
 
         function initController() {
