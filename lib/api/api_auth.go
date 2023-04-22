@@ -168,11 +168,11 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 		return username, true
 	}
 
-	usernameIso := string(iso88591ToUTF8([]byte(username)))
-	passwordIso := string(iso88591ToUTF8([]byte(password)))
-	authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+	usernameFromIso := string(iso88591ToUTF8([]byte(username)))
+	passwordFromIso := string(iso88591ToUTF8([]byte(password)))
+	authOk = auth(usernameFromIso, passwordFromIso, guiCfg, ldapCfg)
 	if authOk {
-		return usernameIso, true
+		return usernameFromIso, true
 	}
 
 	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
