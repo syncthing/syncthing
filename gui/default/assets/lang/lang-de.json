@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Benachrichtigungen des Dateisystems nutzen, um Änderungen zu erkennen.",
     "User Home": "Benutzer-Stammverzeichnis",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Benutzername / Passwort wurde für die Benutzeroberfläche nicht gesetzt. Bitte erwägen Sie dies einzurichten.",
+    "Using a QUIC connection over LAN": "Verwendet eine QUIC-Verbindung über LAN",
+    "Using a QUIC connection over WAN": "Verwendet eine QUIC-Verbindung über WAN",
     "Using a direct TCP connection over LAN": "Verwendet eine direkte TCP-Verbindung über LAN",
     "Using a direct TCP connection over WAN": "Verwendet eine direkte TCP-Verbindung über WAN",
     "Version": "Version",
