@@ -98,7 +98,7 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - build-test
@@ -148,7 +148,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-windows
           path: syncthing-windows-*.zip
 
   #
@@ -188,7 +188,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-linux
           path: syncthing-linux-*.tar.gz
 
   #
@@ -197,7 +197,7 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - build-test
@@ -282,8 +282,37 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-macos
           path: syncthing-*.zip
+
+  notarize-macos:
+    name: Notarize for macOS
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - package-macos
+    runs-on: macos-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-macos
+
+      - name: Notarize binaries
+        run: |
+          APPSTORECONNECT_API_KEY_PATH="$RUNNER_TEMP/apikey.p8"
+          echo "$APPSTORECONNECT_API_KEY" | base64 -d -o "$APPSTORECONNECT_API_KEY_PATH"
+          for file in syncthing-macos-*.zip ; do
+            xcrun notarytool submit \
+              -k "$APPSTORECONNECT_API_KEY_PATH" \
+              -d "$APPSTORECONNECT_API_KEY_ID" \
+              -i "$APPSTORECONNECT_API_KEY_ISSUER" \
+              $file
+          done
+        env:
+          APPSTORECONNECT_API_KEY: ${{ secrets.APPSTORECONNECT_API_KEY }}
+          APPSTORECONNECT_API_KEY_ID: ${{ secrets.APPSTORECONNECT_API_KEY_ID }}
+          APPSTORECONNECT_API_KEY_ISSUER: ${{ secrets.APPSTORECONNECT_API_KEY_ISSUER }}
 
   #
   # Cross compile other unixes
@@ -338,7 +367,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-other
           path: syncthing-*.tar.gz
 
   #
@@ -378,5 +407,5 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-source
           path: syncthing-source-*.tar.gz
