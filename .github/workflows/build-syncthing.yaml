@@ -59,7 +59,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Build
