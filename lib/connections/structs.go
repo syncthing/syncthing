@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -26,7 +26,7 @@ import (
 )
 
 type tlsConn interface {
-	io.ReadWriteCloser
+	netutil.Stream
 	ConnectionState() tls.ConnectionState
 	RemoteAddr() net.Addr
 	SetDeadline(time.Time) error

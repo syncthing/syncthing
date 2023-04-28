@@ -95,7 +95,13 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	if isLocal {
 		priority = d.lanPriority
 	}
-	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, isLocal, priority), nil
+	qtlsc := &quicTlsConn{
+		Connection:         session,
+		Stream:             stream,
+		createdConn:        createdConn,
+		supportsSubstreams: false, // set later based on handshake
+	}
+	return newInternalConn(qtlsc, connTypeQUICClient, isLocal, priority), nil
 }
 
 type quicDialerFactory struct{}

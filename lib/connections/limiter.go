@@ -9,7 +9,7 @@ package connections
 import (
 	"context"
 	"fmt"
-	"io"
+	"math"
 	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -34,6 +34,7 @@ type waiter interface {
 	// This is the rate limiting operation
 	WaitN(ctx context.Context, n int) error
 	Limit() rate.Limit
+	Burst() int
 }
 
 const (
@@ -177,33 +178,27 @@ func (*limiter) String() string {
 	return "connections.limiter"
 }
 
-func (lim *limiter) getLimiters(remoteID protocol.DeviceID, rw io.ReadWriter, isLAN bool) (io.Reader, io.Writer) {
+func (lim *limiter) getLimiters(remoteID protocol.DeviceID, isLAN bool) (waiterHolder, waiterHolder) {
 	lim.mu.Lock()
-	wr := lim.newLimitedWriterLocked(remoteID, rw, isLAN)
-	rd := lim.newLimitedReaderLocked(remoteID, rw, isLAN)
+	wr := lim.newWriteLimiterLocked(remoteID, isLAN)
+	rd := lim.newReadLimiterLocked(remoteID, isLAN)
 	lim.mu.Unlock()
 	return rd, wr
 }
 
-func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
-	return &limitedReader{
-		reader: r,
-		waiterHolder: waiterHolder{
-			waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
-			limitsLAN: &lim.limitsLAN,
-			isLAN:     isLAN,
-		},
+func (lim *limiter) newReadLimiterLocked(remoteID protocol.DeviceID, isLAN bool) waiterHolder {
+	return waiterHolder{
+		waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
+		limitsLAN: &lim.limitsLAN,
+		isLAN:     isLAN,
 	}
 }
 
-func (lim *limiter) newLimitedWriterLocked(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
-	return &limitedWriter{
-		writer: w,
-		waiterHolder: waiterHolder{
-			waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
-			limitsLAN: &lim.limitsLAN,
-			isLAN:     isLAN,
-		},
+func (lim *limiter) newWriteLimiterLocked(remoteID protocol.DeviceID, isLAN bool) waiterHolder {
+	return waiterHolder{
+		waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
+		limitsLAN: &lim.limitsLAN,
+		isLAN:     isLAN,
 	}
 }
 
@@ -224,60 +219,6 @@ func getRateLimiter(m map[protocol.DeviceID]*rate.Limiter, deviceID protocol.Dev
 	return limiter
 }
 
-// limitedReader is a rate limited io.Reader
-type limitedReader struct {
-	reader io.Reader
-	waiterHolder
-}
-
-func (r *limitedReader) Read(buf []byte) (int, error) {
-	n, err := r.reader.Read(buf)
-	if !r.unlimited() {
-		r.take(n)
-	}
-	return n, err
-}
-
-// limitedWriter is a rate limited io.Writer
-type limitedWriter struct {
-	writer io.Writer
-	waiterHolder
-}
-
-func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if w.unlimited() {
-		return w.writer.Write(buf)
-	}
-
-	// This does (potentially) multiple smaller writes in order to be less
-	// bursty with large writes and slow rates. At the same time we don't
-	// want to do hilarious amounts of tiny writes when the rate is high, so
-	// try to be a bit adaptable. We range from the minimum write size of 1
-	// KiB up to the limiter burst size, aiming for about a write every
-	// 10ms.
-	singleWriteSize := int(w.waiter.Limit() / 100)          // 10ms worth of data
-	singleWriteSize = ((singleWriteSize / 1024) + 1) * 1024 // round up to the next kibibyte
-	if singleWriteSize > limiterBurstSize {
-		singleWriteSize = limiterBurstSize
-	}
-
-	written := 0
-	for written < len(buf) {
-		toWrite := singleWriteSize
-		if toWrite > len(buf)-written {
-			toWrite = len(buf) - written
-		}
-		w.take(toWrite)
-		n, err := w.writer.Write(buf[written : written+toWrite])
-		written += n
-		if err != nil {
-			return written, err
-		}
-	}
-
-	return written, nil
-}
-
 // waiterHolder is the common functionality around having and evaluating a
 // waiter, valid for both writers and readers
 type waiterHolder struct {
@@ -286,17 +227,17 @@ type waiterHolder struct {
 	isLAN     bool
 }
 
-// unlimited returns true if the waiter is not limiting the rate
-func (w waiterHolder) unlimited() bool {
+// Unlimited returns true if the waiter is not limiting the rate
+func (w waiterHolder) Unlimited() bool {
 	if w.isLAN && !w.limitsLAN.Load() {
 		return true
 	}
 	return w.waiter.Limit() == rate.Inf
 }
 
-// take is a utility function to consume tokens, because no call to WaitN
+// Take is a utility function to consume tokens, because no call to WaitN
 // must be larger than the limiter burst size or it will hang.
-func (w waiterHolder) take(tokens int) {
+func (w waiterHolder) Take(tokens int) {
 	// For writes we already split the buffer into smaller operations so those
 	// will always end up in the fast path below. For reads, however, we don't
 	// control the size of the incoming buffer and don't split the calls
@@ -322,6 +263,14 @@ func (w waiterHolder) take(tokens int) {
 	}
 }
 
+func (w waiterHolder) Limit() int {
+	return int(w.waiter.Limit())
+}
+
+func (w waiterHolder) Burst() int {
+	return w.waiter.Burst()
+}
+
 // totalWaiter waits for all of the waiters
 type totalWaiter []waiter
 
@@ -340,6 +289,16 @@ func (tw totalWaiter) Limit() rate.Limit {
 	min := rate.Inf
 	for _, w := range tw {
 		if l := w.Limit(); l < min {
+			min = l
+		}
+	}
+	return min
+}
+
+func (tw totalWaiter) Burst() int {
+	min := math.MaxInt
+	for _, w := range tw {
+		if l := w.Burst(); l < min {
 			min = l
 		}
 	}

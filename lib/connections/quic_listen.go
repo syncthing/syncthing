@@ -97,15 +97,15 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer func() { _ = udpConn.Close() }()
 
-	svc, conn := stun.New(t.cfg, t, udpConn)
-	defer conn.Close()
+	// svc, conn := stun.New(t.cfg, t, udpConn)
+	// defer conn.Close()
 
-	go svc.Serve(ctx)
+	// go svc.Serve(ctx)
 
-	t.registry.Register(t.uri.Scheme, conn)
-	defer t.registry.Unregister(t.uri.Scheme, conn)
+	t.registry.Register(t.uri.Scheme, udpConn)
+	defer t.registry.Unregister(t.uri.Scheme, udpConn)
 
-	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(udpConn, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
@@ -174,7 +174,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if isLocal {
 			priority = t.cfg.Options().ConnectionPriorityQUICLAN
 		}
-		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, isLocal, priority)
+		qtlsc := &quicTlsConn{
+			Connection:         session,
+			Stream:             stream,
+			createdConn:        nil,
+			supportsSubstreams: false, // set later based on handshake
+		}
+		t.conns <- newInternalConn(qtlsc, connTypeQUICServer, isLocal, priority)
 	}
 }
 

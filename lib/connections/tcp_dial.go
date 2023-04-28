@@ -15,6 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -62,7 +63,7 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 	if isLocal {
 		priority = d.lanPriority
 	}
-	return newInternalConn(tc, connTypeTCPClient, isLocal, priority), nil
+	return newInternalConn(netutil.NewTLSConnStream(tc), connTypeTCPClient, isLocal, priority), nil
 }
 
 type tcpDialerFactory struct{}

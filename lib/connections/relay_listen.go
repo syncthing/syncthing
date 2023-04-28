@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
@@ -106,7 +107,7 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 				continue
 			}
 
-			t.conns <- newInternalConn(tc, connTypeRelayServer, false, t.cfg.Options().ConnectionPriorityRelay)
+			t.conns <- newInternalConn(netutil.NewTLSConnStream(tc), connTypeRelayServer, false, t.cfg.Options().ConnectionPriorityRelay)
 
 		// Poor mans notifier that informs the connection service that the
 		// relay URI has changed. This can only happen when we connect to a

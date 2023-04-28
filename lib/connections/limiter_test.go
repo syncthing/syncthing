@@ -17,12 +17,15 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/time/rate"
 )
 
-var device1, device2, device3, device4 protocol.DeviceID
-var dev1Conf, dev2Conf, dev3Conf, dev4Conf config.DeviceConfiguration
+var (
+	device1, device2, device3, device4     protocol.DeviceID
+	dev1Conf, dev2Conf, dev3Conf, dev4Conf config.DeviceConfiguration
+)
 
 func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ")
@@ -231,14 +234,11 @@ func TestLimitedWriterWrite(t *testing.T) {
 	// regardless of the rate.
 	dst := new(bytes.Buffer)
 	cw := &countingWriter{w: dst}
-	lw := &limitedWriter{
-		writer: cw,
-		waiterHolder: waiterHolder{
-			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
-			limitsLAN: new(atomic.Bool),
-			isLAN:     false, // enables limiting
-		},
-	}
+	lw := netutil.NewLimitedWriter(cw, waiterHolder{
+		waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+		limitsLAN: new(atomic.Bool),
+		isLAN:     false, // enables limiting
+	})
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
 	}
@@ -260,14 +260,11 @@ func TestLimitedWriterWrite(t *testing.T) {
 	// count the write calls. Now we make sure the fast path is used.
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
-	lw = &limitedWriter{
-		writer: cw,
-		waiterHolder: waiterHolder{
-			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
-			limitsLAN: new(atomic.Bool),
-			isLAN:     true, // disables limiting
-		},
-	}
+	lw = netutil.NewLimitedWriter(cw, waiterHolder{
+		waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+		limitsLAN: new(atomic.Bool),
+		isLAN:     true, // disables limiting
+	})
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
 	}
@@ -284,14 +281,11 @@ func TestLimitedWriterWrite(t *testing.T) {
 	// rate, with multiple unlimited raters even (global and per-device).
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
-	lw = &limitedWriter{
-		writer: cw,
-		waiterHolder: waiterHolder{
-			waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
-			limitsLAN: new(atomic.Bool),
-			isLAN:     false, // enables limiting
-		},
-	}
+	lw = netutil.NewLimitedWriter(cw, waiterHolder{
+		waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
+		limitsLAN: new(atomic.Bool),
+		isLAN:     false, // enables limiting
+	})
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
 	}
@@ -308,18 +302,15 @@ func TestLimitedWriterWrite(t *testing.T) {
 	// is a combo of limited and unlimited writers.
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
-	lw = &limitedWriter{
-		writer: cw,
-		waiterHolder: waiterHolder{
-			waiter: totalWaiter{
-				rate.NewLimiter(rate.Inf, limiterBurstSize),
-				rate.NewLimiter(rate.Limit(42), limiterBurstSize),
-				rate.NewLimiter(rate.Inf, limiterBurstSize),
-			},
-			limitsLAN: new(atomic.Bool),
-			isLAN:     false, // enables limiting
+	lw = netutil.NewLimitedWriter(cw, waiterHolder{
+		waiter: totalWaiter{
+			rate.NewLimiter(rate.Inf, limiterBurstSize),
+			rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+			rate.NewLimiter(rate.Inf, limiterBurstSize),
 		},
-	}
+		limitsLAN: new(atomic.Bool),
+		isLAN:     false, // enables limiting
+	})
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
 	}

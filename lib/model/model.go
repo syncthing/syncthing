@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -755,11 +756,11 @@ func (m *model) ConnectionStats() map[string]interface{} {
 
 	res["connections"] = conns
 
-	in, out := protocol.TotalInOut()
+	cnt := netutil.RootCounter()
 	res["total"] = map[string]interface{}{
 		"at":            time.Now().Truncate(time.Second),
-		"inBytesTotal":  in,
-		"outBytesTotal": out,
+		"inBytesTotal":  cnt.BytesRead(),
+		"outBytesTotal": cnt.BytesWritten(),
 	}
 
 	return res
@@ -2204,9 +2205,10 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 		}
 	}
 	return &protocol.Hello{
-		DeviceName:    name,
-		ClientName:    m.clientName,
-		ClientVersion: m.clientVersion,
+		DeviceName:                  name,
+		ClientName:                  m.clientName,
+		ClientVersion:               m.clientVersion,
+		SupportsMultipleQUICStreams: true, // we support multiple streams over QUIC
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/netutil"
 )
 
 func startPerfStats() {
@@ -48,7 +48,8 @@ func savePerfStats(file string) {
 		cpuUsagePercent := 100 * float64(usageDiff) / float64(timeDiff)
 		prevTime = curTime
 		prevUsage = curUsage
-		in, out := protocol.TotalInOut()
+		cnt := netutil.RootCounter()
+		in, out := cnt.BytesRead(), cnt.BytesWritten()
 		var inRate, outRate float64
 		if timeDiff > 0 {
 			inRate = float64(in-prevIn) / (float64(timeDiff) / 1e9)    // bytes per second

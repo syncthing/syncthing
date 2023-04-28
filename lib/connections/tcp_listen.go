@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
@@ -154,7 +155,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		if isLocal {
 			priority = t.cfg.Options().ConnectionPriorityTCPLAN
 		}
-		t.conns <- newInternalConn(tc, connTypeTCPServer, isLocal, priority)
+		t.conns <- newInternalConn(netutil.NewTLSConnStream(tc), connTypeTCPServer, isLocal, priority)
 	}
 }
 

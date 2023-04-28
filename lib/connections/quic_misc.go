@@ -10,20 +10,25 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/url"
 	"time"
 
 	"github.com/quic-go/quic-go"
 
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var quicConfig = &quic.Config{
-	ConnectionIDLength: 4,
-	MaxIdleTimeout:     30 * time.Second,
-	KeepAlivePeriod:    15 * time.Second,
+	ConnectionIDLength:         4,
+	MaxIdleTimeout:             30 * time.Second,
+	KeepAlivePeriod:            15 * time.Second,
+	MaxStreamReceiveWindow:     32 << 20,
+	MaxConnectionReceiveWindow: 256 << 20,
 }
 
 func quicNetwork(uri *url.URL) string {
@@ -42,6 +47,11 @@ type quicTlsConn struct {
 	quic.Stream
 	// If we created this connection, we should be the ones closing it.
 	createdConn net.PacketConn
+
+	// We might support substreams, but we can't try to use them unless the
+	// other side does, too. This boolean controls that, and is set based on
+	// the Hello received from the other side.
+	supportsSubstreams bool
 }
 
 func (q *quicTlsConn) Close() error {
@@ -62,6 +72,20 @@ func (q *quicTlsConn) Close() error {
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 	return q.Connection.ConnectionState().TLS.ConnectionState
+}
+
+func (q *quicTlsConn) CreateSubstream(ctx context.Context) (io.ReadWriteCloser, error) {
+	if !q.supportsSubstreams {
+		return nil, netutil.ErrSubstreamsUnsupported
+	}
+	return q.Connection.OpenStreamSync(ctx)
+}
+
+func (q *quicTlsConn) AcceptSubstream(ctx context.Context) (io.ReadWriteCloser, error) {
+	if !q.supportsSubstreams {
+		return nil, netutil.ErrSubstreamsUnsupported
+	}
+	return q.Connection.AcceptStream(ctx)
 }
 
 func packetConnUnspecified(conn interface{}) bool {

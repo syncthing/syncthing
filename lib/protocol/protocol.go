@@ -25,6 +25,7 @@ import (
 	"time"
 
 	lz4 "github.com/pierrec/lz4/v4"
+	"github.com/syncthing/syncthing/lib/netutil"
 )
 
 const (
@@ -46,6 +47,8 @@ const (
 
 	// DesiredPerFileBlocks is the number of blocks we aim for per file
 	DesiredPerFileBlocks = 2000
+
+	desiredQUICSubstreams = 64 // number of QUIC substreams we want open per connection
 )
 
 // BlockSizes is the list of valid block sizes, from min to max
@@ -175,9 +178,12 @@ type rawConnection struct {
 	receiver  Model
 	startTime time.Time
 
-	cr     *countingReader
-	cw     *countingWriter
-	closer io.Closer // Closing the underlying connection and thus cr and cw
+	stream netutil.CountedStream
+
+	desiredSubstreams int
+	substreamsMut     sync.Mutex // Protects substreams.
+	substreams        []chan asyncMessage
+	nextSubstream     int
 
 	awaitingMut sync.Mutex // Protects awaiting and nextID.
 	awaiting    map[int]chan asyncResult
@@ -185,7 +191,7 @@ type rawConnection struct {
 
 	idxMut sync.Mutex // ensures serialization of Index calls
 
-	inbox                 chan message
+	inbox                 chan streamMessage
 	outbox                chan asyncMessage
 	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
@@ -215,6 +221,13 @@ type asyncMessage struct {
 	done chan struct{} // done closes when we're done sending the message
 }
 
+// A streamMessage is a message and the outbox (specific substream) replies
+// should go to
+type streamMessage struct {
+	message
+	outbox chan asyncMessage
+}
+
 const (
 	// PingSendInterval is how often we make sure to send a message, by
 	// triggering pings if necessary.
@@ -229,7 +242,7 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
+func NewConnection(deviceID DeviceID, stream netutil.Stream, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := makeNative(receiver)
@@ -237,61 +250,81 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
-	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
+	rc := newRawConnection(deviceID, stream, em, connInfo, compress)
 	ec := newEncryptedConnection(rc, rc, em.folderKeys, keyGen)
 	wc := wireFormatConnection{ec}
 
 	return wc
 }
 
-func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) *rawConnection {
-	cr := &countingReader{Reader: reader}
-	cw := &countingWriter{Writer: writer}
+func newRawConnection(deviceID DeviceID, stream netutil.Stream, receiver Model, connInfo ConnectionInfo, compress Compression) *rawConnection {
+	// The stream may already be a counted stream, in which case we can use
+	// it as-is. If it isn't, set it up as a counting stream for our own
+	// purposes.
+	cs, ok := stream.(netutil.CountedStream)
+	if !ok {
+		cs = netutil.NewCountingStream(stream, netutil.NewCounter())
+	}
 
-	return &rawConnection{
+	c := &rawConnection{
 		ConnectionInfo:        connInfo,
 		id:                    deviceID,
 		receiver:              receiver,
-		cr:                    cr,
-		cw:                    cw,
-		closer:                closer,
+		stream:                cs,
 		awaiting:              make(map[int]chan asyncResult),
-		inbox:                 make(chan message),
-		outbox:                make(chan asyncMessage),
+		inbox:                 make(chan streamMessage, 1),
+		outbox:                make(chan asyncMessage, 1),
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
 		loopWG:                sync.WaitGroup{},
+		desiredSubstreams:     desiredQUICSubstreams,
 	}
+	return c
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	c.loopWG.Add(5)
+	c.loopWG.Add(1)
 	go func() {
 		c.readerLoop()
 		c.loopWG.Done()
 	}()
+
+	c.loopWG.Add(1)
 	go func() {
 		err := c.dispatcherLoop()
 		c.Close(err)
 		c.loopWG.Done()
 	}()
+
+	c.loopWG.Add(1)
 	go func() {
 		c.writerLoop()
 		c.loopWG.Done()
 	}()
+
+	c.loopWG.Add(1)
 	go func() {
 		c.pingSender()
 		c.loopWG.Done()
 	}()
+
+	c.loopWG.Add(1)
 	go func() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
+
+	c.loopWG.Add(1)
+	go func() {
+		c.streamAcceptLoop()
+		c.loopWG.Done()
+	}()
+
 	c.startTime = time.Now().Truncate(time.Second)
 }
 
@@ -345,7 +378,8 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
-	ok := c.send(ctx, &Request{
+	outbox := c.streamForRequest(ctx)
+	ok := c.sendOutbox(ctx, &Request{
 		ID:            id,
 		Folder:        folder,
 		Name:          name,
@@ -355,7 +389,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 		Hash:          hash,
 		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
-	}, nil)
+	}, nil, outbox)
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -369,6 +403,44 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// streamForRequest returns the channel to use for sending a request. If
+// substreams aren't supported this is the main channel. Otherwise, if we
+// haven't yet reached the desired number of open substreams we create a new
+// substream and use that. Otherwise we round-robin through the existing
+// substreams.
+func (c *rawConnection) streamForRequest(ctx context.Context) chan asyncMessage {
+	c.substreamsMut.Lock()
+	defer c.substreamsMut.Unlock()
+
+	if c.desiredSubstreams == 0 {
+		return c.outbox
+	}
+
+	if len(c.substreams) >= c.desiredSubstreams {
+		strm := c.substreams[c.nextSubstream]
+		c.nextSubstream = (c.nextSubstream + 1) % c.desiredSubstreams
+		return strm
+	}
+
+	if strm, err := c.stream.CreateSubstream(ctx); err == nil {
+		return c.registerNewSubstream(strm)
+	} else {
+		if errors.Is(err, netutil.ErrSubstreamsUnsupported) {
+			// No need to try this again
+			c.desiredSubstreams = 0
+		}
+		return c.outbox
+	}
+}
+
+func (c *rawConnection) registerNewSubstream(strm io.ReadWriteCloser) chan asyncMessage {
+	outbox := make(chan asyncMessage, 1)
+	c.substreams = append(c.substreams, outbox)
+	go c.substreamReaderLoop(strm, outbox)
+	go c.substreamWriterLoop(strm, outbox)
+	return outbox
 }
 
 // ClusterConfig sends the cluster configuration message to the peer.
@@ -398,9 +470,9 @@ func (c *rawConnection) ping() bool {
 func (c *rawConnection) readerLoop() {
 	fourByteBuf := make([]byte, 4)
 	for {
-		msg, err := c.readMessage(fourByteBuf)
+		msg, err := c.readMessage(c.stream, fourByteBuf)
 		if err != nil {
-			if err == errUnknownMessage {
+			if errors.Is(err, errUnknownMessage) {
 				// Unknown message types are skipped, for future extensibility.
 				continue
 			}
@@ -408,7 +480,7 @@ func (c *rawConnection) readerLoop() {
 			return
 		}
 		select {
-		case c.inbox <- msg:
+		case c.inbox <- streamMessage{msg, c.outbox}:
 		case <-c.closed:
 			return
 		}
@@ -416,17 +488,98 @@ func (c *rawConnection) readerLoop() {
 	}
 }
 
-func (c *rawConnection) dispatcherLoop() (err error) {
-	defer close(c.dispatcherLoopStopped)
-	var msg message
-	state := stateInitial
+// streamAcceptLoop accepts new substreams and registers them with the connection.
+// It exits when the connection is closed or when substreams are not supported.
+func (c *rawConnection) streamAcceptLoop() {
+	for {
+		strm, err := c.stream.AcceptSubstream(context.TODO())
+		if errors.Is(err, netutil.ErrSubstreamsUnsupported) {
+			l.Debugf("Substreams not supported on %v, shutting down", c)
+			// Substreams are not supported on this connection so cease
+			// trying to accept them.
+			return
+		} else if err != nil {
+			l.Debugf("Error accepting substream on %v: %v", c, err)
+			return
+		}
+		l.Debugf("Accepted substream from %v", c)
+		c.registerNewSubstream(strm)
+	}
+}
+
+// substreamReaderLoop reads messages from a substream and forwards them to
+// the main inbox. It exits when the substream or the connection is closed.
+func (c *rawConnection) substreamReaderLoop(strm io.ReadWriteCloser, outbox chan asyncMessage) {
+	defer strm.Close()
+	fourByteBuf := make([]byte, 4)
+	for {
+		msg, err := c.readMessage(strm, fourByteBuf)
+		if err != nil {
+			if err == errUnknownMessage {
+				// Unknown message types are skipped, for future extensibility.
+				continue
+			}
+			l.Debugf("Closing substream reader loop for %v: %v", c, err)
+			return
+		}
+		select {
+		case c.inbox <- streamMessage{msg, outbox}:
+		case <-c.closed:
+			return
+		}
+	}
+}
+
+// substreamWriterLoop writes messages from the outbox to a substream. It
+// exits when the substream or the connection is closed. Closes the
+// substream when exiting.
+func (c *rawConnection) substreamWriterLoop(strm io.ReadWriteCloser, outbox chan asyncMessage) {
+	defer strm.Close()
+
+	// Unregister the substream when we exit. This probably isn't strictly
+	// required as there should be no way for a substream to be closed or
+	// error out withtout the main connection closing/erroring, in which
+	// case everything is being torn down anyway.
+	defer func() {
+		c.substreamsMut.Lock()
+		defer c.substreamsMut.Unlock()
+		for i, s := range c.substreams {
+			if s == outbox {
+				c.substreams = append(c.substreams[:i], c.substreams[i+1:]...)
+				break
+			}
+		}
+	}()
+
 	for {
 		select {
-		case msg = <-c.inbox:
+		case hm := <-outbox:
+			err := c.writeMessage(strm, hm.msg)
+			if hm.done != nil {
+				close(hm.done)
+			}
+			if err != nil {
+				l.Debugf("Closing substream writer loop for %v: %v", c, err)
+				return
+			}
+		case <-c.closed:
+			return
+		}
+	}
+}
+
+func (c *rawConnection) dispatcherLoop() (err error) {
+	defer close(c.dispatcherLoopStopped)
+	state := stateInitial
+	for {
+		var streamMsg streamMessage
+		select {
+		case streamMsg = <-c.inbox:
 		case <-c.closed:
 			return ErrClosed
 		}
 
+		msg := streamMsg.message
 		msgContext, err := messageContext(msg)
 		if err != nil {
 			return fmt.Errorf("protocol error: %w", err)
@@ -471,7 +624,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			err = c.handleIndexUpdate(*msg)
 
 		case *Request:
-			go c.handleRequest(*msg)
+			go c.handleRequest(*msg, streamMsg.outbox)
 
 		case *Response:
 			c.handleResponse(*msg)
@@ -485,19 +638,19 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 	}
 }
 
-func (c *rawConnection) readMessage(fourByteBuf []byte) (message, error) {
-	hdr, err := c.readHeader(fourByteBuf)
+func (c *rawConnection) readMessage(r io.Reader, fourByteBuf []byte) (message, error) {
+	hdr, err := c.readHeader(r, fourByteBuf)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.readMessageAfterHeader(hdr, fourByteBuf)
+	return c.readMessageAfterHeader(r, hdr, fourByteBuf)
 }
 
-func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (message, error) {
+func (c *rawConnection) readMessageAfterHeader(r io.Reader, hdr Header, fourByteBuf []byte) (message, error) {
 	// First comes a 4 byte message length
 
-	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
+	if _, err := io.ReadFull(r, fourByteBuf[:4]); err != nil {
 		return nil, fmt.Errorf("reading message length: %w", err)
 	}
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
@@ -510,7 +663,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	// Then comes the message
 
 	buf := BufferPool.Get(int(msgLen))
-	if _, err := io.ReadFull(c.cr, buf); err != nil {
+	if _, err := io.ReadFull(r, buf); err != nil {
 		BufferPool.Put(buf)
 		return nil, fmt.Errorf("reading message: %w", err)
 	}
@@ -538,7 +691,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	msg, err := newMessage(hdr.Type)
 	if err != nil {
 		BufferPool.Put(buf)
-		return nil, err
+		return nil, fmt.Errorf("message type %d: %w", hdr.Type, err)
 	}
 	if err := msg.Unmarshal(buf); err != nil {
 		BufferPool.Put(buf)
@@ -549,10 +702,10 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	return msg, nil
 }
 
-func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
+func (c *rawConnection) readHeader(r io.Reader, fourByteBuf []byte) (Header, error) {
 	// First comes a 2 byte header length
 
-	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
+	if _, err := io.ReadFull(r, fourByteBuf[:2]); err != nil {
 		return Header{}, fmt.Errorf("reading length: %w", err)
 	}
 	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
@@ -563,7 +716,7 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	// Then comes the header
 
 	buf := BufferPool.Get(int(hdrLen))
-	if _, err := io.ReadFull(c.cr, buf); err != nil {
+	if _, err := io.ReadFull(r, buf); err != nil {
 		BufferPool.Put(buf)
 		return Header{}, fmt.Errorf("reading header: %w", err)
 	}
@@ -650,21 +803,21 @@ func checkFilename(name string) error {
 	return nil
 }
 
-func (c *rawConnection) handleRequest(req Request) {
+func (c *rawConnection) handleRequest(req Request, outbox chan asyncMessage) {
 	res, err := c.receiver.Request(c.id, req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
-		c.send(context.Background(), &Response{
+		c.sendOutbox(context.Background(), &Response{
 			ID:   req.ID,
 			Code: errorToCode(err),
-		}, nil)
+		}, nil, outbox)
 		return
 	}
 	done := make(chan struct{})
-	c.send(context.Background(), &Response{
+	c.sendOutbox(context.Background(), &Response{
 		ID:   req.ID,
 		Data: res.Data(),
 		Code: errorToCode(nil),
-	}, done)
+	}, done, outbox)
 	<-done
 	res.Close()
 }
@@ -680,8 +833,12 @@ func (c *rawConnection) handleResponse(resp Response) {
 }
 
 func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{}) bool {
+	return c.sendOutbox(ctx, msg, done, c.outbox)
+}
+
+func (c *rawConnection) sendOutbox(ctx context.Context, msg message, done chan struct{}, outbox chan asyncMessage) bool {
 	select {
-	case c.outbox <- asyncMessage{msg, done}:
+	case outbox <- asyncMessage{msg, done}:
 		return true
 	case <-c.closed:
 	case <-ctx.Done():
@@ -695,13 +852,13 @@ func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{
 func (c *rawConnection) writerLoop() {
 	select {
 	case cc := <-c.clusterConfigBox:
-		err := c.writeMessage(cc)
+		err := c.writeMessage(c.stream, cc)
 		if err != nil {
 			c.internalClose(err)
 			return
 		}
 	case hm := <-c.closeBox:
-		_ = c.writeMessage(hm.msg)
+		_ = c.writeMessage(c.stream, hm.msg)
 		close(hm.done)
 		return
 	case <-c.closed:
@@ -710,13 +867,13 @@ func (c *rawConnection) writerLoop() {
 	for {
 		select {
 		case cc := <-c.clusterConfigBox:
-			err := c.writeMessage(cc)
+			err := c.writeMessage(c.stream, cc)
 			if err != nil {
 				c.internalClose(err)
 				return
 			}
 		case hm := <-c.outbox:
-			err := c.writeMessage(hm.msg)
+			err := c.writeMessage(c.stream, hm.msg)
 			if hm.done != nil {
 				close(hm.done)
 			}
@@ -726,7 +883,7 @@ func (c *rawConnection) writerLoop() {
 			}
 
 		case hm := <-c.closeBox:
-			_ = c.writeMessage(hm.msg)
+			_ = c.writeMessage(c.stream, hm.msg)
 			close(hm.done)
 			return
 
@@ -736,7 +893,7 @@ func (c *rawConnection) writerLoop() {
 	}
 }
 
-func (c *rawConnection) writeMessage(msg message) error {
+func (c *rawConnection) writeMessage(w io.Writer, msg message) error {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
 
@@ -760,7 +917,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	}
 
 	if c.shouldCompressMessage(msg) {
-		ok, err := c.writeCompressedMessage(msg, buf[overhead:])
+		ok, err := c.writeCompressedMessage(w, msg, buf[overhead:])
 		if ok {
 			return err
 		}
@@ -775,8 +932,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
 
-	n, err := c.cw.Write(buf)
-
+	n, err := w.Write(buf)
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
 	if err != nil {
 		return fmt.Errorf("writing message: %w", err)
@@ -788,7 +944,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 //
 // The first return value indicates whether compression succeeded.
 // If not, the caller should retry without compression.
-func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (ok bool, err error) {
+func (c *rawConnection) writeCompressedMessage(w io.Writer, msg message, marshaled []byte) (ok bool, err error) {
 	hdr := Header{
 		Type:        typeOf(msg),
 		Compression: MessageCompressionLZ4,
@@ -821,7 +977,7 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(compressedSize))
 
-	n, err := c.cw.Write(buf[:totSize])
+	n, err := w.Write(buf[:totSize])
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, compressedSize, len(marshaled), err)
 	if err != nil {
 		return true, fmt.Errorf("writing message: %w", err)
@@ -924,7 +1080,7 @@ func (c *rawConnection) Close(err error) {
 func (c *rawConnection) internalClose(err error) {
 	c.closeOnce.Do(func() {
 		l.Debugln("close due to", err)
-		if cerr := c.closer.Close(); cerr != nil {
+		if cerr := c.stream.Close(); cerr != nil {
 			l.Debugln(c.id, "failed to close underlying conn:", cerr)
 		}
 		close(c.closed)
@@ -947,7 +1103,7 @@ func (c *rawConnection) internalClose(err error) {
 // The pingSender makes sure that we've sent a message within the last
 // PingSendInterval. If we already have something sent in the last
 // PingSendInterval/2, we do nothing. Otherwise we send a ping message. This
-// results in an effecting ping interval of somewhere between
+// results in an effective ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
 	ticker := time.NewTicker(PingSendInterval / 2)
@@ -956,7 +1112,7 @@ func (c *rawConnection) pingSender() {
 	for {
 		select {
 		case <-ticker.C:
-			d := time.Since(c.cw.Last())
+			d := time.Since(c.stream.LastWrite())
 			if d < PingSendInterval/2 {
 				l.Debugln(c.id, "ping skipped after wr", d)
 				continue
@@ -981,7 +1137,7 @@ func (c *rawConnection) pingReceiver() {
 	for {
 		select {
 		case <-ticker.C:
-			d := time.Since(c.cr.Last())
+			d := time.Since(c.stream.LastRead())
 			if d > ReceiveTimeout {
 				l.Debugln(c.id, "ping timeout", d)
 				c.internalClose(ErrTimeout)
@@ -1005,8 +1161,8 @@ type Statistics struct {
 func (c *rawConnection) Statistics() Statistics {
 	return Statistics{
 		At:            time.Now().Truncate(time.Second),
-		InBytesTotal:  c.cr.Tot(),
-		OutBytesTotal: c.cw.Tot(),
+		InBytesTotal:  c.stream.BytesRead(),
+		OutBytesTotal: c.stream.BytesWritten(),
 		StartedAt:     c.startTime,
 	}
 }
