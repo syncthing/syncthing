@@ -409,3 +409,53 @@ jobs:
         with:
           name: packages-source
           path: syncthing-source-*.tar.gz
+
+  #
+  # Sign binaries for auto upgrade
+  #
+
+  sign-for-upgrade:
+    name: Sign for upgrade
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - package-windows
+      - package-linux
+      - package-macos
+      - package-cross
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Install signing tool
+        run: |
+          go install ./cmd/stsigtool
+
+      - name: Sign archives
+        run: |
+          export PRIVATE_KEY="$RUNNER_TEMP/privkey.pem"
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          echo "$STSIGTOOL_PRIVATE_KEY" | base64 -d > "$PRIVATE_KEY"
+          mkdir packages
+          mv packages-*/* packages
+          pushd packages
+          "$GITHUB_WORKSPACE/tools/sign-only"
+        env:
+          STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-signed
+          path: packages/*
