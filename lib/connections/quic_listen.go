@@ -97,6 +97,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer func() { _ = udpConn.Close() }()
 
+	// XXX: HAX TO BE REVERTED
 	// svc, conn := stun.New(t.cfg, t, udpConn)
 	// defer conn.Close()
 

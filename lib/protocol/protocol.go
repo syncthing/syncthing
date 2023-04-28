@@ -272,8 +272,8 @@ func newRawConnection(deviceID DeviceID, stream netutil.Stream, receiver Model, 
 		receiver:              receiver,
 		stream:                cs,
 		awaiting:              make(map[int]chan asyncResult),
-		inbox:                 make(chan streamMessage, 1),
-		outbox:                make(chan asyncMessage, 1),
+		inbox:                 make(chan streamMessage),
+		outbox:                make(chan asyncMessage),
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
@@ -436,7 +436,7 @@ func (c *rawConnection) streamForRequest(ctx context.Context) chan asyncMessage 
 }
 
 func (c *rawConnection) registerNewSubstream(strm io.ReadWriteCloser) chan asyncMessage {
-	outbox := make(chan asyncMessage, 1)
+	outbox := make(chan asyncMessage)
 	c.substreams = append(c.substreams, outbox)
 	go c.substreamReaderLoop(strm, outbox)
 	go c.substreamWriterLoop(strm, outbox)
