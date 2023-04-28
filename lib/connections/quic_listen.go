@@ -97,16 +97,21 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer func() { _ = udpConn.Close() }()
 
-	// XXX: HAX TO BE REVERTED
-	// svc, conn := stun.New(t.cfg, t, udpConn)
-	// defer conn.Close()
+	// Wrap the UDP connection in a STUN service if STUN is enabled.
+	var pktConn net.PacketConn
+	if t.cfg.Options().IsStunDisabled() {
+		pktConn = udpConn
+	} else {
+		svc, stunConn := stun.New(t.cfg, t, udpConn)
+		defer stunConn.Close()
+		go svc.Serve(ctx)
+		pktConn = stunConn
+	}
 
-	// go svc.Serve(ctx)
+	t.registry.Register(t.uri.Scheme, pktConn)
+	defer t.registry.Unregister(t.uri.Scheme, pktConn)
 
-	t.registry.Register(t.uri.Scheme, udpConn)
-	defer t.registry.Unregister(t.uri.Scheme, udpConn)
-
-	listener, err := quic.Listen(udpConn, t.tlsCfg, quicConfig)
+	listener, err := quic.Listen(pktConn, t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err

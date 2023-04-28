@@ -21,8 +21,10 @@ import (
 
 const stunRetryInterval = 5 * time.Minute
 
-type Host = stun.Host
-type NATType = stun.NATType
+type (
+	Host    = stun.Host
+	NATType = stun.NATType
+)
 
 // NAT types.
 
