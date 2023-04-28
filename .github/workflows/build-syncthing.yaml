@@ -459,3 +459,49 @@ jobs:
         with:
           name: packages-signed
           path: packages/*
+  #
+  # Debian
+  #
+
+  package-debian:
+    name: Package for Debian
+    needs:
+      - build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+
+      - name: Install fpm
+        run: |
+          gem install fpm
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+
+      - name: Package for Debian
+        run: |
+          for goarch in amd64 arm64 arm ; do
+            go run build.go -goos linux -goarch "$goarch" deb
+          done
+        env:
+          BUILD_USER: debian
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: debian-packages
+          path: "*.deb"
