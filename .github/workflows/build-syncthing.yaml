@@ -459,6 +459,7 @@ jobs:
         with:
           name: packages-signed
           path: packages/*
+
   #
   # Debian
   #
@@ -505,3 +506,47 @@ jobs:
         with:
           name: debian-packages
           path: "*.deb"
+
+  #
+  # Nightlies
+  #
+
+  publish-nightly:
+    name: Publish nightly build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-nightly')
+    environment: signing
+    needs:
+      - sign-for-upgrade
+      - notarize-macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-signed
+          path: packages
+
+      - name: Create release json
+        run: |
+          cd packages
+          "$GITHUB_WORKSPACE/tools/generate-release-json" "$BASE_URL" > nightly.json
+        env:
+          BASE_URL: https://syncthing.ams3.digitaloceanspaces.com/nightly/
+
+      - name: Push artifacts
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync packages spaces:syncthing/nightly
