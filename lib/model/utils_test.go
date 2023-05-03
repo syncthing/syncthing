@@ -11,16 +11,15 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func TestInWriteableDir(t *testing.T) {
-	dir := t.TempDir()
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-
-	fs.Mkdir("testdata", 0700)
-	fs.Mkdir("testdata/rw", 0700)
-	fs.Mkdir("testdata/ro", 0500)
+	fs.Mkdir("testdata", 0o700)
+	fs.Mkdir("testdata/rw", 0o700)
+	fs.Mkdir("testdata/ro", 0o500)
 
 	create := func(name string) error {
 		fd, err := fs.Create(name)
@@ -68,17 +67,12 @@ func TestInWriteableDir(t *testing.T) {
 }
 
 func TestOSWindowsRemove(t *testing.T) {
-	// os.Remove should remove read only things on windows
-
 	if !build.IsWindows {
 		t.Skipf("Tests not required")
 		return
 	}
 
-	dir := t.TempDir()
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 
 	create := func(name string) error {
 		fd, err := fs.Create(name)
@@ -89,12 +83,12 @@ func TestOSWindowsRemove(t *testing.T) {
 		return nil
 	}
 
-	fs.Mkdir("testdata", 0700)
+	fs.Mkdir("testdata", 0o700)
 
-	fs.Mkdir("testdata/windows", 0500)
-	fs.Mkdir("testdata/windows/ro", 0500)
+	fs.Mkdir("testdata/windows", 0o500)
+	fs.Mkdir("testdata/windows/ro", 0o500)
 	create("testdata/windows/ro/readonly")
-	fs.Chmod("testdata/windows/ro/readonly", 0500)
+	fs.Chmod("testdata/windows/ro/readonly", 0o500)
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
 		err := inWritableDir(fs.Remove, fs, path, false)
@@ -105,17 +99,12 @@ func TestOSWindowsRemove(t *testing.T) {
 }
 
 func TestOSWindowsRemoveAll(t *testing.T) {
-	// os.RemoveAll should remove read only things on windows
-
 	if !build.IsWindows {
 		t.Skipf("Tests not required")
 		return
 	}
 
-	dir := t.TempDir()
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 
 	create := func(name string) error {
 		fd, err := fs.Create(name)
@@ -126,12 +115,12 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 		return nil
 	}
 
-	fs.Mkdir("testdata", 0700)
+	fs.Mkdir("testdata", 0o700)
 
-	fs.Mkdir("testdata/windows", 0500)
-	fs.Mkdir("testdata/windows/ro", 0500)
+	fs.Mkdir("testdata/windows", 0o500)
+	fs.Mkdir("testdata/windows/ro", 0o500)
 	create("testdata/windows/ro/readonly")
-	fs.Chmod("testdata/windows/ro/readonly", 0500)
+	fs.Chmod("testdata/windows/ro/readonly", 0o500)
 
 	if err := fs.RemoveAll("testdata/windows"); err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -144,10 +133,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return
 	}
 
-	dir := t.TempDir()
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
-	defer fs.Chmod("testdata/windows/ro/readonlynew", 0700)
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 
 	create := func(name string) error {
 		fd, err := fs.Create(name)
@@ -158,12 +144,12 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return nil
 	}
 
-	fs.Mkdir("testdata", 0700)
+	fs.Mkdir("testdata", 0o700)
 
-	fs.Mkdir("testdata/windows", 0500)
-	fs.Mkdir("testdata/windows/ro", 0500)
+	fs.Mkdir("testdata/windows", 0o500)
+	fs.Mkdir("testdata/windows/ro", 0o500)
 	create("testdata/windows/ro/readonly")
-	fs.Chmod("testdata/windows/ro/readonly", 0500)
+	fs.Chmod("testdata/windows/ro/readonly", 0o500)
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
 		err := fs.Rename(path, path+"new")
