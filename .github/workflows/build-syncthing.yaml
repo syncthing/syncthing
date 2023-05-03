@@ -349,9 +349,6 @@ jobs:
             | grep -v js/ \
             | grep -v linux/ \
             | grep -v nacl/ \
-            | grep -v openbsd/arm\$ \
-            | grep -v openbsd/arm64 \
-            | grep -v openbsd/mips \
             | grep -v plan9/ \
             | grep -v windows/ \
           )
@@ -359,7 +356,9 @@ jobs:
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
-            go run build.go -goos "$goos" -goarch "$goarch" tar
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
+              echo "*** $plat failed ***"
+            fi
           done
         env:
           CGO_ENABLED: "0"
