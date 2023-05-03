@@ -11,15 +11,26 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
-var testKeyGen = NewKeyGenerator()
+var (
+	testKeyGen = NewKeyGenerator()
+
+	// https://github.com/syncthing/syncthing/issues/8799
+	cryptoIsBrokenUnderRaceDetector = (build.IsLinux || build.IsDarwin) && strings.HasPrefix(runtime.Version(), "go1.20")
+)
 
 func TestEnDecryptName(t *testing.T) {
+	if cryptoIsBrokenUnderRaceDetector {
+		t.Skip("cannot test")
+	}
+
 	pattern := regexp.MustCompile(
 		fmt.Sprintf("^[0-9A-V]%s/[0-9A-V]{2}/([0-9A-V]{%d}/)*[0-9A-V]{1,%d}$",
 			regexp.QuoteMeta(encryptedDirExtension),
@@ -156,6 +167,10 @@ func encFileInfo() FileInfo {
 }
 
 func TestEnDecryptFileInfo(t *testing.T) {
+	if cryptoIsBrokenUnderRaceDetector {
+		t.Skip("cannot test")
+	}
+
 	var key [32]byte
 	fi := encFileInfo()
 
@@ -194,6 +209,10 @@ func TestEnDecryptFileInfo(t *testing.T) {
 }
 
 func TestEncryptedFileInfoConsistency(t *testing.T) {
+	if cryptoIsBrokenUnderRaceDetector {
+		t.Skip("cannot test")
+	}
+
 	var key [32]byte
 	files := []FileInfo{
 		encFileInfo(),

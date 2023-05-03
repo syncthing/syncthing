@@ -6,7 +6,7 @@ on:
 
 env:
   # The go version to use for builds.
-  GO_VERSION: "1.19.6"
+  GO_VERSION: "^1.20.3"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -42,7 +42,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
+        go: ["1.19", "1.20"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
