@@ -18,7 +18,6 @@ require (
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.4
-	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/greatroar/blobloom v0.7.2
