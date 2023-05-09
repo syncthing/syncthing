@@ -1280,8 +1280,13 @@ func TestWindowsLineEndings(t *testing.T) {
 }
 
 func TestIssue8733(t *testing.T) {
+	// Verify doublestar behavior
+
 	stignore := `
 	Documents/**/{document.txt,banana.jpg}
+	Documents/**apple.jpg
+	Documents**/mango.jpg
+	Documents**äpple.jpg
 	`
 
 	testcases := []struct {
@@ -1289,8 +1294,19 @@ func TestIssue8733(t *testing.T) {
 		matches bool
 	}{
 		{"Documents/Photos/document.txt", true},
+		{"Documents/Photos/document.txt/extra", true},
 		{"Documents/document.txt", true},
+		{"Documents/document.txt/extra", true},
 		{"Documents/Photos/banana.jpg", true},
+		{"Documents/Photos/banana.jpg/extra", true},
+		{"Documents/Photos/pineapple.jpg", true},
+		{"Documents/Photos/pineapple.jpg/extra", true},
+		{"Documents/Photos/mango.jpg", true},
+		{"Documents/Photos/mango.jpg/extra", true},
+		{"Documents/Photos/äpple.jpg", true},
+		{"Documents/Photos/äpple.jpg/extra", true},
+		{"Documents-an-äpple.jpg", true},
+		{"Documents-an-äpple.jpg/extra", true},
 	}
 
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))

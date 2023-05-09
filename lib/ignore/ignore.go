@@ -500,7 +500,7 @@ func parseLine(line string) ([]Pattern, error) {
 	return patterns, nil
 }
 
-var interDoubleStarExp = regexp.MustCompile(`(\w+)\*\*(\w+)`)
+var interDoubleStarExp = regexp.MustCompile(`(.)\*\*(.)`)
 
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var patterns []Pattern
@@ -569,9 +569,39 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		// Used to widen the pattern accepted by ** in accordance to
 		// the specified behavior in syncthing.
 		case interDoubleStarExp.MatchString(line):
-			err = addPattern(interDoubleStarExp.ReplaceAllString(line, `$1*/**/*$2`))
+			conv := interDoubleStarExp.ReplaceAllStringFunc(line, func(s string) string {
+				first := s[0]
+				last := s[len(s)-1]
+				switch {
+				case first == '/' && last == '/':
+					// Already a compliant doublestar pattern
+					return s
+				case first == '/':
+					// Doublestar after a slash, we leave the left side alone and add a slash-star to the right
+					return strings.Replace(s, "/**", "/**/*", 1)
+				case last == '/':
+					// Doublestar before a slash, we add a star-slash to the left and leave the right side alone
+					return strings.Replace(s, "**/", "*/**/", 1)
+				default:
+					// Doublestar in the middle, we expand on both sides
+					return strings.Replace(s, "**", "*/**/*", 1)
+				}
+			})
+			err = addPattern(conv)
 			if err == nil {
-				err = addPattern(strings.ReplaceAll(line, "**", "*"))
+				// Also match deeper, as always
+				err = addPattern(conv + "/**")
+			}
+
+			// If we changed something based on the doublestars we'll have
+			// "eaten" the single-star equivalent, so we add that too.
+			if err == nil && conv != line {
+				conv = strings.ReplaceAll(line, "**", "*")
+				err = addPattern(conv)
+				if err == nil {
+					// ... and also match deeper, as always
+					err = addPattern(conv + "/**")
+				}
 			}
 		default:
 			err = addPattern(line)
