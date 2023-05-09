@@ -106,7 +106,7 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 				continue
 			}
 
-			t.conns <- newInternalConn(tc, connTypeRelayServer, relayPriority)
+			t.conns <- newInternalConn(tc, connTypeRelayServer, false, t.cfg.Options().ConnectionPriorityRelay)
 
 		// Poor mans notifier that informs the connection service that the
 		// relay URI has changed. This can only happen when we connect to a
@@ -177,7 +177,7 @@ func (*relayListener) NATType() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, _ *registry.Registry) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, _ *registry.Registry, _ *lanChecker) genericListener {
 	t := &relayListener{
 		uri:     uri,
 		cfg:     cfg,

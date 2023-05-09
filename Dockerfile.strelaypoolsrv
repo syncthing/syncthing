@@ -1,0 +1,26 @@
+ARG GOVERSION=latest
+FROM golang:$GOVERSION AS builder
+
+WORKDIR /src
+COPY . .
+
+ENV CGO_ENABLED=0
+ENV BUILD_HOST=syncthing.net
+ENV BUILD_USER=docker
+RUN rm -f strelaysrv && go run build.go -no-upgrade build strelaypoolsrv
+
+FROM alpine
+
+EXPOSE 8080
+
+RUN apk add --no-cache ca-certificates su-exec curl
+ENV PUID=1000 PGID=1000 MAXMIND_KEY=
+
+RUN mkdir /var/strelaypoolsrv && chown 1000 /var/strelaypoolsrv
+USER 1000
+
+COPY --from=builder /src/strelaypoolsrv /bin/strelaypoolsrv
+COPY --from=builder /src/script/strelaypoolsrv-entrypoint.sh /bin/entrypoint.sh
+
+WORKDIR /var/strelaypoolsrv
+ENTRYPOINT ["/bin/entrypoint.sh", "/bin/strelaypoolsrv", "-listen", ":8080"]

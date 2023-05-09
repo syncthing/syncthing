@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"strings"
 	stdsync "sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -141,6 +142,7 @@ type model struct {
 	folderIOLimiter *util.Semaphore
 	fatalChan       chan error
 	started         chan struct{}
+	keyGen          *protocol.KeyGenerator
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -166,16 +168,14 @@ type model struct {
 	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
 
 	// for testing only
-	foldersRunning int32
+	foldersRunning atomic.Int32
 }
 
 var _ config.Verifier = &model{}
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
 
-var (
-	folderFactories = make(map[config.FolderType]folderFactory)
-)
+var folderFactories = make(map[config.FolderType]folderFactory)
 
 var (
 	errDeviceUnknown    = errors.New("unknown device")
@@ -204,7 +204,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
@@ -226,6 +226,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIOLimiter:      util.NewSemaphore(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
+		keyGen:               keyGen,
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -1461,7 +1462,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if isEncryptedRemote {
-		passwordToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
+		passwordToken := protocol.PasswordToken(m.keyGen, fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenLocal {
 			match = bytes.Equal(passwordToken, ccDeviceInfos.local.EncryptionPasswordToken)
@@ -1666,16 +1667,31 @@ func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, fo
 func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *clusterConfigDeviceInfo, cfg config.FolderConfiguration, haveCfg bool, defaultPath string) (config.FolderConfiguration, bool) {
 	if !haveCfg {
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
-		pathAlternatives := []string{
-			fs.SanitizePath(folder.Label),
-			fs.SanitizePath(folder.ID),
+		var pathAlternatives []string
+		if alt := fs.SanitizePath(folder.Label); alt != "" {
+			pathAlternatives = append(pathAlternatives, alt)
+		}
+		if alt := fs.SanitizePath(folder.ID); alt != "" {
+			pathAlternatives = append(pathAlternatives, alt)
+		}
+		if len(pathAlternatives) == 0 {
+			l.Infof("Failed to auto-accept folder %s from %s due to lack of path alternatives", folder.Description(), deviceID)
+			return config.FolderConfiguration{}, false
 		}
 		for _, path := range pathAlternatives {
+			// Make sure the folder path doesn't already exist.
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
 				continue
 			}
 
-			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
+			// Attempt to create it to make sure it does, now.
+			fullPath := filepath.Join(defaultPath, path)
+			if err := defaultPathFs.MkdirAll(path, 0o700); err != nil {
+				l.Warnf("Failed to create path for auto-accepted folder %s at path %s: %v", folder.Description(), fullPath, err)
+				continue
+			}
+
+			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, fs.FilesystemTypeBasic, fullPath)
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceID,
 			})
@@ -1905,7 +1921,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size
 		if err == nil && scanner.Validate(res.data, hash, weakHash) {
 			return res, nil
 		}
-		// Fall through to reading from a non-temp file, just incase the temp
+		// Fall through to reading from a non-temp file, just in case the temp
 		// file has finished downloading.
 	}
 
@@ -2482,7 +2498,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.Cluste
 			if deviceCfg.DeviceID == m.id && hasEncryptionToken {
 				protocolDevice.EncryptionPasswordToken = encryptionToken
 			} else if folderDevice.EncryptionPassword != "" {
-				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, folderDevice.EncryptionPassword)
+				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(m.keyGen, folderCfg.ID, folderDevice.EncryptionPassword)
 				if folderDevice.DeviceID == device {
 					passwords[folderCfg.ID] = folderDevice.EncryptionPassword
 				}
@@ -3263,7 +3279,7 @@ func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
 
 func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	tokenName := encryptionTokenPath(cfg)
-	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
 	if err != nil {
 		return err
 	}

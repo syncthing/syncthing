@@ -134,7 +134,7 @@ type wrapper struct {
 	subs   []Committer
 	mut    sync.Mutex
 
-	requiresRestart uint32 // an atomic bool
+	requiresRestart atomic.Bool
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -328,8 +328,8 @@ func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg := sync.NewWaitGroup()
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
-		go func(commiter Committer) {
-			w.notifyListener(commiter, from, to)
+		go func(committer Committer) {
+			w.notifyListener(committer, from, to)
 			wg.Done()
 		}(sub)
 	}
@@ -340,7 +340,7 @@ func (w *wrapper) notifyListener(sub Committer, from, to Configuration) {
 	l.Debugln(sub, "committing configuration")
 	if !sub.CommitConfiguration(from, to) {
 		l.Debugln(sub, "requires restart")
-		w.setRequiresRestart()
+		w.requiresRestart.Store(true)
 	}
 }
 
@@ -525,13 +525,7 @@ func (w *wrapper) Save() error {
 	return nil
 }
 
-func (w *wrapper) RequiresRestart() bool {
-	return atomic.LoadUint32(&w.requiresRestart) != 0
-}
-
-func (w *wrapper) setRequiresRestart() {
-	atomic.StoreUint32(&w.requiresRestart, 1)
-}
+func (w *wrapper) RequiresRestart() bool { return w.requiresRestart.Load() }
 
 type modifyEntry struct {
 	modifyFunc ModifyFunction

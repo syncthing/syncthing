@@ -197,6 +197,11 @@ func TestBadPatterns(t *testing.T) {
 		if !IsParseError(err) {
 			t.Error("Should have been a parse error:", err)
 		}
+		if strings.HasPrefix(pat, "#include") {
+			if fs.IsNotExist(err) {
+				t.Error("Includes should not toss a regular isNotExist error")
+			}
+		}
 	}
 }
 

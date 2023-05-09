@@ -263,6 +263,16 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
+	"stupgrades": {
+		name:        "stupgrades",
+		description: "Syncthing Upgrade Check Server",
+		buildPkgs:   []buildPkg{{pkg: "github.com/syncthing/syncthing/cmd/stupgrades"}},
+	},
+	"stcrashreceiver": {
+		name:        "stcrashreceiver",
+		description: "Syncthing Crash Server",
+		buildPkgs:   []buildPkg{{pkg: "github.com/syncthing/syncthing/cmd/stcrashreceiver"}},
+	},
 }
 
 func initTargets() {
@@ -1149,8 +1159,12 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release", "main":
+	case "release", "main":
 		// these are not special
+		return ""
+	}
+	if strings.HasPrefix(branch, "release-") {
+		// release branches are not special
 		return ""
 	}
 

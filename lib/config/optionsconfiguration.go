@@ -55,6 +55,15 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	if opts.ConnectionLimitMax < 0 {
 		opts.ConnectionLimitMax = 0
 	}
+
+	if opts.ConnectionPriorityQUICWAN <= opts.ConnectionPriorityQUICLAN {
+		l.Warnln("Connection priority number for QUIC over WAN must be worse (higher) than QUIC over LAN. Correcting.")
+		opts.ConnectionPriorityQUICWAN = opts.ConnectionPriorityQUICLAN + 1
+	}
+	if opts.ConnectionPriorityTCPWAN <= opts.ConnectionPriorityTCPLAN {
+		l.Warnln("Connection priority number for TCP over WAN must be worse (higher) than TCP over LAN. Correcting.")
+		opts.ConnectionPriorityTCPWAN = opts.ConnectionPriorityTCPLAN + 1
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require

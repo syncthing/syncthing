@@ -1,0 +1,18 @@
+ARG GOVERSION=latest
+FROM golang:$GOVERSION AS builder
+
+WORKDIR /src
+COPY . .
+
+ENV CGO_ENABLED=0
+ENV BUILD_HOST=syncthing.net
+ENV BUILD_USER=docker
+RUN rm -f stupgrades && go run build.go build stupgrades
+
+FROM alpine
+
+EXPOSE 8080
+
+COPY --from=builder /src/stupgrades /bin/stupgrades
+
+ENTRYPOINT [ "/bin/stupgrades" ]

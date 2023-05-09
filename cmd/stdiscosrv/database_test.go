@@ -9,15 +9,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 )
 
 func TestDatabaseGetSet(t *testing.T) {
-	os.RemoveAll("_database")
-	defer os.RemoveAll("_database")
-	db, err := newLevelDBStore("_database")
+	db, err := newMemoryLevelDBStore()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +116,7 @@ func TestDatabaseGetSet(t *testing.T) {
 
 	// Put a record with misses
 
-	rec = DatabaseRecord{Misses: 42}
+	rec = DatabaseRecord{Misses: 42, Missed: tc.Now().UnixNano()}
 	if err := db.put("efgh", rec); err != nil {
 		t.Fatal(err)
 	}
@@ -209,5 +206,6 @@ func (t *testClock) wind(d time.Duration) {
 }
 
 func (t *testClock) Now() time.Time {
+	t.now = t.now.Add(time.Nanosecond)
 	return t.now
 }

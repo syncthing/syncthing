@@ -28,7 +28,7 @@ export class DbStatusService {
       .get<Folder.Status>(this.dbStatusUrl, httpOptions)
       .pipe(
         map(res => {
-          // Remove from array in developement
+          // Remove from array in development
           // in-memory-web-api returns arrays
           if (!environment.production) {
             const a: any = res as any;

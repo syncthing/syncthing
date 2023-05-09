@@ -24,10 +24,15 @@ too much information will never get you yelled at. :)
 ## Contributing Translations
 
 All translations are done via
-[Transifex](https://www.transifex.com/projects/p/syncthing/). If you
-wish to contribute to a translation, just head over there and sign up.
+[Weblate](https://hosted.weblate.org/projects/syncthing/). If you wish
+to contribute to a translation, just head over there and sign up.
 Before every release, the language resources are updated from the
-latest info on Transifex.
+latest info on Weblate.
+
+Note that the previously used service at
+[Transifex](https://www.transifex.com/projects/p/syncthing/) is being
+retired and we kindly ask you to sign up on Weblate for continued
+involvement.
 
 ## Contributing Code
 

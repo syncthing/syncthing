@@ -20,7 +20,7 @@ import (
 var (
 	outboxesMut    = sync.RWMutex{}
 	outboxes       = make(map[syncthingprotocol.DeviceID]chan interface{})
-	numConnections int64
+	numConnections atomic.Int64
 )
 
 func listener(_, addr string, config *tls.Config, token string) {
@@ -128,7 +128,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 
-				if atomic.LoadInt32(&overLimit) > 0 {
+				if overLimit.Load() {
 					protocol.WriteMessage(conn, protocol.RelayFull{})
 					if debug {
 						log.Println("Refusing join request from", id, "due to being over limits")
@@ -267,7 +267,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 				conn.Close()
 			}
 
-			if atomic.LoadInt32(&overLimit) > 0 && !hasSessions(id) {
+			if overLimit.Load() && !hasSessions(id) {
 				if debug {
 					log.Println("Dropping", id, "as it has no sessions and we are over our limits")
 				}
@@ -360,8 +360,8 @@ func sessionConnectionHandler(conn net.Conn) {
 }
 
 func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
-	atomic.AddInt64(&numConnections, 1)
-	defer atomic.AddInt64(&numConnections, -1)
+	numConnections.Add(1)
+	defer numConnections.Add(-1)
 
 	for {
 		msg, err := protocol.ReadMessage(conn)

@@ -50,7 +50,6 @@ found in the LICENSE file.
 
   <script type="text/javascript">
     google.setOnLoadCallback(drawVersionChart);
-    google.setOnLoadCallback(drawMovementChart);
     google.setOnLoadCallback(drawBlockStatsChart);
     google.setOnLoadCallback(drawPerformanceCharts);
 
@@ -79,37 +78,6 @@ found in the LICENSE file.
       };
 
       var chart = new google.visualization.AreaChart(document.getElementById('versionChart'));
-      chart.draw(data, options);
-    }
-
-    function drawMovementChart() {
-      var jsonData = $.ajax({url: "movement.json", dataType:"json", async: false}).responseText;
-      var rows = JSON.parse(jsonData);
-
-      var data = new google.visualization.DataTable();
-      data.addColumn('date', 'Day');
-      for (var i = 1; i < rows[0].length; i++){
-        data.addColumn('number', rows[0][i]);
-      }
-
-      for (var i = 1; i < rows.length; i++){
-        rows[i][0] = new Date(rows[i][0]);
-        if (rows[i][1] > 500) {
-          rows[i][1] = null;
-        }
-        if (rows[i][2] < -500) {
-          rows[i][2] = null;
-        }
-        data.addRow(rows[i]);
-      };
-
-      var options = {
-        legend: { position: 'bottom', alignment: 'center' },
-        colors: ['rgb(102,194,165)','rgb(252,141,98)','rgb(141,160,203)','rgb(231,138,195)','rgb(166,216,84)','rgb(255,217,47)'],
-        chartArea: {left: 80, top: 20, width: '1020', height: '300'},
-      };
-
-      var chart = new google.visualization.AreaChart(document.getElementById('movementChart'));
       chart.draw(data, options);
     }
 
@@ -273,14 +241,6 @@ found in the LICENSE file.
         </p>
         <div class="img-thumbnail" id="versionChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
 
-        <h4 id="joining-leaving">Users Joining and Leaving per Day</h4>
-        <p>
-          This is the total number of unique users joining and leaving per day. A user is counted as "joined" on first the day their unique ID is seen, and as "left" on the last day the unique ID was seen before a two weeks or longer absence. "Bounced" refers to users who joined and left on the same day.
-        </p>
-        <div class="img-thumbnail" id="movementChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
-        <p class="text-muted">
-         Reappearance of users cause the "left" data to shrink retroactively.
-        </p>
         <div id="block-stats">
           <h4>Data Transfers per Day</h4>
           <p>
@@ -315,7 +275,7 @@ found in the LICENSE file.
                 <div class="col-md-6">
                   <table class="table table-striped">
                     <tbody>
-                      {{range .contries | slice 2 1}}
+                      {{range .countries | slice 2 1}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
                         <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
@@ -331,7 +291,7 @@ found in the LICENSE file.
                 <div class="col-md-6">
                   <table class="table table-striped">
                     <tbody>
-                      {{range .contries | slice 2 2}}
+                      {{range .countries | slice 2 2}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
                         <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
