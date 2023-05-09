@@ -102,6 +102,39 @@ func TestExcludes(t *testing.T) {
 	}
 }
 
+func TestEscapeChar(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("There is no escape")
+	}
+
+	stignore := `
+	foo\[bar
+	baz\?\*quux
+	`
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		f string
+		r bool
+	}{
+		{"foo[bar", true},
+		{"foo/[bar", false},
+		{"baz?*quux", true},
+		{"baz/?/*quux", false},
+		{"bazxxquux", false},
+	}
+
+	for _, tc := range tests {
+		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
+			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
+		}
+	}
+}
+
 func TestFlagOrder(t *testing.T) {
 	stignore := `
 	## Ok cases

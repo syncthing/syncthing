@@ -666,8 +666,8 @@ type doublestarGlobWrapper struct {
 }
 
 func (s *doublestarGlobWrapper) Match(path string) bool {
-	doesMatch, _ := doublestar.Match(s.pattern, filepath.ToSlash(path))
-	return doesMatch
+	doesMatch, err := doublestar.Match(s.pattern, filepath.ToSlash(path))
+	return err == nil && doesMatch
 }
 
 func validate(pattern string) (*doublestarGlobWrapper, error) {
