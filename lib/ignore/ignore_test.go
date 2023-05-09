@@ -1249,6 +1249,7 @@ func TestIssue8733(t *testing.T) {
 	Documents/**apple.jpg
 	Documents**/mango.jpg
 	Documents**äpple.jpg
+	(?d)(?i)**PÄRON.JPG
 	`
 
 	testcases := []struct {
@@ -1269,6 +1270,9 @@ func TestIssue8733(t *testing.T) {
 		{"Documents/Photos/äpple.jpg/extra", true},
 		{"Documents-an-äpple.jpg", true},
 		{"Documents-an-äpple.jpg/extra", true},
+		{"some/dir/augustipäron.jpg", true},
+		{"päron.jpg", true},
+		{"augustipäron.jpg", true},
 	}
 
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
