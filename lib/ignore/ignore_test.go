@@ -28,7 +28,7 @@ func TestIgnore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var tests = []struct {
+	tests := []struct {
 		f string
 		r bool
 	}{
@@ -78,7 +78,7 @@ func TestExcludes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var tests = []struct {
+	tests := []struct {
 		f string
 		r bool
 	}{
@@ -158,7 +158,7 @@ func TestDeletables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var tests = []struct {
+	tests := []struct {
 		f string
 		i bool
 		d bool
@@ -181,7 +181,7 @@ func TestDeletables(t *testing.T) {
 }
 
 func TestBadPatterns(t *testing.T) {
-	var badPatterns = []string{
+	badPatterns := []string{
 		"[",
 		"/[",
 		"**/[",
@@ -616,7 +616,7 @@ func TestHashOfEmpty(t *testing.T) {
 
 func TestWindowsPatterns(t *testing.T) {
 	// We should accept patterns as both a/b and a\b and match that against
-	// both kinds of slash as well.
+	// both kinds of slash as well. Backslashes are not escapes on Windows.
 	if !build.IsWindows {
 		t.Skip("Windows specific test")
 		return
@@ -625,6 +625,7 @@ func TestWindowsPatterns(t *testing.T) {
 	stignore := `
 	a/b
 	c\d
+	e\?f
 	`
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
@@ -632,10 +633,17 @@ func TestWindowsPatterns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tests := []string{`a\b`, `c\d`}
+	tests := []struct {
+		path  string
+		match bool
+	}{
+		{`a\b`, true},
+		{`c\d`, true},
+		{`e\af`, true},
+	}
 	for _, pat := range tests {
-		if !pats.Match(pat).IsIgnored() {
-			t.Errorf("Should match %s", pat)
+		if res := pats.Match(pat.path).IsIgnored(); res != pat.match {
+			t.Errorf("Match(%s) => %v, should be %v", pat.path, res, pat.match)
 		}
 	}
 }
@@ -985,7 +993,7 @@ func TestIssue4901(t *testing.T) {
 	puppy
 	`
 
-	if err := os.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0o777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -1004,7 +1012,7 @@ func TestIssue4901(t *testing.T) {
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0o777); err != nil {
 		t.Fatalf(err.Error())
 	}
 
