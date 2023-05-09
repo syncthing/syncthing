@@ -275,7 +275,7 @@ found in the LICENSE file.
                 <div class="col-md-6">
                   <table class="table table-striped">
                     <tbody>
-                      {{range .contries | slice 2 1}}
+                      {{range .countries | slice 2 1}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
                         <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
@@ -291,7 +291,7 @@ found in the LICENSE file.
                 <div class="col-md-6">
                   <table class="table table-striped">
                     <tbody>
-                      {{range .contries | slice 2 2}}
+                      {{range .countries | slice 2 2}}
                       <tr>
                         <td style="width: 45%">{{.Key}}</td>
                         <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>

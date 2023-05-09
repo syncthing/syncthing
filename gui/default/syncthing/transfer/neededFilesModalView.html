@@ -2,15 +2,17 @@
 
   <div class="modal-body">
 
-    <div class="progress">
-      <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
-      <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
-      <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
-      <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
-      <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
-    </div>
+    <div id="download-legend" ng-if="downloadProgressEnabled()">
+      <div class="progress">
+        <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
+        <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
+        <div class="progress-bar progress-bar-info" style="width: 20%"><span translate class="show">Copied from elsewhere</span></div>
+        <div class="progress-bar progress-bar-warning" style="width: 20%"><span translate class="show">Downloaded</span></div>
+        <div class="progress-bar progress-bar-danger" style="width: 20%"><span translate class="show">Downloading</span></div>
+      </div>
 
-    <hr />
+      <hr />
+    </div>
 
     <table class="table table-striped table-condensed">
 

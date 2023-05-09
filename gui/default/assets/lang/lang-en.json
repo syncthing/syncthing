@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Use notifications from the filesystem to detect changed items.",
     "User Home": "User Home",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Username/Password has not been set for the GUI authentication. Please consider setting it up.",
+    "Using a QUIC connection over LAN": "Using a QUIC connection over LAN",
+    "Using a QUIC connection over WAN": "Using a QUIC connection over WAN",
     "Using a direct TCP connection over LAN": "Using a direct TCP connection over LAN",
     "Using a direct TCP connection over WAN": "Using a direct TCP connection over WAN",
     "Version": "Version",

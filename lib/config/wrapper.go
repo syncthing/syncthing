@@ -328,8 +328,8 @@ func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg := sync.NewWaitGroup()
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
-		go func(commiter Committer) {
-			w.notifyListener(commiter, from, to)
+		go func(committer Committer) {
+			w.notifyListener(committer, from, to)
 			wg.Done()
 		}(sub)
 	}

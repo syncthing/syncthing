@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Używaj powiadomień systemu plików do wykrywania zmienionych elementów.",
     "User Home": "Katalog domowy użytkownika",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Nazwa użytkownika i hasło do uwierzytelniania GUI nie zostały skonfigurowane. Zastanów się nad ich ustawieniem.",
+    "Using a QUIC connection over LAN": "Używane jest połączenie przez protokół QUIC w sieci lokalnej LAN",
+    "Using a QUIC connection over WAN": "Używane jest połączenie przez protokół QUIC w sieci rozległej WAN",
     "Using a direct TCP connection over LAN": "Używane jest bezpośrednie połączenie przez protokół TCP w sieci lokalnej LAN",
     "Using a direct TCP connection over WAN": "Używane jest bezpośrednie połączenie przez protokół TCP w sieci rozległej WAN",
     "Version": "Wersja",

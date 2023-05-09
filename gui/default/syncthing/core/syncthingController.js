@@ -1256,8 +1256,9 @@ angular.module('syncthing.core')
                 case "relaywan":
                     return $translate.instant('Connections via relays might be rate limited by the relay');
                 case "quiclan":
+                    return $translate.instant('Using a QUIC connection over LAN');
                 case "quicwan":
-                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                    return $translate.instant('Using a QUIC connection over WAN');
                 case "tcpwan":
                     return $translate.instant('Using a direct TCP connection over WAN');
                 case "tcplan":
@@ -2686,6 +2687,8 @@ angular.module('syncthing.core')
                             if (closed) {
                                 resetRestoreVersions();
                                 return;
+                            } else if ($scope.sizeOf($scope.restoreVersions.versions) === '0') {
+                                return;
                             }
 
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
@@ -2702,7 +2705,7 @@ angular.module('syncthing.core')
                                     indentation: 24,
                                 },
                                 strings: {
-                                    loading: $translate.instant("Loading..."),
+                                    loading: $translate.instant("Loading data..."),
                                     loadError: $translate.instant("Failed to load file versions."),
                                     noData: $translate.instant("There are no file versions to restore.")
                                 },
@@ -2874,6 +2877,13 @@ angular.module('syncthing.core')
                 resetRemoteNeed();
             });
         };
+
+        $scope.downloadProgressEnabled = function() {
+            return $scope.config.options &&
+                $scope.config.options.progressUpdateIntervalS > 0 &&
+                $scope.folders[$scope.neededFolder] &&
+                $scope.folders[$scope.neededFolder].type != 'receiveencrypted';
+        }
 
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
@@ -3369,7 +3379,7 @@ angular.module('syncthing.core')
                 return '';
             }
 
-            // When the user explicitely added a wild-card, we don't show hints.
+            // When the user explicitly added a wild-card, we don't show hints.
             if (filterEntries.length === 1 && filterEntries[0].match === '*') {
                 return '';
             }
@@ -3404,7 +3414,7 @@ angular.module('syncthing.core')
         };
 
         $scope.validateXattrFilter = function () {
-            // Fitlering out empty rules when saving the config
+            // Filtering out empty rules when saving the config
             $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(function (n) {
                 return n.match !== "";
             });

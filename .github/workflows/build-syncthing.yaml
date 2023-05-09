@@ -57,7 +57,7 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -98,7 +98,7 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - build-test
@@ -117,7 +117,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -148,7 +148,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-windows
           path: syncthing-windows-*.zip
 
   #
@@ -165,7 +165,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -188,7 +188,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-linux
           path: syncthing-linux-*.tar.gz
 
   #
@@ -197,7 +197,7 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - build-test
@@ -207,7 +207,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -282,8 +282,37 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-macos
           path: syncthing-*.zip
+
+  notarize-macos:
+    name: Notarize for macOS
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - package-macos
+    runs-on: macos-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-macos
+
+      - name: Notarize binaries
+        run: |
+          APPSTORECONNECT_API_KEY_PATH="$RUNNER_TEMP/apikey.p8"
+          echo "$APPSTORECONNECT_API_KEY" | base64 -d -o "$APPSTORECONNECT_API_KEY_PATH"
+          for file in syncthing-macos-*.zip ; do
+            xcrun notarytool submit \
+              -k "$APPSTORECONNECT_API_KEY_PATH" \
+              -d "$APPSTORECONNECT_API_KEY_ID" \
+              -i "$APPSTORECONNECT_API_KEY_ISSUER" \
+              $file
+          done
+        env:
+          APPSTORECONNECT_API_KEY: ${{ secrets.APPSTORECONNECT_API_KEY }}
+          APPSTORECONNECT_API_KEY_ID: ${{ secrets.APPSTORECONNECT_API_KEY_ID }}
+          APPSTORECONNECT_API_KEY_ISSUER: ${{ secrets.APPSTORECONNECT_API_KEY_ISSUER }}
 
   #
   # Cross compile other unixes
@@ -299,7 +328,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -338,7 +367,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-other
           path: syncthing-*.tar.gz
 
   #
@@ -355,7 +384,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -378,5 +407,146 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-source
           path: syncthing-source-*.tar.gz
+
+  #
+  # Sign binaries for auto upgrade
+  #
+
+  sign-for-upgrade:
+    name: Sign for upgrade
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - package-windows
+      - package-linux
+      - package-macos
+      - package-cross
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Install signing tool
+        run: |
+          go install ./cmd/stsigtool
+
+      - name: Sign archives
+        run: |
+          export PRIVATE_KEY="$RUNNER_TEMP/privkey.pem"
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          echo "$STSIGTOOL_PRIVATE_KEY" | base64 -d > "$PRIVATE_KEY"
+          mkdir packages
+          mv packages-*/* packages
+          pushd packages
+          "$GITHUB_WORKSPACE/tools/sign-only"
+        env:
+          STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-signed
+          path: packages/*
+
+  #
+  # Debian
+  #
+
+  package-debian:
+    name: Package for Debian
+    needs:
+      - build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+
+      - name: Install fpm
+        run: |
+          gem install fpm
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+
+      - name: Package for Debian
+        run: |
+          for goarch in amd64 arm64 arm ; do
+            go run build.go -goos linux -goarch "$goarch" deb
+          done
+        env:
+          BUILD_USER: debian
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: debian-packages
+          path: "*.deb"
+
+  #
+  # Nightlies
+  #
+
+  publish-nightly:
+    name: Publish nightly build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-nightly')
+    environment: signing
+    needs:
+      - sign-for-upgrade
+      - notarize-macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-signed
+          path: packages
+
+      - name: Create release json
+        run: |
+          cd packages
+          "$GITHUB_WORKSPACE/tools/generate-release-json" "$BASE_URL" > nightly.json
+        env:
+          BASE_URL: https://syncthing.ams3.digitaloceanspaces.com/nightly/
+
+      - name: Push artifacts
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync packages spaces:syncthing/nightly

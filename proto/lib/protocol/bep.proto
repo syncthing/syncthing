@@ -123,6 +123,10 @@ message FileInfo {
     // etc changed). This is host-local, not sent over the wire.
     int64 inode_change_ns = 1002;
 
+    // The size of the data appended to the encrypted file on disk. This is
+    // host-local, not sent over the wire.
+    int32 encryption_trailer_size = 1003;
+
     bool deleted        = 6;
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];
     bool no_permissions = 8;

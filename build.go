@@ -1108,8 +1108,12 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release", "main":
+	case "release", "main":
 		// these are not special
+		return ""
+	}
+	if strings.HasPrefix(branch, "release-") {
+		// release branches are not special
 		return ""
 	}
 
