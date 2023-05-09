@@ -39,6 +39,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -1168,45 +1169,39 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir := t.TempDir()
+	ffs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?nostfolder=true")
 
-	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
-		t.Fatal(err)
-	}
+	_ = ffs.Mkdir("dir", 0o755)
+	_ = fs.WriteFile(ffs, "file", []byte("hello"), 0o644)
+	_ = ffs.Mkdir("MiXEDCase", 0o755)
 
 	// We expect completion to return the full path to the completed
 	// directory, with an ending slash.
-	dirPath := filepath.Join(tmpDir, "dir") + pathSep
-	mixedCaseDirPath := filepath.Join(tmpDir, "MiXEDCase") + pathSep
+	dirPath := "dir" + pathSep
+	mixedCaseDirPath := "MiXEDCase" + pathSep
 
 	cases := []struct {
 		current string
 		returns []string
 	}{
 		// The directory without slash is completed to one with slash.
-		{tmpDir, []string{tmpDir + pathSep}},
+		{"dir", []string{"dir" + pathSep}},
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
 		// Files are not returned.
-		{tmpDir + pathSep, []string{mixedCaseDirPath, dirPath}},
+		{"", []string{mixedCaseDirPath, dirPath}},
 		// Globbing is automatic based on prefix.
-		{tmpDir + pathSep + "d", []string{dirPath}},
-		{tmpDir + pathSep + "di", []string{dirPath}},
-		{tmpDir + pathSep + "dir", []string{dirPath}},
-		{tmpDir + pathSep + "f", nil},
-		{tmpDir + pathSep + "q", nil},
+		{"d", []string{dirPath}},
+		{"di", []string{dirPath}},
+		{"dir", []string{dirPath}},
+		{"f", nil},
+		{"q", nil},
 		// Globbing is case-insensitive
-		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
+		{"mixed", []string{mixedCaseDirPath}},
 	}
 
 	for _, tc := range cases {
-		ret := browseFiles(tc.current, fs.FilesystemTypeBasic)
+		ret := browseFiles(ffs, tc.current)
 		if !util.EqualStrings(ret, tc.returns) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}

@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Meldingen van het bestandssysteem gebruiken om gewijzigde items te detecteren.",
     "User Home": "Thuismap gebruiker",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Gebruikersnaam/wachtwoord is niet ingesteld voor de GUI-authenticatie. Overweeg om het in te stellen.",
+    "Using a QUIC connection over LAN": "Een QUIC-verbinding via LAN gebruiken",
+    "Using a QUIC connection over WAN": "Een QUIC-verbinding via WAN gebruiken",
     "Using a direct TCP connection over LAN": "Een directe TCP-verbinding via LAN gebruiken",
     "Using a direct TCP connection over WAN": "Een directe TCP-verbinding via WAN gebruiken",
     "Version": "Versie",

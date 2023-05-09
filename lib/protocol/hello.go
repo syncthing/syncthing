@@ -20,7 +20,7 @@ var (
 	// ErrTooOldVersion is returned by ExchangeHello when the other side
 	// speaks an older, incompatible version of the protocol.
 	ErrTooOldVersion = errors.New("the remote device speaks an older version of the protocol not compatible with this version")
-	// ErrUnknownMagic is returned by ExchangeHellow when the other side
+	// ErrUnknownMagic is returned by ExchangeHello when the other side
 	// speaks something entirely unknown.
 	ErrUnknownMagic = errors.New("the remote device speaks an unknown (newer?) version of the protocol")
 )

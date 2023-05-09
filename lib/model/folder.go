@@ -329,10 +329,12 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 		return err
 	}
 
-	dbPath := locations.Get(locations.Database)
-	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
-		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
-			return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
+	if minFree := f.model.cfg.Options().MinHomeDiskFree; minFree.Value > 0 {
+		dbPath := locations.Get(locations.Database)
+		if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
+			if err = config.CheckFreeSpace(minFree, usage); err != nil {
+				return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
+			}
 		}
 	}
 

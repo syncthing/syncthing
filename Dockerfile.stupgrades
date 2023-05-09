@@ -15,9 +15,4 @@ EXPOSE 8080
 
 COPY --from=builder /src/stupgrades /bin/stupgrades
 
-ENTRYPOINT [ \
-	"/bin/stupgrades", \
-	"-f", "/nightly.json->https://build.syncthing.net/guestAuth/repository/download/Release_Nightly/.lastSuccessful/nightly.json", \
-	"-f", "/syncthing-macos/appcast.xml->https://build.syncthing.net/guestAuth/repository/download/SyncthingMacOS_CreateAppcastXml/.lastSuccessful/appcast.xml" \
-	]
-
+ENTRYPOINT [ "/bin/stupgrades" ]

@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "使用文件系统的通知来检测更改的项目。",
     "User Home": "用户主目录",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "尚未为GUI身份验证设置用户名/密码。 请考虑进行设置。",
+    "Using a QUIC connection over LAN": "正使用局域网 QUIC 连接",
+    "Using a QUIC connection over WAN": "正使用广域网 QUIC 连接",
     "Using a direct TCP connection over LAN": "通过局域网使用直接TCP连接",
     "Using a direct TCP connection over WAN": "通过广域网使用直接TCP连接",
     "Version": "版本",

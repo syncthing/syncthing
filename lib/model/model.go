@@ -1220,7 +1220,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
 				from, ok := haveFcfg[folder.ID]
-				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder.Path); changed {
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder); changed {
 					changedFcfg[folder.ID] = to
 				}
 			}
@@ -1664,19 +1664,34 @@ func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, fo
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *clusterConfigDeviceInfo, cfg config.FolderConfiguration, haveCfg bool, defaultPath string) (config.FolderConfiguration, bool) {
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *clusterConfigDeviceInfo, cfg config.FolderConfiguration, haveCfg bool, defaultFolderCfg config.FolderConfiguration) (config.FolderConfiguration, bool) {
 	if !haveCfg {
-		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
-		pathAlternatives := []string{
-			fs.SanitizePath(folder.Label),
-			fs.SanitizePath(folder.ID),
+		defaultPathFs := fs.NewFilesystem(defaultFolderCfg.FilesystemType, defaultFolderCfg.Path)
+		var pathAlternatives []string
+		if alt := fs.SanitizePath(folder.Label); alt != "" {
+			pathAlternatives = append(pathAlternatives, alt)
+		}
+		if alt := fs.SanitizePath(folder.ID); alt != "" {
+			pathAlternatives = append(pathAlternatives, alt)
+		}
+		if len(pathAlternatives) == 0 {
+			l.Infof("Failed to auto-accept folder %s from %s due to lack of path alternatives", folder.Description(), deviceID)
+			return config.FolderConfiguration{}, false
 		}
 		for _, path := range pathAlternatives {
+			// Make sure the folder path doesn't already exist.
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
 				continue
 			}
 
-			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
+			// Attempt to create it to make sure it does, now.
+			fullPath := filepath.Join(defaultFolderCfg.Path, path)
+			if err := defaultPathFs.MkdirAll(path, 0o700); err != nil {
+				l.Warnf("Failed to create path for auto-accepted folder %s at path %s: %v", folder.Description(), fullPath, err)
+				continue
+			}
+
+			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, defaultFolderCfg.FilesystemType, fullPath)
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceID,
 			})
