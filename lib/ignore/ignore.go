@@ -70,7 +70,7 @@ func parseError(err error) error {
 
 type Pattern struct {
 	pattern string
-	match   *dubblestarGlobWrapper
+	match   *doublestarGlobWrapper
 	result  Result
 }
 
@@ -500,9 +500,10 @@ func parseLine(line string) ([]Pattern, error) {
 	return patterns, nil
 }
 
+var interDoubleStarExp = regexp.MustCompile(`(\w+)\*\*(\w+)`)
+
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var patterns []Pattern
-	interDoubleStar, _ := regexp.Compile(`(\w+)\*\*(\w+)`)
 	addPattern := func(line string) error {
 		newPatterns, err := parseLine(line)
 		if err != nil {
@@ -567,8 +568,8 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			err = addPattern(line + "*")
 		// Used to widen the pattern accepted by ** in accordance to
 		// the specified behavior in syncthing.
-		case interDoubleStar.MatchString(line):
-			err = addPattern(interDoubleStar.ReplaceAllString(line, `$1*/**/*$2`))
+		case interDoubleStarExp.MatchString(line):
+			err = addPattern(interDoubleStarExp.ReplaceAllString(line, `$1*/**/*$2`))
 			if err == nil {
 				err = addPattern(strings.ReplaceAll(line, "**", "*"))
 			}
@@ -658,21 +659,21 @@ func (c *modtimeChecker) Changed() bool {
 }
 
 // Glue code to integrate the new Glob library while keeping the
-// old interface so we can rework it as soon as dubblestar adds
+// old interface so we can rework it as soon as doublestar adds
 // support for compiling the patterns in advance.
-type dubblestarGlobWrapper struct {
+type doublestarGlobWrapper struct {
 	pattern string // Stores the pattern, rn uncompiled.
 }
 
-func (s *dubblestarGlobWrapper) Match(path string) bool {
+func (s *doublestarGlobWrapper) Match(path string) bool {
 	doesMatch, _ := doublestar.PathMatch(s.pattern, path)
 	return doesMatch
 }
 
-func validate(pattern string) (*dubblestarGlobWrapper, error) {
+func validate(pattern string) (*doublestarGlobWrapper, error) {
 	// Validate the pattern in advance to emulate the original behavior
 	// of Compile i.e. that errors in the pattern are thrown here instead
-	// of in Match. This is to keep stuff sane until dubblestar adds support
+	// of in Match. This is to keep stuff sane until doublestar adds support
 	// for compiling patterns in advance.
 	didValidate := doublestar.ValidatePattern(pattern)
 	var err error
@@ -681,7 +682,7 @@ func validate(pattern string) (*dubblestarGlobWrapper, error) {
 	} else {
 		err = doublestar.ErrBadPattern
 	}
-	return &dubblestarGlobWrapper{
+	return &doublestarGlobWrapper{
 		pattern,
 	}, err
 }
