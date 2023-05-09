@@ -1196,9 +1196,9 @@ func (r nextDialRegistry) get(device protocol.DeviceID, addr string) time.Time {
 }
 
 const (
-	dialCoolDownInterval   = 2 * time.Minute
-	dialCoolDownDelay      = 5 * time.Minute
-	dialCoolDownMaxAttemps = 3
+	dialCoolDownInterval    = 2 * time.Minute
+	dialCoolDownDelay       = 5 * time.Minute
+	dialCoolDownMaxAttempts = 3
 )
 
 // redialDevice marks the device for immediate redial, unless the remote keeps
@@ -1217,7 +1217,7 @@ func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) 
 		return
 	}
 	if dev.attempts == 0 || now.Before(dev.coolDownIntervalStart.Add(dialCoolDownInterval)) {
-		if dev.attempts >= dialCoolDownMaxAttemps {
+		if dev.attempts >= dialCoolDownMaxAttempts {
 			// Device has been force redialed too often - let it cool down.
 			return
 		}
@@ -1228,7 +1228,7 @@ func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) 
 		dev.nextDial = make(map[string]time.Time)
 		return
 	}
-	if dev.attempts >= dialCoolDownMaxAttemps && now.Before(dev.coolDownIntervalStart.Add(dialCoolDownDelay)) {
+	if dev.attempts >= dialCoolDownMaxAttempts && now.Before(dev.coolDownIntervalStart.Add(dialCoolDownDelay)) {
 		return // Still cooling down
 	}
 	delete(r, device)
@@ -1256,7 +1256,7 @@ func (r nextDialRegistry) sleepDurationAndCleanup(now time.Time) time.Duration {
 		}
 		if dev.attempts > 0 {
 			interval := dialCoolDownInterval
-			if dev.attempts >= dialCoolDownMaxAttemps {
+			if dev.attempts >= dialCoolDownMaxAttempts {
 				interval = dialCoolDownDelay
 			}
 			if now.After(dev.coolDownIntervalStart.Add(interval)) {
