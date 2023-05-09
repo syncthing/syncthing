@@ -1246,6 +1246,7 @@ func TestIssue8733(t *testing.T) {
 
 	stignore := `
 	Documents/**/{document.txt,banana.jpg}
+	{Documents,Photos}**{fruit.txt,grenadine.jpg}
 	Documents/**apple.jpg
 	Documents**/mango.jpg
 	Documents**äpple.jpg
@@ -1258,6 +1259,8 @@ func TestIssue8733(t *testing.T) {
 	}{
 		{"Documents/Photos/document.txt", true},
 		{"Documents/Photos/document.txt/extra", true},
+		{"Documents/fruit.txt", true},
+		{"Photos/misc/stuff/a-grenadine.jpg", true},
 		{"Documents/document.txt", true},
 		{"Documents/document.txt/extra", true},
 		{"Documents/Photos/banana.jpg", true},
