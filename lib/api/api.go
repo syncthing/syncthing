@@ -1865,13 +1865,7 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 }
 
 func dirNames(dir string) []string {
-	fd, err := os.Open(dir)
-	if err != nil {
-		return nil
-	}
-	defer fd.Close()
-
-	fis, err := fd.Readdir(-1)
+	fis, err := os.ReadDir(dir)
 	if err != nil {
 		return nil
 	}
