@@ -293,6 +293,9 @@ func (w *wrapper) Serve(ctx context.Context) error {
 }
 
 func (w *wrapper) serveSave() {
+	if w.path == "" {
+		return
+	}
 	if err := w.Save(); err != nil {
 		l.Warnln("Failed to save config:", err)
 	}

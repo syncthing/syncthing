@@ -8,7 +8,7 @@ package util
 
 import "testing"
 
-func TestZeroByteSempahore(_ *testing.T) {
+func TestZeroByteSemaphore(_ *testing.T) {
 	// A semaphore with zero capacity is just a no-op.
 
 	s := NewSemaphore(0)
@@ -19,7 +19,7 @@ func TestZeroByteSempahore(_ *testing.T) {
 	s.Give(1 << 30)
 }
 
-func TestByteSempahoreCapChangeUp(t *testing.T) {
+func TestByteSemaphoreCapChangeUp(t *testing.T) {
 	// Waiting takes should unblock when the capacity increases
 
 	s := NewSemaphore(100)
@@ -42,7 +42,7 @@ func TestByteSempahoreCapChangeUp(t *testing.T) {
 	}
 }
 
-func TestByteSempahoreCapChangeDown1(t *testing.T) {
+func TestByteSemaphoreCapChangeDown1(t *testing.T) {
 	// Things should make sense when capacity is adjusted down
 
 	s := NewSemaphore(100)
@@ -63,7 +63,7 @@ func TestByteSempahoreCapChangeDown1(t *testing.T) {
 	}
 }
 
-func TestByteSempahoreCapChangeDown2(t *testing.T) {
+func TestByteSemaphoreCapChangeDown2(t *testing.T) {
 	// Things should make sense when capacity is adjusted down, different case
 
 	s := NewSemaphore(100)
@@ -84,7 +84,7 @@ func TestByteSempahoreCapChangeDown2(t *testing.T) {
 	}
 }
 
-func TestByteSempahoreGiveMore(t *testing.T) {
+func TestByteSemaphoreGiveMore(t *testing.T) {
 	// We shouldn't end up with more available than we have capacity...
 
 	s := NewSemaphore(100)

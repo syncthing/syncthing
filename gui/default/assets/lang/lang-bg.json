@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Използва съобщения от файловата система, за да открива променени елементи.",
     "User Home": "Папка на потребителя",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Няма зададени потребителско име и парола за достъп до графичния интерфейс. Помислете за създаването им.",
+    "Using a QUIC connection over LAN": "Използване на връзка чрез QUIC в LAN",
+    "Using a QUIC connection over WAN": "Използване на връзка чрез QUIC в WAN",
     "Using a direct TCP connection over LAN": "Използване на директна свързаност с TCP през местна мрежа",
     "Using a direct TCP connection over WAN": "Използване на директна свързаност с TCP през широкодостъпна мрежа",
     "Version": "Издание",

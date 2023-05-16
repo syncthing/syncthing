@@ -199,7 +199,7 @@
     "Periodic scanning at given interval and disabled watching for changes": "Τακτική σάρωση ανά καθορισμένο διάστημα και απενεργοποίηση επιτήρησης αλλαγών",
     "Periodic scanning at given interval and enabled watching for changes": "Τακτική σάρωση ανά καθορισμένο διάστημα και ενεργοποίηση επιτήρησης αλλαγών",
     "Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:": "Τακτική σάρωση ανά καθορισμένο διάστημα και αποτυχία ενεργοποίησης επιτήρησης αλλαγών. Γίνεται νέα προσπάθεια κάθε 1m:",
-    "Please consult the release notes before performing a major upgrade.": "Παρακαλούμε, πριν από την εκτέλεση μιας σημαντικής αναβάθμισης, να συμβουλευτείς το σημείωμα που τη συνοδεύει.  ",
+    "Please consult the release notes before performing a major upgrade.": "Παρακαλούμε, πριν από την εκτέλεση μιας σημαντικής αναβάθμισης, να συμβουλευτείς το σημείωμα που τη συνοδεύει.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Παρακαλώ όρισε στις ρυθμίσεις έναν χρήστη και έναν κωδικό πρόσβασης για τη διεπαφή.",
     "Please wait": "Παρακαλώ περιμένετε",
     "Prefix indicating that the file can be deleted if preventing directory removal": "Πρόθεμα που δείχνει ότι το αρχείο θα μπορεί να διαγραφεί αν εμποδίζει τη διαγραφή καταλόγου",

@@ -1,0 +1,21 @@
+name: Trigger nightly build & release
+on:
+  workflow_dispatch:
+  schedule:
+    # Run nightly build at 01:00 UTC
+    - cron: '00 01 * * *'
+
+jobs:
+
+  trigger-nightly:
+    runs-on: ubuntu-latest
+    name: Push to release-nightly to trigger build
+    steps:
+
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - run: |
+          git push origin main:release-nightly

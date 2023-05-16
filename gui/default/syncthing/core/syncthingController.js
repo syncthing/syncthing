@@ -1256,8 +1256,9 @@ angular.module('syncthing.core')
                 case "relaywan":
                     return $translate.instant('Connections via relays might be rate limited by the relay');
                 case "quiclan":
+                    return $translate.instant('Using a QUIC connection over LAN');
                 case "quicwan":
-                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                    return $translate.instant('Using a QUIC connection over WAN');
                 case "tcpwan":
                     return $translate.instant('Using a direct TCP connection over WAN');
                 case "tcplan":

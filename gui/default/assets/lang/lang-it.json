@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Usa le notifiche dal filesystem per rilevare gli elementi modificati.",
     "User Home": "Home Utente",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Utente/password non sono stati impostati per autenticazione GUI. Considerane la configurazione.",
+    "Using a QUIC connection over LAN": "Utilizza una connessione QUIC su LAN",
+    "Using a QUIC connection over WAN": "Utilizza una connessione QUIC su WAN",
     "Using a direct TCP connection over LAN": "Utilizzo di una connessione TCP diretta su LAN",
     "Using a direct TCP connection over WAN": "Utilizzo di una connessione TCP diretta su WAN",
     "Version": "Versione",
