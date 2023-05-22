@@ -166,6 +166,7 @@ type ConnectionInfo interface {
 	String() string
 	Crypto() string
 	EstablishedAt() time.Time
+	ConnectionID() string
 }
 
 type rawConnection struct {

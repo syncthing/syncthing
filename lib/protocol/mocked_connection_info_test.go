@@ -8,6 +8,16 @@ import (
 )
 
 type mockedConnectionInfo struct {
+	ConnectionIDStub        func() string
+	connectionIDMutex       sync.RWMutex
+	connectionIDArgsForCall []struct {
+	}
+	connectionIDReturns struct {
+		result1 string
+	}
+	connectionIDReturnsOnCall map[int]struct {
+		result1 string
+	}
 	CryptoStub        func() string
 	cryptoMutex       sync.RWMutex
 	cryptoArgsForCall []struct {
@@ -90,6 +100,59 @@ type mockedConnectionInfo struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *mockedConnectionInfo) ConnectionID() string {
+	fake.connectionIDMutex.Lock()
+	ret, specificReturn := fake.connectionIDReturnsOnCall[len(fake.connectionIDArgsForCall)]
+	fake.connectionIDArgsForCall = append(fake.connectionIDArgsForCall, struct {
+	}{})
+	stub := fake.ConnectionIDStub
+	fakeReturns := fake.connectionIDReturns
+	fake.recordInvocation("ConnectionID", []interface{}{})
+	fake.connectionIDMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *mockedConnectionInfo) ConnectionIDCallCount() int {
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
+	return len(fake.connectionIDArgsForCall)
+}
+
+func (fake *mockedConnectionInfo) ConnectionIDCalls(stub func() string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = stub
+}
+
+func (fake *mockedConnectionInfo) ConnectionIDReturns(result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	fake.connectionIDReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *mockedConnectionInfo) ConnectionIDReturnsOnCall(i int, result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	if fake.connectionIDReturnsOnCall == nil {
+		fake.connectionIDReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.connectionIDReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *mockedConnectionInfo) Crypto() string {
@@ -519,6 +582,8 @@ func (fake *mockedConnectionInfo) TypeReturnsOnCall(i int, result1 string) {
 func (fake *mockedConnectionInfo) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
 	fake.cryptoMutex.RLock()
 	defer fake.cryptoMutex.RUnlock()
 	fake.establishedAtMutex.RLock()
