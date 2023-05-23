@@ -313,8 +313,9 @@ func monitorLimits() {
 	limitCheckTimer = time.NewTimer(time.Minute)
 	for range limitCheckTimer.C {
 		if numConnections.Load()+numProxies.Load() > descriptorLimit {
-			overLimit.Store(true)
-			log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")
+			if !overLimit.Swap(true) {
+				log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")
+			}
 		} else if overLimit.CompareAndSwap(true, false) {
 			log.Println("Dropped below our connection limits. Accepting new connections.")
 		}
