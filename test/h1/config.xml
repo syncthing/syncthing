@@ -1,5 +1,5 @@
 <configuration version="37">
-    <folder id="default" label="" path="s1/?files=2000&amp;sizeavg=25000000" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <folder id="default" label="" path="s1" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>fake</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy="">
             <encryptionPassword></encryptionPassword>
@@ -56,6 +56,7 @@
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
+        <address>quic://127.0.0.1:22002</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
         <maxSendKbps>0</maxSendKbps>
@@ -63,7 +64,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
-        <multipleConnections>4</multipleConnections>
+        <multipleConnections>32</multipleConnections>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
@@ -75,6 +76,7 @@
     <ldap></ldap>
     <options>
         <listenAddress>tcp://127.0.0.1:22001</listenAddress>
+        <listenAddress>quic://127.0.0.1:22001</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
@@ -121,9 +123,9 @@
         <connectionLimitEnough>0</connectionLimitEnough>
         <connectionLimitMax>0</connectionLimitMax>
         <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
-        <connectionPriorityTcpLan>10</connectionPriorityTcpLan>
+        <connectionPriorityTcpLan>20</connectionPriorityTcpLan>
         <connectionPriorityQuicLan>20</connectionPriorityQuicLan>
-        <connectionPriorityTcpWan>30</connectionPriorityTcpWan>
+        <connectionPriorityTcpWan>40</connectionPriorityTcpWan>
         <connectionPriorityQuicWan>40</connectionPriorityQuicWan>
         <connectionPriorityRelay>50</connectionPriorityRelay>
         <connectionPriorityUpgradeThreshold>0</connectionPriorityUpgradeThreshold>

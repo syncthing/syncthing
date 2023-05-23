@@ -7,9 +7,6 @@
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy="">
             <encryptionPassword></encryptionPassword>
         </device>
-        <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" introducedBy="">
-            <encryptionPassword></encryptionPassword>
-        </device>
         <minDiskFree unit="%">1</minDiskFree>
         <versioning>
             <cleanupIntervalS>3600</cleanupIntervalS>
@@ -48,6 +45,7 @@
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
+        <address>quic://127.0.0.1:22001</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
         <maxSendKbps>0</maxSendKbps>
@@ -55,7 +53,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
-	<multipleConnections>4</multipleConnections>
+        <multipleConnections>32</multipleConnections>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
@@ -66,6 +64,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
+        <multipleConnections>0</multipleConnections>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8082</address>
@@ -74,8 +73,8 @@
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
         <listenAddress>tcp://127.0.0.1:22002</listenAddress>
+        <listenAddress>quic://127.0.0.1:22002</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
@@ -122,9 +121,9 @@
         <connectionLimitEnough>0</connectionLimitEnough>
         <connectionLimitMax>0</connectionLimitMax>
         <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
-        <connectionPriorityTcpLan>10</connectionPriorityTcpLan>
+        <connectionPriorityTcpLan>20</connectionPriorityTcpLan>
         <connectionPriorityQuicLan>20</connectionPriorityQuicLan>
-        <connectionPriorityTcpWan>30</connectionPriorityTcpWan>
+        <connectionPriorityTcpWan>40</connectionPriorityTcpWan>
         <connectionPriorityQuicWan>40</connectionPriorityQuicWan>
         <connectionPriorityRelay>50</connectionPriorityRelay>
         <connectionPriorityUpgradeThreshold>0</connectionPriorityUpgradeThreshold>
@@ -180,6 +179,7 @@
             <maxRequestKiB>0</maxRequestKiB>
             <untrusted>false</untrusted>
             <remoteGUIPort>0</remoteGUIPort>
+            <multipleConnections>0</multipleConnections>
         </device>
         <ignores></ignores>
     </defaults>
