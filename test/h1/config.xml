@@ -1,16 +1,10 @@
 <configuration version="37">
-    <folder id="default" label="" path="s1/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
-        <filesystemType>basic</filesystemType>
+    <folder id="default" label="" path="s1/?files=2000&amp;sizeavg=25000000" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+        <filesystemType>fake</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy="">
             <encryptionPassword></encryptionPassword>
         </device>
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy="">
-            <encryptionPassword></encryptionPassword>
-        </device>
-        <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" introducedBy="">
-            <encryptionPassword></encryptionPassword>
-        </device>
-        <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" introducedBy="">
             <encryptionPassword></encryptionPassword>
         </device>
         <minDiskFree unit="%">1</minDiskFree>
@@ -58,6 +52,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
+        <multipleConnections>0</multipleConnections>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
@@ -68,7 +63,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
-	<multipleConnections>4</multipleConnections>
+        <multipleConnections>9</multipleConnections>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
@@ -184,6 +179,7 @@
             <maxRequestKiB>0</maxRequestKiB>
             <untrusted>false</untrusted>
             <remoteGUIPort>0</remoteGUIPort>
+            <multipleConnections>0</multipleConnections>
         </device>
         <ignores></ignores>
     </defaults>

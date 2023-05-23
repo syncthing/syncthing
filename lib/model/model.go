@@ -712,15 +712,28 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 	}
 }
 
-type ConnectionInfo struct {
-	protocol.Statistics
+type ConnectionStats struct {
+	protocol.Statistics // Total for primary + secondaries
+
 	Connected     bool   `json:"connected"`
 	Paused        bool   `json:"paused"`
-	Address       string `json:"address"`
 	ClientVersion string `json:"clientVersion"`
-	Type          string `json:"type"`
-	IsLocal       bool   `json:"isLocal"`
-	Crypto        string `json:"crypto"`
+
+	Address string `json:"address"` // mirror values from Primary, for compatibility with <1.24.0
+	Type    string `json:"type"`    // mirror values from Primary, for compatibility with <1.24.0
+	IsLocal bool   `json:"isLocal"` // mirror values from Primary, for compatibility with <1.24.0
+	Crypto  string `json:"crypto"`  // mirror values from Primary, for compatibility with <1.24.0
+
+	Primary   ConnectionInfo   `json:"primary,omitempty"`
+	Secondary []ConnectionInfo `json:"secondary,omitempty"`
+}
+
+type ConnectionInfo struct {
+	protocol.Statistics
+	Address string `json:"address"`
+	Type    string `json:"type"`
+	IsLocal bool   `json:"isLocal"`
+	Crypto  string `json:"crypto"`
 }
 
 // NumConnections returns the current number of active connected devices.
@@ -737,30 +750,61 @@ func (m *model) ConnectionStats() map[string]interface{} {
 
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
-	conns := make(map[string]ConnectionInfo, len(devs))
+	conns := make(map[string]ConnectionStats, len(devs))
 	for device, deviceCfg := range devs {
+		if device == m.id {
+			continue
+		}
 		hello := m.helloMessages[device]
 		versionString := hello.ClientVersion
 		if hello.ClientName != "syncthing" {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
-		ci := ConnectionInfo{
-			ClientVersion: strings.TrimSpace(versionString),
+		connIDs, ok := m.deviceConns[device]
+		cs := ConnectionStats{
+			Connected:     ok,
 			Paused:        deviceCfg.Paused,
+			ClientVersion: strings.TrimSpace(versionString),
 		}
-		if connIDs, ok := m.deviceConns[device]; ok {
-			conn := m.conns[connIDs[0]] // XXX: only accounts primary, should account all
-			ci.Type = conn.Type()
-			ci.IsLocal = conn.IsLocal()
-			ci.Crypto = conn.Crypto()
-			ci.Connected = ok
-			ci.Statistics = conn.Statistics()
+		if ok {
+			conn := m.conns[connIDs[0]]
+
+			cs.Primary.Type = conn.Type()
+			cs.Primary.IsLocal = conn.IsLocal()
+			cs.Primary.Crypto = conn.Crypto()
+			cs.Primary.Statistics = conn.Statistics()
 			if addr := conn.RemoteAddr(); addr != nil {
-				ci.Address = addr.String()
+				cs.Primary.Address = addr.String()
+			}
+
+			cs.Type = cs.Primary.Type
+			cs.IsLocal = cs.Primary.IsLocal
+			cs.Crypto = cs.Primary.Crypto
+			cs.Address = cs.Primary.Address
+			cs.Statistics = cs.Primary.Statistics
+
+			for _, connID := range connIDs[1:] {
+				conn = m.conns[connID]
+				sec := ConnectionInfo{
+					Statistics: conn.Statistics(),
+					Address:    conn.RemoteAddr().String(),
+					Type:       conn.Type(),
+					IsLocal:    conn.IsLocal(),
+					Crypto:     conn.Crypto(),
+				}
+				if sec.At.After(cs.At) {
+					cs.At = sec.At
+				}
+				if sec.StartedAt.Before(cs.StartedAt) {
+					cs.StartedAt = sec.StartedAt
+				}
+				cs.InBytesTotal += sec.InBytesTotal
+				cs.OutBytesTotal += sec.OutBytesTotal
+				cs.Secondary = append(cs.Secondary, sec)
 			}
 		}
 
-		conns[device.String()] = ci
+		conns[device.String()] = cs
 	}
 
 	res["connections"] = conns
@@ -2291,7 +2335,11 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.evLogger.Log(events.DeviceConnected, event)
 
-	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
+	if len(m.deviceConns[deviceID]) == 1 {
+		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
+	} else {
+		l.Infof(`Additional connection #%d for device %s at %s`, len(m.deviceConns[deviceID]), deviceID.Short(), conn)
+	}
 
 	m.pmut.Unlock()
 

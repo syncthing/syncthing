@@ -1,6 +1,6 @@
 <configuration version="37">
     <folder id="default" label="" path="s2" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
-        <filesystemType>basic</filesystemType>
+        <filesystemType>fake</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy="">
             <encryptionPassword></encryptionPassword>
         </device>
@@ -16,7 +16,7 @@
             <fsPath></fsPath>
             <fsType>basic</fsType>
         </versioning>
-        <copiers>1</copiers>
+        <copiers>8</copiers>
         <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
         <hashers>0</hashers>
         <order>random</order>
@@ -31,7 +31,7 @@
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
-        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <maxConcurrentWrites>8</maxConcurrentWrites>
         <disableFsync>false</disableFsync>
         <blockPullOrder>standard</blockPullOrder>
         <copyRangeMethod>standard</copyRangeMethod>
@@ -55,7 +55,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
-	<multipleConnections>4</multipleConnections>
+	<multipleConnections>9</multipleConnections>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>

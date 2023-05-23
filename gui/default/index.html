@@ -848,6 +848,14 @@
                           </span>
                         </td>
                       </tr>
+                      <tr ng-if="connections[deviceCfg.deviceID].connected && deviceCfg.multipleConnections > 1">
+                        <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Multiple Connections</span></th>
+                        <td class="text-right">
+                          <span>
+                            1 + {{connections[deviceCfg.deviceID].secondary.length}}
+                          </span>
+                        </td>
+                      </tr>
                       <tr ng-if="deviceCfg.allowedNetworks.length > 0">
                         <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
                         <td class="text-right">
