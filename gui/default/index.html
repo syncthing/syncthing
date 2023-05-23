@@ -852,7 +852,7 @@
                         <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Multiple Connections</span></th>
                         <td class="text-right">
                           <span>
-                            1 + {{connections[deviceCfg.deviceID].secondary.length}}
+                            1 + {{connections[deviceCfg.deviceID].secondary.length | alwaysNumber}}
                           </span>
                         </td>
                       </tr>
