@@ -1296,7 +1296,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	if !ok {
 		t.Fatal("file missing")
 	}
-	must(t, m.Index(device1, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}}))
+	must(t, m.Index(device1Conn, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}}))
 
 	scanChan := make(chan string)
 

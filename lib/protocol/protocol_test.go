@@ -145,7 +145,7 @@ func TestCloseRace(t *testing.T) {
 	indexReceived := make(chan struct{})
 	unblockIndex := make(chan struct{})
 	m0 := newTestModel()
-	m0.indexFn = func(_ DeviceID, _ string, _ []FileInfo) {
+	m0.indexFn = func(string, []FileInfo) {
 		close(indexReceived)
 		<-unblockIndex
 	}
@@ -924,7 +924,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	m := newTestModel()
 	rw := testutils.NewBlockingRW()
 	c := getRawConnection(NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
-	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
+	m.ccFn = func(ClusterConfig) {
 		c.Close(errManual)
 	}
 	c.Start()

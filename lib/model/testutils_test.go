@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol/mocks"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -29,6 +30,16 @@ var (
 	defaultFolderConfig     config.FolderConfiguration
 	defaultCfg              config.Configuration
 	defaultAutoAcceptCfg    config.Configuration
+	device1Conn             = &mocks.Connection{
+		IDStub: func() protocol.DeviceID {
+			return device1
+		},
+	}
+	device2Conn = &mocks.Connection{
+		IDStub: func() protocol.DeviceID {
+			return device2
+		},
+	}
 )
 
 func init() {

@@ -171,6 +171,9 @@ type service struct {
 	listenersMut   sync.RWMutex
 	listeners      map[string]genericListener
 	listenerTokens map[string]suture.ServiceToken
+
+	connectionsMut sync.Mutex
+	connections    map[protocol.DeviceID]int
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
@@ -202,6 +205,9 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
+
+		connectionsMut: sync.NewMutex(),
+		connections:    make(map[protocol.DeviceID]int),
 	}
 	cfg.Subscribe(service)
 
@@ -316,7 +322,7 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 	if ct, ok := s.model.Connection(remoteID); ok {
 		if ct.Priority() > c.priority || time.Since(ct.Statistics().StartedAt) > minConnectionReplaceAge {
 			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
-		} else {
+		} else if cfg.MultipleConnections <= s.connectionsForDevice(cfg.DeviceID) {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
 			// hasn't timed out yet we may want to drop *that* connection and keep
@@ -412,9 +418,16 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
+		// Amazing hack: We need to pass the connection to the model, but we
+		// also need to pass the model to the connection. The
+		// connectionContextModel handles the mediation by being constructed
+		// in two stages...
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
+
+		s.accountAddedConnection(remoteID)
 		go func() {
 			<-protoConn.Closed()
+			s.accountRemovedConnection(remoteID)
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
 			s.scheduleDialNow()
@@ -552,9 +565,10 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			// we don't attempt dialers that aren't considered a worthy upgrade.
 			priorityCutoff -= cfg.Options.ConnectionPriorityUpgradeThreshold
 
-			if bestDialerPriority >= priorityCutoff {
+			if bestDialerPriority >= priorityCutoff && deviceCfg.MultipleConnections <= s.connectionsForDevice(deviceCfg.DeviceID) {
 				// Our best dialer is not any better than what we already
-				// have, so nothing to do here.
+				// have, and we already have the desired number of
+				// connections to this device,so nothing to do here.
 				continue
 			}
 		}
@@ -666,7 +680,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 
 		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry, s.lanChecker)
 		priority := dialer.Priority(uri.Host)
-		if priority >= priorityCutoff {
+		if priority >= priorityCutoff && deviceCfg.MultipleConnections <= s.connectionsForDevice(deviceCfg.DeviceID) {
 			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d)", dialerFactory, priority, priorityCutoff)
 			continue
 		}
@@ -1181,6 +1195,24 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	}
 
 	return nil
+}
+
+func (s *service) accountAddedConnection(d protocol.DeviceID) {
+	s.connectionsMut.Lock()
+	defer s.connectionsMut.Unlock()
+	s.connections[d]++
+}
+
+func (s *service) accountRemovedConnection(d protocol.DeviceID) {
+	s.connectionsMut.Lock()
+	defer s.connectionsMut.Unlock()
+	s.connections[d]--
+}
+
+func (s *service) connectionsForDevice(d protocol.DeviceID) int {
+	s.connectionsMut.Lock()
+	defer s.connectionsMut.Unlock()
+	return s.connections[d]
 }
 
 type nextDialRegistry map[protocol.DeviceID]nextDialDevice

@@ -45,7 +45,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(device1Conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	size := globalSize(t, m, "ro")
@@ -122,7 +122,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(device1Conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -212,7 +212,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(device1Conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -282,7 +282,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(device1Conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -347,7 +347,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(device1Conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -402,7 +402,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	must(t, m.IndexUpdate(device1, "ro", files))
+	must(t, m.IndexUpdate(device1Conn, "ro", files))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
 	must(t, f.doInSync(func() error {
@@ -470,7 +470,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	}()
 
 	// Receive an index update with an older version, but valid and then revert
-	must(t, m.Index(device1, f.ID, []protocol.FileInfo{fi}))
+	must(t, m.Index(device1Conn, f.ID, []protocol.FileInfo{fi}))
 	f.Revert()
 
 	select {

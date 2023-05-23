@@ -121,19 +121,34 @@ var (
 	errFileHasNoBlocks    = errors.New("file with empty block list")
 )
 
+type contextLessModel interface {
+	// An index was received from the peer device
+	Index(folder string, files []FileInfo) error
+	// An index update was received from the peer device
+	IndexUpdate(folder string, files []FileInfo) error
+	// A request was made by the peer device
+	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	// A cluster configuration message was received
+	ClusterConfig(config ClusterConfig) error
+	// The peer device closed the connection or an error occurred
+	Closed(err error)
+	// The peer device sent progress updates for the files it is currently downloading
+	DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error
+}
+
 type Model interface {
 	// An index was received from the peer device
-	Index(deviceID DeviceID, folder string, files []FileInfo) error
+	Index(conn Connection, folder string, files []FileInfo) error
 	// An index update was received from the peer device
-	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error
+	IndexUpdate(conn Connection, folder string, files []FileInfo) error
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	Request(conn Connection, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
-	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
+	ClusterConfig(conn Connection, config ClusterConfig) error
 	// The peer device closed the connection or an error occurred
-	Closed(connID string, err error)
+	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
-	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
+	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
 }
 
 type RequestResponse interface {
@@ -173,7 +188,7 @@ type rawConnection struct {
 	ConnectionInfo
 
 	id        DeviceID
-	receiver  Model
+	model     contextLessModel
 	startTime time.Time
 
 	cr     *countingReader
@@ -230,10 +245,16 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, model Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
+	// We create the wrapper for the model first, as it needs to be passed
+	// in at the lowest level in the stack. At the end of construction,
+	// before returning, we add the connection to cwm so that it can be used
+	// by the model.
+	cwm := &connectionWrappingModel{model: model}
+
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
-	nm := makeNative(receiver)
+	nm := makeNative(cwm)
 	em := newEncryptedModel(nm, newFolderKeyRegistry(keyGen, passwords), keyGen)
 
 	// We do the wire format conversion first (outermost) so that the
@@ -242,17 +263,18 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 	ec := newEncryptedConnection(rc, rc, em.folderKeys, keyGen)
 	wc := wireFormatConnection{ec}
 
+	cwm.conn = wc
 	return wc
 }
 
-func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) *rawConnection {
+func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver contextLessModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
 	return &rawConnection{
 		ConnectionInfo:        connInfo,
 		id:                    deviceID,
-		receiver:              receiver,
+		model:                 receiver,
 		cr:                    cr,
 		cw:                    cw,
 		closer:                closer,
@@ -463,7 +485,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 
 		switch msg := msg.(type) {
 		case *ClusterConfig:
-			err = c.receiver.ClusterConfig(c.id, *msg)
+			err = c.model.ClusterConfig(*msg)
 
 		case *Index:
 			err = c.handleIndex(*msg)
@@ -478,7 +500,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
-			err = c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
+			err = c.model.DownloadProgress(msg.Folder, msg.Updates)
 		}
 		if err != nil {
 			return newHandleError(err, msgContext)
@@ -581,12 +603,12 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 
 func (c *rawConnection) handleIndex(im Index) error {
 	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
-	return c.receiver.Index(c.id, im.Folder, im.Files)
+	return c.model.Index(im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
 	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
-	return c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
+	return c.model.IndexUpdate(im.Folder, im.Files)
 }
 
 // checkIndexConsistency verifies a number of invariants on FileInfos received in
@@ -652,7 +674,7 @@ func checkFilename(name string) error {
 }
 
 func (c *rawConnection) handleRequest(req Request) {
-	res, err := c.receiver.Request(c.id, req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	res, err := c.model.Request(req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
 		c.send(context.Background(), &Response{
 			ID:   req.ID,
@@ -941,7 +963,7 @@ func (c *rawConnection) internalClose(err error) {
 
 		<-c.dispatcherLoopStopped
 
-		c.receiver.Closed(c.ConnectionID(), err)
+		c.model.Closed(err)
 	})
 }
 
@@ -1068,4 +1090,36 @@ func messageContext(msg message) (string, error) {
 	default:
 		return "", errors.New("unknown or empty message")
 	}
+}
+
+// connectionWrappingModel takes the Model interface from the model package,
+// which expects the Connection as the first parameter in all methods, and
+// wraps it to conform to the protocol.Model interface.
+type connectionWrappingModel struct {
+	conn  Connection
+	model Model
+}
+
+func (c *connectionWrappingModel) Index(folder string, files []FileInfo) error {
+	return c.model.Index(c.conn, folder, files)
+}
+
+func (c *connectionWrappingModel) IndexUpdate(folder string, files []FileInfo) error {
+	return c.model.IndexUpdate(c.conn, folder, files)
+}
+
+func (c *connectionWrappingModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+	return c.model.Request(c.conn, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+}
+
+func (c *connectionWrappingModel) ClusterConfig(config ClusterConfig) error {
+	return c.model.ClusterConfig(c.conn, config)
+}
+
+func (c *connectionWrappingModel) Closed(err error) {
+	c.model.Closed(c.conn, err)
+}
+
+func (c *connectionWrappingModel) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error {
+	return c.model.DownloadProgress(c.conn, folder, updates)
 }

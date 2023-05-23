@@ -41,7 +41,8 @@ enum MessageCompression {
 // Cluster Config
 
 message ClusterConfig {
-    repeated Folder folders = 1;
+    repeated Folder folders   = 1;
+    bool            secondary = 2;
 }
 
 message Folder {

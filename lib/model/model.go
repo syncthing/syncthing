@@ -1120,14 +1120,14 @@ func (p *pager) done() bool {
 
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(deviceID, folder, fs, false)
+func (m *model) Index(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(conn.ID(), folder, fs, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
-func (m *model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(deviceID, folder, fs, true)
+func (m *model) IndexUpdate(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(conn.ID(), folder, fs, true)
 }
 
 func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) error {
@@ -1169,13 +1169,20 @@ type ClusterConfigReceivedEventData struct {
 	Device protocol.DeviceID `json:"device"`
 }
 
-func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) error {
+func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfig) error {
+	if cm.Secondary {
+		// No handling of secondary connection ClusterConfigs; they merely
+		// indicate the connection is ready to start.
+		return nil
+	}
+
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	l.Debugf("Handling ClusterConfig from %v", deviceID.Short())
+	deviceID := conn.ID()
+	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), conn.ConnectionID())
 
 	m.pmut.RLock()
 	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
@@ -1788,7 +1795,10 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 // Closed is called when a connection has been closed
-func (m *model) Closed(connID string, err error) {
+func (m *model) Closed(conn protocol.Connection, err error) {
+	connID := conn.ConnectionID()
+	deviceID := conn.ID()
+
 	m.pmut.Lock()
 	conn, ok := m.conns[connID]
 	if !ok {
@@ -1800,32 +1810,31 @@ func (m *model) Closed(connID string, err error) {
 	delete(m.closed, connID)
 	delete(m.conns, connID)
 
-	device := conn.ID()
-	removedIsPrimary := m.deviceConns[device][0] == connID
-	remainingConns := without(m.deviceConns[device], connID)
+	removedIsPrimary := m.deviceConns[deviceID][0] == connID
+	remainingConns := without(m.deviceConns[deviceID], connID)
 	// XXX: all the below needs more thinking about when to remove what
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
-		delete(m.indexHandlers, device)
-		delete(m.deviceDownloads, device)
+		delete(m.indexHandlers, deviceID)
+		delete(m.deviceDownloads, deviceID)
 		m.scheduleConnectionPromotion()
 	}
 	if len(remainingConns) == 0 {
 		// All device connections closed
-		delete(m.deviceConns, device)
-		delete(m.connRequestLimiters, device)
-		delete(m.helloMessages, device)
-		delete(m.remoteFolderStates, device)
-		m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
+		delete(m.deviceConns, deviceID)
+		delete(m.connRequestLimiters, deviceID)
+		delete(m.helloMessages, deviceID)
+		delete(m.remoteFolderStates, deviceID)
+		m.deviceDidClose(deviceID, time.Since(conn.EstablishedAt()))
 	} else {
 		// Some connections remain
-		m.deviceConns[device] = remainingConns
+		m.deviceConns[deviceID] = remainingConns
 	}
 	m.pmut.Unlock()
 
-	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
+	l.Infof("Connection to %s at %s closed: %v", deviceID, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
-		"id":    device.String(),
+		"id":    deviceID.String(),
 		"error": err.Error(),
 	})
 	close(closed)
@@ -1862,10 +1871,13 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+func (m *model) Request(conn protocol.Connection, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
+
+	deviceID := conn.ID()
+	connID := conn.ConnectionID()
 
 	m.fmut.RLock()
 	folderCfg, ok := m.folderCfgs[folder]
@@ -1894,16 +1906,16 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, size, fromTemporary)
+		l.Debugf("%v REQ(in): %s/%s: %q / %q o=%d s=%d t=%v", m, deviceID, connID, folder, name, offset, size, fromTemporary)
 	}
 
 	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) for internal file: %s/%s: %q / %q o=%d s=%d", m, deviceID, connID, folder, name, offset, size)
 		return nil, protocol.ErrInvalid
 	}
 
 	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) for ignored file: %s/%s: %q / %q o=%d s=%d", m, deviceID, connID, folder, name, offset, size)
 		return nil, protocol.ErrInvalid
 	}
 
@@ -2281,8 +2293,6 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
-	conn.Start()
-
 	m.pmut.Unlock()
 
 	if (deviceCfg.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
@@ -2319,11 +2329,29 @@ func (m *model) promoteConnections() {
 	defer m.pmut.Unlock()
 
 	for deviceID, connIDs := range m.deviceConns {
+		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
 		if _, ok := m.indexHandlers[deviceID]; !ok {
-			// Connected device lacks and index handler. We should promote
+			// Connected device lacks an index handler. We should promote
 			// the primary connection to be the index handling one.
 			l.Infoln("Promoting connection", connIDs[0], "to", deviceID)
-			m.promoteDeviceConnectionLocked(m.conns[connIDs[0]])
+			conn := m.conns[connIDs[0]]
+			m.promoteDeviceConnectionLocked(conn)
+			if conn.Statistics().StartedAt.IsZero() {
+				conn.SetFolderPasswords(passwords)
+				conn.Start()
+				conn.ClusterConfig(cm)
+			}
+		}
+
+		// Make sure any new connections also get started, and an empty
+		// cluster config.
+		for _, connID := range connIDs[1:] {
+			conn := m.conns[connID]
+			if conn.Statistics().StartedAt.IsZero() {
+				conn.SetFolderPasswords(passwords)
+				conn.Start()
+				conn.ClusterConfig(protocol.ClusterConfig{Secondary: true})
+			}
 		}
 	}
 }
@@ -2333,35 +2361,32 @@ func (m *model) promoteDeviceConnectionLocked(conn protocol.Connection) {
 	connID := conn.ConnectionID()
 
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-
 	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
 	m.indexHandlers[deviceID] = indexRegistry
-
-	cm, passwords := m.generateClusterConfigFRLocked(deviceID)
-	conn.SetFolderPasswords(passwords)
-	conn.ClusterConfig(cm)
 }
 
-func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+func (m *model) DownloadProgress(conn protocol.Connection, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+	deviceID := conn.ID()
+
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
+	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(deviceID) {
 		return nil
 	}
 
 	m.pmut.RLock()
-	downloads := m.deviceDownloads[device]
+	downloads := m.deviceDownloads[deviceID]
 	m.pmut.RUnlock()
 	downloads.Update(folder, updates)
 	state := downloads.GetBlockCounts(folder)
 
 	m.evLogger.Log(events.RemoteDownloadProgress, map[string]interface{}{
-		"device": device.String(),
+		"device": deviceID.String(),
 		"folder": folder,
 		"state":  state,
 	})
@@ -2406,7 +2431,7 @@ func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	l.Debugf("%v REQ(out): %s: %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, conn.String(), folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 
 	return conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 }
