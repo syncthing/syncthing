@@ -1165,21 +1165,22 @@ func (p *pager) done() bool {
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *model) Index(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(conn.ID(), folder, fs, false)
+	return m.handleIndex(conn, folder, fs, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *model) IndexUpdate(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(conn.ID(), folder, fs, true)
+	return m.handleIndex(conn, folder, fs, true)
 }
 
-func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) error {
+func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protocol.FileInfo, update bool) error {
 	op := "Index"
 	if update {
 		op += " update"
 	}
 
+	deviceID := conn.ID()
 	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
@@ -1190,18 +1191,7 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		return fmt.Errorf("%s: %w", folder, ErrFolderPaused)
 	}
 
-	m.pmut.RLock()
-	indexHandler, ok := m.indexHandlers[deviceID]
-	m.pmut.RUnlock()
-	if !ok {
-		// This should be impossible, as an index handler always exists for an
-		// open connection, and this method can't be called on a closed
-		// connection
-		m.evLogger.Log(events.Failure, "index sender does not exist for connection on which indexes were received")
-		l.Debugf("%v for folder (ID %q) sent from device %q: missing index handler", op, folder, deviceID)
-		return fmt.Errorf("index handler missing: %s", folder)
-	}
-
+	indexHandler := m.ensureIndexHandler(conn)
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
 }
 
@@ -1226,14 +1216,10 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	// temporary indexes, subscribe the connection.
 
 	deviceID := conn.ID()
-	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), conn.ConnectionID())
+	connID := conn.ConnectionID()
+	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
 
-	m.pmut.RLock()
-	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
-	m.pmut.RUnlock()
-	if !ok {
-		panic("bug: ClusterConfig called on closed or nonexistent connection")
-	}
+	indexHandlerRegistry := m.ensureIndexHandler(conn)
 
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
@@ -1352,6 +1338,39 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	}
 
 	return nil
+}
+
+func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegistry {
+	deviceID := conn.ID()
+	connID := conn.ConnectionID()
+
+	m.pmut.Lock()
+	defer m.pmut.Unlock()
+
+	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
+	if ok && indexHandlerRegistry.conn.ConnectionID() == connID {
+		// This is an existing and proper index handler for this connection.
+		return indexHandlerRegistry
+	}
+
+	if ok {
+		// A handler exists, but it's for another connection than the one we
+		// now got a ClusterConfig on. This should be unusual as it means
+		// the other side has decided to start using a new primary
+		// connection but we haven't seen it close yet. Ideally it will
+		// close shortly by itself...
+		l.Infoln("Abandoning old index handler for", deviceID)
+	}
+
+	// Create a new index handler for this device.
+	indexHandlerRegistry = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
+	for id, fcfg := range m.folderCfgs {
+		indexHandlerRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
+	}
+	m.indexHandlers[deviceID] = indexHandlerRegistry
+	m.deviceDownloads[deviceID] = newDeviceDownloadState()
+
+	return indexHandlerRegistry
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]remoteFolderState, error) {
@@ -1859,8 +1878,10 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	// XXX: all the below needs more thinking about when to remove what
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
-		delete(m.indexHandlers, deviceID)
-		delete(m.deviceDownloads, deviceID)
+		if idxh, ok := m.indexHandlers[deviceID]; ok && idxh.conn.ConnectionID() == connID {
+			delete(m.indexHandlers, deviceID)
+			delete(m.deviceDownloads, deviceID)
+		}
 		m.scheduleConnectionPromotion()
 	}
 	if len(remainingConns) == 0 {
@@ -1876,11 +1897,17 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	}
 	m.pmut.Unlock()
 
-	l.Infof("Connection to %s at %s closed: %v", deviceID, conn, err)
-	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
-		"id":    deviceID.String(),
-		"error": err.Error(),
-	})
+	k := map[bool]string{false: "secondary", true: "primary"}[removedIsPrimary]
+	l.Infof("Lost %s connection to %s at %s: %v (%d remain)", k, deviceID.Short(), conn, err, len(remainingConns))
+
+	if len(remainingConns) == 0 {
+		l.Infof("Connection to %s at %s closed: %v", deviceID.Short(), conn, err)
+		m.evLogger.Log(events.DeviceDisconnected, map[string]string{
+			"id":    deviceID.String(),
+			"error": err.Error(),
+		})
+	} else {
+	}
 	close(closed)
 }
 
@@ -2338,7 +2365,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	if len(m.deviceConns[deviceID]) == 1 {
 		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 	} else {
-		l.Infof(`Additional connection #%d for device %s at %s`, len(m.deviceConns[deviceID]), deviceID.Short(), conn)
+		l.Infof(`Additional connection (#%d) for device %s at %s`, len(m.deviceConns[deviceID])-1, deviceID.Short(), conn)
 	}
 
 	m.pmut.Unlock()
@@ -2378,21 +2405,20 @@ func (m *model) promoteConnections() {
 
 	for deviceID, connIDs := range m.deviceConns {
 		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
-		if _, ok := m.indexHandlers[deviceID]; !ok {
-			// Connected device lacks an index handler. We should promote
-			// the primary connection to be the index handling one.
-			l.Infoln("Promoting connection", connIDs[0], "to", deviceID)
+		if idxh, ok := m.indexHandlers[deviceID]; !ok || idxh.conn.ConnectionID() != connIDs[0] {
+			// Primary device lacks an index handler. We should promote the
+			// primary connection to be the index handling one.
+			l.Infoln("Promoting connection", connIDs[0], "to", deviceID.Short())
 			conn := m.conns[connIDs[0]]
-			m.promoteDeviceConnectionLocked(conn)
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
 				conn.Start()
-				conn.ClusterConfig(cm)
 			}
+			conn.ClusterConfig(cm)
 		}
 
-		// Make sure any new connections also get started, and an empty
-		// cluster config.
+		// Make sure any new connections also get started, and a
+		// secondary-marked ClusterConfig.
 		for _, connID := range connIDs[1:] {
 			conn := m.conns[connID]
 			if conn.Statistics().StartedAt.IsZero() {
@@ -2402,18 +2428,6 @@ func (m *model) promoteConnections() {
 			}
 		}
 	}
-}
-
-func (m *model) promoteDeviceConnectionLocked(conn protocol.Connection) {
-	deviceID := conn.ID()
-	connID := conn.ConnectionID()
-
-	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
-	for id, fcfg := range m.folderCfgs {
-		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
-	}
-	m.indexHandlers[deviceID] = indexRegistry
 }
 
 func (m *model) DownloadProgress(conn protocol.Connection, folder string, updates []protocol.FileDownloadProgressUpdate) error {
