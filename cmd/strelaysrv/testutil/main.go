@@ -27,11 +27,12 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	var connect, relay, dir string
-	var join, test bool
+	var join, test, echo bool
 
 	flag.StringVar(&connect, "connect", "", "Device ID to which to connect to")
 	flag.BoolVar(&join, "join", false, "Join relay")
 	flag.BoolVar(&test, "test", false, "Generic relay test")
+	flag.BoolVar(&echo, "echo", false, "Auto reply received data")
 	flag.StringVar(&relay, "relay", "relay://127.0.0.1:22067", "Relay address")
 	flag.StringVar(&dir, "keys", ".", "Directory where cert.pem and key.pem is stored")
 
@@ -85,7 +86,7 @@ func main() {
 				log.Fatalln("Failed to join", err)
 			}
 			log.Println("Joined", conn.RemoteAddr(), conn.LocalAddr())
-			connectToStdio(stdin, conn)
+			connectToStdio(stdin, conn, echo)
 			log.Println("Finished", conn.RemoteAddr(), conn.LocalAddr())
 		}
 	} else if connect != "" {
@@ -105,7 +106,7 @@ func main() {
 			log.Fatalln("Failed to join", err)
 		}
 		log.Println("Joined", conn.RemoteAddr(), conn.LocalAddr())
-		connectToStdio(stdin, conn)
+		connectToStdio(stdin, conn, echo)
 		log.Println("Finished", conn.RemoteAddr(), conn.LocalAddr())
 	} else if test {
 		if err := client.TestRelay(ctx, uri, []tls.Certificate{cert}, time.Second, 2*time.Second, 4); err == nil {
@@ -126,7 +127,7 @@ func stdinReader(c chan<- string) {
 	}
 }
 
-func connectToStdio(stdin <-chan string, conn net.Conn) {
+func connectToStdio(stdin <-chan string, conn net.Conn, echo bool) {
 	buf := make([]byte, 1024)
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Millisecond))
@@ -139,6 +140,9 @@ func connectToStdio(stdin <-chan string, conn net.Conn) {
 			}
 		}
 		os.Stdout.Write(buf[:n])
+		if echo {
+			conn.Write(buf[:n])
+		}
 
 		select {
 		case msg := <-stdin:
