@@ -54,6 +54,7 @@ func getStatus(w http.ResponseWriter, _ *http.Request) {
 	status["numConnections"] = numConnections.Load()
 	status["numProxies"] = numProxies.Load()
 	status["bytesProxied"] = bytesProxied.Load()
+	status["totalSessions"] = totalSessions.Load()
 	status["goVersion"] = runtime.Version()
 	status["goOS"] = runtime.GOOS
 	status["goArch"] = runtime.GOARCH
@@ -73,6 +74,7 @@ func getStatus(w http.ResponseWriter, _ *http.Request) {
 		"message-timeout":  messageTimeout / time.Second,
 		"per-session-rate": sessionLimitBps,
 		"global-rate":      globalLimitBps,
+		"max-connection":   descriptorLimit,
 		"pools":            pools,
 		"provided-by":      providedBy,
 	}

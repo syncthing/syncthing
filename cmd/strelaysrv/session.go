@@ -25,6 +25,7 @@ var (
 	pendingSessions = make(map[string]*session)
 	numProxies      atomic.Int64
 	bytesProxied    atomic.Int64
+	totalSessions   atomic.Int64
 )
 
 func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *rate.Limiter) *session {
@@ -58,6 +59,8 @@ func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit,
 	pendingSessions[string(ses.serverkey)] = ses
 	pendingSessions[string(ses.clientkey)] = ses
 	sessionMut.Unlock()
+
+	totalSessions.Add(1)
 
 	return ses
 }

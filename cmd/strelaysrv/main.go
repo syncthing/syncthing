@@ -88,6 +88,7 @@ func main() {
 	flag.DurationVar(&messageTimeout, "message-timeout", messageTimeout, "Maximum amount of time we wait for relevant messages to arrive")
 	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
+	flag.Int64Var(&descriptorLimit, "max-connections", descriptorLimit, "Maximum amount of connections")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
 	flag.StringVar(&token, "token", "", "Token to restrict access to the relay (optional). Disables joining any pools.")
@@ -140,15 +141,18 @@ func main() {
 
 	log.Println(longVer)
 
-	maxDescriptors, err := osutil.MaximizeOpenFileLimit()
-	if maxDescriptors > 0 {
-		// Assume that 20% of FD's are leaked/unaccounted for.
-		descriptorLimit = int64(maxDescriptors*80) / 100
-		log.Println("Connection limit", descriptorLimit)
-
+	if descriptorLimit == 0 {
+		maxDescriptors, err := osutil.MaximizeOpenFileLimit()
+		if maxDescriptors > 0 {
+			// Assume that 20% of FD's are leaked/unaccounted for.
+			descriptorLimit = int64(maxDescriptors*80) / 100
+			log.Println("Connection limit", descriptorLimit)
+		} else if err != nil && !build.IsWindows {
+			log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
+		}
+	}
+	if descriptorLimit > 0 {
 		go monitorLimits()
-	} else if err != nil && !build.IsWindows {
-		log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
 	}
 
 	sessionAddress = addr.IP[:]
