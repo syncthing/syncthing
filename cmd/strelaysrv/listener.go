@@ -91,6 +91,11 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	conn.SetDeadline(time.Time{})
 
 	id := syncthingprotocol.NewDeviceID(certs[0].Raw)
+	_, isUnlimitedDevice := unlimitedDeviceIds[id]
+	deviceSessionLimiter := sessionLimiter
+	if isUnlimitedDevice {
+		deviceSessionLimiter = nil
+	}
 
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
@@ -128,7 +133,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 
-				if overLimit.Load() {
+				if overLimit.Load() && !isUnlimitedDevice {
 					protocol.WriteMessage(conn, protocol.RelayFull{})
 					if debug {
 						log.Println("Refusing join request from", id, "due to being over limits")
@@ -179,7 +184,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 				// requestedPeer is the server, id is the client
-				ses := newSession(requestedPeer, id, sessionLimiter, globalLimiter)
+				ses := newSession(requestedPeer, id, deviceSessionLimiter, globalLimiter)
 
 				go ses.Serve()
 

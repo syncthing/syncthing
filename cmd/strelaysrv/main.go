@@ -41,9 +41,10 @@ var (
 	sessionAddress []byte
 	sessionPort    uint16
 
-	networkTimeout = 2 * time.Minute
-	pingInterval   = time.Minute
-	messageTimeout = time.Minute
+	networkTimeout     = 2 * time.Minute
+	pingInterval       = time.Minute
+	messageTimeout     = time.Minute
+	limitCheckInterval = time.Minute
 
 	limitCheckTimer *time.Timer
 
@@ -54,6 +55,9 @@ var (
 	sessionLimiter    *rate.Limiter
 	globalLimiter     *rate.Limiter
 	networkBufferSize int
+
+	unlimitedDevices   string
+	unlimitedDeviceIds = map[syncthingprotocol.DeviceID]struct{}{}
 
 	statusAddr       string
 	token            string
@@ -86,10 +90,12 @@ func main() {
 	flag.DurationVar(&networkTimeout, "network-timeout", networkTimeout, "Timeout for network operations between the client and the relay.\n\tIf no data is received between the client and the relay in this period of time, the connection is terminated.\n\tFurthermore, if no data is sent between either clients being relayed within this period of time, the session is also terminated.")
 	flag.DurationVar(&pingInterval, "ping-interval", pingInterval, "How often pings are sent")
 	flag.DurationVar(&messageTimeout, "message-timeout", messageTimeout, "Maximum amount of time we wait for relevant messages to arrive")
+	flag.DurationVar(&limitCheckInterval, "limit-interval", limitCheckInterval, "How often check if the number of connections exceeds the limit")
 	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
 	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
-	flag.Int64Var(&descriptorLimit, "max-connections", descriptorLimit, "Maximum amount of connections")
+	flag.Int64Var(&descriptorLimit, "max-connections", descriptorLimit, "Maximum number of connections")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
+	flag.StringVar(&unlimitedDevices, "unlimited-devices", "", "List of devices that are not subject to speed limit or connection limit")
 	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
 	flag.StringVar(&token, "token", "", "Token to restrict access to the relay (optional). Disables joining any pools.")
 	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
@@ -151,7 +157,7 @@ func main() {
 			log.Println("Assuming no connection limit, due to error retrieving rlimits:", err)
 		}
 	}
-	if descriptorLimit > 0 {
+	if descriptorLimit > 0 && limitCheckInterval > 0 {
 		go monitorLimits()
 	}
 
@@ -281,6 +287,17 @@ func main() {
 		}
 	}
 
+	if len(unlimitedDevices) > 0 {
+		for _, deviceIdString := range strings.Split(unlimitedDevices, ",") {
+			deviceId, err := syncthingprotocol.DeviceIDFromString(deviceIdString)
+			if err != nil {
+				log.Println("Illegal Device ID", err)
+			} else {
+				unlimitedDeviceIds[deviceId] = struct{}{}
+			}
+		}
+	}
+
 	go listener(proto, listen, tlsCfg, token)
 
 	sigs := make(chan os.Signal, 1)
@@ -310,16 +327,18 @@ func main() {
 }
 
 func monitorLimits() {
-	limitCheckTimer = time.NewTimer(time.Minute)
+	limitCheckTimer = time.NewTimer(limitCheckInterval)
 	for range limitCheckTimer.C {
 		if numConnections.Load()+numProxies.Load() > descriptorLimit {
 			if !overLimit.Swap(true) {
 				log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")
 			}
-		} else if overLimit.CompareAndSwap(true, false) {
-			log.Println("Dropped below our connection limits. Accepting new connections.")
+		} else {
+			if overLimit.CompareAndSwap(true, false) {
+				log.Println("Dropped below our connection limits. Accepting new connections.")
+			}
+			limitCheckTimer.Reset(limitCheckInterval)
 		}
-		limitCheckTimer.Reset(time.Minute)
 	}
 }
 
