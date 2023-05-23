@@ -49,7 +49,7 @@ func (t *TestModel) Request(_ DeviceID, folder, name string, _, size int32, offs
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (t *TestModel) Closed(_ DeviceID, err error) {
+func (t *TestModel) Closed(_ string, err error) {
 	t.closedErr = err
 	close(t.closedCh)
 }

@@ -155,8 +155,8 @@ func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) e
 	return e.model.ClusterConfig(deviceID, config)
 }
 
-func (e encryptedModel) Closed(device DeviceID, err error) {
-	e.model.Closed(device, err)
+func (e encryptedModel) Closed(connID string, err error) {
+	e.model.Closed(connID, err)
 }
 
 // The encryptedConnection sits between the model and the encrypted device. It

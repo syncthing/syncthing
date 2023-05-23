@@ -287,7 +287,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	m.Closed(conn.ID(), protocol.ErrTimeout)
+	m.Closed(conn.ConnectionID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester"
 	m.AddConnection(conn, hello)
 
@@ -295,7 +295,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device did not get a name")
 	}
 
-	m.Closed(conn.ID(), protocol.ErrTimeout)
+	m.Closed(conn.ConnectionID(), protocol.ErrTimeout)
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
@@ -317,7 +317,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name not saved in config")
 	}
 
-	m.Closed(conn.ID(), protocol.ErrTimeout)
+	m.Closed(conn.ConnectionID(), protocol.ErrTimeout)
 
 	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
 		cfg.Options.OverwriteRemoteDevNames = true
@@ -903,10 +903,10 @@ func TestIssue5063(t *testing.T) {
 	defer cancel()
 
 	m.pmut.Lock()
-	for _, c := range m.conn {
+	for _, c := range m.conns {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
-		defer m.Closed(c.ID(), errStopped) // to unblock deferred m.Stop()
+		defer m.Closed(c.ConnectionID(), errStopped) // to unblock deferred m.Stop()
 	}
 	m.pmut.Unlock()
 
@@ -2229,7 +2229,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("device still in config")
 	}
 
-	if _, ok := m.conn[device2]; ok {
+	if _, ok := m.deviceConns[device2]; ok {
 		t.Error("conn not missing")
 	}
 
@@ -2964,12 +2964,13 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
+	conn := protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil, m.keyGen)
+	m.AddConnection(conn, protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
-		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
+		t.Fatalf("Expected just one conn (len(m.conns) == %v)", len(m.conns))
 	}
-	closed := m.closed[device1]
+	closed := m.closed[conn.ConnectionID()]
 	m.pmut.RUnlock()
 
 	waiter, err := w.RemoveDevice(device1)
@@ -3064,7 +3065,7 @@ func TestDevicePause(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	m.pmut.RLock()
-	closed := m.closed[device1]
+	closed := m.closed[m.deviceConns[device1][0]]
 	m.pmut.RUnlock()
 
 	pauseDevice(t, m.cfg, device1, true)

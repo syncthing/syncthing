@@ -44,10 +44,10 @@ type Model struct {
 		arg1 string
 		arg2 string
 	}
-	ClosedStub        func(protocol.DeviceID, error)
+	ClosedStub        func(string, error)
 	closedMutex       sync.RWMutex
 	closedArgsForCall []struct {
-		arg1 protocol.DeviceID
+		arg1 string
 		arg2 error
 	}
 	ClusterConfigStub        func(protocol.DeviceID, protocol.ClusterConfig) error
@@ -728,10 +728,10 @@ func (fake *Model) BringToFrontArgsForCall(i int) (string, string) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) Closed(arg1 protocol.DeviceID, arg2 error) {
+func (fake *Model) Closed(arg1 string, arg2 error) {
 	fake.closedMutex.Lock()
 	fake.closedArgsForCall = append(fake.closedArgsForCall, struct {
-		arg1 protocol.DeviceID
+		arg1 string
 		arg2 error
 	}{arg1, arg2})
 	stub := fake.ClosedStub
@@ -748,13 +748,13 @@ func (fake *Model) ClosedCallCount() int {
 	return len(fake.closedArgsForCall)
 }
 
-func (fake *Model) ClosedCalls(stub func(protocol.DeviceID, error)) {
+func (fake *Model) ClosedCalls(stub func(string, error)) {
 	fake.closedMutex.Lock()
 	defer fake.closedMutex.Unlock()
 	fake.ClosedStub = stub
 }
 
-func (fake *Model) ClosedArgsForCall(i int) (protocol.DeviceID, error) {
+func (fake *Model) ClosedArgsForCall(i int) (string, error) {
 	fake.closedMutex.RLock()
 	defer fake.closedMutex.RUnlock()
 	argsForCall := fake.closedArgsForCall[i]

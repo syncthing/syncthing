@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -143,6 +144,7 @@ type model struct {
 	fatalChan       chan error
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
+	promotionTimer  *time.Timer
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -159,9 +161,10 @@ type model struct {
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
-	conn                map[protocol.DeviceID]protocol.Connection
+	conns               map[string]protocol.Connection // connection ID -> connection
+	deviceConns         map[protocol.DeviceID][]string // device -> connection IDs (invariant: if the key exists, the value is len >= 1, with the primary connection at the start of the slice)
 	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
-	closed              map[protocol.DeviceID]chan struct{}
+	closed              map[string]chan struct{} // connection ID -> closed channel
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remoteFolderStates  map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
@@ -227,6 +230,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
+		promotionTimer:       time.NewTimer(0),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -242,9 +246,10 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
-		conn:                make(map[protocol.DeviceID]protocol.Connection),
+		conns:               make(map[string]protocol.Connection),
+		deviceConns:         make(map[protocol.DeviceID][]string),
 		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
-		closed:              make(map[protocol.DeviceID]chan struct{}),
+		closed:              make(map[string]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
@@ -272,11 +277,15 @@ func (m *model) serve(ctx context.Context) error {
 
 	close(m.started)
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-m.fatalChan:
-		return svcutil.AsFatalErr(err, svcutil.ExitError)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-m.fatalChan:
+			return svcutil.AsFatalErr(err, svcutil.ExitError)
+		case <-m.promotionTimer.C:
+			m.promoteConnections()
+		}
 	}
 }
 
@@ -303,9 +312,9 @@ func (m *model) initFolders(cfg config.Configuration) error {
 
 func (m *model) closeAllConnectionsAndWait() {
 	m.pmut.RLock()
-	closed := make([]chan struct{}, 0, len(m.conn))
-	for id, conn := range m.conn {
-		closed = append(closed, m.closed[id])
+	closed := make([]chan struct{}, 0, len(m.conns))
+	for connID, conn := range m.conns {
+		closed = append(closed, m.closed[connID])
 		go conn.Close(errStopped)
 	}
 	m.pmut.RUnlock()
@@ -639,7 +648,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 
 		// Transport stats
 		m.pmut.RLock()
-		for _, conn := range m.conn {
+		for _, conn := range m.conns {
 			report.TransportStats[conn.Transport()]++
 		}
 		m.pmut.RUnlock()
@@ -718,7 +727,7 @@ type ConnectionInfo struct {
 func (m *model) NumConnections() int {
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
-	return len(m.conn)
+	return len(m.deviceConns)
 }
 
 // ConnectionStats returns a map with connection statistics for each device.
@@ -739,7 +748,8 @@ func (m *model) ConnectionStats() map[string]interface{} {
 			ClientVersion: strings.TrimSpace(versionString),
 			Paused:        deviceCfg.Paused,
 		}
-		if conn, ok := m.conn[device]; ok {
+		if connIDs, ok := m.deviceConns[device]; ok {
+			conn := m.conns[connIDs[0]] // XXX: only accounts primary, should account all
 			ci.Type = conn.Type()
 			ci.IsLocal = conn.IsLocal()
 			ci.Crypto = conn.Crypto()
@@ -1258,12 +1268,16 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	})
 
 	if len(tempIndexFolders) > 0 {
+		var connOK bool
+		var conn protocol.Connection
 		m.pmut.RLock()
-		conn, ok := m.conn[deviceID]
+		if connIDs, connIDOK := m.deviceConns[deviceID]; connIDOK {
+			conn, connOK = m.conns[connIDs[0]]
+		}
 		m.pmut.RUnlock()
 		// In case we've got ClusterConfig, and the connection disappeared
 		// from infront of our nose.
-		if ok {
+		if connOK {
 			m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
 		}
 	}
@@ -1537,8 +1551,8 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	ccConns := make([]protocol.Connection, 0, len(ids))
 	m.pmut.RLock()
 	for _, id := range ids {
-		if conn, ok := m.conn[id]; ok {
-			ccConns = append(ccConns, conn)
+		if connIDs, ok := m.deviceConns[id]; ok {
+			ccConns = append(ccConns, m.conns[connIDs[0]])
 		}
 	}
 	m.pmut.RUnlock()
@@ -1774,26 +1788,40 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 // Closed is called when a connection has been closed
-func (m *model) Closed(device protocol.DeviceID, err error) {
+func (m *model) Closed(connID string, err error) {
 	m.pmut.Lock()
-	conn, ok := m.conn[device]
+	conn, ok := m.conns[connID]
 	if !ok {
 		m.pmut.Unlock()
 		return
 	}
 
-	delete(m.conn, device)
-	delete(m.connRequestLimiters, device)
-	delete(m.helloMessages, device)
-	delete(m.deviceDownloads, device)
-	delete(m.remoteFolderStates, device)
-	closed := m.closed[device]
-	delete(m.closed, device)
-	delete(m.indexHandlers, device)
-	m.pmut.Unlock()
+	closed := m.closed[connID]
+	delete(m.closed, connID)
+	delete(m.conns, connID)
 
-	m.progressEmitter.temporaryIndexUnsubscribe(conn)
-	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
+	device := conn.ID()
+	removedIsPrimary := m.deviceConns[device][0] == connID
+	remainingConns := without(m.deviceConns[device], connID)
+	// XXX: all the below needs more thinking about when to remove what
+	if removedIsPrimary {
+		m.progressEmitter.temporaryIndexUnsubscribe(conn)
+		delete(m.indexHandlers, device)
+		delete(m.deviceDownloads, device)
+		m.scheduleConnectionPromotion()
+	}
+	if len(remainingConns) == 0 {
+		// All device connections closed
+		delete(m.deviceConns, device)
+		delete(m.connRequestLimiters, device)
+		delete(m.helloMessages, device)
+		delete(m.remoteFolderStates, device)
+		m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
+	} else {
+		// Some connections remain
+		m.deviceConns[device] = remainingConns
+	}
+	m.pmut.Unlock()
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
@@ -2070,13 +2098,17 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
 func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
+	var conn protocol.Connection
 	m.pmut.RLock()
-	cn, ok := m.conn[deviceID]
+	connID, ok := m.deviceConns[deviceID]
+	if ok {
+		conn = m.conns[connID[0]]
+	}
 	m.pmut.RUnlock()
 	if ok {
 		m.deviceWasSeen(deviceID)
 	}
-	return cn, ok
+	return conn, ok
 }
 
 // LoadIgnores loads or refreshes the ignore patterns from disk, if the
@@ -2215,52 +2247,22 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // folder changes.
 func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.ID()
-	device, ok := m.cfg.Device(deviceID)
+
+	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Infoln("Trying to add connection to unknown device")
 		return
 	}
 
-	// The slightly unusual locking sequence here is because we must acquire
-	// fmut before pmut. (The locks can be *released* in any order.)
-	m.fmut.RLock()
-	m.pmut.Lock()
-	if oldConn, ok := m.conn[deviceID]; ok {
-		l.Infoln("Replacing old connection", oldConn, "with", conn, "for", deviceID)
-		// There is an existing connection to this device that we are
-		// replacing. We must close the existing connection and wait for the
-		// close to complete before adding the new connection. We do the
-		// actual close without holding pmut as the connection will call
-		// back into Closed() for the cleanup.
-		closed := m.closed[deviceID]
-		m.fmut.RUnlock()
-		m.pmut.Unlock()
-		oldConn.Close(errReplacingConnection)
-		<-closed
-		// Again, lock fmut before pmut.
-		m.fmut.RLock()
-		m.pmut.Lock()
-	}
-
-	m.conn[deviceID] = conn
+	connID := conn.ConnectionID()
 	closed := make(chan struct{})
-	m.closed[deviceID] = closed
-	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.Supervisor, m.evLogger)
-	for id, fcfg := range m.folderCfgs {
-		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
-	}
-	m.indexHandlers[deviceID] = indexRegistry
-	m.fmut.RUnlock()
-	// 0: default, <0: no limiting
-	switch {
-	case device.MaxRequestKiB > 0:
-		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * device.MaxRequestKiB)
-	case device.MaxRequestKiB == 0:
-		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
-	}
 
+	m.pmut.Lock()
+
+	m.conns[connID] = conn
+	m.closed[connID] = closed
 	m.helloMessages[deviceID] = hello
+	m.deviceConns[deviceID] = append(m.deviceConns[deviceID], connID)
 
 	event := map[string]string{
 		"id":            deviceID.String(),
@@ -2280,14 +2282,10 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
 	conn.Start()
+
 	m.pmut.Unlock()
 
-	// Acquires fmut, so has to be done outside of pmut.
-	cm, passwords := m.generateClusterConfig(deviceID)
-	conn.SetFolderPasswords(passwords)
-	conn.ClusterConfig(cm)
-
-	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
+	if (deviceCfg.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		m.cfg.Modify(func(cfg *config.Configuration) {
 			for i := range cfg.Devices {
 				if cfg.Devices[i].DeviceID == deviceID {
@@ -2301,6 +2299,50 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	}
 
 	m.deviceWasSeen(deviceID)
+	m.scheduleConnectionPromotion()
+}
+
+func (m *model) scheduleConnectionPromotion() {
+	m.promotionTimer.Reset(time.Second)
+}
+
+// promoteConnections checks for devices that have connections, but where
+// the primary connection hasn't started index handlers etc. yet, and
+// promotes the primary connection to be the index handling one. This should
+// be called after adding new connections, and after closing a primary
+// device connection.
+func (m *model) promoteConnections() {
+	m.fmut.RLock() // for generateClusterConfigFRLocked called by promoteDeviceConnectionLocked
+	defer m.fmut.RUnlock()
+
+	m.pmut.Lock() // for most other things
+	defer m.pmut.Unlock()
+
+	for deviceID, connIDs := range m.deviceConns {
+		if _, ok := m.indexHandlers[deviceID]; !ok {
+			// Connected device lacks and index handler. We should promote
+			// the primary connection to be the index handling one.
+			l.Infoln("Promoting connection", connIDs[0], "to", deviceID)
+			m.promoteDeviceConnectionLocked(m.conns[connIDs[0]])
+		}
+	}
+}
+
+func (m *model) promoteDeviceConnectionLocked(conn protocol.Connection) {
+	deviceID := conn.ID()
+	connID := conn.ConnectionID()
+
+	m.deviceDownloads[deviceID] = newDeviceDownloadState()
+
+	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
+	for id, fcfg := range m.folderCfgs {
+		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
+	}
+	m.indexHandlers[deviceID] = indexRegistry
+
+	cm, passwords := m.generateClusterConfigFRLocked(deviceID)
+	conn.SetFolderPasswords(passwords)
+	conn.ClusterConfig(cm)
 }
 
 func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
@@ -2346,17 +2388,27 @@ func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duratio
 }
 
 func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	var conn protocol.Connection
+	var connOK bool
 	m.pmut.RLock()
-	nc, ok := m.conn[deviceID]
+	if connIDs, ok := m.deviceConns[deviceID]; ok {
+		connID := connIDs[0]
+		if len(connIDs) > 1 {
+			// Pick a random connection of the non-primary ones
+			idx := rand.Intn(len(connIDs)-1) + 1
+			connID = connIDs[idx]
+		}
+		conn, connOK = m.conns[connID]
+	}
 	m.pmut.RUnlock()
 
-	if !ok {
+	if !connOK {
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
 	l.Debugf("%v REQ(out): %s: %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+	return conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *model) ScanFolders() map[string]error {
@@ -2447,11 +2499,13 @@ func (m *model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the
 // set of folder passwords for the given peer device
 func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
-	var message protocol.ClusterConfig
-
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+	return m.generateClusterConfigFRLocked(device)
+}
 
+func (m *model) generateClusterConfigFRLocked(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
+	var message protocol.ClusterConfig
 	folders := m.cfg.FolderList()
 	passwords := make(map[string]string, len(folders))
 	for _, folderCfg := range folders {
@@ -2763,7 +2817,7 @@ func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, s
 		if state := m.remoteFolderStates[device][cfg.ID]; state != remoteFolderValid {
 			continue
 		}
-		_, ok := m.conn[device]
+		_, ok := m.deviceConns[device]
 		if ok {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
 		}
@@ -2933,6 +2987,16 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			l.Infoln("Resuming", deviceID)
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
+
+		// 0: default, <0: no limiting
+		m.pmut.Lock()
+		switch {
+		case toCfg.MaxRequestKiB > 0:
+			m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * toCfg.MaxRequestKiB)
+		case toCfg.MaxRequestKiB == 0:
+			m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
+		}
+		m.pmut.Unlock()
 	}
 	// Clean up after removed devices
 	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
@@ -2947,14 +3011,18 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	m.pmut.RLock()
 	for _, id := range closeDevices {
 		delete(clusterConfigDevices, id)
-		if conn, ok := m.conn[id]; ok {
-			go conn.Close(errDevicePaused)
+		if conns, ok := m.deviceConns[id]; ok {
+			for _, connID := range conns {
+				go m.conns[connID].Close(errDevicePaused)
+			}
 		}
 	}
 	for _, id := range removedDevices {
 		delete(clusterConfigDevices, id)
-		if conn, ok := m.conn[id]; ok {
-			go conn.Close(errDeviceRemoved)
+		if conns, ok := m.deviceConns[id]; ok {
+			for _, connID := range conns {
+				go m.conns[connID].Close(errDevicePaused)
+			}
 		}
 	}
 	m.pmut.RUnlock()
@@ -3323,4 +3391,13 @@ func redactPathError(err error) (error, bool) {
 type redactedError struct {
 	error
 	redacted error
+}
+
+func without[E comparable, S ~[]E](s S, e E) S {
+	for i, x := range s {
+		if x == e {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
 }

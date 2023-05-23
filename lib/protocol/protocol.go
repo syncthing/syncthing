@@ -131,7 +131,7 @@ type Model interface {
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
 	// The peer device closed the connection or an error occurred
-	Closed(device DeviceID, err error)
+	Closed(connID string, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
 }
@@ -941,7 +941,7 @@ func (c *rawConnection) internalClose(err error) {
 
 		<-c.dispatcherLoopStopped
 
-		c.receiver.Closed(c.ID(), err)
+		c.receiver.Closed(c.ConnectionID(), err)
 	})
 }
 

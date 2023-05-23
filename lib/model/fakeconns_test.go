@@ -37,7 +37,7 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 		f.closeOnce.Do(func() {
 			close(f.closed)
 		})
-		model.Closed(id, err)
+		model.Closed(f.ConnectionID(), err)
 		f.ClosedReturns(f.closed)
 	})
 	return f
