@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -22,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 const (
@@ -95,6 +97,15 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	if isLocal {
 		priority = d.lanPriority
 	}
+
+	// XXX: Induced flakyness
+	if dur, _ := time.ParseDuration(os.Getenv("CONN_FLAKY_LIFETIME")); dur > 0 {
+		dur = dur/2 + time.Duration(rand.Intn(int(dur)))
+		time.AfterFunc(dur, func() {
+			stream.Close()
+		})
+	}
+
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, isLocal, priority), nil
 }
 

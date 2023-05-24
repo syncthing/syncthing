@@ -66,7 +66,7 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 	}
 
 	// XXX: Induced flakyness
-	if dur, _ := time.ParseDuration(os.Getenv("TCP_FLAKY_LIFETIME")); dur > 0 {
+	if dur, _ := time.ParseDuration(os.Getenv("CONN_FLAKY_LIFETIME")); dur > 0 {
 		dur = dur/2 + time.Duration(rand.Intn(int(dur)))
 		time.AfterFunc(dur, func() {
 			tc.Close()

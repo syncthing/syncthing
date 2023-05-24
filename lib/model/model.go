@@ -2186,7 +2186,7 @@ func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, boo
 	m.pmut.RLock()
 	connID, ok := m.deviceConns[deviceID]
 	if ok {
-		conn = m.conns[connID[0]]
+		conn, ok = m.conns[connID[0]]
 	}
 	m.pmut.RUnlock()
 	if ok {
