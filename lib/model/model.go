@@ -281,10 +281,13 @@ func (m *model) serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			l.Infoln("context closed, stopping", ctx.Err())
 			return ctx.Err()
 		case err := <-m.fatalChan:
+			l.Infoln("fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
+			l.Infoln("promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -1192,7 +1195,11 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 		return fmt.Errorf("%s: %w", folder, ErrFolderPaused)
 	}
 
-	indexHandler := m.ensureIndexHandler(conn)
+	indexHandler, ok := m.getIndexHandler(conn)
+	if !ok {
+		l.Infof("%v for folder %s sent from %s (connection %s), but no index handler is registered for this connection.", op, folder, deviceID.Short(), conn.ConnectionID())
+		return fmt.Errorf("%s: %w", folder, ErrFolderNotRunning)
+	}
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
 }
 
@@ -1208,6 +1215,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	if cm.Secondary {
 		// No handling of secondary connection ClusterConfigs; they merely
 		// indicate the connection is ready to start.
+		l.Infoln("Ignoring secondary connection cluster-config on connection", conn.ConnectionID())
 		return nil
 	}
 
@@ -1218,7 +1226,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 
 	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
-	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
+	l.Infof("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
 
 	indexHandlerRegistry := m.ensureIndexHandler(conn)
 
@@ -1372,6 +1380,23 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	m.indexHandlers[deviceID] = indexHandlerRegistry
 
 	return indexHandlerRegistry
+}
+
+func (m *model) getIndexHandler(conn protocol.Connection) (*indexHandlerRegistry, bool) {
+	deviceID := conn.DeviceID()
+	connID := conn.ConnectionID()
+
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+
+	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
+	if ok && indexHandlerRegistry.conn.ConnectionID() == connID {
+		// This is an existing and proper index handler for this connection.
+		return indexHandlerRegistry, true
+	}
+
+	// There is no index handler, or it's not registered for this connection.
+	return nil, false
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*clusterConfigDeviceInfo, indexHandlers *indexHandlerRegistry) ([]string, map[string]remoteFolderState, error) {

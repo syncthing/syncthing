@@ -8,7 +8,10 @@ package connections
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base32"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -89,13 +92,19 @@ func (t connType) Transport() string {
 }
 
 func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) internalConn {
+	now := time.Now()
+	buf := binary.BigEndian.AppendUint64(nil, uint64(now.UnixNano()))
+	hash := sha256.Sum224([]byte(fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr())))
+	buf = append(buf, hash[:]...)
+	connectionID := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
+
 	return internalConn{
 		tlsConn:       tc,
 		connType:      connType,
 		isLocal:       isLocal,
 		priority:      priority,
-		establishedAt: time.Now().Truncate(time.Second),
-		connectionID:  fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr()),
+		establishedAt: now.Truncate(time.Second),
+		connectionID:  connectionID,
 	}
 }
 
