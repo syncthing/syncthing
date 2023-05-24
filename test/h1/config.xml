@@ -64,7 +64,7 @@
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
-        <multipleConnections>32</multipleConnections>
+        <multipleConnections>4</multipleConnections>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>

@@ -138,18 +138,6 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		close(stop)
 	}()
 
-	// ctx, cancel := context.WithCancel(ctx)
-
-	// Cancel the context when the connection closes
-	// go func() {
-	// 	select {
-	// 	case <-s.conn.Closed():
-	// 		cancel()
-	// 	case <-ctx.Done():
-	// 	case <-stop:
-	// 	}
-	// }()
-
 	// Broadcast the pause cond when the context quits
 	go func() {
 		select {
