@@ -8,10 +8,7 @@ package connections
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/base32"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -92,26 +89,13 @@ func (t connType) Transport() string {
 }
 
 func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) internalConn {
-	// Construct the connection ID. In principle it's an opaque string, but
-	// in practice it's the timestamp with added hash of connection details,
-	// meaning that 1) it's globally unique, and 2) it's sortable to
-	// determine a "primary" connection for a device. To ensure the
-	// sortability we use the base32 "hexencoding" which has the characters
-	// in the right order to sort lexicographically.
-	now := time.Now()
-	buf := binary.BigEndian.AppendUint64(nil, uint64(now.UnixNano()))
-	h := sha256.New()
-	fmt.Fprintf(h, "%v\n%v\n%v\n", connType, tc.LocalAddr(), tc.RemoteAddr())
-	buf = h.Sum(buf)
-	id := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
-
 	return internalConn{
 		tlsConn:       tc,
 		connType:      connType,
 		isLocal:       isLocal,
 		priority:      priority,
-		establishedAt: now.Truncate(time.Second),
-		connectionID:  id,
+		establishedAt: time.Now().Truncate(time.Second),
+		connectionID:  fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr()),
 	}
 }
 

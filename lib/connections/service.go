@@ -172,8 +172,8 @@ type service struct {
 	listeners      map[string]genericListener
 	listenerTokens map[string]suture.ServiceToken
 
-	connectionsMut sync.Mutex
-	connections    map[protocol.DeviceID]int
+	numConnectionsMut sync.Mutex
+	numConnections    map[protocol.DeviceID]int
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
@@ -206,8 +206,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
 
-		connectionsMut: sync.NewMutex(),
-		connections:    make(map[protocol.DeviceID]int),
+		numConnectionsMut: sync.NewMutex(),
+		numConnections:    make(map[protocol.DeviceID]int),
 	}
 	cfg.Subscribe(service)
 
@@ -418,12 +418,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		// Amazing hack: We need to pass the connection to the model, but we
-		// also need to pass the model to the connection. The
-		// connectionContextModel handles the mediation by being constructed
-		// in two stages...
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
-
 		s.accountAddedConnection(remoteID)
 		go func() {
 			<-protoConn.Closed()
@@ -1198,21 +1193,21 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 }
 
 func (s *service) accountAddedConnection(d protocol.DeviceID) {
-	s.connectionsMut.Lock()
-	defer s.connectionsMut.Unlock()
-	s.connections[d]++
+	s.numConnectionsMut.Lock()
+	defer s.numConnectionsMut.Unlock()
+	s.numConnections[d]++
 }
 
 func (s *service) accountRemovedConnection(d protocol.DeviceID) {
-	s.connectionsMut.Lock()
-	defer s.connectionsMut.Unlock()
-	s.connections[d]--
+	s.numConnectionsMut.Lock()
+	defer s.numConnectionsMut.Unlock()
+	s.numConnections[d]--
 }
 
 func (s *service) connectionsForDevice(d protocol.DeviceID) int {
-	s.connectionsMut.Lock()
-	defer s.connectionsMut.Unlock()
-	return s.connections[d]
+	s.numConnectionsMut.Lock()
+	defer s.numConnectionsMut.Unlock()
+	return s.numConnections[d]
 }
 
 type nextDialRegistry map[protocol.DeviceID]nextDialDevice
