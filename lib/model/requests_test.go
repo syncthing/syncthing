@@ -1122,7 +1122,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	cc := basicClusterConfig(device1, myID, fcfg.ID)
 	cc.Folders[0].Paused = true
-	m.ClusterConfig(device1Conn, cc)
+	m.ClusterConfig(fc, cc)
 
 	seq++
 	files[0].Sequence = seq
@@ -1143,7 +1143,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Remote unpaused
 
 	cc.Folders[0].Paused = false
-	m.ClusterConfig(device1Conn, cc)
+	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out before receiving index")
@@ -1168,12 +1168,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Local and remote paused, then first resume remote, then local
 
 	cc.Folders[0].Paused = true
-	m.ClusterConfig(device1Conn, cc)
+	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
 	cc.Folders[0].Paused = false
-	m.ClusterConfig(device1Conn, cc)
+	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)
 
@@ -1190,7 +1190,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Folder removed on remote
 
 	cc = protocol.ClusterConfig{}
-	m.ClusterConfig(device1Conn, cc)
+	m.ClusterConfig(fc, cc)
 
 	seq++
 	files[0].Sequence = seq
@@ -1304,7 +1304,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		return nil
 	})
 	m.AddConnection(fc, protocol.Hello{})
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{
+	m.ClusterConfig(fc, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -1354,7 +1354,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	}
 
 	// Simulate request from device that is untrusted too, i.e. with non-empty, but garbage hash
-	_, err := m.Request(device1Conn, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
+	_, err := m.Request(fc, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
 	must(t, err)
 
 	changed, err := m.LocalChangedFolderFiles(fcfg.ID, 1, 10)
@@ -1380,7 +1380,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	})
 	must(t, err)
 	waiter.Wait()
-	addFakeConn(m, device2, fcfg.ID)
+	conn := addFakeConn(m, device2, fcfg.ID)
 	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1405,7 +1405,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	file := fc.files[0]
 	fc.mut.Unlock()
 	file.SetIgnored()
-	m.IndexUpdate(device2Conn, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
+	m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
 
 	// Wait for the ignored file to be received and possible pulled
 	timeout := time.After(10 * time.Second)

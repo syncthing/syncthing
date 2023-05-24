@@ -30,22 +30,18 @@ var (
 	defaultFolderConfig     config.FolderConfiguration
 	defaultCfg              config.Configuration
 	defaultAutoAcceptCfg    config.Configuration
-	device1Conn             = &mocks.Connection{
-		IDStub: func() protocol.DeviceID {
-			return device1
-		},
-	}
-	device2Conn = &mocks.Connection{
-		IDStub: func() protocol.DeviceID {
-			return device2
-		},
-	}
+	device1Conn             = &mocks.Connection{}
+	device2Conn             = &mocks.Connection{}
 )
 
 func init() {
 	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device1Conn.IDReturns(device1)
+	device1Conn.ConnectionIDReturns(rand.String(16))
+	device2Conn.IDReturns(device2)
+	device2Conn.ConnectionIDReturns(rand.String(16))
 
 	cfg := config.New(myID)
 	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks

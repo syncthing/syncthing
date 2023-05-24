@@ -1703,7 +1703,7 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	m, _, fcfg, wCancel := setupModelWithConnection(t)
+	m, conn, fcfg, wCancel := setupModelWithConnection(t)
 	defer wCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
@@ -1806,7 +1806,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	must(t, m.Index(device1Conn, "default", testdata))
+	must(t, m.Index(conn, "default", testdata))
 
 	result, _ := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -2159,7 +2159,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	conn2 := newFakeConnection(device2, m)
 	m.AddConnection(conn2, protocol.Hello{})
 
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{
+	m.ClusterConfig(conn1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2171,7 +2171,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device2Conn, protocol.ClusterConfig{
+	m.ClusterConfig(conn2, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2397,7 +2397,7 @@ func TestCustomMarkerName(t *testing.T) {
 }
 
 func TestRemoveDirWithContent(t *testing.T) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
+	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
 	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -2424,7 +2424,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 	file.Deleted = true
 	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
 
-	must(t, m.IndexUpdate(device1Conn, fcfg.ID, []protocol.FileInfo{dir, file}))
+	must(t, m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{dir, file}))
 
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
@@ -2914,19 +2914,19 @@ func TestRequestLimit(t *testing.T) {
 	})
 	must(t, err)
 	waiter.Wait()
-	m, _ := setupModelWithConnectionFromWrapper(t, wrapper)
+	m, conn := setupModelWithConnectionFromWrapper(t, wrapper)
 	defer cleanupModel(m)
 	m.ScanFolder("default")
 
 	befReq := time.Now()
-	first, err := m.Request(device1Conn, "default", file, 0, 2000, 0, nil, 0, false)
+	first, err := m.Request(conn, "default", file, 0, 2000, 0, nil, 0, false)
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
 	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		second, err := m.Request(device1Conn, "default", file, 0, 2000, 0, nil, 0, false)
+		second, err := m.Request(conn, "default", file, 0, 2000, 0, nil, 0, false)
 		if err != nil {
 			t.Errorf("Second request failed: %v", err)
 		}
@@ -3568,7 +3568,7 @@ func TestAddFolderCompletion(t *testing.T) {
 }
 
 func TestScanDeletedROChangedOnSR(t *testing.T) {
-	m, _, fcfg, wCancel := setupModelWithConnection(t)
+	m, conn, fcfg, wCancel := setupModelWithConnection(t)
 	ffs := fcfg.Filesystem(nil)
 	defer wCancel()
 	defer cleanupModelAndRemoveDir(m, ffs.URI())
@@ -3586,7 +3586,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 	// A remote must have the file, otherwise the deletion below is
 	// automatically resolved as not a ro-changed item.
-	must(t, m.IndexUpdate(device1Conn, fcfg.ID, []protocol.FileInfo{file}))
+	must(t, m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{file}))
 
 	must(t, ffs.Remove(name))
 	m.ScanFolders()
@@ -3632,6 +3632,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	})
 	m.AddConnection(fc1, protocol.Hello{})
 	m.AddConnection(fc2, protocol.Hello{})
+	m.promoteConnections()
 
 	// Initial CCs
 	select {
@@ -3691,17 +3692,17 @@ func TestIssue6961(t *testing.T) {
 	}
 	m.ServeBackground()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
-	addFakeConn(m, device1, fcfg.ID)
-	addFakeConn(m, device2, fcfg.ID)
+	conn1 := addFakeConn(m, device1, fcfg.ID)
+	conn2 := addFakeConn(m, device2, fcfg.ID)
 	m.ScanFolders()
 
 	name := "foo"
 	version := protocol.Vector{}.Update(device1.Short())
 
 	// Remote, valid and existing file
-	must(t, m.Index(device1Conn, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}))
+	must(t, m.Index(conn1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}))
 	// Remote, invalid (receive-only) and existing file
-	must(t, m.Index(device2Conn, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}))
+	must(t, m.Index(conn2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}))
 	// Create a local file
 	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0o666); err != nil {
 		t.Fatal(err)
@@ -3727,7 +3728,7 @@ func TestIssue6961(t *testing.T) {
 	m.ScanFolders()
 
 	// Drop the remote index, add some other file.
-	must(t, m.Index(device2Conn, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}))
+	must(t, m.Index(conn2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}))
 
 	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
 	pauseFolder(t, wcfg, fcfg.ID, true)
@@ -3741,7 +3742,7 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
+	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
@@ -3750,7 +3751,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	m.fmut.Unlock()
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	must(t, m.IndexUpdate(device1Conn, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn, fcfg.ID, files))
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
@@ -3763,34 +3764,34 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 	addDevice2(t, w, fcfg)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Path)
-	addFakeConn(m, device1, fcfg.ID)
-	addFakeConn(m, device2, fcfg.ID)
+	conn1 := addFakeConn(m, device1, fcfg.ID)
+	conn2 := addFakeConn(m, device2, fcfg.ID)
 
 	var seq int64 = 1
 	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(device1.Short()), Sequence: seq}}
 
 	// Start with two remotes having one file, then both deleting it, then
 	// only one adding it again.
-	must(t, m.Index(device1Conn, fcfg.ID, files))
-	must(t, m.Index(device2Conn, fcfg.ID, files))
+	must(t, m.Index(conn1, fcfg.ID, files))
+	must(t, m.Index(conn2, fcfg.ID, files))
 	seq++
 	files[0].SetDeleted(device2.Short())
 	files[0].Sequence = seq
-	must(t, m.IndexUpdate(device2Conn, fcfg.ID, files))
-	must(t, m.IndexUpdate(device1Conn, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn1, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn2, fcfg.ID, files))
 	seq++
 	files[0].Deleted = false
 	files[0].Size = 20
 	files[0].Version = files[0].Version.Update(device1.Short())
 	files[0].Sequence = seq
-	must(t, m.IndexUpdate(device1Conn, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn1, fcfg.ID, files))
 
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 
 	// Pretend we had an index reset on device 1
-	must(t, m.Index(device1Conn, fcfg.ID, files))
+	must(t, m.Index(conn1, fcfg.ID, files))
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}

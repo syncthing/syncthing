@@ -572,7 +572,7 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 	is, isOk := r.indexHandlers[folder]
 	if !isOk {
 		l.Infof("%v for nonexistent or paused folder %q", op, folder)
-		return ErrFolderMissing
+		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	}
 	return is.receive(fs, update, op)
 }

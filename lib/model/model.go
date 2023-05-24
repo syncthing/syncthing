@@ -255,8 +255,9 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:       make(map[protocol.DeviceID]*indexHandlerRegistry),
 	}
-	for devID := range cfg.Devices() {
+	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
+		m.setConnRequestLimiters(cfg)
 	}
 	m.Add(m.progressEmitter)
 	m.Add(svcutil.AsService(m.serve, m.String()))
@@ -1359,16 +1360,16 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 		// the other side has decided to start using a new primary
 		// connection but we haven't seen it close yet. Ideally it will
 		// close shortly by itself...
-		l.Infoln("Abandoning old index handler for", deviceID)
+		l.Infof("Abandoning old index handler for %s (%s) in favour of %s", deviceID.Short(), indexHandlerRegistry.conn.ConnectionID(), connID)
 	}
 
 	// Create a new index handler for this device.
 	indexHandlerRegistry = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
+		l.Infoln("Registering folder", id, "for", deviceID.Short())
 		indexHandlerRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
 	m.indexHandlers[deviceID] = indexHandlerRegistry
-	m.deviceDownloads[deviceID] = newDeviceDownloadState()
 
 	return indexHandlerRegistry
 }
@@ -1880,7 +1881,6 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 		if idxh, ok := m.indexHandlers[deviceID]; ok && idxh.conn.ConnectionID() == connID {
 			delete(m.indexHandlers, deviceID)
-			delete(m.deviceDownloads, deviceID)
 		}
 		m.scheduleConnectionPromotion()
 	}
@@ -1890,6 +1890,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		delete(m.connRequestLimiters, deviceID)
 		delete(m.helloMessages, deviceID)
 		delete(m.remoteFolderStates, deviceID)
+		delete(m.deviceDownloads, deviceID)
 		m.deviceDidClose(deviceID, time.Since(conn.EstablishedAt()))
 	} else {
 		// Some connections remain
@@ -2346,6 +2347,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.closed[connID] = closed
 	m.helloMessages[deviceID] = hello
 	m.deviceConns[deviceID] = append(m.deviceConns[deviceID], connID)
+	if m.deviceDownloads[deviceID] == nil {
+		m.deviceDownloads[deviceID] = newDeviceDownloadState()
+	}
 
 	event := map[string]string{
 		"id":            deviceID.String(),
@@ -3075,15 +3079,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 
-		// 0: default, <0: no limiting
-		m.pmut.Lock()
-		switch {
-		case toCfg.MaxRequestKiB > 0:
-			m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * toCfg.MaxRequestKiB)
-		case toCfg.MaxRequestKiB == 0:
-			m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
+		if toCfg.MaxRequestKiB != fromCfg.MaxRequestKiB {
+			m.setConnRequestLimiters(toCfg)
 		}
-		m.pmut.Unlock()
 	}
 	// Clean up after removed devices
 	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
@@ -3131,6 +3129,18 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func (m *model) setConnRequestLimiters(cfg config.DeviceConfiguration) {
+	m.pmut.Lock()
+	// 0: default, <0: no limiting
+	switch {
+	case cfg.MaxRequestKiB > 0:
+		m.connRequestLimiters[cfg.DeviceID] = util.NewSemaphore(1024 * cfg.MaxRequestKiB)
+	case cfg.MaxRequestKiB == 0:
+		m.connRequestLimiters[cfg.DeviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
+	}
+	m.pmut.Unlock()
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
