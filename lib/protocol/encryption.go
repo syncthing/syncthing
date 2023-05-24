@@ -185,8 +185,8 @@ func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
 	e.folderKeys.setPasswords(passwords)
 }
 
-func (e encryptedConnection) ID() DeviceID {
-	return e.conn.ID()
+func (e encryptedConnection) DeviceID() DeviceID {
+	return e.conn.DeviceID()
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {

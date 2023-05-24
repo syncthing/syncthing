@@ -1181,7 +1181,7 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 		op += " update"
 	}
 
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
@@ -1216,7 +1216,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
 	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
 
@@ -1342,7 +1342,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 }
 
 func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegistry {
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
 
 	m.pmut.Lock()
@@ -1629,7 +1629,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm, passwords := m.generateClusterConfig(conn.ID())
+		cm, passwords := m.generateClusterConfig(conn.DeviceID())
 		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
@@ -1861,7 +1861,7 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 // Closed is called when a connection has been closed
 func (m *model) Closed(conn protocol.Connection, err error) {
 	connID := conn.ConnectionID()
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 
 	m.pmut.Lock()
 	conn, ok := m.conns[connID]
@@ -1948,7 +1948,7 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 		return nil, protocol.ErrInvalid
 	}
 
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
 
 	m.fmut.RLock()
@@ -2330,7 +2330,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
 func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
@@ -2435,7 +2435,7 @@ func (m *model) promoteConnections() {
 }
 
 func (m *model) DownloadProgress(conn protocol.Connection, folder string, updates []protocol.FileDownloadProgressUpdate) error {
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]

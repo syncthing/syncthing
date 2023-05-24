@@ -161,7 +161,7 @@ type Connection interface {
 	Start()
 	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
-	ID() DeviceID
+	DeviceID() DeviceID
 	Index(ctx context.Context, folder string, files []FileInfo) error
 	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
 	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
@@ -187,7 +187,7 @@ type ConnectionInfo interface {
 type rawConnection struct {
 	ConnectionInfo
 
-	id        DeviceID
+	deviceID  DeviceID
 	model     contextLessModel
 	startTime time.Time
 
@@ -273,7 +273,7 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 
 	return &rawConnection{
 		ConnectionInfo:        connInfo,
-		id:                    deviceID,
+		deviceID:              deviceID,
 		model:                 receiver,
 		cr:                    cr,
 		cw:                    cw,
@@ -318,8 +318,8 @@ func (c *rawConnection) Start() {
 	c.startTime = time.Now().Truncate(time.Second)
 }
 
-func (c *rawConnection) ID() DeviceID {
-	return c.id
+func (c *rawConnection) DeviceID() DeviceID {
+	return c.deviceID
 }
 
 // Index writes the list of file information to the connected peer device
@@ -602,12 +602,12 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 }
 
 func (c *rawConnection) handleIndex(im Index) error {
-	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
+	l.Debugf("Index(%v, %v, %d file)", c.deviceID, im.Folder, len(im.Files))
 	return c.model.Index(im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
-	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
+	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.deviceID, im.Folder, len(im.Files))
 	return c.model.IndexUpdate(im.Folder, im.Files)
 }
 
@@ -948,7 +948,7 @@ func (c *rawConnection) internalClose(err error) {
 	c.closeOnce.Do(func() {
 		l.Debugln("close due to", err)
 		if cerr := c.closer.Close(); cerr != nil {
-			l.Debugln(c.id, "failed to close underlying conn:", cerr)
+			l.Debugln(c.deviceID, "failed to close underlying conn:", cerr)
 		}
 		close(c.closed)
 
@@ -981,11 +981,11 @@ func (c *rawConnection) pingSender() {
 		case <-ticker.C:
 			d := time.Since(c.cw.Last())
 			if d < PingSendInterval/2 {
-				l.Debugln(c.id, "ping skipped after wr", d)
+				l.Debugln(c.deviceID, "ping skipped after wr", d)
 				continue
 			}
 
-			l.Debugln(c.id, "ping -> after", d)
+			l.Debugln(c.deviceID, "ping -> after", d)
 			c.ping()
 
 		case <-c.closed:
@@ -1006,11 +1006,11 @@ func (c *rawConnection) pingReceiver() {
 		case <-ticker.C:
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
-				l.Debugln(c.id, "ping timeout", d)
+				l.Debugln(c.deviceID, "ping timeout", d)
 				c.internalClose(ErrTimeout)
 			}
 
-			l.Debugln(c.id, "last read within", d)
+			l.Debugln(c.deviceID, "last read within", d)
 
 		case <-c.closed:
 			return

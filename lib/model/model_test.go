@@ -1338,7 +1338,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// would panic.
 	clusterConfig := func(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
 		m.AddConnection(newFakeConnection(deviceID, m), protocol.Hello{})
-		m.ClusterConfig(&protocolmocks.Connection{IDStub: func() protocol.DeviceID { return deviceID }}, cm)
+		m.ClusterConfig(&protocolmocks.Connection{DeviceIDStub: func() protocol.DeviceID { return deviceID }}, cm)
 	}
 
 	clusterConfig(device1, basicCC())
