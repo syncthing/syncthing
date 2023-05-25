@@ -1213,6 +1213,14 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Connection data as JSON
+	connStats := s.model.ConnectionStats()
+	if connStatsJSON, err := json.MarshalIndent(connStats, "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to serialize connection-stats.json.txt", err)
+	} else {
+		files = append(files, fileEntry{name: "connection-stats.json.txt", data: connStatsJSON})
+	}
+
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
