@@ -163,6 +163,7 @@ type model struct {
 	pmut                sync.RWMutex
 	conns               map[string]protocol.Connection // connection ID -> connection
 	deviceConns         map[protocol.DeviceID][]string // device -> connection IDs (invariant: if the key exists, the value is len >= 1, with the primary connection at the start of the slice)
+	promotedConn        map[protocol.DeviceID]string   // device -> last promoted connection ID
 	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
 	closed              map[string]chan struct{} // connection ID -> closed channel
 	helloMessages       map[protocol.DeviceID]protocol.Hello
@@ -248,6 +249,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		pmut:                sync.NewRWMutex(),
 		conns:               make(map[string]protocol.Connection),
 		deviceConns:         make(map[protocol.DeviceID][]string),
+		promotedConn:        make(map[protocol.DeviceID]string),
 		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
 		closed:              make(map[string]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
@@ -1912,6 +1914,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	if len(remainingConns) == 0 {
 		// All device connections closed
 		delete(m.deviceConns, deviceID)
+		delete(m.promotedConn, deviceID)
 		delete(m.connRequestLimiters, deviceID)
 		delete(m.helloMessages, deviceID)
 		delete(m.remoteFolderStates, deviceID)
@@ -2433,10 +2436,33 @@ func (m *model) promoteConnections() {
 	defer m.pmut.Unlock()
 
 	for deviceID, connIDs := range m.deviceConns {
+		// Figure out the best current connection priority for this device.
+		bestPriority := m.conns[connIDs[0]].Priority()
+		for _, connID := range connIDs[1:] {
+			priority := m.conns[connID].Priority()
+			if priority < bestPriority {
+				bestPriority = priority
+			}
+		}
+
+		// Close connections with a worse connection priority than best.
+		closing := make(map[string]bool)
+		for _, connID := range connIDs {
+			if m.conns[connID].Priority() > bestPriority {
+				l.Infoln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
+				go m.conns[connID].Close(errReplacingConnection)
+				closing[connID] = true
+			}
+		}
+
 		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
-		if idxh, ok := m.indexHandlers[deviceID]; !ok || idxh.conn.ConnectionID() != connIDs[0] {
-			// Primary device lacks an index handler. We should promote the
-			// primary connection to be the index handling one.
+		if !closing[connIDs[0]] && m.promotedConn[deviceID] != connIDs[0] {
+			// The last promoted connection is not the current primary; we
+			// should promote the primary connection to be the index
+			// handling one. We do this by sending a ClusterConfig on it,
+			// which will cause the other side to start sending us index
+			// messages there. (On our side, we manage index handlers based
+			// on where we get ClusterConfigs from the peer.)
 			l.Infoln("Promoting connection", connIDs[0], "to", deviceID.Short())
 			conn := m.conns[connIDs[0]]
 			if conn.Statistics().StartedAt.IsZero() {
@@ -2444,11 +2470,15 @@ func (m *model) promoteConnections() {
 				conn.Start()
 			}
 			conn.ClusterConfig(cm)
+			m.promotedConn[deviceID] = connIDs[0]
 		}
 
-		// Make sure any new connections also get started, and a
+		// Make sure any other new connections also get started, and a
 		// secondary-marked ClusterConfig.
 		for _, connID := range connIDs[1:] {
+			if closing[connID] {
+				continue
+			}
 			conn := m.conns[connID]
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)

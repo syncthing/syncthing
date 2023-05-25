@@ -93,19 +93,26 @@ func (t connType) Transport() string {
 
 func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) internalConn {
 	now := time.Now()
-	buf := binary.BigEndian.AppendUint64(nil, uint64(now.UnixNano()))
-	hash := sha256.Sum224([]byte(fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr())))
-	buf = append(buf, hash[:]...)
-	connectionID := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
-
 	return internalConn{
 		tlsConn:       tc,
 		connType:      connType,
 		isLocal:       isLocal,
 		priority:      priority,
 		establishedAt: now.Truncate(time.Second),
-		connectionID:  connectionID,
+		connectionID:  newConnectionID(tc, connType, now),
 	}
+}
+
+// newConnection generates a connection ID. The connection ID is designed to
+// be 1) unique for each connection (even those reusing the same socket
+// address on both sides), 2) sortable so that the connection with the
+// lowest ID will be the primary one. This also coincides with being the
+// oldest connection.
+func newConnectionID(tc tlsConn, connType connType, now time.Time) string {
+	buf := binary.BigEndian.AppendUint64(nil, uint64(now.UnixNano()))
+	hash := sha256.Sum224([]byte(fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr())))
+	buf = append(buf, hash[:]...)
+	return base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
 }
 
 func (c internalConn) Close() error {

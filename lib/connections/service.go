@@ -68,7 +68,6 @@ var (
 const (
 	perDeviceWarningIntv          = 15 * time.Minute
 	tlsHandshakeTimeout           = 10 * time.Second
-	minConnectionReplaceAge       = 10 * time.Second
 	minConnectionLoopSleep        = 5 * time.Second
 	stdConnectionLoopSleep        = time.Minute
 	worstDialerPriority           = math.MaxInt32
@@ -318,17 +317,17 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 		return errNetworkNotAllowed
 	}
 
-	// Lower priority is better, just like nice etc.
-	if ct, ok := s.model.Connection(remoteID); ok {
-		if ct.Priority() > c.priority || time.Since(ct.Statistics().StartedAt) > minConnectionReplaceAge {
-			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
-		} else if cfg.MultipleConnections <= s.connectionsForDevice(cfg.DeviceID) {
-			// We should not already be connected to the other party. TODO: This
-			// could use some better handling. If the old connection is dead but
-			// hasn't timed out yet we may want to drop *that* connection and keep
-			// this one. But in case we are two devices connecting to each other
-			// in parallel we don't want to do that or we end up with no
-			// connections still established...
+	if existing := s.connectionsForDevice(cfg.DeviceID); existing > 0 {
+		// Check if the new connection is better than an existing one. Lower
+		// priority is better, just like `nice` etc.
+		if ct, ok := s.model.Connection(remoteID); ok {
+			if ct.Priority() > c.priority {
+				l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
+				return nil
+			}
+		}
+		if existing >= cfg.MultipleConnections {
+			// We're not allowed to accept any more connections to this device.
 			return errDeviceAlreadyConnected
 		}
 	}
