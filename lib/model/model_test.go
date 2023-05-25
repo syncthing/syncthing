@@ -34,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
+	"github.com/syncthing/syncthing/lib/rand"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 	"github.com/syncthing/syncthing/lib/util"
@@ -2964,7 +2965,9 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, new(protocolmocks.ConnectionInfo), protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
+	ci := &protocolmocks.ConnectionInfo{}
+	ci.ConnectionIDReturns(rand.String(16))
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))

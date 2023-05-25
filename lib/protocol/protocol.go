@@ -440,6 +440,8 @@ func (c *rawConnection) readerLoop() {
 }
 
 func (c *rawConnection) dispatcherLoop() (err error) {
+	l.Infof("dispatcher loop started: %v", err)
+	defer l.Infof("dispatcher loop stopped: %v", err)
 	defer close(c.dispatcherLoopStopped)
 	var msg message
 	state := stateInitial

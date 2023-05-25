@@ -3096,13 +3096,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	// Removing a device. We actually don't need to do anything.
-	// Because folder config has changed (since the device lists do not match)
-	// Folders for that had device got "restarted", which involves killing
-	// connections to all devices that we were sharing the folder with.
-	// At some point model.Close() will get called for that device which will
-	// clean residue device state that is not part of any folder.
-
 	// Pausing a device, unpausing is handled by the connection service.
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
@@ -3138,6 +3131,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.setConnRequestLimiters(toCfg)
 		}
 	}
+
 	// Clean up after removed devices
 	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
 	m.fmut.Lock()
