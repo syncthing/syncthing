@@ -848,7 +848,7 @@
                           </span>
                         </td>
                       </tr>
-                      <tr ng-if="connections[deviceCfg.deviceID].connected && deviceCfg.multipleConnections > 1">
+                      <tr ng-if="connections[deviceCfg.deviceID].connected && (deviceCfg.multipleConnections > 1 || connections[deviceCfg.deviceID].secondary)">
                         <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Multiple Connections</span></th>
                         <td class="text-right">
                           <span>
