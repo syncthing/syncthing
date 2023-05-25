@@ -440,8 +440,6 @@ func (c *rawConnection) readerLoop() {
 }
 
 func (c *rawConnection) dispatcherLoop() (err error) {
-	l.Infof("dispatcher loop started: %v", err)
-	defer l.Infof("dispatcher loop stopped: %v", err)
 	defer close(c.dispatcherLoopStopped)
 	var msg message
 	state := stateInitial
@@ -963,7 +961,11 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		<-c.dispatcherLoopStopped
+		if !c.startTime.IsZero() {
+			// Wait for the dispatcher loop to exit, if it was started to
+			// begin with.
+			<-c.dispatcherLoopStopped
+		}
 
 		c.model.Closed(err)
 	})

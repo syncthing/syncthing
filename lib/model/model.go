@@ -283,13 +283,13 @@ func (m *model) serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			l.Infoln("context closed, stopping", ctx.Err())
+			l.Infoln(m, "context closed, stopping", ctx.Err())
 			return ctx.Err()
 		case err := <-m.fatalChan:
-			l.Infoln("fatal error, stopping", err)
+			l.Infoln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			l.Infoln("promotion timer fired")
+			l.Infoln(m, "promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -1217,7 +1217,6 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	if cm.Secondary {
 		// No handling of secondary connection ClusterConfigs; they merely
 		// indicate the connection is ready to start.
-		l.Infoln("Ignoring secondary connection cluster-config on connection", conn.ConnectionID())
 		return nil
 	}
 
