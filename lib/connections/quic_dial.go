@@ -113,9 +113,10 @@ func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Confi
 		commonDialer: commonDialer{
 			reconnectInterval: time.Duration(quicInterval) * time.Second,
 			tlsCfg:            tlsCfg,
+			lanChecker:        lanChecker,
 			lanPriority:       opts.ConnectionPriorityQUICLAN,
 			wanPriority:       opts.ConnectionPriorityQUICWAN,
-			lanChecker:        lanChecker,
+			allowsMultiConns:  true,
 		},
 		registry: registry,
 	}

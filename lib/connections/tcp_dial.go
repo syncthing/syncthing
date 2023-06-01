@@ -74,9 +74,10 @@ func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config
 			trafficClass:      opts.TrafficClass,
 			reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
 			tlsCfg:            tlsCfg,
+			lanChecker:        lanChecker,
 			lanPriority:       opts.ConnectionPriorityTCPLAN,
 			wanPriority:       opts.ConnectionPriorityTCPWAN,
-			lanChecker:        lanChecker,
+			allowsMultiConns:  true,
 		},
 		registry: registry,
 	}

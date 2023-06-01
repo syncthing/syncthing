@@ -182,6 +182,7 @@ type commonDialer struct {
 	lanChecker        *lanChecker
 	lanPriority       int
 	wanPriority       int
+	allowsMultiConns  bool
 }
 
 func (d *commonDialer) RedialFrequency() time.Duration {
@@ -195,10 +196,15 @@ func (d *commonDialer) Priority(host string) int {
 	return d.wanPriority
 }
 
+func (d *commonDialer) AllowsMultiConns() bool {
+	return d.allowsMultiConns
+}
+
 type genericDialer interface {
 	Dial(context.Context, protocol.DeviceID, *url.URL) (internalConn, error)
 	RedialFrequency() time.Duration
 	Priority(host string) int
+	AllowsMultiConns() bool
 }
 
 type listenerFactory interface {
