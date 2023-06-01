@@ -129,12 +129,12 @@ func (s *indexHandler) waitForFileset(ctx context.Context) (*db.FileSet, error) 
 }
 
 func (s *indexHandler) Serve(ctx context.Context) (err error) {
-	l.Infof("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.DeviceID().Short(), s.conn, s.prevSequence)
+	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.DeviceID().Short(), s.conn, s.prevSequence)
 	stop := make(chan struct{})
 
 	defer func() {
 		err = svcutil.NoRestartErr(err)
-		l.Infof("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.DeviceID().Short(), s.conn, err)
+		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.DeviceID().Short(), s.conn, err)
 		close(stop)
 	}()
 

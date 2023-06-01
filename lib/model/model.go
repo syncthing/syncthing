@@ -283,13 +283,13 @@ func (m *model) serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			l.Infoln(m, "context closed, stopping", ctx.Err())
+			l.Debugln(m, "context closed, stopping", ctx.Err())
 			return ctx.Err()
 		case err := <-m.fatalChan:
-			l.Infoln(m, "fatal error, stopping", err)
+			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			l.Infoln(m, "promotion timer fired")
+			l.Debugln("promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -1214,9 +1214,13 @@ type ClusterConfigReceivedEventData struct {
 }
 
 func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfig) error {
+	deviceID := conn.DeviceID()
+	connID := conn.ConnectionID()
+
 	if cm.Secondary {
 		// No handling of secondary connection ClusterConfigs; they merely
 		// indicate the connection is ready to start.
+		l.Debugf("Skipping secondary ClusterConfig from %v/%s", deviceID.Short(), connID)
 		return nil
 	}
 
@@ -1225,10 +1229,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	deviceID := conn.DeviceID()
-	connID := conn.ConnectionID()
-	l.Infof("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
-
+	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
 	indexHandlerRegistry := m.ensureIndexHandler(conn)
 
 	deviceCfg, ok := m.cfg.Device(deviceID)
@@ -2396,7 +2397,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	if len(m.deviceConns[deviceID]) == 1 {
 		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 	} else {
-		l.Infof(`Additional connection (#%d) for device %s at %s`, len(m.deviceConns[deviceID])-1, deviceID.Short(), conn)
+		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConns[deviceID])-1, deviceID.Short(), conn)
 	}
 
 	m.pmut.Unlock()
@@ -2448,7 +2449,7 @@ func (m *model) promoteConnections() {
 		closing := make(map[string]bool)
 		for _, connID := range connIDs {
 			if m.conns[connID].Priority() > bestPriority {
-				l.Infoln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
+				l.Debugln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
 				go m.conns[connID].Close(errReplacingConnection)
 				closing[connID] = true
 			}
@@ -2456,13 +2457,13 @@ func (m *model) promoteConnections() {
 
 		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
 		if !closing[connIDs[0]] && m.promotedConn[deviceID] != connIDs[0] {
-			// The last promoted connection is not the current primary; we
-			// should promote the primary connection to be the index
-			// handling one. We do this by sending a ClusterConfig on it,
-			// which will cause the other side to start sending us index
+			// The previously promoted connection is not the current
+			// primary; we should promote the primary connection to be the
+			// index handling one. We do this by sending a ClusterConfig on
+			// it, which will cause the other side to start sending us index
 			// messages there. (On our side, we manage index handlers based
 			// on where we get ClusterConfigs from the peer.)
-			l.Infoln("Promoting connection", connIDs[0], "to", deviceID.Short())
+			l.Debugln("Promoting connection", connIDs[0], "to", deviceID.Short())
 			conn := m.conns[connIDs[0]]
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
@@ -2472,8 +2473,8 @@ func (m *model) promoteConnections() {
 			m.promotedConn[deviceID] = connIDs[0]
 		}
 
-		// Make sure any other new connections also get started, and a
-		// secondary-marked ClusterConfig.
+		// Make sure any other new connections also get started, and that
+		// they get a secondary-marked ClusterConfig.
 		for _, connID := range connIDs[1:] {
 			if closing[connID] {
 				continue
