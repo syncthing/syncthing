@@ -1186,43 +1186,6 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	return nil
 }
 
-// The deviceConnectionCounter keeps track of how many devices we are
-// connected to and how many connections we have to each device.
-type deviceConnectionCounter struct {
-	connectionsMut stdsync.Mutex
-	connections    map[protocol.DeviceID]int
-}
-
-func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID) {
-	c.connectionsMut.Lock()
-	defer c.connectionsMut.Unlock()
-	if c.connections == nil {
-		c.connections = make(map[protocol.DeviceID]int)
-	}
-	c.connections[d]++
-}
-
-func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {
-	c.connectionsMut.Lock()
-	defer c.connectionsMut.Unlock()
-	c.connections[d]--
-	if c.connections[d] == 0 {
-		delete(c.connections, d)
-	}
-}
-
-func (c *deviceConnectionCounter) numConnectionsForDevice(d protocol.DeviceID) int {
-	c.connectionsMut.Lock()
-	defer c.connectionsMut.Unlock()
-	return c.connections[d]
-}
-
-func (c *deviceConnectionCounter) numConnectedDevices() int {
-	c.connectionsMut.Lock()
-	defer c.connectionsMut.Unlock()
-	return len(c.connections)
-}
-
 type nextDialRegistry map[protocol.DeviceID]nextDialDevice
 
 type nextDialDevice struct {
@@ -1308,4 +1271,41 @@ func (r nextDialRegistry) sleepDurationAndCleanup(now time.Time) time.Duration {
 		}
 	}
 	return sleep
+}
+
+// The deviceConnectionCounter keeps track of how many devices we are
+// connected to and how many connections we have to each device.
+type deviceConnectionCounter struct {
+	connectionsMut stdsync.Mutex
+	connections    map[protocol.DeviceID]int
+}
+
+func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID) {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	if c.connections == nil {
+		c.connections = make(map[protocol.DeviceID]int)
+	}
+	c.connections[d]++
+}
+
+func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	c.connections[d]--
+	if c.connections[d] == 0 {
+		delete(c.connections, d)
+	}
+}
+
+func (c *deviceConnectionCounter) numConnectionsForDevice(d protocol.DeviceID) int {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	return c.connections[d]
+}
+
+func (c *deviceConnectionCounter) numConnectedDevices() int {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	return len(c.connections)
 }
