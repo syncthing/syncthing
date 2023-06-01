@@ -2527,27 +2527,40 @@ func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duratio
 }
 
 func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	var conn protocol.Connection
-	var connOK bool
-	m.pmut.RLock()
-	if connIDs, ok := m.deviceConns[deviceID]; ok {
-		connID := connIDs[0]
-		if len(connIDs) > 1 {
-			// Pick a random connection of the non-primary ones
-			idx := rand.Intn(len(connIDs)-1) + 1
-			connID = connIDs[idx]
-		}
-		conn, connOK = m.conns[connID]
-	}
-	m.pmut.RUnlock()
-
+	conn, connOK := m.requestConnectionForDevice(deviceID)
 	if !connOK {
-		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
+		return nil, fmt.Errorf("requestGlobal: no connection to device: %s", deviceID.Short())
 	}
 
-	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, conn.String(), folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
-
+	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID.Short(), conn.String(), folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	return conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+}
+
+// requestConnectionForDevice returns a connection to the given device, to
+// be used for sending a request. If there is only one device connection,
+// this is the one to use. If there are multiple then we avoid the first
+// ("primary") connection, which is dedicated to index data, and pick a
+// random one of the others.
+func (m *model) requestConnectionForDevice(deviceID protocol.DeviceID) (protocol.Connection, bool) {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+
+	connIDs, ok := m.deviceConns[deviceID]
+	if !ok {
+		return nil, false
+	}
+
+	// If there is an entry in deviceConns, it always contains at least one
+	// connection.
+	connID := connIDs[0]
+	if len(connIDs) > 1 {
+		// Pick a random connection of the non-primary ones
+		idx := rand.Intn(len(connIDs)-1) + 1
+		connID = connIDs[idx]
+	}
+
+	conn, connOK := m.conns[connID]
+	return conn, connOK
 }
 
 func (m *model) ScanFolders() map[string]error {

@@ -9,9 +9,7 @@ package connections
 import (
 	"context"
 	"crypto/tls"
-	"math/rand"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -63,14 +61,6 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 	isLocal := d.lanChecker.isLAN(conn.RemoteAddr())
 	if isLocal {
 		priority = d.lanPriority
-	}
-
-	// XXX: Induced flakyness
-	if dur, _ := time.ParseDuration(os.Getenv("CONN_FLAKY_LIFETIME")); dur > 0 {
-		dur = dur/2 + time.Duration(rand.Intn(int(dur)))
-		time.AfterFunc(dur, func() {
-			tc.Close()
-		})
 	}
 
 	return newInternalConn(tc, connTypeTCPClient, isLocal, priority), nil

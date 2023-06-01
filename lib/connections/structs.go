@@ -103,8 +103,8 @@ func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) 
 	}
 }
 
-// newConnection generates a connection ID. The connection ID is designed to
-// be 1) unique for each connection (even those reusing the same socket
+// newConnectionID generates a connection ID. The connection ID is designed
+// to be 1) unique for each connection (even those reusing the same socket
 // address on both sides), 2) sortable so that the connection with the
 // lowest ID will be the primary one. This also coincides with being the
 // oldest connection.
