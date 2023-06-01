@@ -146,6 +146,7 @@ type connWithHello struct {
 type service struct {
 	*suture.Supervisor
 	connectionStatusHandler
+	deviceConnectionCounter
 
 	cfg                  config.Wrapper
 	myID                 protocol.DeviceID
@@ -170,9 +171,6 @@ type service struct {
 	listenersMut   sync.RWMutex
 	listeners      map[string]genericListener
 	listenerTokens map[string]suture.ServiceToken
-
-	numConnectionsMut sync.Mutex
-	numConnections    map[protocol.DeviceID]int
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
@@ -204,9 +202,6 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
-
-		numConnectionsMut: sync.NewMutex(),
-		numConnections:    make(map[protocol.DeviceID]int),
 	}
 	cfg.Subscribe(service)
 
@@ -297,7 +292,7 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 		return errDeviceIgnored
 	}
 
-	if max := s.cfg.Options().ConnectionLimitMax; max > 0 && s.model.NumConnections() >= max {
+	if max := s.cfg.Options().ConnectionLimitMax; max > 0 && s.numConnectedDevices() >= max {
 		// We're not allowed to accept any more connections.
 		return errConnLimitReached
 	}
@@ -317,7 +312,7 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 		return errNetworkNotAllowed
 	}
 
-	if existing := s.connectionsForDevice(cfg.DeviceID); existing > 0 {
+	if existing := s.numConnectionsForDevice(cfg.DeviceID); existing > 0 {
 		// Check if the new connection is better than an existing one. Lower
 		// priority is better, just like `nice` etc.
 		if ct, ok := s.model.Connection(remoteID); ok {
@@ -522,7 +517,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	allowAdditional := 0 // no limit
 	connectionLimit := cfg.Options.LowestConnectionLimit()
 	if connectionLimit > 0 {
-		current := s.model.NumConnections()
+		current := s.numConnectedDevices()
 		allowAdditional = connectionLimit - current
 		if allowAdditional <= 0 {
 			l.Debugf("Skipping dial because we've reached the connection limit, current %d >= limit %d", current, connectionLimit)
@@ -559,7 +554,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			// we don't attempt dialers that aren't considered a worthy upgrade.
 			priorityCutoff -= cfg.Options.ConnectionPriorityUpgradeThreshold
 
-			if bestDialerPriority >= priorityCutoff && deviceCfg.MultipleConnections <= s.connectionsForDevice(deviceCfg.DeviceID) {
+			if bestDialerPriority >= priorityCutoff && deviceCfg.MultipleConnections <= s.numConnectionsForDevice(deviceCfg.DeviceID) {
 				// Our best dialer is not any better than what we already
 				// have, and we already have the desired number of
 				// connections to this device,so nothing to do here.
@@ -674,7 +669,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 
 		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry, s.lanChecker)
 		priority := dialer.Priority(uri.Host)
-		if priority >= priorityCutoff && deviceCfg.MultipleConnections <= s.connectionsForDevice(deviceCfg.DeviceID) {
+		if priority >= priorityCutoff && deviceCfg.MultipleConnections <= s.numConnectionsForDevice(deviceCfg.DeviceID) {
 			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d)", dialerFactory, priority, priorityCutoff)
 			continue
 		}
@@ -1191,22 +1186,41 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	return nil
 }
 
-func (s *service) accountAddedConnection(d protocol.DeviceID) {
-	s.numConnectionsMut.Lock()
-	defer s.numConnectionsMut.Unlock()
-	s.numConnections[d]++
+// The deviceConnectionCounter keeps track of how many devices we are
+// connected to and how many connections we have to each device.
+type deviceConnectionCounter struct {
+	connectionsMut stdsync.Mutex
+	connections    map[protocol.DeviceID]int
 }
 
-func (s *service) accountRemovedConnection(d protocol.DeviceID) {
-	s.numConnectionsMut.Lock()
-	defer s.numConnectionsMut.Unlock()
-	s.numConnections[d]--
+func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID) {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	if c.connections == nil {
+		c.connections = make(map[protocol.DeviceID]int)
+	}
+	c.connections[d]++
 }
 
-func (s *service) connectionsForDevice(d protocol.DeviceID) int {
-	s.numConnectionsMut.Lock()
-	defer s.numConnectionsMut.Unlock()
-	return s.numConnections[d]
+func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	c.connections[d]--
+	if c.connections[d] == 0 {
+		delete(c.connections, d)
+	}
+}
+
+func (c *deviceConnectionCounter) numConnectionsForDevice(d protocol.DeviceID) int {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	return c.connections[d]
+}
+
+func (c *deviceConnectionCounter) numConnectedDevices() int {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	return len(c.connections)
 }
 
 type nextDialRegistry map[protocol.DeviceID]nextDialDevice

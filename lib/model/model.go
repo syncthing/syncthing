@@ -742,13 +742,6 @@ type ConnectionInfo struct {
 	Crypto  string `json:"crypto"`
 }
 
-// NumConnections returns the current number of active connected devices.
-func (m *model) NumConnections() int {
-	m.pmut.RLock()
-	defer m.pmut.RUnlock()
-	return len(m.deviceConns)
-}
-
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *model) ConnectionStats() map[string]interface{} {
 	m.pmut.RLock()
