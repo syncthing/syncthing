@@ -34,7 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
-	"github.com/syncthing/syncthing/lib/rand"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/testutils"
 	"github.com/syncthing/syncthing/lib/util"
@@ -1710,7 +1709,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
-		blocks := []protocol.BlockInfo{}
+		var blocks []protocol.BlockInfo
 		if isfile {
 			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
@@ -2966,7 +2965,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
 	ci := &protocolmocks.ConnectionInfo{}
-	ci.ConnectionIDReturns(rand.String(16))
+	ci.ConnectionIDReturns(srand.String(16))
 	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {

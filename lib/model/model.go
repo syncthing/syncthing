@@ -184,7 +184,6 @@ var folderFactories = make(map[config.FolderType]folderFactory)
 var (
 	errDeviceUnknown    = errors.New("unknown device")
 	errDevicePaused     = errors.New("device is paused")
-	errDeviceRemoved    = errors.New("device has been removed")
 	ErrFolderPaused     = errors.New("folder is paused")
 	ErrFolderNotRunning = errors.New("folder is not running")
 	ErrFolderMissing    = errors.New("no such folder")
@@ -900,7 +899,7 @@ func (comp *FolderCompletion) setComplectionPct() {
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as JSON.
-func (comp FolderCompletion) Map() map[string]interface{} {
+func (comp *FolderCompletion) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"globalBytes": comp.GlobalBytes,
@@ -1927,7 +1926,6 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 			"id":    deviceID.String(),
 			"error": err.Error(),
 		})
-	} else {
 	}
 	close(closed)
 }

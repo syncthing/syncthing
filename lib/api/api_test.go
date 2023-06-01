@@ -497,6 +497,7 @@ func TestAPIServiceRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(cases[0].URL, func(t *testing.T) {
+			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
 	}
