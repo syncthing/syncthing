@@ -1894,9 +1894,8 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.closed, connID)
 	delete(m.conns, connID)
 
-	removedIsPrimary := m.deviceConns[deviceID][0] == connID
+	removedIsPrimary := m.promotedConn[deviceID] == connID
 	remainingConns := without(m.deviceConns[deviceID], connID)
-	// XXX: all the below needs more thinking about when to remove what
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 		if idxh, ok := m.indexHandlers[deviceID]; ok && idxh.conn.ConnectionID() == connID {
@@ -2201,7 +2200,8 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	return fs.GetMtimeMapping(fcfg.Filesystem(ffs), file)
 }
 
-// Connection returns the current connection for device, and a boolean whether a connection was found.
+// Connection returns the current (primary) connection for device, and a
+// boolean whether a connection was found.
 func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	var conn protocol.Connection
 	m.pmut.RLock()
