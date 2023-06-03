@@ -59,7 +59,7 @@
           </div>
         </div>
         <div ng-if="!editingDeviceDefaults()" id="device-sharing" class="tab-pane">
-          <div class="row">
+          <div class="row" ng-if="!currentDevice.untrusted"> <!-- The entire row with introducer and auto accepting folders disappear for untrusted devices. -->
             <div class="col-md-6">
               <div class="form-group">
                 <div class="checkbox">
