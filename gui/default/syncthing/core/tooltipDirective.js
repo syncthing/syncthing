@@ -3,9 +3,7 @@ angular.module('syncthing.core')
         return {
             restrict: 'A',
             link: function (scope, element, attributes) {
-                $(element).tooltip({
-                    html: 'true'
-                });
+                $(element).tooltip();
             }
         };
     });
