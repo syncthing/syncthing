@@ -3384,6 +3384,7 @@ angular.module('syncthing.core')
                 id: '@',
                 label: '@',
                 folderType: '@',
+                remoteState: '@',
                 untrusted: '=',
             },
             link: function (scope, elem, attrs) {
