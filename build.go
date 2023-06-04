@@ -103,9 +103,11 @@ func (t *target) expandFileList(files []archiveFile) []archiveFile {
 		if strings.Contains(f.src, "{{binary}}") || strings.Contains(f.dst, "{{binary}}") {
 			for _, pkgs := range t.activeBuildPkgs() {
 				for _, pkg := range pkgs {
+					binary := pkg.binaryName()
 					fs = append(fs, archiveFile{
-						src: strings.Replace(f.src, "{{binary}}", pkg.binaryName(), 1),
-						dst: strings.Replace(f.dst, "{{binary}}", pkg.binaryName(), 1),
+						src:  strings.Replace(f.src, "{{binary}}", binary, 1),
+						dst:  strings.Replace(f.dst, "{{binary}}", binary, 1),
+						perm: f.perm,
 					})
 				}
 			}
