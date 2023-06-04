@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Na zistenie zmenených položiek použite upozornenia zo súborového systému.",
     "User Home": "Domovský adresár",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Používateľské meno/heslo nebolo nastavené pre overenie GUI. Zvážte jeho nastavenie.",
+    "Using a QUIC connection over LAN": "Používam pripojenie QUIC over LAN",
+    "Using a QUIC connection over WAN": "Používam pripojenie QUIC over WAN",
     "Using a direct TCP connection over LAN": "Použitie priameho pripojenia TCP cez LAN",
     "Using a direct TCP connection over WAN": "Použitie priameho pripojenia TCP cez WAN",
     "Version": "Verzia",

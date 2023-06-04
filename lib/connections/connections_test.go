@@ -261,7 +261,7 @@ func TestNextDialRegistryCleanup(t *testing.T) {
 		},
 		// Threshold reached, but outside of cooldown delay
 		{
-			attempts:              dialCoolDownMaxAttemps,
+			attempts:              dialCoolDownMaxAttempts,
 			coolDownIntervalStart: firsts[2],
 		},
 	} {
@@ -281,11 +281,11 @@ func TestNextDialRegistryCleanup(t *testing.T) {
 		},
 		// attempts at threshold, inside delay
 		{
-			attempts:              dialCoolDownMaxAttemps,
+			attempts:              dialCoolDownMaxAttempts,
 			coolDownIntervalStart: firsts[0],
 		},
 		{
-			attempts:              dialCoolDownMaxAttemps,
+			attempts:              dialCoolDownMaxAttempts,
 			coolDownIntervalStart: firsts[1],
 		},
 	} {

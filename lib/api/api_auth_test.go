@@ -45,3 +45,23 @@ func TestStaticAuthPasswordFail(t *testing.T) {
 		t.Fatalf("should fail auth")
 	}
 }
+
+func TestAuthLDAPSendsCorrectBindDNWithTemplate(t *testing.T) {
+	t.Parallel()
+
+	templatedDn := ldapTemplateBindDN("cn=%s,dc=some,dc=example,dc=com", "username")
+	expectedDn := "cn=username,dc=some,dc=example,dc=com"
+	if expectedDn != templatedDn {
+		t.Fatalf("ldapTemplateBindDN should be %s != %s", expectedDn, templatedDn)
+	}
+}
+
+func TestAuthLDAPSendsCorrectBindDNWithNoTemplate(t *testing.T) {
+	t.Parallel()
+
+	templatedDn := ldapTemplateBindDN("cn=fixedusername,dc=some,dc=example,dc=com", "username")
+	expectedDn := "cn=fixedusername,dc=some,dc=example,dc=com"
+	if expectedDn != templatedDn {
+		t.Fatalf("ldapTemplateBindDN should be %s != %s", expectedDn, templatedDn)
+	}
+}

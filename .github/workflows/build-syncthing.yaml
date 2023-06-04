@@ -6,7 +6,7 @@ on:
 
 env:
   # The go version to use for builds.
-  GO_VERSION: "1.19.6"
+  GO_VERSION: "^1.20.3"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -42,7 +42,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.19"] # Skip Go 1.20 for now, https://github.com/syncthing/syncthing/issues/8799
+        go: ["1.19", "1.20"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -93,6 +93,28 @@ jobs:
           go test -v ./meta
 
   #
+  # The basic checks job is a virtual one that depends on the matrix tests,
+  # the correctness checks, and various builds that we always do. This makes
+  # it easy to have the PR process have a single test as a gatekeeper for
+  # merging, instead of having to add all the matrix tests and update them
+  # each time the version changes. (The top level test is not available for
+  # choosing there, only the matrix "children".)
+  #
+
+  basics:
+    name: Basic checks passed
+    runs-on: ubuntu-latest
+    needs:
+      - build-test
+      - correctness
+      - package-linux
+      - package-cross
+      - package-source
+      - package-debian
+    steps:
+      - uses: actions/checkout@v3
+
+  #
   # Windows
   #
 
@@ -100,8 +122,6 @@ jobs:
     name: Package for Windows
     if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
-    needs:
-      - build-test
     runs-on: windows-latest
     steps:
       - name: Set git to use LF
@@ -157,8 +177,6 @@ jobs:
 
   package-linux:
     name: Package for Linux
-    needs:
-      - build-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -199,8 +217,6 @@ jobs:
     name: Package for macOS
     if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
-    needs:
-      - build-test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -291,6 +307,7 @@ jobs:
     environment: signing
     needs:
       - package-macos
+      - basics
     runs-on: macos-latest
     steps:
       - name: Download artifacts
@@ -320,8 +337,6 @@ jobs:
 
   package-cross:
     name: Package cross compiled
-    needs:
-      - build-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -349,9 +364,6 @@ jobs:
             | grep -v js/ \
             | grep -v linux/ \
             | grep -v nacl/ \
-            | grep -v openbsd/arm\$ \
-            | grep -v openbsd/arm64 \
-            | grep -v openbsd/mips \
             | grep -v plan9/ \
             | grep -v windows/ \
           )
@@ -359,7 +371,9 @@ jobs:
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
-            go run build.go -goos "$goos" -goarch "$goarch" tar
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
+              echo "*** $plat failed ***"
+            fi
           done
         env:
           CGO_ENABLED: "0"
@@ -376,8 +390,6 @@ jobs:
 
   package-source:
     name: Package source code
-    needs:
-      - build-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -419,6 +431,7 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
+      - basics
       - package-windows
       - package-linux
       - package-macos
@@ -466,8 +479,6 @@ jobs:
 
   package-debian:
     name: Package for Debian
-    needs:
-      - build-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

@@ -83,7 +83,7 @@ func generateFilesWithTime(dir string, files, maxexp int, srcname string, t0 tim
 }
 
 func generateOneFile(fd io.ReadSeeker, p1 string, s int64, t0 time.Time) error {
-	src := io.LimitReader(&inifiteReader{fd}, int64(s))
+	src := io.LimitReader(&infiniteReader{fd}, int64(s))
 	dst, err := os.Create(p1)
 	if err != nil {
 		return err
@@ -265,11 +265,11 @@ func randomName() string {
 	return fmt.Sprintf("%x", b[:])
 }
 
-type inifiteReader struct {
+type infiniteReader struct {
 	rd io.ReadSeeker
 }
 
-func (i *inifiteReader) Read(bs []byte) (int, error) {
+func (i *infiniteReader) Read(bs []byte) (int, error) {
 	n, err := i.rd.Read(bs)
 	if err == io.EOF {
 		err = nil

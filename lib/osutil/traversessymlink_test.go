@@ -7,24 +7,18 @@
 package osutil_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func TestTraversesSymlink(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	testFs.MkdirAll("a/b/c", 0755)
-	if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
-		if build.IsWindows {
-			t.Skip("Symlinks aren't working")
-		}
+	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
+	testFs.MkdirAll("a/b/c", 0o755)
+	if err := testFs.CreateSymlink(filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,14 +60,10 @@ func TestTraversesSymlink(t *testing.T) {
 }
 
 func TestIssue4875(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	testFs.MkdirAll(filepath.Join("a", "b", "c"), 0755)
-	if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
-		if build.IsWindows {
-			t.Skip("Symlinks aren't working")
-		}
+	testFsPath := rand.String(32)
+	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, testFsPath)
+	testFs.MkdirAll(filepath.Join("a", "b", "c"), 0o755)
+	if err := testFs.CreateSymlink(filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,7 +76,7 @@ func TestIssue4875(t *testing.T) {
 		t.Fatal("error in setup, a/l/c should be a directory")
 	}
 
-	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(tmpDir, "a/l"))
+	testFs = fs.NewFilesystem(fs.FilesystemTypeFake, filepath.Join(testFsPath, "a/l"))
 	if err := osutil.TraversesSymlink(testFs, "."); err != nil {
 		t.Error(`TraversesSymlink on filesystem with symlink at root returned error for ".":`, err)
 	}
@@ -95,10 +85,8 @@ func TestIssue4875(t *testing.T) {
 var traversesSymlinkResult error
 
 func BenchmarkTraversesSymlink(b *testing.B) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
-	fs.MkdirAll("a/b/c", 0755)
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
+	fs.MkdirAll("a/b/c", 0o755)
 
 	for i := 0; i < b.N; i++ {
 		traversesSymlinkResult = osutil.TraversesSymlink(fs, "a/b/c")

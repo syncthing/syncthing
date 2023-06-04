@@ -622,7 +622,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = f.mtimefs.Mkdir(path, mode)
-			if err != nil || f.IgnorePerms {
+			if err != nil {
 				return err
 			}
 
@@ -631,7 +631,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return err
 			}
 
-			if file.NoPermissions {
+			if f.IgnorePerms || file.NoPermissions {
 				return nil
 			}
 

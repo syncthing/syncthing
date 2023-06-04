@@ -32,7 +32,7 @@ require (
 	github.com/lib/pq v1.10.7
 	github.com/maruel/panicparse/v2 v2.3.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
-	github.com/minio/sha256-simd v1.0.0
+	github.com/minio/sha256-simd v1.0.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/pierrec/lz4/v4 v4.1.17
