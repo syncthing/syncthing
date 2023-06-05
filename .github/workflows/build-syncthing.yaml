@@ -67,10 +67,6 @@ jobs:
           go run build.go
 
       - name: Test
-        # Our Windows tests currently don't work on Go 1.20
-        # https://github.com/syncthing/syncthing/issues/8779
-        # https://github.com/syncthing/syncthing/issues/8778
-        if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
         run: |
           go run build.go test
 
