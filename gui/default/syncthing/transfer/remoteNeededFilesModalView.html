@@ -22,7 +22,7 @@
                 </tr>
               </thead>
               <tr dir-paginate="file in remoteNeed[folder].files | itemsPerPage: remoteNeed[folder].perpage" current-page="remoteNeed[folder].page" total-items="completion[remoteNeedDevice.deviceID][folder].needItems" pagination-id="'remoteNeed-' + folder">
-                <td class="file-path">{{file.name}}</td>
+                <td class="word-break-all">{{file.name}}</td>
                 <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
                 <td>{{file.modified | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                 <td ng-if="file.modifiedBy">{{friendlyNameFromShort(file.modifiedBy)}}</td>
