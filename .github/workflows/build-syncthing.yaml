@@ -419,7 +419,7 @@ jobs:
           path: syncthing-source-*.tar.gz
 
   #
-  # Sign binaries for auto upgrade
+  # Sign binaries for auto upgrade, generate ASC signature files
   #
 
   sign-for-upgrade:
@@ -432,6 +432,7 @@ jobs:
       - package-linux
       - package-macos
       - package-cross
+      - package-source
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -460,8 +461,28 @@ jobs:
           mv packages-*/* packages
           pushd packages
           "$GITHUB_WORKSPACE/tools/sign-only"
+          rm -f "$PRIVATE_KEY"
         env:
           STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
+
+      - name: Create and sign .asc files
+        run: |
+          sudo apt update
+          sudo apt -y install gnupg
+
+          export SIGNING_KEY="$RUNNER_TEMP/gpg-secret.asc"
+          echo "$GNUPG_SIGNING_KEY_BASE64" | base64 -d > "$SIGNING_KEY"
+          gpg --import < "$SIGNING_KEY"
+
+          pushd packages
+          files=(*.tar.gz *.zip)
+          sha1sum "${files[@]}" | gpg --clearsign > sha1sum.txt.asc
+          sha256sum "${files[@]}" | gpg --clearsign > sha256sum.txt.asc
+          gpg --sign --armour --detach syncthing-source-*.tar.gz
+          popd
+          rm -f "$SIGNING_KEY" .gnupg
+        env:
+          GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
