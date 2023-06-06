@@ -502,8 +502,8 @@ jobs:
 
       - name: Package for Debian
         run: |
-          for goarch in amd64 arm64 arm ; do
-            go run build.go -goos linux -goarch "$goarch" deb
+          for arch in amd64 i386 armhf armel arm64 ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb
           done
         env:
           BUILD_USER: debian
