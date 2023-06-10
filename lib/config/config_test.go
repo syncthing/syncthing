@@ -1489,6 +1489,7 @@ func TestXattrFilter(t *testing.T) {
 	}
 }
 
+// Verify that opening a config with myID == protocol.EmptyDeviceID doesn't add that ID to the config.
 // Done in various places where config is needed, but the device ID isn't known.
 func TestLoadEmptyDeviceID(t *testing.T) {
 	temp, err := copyToTmp(testFs, "example.xml")
