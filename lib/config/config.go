@@ -268,6 +268,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 }
 
 func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
+	if myID == protocol.EmptyDeviceID {
+		return
+	}
 	for _, device := range cfg.Devices {
 		if device.DeviceID == myID {
 			return
@@ -483,6 +486,9 @@ func (cfg *Configuration) SetFolders(folders []FolderConfiguration) {
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
+	if myID == protocol.EmptyDeviceID {
+		return devices
+	}
 	for _, device := range devices {
 		if device.DeviceID.Equals(myID) {
 			return devices
