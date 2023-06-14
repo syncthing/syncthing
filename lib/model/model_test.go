@@ -2826,23 +2826,27 @@ func TestParentOfUnignored(t *testing.T) {
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
 	ffs := fcfg.Filesystem(nil)
-	defer ffs.Remove(".stignore")
 
-	fd, err := ffs.Create("baz")
-	must(t, err)
-	fd.Close()
+	must(t, ffs.Mkdir("bar", 0o755))
+	must(t, ffs.Mkdir("baz", 0o755))
+	must(t, ffs.Mkdir("baz/quux", 0o755))
 
 	m := setupModel(t, w)
 	defer cleanupModel(m)
 
+	m.SetIgnores("default", []string{"!quux", "*"})
 	m.ScanFolder("default")
 
-	m.SetIgnores("default", []string{"!quux", "*"})
+	if bar, ok := m.testCurrentFolderFile("default", "bar"); !ok {
+		t.Error(`Directory "bar" missing in db`)
+	} else if !bar.IsIgnored() {
+		t.Error(`Directory "bar" is not ignored`)
+	}
 
-	if parent, ok := m.testCurrentFolderFile("default", "baz"); !ok {
-		t.Errorf(`Directory "baz" missing in db`)
-	} else if parent.IsIgnored() {
-		t.Errorf(`Directory "baz" is ignored`)
+	if baz, ok := m.testCurrentFolderFile("default", "baz"); !ok {
+		t.Error(`Directory "baz" missing in db`)
+	} else if baz.IsIgnored() {
+		t.Error(`Directory "baz" is ignored`)
 	}
 }
 

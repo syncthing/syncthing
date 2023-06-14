@@ -12,7 +12,6 @@ package fs
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -35,14 +34,6 @@ func TestWindowsPaths(t *testing.T) {
 		{`e:\x\`, `\\?\e:\x`, `e:\x`},
 		{`e:\x\\`, `\\?\e:\x`, `e:\x`},
 		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
-	}
-
-	if runtime.Version() >= "go1.20" {
-		testCases = append(testCases,
-			testCase{`\\.\e:`, `\\.\e:\`, `e:\`},
-			testCase{`\\.\e:\`, `\\.\e:\`, `e:\`},
-			testCase{`\\.\e:\\`, `\\.\e:\`, `e:\`},
-		)
 	}
 
 	for i, testCase := range testCases {

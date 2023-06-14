@@ -1489,6 +1489,95 @@ func TestXattrFilter(t *testing.T) {
 	}
 }
 
+func TestUntrustedIntroducer(t *testing.T) {
+	fd, err := os.Open("testdata/untrustedintroducer.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := ReadXML(fd, device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Devices) != 2 {
+		// ourselves and the remote in the config
+		t.Fatal("Expected two devices")
+	}
+
+	// Check that the introducer and auto-accept flags were negated
+	var foundUntrusted protocol.DeviceID
+	for _, d := range cfg.Devices {
+		if d.Name == "untrusted" {
+			foundUntrusted = d.DeviceID
+			if !d.Untrusted {
+				t.Error("untrusted device should be untrusted")
+			}
+			if d.Introducer {
+				t.Error("untrusted device should not be an introducer")
+			}
+			if d.AutoAcceptFolders {
+				t.Error("untrusted device should not auto-accept folders")
+			}
+		}
+	}
+	if foundUntrusted.Equals(protocol.EmptyDeviceID) {
+		t.Error("untrusted device not found")
+	}
+
+	// Folder A has the device added without a password, which is not permitted
+	folderA := cfg.FolderMap()["a"]
+	for _, dev := range folderA.Devices {
+		if dev.DeviceID == foundUntrusted {
+			t.Error("untrusted device should not be in folder A")
+		}
+	}
+
+	// Folder B has the device added with a password, this is just a sanity check
+	folderB := cfg.FolderMap()["b"]
+	found := false
+	for _, dev := range folderB.Devices {
+		if dev.DeviceID == foundUntrusted {
+			found = true
+			if dev.EncryptionPassword == "" {
+				t.Error("untrusted device should have a password in folder B")
+			}
+		}
+	}
+	if !found {
+		t.Error("untrusted device not found in folder B")
+	}
+}
+
+// Verify that opening a config with myID == protocol.EmptyDeviceID doesn't add that ID to the config.
+// Done in various places where config is needed, but the device ID isn't known.
+func TestLoadEmptyDeviceID(t *testing.T) {
+	temp, err := copyToTmp(testFs, "example.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err := testFs.Open(temp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+	cfg, _, err := ReadXML(fd, protocol.EmptyDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, devCfg := range cfg.Devices {
+		if devCfg.DeviceID == protocol.EmptyDeviceID {
+			t.Fatal("Device with empty ID")
+		}
+	}
+	for _, folderCfg := range cfg.Folders {
+		for _, devCfg := range folderCfg.Devices {
+			if devCfg.DeviceID == protocol.EmptyDeviceID {
+				t.Fatalf("Device with empty ID in folder %v", folderCfg.Description())
+			}
+		}
+	}
+}
+
 func loadTestFiles() {
 	entries, err := os.ReadDir("testdata")
 	if err != nil {

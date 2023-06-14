@@ -379,6 +379,7 @@
     "The path cannot be blank.": "路徑不能空白。",
     "The rate limit must be a non-negative number (0: no limit)": "限制速率必須為非負的數字 (0: 不設限制)",
     "The remote device has not accepted sharing this folder.": "遠端裝置尚未接受分享這個資料夾。",
+    "The remote device has paused this folder.": "遠端裝置已暫停同步此資料夾。",
     "The rescan interval must be a non-negative number of seconds.": "重新掃描間隔必須為一個非負數的秒數。",
     "There are no devices to share this folder with.": "沒有裝置可以共享此資料夾。",
     "There are no folders to share with this device.": "沒有資料夾分享給此裝置。",
