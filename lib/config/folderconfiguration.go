@@ -181,14 +181,16 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 	return deviceIDs
 }
 
-func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) {
 	// Ensure that
 	// - any loose devices are not present in the wrong places
 	// - there are no duplicate devices
 	// - we are part of the devices
+	// - folder is not shared in trusted mode with an untrusted device
 	f.Devices = ensureExistingDevices(f.Devices, existingDevices)
 	f.Devices = ensureNoDuplicateFolderDevices(f.Devices)
 	f.Devices = ensureDevicePresent(f.Devices, myID)
+	f.Devices = ensureNoUntrustedTrustingSharing(f, f.Devices, existingDevices)
 
 	sort.Slice(f.Devices, func(a, b int) bool {
 		return f.Devices[a].DeviceID.Compare(f.Devices[b].DeviceID) == -1

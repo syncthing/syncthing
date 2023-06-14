@@ -284,7 +284,7 @@ func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
 	})
 }
 
-func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[protocol.DeviceID]bool, error) {
+func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[protocol.DeviceID]*DeviceConfiguration, error) {
 	existingDevices := cfg.prepareDeviceList()
 
 	sharedFolders, err := cfg.prepareFolders(myID, existingDevices)
@@ -297,7 +297,7 @@ func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[
 	return existingDevices, nil
 }
 
-func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]bool {
+func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfiguration {
 	// Ensure that the device list is
 	// - free from duplicates
 	// - no devices with empty ID
@@ -309,14 +309,14 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]bool {
 	})
 
 	// Build a list of available devices
-	existingDevices := make(map[protocol.DeviceID]bool, len(cfg.Devices))
-	for _, device := range cfg.Devices {
-		existingDevices[device.DeviceID] = true
+	existingDevices := make(map[protocol.DeviceID]*DeviceConfiguration, len(cfg.Devices))
+	for i, device := range cfg.Devices {
+		existingDevices[device.DeviceID] = &cfg.Devices[i]
 	}
 	return existingDevices
 }
 
-func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) (map[protocol.DeviceID][]string, error) {
+func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) (map[protocol.DeviceID][]string, error) {
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
 	// happen when configured by the GUI. We return with an error in that
@@ -359,13 +359,13 @@ func (cfg *Configuration) prepareDevices(sharedFolders map[protocol.DeviceID][]s
 	}
 }
 
-func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.DeviceID]bool) map[protocol.DeviceID]bool {
+func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.DeviceID]*DeviceConfiguration) map[protocol.DeviceID]bool {
 	// The list of ignored devices should not contain any devices that have
 	// been manually added to the config.
 	newIgnoredDevices := cfg.IgnoredDevices[:0]
 	ignoredDevices := make(map[protocol.DeviceID]bool, len(cfg.IgnoredDevices))
 	for _, dev := range cfg.IgnoredDevices {
-		if !existingDevices[dev.ID] {
+		if _, ok := existingDevices[dev.ID]; !ok {
 			ignoredDevices[dev.ID] = true
 			newIgnoredDevices = append(newIgnoredDevices, dev)
 		}
@@ -502,7 +502,7 @@ func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.Devi
 	return devices
 }
 
-func ensureExistingDevices(devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]bool) []FolderDeviceConfiguration {
+func ensureExistingDevices(devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
 	count := len(devices)
 	i := 0
 loop:
@@ -551,6 +551,23 @@ loop:
 		i++
 	}
 	return devices[0:count]
+}
+
+func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
+	for i := 0; i < len(devices); i++ {
+		dev := devices[i]
+		if dev.EncryptionPassword != "" {
+			// There's a password set, no check required
+			continue
+		}
+		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
+			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
+			copy(devices[i:], devices[i+1:])
+			devices = devices[:len(devices)-1]
+			i--
+		}
+	}
+	return devices
 }
 
 func cleanSymlinks(filesystem fs.Filesystem, dir string) {
@@ -611,7 +628,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 	return addr.Port, nil
 }
 
-func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) {
 	ensureZeroForNodefault(&FolderConfiguration{}, &defaults.Folder)
 	ensureZeroForNodefault(&DeviceConfiguration{}, &defaults.Device)
 	defaults.Folder.prepare(myID, existingDevices)

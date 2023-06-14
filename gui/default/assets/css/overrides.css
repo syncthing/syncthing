@@ -549,6 +549,18 @@ ul.three-columns li, ul.two-columns li {
     opacity: 1;
 }
 
+.checkbox[disabled] {
+    background-color: #eeeeee;
+    opacity: 1;
+    margin-left: -5px;
+    padding-left: 5px;
+}
+
+.checkbox[disabled] *, .checkbox[disabled] .help-block {
+    color: #999999;
+    cursor: not-allowed;
+}
+
 /* Make a "well" look more like a readonly text input when grouped with a button */
 .input-group .well-sm {
   padding-top: 6px;
