@@ -185,7 +185,7 @@ td input[type="checkbox"] {
 }
 
 /* Wrap long file paths to prevent text overflow. See issue #6268. */
-.file-path {
+.word-break-all {
     word-break: break-all;
 }
 

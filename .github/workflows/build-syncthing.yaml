@@ -67,10 +67,6 @@ jobs:
           go run build.go
 
       - name: Test
-        # Our Windows tests currently don't work on Go 1.20
-        # https://github.com/syncthing/syncthing/issues/8779
-        # https://github.com/syncthing/syncthing/issues/8778
-        if: "!(matrix.go == '1.20' && matrix.runner == 'windows-latest')"
         run: |
           go run build.go test
 
@@ -423,7 +419,7 @@ jobs:
           path: syncthing-source-*.tar.gz
 
   #
-  # Sign binaries for auto upgrade
+  # Sign binaries for auto upgrade, generate ASC signature files
   #
 
   sign-for-upgrade:
@@ -436,6 +432,7 @@ jobs:
       - package-linux
       - package-macos
       - package-cross
+      - package-source
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -464,8 +461,28 @@ jobs:
           mv packages-*/* packages
           pushd packages
           "$GITHUB_WORKSPACE/tools/sign-only"
+          rm -f "$PRIVATE_KEY"
         env:
           STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
+
+      - name: Create and sign .asc files
+        run: |
+          sudo apt update
+          sudo apt -y install gnupg
+
+          export SIGNING_KEY="$RUNNER_TEMP/gpg-secret.asc"
+          echo "$GNUPG_SIGNING_KEY_BASE64" | base64 -d > "$SIGNING_KEY"
+          gpg --import < "$SIGNING_KEY"
+
+          pushd packages
+          files=(*.tar.gz *.zip)
+          sha1sum "${files[@]}" | gpg --clearsign > sha1sum.txt.asc
+          sha256sum "${files[@]}" | gpg --clearsign > sha256sum.txt.asc
+          gpg --sign --armour --detach syncthing-source-*.tar.gz
+          popd
+          rm -f "$SIGNING_KEY" .gnupg
+        env:
+          GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
@@ -506,8 +523,8 @@ jobs:
 
       - name: Package for Debian
         run: |
-          for goarch in amd64 arm64 arm ; do
-            go run build.go -goos linux -goarch "$goarch" deb
+          for arch in amd64 i386 armhf armel arm64 ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb
           done
         env:
           BUILD_USER: debian
@@ -561,3 +578,49 @@ jobs:
           RCLONE_CONFIG_SPACES_ACL: public-read
         with:
           args: sync packages spaces:syncthing/nightly
+
+  #
+  # Push release artifacts to Spaces
+  #
+
+  publish-release-files:
+    name: Publish release files
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release')
+    environment: signing
+    needs:
+      - sign-for-upgrade
+      - package-debian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download signed packages
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-signed
+          path: packages
+
+      - name: Download debian packages
+        uses: actions/download-artifact@v3
+        with:
+          name: debian-packages
+          path: packages
+
+      - name: Set version
+        run: |
+          version=$(go run build.go version)
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: Push to Spaces
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync packages spaces:syncthing/release/${{ env.VERSION }}

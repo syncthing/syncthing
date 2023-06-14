@@ -92,7 +92,7 @@
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.shared">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabelMarkRemoteState(folder.id, currentDevice.deviceID)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" remote-state="{{completion[currentDevice.deviceID][folder.id].remoteState}}" />
               </div>
               <p class="help-block" ng-if="deviceHasUnacceptedFolders(currentDevice)">
                 <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>

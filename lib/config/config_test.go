@@ -1548,6 +1548,36 @@ func TestUntrustedIntroducer(t *testing.T) {
 	}
 }
 
+// Verify that opening a config with myID == protocol.EmptyDeviceID doesn't add that ID to the config.
+// Done in various places where config is needed, but the device ID isn't known.
+func TestLoadEmptyDeviceID(t *testing.T) {
+	temp, err := copyToTmp(testFs, "example.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err := testFs.Open(temp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+	cfg, _, err := ReadXML(fd, protocol.EmptyDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, devCfg := range cfg.Devices {
+		if devCfg.DeviceID == protocol.EmptyDeviceID {
+			t.Fatal("Device with empty ID")
+		}
+	}
+	for _, folderCfg := range cfg.Folders {
+		for _, devCfg := range folderCfg.Devices {
+			if devCfg.DeviceID == protocol.EmptyDeviceID {
+				t.Fatalf("Device with empty ID in folder %v", folderCfg.Description())
+			}
+		}
+	}
+}
+
 func loadTestFiles() {
 	entries, err := os.ReadDir("testdata")
 	if err != nil {
