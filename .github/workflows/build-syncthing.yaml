@@ -5,7 +5,9 @@ on:
   push:
 
 env:
-  # The go version to use for builds.
+  # The go version to use for builds. We set check-latest to true when
+  # installing, so we get the latest patch version that matches the
+  # expression.
   GO_VERSION: "^1.20.3"
 
   # Optimize compatibility on the slow archictures.
@@ -61,6 +63,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: true
+          check-latest: true
 
       - name: Build
         run: |
@@ -83,6 +86,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - name: Check correctness
         run: |
@@ -136,6 +141,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -182,6 +189,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -222,6 +231,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -342,6 +353,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -395,6 +408,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - name: Package source
         run: |
@@ -505,6 +520,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -638,6 +655,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
