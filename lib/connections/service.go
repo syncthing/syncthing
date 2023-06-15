@@ -670,12 +670,16 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry, s.lanChecker)
 		priority := dialer.Priority(uri.Host)
 		currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
-		if priority >= priorityCutoff && deviceCfg.MultipleConnections <= currentConns {
-			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d)", dialerFactory, priority, priorityCutoff)
+		if priority >= priorityCutoff && currentConns >= deviceCfg.MultipleConnections {
+			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.MultipleConnections)
+			continue
+		}
+		if priority > priorityCutoff {
+			l.Debugf("Not dialing using %s as priority is worse than current connection (%d > %d)", dialerFactory, priority, priorityCutoff)
 			continue
 		}
 		if currentConns > 0 && !dialer.AllowsMultiConns() {
-			l.Debugf("Not dialing using %s as it does not allow multiple connections", dialerFactory)
+			l.Debugf("Not dialing using %s as it does not allow multiple connections and we already have %d/%d connections", dialerFactory, currentConns, deviceCfg.MultipleConnections)
 			continue
 		}
 
