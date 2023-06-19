@@ -609,10 +609,10 @@ func TestRequestSymlinkWindows(t *testing.T) {
 
 func equalContents(fs fs.Filesystem, path string, contents []byte) error {
 	fd, err := fs.Open(path)
-	defer fd.Close()
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 	bs, err := io.ReadAll(fd)
 	if err != nil {
 		return err
