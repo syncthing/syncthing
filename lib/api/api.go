@@ -32,6 +32,7 @@ import (
 
 	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
@@ -350,6 +351,15 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
+
+	// Handle Prometheus metrics
+	promHttpHandler := promhttp.Handler()
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+		// fetching metrics counts as an event, for the purpose of whether
+		// we should prepare folder summaries etc.
+		s.fss.OnEventRequest()
+		promHttpHandler.ServeHTTP(w, req)
+	})
 
 	guiCfg := s.cfg.GUI()
 

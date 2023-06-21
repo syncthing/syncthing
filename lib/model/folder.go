@@ -137,6 +137,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	f.pullPause = f.pullBasePause()
 	f.pullFailTimer = time.NewTimer(0)
 	<-f.pullFailTimer.C
+
+	registerFolderMetrics(f.ID)
+
 	return f
 }
 
@@ -458,6 +461,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 	defer f.ioLimiter.Give(1)
+
+	t0 := time.Now()
+	defer func() {
+		metricFolderScans.WithLabelValues(f.ID).Inc()
+		metricFolderScanSeconds.WithLabelValues(f.ID).Add(time.Since(t0).Seconds())
+	}()
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])

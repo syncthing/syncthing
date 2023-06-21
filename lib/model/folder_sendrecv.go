@@ -163,9 +163,12 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 
+	t0 := time.Now()
 	defer func() {
 		close(scanChan)
 		f.setState(FolderIdle)
+		metricFolderPulls.WithLabelValues(f.ID).Inc()
+		metricFolderPullSeconds.WithLabelValues(f.ID).Add(time.Since(t0).Seconds())
 	}()
 
 	changed := 0
@@ -573,9 +576,9 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		})
 	}()
 
-	mode := fs.FileMode(file.Permissions & 0777)
+	mode := fs.FileMode(file.Permissions & 0o777)
 	if f.IgnorePerms || file.NoPermissions {
-		mode = 0777
+		mode = 0o777
 	}
 
 	if shouldDebug() {
@@ -705,7 +708,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		return true
 	}
 	l.Debugf("%v creating parent directory of %v", f, file)
-	if err := f.mtimefs.MkdirAll(parent, 0755); err != nil {
+	if err := f.mtimefs.MkdirAll(parent, 0o755); err != nil {
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}
@@ -1235,7 +1238,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	f.queue.Done(file.Name)
 
 	if !f.IgnorePerms && !file.NoPermissions {
-		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
+		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0o777)); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("shortcut file (setting permissions): %w", err))
 			return
 		}
@@ -1249,7 +1252,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	// Still need to re-write the trailer with the new encrypted fileinfo.
 	if f.Type == config.FolderTypeReceiveEncrypted {
 		err = inWritableDir(func(path string) error {
-			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0666)
+			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0o666)
 			if err != nil {
 				return err
 			}
@@ -1329,7 +1332,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				// block of all zeroes, so then we should not skip it.
 
 				// Pretend we copied it.
-				state.copiedFromOrigin()
+				state.skippedSparseBlock(block.Size)
 				state.copyDone(block)
 				continue
 			}
@@ -1348,9 +1351,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						state.fail(fmt.Errorf("dst write: %w", err))
 					}
 					if offset == block.Offset {
-						state.copiedFromOrigin()
+						state.copiedFromOrigin(block.Size)
 					} else {
-						state.copiedFromOriginShifted()
+						state.copiedFromOriginShifted(block.Size)
 					}
 
 					return false
@@ -1398,7 +1401,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						state.fail(fmt.Errorf("dst write: %w", err))
 					}
 					if path == state.file.Name {
-						state.copiedFromOrigin()
+						state.copiedFromOrigin(block.Size)
+					} else {
+						state.copiedFromElsewhere(block.Size)
 					}
 					return true
 				})
@@ -1608,7 +1613,7 @@ loop:
 func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
-		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
+		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0o777)); err != nil {
 			return fmt.Errorf("setting permissions: %w", err)
 		}
 	}
