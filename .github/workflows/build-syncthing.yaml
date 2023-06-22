@@ -668,7 +668,7 @@ jobs:
       - name: Build binaries
         run: |
           for arch in arm64 amd64; do
-            go run build.go -goos linux -goarch "$arch" build syncthing
+            go run build.go -goos linux -goarch "$arch" -no-upgrade build syncthing
             mv syncthing syncthing-linux-"$arch"
           done
         env:
