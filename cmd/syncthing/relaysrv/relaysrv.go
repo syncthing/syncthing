@@ -1,11 +1,10 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
-package main
+package relaysrv
 
 import (
 	"context"
 	"crypto/tls"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -34,40 +33,20 @@ import (
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 )
 
+const defaultPoolAddrs = "https://relays.syncthing.net/endpoint"
+
 var (
-	listen string
-	debug  bool
+	debug bool
 
 	sessionAddress []byte
 	sessionPort    uint16
 
-	networkTimeout = 2 * time.Minute
-	pingInterval   = time.Minute
-	messageTimeout = time.Minute
-
 	limitCheckTimer *time.Timer
 
-	sessionLimitBps   int
-	globalLimitBps    int
-	overLimit         atomic.Bool
-	descriptorLimit   int64
-	sessionLimiter    *rate.Limiter
-	globalLimiter     *rate.Limiter
-	networkBufferSize int
-
-	statusAddr       string
-	token            string
-	poolAddrs        string
-	pools            []string
-	providedBy       string
-	defaultPoolAddrs = "https://relays.syncthing.net/endpoint"
-
-	natEnabled bool
-	natLease   int
-	natRenewal int
-	natTimeout int
-
-	pprofEnabled bool
+	overLimit       atomic.Bool
+	descriptorLimit int64
+	sessionLimiter  *rate.Limiter
+	globalLimiter   *rate.Limiter
 )
 
 // httpClient is the HTTP client we use for outbound requests. It has a
@@ -76,54 +55,55 @@ var httpClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
-func main() {
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
+type CLI struct {
+	Listen          string        `default:":22067" help:"Protocol listen address"`
+	Keys            string        `default:"." help:"Directory where cert.pem and key.pem is stored"`
+	NetworkTimeout  time.Duration `default:"2m" help:"Timeout for network operations between the client and the relay. If no data is received between the client and the relay in this period of time, the connection is terminated. Furthermore, if no data is sent between either clients being relayed within this period of time, the session is also terminated."`
+	PingInterval    time.Duration `default:"1m" help:"How often pings are sent"`
+	MessageTimeout  time.Duration `default:"1m" help:"Maximum amount of time we wait for relevant messages to arrive"`
+	SessionLimitBps int           `help:"Per session rate limit, in bytes/s"`
+	GlobalLimitBps  int           `help:"Global rate limit, in bytes/s"`
+	StatusAddr      string        `default:":22070" help:"Listen address for status service (blank to disable)"`
+	Token           string        `help:"Token to restrict access to the relay (optional). Disables joining any pools."`
+	Pools           []string      `default:"https://relays.syncthing.net/endpoint" help:"Comma separated list of relay pool addresses to join"`
+	ProvidedBy      string        `help:"An optional help about who provides the relay"`
+	ExtAddress      string        `help:"An optional address to advertise as being available on. Allows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443."`
+	Protocol        string        `default:"tcp" help:"Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6"`
+	NAT             bool          `default:"false" help:"Use UPnP/NAT-PMP to acquire external port mapping"`
+	NATLease        time.Duration `default:"60m" help:"NAT lease length"`
+	NATRenewal      time.Duration `default:"30m" help:"NAT renewal frequency"`
+	NATTimeout      time.Duration `default:"10s" help:"NAT discovery timeout"`
+	Pprof           bool          `default:"false" help:"Enable the built in profiling on the status server"`
+	NetworkBuffer   int           `default:"65536" help:"Network buffer size (two of these per proxied connection)"`
+	Debug           bool          `help:"Enable debug output"`
+	Version         bool          `default:"false" help:"Show version"`
+}
 
-	var dir, extAddress, proto string
-
-	flag.StringVar(&listen, "listen", ":22067", "Protocol listen address")
-	flag.StringVar(&dir, "keys", ".", "Directory where cert.pem and key.pem is stored")
-	flag.DurationVar(&networkTimeout, "network-timeout", networkTimeout, "Timeout for network operations between the client and the relay.\n\tIf no data is received between the client and the relay in this period of time, the connection is terminated.\n\tFurthermore, if no data is sent between either clients being relayed within this period of time, the session is also terminated.")
-	flag.DurationVar(&pingInterval, "ping-interval", pingInterval, "How often pings are sent")
-	flag.DurationVar(&messageTimeout, "message-timeout", messageTimeout, "Maximum amount of time we wait for relevant messages to arrive")
-	flag.IntVar(&sessionLimitBps, "per-session-rate", sessionLimitBps, "Per session rate limit, in bytes/s")
-	flag.IntVar(&globalLimitBps, "global-rate", globalLimitBps, "Global rate limit, in bytes/s")
-	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
-	flag.StringVar(&statusAddr, "status-srv", ":22070", "Listen address for status service (blank to disable)")
-	flag.StringVar(&token, "token", "", "Token to restrict access to the relay (optional). Disables joining any pools.")
-	flag.StringVar(&poolAddrs, "pools", defaultPoolAddrs, "Comma separated list of relay pool addresses to join")
-	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
-	flag.StringVar(&extAddress, "ext-address", "", "An optional address to advertise as being available on.\n\tAllows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443.")
-	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
-	flag.BoolVar(&natEnabled, "nat", false, "Use UPnP/NAT-PMP to acquire external port mapping")
-	flag.IntVar(&natLease, "nat-lease", 60, "NAT lease length in minutes")
-	flag.IntVar(&natRenewal, "nat-renewal", 30, "NAT renewal frequency in minutes")
-	flag.IntVar(&natTimeout, "nat-timeout", 10, "NAT discovery timeout in seconds")
-	flag.BoolVar(&pprofEnabled, "pprof", false, "Enable the built in profiling on the status server")
-	flag.IntVar(&networkBufferSize, "network-buffer", 65536, "Network buffer size (two of these per proxied connection)")
-	showVersion := flag.Bool("version", false, "Show version")
-	flag.Parse()
+func (cli *CLI) Run() error {
+	debug = cli.Debug
+	log.SetOutput(os.Stdout)
+	log.SetFlags(0)
 
 	longVer := build.LongVersionFor("strelaysrv")
-	if *showVersion {
+	if cli.Version {
 		fmt.Println(longVer)
-		return
+		return nil
 	}
 
-	if extAddress == "" {
-		extAddress = listen
+	if cli.ExtAddress == "" {
+		cli.ExtAddress = cli.Listen
 	}
 
-	if len(providedBy) > 30 {
+	if len(cli.ProvidedBy) > 30 {
 		log.Fatal("Provided-by cannot be longer than 30 characters")
 	}
 
-	addr, err := net.ResolveTCPAddr(proto, extAddress)
+	addr, err := net.ResolveTCPAddr(cli.Protocol, cli.ExtAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	laddr, err := net.ResolveTCPAddr(proto, listen)
+	laddr, err := net.ResolveTCPAddr(cli.Protocol, cli.Listen)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +134,7 @@ func main() {
 	sessionAddress = addr.IP[:]
 	sessionPort = uint16(addr.Port)
 
-	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
+	certFile, keyFile := filepath.Join(cli.Keys, "cert.pem"), filepath.Join(cli.Keys, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
@@ -182,21 +162,21 @@ func main() {
 	}
 
 	id := syncthingprotocol.NewDeviceID(cert.Certificate[0])
-	if debug {
+	if cli.Debug {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", config.New(id), id, events.NoopLogger)
+	wrapper := config.Wrap("", config.New(id), id, events.NoopLogger)
 	go wrapper.Serve(context.TODO())
 	wrapper.Modify(func(cfg *config.Configuration) {
-		cfg.Options.NATLeaseM = natLease
-		cfg.Options.NATRenewalM = natRenewal
-		cfg.Options.NATTimeoutS = natTimeout
+		cfg.Options.NATLeaseM = int(cli.NATLease / time.Minute)
+		cfg.Options.NATRenewalM = int(cli.NATRenewal / time.Minute)
+		cfg.Options.NATTimeoutS = int(cli.NATTimeout / time.Second)
 	})
 	natSvc := nat.NewService(id, wrapper)
 	mapping := mapping{natSvc.NewMapping(nat.TCP, addr.IP, addr.Port)}
 
-	if natEnabled {
+	if cli.NAT {
 		ctx, cancel := context.WithCancel(context.Background())
 		go natSvc.Serve(ctx)
 		defer cancel()
@@ -209,7 +189,7 @@ func main() {
 		})
 
 		// Need to wait a few extra seconds, since NAT library waits exactly natTimeout seconds on all interfaces.
-		timeout := time.Duration(natTimeout+2) * time.Second
+		timeout := time.Duration(cli.NATTimeout+2) * time.Second
 		log.Printf("Waiting %s to acquire NAT mapping", timeout)
 
 		select {
@@ -220,64 +200,62 @@ func main() {
 		}
 	}
 
-	if sessionLimitBps > 0 {
-		sessionLimiter = rate.NewLimiter(rate.Limit(sessionLimitBps), 2*sessionLimitBps)
+	if cli.SessionLimitBps > 0 {
+		sessionLimiter = rate.NewLimiter(rate.Limit(cli.SessionLimitBps), 2*cli.SessionLimitBps)
 	}
-	if globalLimitBps > 0 {
-		globalLimiter = rate.NewLimiter(rate.Limit(globalLimitBps), 2*globalLimitBps)
+	if cli.GlobalLimitBps > 0 {
+		globalLimiter = rate.NewLimiter(rate.Limit(cli.GlobalLimitBps), 2*cli.GlobalLimitBps)
 	}
 
-	if statusAddr != "" {
-		go statusService(statusAddr)
+	if cli.StatusAddr != "" {
+		go cli.statusService()
 	}
 
 	uri, err := url.Parse(fmt.Sprintf("relay://%s/", mapping.Address()))
 	if err != nil {
-		log.Fatalln("Failed to construct URI", err)
-		return
+		return fmt.Errorf("failed to construct URI: %w", err)
 	}
 
 	// Add properly encoded query string parameters to URL.
 	query := make(url.Values)
 	query.Set("id", id.String())
-	query.Set("pingInterval", pingInterval.String())
-	query.Set("networkTimeout", networkTimeout.String())
-	if sessionLimitBps > 0 {
-		query.Set("sessionLimitBps", fmt.Sprint(sessionLimitBps))
+	query.Set("pingInterval", cli.PingInterval.String())
+	query.Set("networkTimeout", cli.NetworkTimeout.String())
+	if cli.SessionLimitBps > 0 {
+		query.Set("sessionLimitBps", fmt.Sprint(cli.SessionLimitBps))
 	}
-	if globalLimitBps > 0 {
-		query.Set("globalLimitBps", fmt.Sprint(globalLimitBps))
+	if cli.GlobalLimitBps > 0 {
+		query.Set("globalLimitBps", fmt.Sprint(cli.GlobalLimitBps))
 	}
-	if statusAddr != "" {
-		query.Set("statusAddr", statusAddr)
+	if cli.StatusAddr != "" {
+		query.Set("statusAddr", cli.StatusAddr)
 	}
-	if providedBy != "" {
-		query.Set("providedBy", providedBy)
+	if cli.ProvidedBy != "" {
+		query.Set("providedBy", cli.ProvidedBy)
 	}
 	uri.RawQuery = query.Encode()
 
 	log.Println("URI:", uri.String())
 
-	if token != "" {
-		poolAddrs = ""
+	if cli.Token != "" {
+		cli.Pools = nil
 	}
 
-	if poolAddrs == defaultPoolAddrs {
+	if len(cli.Pools) == 1 && cli.Pools[0] == defaultPoolAddrs {
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 		log.Println("!!  Joining default relay pools, this relay will be available for public use. !!")
 		log.Println(`!!      Use the -pools="" command line option to make the relay private.      !!`)
 		log.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	}
 
-	pools = strings.Split(poolAddrs, ",")
-	for _, pool := range pools {
+	for _, pool := range cli.Pools {
 		pool = strings.TrimSpace(pool)
 		if len(pool) > 0 {
 			go poolHandler(pool, uri, mapping, cert)
 		}
 	}
 
-	go listener(proto, listen, tlsCfg, token)
+	go listener(cli.Protocol, cli.Listen, tlsCfg, cli.Token, cli.MessageTimeout, cli.NetworkTimeout, cli.PingInterval, cli.NetworkBuffer)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -302,7 +280,7 @@ func main() {
 	}
 	outboxesMut.RUnlock()
 
-	time.Sleep(500 * time.Millisecond)
+	return nil
 }
 
 func monitorLimits() {

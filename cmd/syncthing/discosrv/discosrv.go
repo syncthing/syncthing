@@ -4,12 +4,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package discosrv
 
 import (
 	"context"
 	"crypto/tls"
-	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -64,44 +63,34 @@ var levelDBOptions = &opt.Options{
 	WriteBuffer: 32 << 20, // default 4<<20
 }
 
-var (
-	debug = false
-)
+var debug = false
 
-func main() {
-	var listen string
-	var dir string
-	var metricsListen string
-	var replicationListen string
-	var replicationPeers string
-	var certFile string
-	var keyFile string
-	var useHTTP bool
+type CLI struct {
+	Dir               string `default:"./discovery.db" help:"Database directory"`
+	Cert              string `default:"./cert.pem" help:"Certificate file"`
+	Key               string `default:"./key.pem" help:"Key file"`
+	Listen            string `default:":8443" help:"Listen address"`
+	HTTP              bool   `default:"false" help:"Listen on HTTP (behind an HTTPS proxy)"`
+	MetricsListen     string `help:"Metrics listen address"`
+	Replicate         string `help:"Replication peers, id@address, comma separated"`
+	ReplicationListen string `default:":19200" help:"Replication listen address"`
+	Debug             bool   `default:"false" help:"Print debug output"`
+	Version           bool   `default:"false" help:"Show version"`
+}
 
+func (cli *CLI) Run() error {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	flag.StringVar(&certFile, "cert", "./cert.pem", "Certificate file")
-	flag.StringVar(&dir, "db-dir", "./discovery.db", "Database directory")
-	flag.BoolVar(&debug, "debug", false, "Print debug output")
-	flag.BoolVar(&useHTTP, "http", false, "Listen on HTTP (behind an HTTPS proxy)")
-	flag.StringVar(&listen, "listen", ":8443", "Listen address")
-	flag.StringVar(&keyFile, "key", "./key.pem", "Key file")
-	flag.StringVar(&metricsListen, "metrics-listen", "", "Metrics listen address")
-	flag.StringVar(&replicationPeers, "replicate", "", "Replication peers, id@address, comma separated")
-	flag.StringVar(&replicationListen, "replication-listen", ":19200", "Replication listen address")
-	showVersion := flag.Bool("version", false, "Show version")
-	flag.Parse()
-
 	log.Println(build.LongVersionFor("stdiscosrv"))
-	if *showVersion {
-		return
+	if cli.Version {
+		return nil
 	}
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := tls.LoadX509KeyPair(cli.Cert, cli.Key)
 	if os.IsNotExist(err) {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
+		cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
@@ -114,7 +103,7 @@ func main() {
 	// Parse the replication specs, if any.
 	var allowedReplicationPeers []protocol.DeviceID
 	var replicationDestinations []string
-	parts := strings.Split(replicationPeers, ",")
+	parts := strings.Split(cli.Replicate, ",")
 	for _, part := range parts {
 		if part == "" {
 			continue
@@ -156,7 +145,7 @@ func main() {
 	})
 
 	// Start the database.
-	db, err := newLevelDBStore(dir)
+	db, err := newLevelDBStore(cli.Dir)
 	if err != nil {
 		log.Fatalln("Open database:", err)
 	}
@@ -172,23 +161,23 @@ func main() {
 
 	// If we have replication configured, start the replication listener.
 	if len(allowedReplicationPeers) > 0 {
-		rl := newReplicationListener(replicationListen, cert, allowedReplicationPeers, db)
+		rl := newReplicationListener(cli.ReplicationListen, cert, allowedReplicationPeers, db)
 		main.Add(rl)
 	}
 
 	// Start the main API server.
-	qs := newAPISrv(listen, cert, db, repl, useHTTP)
+	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.
-	if metricsListen != "" {
+	if cli.MetricsListen != "" {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			log.Fatal(http.ListenAndServe(metricsListen, mux))
+			log.Fatal(http.ListenAndServe(cli.MetricsListen, mux))
 		}()
 	}
 
 	// Engage!
-	main.Serve(context.Background())
+	return main.Serve(context.Background())
 }

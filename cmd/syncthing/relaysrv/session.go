@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
-package main
+package relaysrv
 
 import (
 	"crypto/rand"
@@ -27,7 +27,7 @@ var (
 	bytesProxied    atomic.Int64
 )
 
-func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *rate.Limiter) *session {
+func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *rate.Limiter, messageTimeout, networkTimeout time.Duration, networkBufferSize int) *session {
 	serverkey := make([]byte, 32)
 	_, err := rand.Read(serverkey)
 	if err != nil {
@@ -41,13 +41,16 @@ func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit,
 	}
 
 	ses := &session{
-		serverkey: serverkey,
-		serverid:  serverid,
-		clientkey: clientkey,
-		clientid:  clientid,
-		rateLimit: makeRateLimitFunc(sessionRateLimit, globalRateLimit),
-		connsChan: make(chan net.Conn),
-		conns:     make([]net.Conn, 0, 2),
+		messageTimeout:    messageTimeout,
+		networkTimeout:    networkTimeout,
+		networkBufferSize: networkBufferSize,
+		serverkey:         serverkey,
+		serverid:          serverid,
+		clientkey:         clientkey,
+		clientid:          clientid,
+		rateLimit:         makeRateLimitFunc(sessionRateLimit, globalRateLimit),
+		connsChan:         make(chan net.Conn),
+		conns:             make([]net.Conn, 0, 2),
 	}
 
 	if debug {
@@ -68,7 +71,6 @@ func findSession(key string) *session {
 	ses, ok := pendingSessions[key]
 	if !ok {
 		return nil
-
 	}
 	delete(pendingSessions, key)
 	return ses
@@ -101,6 +103,10 @@ func hasSessions(id syncthingprotocol.DeviceID) bool {
 }
 
 type session struct {
+	messageTimeout    time.Duration
+	networkTimeout    time.Duration
+	networkBufferSize int
+
 	mut sync.Mutex
 
 	serverkey []byte
@@ -129,7 +135,7 @@ func (s *session) AddConnection(conn net.Conn) bool {
 }
 
 func (s *session) Serve() {
-	timedout := time.After(messageTimeout)
+	timedout := time.After(s.messageTimeout)
 
 	if debug {
 		log.Println("Session", s, "serving")
@@ -254,9 +260,9 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 	numProxies.Add(1)
 	defer numProxies.Add(-1)
 
-	buf := make([]byte, networkBufferSize)
+	buf := make([]byte, s.networkBufferSize)
 	for {
-		c1.SetReadDeadline(time.Now().Add(networkTimeout))
+		c1.SetReadDeadline(time.Now().Add(s.networkTimeout))
 		n, err := c1.Read(buf)
 		if err != nil {
 			return err
@@ -272,7 +278,7 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 			s.rateLimit(n)
 		}
 
-		c2.SetWriteDeadline(time.Now().Add(networkTimeout))
+		c2.SetWriteDeadline(time.Now().Add(s.networkTimeout))
 		_, err = c2.Write(buf[:n])
 		if err != nil {
 			return err

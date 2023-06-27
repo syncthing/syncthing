@@ -1,13 +1,14 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
-package main
+package relaysrv
 
 import (
 	"errors"
 	"net"
+	"time"
 )
 
-func setTCPOptions(conn net.Conn) error {
+func setTCPOptions(conn net.Conn, networkTimeout time.Duration) error {
 	tcpConn, ok := conn.(*net.TCPConn)
 	if !ok {
 		return errors.New("Not a TCP connection")

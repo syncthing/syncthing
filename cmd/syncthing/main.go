@@ -36,7 +36,9 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
+	"github.com/syncthing/syncthing/cmd/syncthing/discosrv"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/cmd/syncthing/relaysrv"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -135,6 +137,8 @@ var entrypoint struct {
 	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
 	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
 	Cli      struct{}     `cmd:"" help:"Command line interface for Syncthing"`
+	Discosrv discosrv.CLI `cmd:"" help:"Run the discovery server"`
+	Relaysrv relaysrv.CLI `cmd:"" help:"Run the relay server"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -146,7 +150,7 @@ type serveOptions struct {
 	BrowserOnly      bool   `help:"Open GUI in browser"`
 	DataDir          string `name:"data" placeholder:"PATH" help:"Set data directory (database and logs)"`
 	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` //DEPRECATED: replaced by subcommand!
+	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
 	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
 	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
@@ -354,7 +358,7 @@ func (options serveOptions) Run() error {
 	}
 
 	// Ensure that our home directory exists.
-	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0o700); err != nil {
 		l.Warnln("Failure on home directory:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
@@ -722,7 +726,6 @@ func setupSignalHandling(app *syncthing.App) {
 func loadOrDefaultConfig() (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, protocol.EmptyDeviceID, events.NoopLogger)
-
 	if err != nil {
 		newCfg := config.New(protocol.EmptyDeviceID)
 		return config.Wrap(cfgFile, newCfg, protocol.EmptyDeviceID, events.NoopLogger), nil
@@ -750,7 +753,7 @@ func auditWriter(auditFile string) io.Writer {
 		} else {
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 		}
-		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
+		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
 		if err != nil {
 			l.Warnln("Audit:", err)
 			os.Exit(svcutil.ExitError.AsInt())

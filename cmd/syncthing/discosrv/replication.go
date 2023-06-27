@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package discosrv
 
 import (
 	"context"
@@ -19,8 +19,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const replicationReadTimeout = time.Minute
-const replicationHeartbeatInterval = time.Second * 30
+const (
+	replicationReadTimeout       = time.Minute
+	replicationHeartbeatInterval = time.Second * 30
+)
 
 type replicator interface {
 	send(key string, addrs []DatabaseAddress, seen int64)

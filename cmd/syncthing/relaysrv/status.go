@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
-package main
+package relaysrv
 
 import (
 	"encoding/json"
@@ -16,17 +16,17 @@ import (
 
 var rc *rateCalculator
 
-func statusService(addr string) {
+func (cli *CLI) statusService() {
 	rc = newRateCalculator(360, 10*time.Second, &bytesProxied)
 
 	handler := http.NewServeMux()
-	handler.HandleFunc("/status", getStatus)
-	if pprofEnabled {
+	handler.HandleFunc("/status", cli.getStatus)
+	if cli.Pprof {
 		handler.HandleFunc("/debug/pprof/", pprof.Index)
 	}
 
 	srv := http.Server{
-		Addr:        addr,
+		Addr:        cli.StatusAddr,
 		Handler:     handler,
 		ReadTimeout: 15 * time.Second,
 	}
@@ -36,7 +36,7 @@ func statusService(addr string) {
 	}
 }
 
-func getStatus(w http.ResponseWriter, _ *http.Request) {
+func (cli *CLI) getStatus(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	status := make(map[string]interface{})
 
@@ -68,13 +68,13 @@ func getStatus(w http.ResponseWriter, _ *http.Request) {
 		rc.rate(60*60/10) * 8 / 1000,
 	}
 	status["options"] = map[string]interface{}{
-		"network-timeout":  networkTimeout / time.Second,
-		"ping-interval":    pingInterval / time.Second,
-		"message-timeout":  messageTimeout / time.Second,
-		"per-session-rate": sessionLimitBps,
-		"global-rate":      globalLimitBps,
-		"pools":            pools,
-		"provided-by":      providedBy,
+		"network-timeout":  cli.NetworkTimeout / time.Second,
+		"ping-interval":    cli.PingInterval / time.Second,
+		"message-timeout":  cli.MessageTimeout / time.Second,
+		"per-session-rate": cli.SessionLimitBps,
+		"global-rate":      cli.GlobalLimitBps,
+		"pools":            cli.Pools,
+		"provided-by":      cli.ProvidedBy,
 	}
 
 	bs, err := json.MarshalIndent(status, "", "    ")

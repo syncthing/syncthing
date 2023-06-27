@@ -6,7 +6,7 @@
 
 syntax = "proto3";
 
-package main;
+package discosrv;
 
 import "repos/protobuf/gogoproto/gogo.proto";
 

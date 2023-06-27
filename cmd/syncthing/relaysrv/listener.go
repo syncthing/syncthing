@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
-package main
+package relaysrv
 
 import (
 	"crypto/tls"
@@ -23,7 +23,7 @@ var (
 	numConnections atomic.Int64
 )
 
-func listener(_, addr string, config *tls.Config, token string) {
+func listener(_, addr string, config *tls.Config, token string, messageTimeout, networkTimeout, pingInterval time.Duration, networkBufferSize int) {
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -42,22 +42,22 @@ func listener(_, addr string, config *tls.Config, token string) {
 			continue
 		}
 
-		setTCPOptions(conn)
+		setTCPOptions(conn, networkTimeout)
 
 		if debug {
 			log.Println("Listener accepted connection from", conn.RemoteAddr(), "tls", isTLS)
 		}
 
 		if isTLS {
-			go protocolConnectionHandler(conn, config, token)
+			go protocolConnectionHandler(conn, config, token, messageTimeout, networkTimeout, pingInterval, networkBufferSize)
 		} else {
-			go sessionConnectionHandler(conn)
+			go sessionConnectionHandler(conn, messageTimeout)
 		}
 
 	}
 }
 
-func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token string) {
+func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token string, messageTimeout, networkTimeout, pingInterval time.Duration, networkBufferSize int) {
 	conn := tls.Server(tcpConn, config)
 	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
 		if debug {
@@ -179,7 +179,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 				// requestedPeer is the server, id is the client
-				ses := newSession(requestedPeer, id, sessionLimiter, globalLimiter)
+				ses := newSession(requestedPeer, id, sessionLimiter, globalLimiter, messageTimeout, networkTimeout, networkBufferSize)
 
 				go ses.Serve()
 
@@ -299,7 +299,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	}
 }
 
-func sessionConnectionHandler(conn net.Conn) {
+func sessionConnectionHandler(conn net.Conn, messageTimeout time.Duration) {
 	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
 		if debug {
 			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())

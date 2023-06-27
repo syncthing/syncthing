@@ -7,7 +7,7 @@
 //go:generate go run ../../proto/scripts/protofmt.go database.proto
 //go:generate protoc -I ../../ -I . --gogofast_out=. database.proto
 
-package main
+package discosrv
 
 import (
 	"context"
