@@ -59,7 +59,7 @@ func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidato
 
 func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Allow requests carrying a valid API key
-	if m.apiKeyValidator.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+	if hasValidAPIKeyHeader(r, m.apiKeyValidator) {
 		// Set the access-control-allow-origin header for CORS requests
 		// since a valid API key has been provided
 		w.Header().Add("Access-Control-Allow-Origin", "*")
@@ -177,4 +177,12 @@ func (m *csrfManager) load() {
 	for s.Scan() {
 		m.tokens = append(m.tokens, s.Text())
 	}
+}
+
+func hasValidAPIKeyHeader(r *http.Request, validator apiKeyValidator) bool {
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+		bearerToken := auth[len("bearer "):]
+		return validator.IsValidAPIKey(bearerToken)
+	}
+	return validator.IsValidAPIKey(r.Header.Get("X-API-Key"))
 }
