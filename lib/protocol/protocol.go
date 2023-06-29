@@ -541,6 +541,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	// ... and is then unmarshalled
 
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(4 + len(buf)))
+
 	msg, err := newMessage(hdr.Type)
 	if err != nil {
 		BufferPool.Put(buf)
@@ -580,6 +582,8 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	if err != nil {
 		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
 	}
+
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(2 + len(buf)))
 
 	return hdr, nil
 }

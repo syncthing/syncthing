@@ -37,6 +37,12 @@ var (
 		Name:      "recv_bytes_total",
 		Help:      "Total amount of data received",
 	}, []string{"device"})
+	metricDeviceRecvDecompressedBytes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "protocol",
+		Name:      "recv_decompressed_bytes_total",
+		Help:      "Total amount of data received, after decompression",
+	}, []string{"device"})
 	metricDeviceRecvMessages = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "syncthing",
 		Subsystem: "protocol",
