@@ -157,8 +157,13 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 // by a large amount at the end of the operation.
 func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 	t0 := time.Now()
+	defer func() {
+		counter.Add(time.Since(t0).Seconds())
+	}()
+
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ticker.C:
@@ -166,7 +171,7 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 			counter.Add(t1.Sub(t0).Seconds())
 			t0 = t1
 		case <-ctx.Done():
-			counter.Add(time.Since(t0).Seconds())
+			return
 		}
 	}
 }
