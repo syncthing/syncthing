@@ -163,6 +163,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
+	defer close(scanChan)
 
 	metricFolderPulls.WithLabelValues(f.ID).Inc()
 	ctx, cancel := context.WithCancel(f.ctx)
