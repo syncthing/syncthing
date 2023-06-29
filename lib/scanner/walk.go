@@ -132,7 +132,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -163,7 +163,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -254,6 +254,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return ctx.Err()
 		default:
 		}
+
+		metricScannedItems.WithLabelValues(w.Folder).Inc()
 
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
@@ -599,7 +601,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	if dst.Type == protocol.FileInfoTypeFile && build.IsWindows {
 		// If we have an existing index entry, copy the executable bits
 		// from there.
-		dst.Permissions |= (src.Permissions & 0111)
+		dst.Permissions |= (src.Permissions & 0o111)
 	}
 	dst.Version = src.Version.Update(w.ShortID)
 	dst.ModifiedBy = w.ShortID

@@ -299,7 +299,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
