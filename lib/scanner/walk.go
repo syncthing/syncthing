@@ -104,6 +104,7 @@ func newWalker(cfg Config) *walker {
 		w.Matcher = ignore.New(w.Filesystem)
 	}
 
+	registerFolderMetrics(w.Folder)
 	return w
 }
 

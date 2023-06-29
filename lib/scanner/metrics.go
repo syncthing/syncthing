@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	metricHashesBytes = promauto.NewCounterVec(prometheus.CounterOpts{
+	metricHashedBytes = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "syncthing",
 		Subsystem: "scanner",
 		Name:      "hashed_bytes_total",
@@ -30,6 +30,6 @@ var (
 func registerFolderMetrics(folderID string) {
 	// Register metrics for this folder, so that counters are present even
 	// when zero.
-	metricHashesBytes.WithLabelValues(folderID)
+	metricHashedBytes.WithLabelValues(folderID)
 	metricScannedItems.WithLabelValues(folderID)
 }

@@ -42,7 +42,7 @@ func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path strin
 		return nil, err
 	}
 
-	metricHashesBytes.WithLabelValues(folderID).Add(float64(size))
+	metricHashedBytes.WithLabelValues(folderID).Add(float64(size))
 
 	// Recheck the size and modtime again. If they differ, the file changed
 	// while we were reading it and our hash results are invalid.
