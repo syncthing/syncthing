@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -163,13 +164,10 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 
-	t0 := time.Now()
-	defer func() {
-		close(scanChan)
-		f.setState(FolderIdle)
-		metricFolderPulls.WithLabelValues(f.ID).Inc()
-		metricFolderPullSeconds.WithLabelValues(f.ID).Add(time.Since(t0).Seconds())
-	}()
+	metricFolderPulls.WithLabelValues(f.ID).Inc()
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+	go addTimeUntilCancelled(ctx, metricFolderPullSeconds.WithLabelValues(f.ID))
 
 	changed := 0
 

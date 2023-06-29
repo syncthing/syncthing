@@ -462,11 +462,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}
 	defer f.ioLimiter.Give(1)
 
-	t0 := time.Now()
-	defer func() {
-		metricFolderScans.WithLabelValues(f.ID).Inc()
-		metricFolderScanSeconds.WithLabelValues(f.ID).Add(time.Since(t0).Seconds())
-	}()
+	metricFolderScans.WithLabelValues(f.ID).Inc()
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+	go addTimeUntilCancelled(ctx, metricFolderScanSeconds.WithLabelValues(f.ID))
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
