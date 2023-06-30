@@ -1,4 +1,5 @@
 #!/bin/bash
 
 addgroup --system syncthing
+adduser --system --home /var/lib/syncthing-discosrv --ingroup syncthing syncthing-discosrv
 adduser --system --home /var/lib/syncthing-relaysrv --ingroup syncthing syncthing-relaysrv

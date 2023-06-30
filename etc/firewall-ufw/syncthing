@@ -5,5 +5,5 @@ ports=22000|21027/udp
 
 [syncthing-gui]
 title=Syncthing-GUI
-description=Syncthing web gui
+description=Syncthing web GUI
 ports=8384/tcp
