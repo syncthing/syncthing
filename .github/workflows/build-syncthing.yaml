@@ -656,10 +656,13 @@ jobs:
         include:
           - pkg: syncthing
             dockerfile: Dockerfile
+            image: syncthing/syncthing
           - pkg: strelaysrv
             dockerfile: Dockerfile.strelaysrv
+            image: syncthing/relaysrv
           - pkg: stdiscosrv
             dockerfile: Dockerfile.stdiscosrv
+            image: syncthing/discosrv
     steps:
       - uses: actions/checkout@v3
         with:
@@ -705,13 +708,13 @@ jobs:
             echo Release version, pushing to :latest and version tags
             major=${version%.*.*}
             minor=${version%.*}
-            tags=syncthing/${{ matrix.pkg }}:$version,syncthing/${{ matrix.pkg }}:$major,syncthing/${{ matrix.pkg }}:$minor,syncthing/${{ matrix.pkg }}:latest
+            tags=${{ matrix.image }}:$version,${{ matrix.image }}:$major,${{ matrix.image }}:$minor,${{ matrix.image }}:latest
           elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
             echo Release candidate, pushing to :rc
-            tags=syncthing/${{ matrix.pkg }}:rc
+            tags=${{ matrix.image }}:rc
           else
             echo Development version, pushing to :edge
-            tags=syncthing/${{ matrix.pkg }}:edge
+            tags=${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
