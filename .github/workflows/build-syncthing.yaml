@@ -602,7 +602,7 @@ jobs:
 
   publish-release-files:
     name: Publish release files
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
     environment: signing
     needs:
       - sign-for-upgrade
@@ -630,7 +630,7 @@ jobs:
           version=$(go run build.go version)
           echo "VERSION=$version" >> $GITHUB_ENV
 
-      - name: Push to Spaces
+      - name: Push to Spaces (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
         env:
           RCLONE_CONFIG_SPACES_TYPE: s3
@@ -641,6 +641,22 @@ jobs:
           RCLONE_CONFIG_SPACES_ACL: public-read
         with:
           args: sync packages spaces:syncthing/release/${{ env.VERSION }}
+
+      - name: Push to Spaces (latest)
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync spaces:syncthing/release/${{ env.VERSION }} spaces:syncthing/release/latest
+
+  #
+  # Build and push to Docker Hub
+  #
 
   docker-syncthing:
     name: Build and push Docker images
