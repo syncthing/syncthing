@@ -50,15 +50,21 @@ var (
 	knownDistributions = []distributionMatch{
 		// Maps well known builders to the official distribution method that
 		// they represent
-		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
+
 		{regexp.MustCompile(`teamcity@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`deb@build\.syncthing\.net`), "APT"},
-		{regexp.MustCompile(`docker@syncthing\.net`), "Docker Hub"},
 		{regexp.MustCompile(`jenkins@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`snap@build\.syncthing\.net`), "Snapcraft"},
+		{regexp.MustCompile(`builder@github\.syncthing\.net`), "GitHub"},
+
+		{regexp.MustCompile(`deb@build\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`debian@github\.syncthing\.net`), "APT"},
+
+		{regexp.MustCompile(`docker@syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`docker@build.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`docker@github.syncthing\.net`), "Docker Hub"},
+
+		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
 		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
-		{regexp.MustCompile(`synology@kastelo\.net`), "Synology (Kastelo)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
