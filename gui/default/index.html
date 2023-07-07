@@ -555,8 +555,8 @@
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                         <td class="text-right no-overflow-ellipse word-break-all">
-                          <span ng-repeat="device in folder.devices">
-                            <span ng-if="device.deviceID != myID" ng-switch="completion[device.deviceID][folder.id].remoteState">
+                          <span ng-repeat="device in otherDevices(folder.devices)">
+                            <span ng-switch="completion[device.deviceID][folder.id].remoteState">
                               <span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup><span ng-if="!$last">,</span></span>
                               <span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup><span ng-if="!$last">,</span></span>
                               <span ng-switch-default>{{deviceName(devices[device.deviceID])}}<span ng-if="!$last">,</span></span>
