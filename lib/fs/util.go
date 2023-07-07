@@ -72,8 +72,8 @@ func WindowsInvalidFilename(name string) error {
 			// Names ending in space or period are not valid.
 			return errInvalidFilenameWindowsSpacePeriod
 		}
-		if found, reserved := windowsIsReserved(part); reserved {
-			return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedName, found)
+		if reserved := windowsReservedNamePart(part); reserved != "" {
+			return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedName, reserved)
 		}
 	}
 
@@ -117,13 +117,13 @@ func SanitizePath(path string) string {
 	}
 
 	path = strings.TrimSpace(b.String())
-	if _, reserved := windowsIsReserved(path); reserved {
+	if reserved := windowsReservedNamePart(path); reserved != "" {
 		path = "-" + path
 	}
 	return path
 }
 
-func windowsIsReserved(part string) (string, bool) {
+func windowsReservedNamePart(part string) string {
 	// nul.txt.jpg is also disallowed.
 	dot := strings.IndexByte(part, '.')
 	if dot != -1 {
@@ -132,7 +132,7 @@ func windowsIsReserved(part string) (string, bool) {
 
 	// Check length to skip allocating ToUpper.
 	if len(part) != 3 && len(part) != 4 {
-		return "", false
+		return ""
 	}
 
 	// COM0 and LPT0 are missing from the Microsoft docs,
@@ -144,9 +144,9 @@ func windowsIsReserved(part string) (string, bool) {
 		"COM5", "COM6", "COM7", "COM8", "COM9",
 		"LPT0", "LPT1", "LPT2", "LPT3", "LPT4",
 		"LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
-		return part, true
+		return part
 	}
-	return "", false
+	return ""
 }
 
 // IsParent compares paths purely lexicographically, meaning it returns false
