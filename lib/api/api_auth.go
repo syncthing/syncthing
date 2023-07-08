@@ -169,8 +169,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 
 	usernameFromIso := string(iso88591ToUTF8([]byte(username)))
 	passwordFromIso := string(iso88591ToUTF8([]byte(password)))
-	authOk = auth(usernameFromIso, passwordFromIso, guiCfg, ldapCfg)
-	if authOk {
+	if auth(usernameFromIso, passwordFromIso, guiCfg, ldapCfg) {
 		return usernameFromIso, true
 	}
 
