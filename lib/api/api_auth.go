@@ -162,8 +162,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 
 	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
-	authOk := auth(username, password, guiCfg, ldapCfg)
-	if authOk {
+	if auth(username, password, guiCfg, ldapCfg) {
 		return username, true
 	}
 
