@@ -699,7 +699,7 @@ jobs:
 
       - name: Build binaries
         run: |
-          for arch in arm64 amd64; do
+          for arch in amd64 arm64 arm; do
             go run build.go -goos linux -goarch "$arch" -no-upgrade build ${{ matrix.pkg }}
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
@@ -707,8 +707,15 @@ jobs:
           CGO_ENABLED: "0"
           BUILD_USER: docker
 
+      - name: Check if we will be able to push images
+        run: |
+          if [[ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]]; then
+            echo "DOCKER_PUSH=true" >> $GITHUB_ENV;
+          fi
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
+        if: env.DOCKER_PUSH == 'true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -739,6 +746,6 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: linux/amd64,linux/arm64,linux/arm/7
+          push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
