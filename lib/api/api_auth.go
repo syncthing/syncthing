@@ -135,8 +135,7 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 
 	handlePasswordLogin := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct{Username string; Password string}
-		err := unmarshalTo(r.Body, &req)
-		if err != nil {
+		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse username and password:", err)
 			http.Error(w, "Failed to parse username and password.", 400)
 			return
