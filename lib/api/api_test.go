@@ -566,57 +566,50 @@ func TestHTTPLogin(t *testing.T) {
 	}
 	defer cancel()
 
-	// Verify rejection when not using authorization
+	performRequest := func (username string, password string) *http.Response {
+		req, err := http.NewRequest("GET", baseURL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	req, _ := http.NewRequest("GET", baseURL, nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+		if username != "" || password != "" {
+			req.SetBasicAuth(username, password)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
 	}
+
+	// Verify rejection when not using authorization
+	resp := performRequest("", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
 	}
 
 	// Verify that incorrect password is rejected
-
-	req.SetBasicAuth("üser", "rksmrgs")
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = performRequest("üser", "rksmrgs") // string literals in Go source code are in UTF-8
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
 	}
 
 	// Verify that incorrect username is rejected
-
-	req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = performRequest("user", "räksmörgås") // string literals in Go source code are in UTF-8
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
 	}
 
 	// Verify that UTF-8 auth works
-
-	req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = performRequest("üser", "räksmörgås") // string literals in Go source code are in UTF-8
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
 
-	// Verify that ISO-8859-1 auth
-
-	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Verify that ISO-8859-1 auth works
+	resp = performRequest("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
 	}
