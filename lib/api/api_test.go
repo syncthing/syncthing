@@ -558,6 +558,7 @@ func TestHTTPLogin(t *testing.T) {
 	cfg.GUIReturns(config.GUIConfiguration{
 		User:     "üser",
 		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: true,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
@@ -567,7 +568,7 @@ func TestHTTPLogin(t *testing.T) {
 
 	// Verify rejection when not using authorization
 
-	req, _ := http.NewRequest("GET", baseURL, nil)
+	req, _ := http.NewRequest("GET", baseURL + "/meta.js", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -609,7 +610,7 @@ func TestHTTPLogin(t *testing.T) {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
 
-	// Verify that ISO-8859-1 auth
+	// Verify that ISO-8859-1 auth works
 
 	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
 	resp, err = http.DefaultClient.Do(req)
