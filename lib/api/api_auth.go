@@ -91,9 +91,8 @@ func noAuthPrefixes() []string {
 	}
 }
 
-func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) (http.Handler, http.Handler) {
-
-	handleAuthPassthrough := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
@@ -132,8 +131,10 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 
 		forbidden(w)
 	})
+}
 
-	handlePasswordLogin := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct{Username string; Password string}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse username and password:", err)
@@ -150,8 +151,6 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
 		forbidden(w)
 	})
-
-	return handleAuthPassthrough, handlePasswordLogin
 }
 
 func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
