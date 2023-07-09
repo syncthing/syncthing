@@ -584,10 +584,22 @@ func TestHTTPLogin(t *testing.T) {
 		return resp
 	}
 
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Verify rejection when not using authorization
 	resp := performRequest("", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
 	}
 
 	// Verify that incorrect password is rejected
@@ -595,11 +607,17 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
 	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect password")
+	}
 
 	// Verify that incorrect username is rejected
 	resp = performRequest("user", "räksmörgås") // string literals in Go source code are in UTF-8
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect username")
 	}
 
 	// Verify that UTF-8 auth works
@@ -607,11 +625,17 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (UTF-8)")
+	}
 
 	// Verify that ISO-8859-1 auth works
 	resp = performRequest("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
+	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (ISO-8859-1)")
 	}
 }
 
@@ -648,15 +672,31 @@ func TestHTTPLoginAtNotFoundPath(t *testing.T) {
 		return resp
 	}
 
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Verify rejection when not using authorization
 	resp := performRequest("", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
 	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
+	}
+
 	// Verify that UTF-8 auth works
 	resp = performRequest("üser", "räksmörgås") // string literals in Go source code are in UTF-8
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (UTF-8)")
 	}
 }
 
