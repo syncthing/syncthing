@@ -210,7 +210,7 @@
     "Last seen": "最後可見",
     "Latest Change": "最後更改",
     "Learn more": "瞭解更多",
-    "Learn more at {%url%}": "在  {{url}}了解更多",
+    "Learn more at {%url%}": "在 {{url}}了解更多",
     "Limit": "限制",
     "Listener Failures": "偵聽程序失敗",
     "Listener Status": "偵聽程序狀態",

@@ -55,7 +55,7 @@
     "Connections": "Connections",
     "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.",
     "Copied from elsewhere": "Copiat din altă parte",
-    "Copied from original": "Copiat  din original",
+    "Copied from original": "Copiat din original",
     "Currently Shared With Devices": "Currently Shared With Devices",
     "Danger!": "Danger!",
     "Debugging Facilities": "Debugging Facilities",

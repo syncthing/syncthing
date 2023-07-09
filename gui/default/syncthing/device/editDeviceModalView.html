@@ -62,9 +62,9 @@
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
-                <div class="checkbox">
+                <div ng-disabled="currentDevice.untrusted" class="checkbox" ng-attr-tooltip="{{currentDevice.untrusted ? null : undefined}}" ng-attr-data-original-title="{{currentDevice.untrusted ? ('Always disabled for untrusted devices' | translate) : undefined}}">
                   <label>
-                    <input type="checkbox" ng-model="currentDevice.introducer">
+                    <input ng-disabled="currentDevice.untrusted" type="checkbox" ng-model="currentDevice.introducer">
                     <span translate>Introducer</span>
                     <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
                   </label>
@@ -73,9 +73,9 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <div class="checkbox">
+                <div ng-disabled="currentDevice.untrusted" class="checkbox" ng-attr-tooltip="{{currentDevice.untrusted ? null : undefined}}" ng-attr-data-original-title="{{currentDevice.untrusted ? ('Always disabled for untrusted devices' | translate) : undefined}}">
                   <label>
-                    <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
+                    <input ng-disabled="currentDevice.untrusted" type="checkbox" ng-model="currentDevice.autoAcceptFolders">
                     <span translate>Auto Accept</span>
                     <p translate class="help-block">Automatically create or share folders that this device advertises at the default path.</p>
                   </label>
@@ -92,7 +92,7 @@
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.shared">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabelMarkRemoteState(folder.id, currentDevice.deviceID)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="currentDevice.untrusted" remote-state="{{completion[currentDevice.deviceID][folder.id].remoteState}}" />
               </div>
               <p class="help-block" ng-if="deviceHasUnacceptedFolders(currentDevice)">
                 <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
@@ -164,7 +164,7 @@
           </div>
           <div class="row">
             <div class="form-group col-md-6">
-              <input type="checkbox" id="untrusted" ng-model="currentDevice.untrusted" />
+              <input type="checkbox" id="untrusted" ng-model="currentDevice.untrusted" ng-change="editDeviceUntrustedChanged()"/>
               <label for="untrusted" translate>Untrusted</label>
               <p translate class="help-block">All folders shared with this device must be protected by a password, such that all sent data is unreadable without the given password.</p>
             </div>

@@ -245,7 +245,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	defer connection.Close()
 
-	err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
+	err = connection.Bind(ldapTemplateBindDN(cfg.BindDN, username), password)
 	if err != nil {
 		l.Warnln("LDAP Bind:", err)
 		return false
@@ -281,6 +281,15 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	return true
+}
+
+func ldapTemplateBindDN(bindDN string, username string) string {
+	// Check if formatting directives are included in the ldapTemplateBindDN - if so add username.
+	// (%%s is a literal %s - unlikely for LDAP, but easy to handle here).
+	if strings.Count(bindDN, "%s") != strings.Count(bindDN, "%%s") {
+		bindDN = fmt.Sprintf(bindDN, username)
+	}
+	return bindDN
 }
 
 // Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the

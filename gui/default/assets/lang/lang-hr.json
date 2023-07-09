@@ -1,4 +1,23 @@
 {
+    "API Key": "API ključ",
+    "About": "Informacije",
+    "Action": "Radnja",
+    "Actions": "Radnje",
+    "Active filter rules": "Aktivna pravila filtera",
+    "Add": "Dodaj",
+    "Add Device": "Dodaj uređaj",
+    "Add Folder": "Dodaj mapu",
+    "Add Remote Device": "Dodaj udaljeni uređaj",
+    "Add new folder?": "Dodati novu mapu?",
+    "Address": "Adresa",
+    "Addresses": "Adrese",
+    "Advanced": "Napredno",
+    "Advanced Configuration": "Napredna konfiguracija",
+    "All Data": "Svi podaci",
+    "All Time": "Svo vrijeme",
+    "Allowed Networks": "Dozvoljene mreže",
+    "Alphabetic": "Abecednim redom",
+    "Apply": "Primijeni",
     "LDAP": "LDAP",
     "Twitter": "Twitter"
 }

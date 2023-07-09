@@ -15,7 +15,7 @@
         </tr>
       </thead>
       <tr dir-paginate="file in localChanged.files | itemsPerPage: localChanged.perpage" current-page="localChanged.page" total-items="model[localChangedFolder].receiveOnlyTotalItems" pagination-id="localChanged">
-        <td class="file-path">{{file.name}}</td>
+        <td class="word-break-all">{{file.name}}</td>
         <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
       </tr>
     </table>

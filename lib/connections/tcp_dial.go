@@ -18,8 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const tcpPriority = 10
-
 func init() {
 	factory := &tcpDialerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
@@ -59,24 +57,28 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 		return internalConn{}, err
 	}
 
-	return newInternalConn(tc, connTypeTCPClient, tcpPriority), nil
+	priority := d.wanPriority
+	isLocal := d.lanChecker.isLAN(conn.RemoteAddr())
+	if isLocal {
+		priority = d.lanPriority
+	}
+	return newInternalConn(tc, connTypeTCPClient, isLocal, priority), nil
 }
 
 type tcpDialerFactory struct{}
 
-func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, registry *registry.Registry) genericDialer {
+func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config, registry *registry.Registry, lanChecker *lanChecker) genericDialer {
 	return &tcpDialer{
 		commonDialer: commonDialer{
 			trafficClass:      opts.TrafficClass,
 			reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
 			tlsCfg:            tlsCfg,
+			lanPriority:       opts.ConnectionPriorityTCPLAN,
+			wanPriority:       opts.ConnectionPriorityTCPWAN,
+			lanChecker:        lanChecker,
 		},
 		registry: registry,
 	}
-}
-
-func (tcpDialerFactory) Priority() int {
-	return tcpPriority
 }
 
 func (tcpDialerFactory) AlwaysWAN() bool {

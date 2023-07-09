@@ -12,7 +12,8 @@
   <meta charset="utf-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png"/>
+  <link rel="shortcut icon" href="assets/img/favicon-default.png" type="image/x-icon"/>
+  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png" type="image/x-icon"/>
   <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
@@ -291,7 +292,7 @@
             <div class="panel-body">
               <p ng-repeat="err in errorList()">
                 <small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small>
-                <span ng-bind-html="friendlyDevices(err.message) | linky: '_blank'"></span>
+                <span ng-bind="friendlyDevices(err.message)"></span>
               </p>
             </div>
             <div class="panel-footer">
@@ -586,8 +587,14 @@
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{sharesFolder(folder)}} {{folderHasUnacceptedDevices(folder) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : ''}} {{folderHasPausedDevices(folder) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : ''}}" ng-bind-html="sharesFolder(folder)"></span>
+                        <td class="text-right no-overflow-ellipse word-break-all">
+                          <span ng-repeat="device in otherDevices(folder.devices)">
+                            <span ng-switch="completion[device.deviceID][folder.id].remoteState">
+                              <span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup><span ng-if="!$last">,</span></span>
+                              <span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup><span ng-if="!$last">,</span></span>
+                              <span ng-switch-default>{{deviceName(devices[device.deviceID])}}<span ng-if="!$last">,</span></span>
+                            </span>
+                          </span>
                         </td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
@@ -916,8 +923,14 @@
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}} {{deviceHasUnacceptedFolders(deviceCfg) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : '' }} {{deviceHasPausedFolders(deviceCfg) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : '' }}" ng-bind-html="sharedFolders(deviceCfg)"></span>
+                        <td class="text-right no-overflow-ellipse word-break-all">
+                          <span ng-repeat="folderID in deviceFolders(deviceCfg)">
+                            <span ng-switch="completion[deviceCfg.deviceID][folderID].remoteState">
+                              <span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>1</sup><span ng-if="!$last">,</span></span>
+                              <span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>2</sup><span ng-if="!$last">,</span></span>
+                              <span ng-switch-default>{{folderLabel(folderID)}}<span ng-if="!$last">,</span></span>
+                            </span>
+                          </span>
                         </td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">

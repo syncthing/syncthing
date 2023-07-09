@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "파일 시스템 알림을 사용하여 변경 항목을 감시합니다.",
     "User Home": "사용자 홈 폴더",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "GUI 인증을 위한 사용자 이름과 비밀번호가 설정되지 않았습니다. 이들을 설정하는 것을 고려해 주십시오.",
+    "Using a QUIC connection over LAN": "QUIC 프로토콜을 이용한 근거리 통신망(LAN)을 통해 연결되어 있습니다.",
+    "Using a QUIC connection over WAN": "QUIC 프로토콜을 이용한 광역 통신망(WAN)을 통해 연결되어 있습니다.",
     "Using a direct TCP connection over LAN": "TCP 프로토콜을 이용한 근거리 통신망(LAN)을 통해 직결되어 있습니다.",
     "Using a direct TCP connection over WAN": "TCP 프로토콜을 이용한 광역 통신망(WAN)을 통해 직결되어 있습니다.",
     "Version": "버전",

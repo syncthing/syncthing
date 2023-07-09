@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Benyt notifikationer fra filsystemet til at finde filændringer.",
     "User Home": "Brugerhjem",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Brugernavn/adgangskode er ikke indstillet til GUI-godkendelse. Overvej at konfigurere det.",
+    "Using a QUIC connection over LAN": "Brug af en QUIC-forbindelse over LAN",
+    "Using a QUIC connection over WAN": "Brug af en QUIC-forbindelse over WAN",
     "Using a direct TCP connection over LAN": "Brug af en direkte TCP-forbindelse via LAN",
     "Using a direct TCP connection over WAN": "Brug af en direkte TCP-forbindelse over WAN",
     "Version": "Version",

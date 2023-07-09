@@ -205,7 +205,7 @@
     "The rescan interval must be a non-negative number of seconds.": "L'intervalle d'analyse ne doit pas être un nombre négatif de secondes.",
     "They are retried automatically and will be synced when the error is resolved.": "Ils seront automatiquement retentés et synchronisés quand l'erreur sera résolue.",
     "This Device": "Cet appareil",
-    "This can easily give hackers access to read and change any files on your computer.": "Ceci peut aisément permettre à un intrus de lire et modifier n'importe quel fichier de votre ordinateur.  ",
+    "This can easily give hackers access to read and change any files on your computer.": "Ceci peut aisément permettre à un intrus de lire et modifier n'importe quel fichier de votre ordinateur.",
     "This is a major version upgrade.": "Il s'agit d'une mise à jour majeure.",
     "This setting controls the free space required on the home (i.e., index database) disk.": "Ce réglage contrôle l'espace disque requis dans le disque qui abrite votre répertoire utilisateur (pour la base de données d'indexation).",
     "Time": "Heure",

@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"math/rand"
 	"testing"
 	"unicode"
@@ -69,9 +70,10 @@ func TestWindowsInvalidFilename(t *testing.T) {
 
 	for _, tc := range cases {
 		err := WindowsInvalidFilename(tc.name)
-		if err != tc.err {
+		if !errors.Is(err, tc.err) {
 			t.Errorf("For %q, got %v, expected %v", tc.name, err, tc.err)
 		}
+		t.Logf("%s: %v", tc.name, err)
 	}
 }
 
@@ -124,9 +126,11 @@ func benchmarkWindowsInvalidFilename(b *testing.B, name string) {
 		WindowsInvalidFilename(name)
 	}
 }
+
 func BenchmarkWindowsInvalidFilenameValid(b *testing.B) {
 	benchmarkWindowsInvalidFilename(b, "License.txt.gz")
 }
+
 func BenchmarkWindowsInvalidFilenameNUL(b *testing.B) {
 	benchmarkWindowsInvalidFilename(b, "nul.txt.gz")
 }

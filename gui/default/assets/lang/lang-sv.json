@@ -474,6 +474,8 @@
     "Use notifications from the filesystem to detect changed items.": "Använd aviseringar från filsystemet för att upptäcka ändrade objekt.",
     "User Home": "Användarhem",
     "Username/Password has not been set for the GUI authentication. Please consider setting it up.": "Användarnamn/lösenord har inte ställts in för autentisering av det grafiska gränssnittet. Överväg att ställa in det.",
+    "Using a QUIC connection over LAN": "Använder en QUIC-anslutning över LAN",
+    "Using a QUIC connection over WAN": "Använder en QUIC-anslutning över WAN",
     "Using a direct TCP connection over LAN": "Använda en direkt TCP-anslutning över LAN",
     "Using a direct TCP connection over WAN": "Använda en direkt TCP-anslutning över WAN",
     "Version": "Version",

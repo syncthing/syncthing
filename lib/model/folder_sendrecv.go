@@ -622,13 +622,17 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = f.mtimefs.Mkdir(path, mode)
-			if err != nil || f.IgnorePerms || file.NoPermissions {
+			if err != nil {
 				return err
 			}
 
 			// Set the platform data (ownership, xattrs, etc).
 			if err := f.setPlatformData(&file, path); err != nil {
 				return err
+			}
+
+			if f.IgnorePerms || file.NoPermissions {
+				return nil
 			}
 
 			// Stat the directory so we can check its permissions.
