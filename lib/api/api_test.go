@@ -615,6 +615,51 @@ func TestHTTPLogin(t *testing.T) {
 	}
 }
 
+func TestHTTPLoginAtNotFoundPath(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		User:     "üser",
+		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+	})
+	baseURL, cancel, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	url := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
+
+	performRequest := func (username string, password string) *http.Response {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "" || password != "" {
+			req.SetBasicAuth(username, password)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	// Verify rejection when not using authorization
+	resp := performRequest("", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	}
+	// Verify that UTF-8 auth works
+	resp = performRequest("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+}
+
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
