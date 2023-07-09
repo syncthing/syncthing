@@ -566,60 +566,354 @@ func TestHTTPLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
+	url := baseURL + "/meta.js"
+
+	performRequest := func (username string, password string) *http.Response {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "" || password != "" {
+			req.SetBasicAuth(username, password)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
 
 	// Verify rejection when not using authorization
+	resp := performRequest("", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
+	}
 
-	req, _ := http.NewRequest("GET", baseURL + "/meta.js", nil)
+	// Verify that incorrect password is rejected
+	resp = performRequest("üser", "rksmrgs") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect password")
+	}
+
+	// Verify that incorrect username is rejected
+	resp = performRequest("user", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect username")
+	}
+
+	// Verify that UTF-8 auth works
+	resp = performRequest("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (UTF-8)")
+	}
+
+	// Verify that ISO-8859-1 auth works
+	resp = performRequest("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
+	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (ISO-8859-1)")
+	}
+}
+
+func TestHTTPLoginAtNotFoundPath(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		User:     "üser",
+		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: true,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	url := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
+
+	performRequest := func (username string, password string) *http.Response {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "" || password != "" {
+			req.SetBasicAuth(username, password)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Verify rejection when not using authorization
+	resp := performRequest("", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
+	}
+
+	// Verify that UTF-8 auth works
+	resp = performRequest("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+	if !assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Expected session cookie for authed request (UTF-8)")
+	}
+}
+
+func TestHtmlFormLogin(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		User:     "üser",
+		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: false,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	loginUrl := baseURL + "/rest/noauth/auth/password"
+	resourceUrl := baseURL + "/meta.js"
+
+	performLogin := func (username string, password string) *http.Response {
+		body, err := json.Marshal(map[string]string{"username": username, "password": password})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req, err := http.NewRequest("POST", loginUrl, bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	performResourceRequest := func (loginResp *http.Response, url string) *http.Response {
+		req, err := http.NewRequest("GET", url, nil)
+		for _, cookie := range loginResp.Cookies() {
+			req.AddCookie(cookie)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Verify authentication not needed for index.html
+	req, err := http.NewRequest("GET", baseURL + "/index.html", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected non-200 return code %d at /index.html", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie at /index.html")
+	}
+
+	// Verify rejection when not using authorization
+	resp = performLogin("", "")
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
+	}
+	resp = performResourceRequest(resp, resourceUrl)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
 	}
 
 	// Verify that incorrect password is rejected
-
-	req.SetBasicAuth("üser", "rksmrgs")
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	resp = performLogin("üser", "rksmrgs") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
 	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect password")
+	}
+	resp = performResourceRequest(resp, resourceUrl)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
 	}
 
 	// Verify that incorrect username is rejected
-
-	req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	resp = performLogin("user", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
 	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for incorrect username")
+	}
+	resp = performResourceRequest(resp, resourceUrl)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
 	}
 
 	// Verify that UTF-8 auth works
-
-	req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	resp = performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
+	resp = performResourceRequest(resp, resourceUrl)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
+}
 
-	// Verify that ISO-8859-1 auth works
+func TestHtmlFormLoginAtNotFoundPath(t *testing.T) {
+	t.Parallel()
 
-	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
-	resp, err = http.DefaultClient.Do(req)
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		User:     "üser",
+		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: false,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
+	defer cancel()
+	loginUrl := baseURL + "/rest/noauth/auth/password"
+	resourceUrl := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
+
+	performLogin := func (username string, password string) *http.Response {
+		body, err := json.Marshal(map[string]string{"username": username, "password": password})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req, err := http.NewRequest("POST", loginUrl, bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	performResourceRequest := func (loginResp *http.Response, url string) *http.Response {
+		req, err := http.NewRequest("GET", url, nil)
+		for _, cookie := range loginResp.Cookies() {
+			req.AddCookie(cookie)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return resp
+	}
+
+	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
+		for _, cookie := range cookies {
+			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Verify rejection when not using authorization
+	resp := performLogin("", "")
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
+	}
+	if assertHasSessionCookie(resp.Cookies()) {
+		t.Errorf("Unexpected session cookie for unauthed request")
+	}
+	resp = performResourceRequest(resp, resourceUrl)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
+	}
+
+	// Verify that UTF-8 auth works
+	resp = performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+	resp = performResourceRequest(resp, resourceUrl)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
 }
 
