@@ -116,6 +116,7 @@
               <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
               <li ng-if="authenticated"><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
               <li ng-if="authenticated"><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="logout()"><span class="far fa-fw fa-ban"></span>&nbsp;<span translate>Log out</span></a></li>
 
               <li ng-if="config.gui.debugging" class="divider" aria-hidden="true"></li>
               <li ng-if="config.gui.debugging"><a href="/rest/debug/support" target="_blank"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>

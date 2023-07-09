@@ -119,6 +119,15 @@ angular.module('syncthing.core')
             });
         };
 
+        $scope.logout = function() {
+            $http.post(authUrlbase + '/logout', {})
+            .then(function () {
+                location.reload();
+            }).catch(function (response) {
+                console.log('Failed to log out:', response);
+            });
+        };
+
         $(window).bind('beforeunload', function () {
             navigatingAway = true;
         });

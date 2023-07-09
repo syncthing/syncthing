@@ -195,12 +195,34 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 	http.SetCookie(w, &http.Cookie{
 		Name:   cookieName,
 		Value:  sessionid,
+		// In HTTP spec Max-Age <= 0 means delete immediately,
+		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: 0,
 		Secure: useSecureCookie,
 		Path: "/",
 	})
 
 	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
+}
+
+func handleLogout(cookieName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(cookieName)
+		if err == nil && cookie != nil {
+			sessionsMut.Lock()
+			delete(sessions, cookie.Value)
+			sessionsMut.Unlock()
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:   cookieName,
+			Value:  "",
+			MaxAge: -1,
+			Secure: true,
+			Path: "/",
+		})
+		w.WriteHeader(204)
+	})
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
