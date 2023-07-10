@@ -83,16 +83,6 @@ func setupDB(db *sql.DB) error {
 		return err
 	}
 
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS UserMovement (
-		Day TIMESTAMP NOT NULL,
-		Added INTEGER NOT NULL,
-		Bounced INTEGER NOT NULL,
-		Removed INTEGER NOT NULL
-	)`)
-	if err != nil {
-		return err
-	}
-
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Performance (
 		Day TIMESTAMP NOT NULL,
 		TotFiles INTEGER NOT NULL,
@@ -130,11 +120,6 @@ func setupDB(db *sql.DB) error {
 	row = db.QueryRow(`SELECT 'VersionDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
 		_, _ = db.Exec(`CREATE INDEX VersionDayIndex ON VersionSummary (Day)`)
-	}
-
-	row = db.QueryRow(`SELECT 'MovementDayIndex'::regclass`)
-	if err := row.Scan(&t); err != nil {
-		_, _ = db.Exec(`CREATE INDEX MovementDayIndex ON UserMovement (Day)`)
 	}
 
 	row = db.QueryRow(`SELECT 'PerformanceDayIndex'::regclass`)
@@ -179,87 +164,6 @@ func aggregateVersionSummary(db *sql.DB, since time.Time) (int64, error) {
 	}
 
 	return res.RowsAffected()
-}
-
-func aggregateUserMovement(db *sql.DB) (int64, error) {
-	rows, err := db.Query(`SELECT
-		DATE_TRUNC('day', Received) AS Day,
-		Report->>'uniqueID'
-		FROM ReportsJson
-		WHERE
-			Report->>'uniqueID' IS NOT NULL
-			AND Received < DATE_TRUNC('day', NOW())
-			AND Report->>'version' like 'v_.%'
-		ORDER BY Day
-	`)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	firstSeen := make(map[string]time.Time)
-	lastSeen := make(map[string]time.Time)
-	var minTs time.Time
-	minTs = minTs.In(time.UTC)
-
-	for rows.Next() {
-		var ts time.Time
-		var id string
-		if err := rows.Scan(&ts, &id); err != nil {
-			return 0, err
-		}
-
-		if minTs.IsZero() {
-			minTs = ts
-		}
-		if _, ok := firstSeen[id]; !ok {
-			firstSeen[id] = ts
-		}
-		lastSeen[id] = ts
-	}
-
-	type sumRow struct {
-		day     time.Time
-		added   int
-		removed int
-		bounced int
-	}
-	var sumRows []sumRow
-	for t := minTs; t.Before(time.Now().Truncate(24 * time.Hour)); t = t.AddDate(0, 0, 1) {
-		var added, removed, bounced int
-		old := t.Before(time.Now().AddDate(0, 0, -30))
-		for id, first := range firstSeen {
-			last := lastSeen[id]
-			if first.Equal(t) && last.Equal(t) && old {
-				bounced++
-				continue
-			}
-			if first.Equal(t) {
-				added++
-			}
-			if last == t && old {
-				removed++
-			}
-		}
-		sumRows = append(sumRows, sumRow{t, added, removed, bounced})
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return 0, err
-	}
-	if _, err := tx.Exec("DELETE FROM UserMovement"); err != nil {
-		tx.Rollback()
-		return 0, err
-	}
-	for _, r := range sumRows {
-		if _, err := tx.Exec("INSERT INTO UserMovement (Day, Added, Removed, Bounced) VALUES ($1, $2, $3, $4)", r.day, r.added, r.removed, r.bounced); err != nil {
-			tx.Rollback()
-			return 0, err
-		}
-	}
-
-	return int64(len(sumRows)), tx.Commit()
 }
 
 func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {

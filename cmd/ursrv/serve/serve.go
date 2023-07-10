@@ -190,7 +190,6 @@ func (cli *CLI) Run() error {
 	http.HandleFunc("/", srv.rootHandler)
 	http.HandleFunc("/newdata", srv.newDataHandler)
 	http.HandleFunc("/summary.json", srv.summaryHandler)
-	http.HandleFunc("/movement.json", srv.movementHandler)
 	http.HandleFunc("/performance.json", srv.performanceHandler)
 	http.HandleFunc("/blockstats.json", srv.blockStatsHandler)
 	http.HandleFunc("/locations.json", srv.locationsHandler)
@@ -355,25 +354,6 @@ func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	bs, err := sum.MarshalJSON()
 	if err != nil {
 		log.Println("summaryHandler:", err)
-		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
-}
-
-func (s *server) movementHandler(w http.ResponseWriter, _ *http.Request) {
-	mov, err := getMovement(s.db)
-	if err != nil {
-		log.Println("movementHandler:", err)
-		http.Error(w, "Database Error", http.StatusInternalServerError)
-		return
-	}
-
-	bs, err := json.Marshal(mov)
-	if err != nil {
-		log.Println("movementHandler:", err)
 		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
 		return
 	}
@@ -1036,39 +1016,6 @@ func getSummary(db *sql.DB, min int) (summary, error) {
 
 	s.filter(min)
 	return s, nil
-}
-
-func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	res := [][]interface{}{
-		{"Day", "Joined", "Left", "Bounced"},
-	}
-
-	for rows.Next() {
-		var day time.Time
-		var added, removed, bounced int
-		err := rows.Scan(&day, &added, &removed, &bounced)
-		if err != nil {
-			return nil, err
-		}
-
-		row := []interface{}{day.Format("2006-01-02"), added, -removed, bounced}
-		if removed == 0 {
-			row[2] = nil
-		}
-		if bounced == 0 {
-			row[3] = nil
-		}
-
-		res = append(res, row)
-	}
-
-	return res, nil
 }
 
 func getPerformance(db *sql.DB) ([][]interface{}, error) {
