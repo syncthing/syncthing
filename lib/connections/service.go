@@ -1292,18 +1292,28 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 	}
 
 	otherSide := s.wantSecondariesForDevice(deviceID)
-	if otherSide <= 0 {
+	switch {
+	case otherSide <= 0:
 		// The other side doesn't support multiple connections, or we
 		// haven't yet connected to them so we don't know what they support
-		// or not.
+		// or not. Use a single connection until we know better.
 		return 1
-	}
 
-	// Return the maximum of what we want and what they want.
-	if otherSide > cfg.NumConnections {
+	case otherSide == 1:
+		// The other side supports multiple connections, but only wants
+		// one. We should honour that.
+		return 1
+
+	case cfg.NumConnections == 1:
+		// We want only one connection, so we should honour that.
+		return 1
+
+	// Finally, we allow negotiation and use the higher of the two values.
+	case otherSide > cfg.NumConnections:
 		return otherSide
+	default:
+		return cfg.NumConnections
 	}
-	return cfg.NumConnections
 }
 
 // The deviceConnectionCounter keeps track of how many devices we are
