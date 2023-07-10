@@ -8,7 +8,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"database/sql"
 	"embed"
 	"encoding/json"
@@ -37,12 +36,9 @@ import (
 )
 
 type CLI struct {
-	UseHTTP   bool   `env:"UR_USE_HTTP"`
 	Debug     bool   `env:"UR_DEBUG"`
-	KeyFile   string `env:"UR_KEY_FILE" default:"key.pem"`
-	CertFile  string `env:"UR_CRT_FILE" default:"crt.pem"`
 	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
-	Listen    string `env:"UR_LISTEN" default:"0.0.0.0:8443"`
+	Listen    string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
 	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
 }
 
@@ -194,24 +190,9 @@ func main() {
 		log.Fatalln("database:", err)
 	}
 
-	// TLS & Listening
+	// Listening
 
-	var listener net.Listener
-	if cli.UseHTTP {
-		listener, err = net.Listen("tcp", cli.Listen)
-	} else {
-		var cert tls.Certificate
-		cert, err = tls.LoadX509KeyPair(cli.CertFile, cli.KeyFile)
-		if err != nil {
-			log.Fatalln("tls:", err)
-		}
-
-		cfg := &tls.Config{
-			Certificates:           []tls.Certificate{cert},
-			SessionTicketsDisabled: true,
-		}
-		listener, err = tls.Listen("tcp", cli.Listen, cfg)
-	}
+	listener, err := net.Listen("tcp", cli.Listen)
 	if err != nil {
 		log.Fatalln("listen:", err)
 	}
