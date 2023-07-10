@@ -740,18 +740,10 @@ angular.module('syncthing.core')
         }
 
         function pathJoin(base, name) {
-            base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;
             }
             return base + name;
-        }
-
-        function expandTilde(path) {
-            if (path && path.trim().charAt(0) === '~') {
-                return $scope.system.tilde + path.trim().substring(1);
-            }
-            return path;
         }
 
         function shouldSetDefaultFolderPath() {
@@ -1900,8 +1892,11 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.otherDevices = function () {
-            return $scope.deviceList().filter(function (n) {
+        $scope.otherDevices = function (devices) {
+            if (devices === undefined) {
+                devices = $scope.deviceList();
+            }
+            return devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
         };
@@ -1988,7 +1983,7 @@ angular.module('syncthing.core')
             if (!newvalue) {
                 return;
             }
-            $scope.currentFolder.path = expandTilde(newvalue);
+            $scope.currentFolder.path = newvalue;
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {

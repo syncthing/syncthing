@@ -454,13 +454,13 @@ found in the LICENSE file.
         <table class="table table-striped">
           <thead>
             <tr>
-              <th>Builder</th>
+              <th>Distribution Channel</th>
               <th class="text-right">Devices</th>
               <th class="text-right">Share</th>
             </tr>
           </thead>
           <tbody>
-            {{range .builders}}
+            {{range .distributions}}
             <tr>
               <td>{{.Key}}</td>
               <td class="text-right">{{.Count}}</td>
@@ -475,13 +475,13 @@ found in the LICENSE file.
         <table class="table table-striped">
           <thead>
             <tr>
-              <th>Distribution Channel</th>
+              <th>Builder</th>
               <th class="text-right">Devices</th>
               <th class="text-right">Share</th>
             </tr>
           </thead>
           <tbody>
-            {{range .distributions}}
+            {{range .builders}}
             <tr>
               <td>{{.Key}}</td>
               <td class="text-right">{{.Count}}</td>
