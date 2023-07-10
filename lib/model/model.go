@@ -2331,18 +2331,19 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 // GetHello is called when we are about to connect to some remote device.
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
-	name := ""
-	if _, ok := m.cfg.Device(id); ok {
-		// Set our name (from the config of our device ID) only if we already know about the other side device ID.
-		if myCfg, ok := m.cfg.Device(m.id); ok {
-			name = myCfg.Name
-		}
-	}
-	return &protocol.Hello{
-		DeviceName:    name,
+	hello := &protocol.Hello{
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}
+	if cfg, ok := m.cfg.Device(id); ok {
+		hello.WantSecondaryConnections = cfg.MultipleConnections
+		// Set our name (from the config of our device ID) only if we
+		// already know about the other side device ID.
+		if myCfg, ok := m.cfg.Device(m.id); ok {
+			hello.DeviceName = myCfg.Name
+		}
+	}
+	return hello
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will

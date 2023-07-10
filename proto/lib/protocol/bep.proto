@@ -8,9 +8,10 @@ import "repos/protobuf/gogoproto/gogo.proto";
 // --- Pre-auth ---
 
 message Hello {
-    string device_name    = 1;
-    string client_name    = 2;
-    string client_version = 3;
+    string device_name                = 1;
+    string client_name                = 2;
+    string client_version             = 3;
+    int32  want_secondary_connections = 4;
 }
 
 // --- Header ---

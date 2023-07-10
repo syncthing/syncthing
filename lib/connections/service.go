@@ -312,7 +312,7 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 		return errNetworkNotAllowed
 	}
 
-	if existing := s.numConnectionsForDevice(cfg.DeviceID); existing > 0 {
+	if currentConns := s.numConnectionsForDevice(cfg.DeviceID); currentConns > 0 {
 		// Check if the new connection is better than an existing one. Lower
 		// priority is better, just like `nice` etc.
 		if ct, ok := s.model.Connection(remoteID); ok {
@@ -321,8 +321,9 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 				return nil
 			}
 		}
-		if existing >= cfg.MultipleConnections {
-			// We're not allowed to accept any more connections to this device.
+		if currentConns >= s.desiredConnectionsToDevice(cfg.DeviceID) {
+			// We're not allowed to accept any more connections to this
+			// device.
 			return errDeviceAlreadyConnected
 		}
 	}
@@ -413,7 +414,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
-		s.accountAddedConnection(remoteID)
+		s.accountAddedConnection(remoteID, &hello)
 		go func() {
 			<-protoConn.Closed()
 			s.accountRemovedConnection(remoteID)
@@ -554,7 +555,8 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			// we don't attempt dialers that aren't considered a worthy upgrade.
 			priorityCutoff -= cfg.Options.ConnectionPriorityUpgradeThreshold
 
-			if bestDialerPriority >= priorityCutoff && deviceCfg.MultipleConnections <= s.numConnectionsForDevice(deviceCfg.DeviceID) {
+			currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
+			if bestDialerPriority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
 				// Our best dialer is not any better than what we already
 				// have, and we already have the desired number of
 				// connections to this device,so nothing to do here.
@@ -670,7 +672,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg, s.registry, s.lanChecker)
 		priority := dialer.Priority(uri.Host)
 		currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
-		if priority >= priorityCutoff && currentConns >= deviceCfg.MultipleConnections {
+		if priority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
 			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.MultipleConnections)
 			continue
 		}
@@ -1282,20 +1284,46 @@ func (r nextDialRegistry) sleepDurationAndCleanup(now time.Time) time.Duration {
 	return sleep
 }
 
-// The deviceConnectionCounter keeps track of how many devices we are
-// connected to and how many connections we have to each device.
-type deviceConnectionCounter struct {
-	connectionsMut stdsync.Mutex
-	connections    map[protocol.DeviceID]int
+func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
+	cfg, ok := s.cfg.Device(deviceID)
+	if !ok {
+		// We want no connections to an unknown device.
+		return 0
+	}
+
+	otherSide := s.wantSecondariesForDevice(deviceID)
+	if otherSide <= 0 {
+		// The other side doesn't support multiple connections, or we
+		// haven't yet connected to them so we don't know what they support
+		// or not.
+		return 1
+	}
+
+	// Return the maximum of what we want and what they want.
+	if otherSide > cfg.MultipleConnections {
+		return otherSide
+	}
+	return cfg.MultipleConnections
 }
 
-func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID) {
+// The deviceConnectionCounter keeps track of how many devices we are
+// connected to and how many connections we have to each device. It also
+// tracks how many connections they are willing to use.
+type deviceConnectionCounter struct {
+	connectionsMut  stdsync.Mutex
+	connections     map[protocol.DeviceID]int // current number of connections
+	wantSecondaries map[protocol.DeviceID]int // number of secondary (additional) connections they want
+}
+
+func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID, h *protocol.Hello) {
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	if c.connections == nil {
 		c.connections = make(map[protocol.DeviceID]int)
+		c.wantSecondaries = make(map[protocol.DeviceID]int)
 	}
 	c.connections[d]++
+	c.wantSecondaries[d] = int(h.WantSecondaryConnections)
 }
 
 func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {
@@ -1311,6 +1339,12 @@ func (c *deviceConnectionCounter) numConnectionsForDevice(d protocol.DeviceID) i
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	return c.connections[d]
+}
+
+func (c *deviceConnectionCounter) wantSecondariesForDevice(d protocol.DeviceID) int {
+	c.connectionsMut.Lock()
+	defer c.connectionsMut.Unlock()
+	return c.wantSecondaries[d]
 }
 
 func (c *deviceConnectionCounter) numConnectedDevices() int {

@@ -47,6 +47,11 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 			cfg.AutoAcceptFolders = false
 		}
 	}
+
+	// We must always allow at least one connection per device.
+	if cfg.MultipleConnections < 1 {
+		cfg.MultipleConnections = 1
+	}
 }
 
 func (cfg *DeviceConfiguration) IgnoredFolder(folder string) bool {
