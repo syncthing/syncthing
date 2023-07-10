@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -44,6 +45,9 @@ type CLI struct {
 	Listen    string `env:"UR_LISTEN" default:"0.0.0.0:8443"`
 	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
 }
+
+//go:embed static
+var statics embed.FS
 
 var (
 	tpl                *template.Template
@@ -168,7 +172,7 @@ func main() {
 
 	// Template
 
-	fd, err := os.Open("static/index.html")
+	fd, err := statics.Open("static/index.html")
 	if err != nil {
 		log.Fatalln("template:", err)
 	}
@@ -224,7 +228,7 @@ func main() {
 	http.HandleFunc("/performance.json", srv.performanceHandler)
 	http.HandleFunc("/blockstats.json", srv.blockStatsHandler)
 	http.HandleFunc("/locations.json", srv.locationsHandler)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.Handle("/static/", http.FileServer(http.FS(statics)))
 
 	go srv.cacheRefresher()
 
