@@ -27,6 +27,15 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 		cfg.Addresses = []string{"dynamic"}
 	}
 
+	if cfg.NumConnections == 0 {
+		// Default to three connections when unset.
+		cfg.NumConnections = 3
+	} else if cfg.NumConnections < 0 {
+		// Less than zero makes no sense, but maybe looks like an attempt to
+		// disable multiple connections, so default to one.
+		cfg.NumConnections = 1
+	}
+
 	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
 
 	for _, sharedFolder := range sharedFolders {
@@ -46,11 +55,6 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 			l.Warnf("Device %s (%s) is both untrusted and auto-accepting folders, removing auto-accept flag", cfg.DeviceID.Short(), cfg.Name)
 			cfg.AutoAcceptFolders = false
 		}
-	}
-
-	// We must always allow at least one connection per device.
-	if cfg.MultipleConnections < 1 {
-		cfg.MultipleConnections = 1
 	}
 }
 

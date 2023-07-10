@@ -10,7 +10,7 @@ import "ext.proto";
 message DeviceConfiguration {
     bytes                   device_id                  = 1 [(ext.goname) = "DeviceID", (ext.xml) = "id,attr", (ext.json) = "deviceID", (ext.device_id) = true, (ext.nodefault) = true];
     string                  name                       = 2 [(ext.xml) = "name,attr,omitempty"];
-    repeated string         addresses                  = 3 [(ext.xml) = "address,omitempty", (ext.default) = "dynamic"];
+    repeated string         addresses                  = 3 [(ext.xml) = "address,omitempty"];
     protocol.Compression    compression                = 4 [(ext.xml) = "compression,attr"];
     string                  cert_name                  = 5 [(ext.xml) = "certName,attr,omitempty"];
     bool                    introducer                 = 6 [(ext.xml) = "introducer,attr"];
@@ -26,5 +26,5 @@ message DeviceConfiguration {
     int32                   max_request_kib            = 16 [(ext.goname) = "MaxRequestKiB", (ext.xml) = "maxRequestKiB", (ext.json) = "maxRequestKiB"];
     bool                    untrusted                  = 17;
     int32                   remote_gui_port            = 18 [(ext.goname) = "RemoteGUIPort", (ext.xml) = "remoteGUIPort", (ext.json) = "remoteGUIPort"];
-    int32                   multiple_connections       = 19; // if >1 and supported by the other side, attempt to establish this many connections to the device
+    int32                   num_connections            = 19; // attempt to establish this many connections to the device
 }

@@ -673,7 +673,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		priority := dialer.Priority(uri.Host)
 		currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
 		if priority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
-			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.MultipleConnections)
+			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 		if priority > priorityCutoff {
@@ -681,7 +681,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			continue
 		}
 		if currentConns > 0 && !dialer.AllowsMultiConns() {
-			l.Debugf("Not dialing using %s as it does not allow multiple connections and we already have %d/%d connections", dialerFactory, currentConns, deviceCfg.MultipleConnections)
+			l.Debugf("Not dialing using %s as it does not allow multiple connections and we already have %d/%d connections", dialerFactory, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 
@@ -1300,10 +1300,10 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 	}
 
 	// Return the maximum of what we want and what they want.
-	if otherSide > cfg.MultipleConnections {
+	if otherSide > cfg.NumConnections {
 		return otherSide
 	}
-	return cfg.MultipleConnections
+	return cfg.NumConnections
 }
 
 // The deviceConnectionCounter keeps track of how many devices we are
@@ -1323,7 +1323,7 @@ func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID, h 
 		c.wantSecondaries = make(map[protocol.DeviceID]int)
 	}
 	c.connections[d]++
-	c.wantSecondaries[d] = int(h.WantSecondaryConnections)
+	c.wantSecondaries[d] = int(h.NumConnections)
 }
 
 func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {

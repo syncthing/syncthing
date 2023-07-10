@@ -2336,7 +2336,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 		ClientVersion: m.clientVersion,
 	}
 	if cfg, ok := m.cfg.Device(id); ok {
-		hello.WantSecondaryConnections = cfg.MultipleConnections
+		hello.NumConnections = cfg.NumConnections
 		// Set our name (from the config of our device ID) only if we
 		// already know about the other side device ID.
 		if myCfg, ok := m.cfg.Device(m.id); ok {
