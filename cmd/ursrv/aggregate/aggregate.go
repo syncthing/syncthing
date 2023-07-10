@@ -4,10 +4,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package aggregate
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -15,26 +16,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var dbConn = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-
-func getEnvDefault(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
+type CLI struct {
+	DBConn string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
 }
 
-func main() {
+func (cli *CLI) Run() error {
 	log.SetFlags(log.Ltime | log.Ldate)
 	log.SetOutput(os.Stdout)
 
-	db, err := sql.Open("postgres", dbConn)
+	db, err := sql.Open("postgres", cli.DBConn)
 	if err != nil {
-		log.Fatalln("database:", err)
+		return fmt.Errorf("database: %w", err)
 	}
 	err = setupDB(db)
 	if err != nil {
-		log.Fatalln("database:", err)
+		return fmt.Errorf("database: %w", err)
 	}
 
 	for {
