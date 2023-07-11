@@ -338,8 +338,8 @@
 
         <form ng-submit="authenticatePassword()">
           <div class="form-group">
-            <label for="Username" translate>Username</label>
-            <input id="Username" class="form-control" type="text" ng-model="login.username" />
+            <label for="user" translate>User</label>
+            <input id="user" class="form-control" type="text" ng-model="login.username" />
           </div>
 
           <div class="form-group">
@@ -350,7 +350,7 @@
           <div class="row">
             <div class="col-md-9 login-form-messages">
               <p ng-if="login.errors.badLogin" class="text-danger">
-                Incorrect username and/or password.
+                Incorrect user name or password.
               </p>
               <p ng-if="login.errors.failed" class="text-danger">
                 Login failed, see Syncthing logs for details.
