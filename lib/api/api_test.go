@@ -557,8 +557,8 @@ func TestHTTPLogin(t *testing.T) {
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:     "üser",
-		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: true,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
@@ -569,7 +569,7 @@ func TestHTTPLogin(t *testing.T) {
 
 	// Verify rejection when not using authorization
 
-	req, _ := http.NewRequest("GET", baseURL + "/meta.js", nil)
+	req, _ := http.NewRequest("GET", baseURL+"/meta.js", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
