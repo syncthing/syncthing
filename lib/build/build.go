@@ -47,6 +47,8 @@ var (
 	}
 )
 
+const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-., "
+
 func init() {
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
@@ -76,7 +78,7 @@ func setBuildData() {
 	IsRelease = exp.MatchString(Version)
 	IsCandidate = strings.Contains(Version, "-rc.")
 	IsBeta = strings.Contains(Version, "-")
-	Extra = os.Getenv("STVERSIONEXTRA")
+	Extra = filterString(os.Getenv("STVERSIONEXTRA"), versionExtraAllowedChars)
 
 	stamp, _ := strconv.Atoi(Stamp)
 	Date = time.Unix(int64(stamp), 0)
@@ -112,4 +114,16 @@ func TagsList() []string {
 
 	sort.Strings(tags)
 	return tags
+}
+
+// filterString returns a copy of s with all characters not in allowedChars
+// removed.
+func filterString(s, allowedChars string) string {
+	var res strings.Builder
+	for _, c := range s {
+		if strings.ContainsRune(allowedChars, c) {
+			res.WriteRune(c)
+		}
+	}
+	return res.String()
 }
