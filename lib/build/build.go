@@ -47,7 +47,7 @@ var (
 	}
 )
 
-const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-., "
+const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-. "
 
 func init() {
 	if Version != "unknown-dev" {
@@ -94,7 +94,6 @@ func LongVersionFor(program string) string {
 	if tags := TagsList(); len(tags) > 0 {
 		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
 	}
-
 	return v
 }
 
