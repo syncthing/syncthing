@@ -89,15 +89,12 @@ func setBuildData() {
 func LongVersionFor(program string) string {
 	// This string and date format is essentially part of our external API. Never change it.
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
-	versionExtra := ""
-	if Extra != "" {
-		versionExtra = " (" + Extra + ")"
-	}
-	v := fmt.Sprintf(`%s %s%s "%s" (%s %s-%s) %s@%s %s`, program, Version, versionExtra, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
+	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 
 	if tags := TagsList(); len(tags) > 0 {
 		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
 	}
+
 	return v
 }
 
@@ -110,6 +107,9 @@ func TagsList() []string {
 		if os.Getenv(envVar) != "" {
 			tags = append(tags, strings.ToLower(envVar))
 		}
+	}
+	if Extra != "" {
+		tags = append(tags, Extra)
 	}
 
 	sort.Strings(tags)
