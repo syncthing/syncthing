@@ -99,6 +99,11 @@ above.
                    "minio" for the github.com/minio/sha256-simd implementation,
                    and blank (the default) for auto detection.
 
+ STVERSIONEXTRA    Add extra information to the version string in logs and the
+                   version line in the GUI. Can be set to the name of a wrapper
+                   or tool controlling syncthing to communicate this to the end
+                   user.
+
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
 
