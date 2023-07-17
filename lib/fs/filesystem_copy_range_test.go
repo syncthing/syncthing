@@ -320,7 +320,25 @@ func TestCopyRange(tttt *testing.T) {
 								t.Fatal(err)
 							}
 
-							if err := impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
+							srcBasic, ok := src.(basicFile)
+							if !ok {
+								if srcMetric, isMetr := src.(*metricsFile); isMetr {
+									srcBasic, ok = srcMetric.next.(basicFile)
+								}
+							}
+							if !ok {
+								t.Fatal("src file is not a basic file")
+							}
+							dstBasic, ok := dst.(basicFile)
+							if !ok {
+								if dstMetric, isMetr := src.(*metricsFile); isMetr {
+									dstBasic, ok = dstMetric.next.(basicFile)
+								}
+							}
+							if !ok {
+								t.Fatal("dst file is not a basic file")
+							}
+							if err := impl(srcBasic, dstBasic, testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
 								if err == syscall.ENOTSUP {
 									// Test runner can adjust directory in which to run the tests, that allow broader tests.
 									t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
