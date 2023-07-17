@@ -399,7 +399,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	// These are our metadata files, and they should always be hidden.
 	ffs := cfg.Filesystem(nil)
 	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(".stversions")
+	_ = ffs.Hide(versioner.DefaultPath)
 	_ = ffs.Hide(".stignore")
 
 	var ver versioner.Versioner

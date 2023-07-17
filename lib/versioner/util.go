@@ -28,6 +28,10 @@ var (
 	errFileAlreadyExists = errors.New("file already exists")
 )
 
+const (
+	DefaultPath = ".stversions"
+)
+
 // TagFilename inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {
 	dir, file := filepath.Dir(name), filepath.Base(name)
@@ -258,7 +262,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
 	folderFs := cfg.Filesystem(nil)
 	if cfg.Versioning.FSPath == "" {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
+		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), DefaultPath))
 	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {
 		// We only know how to deal with relative folders for basic filesystems, as that's the only one we know
 		// how to check if it's absolute or relative.
