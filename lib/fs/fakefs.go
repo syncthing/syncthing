@@ -961,6 +961,10 @@ func (*fakeFile) Sync() error {
 	return nil
 }
 
+func (f *fakeFile) underlying() (File, bool) {
+	return nil, false
+}
+
 // fakeFileInfo is the stat result.
 type fakeFileInfo struct {
 	fakeEntry // intentionally a copy of the struct

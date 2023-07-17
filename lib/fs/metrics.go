@@ -287,3 +287,7 @@ func (m *metricsFile) Name() string {
 	defer m.fs.account("Name")(-1)
 	return m.next.Name()
 }
+
+func (m *metricsFile) underlying() (File, bool) {
+	return m.next, true
+}

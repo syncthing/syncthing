@@ -350,6 +350,10 @@ func (f basicFile) Stat() (FileInfo, error) {
 	return basicFileInfo{info}, nil
 }
 
+func (f basicFile) underlying() (File, bool) {
+	return nil, false
+}
+
 // basicFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
 type basicFileInfo struct {
 	os.FileInfo
