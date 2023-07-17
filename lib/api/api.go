@@ -1224,6 +1224,12 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Metrics data as text
+	buf := bytes.NewBuffer(nil)
+	wr := bufferedResponseWriter{Writer: buf}
+	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
+	files = append(files, fileEntry{name: "metrics.txt", data: buf.Bytes()})
+
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
@@ -2052,4 +2058,13 @@ func httpError(w http.ResponseWriter, err error) {
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+type bufferedResponseWriter struct {
+	io.Writer
+}
+
+func (w bufferedResponseWriter) WriteHeader(int) {}
+func (w bufferedResponseWriter) Header() http.Header {
+	return http.Header{}
 }
