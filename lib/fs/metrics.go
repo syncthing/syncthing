@@ -288,6 +288,6 @@ func (m *metricsFile) Name() string {
 	return m.next.Name()
 }
 
-func (m *metricsFile) underlying() (File, bool) {
-	return m.next, true
+func (m *metricsFile) unwrap() File {
+	return m.next
 }

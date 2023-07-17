@@ -94,10 +94,6 @@ type File interface {
 	Sync() error
 }
 
-type wrappedFile interface {
-	underlying() (File, bool)
-}
-
 // The FileInfo interface is almost the same as os.FileInfo, but with the
 // Sys method removed (as we don't want to expose whatever is underlying)
 // and with a couple of convenience methods added.
@@ -358,23 +354,6 @@ func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesys
 			return fs, true
 		}
 		fs, ok = fs.underlying()
-		if !ok {
-			return nil, false
-		}
-	}
-}
-
-func unwrapFileToBasic(f File) (File, bool) {
-	for {
-		basic, ok := f.(basicFile)
-		if ok {
-			return basic, true
-		}
-		wrapped, ok := f.(wrappedFile)
-		if !ok {
-			return nil, false
-		}
-		f, ok = wrapped.underlying()
 		if !ok {
 			return nil, false
 		}

@@ -320,11 +320,11 @@ func TestCopyRange(tttt *testing.T) {
 								t.Fatal(err)
 							}
 
-							srcBasic, ok := unwrapFileToBasic(src)
+							srcBasic, ok := unwrap(src).(basicFile)
 							if !ok {
 								t.Fatal("src file is not a basic file")
 							}
-							dstBasic, ok := unwrapFileToBasic(dst)
+							dstBasic, ok := unwrap(dst).(basicFile)
 							if !ok {
 								t.Fatal("dst file is not a basic file")
 							}
