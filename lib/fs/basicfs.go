@@ -22,8 +22,8 @@ import (
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
-	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name (NUL, COM1, etc.)")
-	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character (?, *, etc.)")
+	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name")
+	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character")
 )
 
 type OptionJunctionsAsDirs struct{}

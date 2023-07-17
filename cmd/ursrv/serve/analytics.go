@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package serve
 
 import (
 	"regexp"
@@ -145,7 +145,7 @@ func statsForFloats(data []float64) [4]float64 {
 	return res
 }
 
-func group(by func(string) string, as []analytic, perGroup int) []analytic {
+func group(by func(string) string, as []analytic, perGroup int, otherPct float64) []analytic {
 	var res []analytic
 
 next:
@@ -170,6 +170,25 @@ next:
 	}
 
 	sort.Sort(analyticList(res))
+
+	if otherPct > 0 {
+		// Groups with less than otherPCt go into "Other"
+		other := analytic{
+			Key: "Other",
+		}
+		for i := 0; i < len(res); i++ {
+			if res[i].Percentage < otherPct || res[i].Key == "Other" {
+				other.Count += res[i].Count
+				other.Percentage += res[i].Percentage
+				res = append(res[:i], res[i+1:]...)
+				i--
+			}
+		}
+		if other.Count > 0 {
+			res = append(res, other)
+		}
+	}
+
 	return res
 }
 

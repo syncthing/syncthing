@@ -1892,8 +1892,11 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.otherDevices = function () {
-            return $scope.deviceList().filter(function (n) {
+        $scope.otherDevices = function (devices) {
+            if (devices === undefined) {
+                devices = $scope.deviceList();
+            }
+            return devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
         };
@@ -3048,7 +3051,11 @@ angular.module('syncthing.core')
                 arch += " Container";
             }
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            var verStr = $scope.version.version;
+            if ($scope.version.extra) {
+                verStr += ' (' + $scope.version.extra + ')';
+            }
+            return verStr + ', ' + os + ' (' + arch + ')';
         };
 
         $scope.versionBase = function () {
