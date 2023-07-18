@@ -83,10 +83,10 @@ func CheckFreeSpace(minFree Size, usage fs.Usage) error {
 	if minFree.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if freePct < val {
-			return fmt.Errorf("current %.2f %% < required %v", freePct, minFree)
+			return fmt.Errorf("Low disk space (< %v)", minFree)
 		}
 	} else if float64(usage.Free) < val {
-		return fmt.Errorf("current %sB < required %v", formatSI(usage.Free), minFree)
+		return fmt.Errorf("Low disk space (< %v)", minFree)
 	}
 
 	return nil
