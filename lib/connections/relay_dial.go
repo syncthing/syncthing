@@ -65,7 +65,7 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 	return newInternalConn(tc, connTypeRelayClient, false, d.wanPriority), nil
 }
 
-func (d *relayDialer) Priority(host string) int {
+func (d *relayDialer) Priority(_ string) int {
 	return d.wanPriority
 }
 
