@@ -468,6 +468,7 @@
                       <tr>
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                         <td class="text-right">
+                          <span ng-if="folder.type == 'sendreceive'" translate>Send &amp; Receive</span>
                           <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                           <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
                           <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
@@ -865,6 +866,7 @@
                         <th><span class="fas fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
                         <td class="text-right">
                           <span ng-if="deviceCfg.compression == 'always'" translate>All Data</span>
+                          <span ng-if="deviceCfg.compression == 'metadata'" translate>Metadata Only</span>
                           <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                         </td>
                       </tr>
