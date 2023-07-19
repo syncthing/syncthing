@@ -333,7 +333,7 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 		dbPath := locations.Get(locations.Database)
 		if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
 			if err = config.CheckFreeSpace(minFree, usage); err != nil {
-				return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
+				return fmt.Errorf("insufficient space on disk for database (%v) - %w", dbPath, err)
 			}
 		}
 	}
