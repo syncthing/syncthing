@@ -547,8 +547,8 @@
                               &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
                             </span>
                             <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
-                            <span tooltip data-original-title="{{folder.versioning.fsPath}}">
-                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath}}
+                            <span tooltip data-original-title="{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}">
+                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}
                             </span>
                           </span>
                         </td>
