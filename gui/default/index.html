@@ -535,7 +535,7 @@
                           </span>
                           <span ng-if="folder.versioning.type != 'external'">
                             <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">
-                              &ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.cleanoutDays == 0" translate>Disabled</span><span ng-if="folder.versioning.params.cleanoutDays > 0">{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
                             </span>
                             <span ng-if="folder.versioning.type == 'simple'" tooltip data-original-title="{{'Keep Versions' | translate}}">
                               &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
