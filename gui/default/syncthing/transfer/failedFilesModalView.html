@@ -7,7 +7,7 @@
     <table class="table table-striped table-dynamic">
       <tr dir-paginate="e in failed.errors | itemsPerPage: failed.perpage" current-page="failed.page" total-items="model[failed.folder].pullErrors" pagination-id="failed">
         <td>{{e.path}}</td>
-        <td><abbr tooltip data-original-title="{{e.error}}">{{e.error | lastErrorComponent}}</abbr></td>
+        <td><abbr tooltip data-original-title="{{e.error}}">{{e.error}}</abbr></td>
       </tr>
     </table>
     <dir-pagination-controls on-page-change="refreshFailed(newPageNumber, failed.perpage)" pagination-id="failed"></dir-pagination-controls>
