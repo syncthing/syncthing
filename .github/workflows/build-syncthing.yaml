@@ -125,6 +125,7 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - govulncheck
     steps:
       - uses: actions/checkout@v3
 
@@ -762,3 +763,25 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+
+  #
+  # Check for known vulnerabilities in Go dependencies
+  #
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Run govulncheck
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: run govulncheck
+        run: |
+          go run build.go assets
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
