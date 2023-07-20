@@ -5,8 +5,10 @@ on:
   push:
 
 env:
-  # The go version to use for builds.
-  GO_VERSION: "1.19.5"
+  # The go version to use for builds. We set check-latest to true when
+  # installing, so we get the latest patch version that matches the
+  # expression.
+  GO_VERSION: "^1.20.3"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -30,11 +32,97 @@ env:
 jobs:
 
   #
-  # Windows, quick build and test, runs always
+  # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
+  # with the list of expected supported Go versions (current, previous).
   #
 
-  build-windows:
-    name: Build and test on Windows
+  build-test:
+    name: Build and test
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
+        # The oldest version in this list should match what we have in our go.mod.
+        # Variables don't seem to be supported here, or we could have done something nice.
+        go: ["1.19", "1.20"]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set git to use LF
+        if: matrix.runner == 'windows-latest'
+        # Without this, the Windows checkout will happen with CRLF line
+        # endings, which is fine for the source code but messes up tests
+        # that depend on data on disk being as expected. Ideally, those
+        # tests should be fixed, but not today.
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          check-latest: true
+
+      - name: Build
+        run: |
+          go run build.go
+
+      - name: Test
+        run: |
+          go run build.go test
+
+  #
+  # Meta checks for formatting, copyright, etc
+  #
+
+  correctness:
+    name: Check correctness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: Check correctness
+        run: |
+          go test -v ./meta
+
+  #
+  # The basic checks job is a virtual one that depends on the matrix tests,
+  # the correctness checks, and various builds that we always do. This makes
+  # it easy to have the PR process have a single test as a gatekeeper for
+  # merging, instead of having to add all the matrix tests and update them
+  # each time the version changes. (The top level test is not available for
+  # choosing there, only the matrix "children".)
+  #
+
+  basics:
+    name: Basic checks passed
+    runs-on: ubuntu-latest
+    needs:
+      - build-test
+      - correctness
+      - package-linux
+      - package-cross
+      - package-source
+      - package-debian
+    steps:
+      - uses: actions/checkout@v3
+
+  #
+  # Windows
+  #
+
+  package-windows:
+    name: Package for Windows
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
     runs-on: windows-latest
     steps:
       - name: Set git to use LF
@@ -47,49 +135,14 @@ jobs:
           git config --global core.eol lf
 
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-go@v3
-        # `cache: true` gives us automatic caching of modules and build
-        # cache, speeding up builds. The cache key is dependent on the Go
-        # version and our go.sum contents.
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Build and test
-        run: |
-          go run build.go
-          go run build.go test
-
-  #
-  # Windows, build signed packages
-  #
-
-  package-windows:
-    name: Create packages for Windows
-    runs-on: windows-latest
-    # We only run this job for release pushes.
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release')
-    # This is also enforced by the environment which contains the secrets.
-    environment: signing
-    needs:
-      - build-windows
-    steps:
-      - name: Set git to use LF
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
-      - uses: actions/checkout@v3
-        # `fetch-depth: 0` because we want to check out the entire repo
-        # including tags and branches, not just the latest commit which
-        # lacks version info.
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -109,6 +162,7 @@ jobs:
           go run build.go -goarch arm64 zip
           go run build.go -goarch 386 zip
         env:
+          CGO_ENABLED: "0"
           CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
           CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
           CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
@@ -117,5 +171,581 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: packages-windows
           path: syncthing-windows-*.zip
+
+  #
+  # Linux
+  #
+
+  package-linux:
+    name: Package for Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+
+      - name: Create packages
+        run: |
+          archs=$(go tool dist list | grep linux | sed 's#linux/##')
+          for goarch in $archs ; do
+            go run build.go -goarch "$goarch" tar
+          done
+        env:
+          CGO_ENABLED: "0"
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-linux
+          path: syncthing-linux-*.tar.gz
+
+  #
+  # macOS
+  #
+
+  package-macos:
+    name: Package for macOS
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+
+      - name: Import signing certificate
+        run: |
+          # Set up a run-specific keychain, making it available for the
+          # `codesign` tool.
+          umask 066
+          KEYCHAIN_PATH=$RUNNER_TEMP/codesign.keychain
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+
+          # Import the certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/codesign.p12
+          echo "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -d -o "$CERTIFICATE_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN_PATH"
+
+          # Set the codesign identity for following steps
+          echo "CODESIGN_IDENTITY=$CODESIGN_IDENTITY" >> $GITHUB_ENV
+        env:
+          DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+
+      - name: Create package (amd64)
+        run: |
+          go run build.go -goarch amd64 zip
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Create package (arm64 cross)
+        run: |
+          cat <<EOT > xgo.sh
+          #!/bin/bash
+          CGO_ENABLED=1 \
+            CGO_CFLAGS="-target arm64-apple-macos10.15" \
+            CGO_LDFLAGS="-target arm64-apple-macos10.15" \
+            go "\$@"
+          EOT
+          chmod 755 xgo.sh
+          go run build.go -gocmd ./xgo.sh -goarch arm64 zip
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Create package (universal)
+        run: |
+          rm -rf _tmp
+          mkdir _tmp
+          pushd _tmp
+
+          unzip ../syncthing-macos-amd64-*.zip
+          unzip ../syncthing-macos-arm64-*.zip
+          lipo -create syncthing-macos-amd64-*/syncthing syncthing-macos-arm64-*/syncthing -o syncthing
+
+          amd64=(syncthing-macos-amd64-*)
+          universal="${amd64/amd64/universal}"
+          mv "$amd64" "$universal"
+          mv syncthing "$universal"
+          zip -r "../$universal.zip" "$universal"
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-macos
+          path: syncthing-*.zip
+
+  notarize-macos:
+    name: Notarize for macOS
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - package-macos
+      - basics
+    runs-on: macos-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-macos
+
+      - name: Notarize binaries
+        run: |
+          APPSTORECONNECT_API_KEY_PATH="$RUNNER_TEMP/apikey.p8"
+          echo "$APPSTORECONNECT_API_KEY" | base64 -d -o "$APPSTORECONNECT_API_KEY_PATH"
+          for file in syncthing-macos-*.zip ; do
+            xcrun notarytool submit \
+              -k "$APPSTORECONNECT_API_KEY_PATH" \
+              -d "$APPSTORECONNECT_API_KEY_ID" \
+              -i "$APPSTORECONNECT_API_KEY_ISSUER" \
+              $file
+          done
+        env:
+          APPSTORECONNECT_API_KEY: ${{ secrets.APPSTORECONNECT_API_KEY }}
+          APPSTORECONNECT_API_KEY_ID: ${{ secrets.APPSTORECONNECT_API_KEY_ID }}
+          APPSTORECONNECT_API_KEY_ISSUER: ${{ secrets.APPSTORECONNECT_API_KEY_ISSUER }}
+
+  #
+  # Cross compile other unixes
+  #
+
+  package-cross:
+    name: Package cross compiled
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
+
+      - name: Create packages
+        run: |
+          platforms=$(go tool dist list \
+            | grep -v aix/ppc64 \
+            | grep -v android/ \
+            | grep -v darwin/ \
+            | grep -v ios/ \
+            | grep -v js/ \
+            | grep -v linux/ \
+            | grep -v nacl/ \
+            | grep -v plan9/ \
+            | grep -v windows/ \
+          )
+
+          for plat in $platforms; do
+            goos="${plat%/*}"
+            goarch="${plat#*/}"
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
+              echo "*** $plat failed ***"
+            fi
+          done
+        env:
+          CGO_ENABLED: "0"
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-other
+          path: syncthing-*.tar.gz
+
+  #
+  # Source
+  #
+
+  package-source:
+    name: Package source code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: Package source
+        run: |
+          version=$(go run build.go version)
+          echo "$version" > RELEASE
+
+          go mod vendor
+          go run build.go assets
+
+          cd ..
+
+          tar c -z -f "syncthing-source-$version.tar.gz" \
+            --exclude .git \
+            syncthing
+
+          mv "syncthing-source-$version.tar.gz" syncthing
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-source
+          path: syncthing-source-*.tar.gz
+
+  #
+  # Sign binaries for auto upgrade, generate ASC signature files
+  #
+
+  sign-for-upgrade:
+    name: Sign for upgrade
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: signing
+    needs:
+      - basics
+      - package-windows
+      - package-linux
+      - package-macos
+      - package-cross
+      - package-source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Install signing tool
+        run: |
+          go install ./cmd/stsigtool
+
+      - name: Sign archives
+        run: |
+          export PRIVATE_KEY="$RUNNER_TEMP/privkey.pem"
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          echo "$STSIGTOOL_PRIVATE_KEY" | base64 -d > "$PRIVATE_KEY"
+          mkdir packages
+          mv packages-*/* packages
+          pushd packages
+          "$GITHUB_WORKSPACE/tools/sign-only"
+          rm -f "$PRIVATE_KEY"
+        env:
+          STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
+
+      - name: Create and sign .asc files
+        run: |
+          sudo apt update
+          sudo apt -y install gnupg
+
+          export SIGNING_KEY="$RUNNER_TEMP/gpg-secret.asc"
+          echo "$GNUPG_SIGNING_KEY_BASE64" | base64 -d > "$SIGNING_KEY"
+          gpg --import < "$SIGNING_KEY"
+
+          pushd packages
+          files=(*.tar.gz *.zip)
+          sha1sum "${files[@]}" | gpg --clearsign > sha1sum.txt.asc
+          sha256sum "${files[@]}" | gpg --clearsign > sha256sum.txt.asc
+          gpg --sign --armour --detach syncthing-source-*.tar.gz
+          popd
+          rm -f "$SIGNING_KEY" .gnupg
+        env:
+          GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-signed
+          path: packages/*
+
+  #
+  # Debian
+  #
+
+  package-debian:
+    name: Package for Debian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+
+      - name: Install fpm
+        run: |
+          gem install fpm
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+
+      - name: Package for Debian
+        run: |
+          for arch in amd64 i386 armhf armel arm64 ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb
+          done
+        env:
+          BUILD_USER: debian
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: debian-packages
+          path: "*.deb"
+
+  #
+  # Nightlies
+  #
+
+  publish-nightly:
+    name: Publish nightly build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-nightly')
+    environment: signing
+    needs:
+      - sign-for-upgrade
+      - notarize-macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: syncthing/release-tools
+          path: tools
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-signed
+          path: packages
+
+      - name: Create release json
+        run: |
+          cd packages
+          "$GITHUB_WORKSPACE/tools/generate-release-json" "$BASE_URL" > nightly.json
+        env:
+          BASE_URL: https://syncthing.ams3.digitaloceanspaces.com/nightly/
+
+      - name: Push artifacts
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync packages spaces:syncthing/nightly
+
+  #
+  # Push release artifacts to Spaces
+  #
+
+  publish-release-files:
+    name: Publish release files
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    environment: signing
+    needs:
+      - sign-for-upgrade
+      - package-debian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download signed packages
+        uses: actions/download-artifact@v3
+        with:
+          name: packages-signed
+          path: packages
+
+      - name: Download debian packages
+        uses: actions/download-artifact@v3
+        with:
+          name: debian-packages
+          path: packages
+
+      - name: Set version
+        run: |
+          version=$(go run build.go version)
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: Push to Spaces (${{ env.VERSION }})
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync packages spaces:syncthing/release/${{ env.VERSION }}
+
+      - name: Push to Spaces (latest)
+        uses: docker://docker.io/rclone/rclone:latest
+        env:
+          RCLONE_CONFIG_SPACES_TYPE: s3
+          RCLONE_CONFIG_SPACES_PROVIDER: DigitalOcean
+          RCLONE_CONFIG_SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_KEY }}
+          RCLONE_CONFIG_SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET }}
+          RCLONE_CONFIG_SPACES_ENDPOINT: ams3.digitaloceanspaces.com
+          RCLONE_CONFIG_SPACES_ACL: public-read
+        with:
+          args: sync spaces:syncthing/release/${{ env.VERSION }} spaces:syncthing/release/latest
+
+  #
+  # Build and push to Docker Hub
+  #
+
+  docker-syncthing:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    environment: docker
+    strategy:
+      matrix:
+        pkg:
+          - syncthing
+          - strelaysrv
+          - stdiscosrv
+        include:
+          - pkg: syncthing
+            dockerfile: Dockerfile
+            image: syncthing/syncthing
+          - pkg: strelaysrv
+            dockerfile: Dockerfile.strelaysrv
+            image: syncthing/relaysrv
+          - pkg: stdiscosrv
+            dockerfile: Dockerfile.stdiscosrv
+            image: syncthing/discosrv
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+
+      - name: Build binaries
+        run: |
+          for arch in amd64 arm64 arm; do
+            go run build.go -goos linux -goarch "$arch" -no-upgrade build ${{ matrix.pkg }}
+            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
+          done
+        env:
+          CGO_ENABLED: "0"
+          BUILD_USER: docker
+
+      - name: Check if we will be able to push images
+        run: |
+          if [[ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]]; then
+            echo "DOCKER_PUSH=true" >> $GITHUB_ENV;
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        if: env.DOCKER_PUSH == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set version tags
+        run: |
+          version=$(go run build.go version)
+          version=${version#v}
+          if [[ $version == @([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]) ]] ; then
+            echo Release version, pushing to :latest and version tags
+            major=${version%.*.*}
+            minor=${version%.*}
+            tags=${{ matrix.image }}:$version,${{ matrix.image }}:$major,${{ matrix.image }}:$minor,${{ matrix.image }}:latest
+          elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
+            echo Release candidate, pushing to :rc
+            tags=${{ matrix.image }}:rc
+          else
+            echo Development version, pushing to :edge
+            tags=${{ matrix.image }}:edge
+          fi
+          echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64,linux/arm/7
+          push: ${{ env.DOCKER_PUSH == 'true' }}
+          tags: ${{ env.DOCKER_TAGS }}

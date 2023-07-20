@@ -740,18 +740,10 @@ angular.module('syncthing.core')
         }
 
         function pathJoin(base, name) {
-            base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;
             }
             return base + name;
-        }
-
-        function expandTilde(path) {
-            if (path && path.trim().charAt(0) === '~') {
-                return $scope.system.tilde + path.trim().substring(1);
-            }
-            return path;
         }
 
         function shouldSetDefaultFolderPath() {
@@ -1256,8 +1248,9 @@ angular.module('syncthing.core')
                 case "relaywan":
                     return $translate.instant('Connections via relays might be rate limited by the relay');
                 case "quiclan":
+                    return $translate.instant('Using a QUIC connection over LAN');
                 case "quicwan":
-                    return $translate.instant('QUIC connections are in most cases considered suboptimal');
+                    return $translate.instant('Using a QUIC connection over WAN');
                 case "tcpwan":
                     return $translate.instant('Using a direct TCP connection over WAN');
                 case "tcplan":
@@ -1708,6 +1701,13 @@ angular.module('syncthing.core')
             return $scope.currentDevice._editing == 'new';
         }
 
+        $scope.editDeviceUntrustedChanged = function () {
+            if (currentDevice.untrusted) {
+                currentDevice.introducer = false;
+                currentDevice.autoAcceptFolders = false;
+            }
+        }
+
         $scope.editDeviceExisting = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.currentDevice._editing = "existing";
@@ -1894,8 +1894,11 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.otherDevices = function () {
-            return $scope.deviceList().filter(function (n) {
+        $scope.otherDevices = function (devices) {
+            if (devices === undefined) {
+                devices = $scope.deviceList();
+            }
+            return devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
         };
@@ -1982,7 +1985,7 @@ angular.module('syncthing.core')
             if (!newvalue) {
                 return;
             }
-            $scope.currentFolder.path = expandTilde(newvalue);
+            $scope.currentFolder.path = newvalue;
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
@@ -2512,30 +2515,6 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
-        $scope.deviceNameMarkRemoteState = function (deviceID, folderID) {
-            var name = $scope.deviceName($scope.devices[deviceID]);
-            // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
-                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                    name += '<sup>1</sup>';
-                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
-                    name += '<sup>2</sup>';
-                }
-            }
-            return name;
-        };
-
-        $scope.sharesFolder = function (folderCfg) {
-            var names = [];
-            folderCfg.devices.forEach(function (device) {
-                if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id));
-                }
-            });
-            names.sort();
-            return names.join(", ");
-        };
-
         $scope.folderHasUnacceptedDevices = function (folderCfg) {
             for (var deviceID in $scope.completion) {
                 if (deviceID in $scope.devices
@@ -2577,27 +2556,6 @@ angular.module('syncthing.core')
             }
             var label = $scope.folders[folderID].label;
             return label && label.length > 0 ? label : folderID;
-        };
-
-        $scope.folderLabelMarkRemoteState = function (folderID, deviceID) {
-            var label = $scope.folderLabel(folderID);
-            // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
-                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                    label += '<sup>1</sup>';
-                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
-                    label += '<sup>2</sup>';
-                }
-            }
-            return label;
-        };
-
-        $scope.sharedFolders = function (deviceCfg) {
-            var labels = [];
-            $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
-                labels.push($scope.folderLabelMarkRemoteState(folderID, deviceCfg.deviceID));
-            });
-            return labels.join(', ');
         };
 
         $scope.deviceHasUnacceptedFolders = function (deviceCfg) {
@@ -2747,6 +2705,8 @@ angular.module('syncthing.core')
                             if (closed) {
                                 resetRestoreVersions();
                                 return;
+                            } else if ($scope.sizeOf($scope.restoreVersions.versions) === '0') {
+                                return;
                             }
 
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
@@ -2763,7 +2723,7 @@ angular.module('syncthing.core')
                                     indentation: 24,
                                 },
                                 strings: {
-                                    loading: $translate.instant("Loading..."),
+                                    loading: $translate.instant("Loading data..."),
                                     loadError: $translate.instant("Failed to load file versions."),
                                     noData: $translate.instant("There are no file versions to restore.")
                                 },
@@ -2935,6 +2895,13 @@ angular.module('syncthing.core')
                 resetRemoteNeed();
             });
         };
+
+        $scope.downloadProgressEnabled = function() {
+            return $scope.config.options &&
+                $scope.config.options.progressUpdateIntervalS > 0 &&
+                $scope.folders[$scope.neededFolder] &&
+                $scope.folders[$scope.neededFolder].type != 'receiveencrypted';
+        }
 
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
@@ -3145,7 +3112,11 @@ angular.module('syncthing.core')
                 arch += " Container";
             }
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            var verStr = $scope.version.version;
+            if ($scope.version.extra) {
+                verStr += ' (' + $scope.version.extra + ')';
+            }
+            return verStr + ', ' + os + ' (' + arch + ')';
         };
 
         $scope.versionBase = function () {
@@ -3430,7 +3401,7 @@ angular.module('syncthing.core')
                 return '';
             }
 
-            // When the user explicitely added a wild-card, we don't show hints.
+            // When the user explicitly added a wild-card, we don't show hints.
             if (filterEntries.length === 1 && filterEntries[0].match === '*') {
                 return '';
             }
@@ -3465,7 +3436,7 @@ angular.module('syncthing.core')
         };
 
         $scope.validateXattrFilter = function () {
-            // Fitlering out empty rules when saving the config
+            // Filtering out empty rules when saving the config
             $scope.currentFolder.xattrFilter.entries = $scope.currentFolder.xattrFilter.entries.filter(function (n) {
                 return n.match !== "";
             });
@@ -3480,6 +3451,7 @@ angular.module('syncthing.core')
                 id: '@',
                 label: '@',
                 folderType: '@',
+                remoteState: '@',
                 untrusted: '=',
             },
             link: function (scope, elem, attrs) {

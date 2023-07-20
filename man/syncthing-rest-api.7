@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jan 29, 2023" "v1.23.0" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jul 08, 2023" "v1.23.6" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -1090,7 +1090,7 @@ The results can be paginated using the common pagination parameters\&.
 Deprecated since version v0.14.53: This endpoint still works as before but is deprecated.  Use
 folder\-errors\-get instead, which returns the same information.
 .sp
-See \fI\%d510e3cca3d5caae42121fa206b3decc981ae59e\fP <\fBhttps://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP>
+See \fI\%https://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP
 
 .SS GET /rest/folder/versions
 .sp
@@ -1831,7 +1831,7 @@ event types.  The \fBevents\fP parameter is not used.
 .SS GET /rest/stats/device
 .sp
 Returns general statistics about devices. Currently, only contains the
-time the device was last seen.
+time the device was last seen and the last connection duration.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1841,6 +1841,7 @@ $ curl \-s http://localhost:8384/rest/stats/device | json
 {
   "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
     "lastSeen" : "2015\-04\-18T11:21:31.3256277+01:00"
+    "lastConnectionDurationS": 556335.421708141
   }
 }
 .ft P
@@ -1993,7 +1994,7 @@ These endpoints require the \fBgui.debugging\fP configuration option to
 be enabled and yield an access denied error code otherwise.
 .SS GET /rest/debug/peerCompletion
 .sp
-Summarizes the completion precentage for each remote device.  Returns an object
+Summarizes the completion percentage for each remote device.  Returns an object
 with device IDs as keys and an integer percentage as values.
 .SS GET /rest/debug/httpmetrics
 .sp

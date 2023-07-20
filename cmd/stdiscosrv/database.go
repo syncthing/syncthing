@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -44,6 +45,18 @@ type levelDBStore struct {
 
 func newLevelDBStore(dir string) (*levelDBStore, error) {
 	db, err := leveldb.OpenFile(dir, levelDBOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &levelDBStore{
+		db:    db,
+		inbox: make(chan func(), 16),
+		clock: defaultClock{},
+	}, nil
+}
+
+func newMemoryLevelDBStore() (*levelDBStore, error) {
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		return nil, err
 	}

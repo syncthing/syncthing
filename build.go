@@ -214,10 +214,16 @@ var targets = map[string]target{
 		binaryName:  "stupgrades",
 	},
 	"stcrashreceiver": {
-		name:        "stupgrastcrashreceiverdes",
+		name:        "stcrashreceiver",
 		description: "Syncthing Crash Server",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
 		binaryName:  "stcrashreceiver",
+	},
+	"ursrv": {
+		name:        "ursrv",
+		description: "Syncthing Usage Reporting Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/ursrv"},
+		binaryName:  "ursrv",
 	},
 }
 
@@ -1108,8 +1114,12 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release", "main":
+	case "release", "main":
 		// these are not special
+		return ""
+	}
+	if strings.HasPrefix(branch, "release-") {
+		// release branches are not special
 		return ""
 	}
 

@@ -17,17 +17,16 @@ import (
 )
 
 func TestMtimeFS(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-	os.Mkdir("testdata", 0755)
-	os.WriteFile("testdata/exists0", []byte("hello"), 0644)
-	os.WriteFile("testdata/exists1", []byte("hello"), 0644)
-	os.WriteFile("testdata/exists2", []byte("hello"), 0644)
+	td := t.TempDir()
+	os.Mkdir(filepath.Join(td, "testdata"), 0o755)
+	os.WriteFile(filepath.Join(td, "testdata", "exists0"), []byte("hello"), 0o644)
+	os.WriteFile(filepath.Join(td, "testdata", "exists1"), []byte("hello"), 0o644)
+	os.WriteFile(filepath.Join(td, "testdata", "exists2"), []byte("hello"), 0o644)
 
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
 
-	mtimefs := newMtimeFS(".", make(mapStore))
+	mtimefs := newMtimeFS(td, make(mapStore))
 
 	// Do one Chtimes call that will go through to the normal filesystem
 	mtimefs.chtimes = os.Chtimes
@@ -62,7 +61,7 @@ func TestMtimeFS(t *testing.T) {
 	// when looking directly on disk though.
 
 	for _, file := range []string{"testdata/exists1", "testdata/exists2"} {
-		if info, err := os.Lstat(file); err != nil {
+		if info, err := os.Lstat(filepath.Join(td, file)); err != nil {
 			t.Error("Lstat shouldn't fail:", err)
 		} else if info.ModTime().Equal(testTime) {
 			t.Errorf("Unexpected time match; %v == %v", info.ModTime(), testTime)
@@ -74,7 +73,7 @@ func TestMtimeFS(t *testing.T) {
 	// filesystems.
 
 	testTime = time.Now().Add(5 * time.Hour).Truncate(time.Minute)
-	os.Chtimes("testdata/exists0", testTime, testTime)
+	os.Chtimes(filepath.Join(td, "testdata/exists0"), testTime, testTime)
 	if info, err := mtimefs.Lstat("testdata/exists0"); err != nil {
 		t.Error("Lstat shouldn't fail:", err)
 	} else if !info.ModTime().Equal(testTime) {
@@ -89,7 +88,7 @@ func TestMtimeFSWalk(t *testing.T) {
 	underlying := mtimefs.Filesystem
 	mtimefs.chtimes = failChtimes
 
-	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,7 +138,7 @@ func TestMtimeFSOpen(t *testing.T) {
 	underlying := mtimefs.Filesystem
 	mtimefs.chtimes = failChtimes
 
-	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -190,10 +189,10 @@ func TestMtimeFSInsensitive(t *testing.T) {
 	}
 
 	theTest := func(t *testing.T, fs *mtimeFS, shouldSucceed bool) {
-		os.RemoveAll("testdata")
-		defer os.RemoveAll("testdata")
-		os.Mkdir("testdata", 0755)
-		os.WriteFile("testdata/FiLe", []byte("hello"), 0644)
+		fs.RemoveAll("testdata")
+		defer fs.RemoveAll("testdata")
+		fs.Mkdir("testdata", 0o755)
+		WriteFile(fs, "testdata/FiLe", []byte("hello"), 0o644)
 
 		// a random time with nanosecond precision
 		testTime := time.Unix(1234567890, 123456789)
@@ -216,12 +215,12 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 	// The test should fail with a case sensitive mtimefs
 	t.Run("with case sensitive mtimefs", func(t *testing.T) {
-		theTest(t, newMtimeFS(".", make(mapStore)), false)
+		theTest(t, newMtimeFS(t.TempDir(), make(mapStore)), false)
 	})
 
 	// And succeed with a case insensitive one.
 	t.Run("with case insensitive mtimefs", func(t *testing.T) {
-		theTest(t, newMtimeFS(".", make(mapStore), WithCaseInsensitivity(true)), true)
+		theTest(t, newMtimeFS(t.TempDir(), make(mapStore), WithCaseInsensitivity(true)), true)
 	})
 }
 

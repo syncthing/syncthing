@@ -45,6 +45,11 @@
         <unackedNotificationID>asdfasdf</unackedNotificationID>
         <announceLANAddresses>false</announceLANAddresses>
         <featureFlag>feature</featureFlag>
+        <connectionPriorityTcpLan>40</connectionPriorityTcpLan>
+        <connectionPriorityQuicLan>45</connectionPriorityQuicLan>
+        <connectionPriorityTcpWan>50</connectionPriorityTcpWan>
+        <connectionPriorityQuicWan>55</connectionPriorityQuicWan>
+        <connectionPriorityRelay>9000</connectionPriorityRelay>
     </options>
     <defaults>
         <folder id="" label="" path="/media/syncthing" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">

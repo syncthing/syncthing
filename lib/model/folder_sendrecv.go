@@ -622,13 +622,17 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = f.mtimefs.Mkdir(path, mode)
-			if err != nil || f.IgnorePerms || file.NoPermissions {
+			if err != nil {
 				return err
 			}
 
 			// Set the platform data (ownership, xattrs, etc).
 			if err := f.setPlatformData(&file, path); err != nil {
 				return err
+			}
+
+			if f.IgnorePerms || file.NoPermissions {
+				return nil
 			}
 
 			// Stat the directory so we can check its permissions.
@@ -1254,7 +1258,9 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 			if err != nil {
 				return err
 			}
-			return fd.Truncate(file.Size + trailerSize)
+			file.EncryptionTrailerSize = int(trailerSize)
+			file.Size += trailerSize
+			return fd.Truncate(file.Size)
 		}, f.mtimefs, file.Name, true)
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("writing encrypted file trailer: %w", err))
@@ -1743,7 +1749,6 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		return nil
 	})
 
-	recvEnc := f.Type == config.FolderTypeReceiveEncrypted
 loop:
 	for {
 		select {
@@ -1755,9 +1760,6 @@ loop:
 			switch job.jobType {
 			case dbUpdateHandleFile, dbUpdateShortcutFile:
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
-				if recvEnc {
-					job.file.Size += encryptionTrailerSize(job.file)
-				}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
 			case dbUpdateHandleSymlink, dbUpdateInvalidate:

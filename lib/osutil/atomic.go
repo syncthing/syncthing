@@ -109,9 +109,15 @@ func (w *AtomicWriter) Close() error {
 		return err
 	}
 	if infoErr == nil {
+		// Restore chmod setting for final file to what it was
 		if err := w.fs.Chmod(w.path, info.Mode()); err != nil {
-			w.err = err
-			return err
+			// Only fail if permissions differ, since some filesystems are expected to not allow chmod (e.g. error
+			// `operation not permitted`).
+			infoAfterRename, infoAfterRenameErr := w.fs.Lstat(w.path)
+			if infoAfterRenameErr != nil || infoAfterRename.Mode() != info.Mode() {
+				w.err = err
+				return err
+			}
 		}
 	}
 

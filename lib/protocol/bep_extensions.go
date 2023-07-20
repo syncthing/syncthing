@@ -46,6 +46,7 @@ type FileIntf interface {
 	ModTime() time.Time
 	PlatformData() PlatformData
 	InodeChangeTime() time.Time
+	FileBlocksHash() []byte
 }
 
 func (Hello) Magic() uint32 {
@@ -168,6 +169,10 @@ func (f FileInfo) PlatformData() PlatformData {
 
 func (f FileInfo) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
+}
+
+func (f FileInfo) FileBlocksHash() []byte {
+	return f.BlocksHash
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in

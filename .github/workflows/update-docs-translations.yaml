@@ -2,7 +2,7 @@ name: Update translations and documentation
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '42 3 * * 1'
+    - cron: '42 3 * * 1'
 
 jobs:
 
@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     name: Update translations and documentation
     steps:
-      - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
-      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v2
+      - uses: actions/setup-go@v4
         with:
-          go-version: ^1.18.4
+          go-version: ^1.19.6
       - run: |
           set -euo pipefail
           git config --global user.name 'Syncthing Release Automation'

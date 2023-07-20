@@ -391,9 +391,7 @@ func (m *metadataTracker) Snapshot() *countsMap {
 	for k, v := range m.indexes {
 		c.indexes[k] = v
 	}
-	for i := range m.counts.Counts {
-		c.counts.Counts[i] = m.counts.Counts[i]
-	}
+	copy(c.counts.Counts, m.counts.Counts)
 
 	return c
 }

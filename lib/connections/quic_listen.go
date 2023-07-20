@@ -40,12 +40,13 @@ type quicListener struct {
 
 	onAddressesChangedNotifier
 
-	uri      *url.URL
-	cfg      config.Wrapper
-	tlsCfg   *tls.Config
-	conns    chan internalConn
-	factory  listenerFactory
-	registry *registry.Registry
+	uri        *url.URL
+	cfg        config.Wrapper
+	tlsCfg     *tls.Config
+	conns      chan internalConn
+	factory    listenerFactory
+	registry   *registry.Registry
+	lanChecker *lanChecker
 
 	address *url.URL
 	laddr   net.Addr
@@ -168,7 +169,12 @@ func (t *quicListener) serve(ctx context.Context) error {
 			continue
 		}
 
-		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority)
+		priority := t.cfg.Options().ConnectionPriorityQUICWAN
+		isLocal := t.lanChecker.isLAN(session.RemoteAddr())
+		if isLocal {
+			priority = t.cfg.Options().ConnectionPriorityQUICLAN
+		}
+		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, isLocal, priority)
 	}
 }
 
@@ -218,14 +224,15 @@ func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry, lanChecker *lanChecker) genericListener {
 	l := &quicListener{
-		uri:      fixupPort(uri, config.DefaultQUICPort),
-		cfg:      cfg,
-		tlsCfg:   tlsCfg,
-		conns:    conns,
-		factory:  f,
-		registry: registry,
+		uri:        fixupPort(uri, config.DefaultQUICPort),
+		cfg:        cfg,
+		tlsCfg:     tlsCfg,
+		conns:      conns,
+		factory:    f,
+		registry:   registry,
+		lanChecker: lanChecker,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	l.nat.Store(uint64(stun.NATUnknown))
