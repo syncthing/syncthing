@@ -2182,7 +2182,7 @@ angular.module('syncthing.core')
                 list = folderList($scope.folders);
             } else if ($scope.currentDevice._editing) {
                 var device = $scope.currentDevice.deviceID;
-                list = deviceList($scope.devices);
+                list = deviceList($scope.otherDevices());
             }
 
             i = list.length;
@@ -2197,11 +2197,7 @@ angular.module('syncthing.core')
                     } else if (direction === 'next') {
                         index = i + 1;
                         if (!list[index]) {
-                            if (folder) {
-                                index = 0;
-                            } else if (device) {
-                                index = 1;
-                            }
+                            index = 0;
                         }
                     }
                     if (list[index]) {
