@@ -146,13 +146,17 @@
           <div class="form-group" ng-if="internalVersioningEnabled()" ng-class="{'has-error': folderEditor.cleanupIntervalS.$invalid && folderEditor.cleanupIntervalS.$dirty}">
             <label translate for="cleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
-              <input name="cleanupIntervalS" id="cleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
+              <input name="cleanupIntervalS" id="cleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" aria-required="true" ng-disabled="(((currentFolder._guiVersioning.selector == 'trashcan' || currentFolder._guiVersioning.selector == 'simple') && currentFolder._guiVersioning.trashcanClean == 0) || (currentFolder._guiVersioning.selector == 'staggered' && currentFolder._guiVersioning.staggeredMaxAge == 0))" />
               <div class="input-group-addon" translate>seconds</div>
             </div>
             <p class="help-block">
               <span translate ng-if="folderEditor.cleanupIntervalS.$valid || folderEditor.cleanupIntervalS.$pristine"class="help-block">The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.</span>
               <span translate ng-if="folderEditor.cleanupIntervalS.$error.required && folderEditor.cleanupIntervalS.$dirty">The cleanup interval cannot be blank.</span>
               <span translate ng-if="folderEditor.cleanupIntervalS.$error.min && folderEditor.cleanupIntervalS.$dirty">The interval must be a positive number of seconds.</span>
+              <span class="text-warning" ng-if="(((currentFolder._guiVersioning.selector == 'trashcan' || currentFolder._guiVersioning.selector == 'simple') && currentFolder._guiVersioning.trashcanClean == 0) || (currentFolder._guiVersioning.selector == 'staggered' && currentFolder._guiVersioning.staggeredMaxAge == 0))">
+                <span class="fas fa-exclamation-triangle"></span>
+                <span translate>Cleanup is disabled when versions are kept forever.</span>
+              </span>
             </p>
           </div>
         </div>

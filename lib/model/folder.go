@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -57,8 +58,11 @@ type folder struct {
 	scanDelay              chan time.Duration
 	initialScanFinished    chan struct{}
 	scanScheduled          chan struct{}
+	versionType            string
 	versionCleanupInterval time.Duration
 	versionCleanupTimer    *time.Timer
+	versionCleanoutDays    int
+	versionMaxAge          int
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
@@ -96,6 +100,9 @@ type puller interface {
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *util.Semaphore, ver versioner.Versioner) folder {
+	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
+	maxAge, _ := strconv.Atoi(cfg.Versioning.Params["maxAge"])
+
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -115,8 +122,11 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanDelay:              make(chan time.Duration),
 		initialScanFinished:    make(chan struct{}),
 		scanScheduled:          make(chan struct{}, 1),
+		versionType:            cfg.Versioning.Type,
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
 		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
+		versionCleanoutDays:    cleanoutDays,
+		versionMaxAge:          maxAge,
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
@@ -161,7 +171,7 @@ func (f *folder) Serve(ctx context.Context) error {
 
 	// If we're configured to not do version cleanup, or we don't have a
 	// versioner, cancel and drain that timer now.
-	if f.versionCleanupInterval == 0 || f.versioner == nil {
+	if f.versionCleanupInterval == 0 || ((f.versionType == "trashcan" || f.versionType == "simple") && f.versionCleanoutDays == 0) || (f.versionType == "staggered" && f.versionMaxAge == 0) || f.versionType == "external" || f.versioner == nil {
 		if !f.versionCleanupTimer.Stop() {
 			<-f.versionCleanupTimer.C
 		}
