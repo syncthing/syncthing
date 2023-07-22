@@ -385,10 +385,10 @@
   </div>
   <div class="modal-footer">
     <div class="btn-group">
-      <button type="button" class="btn btn-sm" ng-class="(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'btn-primary' : 'btn-default'" aria-label="{{'Previous Folder' | translate}}" ng-click="switchFolderOrDevice('previous')" ng-disabled="!editingFolderExisting() || folderList().length < 2">
+      <button type="button" class="btn btn-sm" ng-class="(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('previous')" ng-disabled="!editingFolderExisting() || folderList().length < 2" tooltip data-original-title="{{(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'Save and switch to previous folder' : 'Switch to previous folder' | translate}}">
         <span class="fas fa-arrow-left"></span>
       </button>
-      <button type="button" class="btn btn-sm" ng-class="(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'btn-primary' : 'btn-default'" aria-label="{{'Next Folder' | translate}}" ng-click="switchFolderOrDevice('next')" ng-disabled="!editingFolderExisting() || folderList().length < 2">
+      <button type="button" class="btn btn-sm" ng-class="(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('next')" ng-disabled="!editingFolderExisting() || folderList().length < 2" tooltip data-original-title="{{(folderEditor.$dirty && folderEditor.$valid && editingFolderExisting() && folderList().length > 1) ? 'Save and switch to next folder' : 'Switch to next folder' | translate}}">
         <span class="fas fa-arrow-right"></span>
       </button>
     </div>
