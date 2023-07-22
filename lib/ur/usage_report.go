@@ -330,9 +330,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 func (*Service) UptimeS() int {
 	if StartTime.Year() < 2023 {
 		return 0
-	} else {
-		return int(time.Since(StartTime).Seconds())
 	}
+	return int(time.Since(StartTime).Seconds())
 }
 
 func (s *Service) sendUsageReport(ctx context.Context) error {
