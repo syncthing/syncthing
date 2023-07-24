@@ -2783,10 +2783,11 @@ angular.module('syncthing.core')
                     // Use case-insensitive filter.
                     var filterText = $scope.restoreVersions.filters.text.toLowerCase();
                     var versionPath = node.key.toLowerCase();
-                    // Allow backslashes on Windows as filter path separators.
+                    // Convert backslashes to forward slashes on Windows
+                    // to allow using them as path separators.
                     if ($scope.version.os == 'windows') {
-                        filterText = filterText.replace(/\//g, '\\');
-                        versionPath = versionPath.replace(/\//g, '\\');
+                        filterText = filterText.replace(/\\/g, '/');
+                        versionPath = versionPath.replace(/\\/g, '/');
                     }
                     if (versionPath.indexOf(filterText) < 0) {
                         return false;
