@@ -745,6 +745,19 @@ func TestCSRFRequired(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
 	}
+
+	// Calling on /rest with the API key as a bearer token should succeed
+
+	req, _ = http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+	req.Header.Set("Authorization", "Bearer "+testAPIKey)
+	resp, err = cli.Do(req)
+	if err != nil {
+		t.Fatal("Unexpected error from getting /rest/system/config:", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+	}
 }
 
 func TestRandomString(t *testing.T) {
