@@ -2780,15 +2780,10 @@ angular.module('syncthing.core')
                 if (node.folder) return false;
 
                 if ($scope.restoreVersions.filters.text) {
-                    // Use case-insensitive filter.
-                    var filterText = $scope.restoreVersions.filters.text.toLowerCase();
-                    var versionPath = node.key.toLowerCase();
-                    // Convert backslashes to forward slashes on Windows
-                    // to allow using them as path separators.
-                    if ($scope.version.os == 'windows') {
-                        filterText = filterText.replace(/\\/g, '/');
-                        versionPath = versionPath.replace(/\\/g, '/');
-                    }
+                    // Use case-insensitive filter and convert backslashes to
+                    // forward slashes to allow using them as path separators.
+                    var filterText = $scope.restoreVersions.filters.text.toLowerCase().replace(/\\/g, '/');
+                    var versionPath = node.key.toLowerCase().replace(/\\/g, '/');
                     if (versionPath.indexOf(filterText) < 0) {
                         return false;
                     }
