@@ -37,6 +37,7 @@ var (
 )
 
 const (
+	// fs operations
 	metricOpChmod             = "chmod"
 	metricOpLchmod            = "lchmod"
 	metricOpChtimes           = "chtimes"
@@ -68,6 +69,17 @@ const (
 	metricOpPlatformData      = "platformdata"
 	metricOpGetXattr          = "getxattr"
 	metricOpSetXattr          = "setxattr"
+
+	// file operations
+	metricOpRead     = "read"
+	metricOpReadAt   = "readat"
+	metricOpWrite    = "write"
+	metricOpWriteAt  = "writeat"
+	metricOpTruncate = "truncate"
+	metricOpSeek     = "seek"
+	metricOpSync     = "sync"
+	metricOpClose    = "close"
+	metricOpName     = "name"
 )
 
 type metricsFS struct {
@@ -269,56 +281,56 @@ type metricsFile struct {
 }
 
 func (m *metricsFile) Read(p []byte) (n int, err error) {
-	acc := m.fs.account("Read")
+	acc := m.fs.account(metricOpRead)
 	defer func() { acc(n) }()
 	return m.next.Read(p)
 }
 
 func (m *metricsFile) ReadAt(p []byte, off int64) (n int, err error) {
-	acc := m.fs.account("ReadAt")
+	acc := m.fs.account(metricOpReadAt)
 	defer func() { acc(n) }()
 	return m.next.ReadAt(p, off)
 }
 
 func (m *metricsFile) Seek(offset int64, whence int) (int64, error) {
-	defer m.fs.account("Seek")(-1)
+	defer m.fs.account(metricOpSeek)(-1)
 	return m.next.Seek(offset, whence)
 }
 
 func (m *metricsFile) Stat() (FileInfo, error) {
-	defer m.fs.account("Stat")(-1)
+	defer m.fs.account(metricOpStat)(-1)
 	return m.next.Stat()
 }
 
 func (m *metricsFile) Sync() error {
-	defer m.fs.account("Sync")(-1)
+	defer m.fs.account(metricOpSync)(-1)
 	return m.next.Sync()
 }
 
 func (m *metricsFile) Truncate(size int64) error {
-	defer m.fs.account("Truncate")(-1)
+	defer m.fs.account(metricOpTruncate)(-1)
 	return m.next.Truncate(size)
 }
 
 func (m *metricsFile) Write(p []byte) (n int, err error) {
-	acc := m.fs.account("Write")
+	acc := m.fs.account(metricOpWrite)
 	defer func() { acc(n) }()
 	return m.next.Write(p)
 }
 
 func (m *metricsFile) WriteAt(p []byte, off int64) (n int, err error) {
-	acc := m.fs.account("WriteAt")
+	acc := m.fs.account(metricOpWriteAt)
 	defer func() { acc(n) }()
 	return m.next.WriteAt(p, off)
 }
 
 func (m *metricsFile) Close() error {
-	defer m.fs.account("Close")(-1)
+	defer m.fs.account(metricOpClose)(-1)
 	return m.next.Close()
 }
 
 func (m *metricsFile) Name() string {
-	defer m.fs.account("Name")(-1)
+	defer m.fs.account(metricOpName)(-1)
 	return m.next.Name()
 }
 
