@@ -3051,7 +3051,11 @@ angular.module('syncthing.core')
                 arch += " Container";
             }
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            var verStr = $scope.version.version;
+            if ($scope.version.extra) {
+                verStr += ' (' + $scope.version.extra + ')';
+            }
+            return verStr + ', ' + os + ' (' + arch + ')';
         };
 
         $scope.versionBase = function () {

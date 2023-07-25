@@ -214,7 +214,7 @@ func (t *tcpListener) Factory() listenerFactory {
 	return t.factory
 }
 
-func (t *tcpListener) NATType() string {
+func (*tcpListener) NATType() string {
 	return "unknown"
 }
 

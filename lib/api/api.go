@@ -713,6 +713,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
+		"extra":       build.Extra,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 		"isBeta":      build.IsBeta,

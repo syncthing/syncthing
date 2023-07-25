@@ -186,7 +186,7 @@
     "Global Discovery Servers": "Serveurs de découverte globale",
     "Global State": "État global",
     "Help": "Aide (en anglais)",
-    "Hint: only deny-rules detected while the default is deny. Consider adding \"permit any\" as last rule.": "Remarque : vous n'avez indiqué que des filtres de refus alors que le comportement par défaut est déjà le refus. Envisagez d'ajouter * (Partager tout le reste) comme dernier filtre (coché) pour inverser le comportement par défaut.",
+    "Hint: only deny-rules detected while the default is deny. Consider adding \"permit any\" as last rule.": "Remarque : vous n'avez indiqué que des filtres de refus alors que le comportement par défaut est déjà le refus. Envisagez d'ajouter * (Partager tout les autres attributs non spécifiés) comme dernier filtre (coché) pour inverser le comportement par défaut.",
     "Home page": "Page d'accueil",
     "However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.": "Cependant, vos réglages indiquent que vous pourriez souhaiter ne pas l'activer. Nous avons désactivé pour vous l'envoi automatique des rapports.",
     "Identification": "Identifiant abrégé",

@@ -328,6 +328,11 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 }
 
 func (*Service) UptimeS() int {
+	// Handle nonexistent or wildly incorrect system clock.
+	// This code was written in 2023, it can't run in the past.
+	if StartTime.Year() < 2023 {
+		return 0
+	}
 	return int(time.Since(StartTime).Seconds())
 }
 
