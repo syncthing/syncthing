@@ -180,8 +180,8 @@ func (m *csrfManager) load() {
 }
 
 func hasValidAPIKeyHeader(r *http.Request, validator apiKeyValidator) bool {
-	if key := r.Header.Get("X-API-Key"); key != "" {
-		return validator.IsValidAPIKey(key)
+	if key := r.Header.Get("X-API-Key"); validator.IsValidAPIKey(key) {
+		return true
 	}
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(auth), "bearer ") {
 		bearerToken := auth[len("bearer "):]
