@@ -36,6 +36,40 @@ var (
 	}, []string{"root", "operation"})
 )
 
+const (
+	metricOpChmod             = "chmod"
+	metricOpLchmod            = "lchmod"
+	metricOpChtimes           = "chtimes"
+	metricOpCreate            = "create"
+	metricOpCreateSymlink     = "createsymlink"
+	metricOpDirNames          = "dirnames"
+	metricOpLstat             = "lstat"
+	metricOpMkdir             = "mdkir"
+	metricOpMkdirAll          = "mkdirall"
+	metricOpOpen              = "open"
+	metricOpOpenFile          = "openfile"
+	metricOpReadSymlink       = "readsymlink"
+	metricOpRemove            = "remove"
+	metricOpRemoveAll         = "removeall"
+	metricOpRename            = "rename"
+	metricOpStat              = "stat"
+	metricOpSymlinksSupported = "symlinkssupported"
+	metricOpWalk              = "walk"
+	metricOpWatch             = "watch"
+	metricOpHide              = "hide"
+	metricOpUnhide            = "unhide"
+	metricOpGlob              = "glob"
+	metricOpRoots             = "roots"
+	metricOpUsage             = "usage"
+	metricOpType              = "type"
+	metricOpURI               = "uri"
+	metricOpOptions           = "options"
+	metricOpSameFile          = "samefile"
+	metricOpPlatformData      = "platformdata"
+	metricOpGetXattr          = "getxattr"
+	metricOpSetXattr          = "setxattr"
+)
+
 type metricsFS struct {
 	next Filesystem
 }
@@ -55,22 +89,22 @@ func (m *metricsFS) account(op string) func(bytes int) {
 }
 
 func (m *metricsFS) Chmod(name string, mode FileMode) error {
-	defer m.account("Chmod")(-1)
+	defer m.account(metricOpChmod)(-1)
 	return m.next.Chmod(name, mode)
 }
 
 func (m *metricsFS) Lchown(name string, uid, gid string) error {
-	defer m.account("Lchown")(-1)
+	defer m.account(metricOpLchmod)(-1)
 	return m.next.Lchown(name, uid, gid)
 }
 
 func (m *metricsFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	defer m.account("Chtimes")(-1)
+	defer m.account(metricOpChtimes)(-1)
 	return m.next.Chtimes(name, atime, mtime)
 }
 
 func (m *metricsFS) Create(name string) (File, error) {
-	defer m.account("Create")(-1)
+	defer m.account(metricOpCreate)(-1)
 	f, err := m.next.Create(name)
 	if err != nil {
 		return nil, err
@@ -79,32 +113,32 @@ func (m *metricsFS) Create(name string) (File, error) {
 }
 
 func (m *metricsFS) CreateSymlink(target, name string) error {
-	defer m.account("CreateSymlink")(-1)
+	defer m.account(metricOpCreateSymlink)(-1)
 	return m.next.CreateSymlink(target, name)
 }
 
 func (m *metricsFS) DirNames(name string) ([]string, error) {
-	defer m.account("DirNames")(-1)
+	defer m.account(metricOpDirNames)(-1)
 	return m.next.DirNames(name)
 }
 
 func (m *metricsFS) Lstat(name string) (FileInfo, error) {
-	defer m.account("Lstat")(-1)
+	defer m.account(metricOpLstat)(-1)
 	return m.next.Lstat(name)
 }
 
 func (m *metricsFS) Mkdir(name string, perm FileMode) error {
-	defer m.account("Mkdir")(-1)
+	defer m.account(metricOpMkdir)(-1)
 	return m.next.Mkdir(name, perm)
 }
 
 func (m *metricsFS) MkdirAll(name string, perm FileMode) error {
-	defer m.account("MkdirAll")(-1)
+	defer m.account(metricOpMkdirAll)(-1)
 	return m.next.MkdirAll(name, perm)
 }
 
 func (m *metricsFS) Open(name string) (File, error) {
-	defer m.account("Open")(-1)
+	defer m.account(metricOpOpen)(-1)
 	f, err := m.next.Open(name)
 	if err != nil {
 		return nil, err
@@ -113,7 +147,7 @@ func (m *metricsFS) Open(name string) (File, error) {
 }
 
 func (m *metricsFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	defer m.account("OpenFile")(-1)
+	defer m.account(metricOpOpenFile)(-1)
 	f, err := m.next.OpenFile(name, flags, mode)
 	if err != nil {
 		return nil, err
@@ -122,102 +156,102 @@ func (m *metricsFS) OpenFile(name string, flags int, mode FileMode) (File, error
 }
 
 func (m *metricsFS) ReadSymlink(name string) (string, error) {
-	defer m.account("ReadSymlink")(-1)
+	defer m.account(metricOpReadSymlink)(-1)
 	return m.next.ReadSymlink(name)
 }
 
 func (m *metricsFS) Remove(name string) error {
-	defer m.account("Remove")(-1)
+	defer m.account(metricOpRemove)(-1)
 	return m.next.Remove(name)
 }
 
 func (m *metricsFS) RemoveAll(name string) error {
-	defer m.account("RemoveAll")(-1)
+	defer m.account(metricOpRemoveAll)(-1)
 	return m.next.RemoveAll(name)
 }
 
 func (m *metricsFS) Rename(oldname, newname string) error {
-	defer m.account("Rename")(-1)
+	defer m.account(metricOpRename)(-1)
 	return m.next.Rename(oldname, newname)
 }
 
 func (m *metricsFS) Stat(name string) (FileInfo, error) {
-	defer m.account("Stat")(-1)
+	defer m.account(metricOpStat)(-1)
 	return m.next.Stat(name)
 }
 
 func (m *metricsFS) SymlinksSupported() bool {
-	defer m.account("SymlinksSupported")(-1)
+	defer m.account(metricOpSymlinksSupported)(-1)
 	return m.next.SymlinksSupported()
 }
 
 func (m *metricsFS) Walk(name string, walkFn WalkFunc) error {
-	defer m.account("Walk")(-1)
+	defer m.account(metricOpWalk)(-1)
 	return m.next.Walk(name, walkFn)
 }
 
 func (m *metricsFS) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
-	defer m.account("Watch")(-1)
+	defer m.account(metricOpWatch)(-1)
 	return m.next.Watch(path, ignore, ctx, ignorePerms)
 }
 
 func (m *metricsFS) Hide(name string) error {
-	defer m.account("Hide")(-1)
+	defer m.account(metricOpHide)(-1)
 	return m.next.Hide(name)
 }
 
 func (m *metricsFS) Unhide(name string) error {
-	defer m.account("Unhide")(-1)
+	defer m.account(metricOpUnhide)(-1)
 	return m.next.Unhide(name)
 }
 
 func (m *metricsFS) Glob(pattern string) ([]string, error) {
-	defer m.account("Glob")(-1)
+	defer m.account(metricOpGlob)(-1)
 	return m.next.Glob(pattern)
 }
 
 func (m *metricsFS) Roots() ([]string, error) {
-	defer m.account("Roots")(-1)
+	defer m.account(metricOpRoots)(-1)
 	return m.next.Roots()
 }
 
 func (m *metricsFS) Usage(name string) (Usage, error) {
-	defer m.account("Usage")(-1)
+	defer m.account(metricOpUsage)(-1)
 	return m.next.Usage(name)
 }
 
 func (m *metricsFS) Type() FilesystemType {
-	defer m.account("Type")(-1)
+	defer m.account(metricOpType)(-1)
 	return m.next.Type()
 }
 
 func (m *metricsFS) URI() string {
-	defer m.account("URI")(-1)
+	defer m.account(metricOpURI)(-1)
 	return m.next.URI()
 }
 
 func (m *metricsFS) Options() []Option {
-	defer m.account("Options")(-1)
+	defer m.account(metricOpOptions)(-1)
 	return m.next.Options()
 }
 
 func (m *metricsFS) SameFile(fi1, fi2 FileInfo) bool {
-	defer m.account("SameFile")(-1)
+	defer m.account(metricOpSameFile)(-1)
 	return m.next.SameFile(fi1, fi2)
 }
 
 func (m *metricsFS) PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error) {
-	defer m.account("PlatformData")(-1)
+	defer m.account(metricOpPlatformData)(-1)
 	return m.next.PlatformData(name, withOwnership, withXattrs, xattrFilter)
 }
 
 func (m *metricsFS) GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error) {
-	defer m.account("GetXattr")(-1)
+	defer m.account(metricOpGetXattr)(-1)
 	return m.next.GetXattr(name, xattrFilter)
 }
 
 func (m *metricsFS) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error {
-	defer m.account("SetXattr")(-1)
+	defer m.account(metricOpSetXattr)(-1)
 	return m.next.SetXattr(path, xattrs, xattrFilter)
 }
 
