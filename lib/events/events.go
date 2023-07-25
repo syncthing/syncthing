@@ -297,7 +297,7 @@ loop:
 		case e := <-l.events:
 			// Incoming events get sent
 			l.sendEvent(e)
-			metricEventsCreated.WithLabelValues(e.Type.String()).Inc()
+			metricEvents.WithLabelValues(e.Type.String(), metricEventStateCreated).Inc()
 
 		case fn := <-l.funcs:
 			// Subscriptions are handled here.
@@ -346,11 +346,11 @@ func (l *logger) sendEvent(e Event) {
 
 			select {
 			case s.events <- e:
-				metricEventsForwarded.WithLabelValues(e.Type.String(), "sent").Inc()
+				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDelivered).Inc()
 			case <-l.timeout.C:
 				// if s.events is not ready, drop the event
 				timedOut = true
-				metricEventsForwarded.WithLabelValues(e.Type.String(), "dropped").Inc()
+				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDropped).Inc()
 			}
 
 			// If stop returns false it already sent something to the

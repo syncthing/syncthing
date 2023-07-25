@@ -16,14 +16,14 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "scanner",
 		Name:      "hashed_bytes_total",
-		Help:      "Total amount of data hashed",
+		Help:      "Total amount of data hashed, per folder",
 	}, []string{"folder"})
 
 	metricScannedItems = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "syncthing",
 		Subsystem: "scanner",
 		Name:      "scanned_items_total",
-		Help:      "Total number of files/directories inspected",
+		Help:      "Total number of items (files/directories) inspected, per folder",
 	}, []string{"folder"})
 )
 

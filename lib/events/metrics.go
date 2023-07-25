@@ -11,17 +11,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	metricEventsCreated = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "syncthing",
-		Subsystem: "events",
-		Name:      "created_total",
-		Help:      "Total number of created events",
-	}, []string{"event"})
-	metricEventsForwarded = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "syncthing",
-		Subsystem: "events",
-		Name:      "forwarded_total",
-		Help:      "Total number of events forwarded to subscribers",
-	}, []string{"event", "state"})
+var metricEvents = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "syncthing",
+	Subsystem: "events",
+	Name:      "total",
+	Help:      "Total number of created/forwarded/dropped events",
+}, []string{"event", "state"})
+
+const (
+	metricEventStateCreated   = "created"
+	metricEventStateDelivered = "delivered"
+	metricEventStateDropped   = "dropped"
 )
