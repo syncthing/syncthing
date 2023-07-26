@@ -552,8 +552,7 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
-
-func hasSessionCookie (cookies []*http.Cookie) bool {
+func hasSessionCookie(cookies []*http.Cookie) bool {
 	for _, cookie := range cookies {
 		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
 			return true
@@ -609,8 +608,8 @@ func TestHTTPLogin(t *testing.T) {
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:     "üser",
-		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: true,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
@@ -619,7 +618,7 @@ func TestHTTPLogin(t *testing.T) {
 	}
 	defer cancel()
 
-	performRequest := func (url string, username string, password string) *http.Response {
+	performRequest := func(url string, username string, password string) *http.Response {
 		return httpGet(url, username, password, nil, t)
 	}
 
@@ -702,8 +701,8 @@ func TestHtmlFormLogin(t *testing.T) {
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:     "üser",
-		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: false,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
@@ -713,11 +712,11 @@ func TestHtmlFormLogin(t *testing.T) {
 	defer cancel()
 	loginUrl := baseURL + "/rest/noauth/auth/password"
 
-	performLogin := func (username string, password string) *http.Response {
+	performLogin := func(username string, password string) *http.Response {
 		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
 	}
 
-	performResourceRequest := func (url string, cookies []*http.Cookie) *http.Response {
+	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
 		return httpGet(url, "", "", cookies, t)
 	}
 
@@ -726,7 +725,7 @@ func TestHtmlFormLogin(t *testing.T) {
 		resourceUrl := baseURL + "/meta.js"
 
 		// Verify authentication not needed for index.html
-		req, err := http.NewRequest("GET", baseURL + "/index.html", nil)
+		req, err := http.NewRequest("GET", baseURL+"/index.html", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
