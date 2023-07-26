@@ -778,7 +778,7 @@ func TestCSRFRequired(t *testing.T) {
 
 	t.Run("/rest without a token should fail", func(t *testing.T) {
 		t.Parallel()
-		resp, err = cli.Get(baseURL + "/rest/system/config")
+		resp, err := cli.Get(baseURL + "/rest/system/config")
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
@@ -793,7 +793,7 @@ func TestCSRFRequired(t *testing.T) {
 		t.Parallel()
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
-		resp, err = cli.Do(req)
+		resp, err := cli.Do(req)
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
@@ -808,7 +808,7 @@ func TestCSRFRequired(t *testing.T) {
 		t.Parallel()
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-API-Key", testAPIKey+"X")
-		resp, err = cli.Do(req)
+		resp, err := cli.Do(req)
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
@@ -823,7 +823,7 @@ func TestCSRFRequired(t *testing.T) {
 		t.Parallel()
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
-		resp, err = cli.Do(req)
+		resp, err := cli.Do(req)
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
@@ -838,7 +838,7 @@ func TestCSRFRequired(t *testing.T) {
 		t.Parallel()
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-API-Key", testAPIKey)
-		resp, err = cli.Do(req)
+		resp, err := cli.Do(req)
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
@@ -853,7 +853,7 @@ func TestCSRFRequired(t *testing.T) {
 		t.Parallel()
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("Authorization", "Bearer "+testAPIKey)
-		resp, err = cli.Do(req)
+		resp, err := cli.Do(req)
 		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
