@@ -167,11 +167,11 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	return addresses, nil
 }
 
-func (m *manager) String() string {
+func (*manager) String() string {
 	return "discovery cache"
 }
 
-func (m *manager) Error() error {
+func (*manager) Error() error {
 	return nil
 }
 

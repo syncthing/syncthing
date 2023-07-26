@@ -57,7 +57,7 @@ type githubReleases struct {
 	url string
 }
 
-func (p *githubReleases) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	log.Println("Fetching", p.url)
 	rels := upgrade.FetchLatestReleases(p.url, "")
 	if rels == nil {

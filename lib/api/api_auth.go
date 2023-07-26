@@ -93,7 +93,7 @@ func noAuthPrefixes() []string {
 
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+		if hasValidAPIKeyHeader(r, guiCfg) {
 			next.ServeHTTP(w, r)
 			return
 		}

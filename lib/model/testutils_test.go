@@ -229,7 +229,7 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 	return ok
 }
 
-func (c *alwaysChanged) Changed() bool {
+func (*alwaysChanged) Changed() bool {
 	return true
 }
 

@@ -32,7 +32,8 @@ func (t emptyDirTracker) addFile(path string) {
 }
 
 func (t emptyDirTracker) emptyDirs() []string {
-	empty := []string{}
+	var empty []string
+
 	for dir := range t {
 		empty = append(empty, dir)
 	}
