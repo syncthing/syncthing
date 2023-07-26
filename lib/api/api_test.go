@@ -771,15 +771,9 @@ func TestCSRFRequired(t *testing.T) {
 		}
 	}
 
-	dataRaceSleep := func() {
-		// time.Sleep(time.Duration(50 + rand.Intn(150)) * time.Millisecond)
-		time.Sleep(time.Duration(500) * time.Millisecond)
-	}
-
 	t.Run("/rest without a token should fail", func(t *testing.T) {
 		t.Parallel()
 		resp, err := cli.Get(baseURL + "/rest/system/config")
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
@@ -794,7 +788,6 @@ func TestCSRFRequired(t *testing.T) {
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
 		resp, err := cli.Do(req)
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
@@ -809,7 +802,6 @@ func TestCSRFRequired(t *testing.T) {
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-API-Key", testAPIKey+"X")
 		resp, err := cli.Do(req)
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
@@ -824,7 +816,6 @@ func TestCSRFRequired(t *testing.T) {
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
 		resp, err := cli.Do(req)
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
@@ -839,7 +830,6 @@ func TestCSRFRequired(t *testing.T) {
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("X-API-Key", testAPIKey)
 		resp, err := cli.Do(req)
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
@@ -854,7 +844,6 @@ func TestCSRFRequired(t *testing.T) {
 		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
 		req.Header.Set("Authorization", "Bearer "+testAPIKey)
 		resp, err := cli.Do(req)
-		dataRaceSleep()
 		if err != nil {
 			t.Fatal("Unexpected error from getting /rest/system/config:", err)
 		}
