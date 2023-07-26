@@ -562,6 +562,47 @@ func hasSessionCookie (cookies []*http.Cookie) bool {
 	return false
 }
 
+func httpGet(url string, username string, password string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	req, err := http.NewRequest("GET", url, nil)
+	if cookies != nil {
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
+		}
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if username != "" || password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
+func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
 
 func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
@@ -580,21 +621,7 @@ func TestHTTPLogin(t *testing.T) {
 	url := baseURL + "/meta.js"
 
 	performRequest := func (username string, password string) *http.Response {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if username != "" || password != "" {
-			req.SetBasicAuth(username, password)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+		return httpGet(url, username, password, nil, t)
 	}
 
 	// Verify rejection when not using authorization
@@ -660,21 +687,7 @@ func TestHTTPLoginAtNotFoundPath(t *testing.T) {
 	url := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performRequest := func (username string, password string) *http.Response {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if username != "" || password != "" {
-			req.SetBasicAuth(username, password)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+		return httpGet(url, username, password, nil, t)
 	}
 
 	// Verify rejection when not using authorization
@@ -714,39 +727,11 @@ func TestHtmlFormLogin(t *testing.T) {
 	resourceUrl := baseURL + "/meta.js"
 
 	performLogin := func (username string, password string) *http.Response {
-		body, err := json.Marshal(map[string]string{"username": username, "password": password})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req, err := http.NewRequest("POST", loginUrl, bytes.NewReader(body))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
 	}
 
-	performResourceRequest := func (loginResp *http.Response, url string) *http.Response {
-		req, err := http.NewRequest("GET", url, nil)
-		for _, cookie := range loginResp.Cookies() {
-			req.AddCookie(cookie)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+	performResourceRequest := func (cookies []*http.Cookie) *http.Response {
+		return httpGet(resourceUrl, "", "", cookies, t)
 	}
 
 	// Verify authentication not needed for index.html
@@ -773,7 +758,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
 	}
@@ -786,7 +771,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect password")
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
 	}
@@ -799,7 +784,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect username")
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
 	}
@@ -809,7 +794,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
@@ -833,39 +818,11 @@ func TestHtmlFormLoginAtNotFoundPath(t *testing.T) {
 	resourceUrl := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performLogin := func (username string, password string) *http.Response {
-		body, err := json.Marshal(map[string]string{"username": username, "password": password})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req, err := http.NewRequest("POST", loginUrl, bytes.NewReader(body))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
 	}
 
-	performResourceRequest := func (loginResp *http.Response, url string) *http.Response {
-		req, err := http.NewRequest("GET", url, nil)
-		for _, cookie := range loginResp.Cookies() {
-			req.AddCookie(cookie)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return resp
+	performResourceRequest := func (cookies []*http.Cookie) *http.Response {
+		return httpGet(resourceUrl, "", "", cookies, t)
 	}
 
 	// Verify rejection when not using authorization
@@ -876,7 +833,7 @@ func TestHtmlFormLoginAtNotFoundPath(t *testing.T) {
 	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
 	}
@@ -886,7 +843,7 @@ func TestHtmlFormLoginAtNotFoundPath(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
-	resp = performResourceRequest(resp, resourceUrl)
+	resp = performResourceRequest(resp.Cookies())
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
