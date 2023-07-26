@@ -552,6 +552,17 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
+
+func hasSessionCookie (cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return true
+		}
+	}
+	return false
+}
+
+
 func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
 
@@ -586,21 +597,12 @@ func TestHTTPLogin(t *testing.T) {
 		return resp
 	}
 
-	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
-		for _, cookie := range cookies {
-			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
-				return true
-			}
-		}
-		return false
-	}
-
 	// Verify rejection when not using authorization
 	resp := performRequest("", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
 
@@ -609,7 +611,7 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect password")
 	}
 
@@ -618,7 +620,7 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect username")
 	}
 
@@ -627,7 +629,7 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
-	if !assertHasSessionCookie(resp.Cookies()) {
+	if !hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Expected session cookie for authed request (UTF-8)")
 	}
 
@@ -636,7 +638,7 @@ func TestHTTPLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
 	}
-	if !assertHasSessionCookie(resp.Cookies()) {
+	if !hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Expected session cookie for authed request (ISO-8859-1)")
 	}
 }
@@ -675,21 +677,12 @@ func TestHTTPLoginAtNotFoundPath(t *testing.T) {
 		return resp
 	}
 
-	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
-		for _, cookie := range cookies {
-			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
-				return true
-			}
-		}
-		return false
-	}
-
 	// Verify rejection when not using authorization
 	resp := performRequest("", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
 
@@ -698,7 +691,7 @@ func TestHTTPLoginAtNotFoundPath(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("Unexpected non-404 return code %d for authed request (UTF-8)", resp.StatusCode)
 	}
-	if !assertHasSessionCookie(resp.Cookies()) {
+	if !hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Expected session cookie for authed request (UTF-8)")
 	}
 }
@@ -756,15 +749,6 @@ func TestHtmlFormLogin(t *testing.T) {
 		return resp
 	}
 
-	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
-		for _, cookie := range cookies {
-			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
-				return true
-			}
-		}
-		return false
-	}
-
 	// Verify authentication not needed for index.html
 	req, err := http.NewRequest("GET", baseURL + "/index.html", nil)
 	if err != nil {
@@ -777,7 +761,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Unexpected non-200 return code %d at /index.html", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie at /index.html")
 	}
 
@@ -786,7 +770,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
 	resp = performResourceRequest(resp, resourceUrl)
@@ -799,7 +783,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect password")
 	}
 	resp = performResourceRequest(resp, resourceUrl)
@@ -812,7 +796,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for incorrect username")
 	}
 	resp = performResourceRequest(resp, resourceUrl)
@@ -884,21 +868,12 @@ func TestHtmlFormLoginAtNotFoundPath(t *testing.T) {
 		return resp
 	}
 
-	assertHasSessionCookie := func (cookies []*http.Cookie) bool {
-		for _, cookie := range cookies {
-			if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
-				return true
-			}
-		}
-		return false
-	}
-
 	// Verify rejection when not using authorization
 	resp := performLogin("", "")
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
 	}
-	if assertHasSessionCookie(resp.Cookies()) {
+	if hasSessionCookie(resp.Cookies()) {
 		t.Errorf("Unexpected session cookie for unauthed request")
 	}
 	resp = performResourceRequest(resp, resourceUrl)
