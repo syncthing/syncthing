@@ -175,10 +175,10 @@
   </div>
   <div class="modal-footer">
     <div class="btn-group">
-      <button type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('previous')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3" tooltip data-original-title="{{(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'Save and switch to previous device' : 'Switch to previous device' | translate}}">
+      <button data-container="body" type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('previous')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3" tooltip data-original-title="{{(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'Save and switch to previous device' : 'Switch to previous device' | translate}}">
         <span class="fas fa-arrow-left"></span>
       </button>
-      <button type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('next')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3" tooltip data-original-title="{{(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'Save and switch to next device' : 'Switch to next device' | translate}}">
+      <button data-container="body" type="button" class="btn btn-sm" ng-class="(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'btn-primary' : 'btn-default'" ng-click="switchFolderOrDevice('next')" ng-disabled="!editingDeviceExisting() || deviceList().length < 3" tooltip data-original-title="{{(deviceEditor.$dirty && deviceEditor.$valid && editingDeviceExisting() && deviceList().length > 2) ? 'Save and switch to next device' : 'Switch to next device' | translate}}">
         <span class="fas fa-arrow-right"></span>
       </button>
     </div>
