@@ -121,21 +121,6 @@ var (
 	errFileHasNoBlocks    = errors.New("file with empty block list")
 )
 
-type contextLessModel interface {
-	// An index was received from the peer device
-	Index(folder string, files []FileInfo) error
-	// An index update was received from the peer device
-	IndexUpdate(folder string, files []FileInfo) error
-	// A request was made by the peer device
-	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
-	// A cluster configuration message was received
-	ClusterConfig(config ClusterConfig) error
-	// The peer device closed the connection or an error occurred
-	Closed(err error)
-	// The peer device sent progress updates for the files it is currently downloading
-	DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error
-}
-
 type Model interface {
 	// An index was received from the peer device
 	Index(conn Connection, folder string, files []FileInfo) error
@@ -149,6 +134,17 @@ type Model interface {
 	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
+}
+
+// contextLessModel is the Model interface, but without the initial
+// Connection parameter. Internal use only.
+type contextLessModel interface {
+	Index(folder string, files []FileInfo) error
+	IndexUpdate(folder string, files []FileInfo) error
+	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	ClusterConfig(config ClusterConfig) error
+	Closed(err error)
+	DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error
 }
 
 type RequestResponse interface {
