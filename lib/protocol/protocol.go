@@ -960,11 +960,7 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		if !c.startTime.IsZero() {
-			// Wait for the dispatcher loop to exit, if it was started to
-			// begin with.
-			<-c.dispatcherLoopStopped
-		}
+		<-c.dispatcherLoopStopped
 
 		c.model.Closed(err)
 	})
