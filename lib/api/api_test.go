@@ -562,67 +562,129 @@ func TestHTTPLogin(t *testing.T) {
 		User:       "üser",
 		Password:   "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		RawAddress: "127.0.0.1:0",
+		APIKey:     testAPIKey,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
-	// Verify rejection when not using authorization
+	t.Run("no auth is rejected", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+		}
+	})
 
-	req, _ := http.NewRequest("GET", baseURL, nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
-	}
+	t.Run("incorrect password is rejected", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.SetBasicAuth("üser", "rksmrgs")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
+		}
+	})
 
-	// Verify that incorrect password is rejected
+	t.Run("incorrect username is rejected", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+		}
+	})
 
-	req.SetBasicAuth("üser", "rksmrgs")
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
-	}
+	t.Run("UTF-8 auth works", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+	})
 
-	// Verify that incorrect username is rejected
+	t.Run("ISO-8859-1 auth work", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
+		}
+	})
 
-	req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
-	}
+	t.Run("bad X-API-Key is rejected", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.Header.Set("X-API-Key", testAPIKey+"X")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
+		}
+	})
 
-	// Verify that UTF-8 auth works
+	t.Run("good X-API-Key is accepted", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for API key", resp.StatusCode)
+		}
+	})
 
-	req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
-	}
+	t.Run("bad Bearer is rejected", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
+		}
+	})
 
-	// Verify that ISO-8859-1 auth
-
-	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
-	}
+	t.Run("good Bearer is accepted", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL, nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for API key", resp.StatusCode)
+		}
+	})
 }
 
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
@@ -684,7 +746,7 @@ func TestCSRFRequired(t *testing.T) {
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cli := &http.Client{
 		Timeout: time.Minute,
@@ -712,42 +774,87 @@ func TestCSRFRequired(t *testing.T) {
 		}
 	}
 
-	// Calling on /rest without a token should fail
+	t.Run("/rest without a token should fail", func(t *testing.T) {
+		t.Parallel()
+		resp, err := cli.Get(baseURL + "/rest/system/config")
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config without CSRF token should fail, not", resp.Status)
+		}
+	})
 
-	resp, err = cli.Get(baseURL + "/rest/system/config")
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatal("Getting /rest/system/config without CSRF token should fail, not", resp.Status)
-	}
+	t.Run("/rest with a token should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with CSRF token should succeed, not", resp.Status)
+		}
+	})
 
-	// Calling on /rest with a token should succeed
+	t.Run("/rest with an incorrect API key should fail, X-API-Key version", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-API-Key", testAPIKey+"X")
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config with incorrect API token should fail, not", resp.Status)
+		}
+	})
 
-	req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
-	req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
-	resp, err = cli.Do(req)
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("Getting /rest/system/config with CSRF token should succeed, not", resp.Status)
-	}
+	t.Run("/rest with an incorrect API key should fail, Bearer auth version", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config with incorrect API token should fail, not", resp.Status)
+		}
+	})
 
-	// Calling on /rest with the API key should succeed
+	t.Run("/rest with the API key should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+		}
+	})
 
-	req, _ = http.NewRequest("GET", baseURL+"/rest/system/config", nil)
-	req.Header.Set("X-API-Key", testAPIKey)
-	resp, err = cli.Do(req)
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
-	}
+	t.Run("/rest with the API key as a bearer token should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+		}
+	})
 }
 
 func TestRandomString(t *testing.T) {
