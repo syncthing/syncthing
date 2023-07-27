@@ -1097,7 +1097,7 @@ func messageContext(msg message) (string, error) {
 
 // connectionWrappingModel takes the Model interface from the model package,
 // which expects the Connection as the first parameter in all methods, and
-// wraps it to conform to the protocol.Model interface.
+// wraps it to conform to the protocol.contextLessModel interface.
 type connectionWrappingModel struct {
 	conn  Connection
 	model Model
