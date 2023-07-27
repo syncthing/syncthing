@@ -167,15 +167,15 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (*fakeModel) Index(_ DeviceID, _ string, _ []FileInfo) error {
+func (*fakeModel) Index(Connection, string, []FileInfo) error {
 	return nil
 }
 
-func (*fakeModel) IndexUpdate(_ DeviceID, _ string, _ []FileInfo) error {
+func (*fakeModel) IndexUpdate(Connection, string, []FileInfo) error {
 	return nil
 }
 
-func (*fakeModel) Request(_ DeviceID, _, _ string, _, size int32, offset int64, _ []byte, _ uint32, _ bool) (RequestResponse, error) {
+func (*fakeModel) Request(_ Connection, _, _ string, _, size int32, offset int64, _ []byte, _ uint32, _ bool) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
@@ -184,13 +184,13 @@ func (*fakeModel) Request(_ DeviceID, _, _ string, _, size int32, offset int64, 
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (*fakeModel) ClusterConfig(_ DeviceID, _ ClusterConfig) error {
+func (*fakeModel) ClusterConfig(Connection, ClusterConfig) error {
 	return nil
 }
 
-func (*fakeModel) Closed(DeviceID, error) {
+func (*fakeModel) Closed(Connection, error) {
 }
 
-func (*fakeModel) DownloadProgress(_ DeviceID, _ string, _ []FileDownloadProgressUpdate) error {
+func (*fakeModel) DownloadProgress(Connection, string, []FileDownloadProgressUpdate) error {
 	return nil
 }

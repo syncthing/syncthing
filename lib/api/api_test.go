@@ -58,7 +58,7 @@ var (
 
 func init() {
 	dev1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey})
+	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"})
 }
 
 func TestMain(m *testing.M) {
@@ -496,7 +496,9 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(cases[0].URL, func(t *testing.T) {
+			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
 	}
@@ -557,9 +559,10 @@ func TestHTTPLogin(t *testing.T) {
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:     "üser",
-		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
-		APIKey:   testAPIKey,
+		User:       "üser",
+		Password:   "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		RawAddress: "127.0.0.1:0",
+		APIKey:     testAPIKey,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
@@ -1050,30 +1053,31 @@ func TestHostCheck(t *testing.T) {
 		t.Error("Incorrect host header, check disabled: expected 200 OK, not", resp.Status)
 	}
 
-	// A server bound to a wildcard address also doesn't do the check
+	if !testing.Short() {
+		// A server bound to a wildcard address also doesn't do the check
 
-	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
-		RawAddress:            "0.0.0.0:0",
-		InsecureSkipHostCheck: true,
-	})
-	baseURL, cancel, err = startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+		cfg = newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			RawAddress: "0.0.0.0:0",
+		})
+		baseURL, cancel, err = startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
 
-	// A request with a suspicious Host header should be allowed
+		// A request with a suspicious Host header should be allowed
 
-	req, _ = http.NewRequest("GET", baseURL, nil)
-	req.Host = "example.com"
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Error("Incorrect host header, wildcard bound: expected 200 OK, not", resp.Status)
+		req, _ = http.NewRequest("GET", baseURL, nil)
+		req.Host = "example.com"
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Error("Incorrect host header, wildcard bound: expected 200 OK, not", resp.Status)
+		}
 	}
 
 	// This should all work over IPv6 as well
