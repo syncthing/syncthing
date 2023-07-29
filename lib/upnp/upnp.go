@@ -107,7 +107,9 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
-				discover(ctx, &intf, deviceType, timeout, resultChan)
+				// For each protocol, try to discover IPv4 and IPv6 gateways.
+				discover(ctx, &intf, deviceType, timeout, resultChan, true)
+				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 				wg.Done()
 			}(intf, deviceType)
 		}
@@ -143,24 +145,43 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds.
 // The order in which the devices appear in the result list is not deterministic
-func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
-	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
+func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device, ip6 bool) {
+	var ssdp net.UDPAddr
+	var tpl string
+	if ip6 {
+		ssdp = net.UDPAddr{IP: []byte{0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C}, Port: 1900}
 
-	tpl := `M-SEARCH * HTTP/1.1
-HOST: 239.255.255.250:1900
-ST: %s
-MAN: "ssdp:discover"
-MX: %d
-USER-AGENT: syncthing/1.0
+		tpl = `M-SEARCH * HTTP/1.1
+	HOST: [FF02::C]:1900
+	ST: %s
+	MAN: "ssdp:discover"
+	MX: %d
+	USER-AGENT: syncthing/1.0
 
-`
+	`
+	} else {
+		ssdp = net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
+
+		tpl = `M-SEARCH * HTTP/1.1
+	HOST: 239.255.255.250:1900
+	ST: %s
+	MAN: "ssdp:discover"
+	MX: %d
+	USER-AGENT: syncthing/1.0
+
+	`
+	}
 	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
 	search := []byte(strings.ReplaceAll(searchStr, "\n", "\r\n") + "\r\n")
 
 	l.Debugln("Starting discovery of device type", deviceType, "on", intf.Name)
 
-	socket, err := net.ListenMulticastUDP("udp4", intf, &net.UDPAddr{IP: ssdp.IP})
+	proto := "udp4"
+	if ip6 {
+		proto = "udp6"
+	}
+	socket, err := net.ListenMulticastUDP(proto, intf, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
 		l.Debugln("UPnP discovery: listening to udp multicast:", err)
 		return
@@ -169,7 +190,7 @@ USER-AGENT: syncthing/1.0
 
 	l.Debugln("Sending search request for device type", deviceType, "on", intf.Name)
 
-	_, err = socket.WriteTo(search, ssdp)
+	_, err = socket.WriteTo(search, &ssdp)
 	if err != nil {
 		if e, ok := err.(net.Error); !ok || !e.Timeout() {
 			l.Debugln("UPnP discovery: sending search request:", err)
