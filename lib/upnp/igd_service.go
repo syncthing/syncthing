@@ -50,25 +50,30 @@ type IGDService struct {
 	URL       string
 	URN       string
 	LocalIP   net.IP
-	LocalIP6  net.IP
 	PinholeID uint16
 }
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // We just use the same external and internal port
 func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
+	var protoNumber int
+	if protocol == nat.TCP {
+		protoNumber = 6
+	} else if protocol == nat.UDP {
+		protoNumber = 17
+	}
+
 	tpl := `<u:AddPinhole xmlns:u="%s">
 	<RemoteHost>::/0</RemoteHost>
 	<RemotePort>%d</RemotePort>
-	<Protocol>6</Protocol>
+	<Protocol>%d</Protocol>
 	<InternalPort>%d</InternalPort>
 	<InternalClient>%s</InternalClient>
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(tpl, s.URN, port, port, s.LocalIP, duration/time.Second)
-	l.Warnln(body)
-	l.Warnln(s.URL, s.URN)
+	body := fmt.Sprintf(tpl, s.URN, port, protoNumber, port, s.LocalIP, duration/time.Second)
+
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 	if err != nil && duration > 0 {
 		envelope := &soapErrorResponse{}
@@ -76,7 +81,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 			return port, unmarshalErr
 		}
 	}
-	l.Warnln(string(response))
+
 	return port, err
 }
 
@@ -150,6 +155,10 @@ func (s *IGDService) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
 // GetLocalIPAddress returns local IP address used to contact this service
 func (s *IGDService) GetLocalIPAddress() net.IP {
 	return s.LocalIP
+}
+
+func (s *IGDService) IsIPv6() bool {
+	return s.LocalIP.To4() == nil
 }
 
 // ID returns a unique ID for the servic

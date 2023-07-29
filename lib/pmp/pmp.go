@@ -120,6 +120,12 @@ func (w *wrapper) TryAddPinhole(_ context.Context, _ nat.Protocol, _ int, _ stri
 	// NAT-PMP doesn't support pinholes.
 	return 0, errors.New("Adding IPv6 pinholes is unsupported on NAT-PMP")
 }
+
+func (w *wrapper) IsIPv6() bool {
+	// NAT-PMP gateways should always try to create port mappings and not pinholes.
+	return false
+}
+
 func (w *wrapper) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
 	var result *natpmp.GetExternalAddressResult
 	err := util.CallWithContext(ctx, func() error {

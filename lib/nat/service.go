@@ -316,9 +316,14 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	var port int
 	// For IPv6, we just try to create the pinhole. If it fails, nothing can be done (probably no IGDv2 support).
 	// If it already exists, the relevant UPnP standard requires that the gateway recognizes this and updates the lease time.
-	// Since we usually have a globally unique IPv6 address so no conflicting mappings, we just request the port we're running on
-	_, err = natd.TryAddPinhole(ctx, TCP, intPort, "syncthing", leaseTime)
-
+	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
+	if natd.IsIPv6() {
+		_, err = natd.TryAddPinhole(ctx, TCP, intPort, "syncthing", leaseTime)
+		return Address{
+			natd.GetLocalIPAddress(),
+			intPort,
+		}, nil
+	}
 	// Generate a predictable random which is based on device ID + local port + hash of the device ID
 	// number so that the ports we'd try to acquire for the mapping would always be the same for the
 	// same device trying to get the same internal port.

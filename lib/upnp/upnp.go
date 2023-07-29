@@ -107,8 +107,17 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
-				// For each protocol, try to discover IPv4 and IPv6 gateways.
+				// For each protocol, try to discover IPv6 gateways.
 				discover(ctx, &intf, deviceType, timeout, resultChan, true)
+				wg.Done()
+			}(intf, deviceType)
+		}
+
+		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
+			wg.Add(1)
+			go func(intf net.Interface, deviceType string) {
+				// For each protocol, try to discover IPv4 gateways.
+				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 				wg.Done()
 			}(intf, deviceType)
 		}
@@ -354,14 +363,14 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
 
 		result = append(result, descriptions...)
 	} else {
