@@ -151,24 +151,24 @@ func discover(ctx context.Context, intf *net.Interface, deviceType string, timeo
 		ssdp = net.UDPAddr{IP: []byte{0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C}, Port: 1900}
 
 		tpl = `M-SEARCH * HTTP/1.1
-	HOST: [FF02::C]:1900
-	ST: %s
-	MAN: "ssdp:discover"
-	MX: %d
-	USER-AGENT: syncthing/1.0
+HOST: [FF02::C]:1900
+ST: %s
+MAN: "ssdp:discover"
+MX: %d
+USER-AGENT: syncthing/1.0
 
-	`
+`
 	} else {
 		ssdp = net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 		tpl = `M-SEARCH * HTTP/1.1
-	HOST: 239.255.255.250:1900
-	ST: %s
-	MAN: "ssdp:discover"
-	MX: %d
-	USER-AGENT: syncthing/1.0
+HOST: 239.255.255.250:1900
+ST: %s
+MAN: "ssdp:discover"
+MX: %d
+USER-AGENT: syncthing/1.0
 
-	`
+`
 	}
 	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
