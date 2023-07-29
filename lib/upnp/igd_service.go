@@ -58,24 +58,25 @@ type IGDService struct {
 // We just use the same external and internal port
 func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
 	tpl := `<u:AddPinhole xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewRemotePort></NewRemotePort>
-	<NewProtocol>%s</NewProtocol>
-	<NewInternalPort>%d</NewInternalPort>
-	<NewInternalClient>%s</NewInternalClient>
-	<NewEnabled>1</NewEnabled>
-	<NewLeaseDuration>%d</NewLeaseDuration>
+	<RemoteHost>::/0</RemoteHost>
+	<RemotePort>%d</RemotePort>
+	<Protocol>6</Protocol>
+	<InternalPort>%d</InternalPort>
+	<InternalClient>%s</InternalClient>
+	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
-	body := fmt.Sprintf(tpl, s.URN, protocol, port, description, duration/time.Second)
 
-	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
+	body := fmt.Sprintf(tpl, port, port, s.LocalIP, duration/time.Second)
+	l.Warnln(body)
+	l.Warnln(s.URL, s.URN)
+	response, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 	if err != nil && duration > 0 {
 		envelope := &soapErrorResponse{}
 		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
 			return port, unmarshalErr
 		}
 	}
-
+	l.Warnln(string(response))
 	return port, err
 }
 

@@ -334,14 +334,14 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"})
+			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
 
 		result = append(result, descriptions...)
 	} else {
