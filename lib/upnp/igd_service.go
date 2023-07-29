@@ -53,7 +53,7 @@ type IGDService struct {
 	PinholeID uint16
 }
 
-// AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
+// TryAddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // We just use the same external and internal port
 func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
 	var protoNumber int
@@ -157,6 +157,11 @@ func (s *IGDService) GetLocalIPAddress() net.IP {
 	return s.LocalIP
 }
 
+// IsIPv6 checks whether the local IP, which is detected by trying to connect to the gateway is an IPv6 addr.
+// This is equivalent to the gateway being IPv6. We use this to decide whether port mapping or pinholing should
+// be tried, because the former usually makes more sense on IPv4 setups while the latter is only allowed on IPv6
+// The surrounding infrastructure creates a separate IGDService vor IPv4 and IPv6 if both are available, so we only
+// need to concern ourselves with one.
 func (s *IGDService) IsIPv6() bool {
 	return s.LocalIP.To4() == nil
 }
