@@ -109,7 +109,6 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv4 and IPv6 gateways.
 				discover(ctx, &intf, deviceType, timeout, resultChan, true)
-				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 				wg.Done()
 			}(intf, deviceType)
 		}
