@@ -463,7 +463,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	p.temporaryIndexUnsubscribe(fc)
 
 	sendMsgs(p)
-	_, ok := p.sentDownloadStates[fc.ID()]
+	_, ok := p.sentDownloadStates[fc.DeviceID()]
 	if ok {
 		t.Error("Should not be there")
 	}
