@@ -55,7 +55,8 @@ type IGDService struct {
 }
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
-func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
+// We just use the same external and internal port
+func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
 	tpl := `<u:AddPinhole xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewRemotePort></NewRemotePort>
@@ -73,23 +74,9 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
 			return port, unmarshalErr
 		}
-		xml.u
 	}
 
 	return port, err
-}
-
-// DeletePinhole deletes a port mapping from the specified IGD service.
-func (s *IGDService) DeletePinhole(ctx context.Context, protocol nat.Protocol, externalPort int) error {
-	tpl := `<u:DeletePinhole xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	</u:DeletePortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol)
-
-	_, err := soapRequest(ctx, s.URL, s.URN, "DeletePortMapping", body)
-	return err
 }
 
 // AddPortMapping adds a port mapping to the specified IGD service.

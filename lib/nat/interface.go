@@ -23,5 +23,6 @@ type Device interface {
 	ID() string
 	GetLocalIPAddress() net.IP
 	AddPortMapping(ctx context.Context, protocol Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error)
+	TryAddPinhole(ctx context.Context, protocol Protocol, port int, description string, duration time.Duration) (int, error)
 	GetExternalIPAddress(ctx context.Context) (net.IP, error)
 }
