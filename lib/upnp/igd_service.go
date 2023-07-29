@@ -66,7 +66,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(tpl, port, port, s.LocalIP, duration/time.Second)
+	body := fmt.Sprintf(tpl, s.URN, port, port, s.LocalIP, duration/time.Second)
 	l.Warnln(body)
 	l.Warnln(s.URL, s.URN)
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
