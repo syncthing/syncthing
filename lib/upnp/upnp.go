@@ -105,16 +105,13 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		}
 
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
-			wg.Add(1)
+			wg.Add(2)
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv6 gateways.
 				discover(ctx, &intf, deviceType, timeout, resultChan, true)
 				wg.Done()
 			}(intf, deviceType)
-		}
 
-		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
-			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv4 gateways.
 				discover(ctx, &intf, deviceType, timeout, resultChan, false)
