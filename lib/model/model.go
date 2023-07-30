@@ -161,9 +161,9 @@ type model struct {
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
-	conns               map[string]protocol.Connection // connection ID -> connection
-	deviceConns         map[protocol.DeviceID][]string // device -> connection IDs (invariant: if the key exists, the value is len >= 1, with the primary connection at the start of the slice)
-	promotedConn        map[protocol.DeviceID]string   // device -> last promoted connection ID
+	connections         map[string]protocol.Connection // connection ID -> connection
+	deviceConnIDs       map[protocol.DeviceID][]string // device -> connection IDs (invariant: if the key exists, the value is len >= 1, with the primary connection at the start of the slice)
+	promotedConnID      map[protocol.DeviceID]string   // device -> latest promoted connection ID
 	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
 	closed              map[string]chan struct{} // connection ID -> closed channel
 	helloMessages       map[protocol.DeviceID]protocol.Hello
@@ -246,9 +246,9 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
-		conns:               make(map[string]protocol.Connection),
-		deviceConns:         make(map[protocol.DeviceID][]string),
-		promotedConn:        make(map[protocol.DeviceID]string),
+		connections:         make(map[string]protocol.Connection),
+		deviceConnIDs:       make(map[protocol.DeviceID][]string),
+		promotedConnID:      make(map[protocol.DeviceID]string),
 		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
 		closed:              make(map[string]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
@@ -317,8 +317,8 @@ func (m *model) initFolders(cfg config.Configuration) error {
 
 func (m *model) closeAllConnectionsAndWait() {
 	m.pmut.RLock()
-	closed := make([]chan struct{}, 0, len(m.conns))
-	for connID, conn := range m.conns {
+	closed := make([]chan struct{}, 0, len(m.connections))
+	for connID, conn := range m.connections {
 		closed = append(closed, m.closed[connID])
 		go conn.Close(errStopped)
 	}
@@ -653,7 +653,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 
 		// Transport stats
 		m.pmut.RLock()
-		for _, conn := range m.conns {
+		for _, conn := range m.connections {
 			report.TransportStats[conn.Transport()]++
 		}
 		m.pmut.RUnlock()
@@ -758,14 +758,14 @@ func (m *model) ConnectionStats() map[string]interface{} {
 		if hello.ClientName != "syncthing" {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
-		connIDs, ok := m.deviceConns[device]
+		connIDs, ok := m.deviceConnIDs[device]
 		cs := ConnectionStats{
 			Connected:     ok,
 			Paused:        deviceCfg.Paused,
 			ClientVersion: strings.TrimSpace(versionString),
 		}
 		if ok {
-			conn := m.conns[connIDs[0]]
+			conn := m.connections[connIDs[0]]
 
 			cs.Primary.Type = conn.Type()
 			cs.Primary.IsLocal = conn.IsLocal()
@@ -782,7 +782,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 			cs.Statistics = cs.Primary.Statistics
 
 			for _, connID := range connIDs[1:] {
-				conn = m.conns[connID]
+				conn = m.connections[connID]
 				sec := ConnectionInfo{
 					Statistics: conn.Statistics(),
 					Address:    conn.RemoteAddr().String(),
@@ -1311,8 +1311,8 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 		var connOK bool
 		var conn protocol.Connection
 		m.pmut.RLock()
-		if connIDs, connIDOK := m.deviceConns[deviceID]; connIDOK {
-			conn, connOK = m.conns[connIDs[0]]
+		if connIDs, connIDOK := m.deviceConnIDs[deviceID]; connIDOK {
+			conn, connOK = m.connections[connIDs[0]]
 		}
 		m.pmut.RUnlock()
 		// In case we've got ClusterConfig, and the connection disappeared
@@ -1641,8 +1641,8 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	ccConns := make([]protocol.Connection, 0, len(ids))
 	m.pmut.RLock()
 	for _, id := range ids {
-		if connIDs, ok := m.deviceConns[id]; ok {
-			ccConns = append(ccConns, m.conns[connIDs[0]])
+		if connIDs, ok := m.deviceConnIDs[id]; ok {
+			ccConns = append(ccConns, m.connections[connIDs[0]])
 		}
 	}
 	m.pmut.RUnlock()
@@ -1883,7 +1883,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	deviceID := conn.DeviceID()
 
 	m.pmut.Lock()
-	conn, ok := m.conns[connID]
+	conn, ok := m.connections[connID]
 	if !ok {
 		m.pmut.Unlock()
 		return
@@ -1891,10 +1891,10 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 
 	closed := m.closed[connID]
 	delete(m.closed, connID)
-	delete(m.conns, connID)
+	delete(m.connections, connID)
 
-	removedIsPrimary := m.promotedConn[deviceID] == connID
-	remainingConns := without(m.deviceConns[deviceID], connID)
+	removedIsPrimary := m.promotedConnID[deviceID] == connID
+	remainingConns := without(m.deviceConnIDs[deviceID], connID)
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 		if idxh, ok := m.indexHandlers[deviceID]; ok && idxh.conn.ConnectionID() == connID {
@@ -1904,8 +1904,8 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	}
 	if len(remainingConns) == 0 {
 		// All device connections closed
-		delete(m.deviceConns, deviceID)
-		delete(m.promotedConn, deviceID)
+		delete(m.deviceConnIDs, deviceID)
+		delete(m.promotedConnID, deviceID)
 		delete(m.connRequestLimiters, deviceID)
 		delete(m.helloMessages, deviceID)
 		delete(m.remoteFolderStates, deviceID)
@@ -1913,7 +1913,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.deviceDidClose(deviceID, time.Since(conn.EstablishedAt()))
 	} else {
 		// Some connections remain
-		m.deviceConns[deviceID] = remainingConns
+		m.deviceConnIDs[deviceID] = remainingConns
 	}
 	m.pmut.Unlock()
 
@@ -2203,9 +2203,9 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	var conn protocol.Connection
 	m.pmut.RLock()
-	connID, ok := m.deviceConns[deviceID]
+	connID, ok := m.deviceConnIDs[deviceID]
 	if ok {
-		conn, ok = m.conns[connID[0]]
+		conn, ok = m.connections[connID[0]]
 	}
 	m.pmut.RUnlock()
 	if ok {
@@ -2362,10 +2362,10 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.pmut.Lock()
 
-	m.conns[connID] = conn
+	m.connections[connID] = conn
 	m.closed[connID] = closed
 	m.helloMessages[deviceID] = hello
-	m.deviceConns[deviceID] = append(m.deviceConns[deviceID], connID)
+	m.deviceConnIDs[deviceID] = append(m.deviceConnIDs[deviceID], connID)
 	if m.deviceDownloads[deviceID] == nil {
 		m.deviceDownloads[deviceID] = newDeviceDownloadState()
 	}
@@ -2385,10 +2385,10 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.evLogger.Log(events.DeviceConnected, event)
 
-	if len(m.deviceConns[deviceID]) == 1 {
+	if len(m.deviceConnIDs[deviceID]) == 1 {
 		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 	} else {
-		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConns[deviceID])-1, deviceID.Short(), conn)
+		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConnIDs[deviceID])-1, deviceID.Short(), conn)
 	}
 
 	m.pmut.Unlock()
@@ -2426,11 +2426,11 @@ func (m *model) promoteConnections() {
 	m.pmut.Lock() // for most other things
 	defer m.pmut.Unlock()
 
-	for deviceID, connIDs := range m.deviceConns {
+	for deviceID, connIDs := range m.deviceConnIDs {
 		// Figure out the best current connection priority for this device.
-		bestPriority := m.conns[connIDs[0]].Priority()
+		bestPriority := m.connections[connIDs[0]].Priority()
 		for _, connID := range connIDs[1:] {
-			priority := m.conns[connID].Priority()
+			priority := m.connections[connID].Priority()
 			if priority < bestPriority {
 				bestPriority = priority
 			}
@@ -2439,15 +2439,15 @@ func (m *model) promoteConnections() {
 		// Close connections with a worse connection priority than best.
 		closing := make(map[string]bool)
 		for _, connID := range connIDs {
-			if m.conns[connID].Priority() > bestPriority {
+			if m.connections[connID].Priority() > bestPriority {
 				l.Debugln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
-				go m.conns[connID].Close(errReplacingConnection)
+				go m.connections[connID].Close(errReplacingConnection)
 				closing[connID] = true
 			}
 		}
 
 		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
-		if !closing[connIDs[0]] && m.promotedConn[deviceID] != connIDs[0] {
+		if !closing[connIDs[0]] && m.promotedConnID[deviceID] != connIDs[0] {
 			// The previously promoted connection is not the current
 			// primary; we should promote the primary connection to be the
 			// index handling one. We do this by sending a ClusterConfig on
@@ -2455,13 +2455,13 @@ func (m *model) promoteConnections() {
 			// messages there. (On our side, we manage index handlers based
 			// on where we get ClusterConfigs from the peer.)
 			l.Debugln("Promoting connection", connIDs[0], "to", deviceID.Short())
-			conn := m.conns[connIDs[0]]
+			conn := m.connections[connIDs[0]]
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
 				conn.Start()
 			}
 			conn.ClusterConfig(cm)
-			m.promotedConn[deviceID] = connIDs[0]
+			m.promotedConnID[deviceID] = connIDs[0]
 		}
 
 		// Make sure any other new connections also get started, and that
@@ -2470,7 +2470,7 @@ func (m *model) promoteConnections() {
 			if closing[connID] {
 				continue
 			}
-			conn := m.conns[connID]
+			conn := m.connections[connID]
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
 				conn.Start()
@@ -2543,7 +2543,7 @@ func (m *model) requestConnectionForDevice(deviceID protocol.DeviceID) (protocol
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
 
-	connIDs, ok := m.deviceConns[deviceID]
+	connIDs, ok := m.deviceConnIDs[deviceID]
 	if !ok {
 		return nil, false
 	}
@@ -2557,7 +2557,7 @@ func (m *model) requestConnectionForDevice(deviceID protocol.DeviceID) (protocol
 		connID = connIDs[idx]
 	}
 
-	conn, connOK := m.conns[connID]
+	conn, connOK := m.connections[connID]
 	return conn, connOK
 }
 
@@ -2967,7 +2967,7 @@ func (m *model) availabilityInSnapshotPRlocked(cfg config.FolderConfiguration, s
 		if state := m.remoteFolderStates[device][cfg.ID]; state != remoteFolderValid {
 			continue
 		}
-		_, ok := m.deviceConns[device]
+		_, ok := m.deviceConnIDs[device]
 		if ok {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
 		}
@@ -3149,17 +3149,17 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	m.pmut.RLock()
 	for _, id := range closeDevices {
 		delete(clusterConfigDevices, id)
-		if conns, ok := m.deviceConns[id]; ok {
+		if conns, ok := m.deviceConnIDs[id]; ok {
 			for _, connID := range conns {
-				go m.conns[connID].Close(errDevicePaused)
+				go m.connections[connID].Close(errDevicePaused)
 			}
 		}
 	}
 	for _, id := range removedDevices {
 		delete(clusterConfigDevices, id)
-		if conns, ok := m.deviceConns[id]; ok {
+		if conns, ok := m.deviceConnIDs[id]; ok {
 			for _, connID := range conns {
-				go m.conns[connID].Close(errDevicePaused)
+				go m.connections[connID].Close(errDevicePaused)
 			}
 		}
 	}

@@ -903,7 +903,7 @@ func TestIssue5063(t *testing.T) {
 	defer cancel()
 
 	m.pmut.Lock()
-	for _, c := range m.conns {
+	for _, c := range m.connections {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
 		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
@@ -2230,7 +2230,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("device still in config")
 	}
 
-	if _, ok := m.deviceConns[device2]; ok {
+	if _, ok := m.deviceConnIDs[device2]; ok {
 		t.Error("conn not missing")
 	}
 
