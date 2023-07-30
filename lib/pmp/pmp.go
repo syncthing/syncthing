@@ -118,7 +118,7 @@ func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, int
 
 func (w *wrapper) TryAddPinhole(_ context.Context, _ nat.Protocol, _ int, _ string, _ time.Duration) (int, error) {
 	// NAT-PMP doesn't support pinholes.
-	return 0, errors.New("Adding IPv6 pinholes is unsupported on NAT-PMP")
+	return 0, errors.New("adding IPv6 pinholes is unsupported on NAT-PMP")
 }
 
 func (w *wrapper) IsIPv6() bool {
