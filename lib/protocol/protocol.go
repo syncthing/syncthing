@@ -136,6 +136,8 @@ type Model interface {
 	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
 }
 
+// contextLessModel is the Model interface, but without the initial
+// Connection parameter. Internal use only.
 type contextLessModel interface {
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
