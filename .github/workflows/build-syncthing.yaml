@@ -69,9 +69,19 @@ jobs:
         run: |
           go run build.go
 
+      - name: Install go-test-json-to-loki
+        run: |
+          go install calmh.dev/go-test-json-to-loki@latest
+
       - name: Test
         run: |
-          go run build.go test
+          go run build.go test | go-test-json-to-loki
+        env:
+          GOFLAGS: "-json"
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
+          LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
 
   #
   # Meta checks for formatting, copyright, etc
