@@ -74,13 +74,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 
 	body := fmt.Sprintf(template, s.URN, port, protoNumber, port, s.LocalIP, duration/time.Second)
 
-	response, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
-	if err != nil && duration > 0 {
-		envelope := &soapErrorResponse{}
-		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
-			return port, unmarshalErr
-		}
-	}
+	_, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 
 	return port, err
 }
