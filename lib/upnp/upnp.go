@@ -152,11 +152,11 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 // The order in which the devices appear in the result list is not deterministic
 func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device, ip6 bool) {
 	var ssdp net.UDPAddr
-	var tpl string
+	var template string
 	if ip6 {
 		ssdp = net.UDPAddr{IP: []byte{0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C}, Port: 1900}
 
-		tpl = `M-SEARCH * HTTP/1.1
+		template = `M-SEARCH * HTTP/1.1
 HOST: [FF02::C]:1900
 ST: %s
 MAN: "ssdp:discover"
@@ -167,7 +167,7 @@ USER-AGENT: syncthing/1.0
 	} else {
 		ssdp = net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
-		tpl = `M-SEARCH * HTTP/1.1
+		template = `M-SEARCH * HTTP/1.1
 HOST: 239.255.255.250:1900
 ST: %s
 MAN: "ssdp:discover"
@@ -176,7 +176,7 @@ USER-AGENT: syncthing/1.0
 
 `
 	}
-	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
+	searchStr := fmt.Sprintf(template, deviceType, timeout/time.Second)
 
 	search := []byte(strings.ReplaceAll(searchStr, "\n", "\r\n") + "\r\n")
 
@@ -456,14 +456,14 @@ func replaceRawPath(u *url.URL, rp string) {
 }
 
 func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
-	tpl := `<?xml version="1.0" ?>
+	template := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
 `
 	var resp []byte
 
-	body := fmt.Sprintf(tpl, message)
+	body := fmt.Sprintf(template, message)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {

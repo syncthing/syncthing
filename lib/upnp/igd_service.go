@@ -63,7 +63,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 		protoNumber = 17
 	}
 
-	tpl := `<u:AddPinhole xmlns:u="%s">
+	const template = `<u:AddPinhole xmlns:u="%s">
 	<RemoteHost>::/0</RemoteHost>
 	<RemotePort>%d</RemotePort>
 	<Protocol>%d</Protocol>
@@ -72,7 +72,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(tpl, s.URN, port, protoNumber, port, s.LocalIP, duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, port, protoNumber, port, s.LocalIP, duration/time.Second)
 
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 	if err != nil && duration > 0 {
@@ -87,7 +87,7 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 
 // AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
-	tpl := `<u:AddPortMapping xmlns:u="%s">
+	const template = `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
@@ -97,7 +97,7 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, s.LocalIP, description, duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, externalPort, protocol, internalPort, s.LocalIP, description, duration/time.Second)
 
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && duration > 0 {
@@ -116,12 +116,12 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 
 // DeletePortMapping deletes a port mapping from the specified IGD service.
 func (s *IGDService) DeletePortMapping(ctx context.Context, protocol nat.Protocol, externalPort int) error {
-	tpl := `<u:DeletePortMapping xmlns:u="%s">
+	const template = `<u:DeletePortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
 	</u:DeletePortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol)
+	body := fmt.Sprintf(template, s.URN, externalPort, protocol)
 
 	_, err := soapRequest(ctx, s.URL, s.URN, "DeletePortMapping", body)
 	return err
@@ -131,9 +131,9 @@ func (s *IGDService) DeletePortMapping(ctx context.Context, protocol nat.Protoco
 // Returns nil if the external IP address is invalid or undefined, along with
 // any relevant errors
 func (s *IGDService) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
-	tpl := `<u:GetExternalIPAddress xmlns:u="%s" />`
+	const template = `<u:GetExternalIPAddress xmlns:u="%s" />`
 
-	body := fmt.Sprintf(tpl, s.URN)
+	body := fmt.Sprintf(template, s.URN)
 
 	response, err := soapRequest(ctx, s.URL, s.URN, "GetExternalIPAddress", body)
 
