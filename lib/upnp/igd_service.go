@@ -35,6 +35,7 @@ package upnp
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -61,6 +62,8 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 		protoNumber = 6
 	} else if protocol == nat.UDP {
 		protoNumber = 17
+	} else {
+		return 0, errors.New("protocol not supported")
 	}
 
 	const template = `<u:AddPinhole xmlns:u="%s">
