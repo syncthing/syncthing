@@ -161,7 +161,7 @@ HOST: [FF02::C]:1900
 ST: %s
 MAN: "ssdp:discover"
 MX: %d
-USER-AGENT: syncthing/1.0
+USER-AGENT: syncthing/%s
 
 `
 	} else {
@@ -172,11 +172,12 @@ HOST: 239.255.255.250:1900
 ST: %s
 MAN: "ssdp:discover"
 MX: %d
-USER-AGENT: syncthing/1.0
+USER-AGENT: syncthing/%s
 
 `
 	}
-	searchStr := fmt.Sprintf(template, deviceType, timeout/time.Second)
+
+	searchStr := fmt.Sprintf(template, deviceType, timeout/time.Second, build.Version)
 
 	search := []byte(strings.ReplaceAll(searchStr, "\n", "\r\n") + "\r\n")
 
