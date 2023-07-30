@@ -2351,7 +2351,6 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // folder changes.
 func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.DeviceID()
-
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Infoln("Trying to add connection to unknown device")
