@@ -219,7 +219,7 @@ loop:
 			break
 		}
 
-		n, _, err := socket.ReadFrom(resp)
+		n, addr, err := socket.ReadFrom(resp)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -233,7 +233,7 @@ loop:
 			break
 		}
 
-		igds, err := parseResponse(ctx, deviceType, resp[:n])
+		igds, err := parseResponse(ctx, deviceType, addr, resp[:n])
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
@@ -257,7 +257,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
