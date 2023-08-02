@@ -310,6 +310,9 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 	// We do this in a fairly roundabout way by connecting to the IGD and
 	// checking the address of the local end of the socket. I'm open to
 	// suggestions on a better way to do this...
+	allAddrs := addrs.AllAddresses()
+	l.Debugln("Addresses for UPnP from addrLister", allAddrs)
+
 	localIPAddress, err := localIP(ctx, deviceDescriptionURL)
 	if err != nil {
 		return nil, err
