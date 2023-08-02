@@ -17,6 +17,7 @@ import (
 	"github.com/jackpal/gateway"
 	natpmp "github.com/jackpal/go-nat-pmp"
 
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/util"
@@ -26,7 +27,7 @@ func init() {
 	nat.Register(Discover)
 }
 
-func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, renewal, timeout time.Duration, addrLister discover.AddressLister) []nat.Device {
 	var ip net.IP
 	err := util.CallWithContext(ctx, func() error {
 		var err error

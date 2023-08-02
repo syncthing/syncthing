@@ -49,6 +49,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -85,7 +86,7 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
-func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, _, timeout time.Duration, addrLister discover.AddressLister) []nat.Device {
 	var results []nat.Device
 
 	interfaces, err := net.Interfaces()
@@ -108,13 +109,13 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv6 gateways.
-				discover(ctx, &intf, deviceType, timeout, resultChan, true)
+				discoverUPnP(ctx, &intf, deviceType, timeout, resultChan, true, addrLister)
 				wg.Done()
 			}(intf, deviceType)
 
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv4 gateways.
-				discover(ctx, &intf, deviceType, timeout, resultChan, false)
+				discoverUPnP(ctx, &intf, deviceType, timeout, resultChan, false, addrLister)
 				wg.Done()
 			}(intf, deviceType)
 		}
@@ -150,7 +151,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds.
 // The order in which the devices appear in the result list is not deterministic
-func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device, ip6 bool) {
+func discoverUPnP(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device, ip6 bool, addrLister discover.AddressLister) {
 	var ssdp net.UDPAddr
 	var template string
 	if ip6 {
@@ -233,7 +234,7 @@ loop:
 			break
 		}
 
-		igds, err := parseResponse(ctx, deviceType, addr, resp[:n])
+		igds, err := parseResponse(ctx, deviceType, addr, resp[:n], addrLister)
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
@@ -257,7 +258,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte, addrs discover.AddressLister) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))

@@ -40,6 +40,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
@@ -52,6 +53,7 @@ type IGDService struct {
 	URN       string
 	LocalIP   net.IP
 	PinholeID uint16
+	addrs     discover.AddressLister
 }
 
 // TryAddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf

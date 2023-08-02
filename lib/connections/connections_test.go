@@ -24,6 +24,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -363,7 +364,7 @@ func BenchmarkConnections(b *testing.B) {
 						}
 						b.ReportAllocs()
 						b.SetBytes(int64(total / b.N))
-					})
+					}, nil)
 				})
 			}
 		}
@@ -398,13 +399,13 @@ func TestConnectionEstablishment(t *testing.T) {
 				if !bytes.Equal(recv, send) {
 					t.Fatal("data mismatch")
 				}
-			})
+			}, nil)
 		})
 
 	}
 }
 
-func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h func(client, server internalConn)) {
+func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h func(client, server internalConn), addrs discover.AddressLister) {
 	// Root of the service tree.
 	supervisor := suture.New("main", suture.Spec{
 		PassThroughPanics: true,
@@ -437,7 +438,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	if err != nil {
 		b.Fatal(err)
 	}
-	natSvc := nat.NewService(deviceId, wcfg)
+	natSvc := nat.NewService(deviceId, wcfg, addrs)
 	conns := make(chan internalConn, 1)
 	lanChecker := &lanChecker{wcfg}
 	listenSvc := lf.New(uri, wcfg, tlsCfg, conns, natSvc, registry.New(), lanChecker)
