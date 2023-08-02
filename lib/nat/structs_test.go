@@ -67,7 +67,7 @@ func TestMappingClearAddresses(t *testing.T) {
 	defer os.RemoveAll(tmpFile.Name())
 	tmpFile.Close()
 
-	natSvc := NewService(protocol.EmptyDeviceID, w, nil)
+	natSvc := NewService(protocol.EmptyDeviceID, w)
 	// Mock a mapped port; avoids the need to actually map a port
 	ip := net.ParseIP("192.168.0.1")
 	m := natSvc.NewMapping(TCP, ip, 1024)

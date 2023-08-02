@@ -10,11 +10,9 @@ import (
 	"context"
 	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/discover"
 )
 
-type DiscoverFunc func(ctx context.Context, renewal, timeout time.Duration, addrLister discover.AddressLister) []Device
+type DiscoverFunc func(ctx context.Context, renewal, timeout time.Duration) []Device
 
 var providers []DiscoverFunc
 
@@ -22,7 +20,7 @@ func Register(provider DiscoverFunc) {
 	providers = append(providers, provider)
 }
 
-func discoverAll(ctx context.Context, renewal, timeout time.Duration, addrs discover.AddressLister) map[string]Device {
+func discoverAll(ctx context.Context, renewal, timeout time.Duration) map[string]Device {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(providers))
 
@@ -32,7 +30,7 @@ func discoverAll(ctx context.Context, renewal, timeout time.Duration, addrs disc
 	for _, discoverFunc := range providers {
 		go func(f DiscoverFunc) {
 			defer wg.Done()
-			for _, dev := range f(ctx, renewal, timeout, addrs) {
+			for _, dev := range f(ctx, renewal, timeout) {
 				select {
 				case c <- dev:
 				case <-ctx.Done():

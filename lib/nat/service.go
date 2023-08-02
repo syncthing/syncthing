@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -29,18 +28,17 @@ type Service struct {
 	processScheduled chan struct{}
 
 	mappings []*Mapping
-	addrs    discover.AddressLister
 	enabled  bool
 	mut      sync.RWMutex
 }
 
-func NewService(id protocol.DeviceID, cfg config.Wrapper, addrs discover.AddressLister) *Service {
+func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	s := &Service{
 		id:               id,
 		cfg:              cfg,
 		processScheduled: make(chan struct{}, 1),
-		addrs:            addrs,
-		mut:              sync.NewRWMutex(),
+
+		mut: sync.NewRWMutex(),
 	}
 	cfgCopy := cfg.RawCopy()
 	s.CommitConfiguration(cfgCopy, cfgCopy)
@@ -144,7 +142,7 @@ func (s *Service) process(ctx context.Context) (int, time.Duration) {
 		return -1, renewIn
 	}
 
-	nats := discoverAll(ctx, time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second, s.addrs)
+	nats := discoverAll(ctx, time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second)
 
 	for _, mapping := range toRenew {
 		s.updateMapping(ctx, mapping, nats, true)
