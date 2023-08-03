@@ -166,10 +166,9 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 
 	for {
 		select {
-		case <-ticker.C:
-			t1 := time.Now()
-			counter.Add(t1.Sub(t0).Seconds())
-			t0 = t1
+		case t := <-ticker.C:
+			counter.Add(t.Sub(t0).Seconds())
+			t0 = t
 		case <-ctx.Done():
 			return
 		}
