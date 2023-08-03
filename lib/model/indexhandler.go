@@ -56,10 +56,10 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 			// the IndexID, or something else weird has
 			// happened. We send a full index to reset the
 			// situation.
-			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", conn.ID().Short(), folder.Description())
+			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", conn.DeviceID().Short(), folder.Description())
 			startSequence = 0
 		} else {
-			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.ID().Short(), folder.Description(), startInfo.local.MaxSequence)
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.DeviceID().Short(), folder.Description(), startInfo.local.MaxSequence)
 			startSequence = startInfo.local.MaxSequence
 		}
 	} else if startInfo.local.IndexID != 0 {
@@ -67,10 +67,10 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", conn.ID().Short(), folder.Description(), startInfo.local.IndexID, myIndexID)
+		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", conn.DeviceID().Short(), folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
 	} else {
-		l.Debugf("Device %v folder %s has no index ID for us", conn.ID().Short(), folder.Description())
+		l.Debugf("Device %v folder %s has no index ID for us", conn.DeviceID().Short(), folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
@@ -78,23 +78,23 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	// otherwise we drop our old index data and expect to get a
 	// completely new set.
 
-	theirIndexID := fset.IndexID(conn.ID())
+	theirIndexID := fset.IndexID(conn.DeviceID())
 	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
-		l.Debugf("Device %v folder %s does not announce an index ID", conn.ID().Short(), folder.Description())
-		fset.Drop(conn.ID())
+		l.Debugf("Device %v folder %s does not announce an index ID", conn.DeviceID().Short(), folder.Description())
+		fset.Drop(conn.DeviceID())
 	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
 		// announcing. They must have reset their database and
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", conn.ID().Short(), folder.Description(), startInfo.remote.IndexID)
-		fset.Drop(conn.ID())
-		fset.SetIndexID(conn.ID(), startInfo.remote.IndexID)
+		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
+		fset.Drop(conn.DeviceID())
+		fset.SetIndexID(conn.DeviceID(), startInfo.remote.IndexID)
 	}
 
 	return &indexHandler{
@@ -129,12 +129,12 @@ func (s *indexHandler) waitForFileset(ctx context.Context) (*db.FileSet, error) 
 }
 
 func (s *indexHandler) Serve(ctx context.Context) (err error) {
-	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
+	l.Debugf("Starting index handler for %s to %s at %s (slv=%d)", s.folder, s.conn.DeviceID().Short(), s.conn, s.prevSequence)
 	stop := make(chan struct{})
 
 	defer func() {
 		err = svcutil.NoRestartErr(err)
-		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+		l.Debugf("Exiting index handler for %s to %s at %s: %v", s.folder, s.conn.DeviceID().Short(), s.conn, err)
 		close(stop)
 	}()
 
@@ -308,7 +308,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 }
 
 func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) error {
-	deviceID := s.conn.ID()
+	deviceID := s.conn.DeviceID()
 
 	s.cond.L.Lock()
 	paused := s.paused
@@ -369,7 +369,7 @@ func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
 }
 
 func (s *indexHandler) String() string {
-	return fmt.Sprintf("indexHandler@%p for %s to %s at %s", s, s.folder, s.conn.ID().Short(), s.conn)
+	return fmt.Sprintf("indexHandler@%p for %s to %s at %s", s, s.folder, s.conn.DeviceID().Short(), s.conn)
 }
 
 type indexHandlerRegistry struct {
@@ -414,7 +414,7 @@ func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownload
 }
 
 func (r *indexHandlerRegistry) String() string {
-	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.ID().Short())
+	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
 }
 
 func (r *indexHandlerRegistry) GetSupervisor() *suture.Supervisor {
@@ -447,11 +447,11 @@ func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterCon
 	if is, ok := r.indexHandlers[folder]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexHandlers, folder)
-		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.conn.ID().Short(), folder)
+		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.conn.DeviceID().Short(), folder)
 	}
 	folderState, ok := r.folderStates[folder]
 	if !ok {
-		l.Debugf("Pending index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+		l.Debugf("Pending index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 		r.startInfos[folder] = startInfo
 		return
 	}
@@ -464,13 +464,13 @@ func (r *indexHandlerRegistry) Remove(folder string) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	l.Debugf("Removing index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+	l.Debugf("Removing index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 	if is, ok := r.indexHandlers[folder]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexHandlers, folder)
 	}
 	delete(r.startInfos, folder)
-	l.Debugf("Removed index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+	l.Debugf("Removed index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 }
 
 // RemoveAllExcept stops all running index handlers and removes those pending to be started,
@@ -484,13 +484,13 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderSta
 		if _, ok := except[folder]; !ok {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexHandlers, folder)
-			l.Debugf("Removed index handler for device %v and folder %v (removeAllExcept)", r.conn.ID().Short(), folder)
+			l.Debugf("Removed index handler for device %v and folder %v (removeAllExcept)", r.conn.DeviceID().Short(), folder)
 		}
 	}
 	for folder := range r.startInfos {
 		if _, ok := except[folder]; !ok {
 			delete(r.startInfos, folder)
-			l.Debugf("Removed pending index handler for device %v and folder %v (removeAllExcept)", r.conn.ID().Short(), folder)
+			l.Debugf("Removed pending index handler for device %v and folder %v (removeAllExcept)", r.conn.DeviceID().Short(), folder)
 		}
 	}
 }
@@ -499,7 +499,7 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderSta
 // changes. The exception being if the folder is removed entirely, then call
 // Remove. The fset and runner arguments may be nil, if given folder is paused.
 func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
-	if !folder.SharedWith(r.conn.ID()) {
+	if !folder.SharedWith(r.conn.DeviceID()) {
 		r.Remove(folder.ID)
 		return
 	}
@@ -516,13 +516,13 @@ func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfigura
 // folderPausedLocked stops a running index handler.
 // It is a noop if the folder isn't known or has not been started yet.
 func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
-	l.Debugf("Pausing index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+	l.Debugf("Pausing index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 	delete(r.folderStates, folder)
 	if is, ok := r.indexHandlers[folder]; ok {
 		is.pause()
-		l.Debugf("Paused index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+		l.Debugf("Paused index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 	} else {
-		l.Debugf("No index handler for device %v and folder %v to pause", r.conn.ID().Short(), folder)
+		l.Debugf("No index handler for device %v and folder %v to pause", r.conn.DeviceID().Short(), folder)
 	}
 }
 
@@ -541,16 +541,16 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 		if isOk {
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexHandlers, folder.ID)
-			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
+			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 		}
 		r.startLocked(folder, fset, runner, info)
 		delete(r.startInfos, folder.ID)
-		l.Debugf("Started index handler for device %v and folder %v in resume", r.conn.ID().Short(), folder.ID)
+		l.Debugf("Started index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 	} else if isOk {
-		l.Debugf("Resuming index handler for device %v and folder %v", r.conn.ID().Short(), folder)
+		l.Debugf("Resuming index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 		is.resume(fset, runner)
 	} else {
-		l.Debugf("Not resuming index handler for device %v and folder %v as none is paused and there is no start info", r.conn.ID().Short(), folder.ID)
+		l.Debugf("Not resuming index handler for device %v and folder %v as none is paused and there is no start info", r.conn.DeviceID().Short(), folder.ID)
 	}
 }
 
@@ -560,7 +560,7 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 	is, isOk := r.indexHandlers[folder]
 	if !isOk {
 		l.Infof("%v for nonexistent or paused folder %q", op, folder)
-		return ErrFolderMissing
+		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	}
 	return is.receive(fs, update, op)
 }

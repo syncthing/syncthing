@@ -113,7 +113,6 @@
     "The folder path cannot be blank.": "Kausta asukoht ei tohi olla tühi!",
     "The following items could not be synchronized.": "Järgnevaid üksusi ei õnnestunud sünkroniseerida.",
     "The maximum age must be a number and cannot be blank.": "Maksimaalne vanus peab olema arv ning ei tohi olla tühi.",
-    "Twitter": "Twitter",
     "Unknown": "Teadmata",
     "Upload Rate": "Üleslaadimise Kiirus",
     "Use HTTPS for GUI": "Kasuta HTTPS'i GUI jaoks",
