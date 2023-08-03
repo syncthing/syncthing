@@ -2,7 +2,7 @@
 //
 // This script finds all of the metrics in the Syncthing codebase and prints
 // them in Markdown format. It's used to generate the metrics documentation
-// for the Syncthing website.
+// for the Syncthing docs.
 package main
 
 import (
