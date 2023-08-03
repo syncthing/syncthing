@@ -1,3 +1,9 @@
+// Copyright (C) 2023 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Usage: go run script/find-metrics.go > metrics.md
 //
 // This script finds all of the metrics in the Syncthing codebase and prints
