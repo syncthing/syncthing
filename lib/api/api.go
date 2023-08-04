@@ -32,6 +32,7 @@ import (
 
 	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
@@ -350,6 +351,15 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
+
+	// Handle Prometheus metrics
+	promHttpHandler := promhttp.Handler()
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+		// fetching metrics counts as an event, for the purpose of whether
+		// we should prepare folder summaries etc.
+		s.fss.OnEventRequest()
+		promHttpHandler.ServeHTTP(w, req)
+	})
 
 	guiCfg := s.cfg.GUI()
 
@@ -1214,6 +1224,12 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Metrics data as text
+	buf := bytes.NewBuffer(nil)
+	wr := bufferedResponseWriter{Writer: buf}
+	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
+	files = append(files, fileEntry{name: "metrics.txt", data: buf.Bytes()})
+
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
@@ -2042,4 +2058,13 @@ func httpError(w http.ResponseWriter, err error) {
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+type bufferedResponseWriter struct {
+	io.Writer
+}
+
+func (w bufferedResponseWriter) WriteHeader(int) {}
+func (w bufferedResponseWriter) Header() http.Header {
+	return http.Header{}
 }
