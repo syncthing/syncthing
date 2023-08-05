@@ -48,7 +48,9 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -301,16 +303,22 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 		return nil, err
 	}
 
-	// Figure out our IP number, on the network used to reach the IGD.
-	// We do this in a fairly roundabout way by connecting to the IGD and
-	// checking the address of the local end of the socket. I'm open to
-	// suggestions on a better way to do this...
-	localIPAddress, err := localIPv4(ctx, netInterface)
+	// Figure out our IP address on the interface used to reach the IGD.
+	localIPv4Address, err := localIPv4(ctx, netInterface)
 	if err != nil {
-		return nil, err
+		l.Infoln("Unable to determine local IP address through interface. Trying fallback strategy", err)
+		deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
+		if err != nil {
+			return nil, err
+		}
+
+		localIPv4Address, err = localIPv4Fallback(ctx, deviceDescriptionURL)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	services, err := getServiceDescriptions(deviceUUID, localIPAddress, deviceDescriptionLocation, upnpRoot.Device, netInterface)
+	services, err := getServiceDescriptions(deviceUUID, localIPv4Address, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +344,31 @@ func localIPv4(ctx context.Context, netInterface *net.Interface) (net.IP, error)
 	}
 
 	return nil, errors.New("no IPv4 address found for interface " + netInterface.Name)
+}
+
+func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	conn, err := dialer.DialContext(timeoutCtx, "tcp", url.Host)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+
+	ip, err := osutil.IPFromAddr(conn.LocalAddr())
+
+	if err != nil {
+		return nil, err
+	}
+
+	if ip.To4() != nil {
+		return ip, nil
+	} else {
+		return nil, errors.New("tried to obtain IPv4 through fallback but got IPv6 address")
+	}
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
