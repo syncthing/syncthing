@@ -66,14 +66,13 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 
 	addrs, err := s.Interface.Addrs()
 	if err != nil {
-		l.Debugln("Couldn't get addrs for ", s.Interface.Name, err)
 		return 0, err
 	}
 
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
-			l.Debugln("Couldn't parse address ", addr, err)
+			l.Infoln("Couldn't parse address ", addr, err)
 			continue
 		}
 
@@ -82,7 +81,6 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 			if err != nil {
 				l.Infoln("Couldn't add pinhole for ", ip, err)
 				returnErr = err
-				continue
 			} else {
 				result = port
 			}
