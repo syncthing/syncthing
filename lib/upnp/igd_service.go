@@ -56,8 +56,7 @@ type IGDService struct {
 }
 
 // TryAddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
-// We just use the same external and internal port
-
+// This is attempted for each IPv6 on the interface.
 func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
 	result := 0
 	var returnErr error = nil

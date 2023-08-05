@@ -48,9 +48,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func init() {
@@ -277,8 +275,6 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 		return nil, errors.New("invalid IGD response: no location specified")
 	}
 
-	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
-
 	if err != nil {
 		l.Infoln("Invalid IGD location: " + err.Error())
 	}
@@ -309,7 +305,7 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 	// We do this in a fairly roundabout way by connecting to the IGD and
 	// checking the address of the local end of the socket. I'm open to
 	// suggestions on a better way to do this...
-	localIPAddress, err := localIP(ctx, deviceDescriptionURL)
+	localIPAddress, err := localIPv4(ctx, netInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -322,16 +318,24 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 	return services, nil
 }
 
-func localIP(ctx context.Context, url *url.URL) (net.IP, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	conn, err := dialer.DialContext(timeoutCtx, "tcp", url.Host)
+func localIPv4(ctx context.Context, netInterface *net.Interface) (net.IP, error) {
+	addrs, err := netInterface.Addrs()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
-	return osutil.IPFromAddr(conn.LocalAddr())
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			return ip, nil
+		}
+	}
+
+	return nil, errors.New("no IPv4 address found for interface " + netInterface.Name)
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
