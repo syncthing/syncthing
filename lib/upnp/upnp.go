@@ -304,7 +304,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 		}
 
 		deviceDescriptionPort := deviceDescriptionURL.Port()
-		deviceDescriptionURL.Host = ipAddr.String()
+		deviceDescriptionURL.Host = "[" + ipAddr.String() + "]"
 		if deviceDescriptionPort != "" {
 			deviceDescriptionURL.Host += ":" + deviceDescriptionPort
 		}
