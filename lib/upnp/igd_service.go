@@ -80,11 +80,11 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 		if ip.To4() == nil && ip.IsGlobalUnicast() {
 			result, err = s.tryAddPinholeForIP6(ctx, protocol, port, description, duration, ip.String())
 			if err != nil {
-				l.Debugln("Couldn't add pinhole for ", ip, err)
+				l.Infoln("Couldn't add pinhole for ", ip, err)
+				returnErr = err
 				continue
 			} else {
 				result = port
-				returnErr = nil
 			}
 		}
 	}
