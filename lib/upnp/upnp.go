@@ -219,7 +219,7 @@ loop:
 			break
 		}
 
-		n, addr, err := socket.ReadFrom(resp)
+		n, udpAddr, err := socket.ReadFromUDP(resp)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -233,7 +233,7 @@ loop:
 			break
 		}
 
-		igds, err := parseResponse(ctx, deviceType, addr, resp[:n], intf)
+		igds, err := parseResponse(ctx, deviceType, udpAddr, resp[:n], intf)
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
@@ -257,7 +257,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte, netInterface *net.Interface) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, resp []byte, netInterface *net.Interface) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
@@ -277,13 +277,38 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 		return nil, errors.New("invalid IGD response: no location specified")
 	}
 
+	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
 	if err != nil {
 		l.Infoln("Invalid IGD location: " + err.Error())
+		return nil, err
+	}
+
+	if err != nil {
+		l.Infoln("Invalid source IP for IGD: " + err.Error())
+		return nil, err
 	}
 
 	deviceUSN := response.Header.Get("USN")
 	if deviceUSN == "" {
 		return nil, errors.New("invalid IGD response: USN not specified")
+	}
+
+	deviceIP := net.ParseIP(deviceDescriptionURL.Hostname())
+	// If the hostname of the device parses as an IPv6 link-local address, we need to use the source IP address
+	// of the response as the hostname instead of the one given, since only the former contains the zone index, while the URL returned from the gateway
+	// cannot contain the zone index. (It can't know how interfaces are named/numbered on our machine)
+	if deviceIP != nil && deviceIP.To4() == nil && deviceIP.IsLinkLocalUnicast() {
+		ipAddr := net.IPAddr{
+			IP:   addr.IP,
+			Zone: addr.Zone,
+		}
+
+		deviceDescriptionPort := deviceDescriptionURL.Port()
+		deviceDescriptionURL.Host = ipAddr.String()
+		if deviceDescriptionPort != "" {
+			deviceDescriptionURL.Host += ":" + deviceDescriptionPort
+		}
+		deviceDescriptionLocation = deviceDescriptionURL.String()
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
@@ -303,18 +328,15 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 		return nil, err
 	}
 
-	// Figure out our IP address on the interface used to reach the IGD.
+	// Figure out our IPv4 address on the interface used to reach the IGD.
 	localIPv4Address, err := localIPv4(ctx, netInterface)
 	if err != nil {
-		l.Infoln("Unable to determine local IP address through interface. Trying fallback strategy", err)
-		deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
-		if err != nil {
-			return nil, err
-		}
-
+		// On Android, we cannot enumerate IP addresses on interfaces directly. Therefore, we just try to connect to the IGD
+		// and look at which source IP address was used. This is not ideal, but it's the best we can do.
+		// Maybe we are on an IPv6-only network though, so don't error out in case pinholing is available.
 		localIPv4Address, err = localIPv4Fallback(ctx, deviceDescriptionURL)
 		if err != nil {
-			return nil, err
+			l.Infoln("Unable to determine local IPv4 address for IGD: " + err.Error())
 		}
 	}
 

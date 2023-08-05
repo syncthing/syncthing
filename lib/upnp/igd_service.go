@@ -125,6 +125,10 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 
 // AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
+	if s.LocalIP == nil {
+		return 0, errors.New("no local IPv4")
+	}
+
 	const template = `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
