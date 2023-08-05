@@ -68,14 +68,14 @@ func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, p
 
 	const template = `<u:AddPinhole xmlns:u="%s">
 	<RemoteHost>::/0</RemoteHost>
-	<RemotePort>%d</RemotePort>
+	<RemotePort>0</RemotePort>
 	<Protocol>%d</Protocol>
 	<InternalPort>%d</InternalPort>
 	<InternalClient>%s</InternalClient>
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(template, s.URN, port, protoNumber, port, s.LocalIP, duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, protoNumber, port, s.LocalIP, duration/time.Second)
 
 	_, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 
