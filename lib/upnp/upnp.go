@@ -517,8 +517,11 @@ func replaceRawPath(u *url.URL, rp string) {
 		u.RawQuery = q
 	}
 }
-
 func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
+	return soapRequestWithIP(ctx, url, service, function, message, nil)
+}
+
+func soapRequestWithIP(ctx context.Context, url, service, function, message string, localIP net.Addr) ([]byte, error) {
 	template := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -544,7 +547,16 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 	l.Debugln("SOAP Action: " + req.Header.Get("SOAPAction"))
 	l.Debugln("SOAP Request:\n\n" + body)
 
-	r, err := http.DefaultClient.Do(req)
+	dialer := net.Dialer{
+		LocalAddr: localIP,
+	}
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
+	httpClient := &http.Client{
+		Transport: transport,
+	}
+	r, err := httpClient.Do(req)
 	if err != nil {
 		l.Debugln("SOAP do:", err)
 		return resp, err

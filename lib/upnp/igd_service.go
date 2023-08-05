@@ -118,7 +118,9 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 
 	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip, duration/time.Second)
 
-	_, err := soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
+	// IP should be a global unicast address, so we can use it as the source IP.
+	// By the UPnP spec, the source address for unauthenticated clients should be the same as the InternalAddress the pinhole is requested for.
+	_, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.IPAddr{IP: net.ParseIP(ip)})
 
 	return port, err
 }
