@@ -233,7 +233,7 @@ loop:
 			break
 		}
 
-		igds, err := parseResponse(ctx, deviceType, addr, resp[:n])
+		igds, err := parseResponse(ctx, deviceType, addr, resp[:n], intf)
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
@@ -257,7 +257,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp []byte, netInterface *net.Interface) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
@@ -314,7 +314,7 @@ func parseResponse(ctx context.Context, deviceType string, addr net.Addr, resp [
 		return nil, err
 	}
 
-	services, err := getServiceDescriptions(deviceUUID, localIPAddress, deviceDescriptionLocation, upnpRoot.Device)
+	services, err := getServiceDescriptions(deviceUUID, localIPAddress, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -354,21 +354,23 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice) ([]IGDService, error) {
+func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
 	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			netInterface)
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"})
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			netInterface)
 
 		result = append(result, descriptions...)
 	} else {
@@ -381,7 +383,7 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 	return result, nil
 }
 
-func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string) []IGDService {
+func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string, netInterface *net.Interface) []IGDService {
 	var result []IGDService
 
 	devices := getChildDevices(device, wanDeviceURN)
@@ -419,6 +421,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 							ServiceID: service.ID,
 							URL:       u.String(),
 							URN:       service.Type,
+							Interface: netInterface,
 							LocalIP:   localIPAddress,
 						}
 

@@ -51,12 +51,54 @@ type IGDService struct {
 	URL       string
 	URN       string
 	LocalIP   net.IP
+	Interface *net.Interface
 	PinholeID uint16
 }
 
 // TryAddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // We just use the same external and internal port
+
 func (s *IGDService) TryAddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (int, error) {
+	result := 0
+	var returnErr error = nil
+	if s.Interface == nil {
+		return 0, errors.New("no interface")
+	}
+
+	addrs, err := s.Interface.Addrs()
+	if err != nil {
+		l.Debugln("Couldn't get addrs for ", s.Interface.Name, err)
+		return 0, err
+	}
+
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			l.Debugln("Couldn't parse address ", addr, err)
+			continue
+		}
+
+		if ip.To4() == nil && ip.IsGlobalUnicast() {
+			result, err = s.tryAddPinholeForIP6(ctx, protocol, port, description, duration, ip.String())
+			if err != nil {
+				l.Debugln("Couldn't add pinhole for ", ip, err)
+				continue
+			} else {
+				result = port
+				returnErr = nil
+			}
+		}
+	}
+
+	if result != 0 {
+		// (Maybe partial) success, we added a pinhole for at least one GUA.
+		return result, nil
+	} else {
+		return 0, returnErr
+	}
+}
+
+func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration, ip string) (int, error) {
 	var protoNumber int
 	if protocol == nat.TCP {
 		protoNumber = 6
