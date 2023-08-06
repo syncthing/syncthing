@@ -240,7 +240,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 		} else if renew {
 			// Only perform renewals on the nat's that have the right local IP
 			// address
-			localIP := nat.GetLocalIPAddress()
+			localIP := nat.GetLocalIPv4Address()
 			if !mapping.validGateway(localIP) {
 				l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 				continue
@@ -286,7 +286,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		// Only perform mappings on the nat's that have the right local IP
 		// address
-		localIP := nat.GetLocalIPAddress()
+		localIP := nat.GetLocalIPv4Address()
 		if !mapping.validGateway(localIP) {
 			l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 			continue
@@ -317,10 +317,10 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	// For IPv6, we just try to create the pinhole. If it fails, nothing can be done (probably no IGDv2 support).
 	// If it already exists, the relevant UPnP standard requires that the gateway recognizes this and updates the lease time.
 	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
-	if natd.IsIPv6() {
+	if natd.IsIPv6GatewayDevice() {
 		_, err = natd.TryAddPinhole(ctx, TCP, intPort, "syncthing", leaseTime)
 		return Address{
-			natd.GetLocalIPAddress(),
+			natd.GetLocalIPv4Address(),
 			intPort,
 		}, err
 	}

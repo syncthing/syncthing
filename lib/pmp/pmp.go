@@ -92,7 +92,7 @@ func (w *wrapper) ID() string {
 	return fmt.Sprintf("NAT-PMP@%s", w.gatewayIP.String())
 }
 
-func (w *wrapper) GetLocalIPAddress() net.IP {
+func (w *wrapper) GetLocalIPv4Address() net.IP {
 	return w.localIP
 }
 
@@ -121,7 +121,7 @@ func (w *wrapper) TryAddPinhole(_ context.Context, _ nat.Protocol, _ int, _ stri
 	return 0, errors.New("adding IPv6 pinholes is unsupported on NAT-PMP")
 }
 
-func (w *wrapper) IsIPv6() bool {
+func (w *wrapper) IsIPv6GatewayDevice() bool {
 	// NAT-PMP gateways should always try to create port mappings and not pinholes.
 	return false
 }

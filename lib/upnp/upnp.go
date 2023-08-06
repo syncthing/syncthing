@@ -481,7 +481,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 							URL:       u.String(),
 							URN:       service.Type,
 							Interface: netInterface,
-							LocalIP:   localIPAddress,
+							LocalIPv4: localIPAddress,
 						}
 
 						result = append(result, service)

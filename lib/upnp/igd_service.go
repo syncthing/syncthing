@@ -50,7 +50,7 @@ type IGDService struct {
 	ServiceID string
 	URL       string
 	URN       string
-	LocalIP   net.IP
+	LocalIPv4 net.IP
 	Interface *net.Interface
 	PinholeID uint16
 }
@@ -125,7 +125,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 
 // AddPortMapping adds a port mapping to the specified IGD service.
 func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
-	if s.LocalIP == nil {
+	if s.LocalIPv4 == nil {
 		return 0, errors.New("no local IPv4")
 	}
 
@@ -139,7 +139,7 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(template, s.URN, externalPort, protocol, internalPort, s.LocalIP, description, duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, externalPort, protocol, internalPort, s.LocalIPv4, description, duration/time.Second)
 
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && duration > 0 {
@@ -195,12 +195,12 @@ func (s *IGDService) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
 }
 
 // GetLocalIPAddress returns local IP address used to contact this service
-func (s *IGDService) GetLocalIPAddress() net.IP {
-	return s.LocalIP
+func (s *IGDService) GetLocalIPv4Address() net.IP {
+	return s.LocalIPv4
 }
 
 // IsIPv6 checks whether this is a WANIPv6FirewallControl device, in which case pinholing instead of port mapping should be done
-func (s *IGDService) IsIPv6() bool {
+func (s *IGDService) IsIPv6GatewayDevice() bool {
 	return s.URN == "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
 }
 
