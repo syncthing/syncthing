@@ -52,11 +52,13 @@ require (
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.12.0
 	golang.org/x/sys v0.10.0
-	golang.org/x/text v0.11.0
+	golang.org/x/text v0.12.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.11.0
 	google.golang.org/protobuf v1.31.0
 )
+
+require golang.org/x/exp v0.0.0-20230711023510-fffb14384f22
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
@@ -76,7 +78,6 @@ require (
 	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-	golang.org/x/exp v0.0.0-20230711023510-fffb14384f22 // indirect
 )
 
 // https://github.com/gobwas/glob/pull/55
