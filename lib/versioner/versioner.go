@@ -44,7 +44,7 @@ const (
 func New(cfg config.FolderConfiguration) (Versioner, error) {
 	fac, ok := factories[cfg.Versioning.Type]
 	if !ok {
-		return nil, fmt.Errorf("requested versioning type %q does not exist", cfg.Type)
+		return nil, fmt.Errorf("requested versioning type %q does not exist", cfg.Versioning.Type)
 	}
 
 	return &versionerWithErrorContext{
