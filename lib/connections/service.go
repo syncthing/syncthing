@@ -333,12 +333,13 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 }
 
 func (s *service) handleHellos(ctx context.Context) error {
-	var c internalConn
-	var hello protocol.Hello
-	var err error
-	var remoteID protocol.DeviceID
-	var remoteCert *x509.Certificate
 	for {
+		var c internalConn
+		var hello protocol.Hello
+		var err error
+		var remoteID protocol.DeviceID
+		var remoteCert *x509.Certificate
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -417,7 +418,6 @@ func (s *service) handleHellos(ctx context.Context) error {
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
 		s.accountAddedConnection(remoteID, &hello)
 		go func() {
-			l.Debugln("waiting for close of connection channel", remoteID.Short(), c.String())
 			<-protoConn.Closed()
 			l.Debugln("got close of connection channel", remoteID.Short(), c.String())
 			s.accountRemovedConnection(remoteID)
