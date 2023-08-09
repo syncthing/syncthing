@@ -321,9 +321,10 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 				return nil
 			}
 		}
-		if currentConns >= s.desiredConnectionsToDevice(cfg.DeviceID) {
+		if desired := s.desiredConnectionsToDevice(cfg.DeviceID); currentConns >= desired {
 			// We're not allowed to accept any more connections to this
 			// device.
+			l.Debugf("Not accepting connection to %s at %s: already have %d connections, desire %d", remoteID, c, currentConns, desired)
 			return errDeviceAlreadyConnected
 		}
 	}
@@ -416,7 +417,9 @@ func (s *service) handleHellos(ctx context.Context) error {
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
 		s.accountAddedConnection(remoteID, &hello)
 		go func() {
+			l.Debugln("waiting for close of connection channel", remoteID.Short(), c.String())
 			<-protoConn.Closed()
+			l.Debugln("got close of connection channel", remoteID.Short(), c.String())
 			s.accountRemovedConnection(remoteID)
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
@@ -627,14 +630,14 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 	deviceID := deviceCfg.DeviceID
 
 	addrs := s.resolveDeviceAddrs(ctx, deviceCfg)
-	l.Debugln("Resolved device", deviceID, "addresses:", addrs)
+	l.Debugln("Resolved device", deviceID.Short(), "addresses:", addrs)
 
 	dialTargets := make([]dialTarget, 0, len(addrs))
 	for _, addr := range addrs {
 		// Use both device and address, as you might have two devices connected
 		// to the same relay
 		if !initial && nextDialAt.get(deviceID, addr).After(now) {
-			l.Debugf("Not dialing %s via %v as it's not time yet", deviceID, addr)
+			l.Debugf("Not dialing %s via %v as it's not time yet", deviceID.Short(), addr)
 			continue
 		}
 
@@ -673,15 +676,15 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		priority := dialer.Priority(uri.Host)
 		currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
 		if priority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
-			l.Debugf("Not dialing using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", deviceID.Short(), dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 		if priority > priorityCutoff {
-			l.Debugf("Not dialing using %s as priority is worse than current connection (%d > %d)", dialerFactory, priority, priorityCutoff)
+			l.Debugf("Not dialing %s using %s as priority is worse than current connection (%d > %d)", deviceID.Short(), dialerFactory, priority, priorityCutoff)
 			continue
 		}
 		if currentConns > 0 && !dialer.AllowsMultiConns() {
-			l.Debugf("Not dialing using %s as it does not allow multiple connections and we already have %d/%d connections", dialerFactory, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s using %s as it does not allow multiple connections and we already have %d/%d connections", deviceID.Short(), dialerFactory, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 
@@ -1288,6 +1291,7 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 	cfg, ok := s.cfg.Device(deviceID)
 	if !ok {
 		// We want no connections to an unknown device.
+		l.Debugf("No configuration for device %s, not connecting", deviceID)
 		return 0
 	}
 
@@ -1334,6 +1338,7 @@ func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID, h 
 	}
 	c.connections[d]++
 	c.wantSecondaries[d] = int(h.NumConnections)
+	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), c.connections[d], h.NumConnections)
 }
 
 func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) {
@@ -1343,6 +1348,7 @@ func (c *deviceConnectionCounter) accountRemovedConnection(d protocol.DeviceID) 
 	if c.connections[d] == 0 {
 		delete(c.connections, d)
 	}
+	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }
 
 func (c *deviceConnectionCounter) numConnectionsForDevice(d protocol.DeviceID) int {

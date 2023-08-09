@@ -8,7 +8,7 @@ package connections
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/base32"
 	"encoding/binary"
@@ -109,9 +109,9 @@ func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) 
 // lowest ID will be the primary one. This also coincides with being the
 // oldest connection.
 func newConnectionID(tc tlsConn, connType connType, now time.Time) string {
-	buf := binary.BigEndian.AppendUint64(nil, uint64(now.UnixNano()))
-	hash := sha256.Sum224([]byte(fmt.Sprintf("%v-%v-%v", tc.LocalAddr(), connType.Transport(), tc.RemoteAddr())))
-	buf = append(buf, hash[:]...)
+	buf := make([]byte, 16) // 8 bytes timestamp, 8 bytes random
+	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
+	_, _ = io.ReadFull(rand.Reader, buf[8:])
 	return base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
 }
 
@@ -165,7 +165,7 @@ func (c internalConn) String() string {
 	if c.isLocal {
 		t = "LAN"
 	}
-	return fmt.Sprintf("%s-%s/%s/%s/%s-P%d", c.LocalAddr(), c.RemoteAddr(), c.Type(), c.Crypto(), t, c.Priority())
+	return fmt.Sprintf("%s-%s/%s/%s/%s-P%d-%s", c.LocalAddr(), c.RemoteAddr(), c.Type(), c.Crypto(), t, c.Priority(), c.connectionID)
 }
 
 type dialerFactory interface {

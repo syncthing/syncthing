@@ -187,6 +187,7 @@ type rawConnection struct {
 	idString  string
 	model     contextLessModel
 	startTime time.Time
+	started   chan struct{}
 
 	cr     *countingReader
 	cw     *countingWriter
@@ -270,11 +271,12 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 	cw := &countingWriter{Writer: writer, idString: idString}
 	registerDeviceMetrics(idString)
 
-	return &rawConnection{
+	c := &rawConnection{
 		ConnectionInfo:        connInfo,
 		deviceID:              deviceID,
 		idString:              deviceID.String(),
 		model:                 receiver,
+		started:               make(chan struct{}),
 		cr:                    cr,
 		cw:                    cw,
 		closer:                closer,
@@ -288,6 +290,18 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 		compression:           compress,
 		loopWG:                sync.WaitGroup{},
 	}
+	go func() {
+		// XXX: temporary debugging due to suspicious behavior
+		select {
+		case <-c.started:
+			return
+		case <-c.closed:
+			return
+		case <-time.After(20 * time.Second):
+			panic(fmt.Sprintf("connection %s %s not started or closed after 20s", deviceID.Short(), connInfo))
+		}
+	}()
+	return c
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
@@ -316,6 +330,7 @@ func (c *rawConnection) Start() {
 		c.loopWG.Done()
 	}()
 	c.startTime = time.Now().Truncate(time.Second)
+	close(c.started)
 }
 
 func (c *rawConnection) DeviceID() DeviceID {
@@ -961,10 +976,11 @@ func (c *rawConnection) Close(err error) {
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
 	c.closeOnce.Do(func() {
-		l.Debugln("close due to", err)
+		l.Debugf("close %s %s due to %v", c.deviceID.Short(), c.ConnectionID(), err)
 		if cerr := c.closer.Close(); cerr != nil {
 			l.Debugln(c.deviceID, "failed to close underlying conn:", cerr)
 		}
+		l.Debugln("closing connection channel", c.deviceID.Short(), c.ConnectionID())
 		close(c.closed)
 
 		c.awaitingMut.Lock()

@@ -1368,7 +1368,7 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	// Create a new index handler for this device.
 	indexHandlerRegistry = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
-		l.Infoln("Registering folder", id, "for", deviceID.Short())
+		l.Debugln("Registering folder", id, "for", deviceID.Short())
 		indexHandlerRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
 	m.indexHandlers[deviceID] = indexHandlerRegistry
@@ -2439,9 +2439,9 @@ func (m *model) promoteConnections() {
 		// Close connections with a worse connection priority than best.
 		closing := make(map[string]bool)
 		for _, connID := range connIDs {
-			if m.connections[connID].Priority() > bestPriority {
+			if conn := m.connections[connID]; conn.Priority() > bestPriority {
 				l.Debugln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
-				go m.connections[connID].Close(errReplacingConnection)
+				go conn.Close(errReplacingConnection)
 				closing[connID] = true
 			}
 		}
