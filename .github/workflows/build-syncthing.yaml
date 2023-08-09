@@ -6,6 +6,7 @@ on:
   schedule:
     # Run nightly build at 05:00 UTC
     - cron: '00 05 * * *'
+  workflow_dispatch:
 
 env:
   # The go version to use for builds. We set check-latest to true when
