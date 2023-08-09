@@ -68,6 +68,16 @@ func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	sort.Sort(upgrade.SortByRelease(rels))
 	rels = filterForLatest(rels)
 
+	// Move the URL used for browser downloads to the URL field, and remove
+	// the browser URL field. This avoids going via the GitHub API for
+	// downloads, since Syncthing uses the URL field.
+	for _, rel := range rels {
+		for j, asset := range rel.Assets {
+			rel.Assets[j].URL = asset.BrowserURL
+			rel.Assets[j].BrowserURL = ""
+		}
+	}
+
 	buf := new(bytes.Buffer)
 	_ = json.NewEncoder(buf).Encode(rels)
 
