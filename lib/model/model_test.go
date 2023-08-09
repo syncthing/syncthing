@@ -2647,7 +2647,7 @@ func TestVersionRestore(t *testing.T) {
 			file = filepath.FromSlash(file)
 		}
 		tag := version.In(time.Local).Truncate(time.Second).Format(versioner.TimeFormat)
-		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
+		taggedName := filepath.Join(versioner.DefaultPath, versioner.TagFilename(file, tag))
 		fd, err := filesystem.Open(file)
 		if err != nil {
 			t.Error(err)
@@ -2680,7 +2680,7 @@ func TestVersionRestore(t *testing.T) {
 		}
 		for _, version := range versions {
 			if version.VersionTime.Equal(beforeRestore) || version.VersionTime.After(beforeRestore) {
-				fd, err := filesystem.Open(".stversions/" + versioner.TagFilename(file, version.VersionTime.Format(versioner.TimeFormat)))
+				fd, err := filesystem.Open(versioner.DefaultPath + "/" + versioner.TagFilename(file, version.VersionTime.Format(versioner.TimeFormat)))
 				must(t, err)
 				defer fd.Close()
 
