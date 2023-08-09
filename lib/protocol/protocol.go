@@ -184,6 +184,7 @@ type rawConnection struct {
 	ConnectionInfo
 
 	deviceID  DeviceID
+	idString  string
 	model     contextLessModel
 	startTime time.Time
 
@@ -264,12 +265,15 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 }
 
 func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver contextLessModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
-	cr := &countingReader{Reader: reader}
-	cw := &countingWriter{Writer: writer}
+	idString := deviceID.String()
+	cr := &countingReader{Reader: reader, idString: idString}
+	cw := &countingWriter{Writer: writer, idString: idString}
+	registerDeviceMetrics(idString)
 
 	return &rawConnection{
 		ConnectionInfo:        connInfo,
 		deviceID:              deviceID,
+		idString:              deviceID.String(),
 		model:                 receiver,
 		cr:                    cr,
 		cw:                    cw,
@@ -446,6 +450,8 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			return ErrClosed
 		}
 
+		metricDeviceRecvMessages.WithLabelValues(c.idString).Inc()
+
 		msgContext, err := messageContext(msg)
 		if err != nil {
 			return fmt.Errorf("protocol error: %w", err)
@@ -554,6 +560,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	// ... and is then unmarshalled
 
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(4 + len(buf)))
+
 	msg, err := newMessage(hdr.Type)
 	if err != nil {
 		BufferPool.Put(buf)
@@ -593,6 +601,8 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	if err != nil {
 		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
 	}
+
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(2 + len(buf)))
 
 	return hdr, nil
 }
@@ -759,6 +769,10 @@ func (c *rawConnection) writeMessage(msg message) error {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
 
+	defer func() {
+		metricDeviceSentMessages.WithLabelValues(c.idString).Inc()
+	}()
+
 	size := msg.ProtoSize()
 	hdr := Header{
 		Type: typeOf(msg),
@@ -784,6 +798,8 @@ func (c *rawConnection) writeMessage(msg message) error {
 			return err
 		}
 	}
+
+	metricDeviceSentUncompressedBytes.WithLabelValues(c.idString).Add(float64(totSize))
 
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
@@ -818,6 +834,9 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	}
 
 	cOverhead := 2 + hdrSize + 4
+
+	metricDeviceSentUncompressedBytes.WithLabelValues(c.idString).Add(float64(cOverhead + len(marshaled)))
+
 	// The compressed size may be at most n-n/32 = .96875*n bytes,
 	// I.e., if we can't save at least 3.125% bandwidth, we forgo compression.
 	// This number is arbitrary but cheap to compute.

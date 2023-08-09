@@ -556,8 +556,8 @@ loop:
 func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
 	for i := 0; i < len(devices); i++ {
 		dev := devices[i]
-		if dev.EncryptionPassword != "" {
-			// There's a password set, no check required
+		if dev.EncryptionPassword != "" || f.Type == FolderTypeReceiveEncrypted {
+			// There's a password set or the folder is received encrypted, no check required
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {

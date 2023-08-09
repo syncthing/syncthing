@@ -28,6 +28,7 @@ const (
 	filesystemWrapperTypeError
 	filesystemWrapperTypeWalk
 	filesystemWrapperTypeLog
+	filesystemWrapperTypeMetrics
 )
 
 type XattrFilter interface {
@@ -274,6 +275,8 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	if mtimeOpt != nil {
 		fs = mtimeOpt.apply(fs)
 	}
+
+	fs = &metricsFS{next: fs}
 
 	if l.ShouldDebug("walkfs") {
 		return NewWalkFilesystem(&logFilesystem{fs})

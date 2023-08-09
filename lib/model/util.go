@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ur"
@@ -117,11 +119,11 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 
 	const permBits = fs.ModePerm | fs.ModeSetuid | fs.ModeSetgid | fs.ModeSticky
 	var parentErr error
-	if mode := info.Mode() & permBits; mode&0200 == 0 {
+	if mode := info.Mode() & permBits; mode&0o200 == 0 {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.
-		parentErr = targetFs.Chmod(dir, mode|0700)
+		parentErr = targetFs.Chmod(dir, mode|0o700)
 		if parentErr != nil {
 			l.Debugf("Failed to make parent directory writable: %v", parentErr)
 		} else {
@@ -147,4 +149,28 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 		err = fmt.Errorf("error after failing to make parent directory writable: %w", err)
 	}
 	return err
+}
+
+// addTimeUntilCancelled adds time to the counter for the duration of the
+// Context. We do this piecemeal so that polling the counter during a long
+// operation shows a relevant value, instead of the counter just increasing
+// by a large amount at the end of the operation.
+func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
+	t0 := time.Now()
+	defer func() {
+		counter.Add(time.Since(t0).Seconds())
+	}()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case t := <-ticker.C:
+			counter.Add(t.Sub(t0).Seconds())
+			t0 = t
+		case <-ctx.Done():
+			return
+		}
+	}
 }
