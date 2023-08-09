@@ -32,7 +32,7 @@ type simple struct {
 func newSimple(cfg config.FolderConfiguration) Versioner {
 	var keep, err = strconv.Atoi(cfg.Versioning.Params["keep"])
 	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
-	// On error we default to 0, "do not clean out the trash can"
+	// On error we default to 0, "do not clean out the versioned items"
 
 	if err != nil {
 		keep = 5 // A reasonable default
