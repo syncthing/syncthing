@@ -390,6 +390,7 @@ jobs:
             | grep -v nacl/ \
             | grep -v plan9/ \
             | grep -v windows/ \
+            | grep -v /wasm \
           )
 
           for plat in $platforms; do
