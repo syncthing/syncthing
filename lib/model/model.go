@@ -1191,7 +1191,7 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 
 	indexHandler, ok := m.getIndexHandler(conn)
 	if !ok {
-		l.Infof("%v for folder %s sent from %s (connection %s), but no index handler is registered for this connection.", op, folder, deviceID.Short(), conn.ConnectionID())
+		l.Infof("%v for folder %s sent from %s (%s), but no index handler is registered for this connection.", op, folder, deviceID.Short(), conn)
 		return fmt.Errorf("%s: %w", folder, ErrFolderNotRunning)
 	}
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
@@ -1207,12 +1207,11 @@ type ClusterConfigReceivedEventData struct {
 
 func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfig) error {
 	deviceID := conn.DeviceID()
-	connID := conn.ConnectionID()
 
 	if cm.Secondary {
 		// No handling of secondary connection ClusterConfigs; they merely
 		// indicate the connection is ready to start.
-		l.Debugf("Skipping secondary ClusterConfig from %v/%s", deviceID.Short(), connID)
+		l.Debugf("Skipping secondary ClusterConfig from %v at %s", deviceID.Short(), conn)
 		return nil
 	}
 
@@ -1221,12 +1220,12 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	l.Debugf("Handling ClusterConfig from %v/%s", deviceID.Short(), connID)
+	l.Debugf("Handling ClusterConfig from %v at %s", deviceID.Short(), conn)
 	indexHandlerRegistry := m.ensureIndexHandler(conn)
 
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
-		l.Debugln("Device disappeared from config while processing cluster-config")
+		l.Debugf("Device %s disappeared from config while processing cluster-config", deviceID.Short())
 		return errDeviceUnknown
 	}
 
@@ -1246,11 +1245,11 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 			}
 		}
 		if info.remote.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID, folder.Description())
+			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID.Short(), folder.Description())
 			return errMissingRemoteInClusterConfig
 		}
 		if info.local.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for us locally on folder %v", deviceID, folder.Description())
+			l.Infof("Device %v sent cluster-config without the device info for us locally on folder %v", deviceID.Short(), folder.Description())
 			return errMissingLocalInClusterConfig
 		}
 		ccDeviceInfos[folder.ID] = info
@@ -1967,7 +1966,6 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 	}
 
 	deviceID := conn.DeviceID()
-	connID := conn.ConnectionID()
 
 	m.fmut.RLock()
 	folderCfg, ok := m.folderCfgs[folder]
@@ -1976,36 +1974,36 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 	if !ok {
 		// The folder might be already unpaused in the config, but not yet
 		// in the model.
-		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), name, folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	if !folderCfg.SharedWith(deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), name, folder)
 		return nil, protocol.ErrGeneric
 	}
 	if folderCfg.Paused {
-		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID.Short(), name, folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	// Make sure the path is valid and in canonical form
 	if name, err = fs.Canonicalize(name); err != nil {
-		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID, folder, name)
+		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID.Short(), folder, name)
 		return nil, protocol.ErrGeneric
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s/%s: %q / %q o=%d s=%d t=%v", m, deviceID, connID, folder, name, offset, size, fromTemporary)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID.Short(), folder, name, offset, size, fromTemporary)
 	}
 
 	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s/%s: %q / %q o=%d s=%d", m, deviceID, connID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrInvalid
 	}
 
 	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s/%s: %q / %q o=%d s=%d", m, deviceID, connID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrInvalid
 	}
 
@@ -2032,7 +2030,7 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 	folderFs := folderCfg.Filesystem(nil)
 
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
@@ -2044,7 +2042,7 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
 			return nil, protocol.ErrNoSuchFile
 		}
 		_, err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
@@ -2058,13 +2056,13 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
 	n, err := readOffsetIntoBuf(folderFs, name, offset, res.data)
 	if fs.IsNotExist(err) {
-		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	} else if err == io.EOF {
 		// Read beyond end of file. This might indicate a problem, or it
@@ -2073,13 +2071,13 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 		// next step take care of it, by only hashing the part we actually
 		// managed to read.
 	} else if err != nil {
-		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrGeneric
 	}
 
 	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
 		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
-		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
@@ -2440,7 +2438,7 @@ func (m *model) promoteConnections() {
 		closing := make(map[string]bool)
 		for _, connID := range connIDs {
 			if conn := m.connections[connID]; conn.Priority() > bestPriority {
-				l.Debugln("Closing connection", connID, "to", deviceID.Short(), "because it has a worse connection priority than the best connection")
+				l.Debugf("Closing connection to %s at %s because it has a worse connection priority than the best connection", deviceID.Short(), conn)
 				go conn.Close(errReplacingConnection)
 				closing[connID] = true
 			}
@@ -2454,8 +2452,8 @@ func (m *model) promoteConnections() {
 			// it, which will cause the other side to start sending us index
 			// messages there. (On our side, we manage index handlers based
 			// on where we get ClusterConfigs from the peer.)
-			l.Debugln("Promoting connection", connIDs[0], "to", deviceID.Short())
 			conn := m.connections[connIDs[0]]
+			l.Debugf("Promoting connection to %s at %s", deviceID.Short(), conn)
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
 				conn.Start()
@@ -2530,7 +2528,7 @@ func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 		return nil, fmt.Errorf("requestGlobal: no connection to device: %s", deviceID.Short())
 	}
 
-	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID.Short(), conn.String(), folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID.Short(), conn, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	return conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 }
 

@@ -976,11 +976,10 @@ func (c *rawConnection) Close(err error) {
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
 	c.closeOnce.Do(func() {
-		l.Debugf("close %s %s due to %v", c.deviceID.Short(), c.ConnectionID(), err)
+		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
-			l.Debugln(c.deviceID, "failed to close underlying conn:", cerr)
+			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
 		}
-		l.Debugln("closing connection channel", c.deviceID.Short(), c.ConnectionID())
 		close(c.closed)
 
 		c.awaitingMut.Lock()

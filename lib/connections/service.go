@@ -419,7 +419,6 @@ func (s *service) handleHellos(ctx context.Context) error {
 		s.accountAddedConnection(remoteID, &hello)
 		go func() {
 			<-protoConn.Closed()
-			l.Debugln("got close of connection channel", remoteID.Short(), c.String())
 			s.accountRemovedConnection(remoteID)
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
@@ -676,15 +675,15 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		priority := dialer.Priority(uri.Host)
 		currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
 		if priority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
-			l.Debugf("Not dialing %s using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", deviceID.Short(), dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s at %s using %s as priority is not better than current connection (%d >= %d) and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, priority, priorityCutoff, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 		if priority > priorityCutoff {
-			l.Debugf("Not dialing %s using %s as priority is worse than current connection (%d > %d)", deviceID.Short(), dialerFactory, priority, priorityCutoff)
+			l.Debugf("Not dialing %s at %s using %s as priority is worse than current connection (%d > %d)", deviceID.Short(), addr, dialerFactory, priority, priorityCutoff)
 			continue
 		}
 		if currentConns > 0 && !dialer.AllowsMultiConns() {
-			l.Debugf("Not dialing %s using %s as it does not allow multiple connections and we already have %d/%d connections", deviceID.Short(), dialerFactory, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s at %s using %s as it does not allow multiple connections and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, currentConns, deviceCfg.NumConnections)
 			continue
 		}
 
@@ -1291,7 +1290,6 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 	cfg, ok := s.cfg.Device(deviceID)
 	if !ok {
 		// We want no connections to an unknown device.
-		l.Debugf("No configuration for device %s, not connecting", deviceID)
 		return 0
 	}
 
