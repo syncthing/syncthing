@@ -381,6 +381,7 @@ type indexHandlerRegistry struct {
 	startInfos    map[string]*clusterConfigDeviceInfo
 	folderStates  map[string]*indexHandlerFolderState
 	mut           sync.Mutex
+	stopFn        func()
 }
 
 type indexHandlerFolderState struct {
@@ -389,7 +390,7 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		conn:          conn,
 		downloads:     downloads,
@@ -400,16 +401,10 @@ func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownload
 		mut:           sync.Mutex{},
 	}
 	r.sup = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
-	ourToken := parentSup.Add(r.sup)
-	r.sup.Add(svcutil.AsService(func(ctx context.Context) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-closed:
-			parentSup.Remove(ourToken)
-		}
-		return nil
-	}, fmt.Sprintf("%v/waitForClosed", r)))
+	token := parentSup.Add(r.sup)
+	r.stopFn = func() {
+		parentSup.RemoveAndWait(token, 0)
+	}
 	return r
 }
 
@@ -417,8 +412,8 @@ func (r *indexHandlerRegistry) String() string {
 	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
 }
 
-func (r *indexHandlerRegistry) GetSupervisor() *suture.Supervisor {
-	return r.sup
+func (r *indexHandlerRegistry) Stop() {
+	r.stopFn()
 }
 
 func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {

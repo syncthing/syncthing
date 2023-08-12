@@ -1792,8 +1792,11 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remoteFolderStates, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
+	indexHandler := m.indexHandlers[device]
 	delete(m.indexHandlers, device)
 	m.pmut.Unlock()
+
+	indexHandler.Stop()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
 	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
@@ -2251,7 +2254,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	closed := make(chan struct{})
 	m.closed[deviceID] = closed
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.Supervisor, m.evLogger)
+	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.Supervisor, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
