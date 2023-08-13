@@ -134,7 +134,10 @@ func authAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration,
 	})
 
 	handlePasswordLogin := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req struct{Username string; Password string}
+		var req struct {
+			Username string
+			Password string
+		}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse username and password:", err)
 			http.Error(w, "Failed to parse username and password.", 400)
@@ -193,13 +196,13 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 	useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
 
 	http.SetCookie(w, &http.Cookie{
-		Name:   cookieName,
-		Value:  sessionid,
+		Name:  cookieName,
+		Value: sessionid,
 		// In HTTP spec Max-Age <= 0 means delete immediately,
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: 0,
 		Secure: useSecureCookie,
-		Path: "/",
+		Path:   "/",
 	})
 
 	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
@@ -222,7 +225,7 @@ func handleLogout(cookieName string) http.Handler {
 			Value:  "",
 			MaxAge: -1,
 			Secure: true,
-			Path: "/",
+			Path:   "/",
 		})
 		w.WriteHeader(http.StatusNoContent)
 	})
