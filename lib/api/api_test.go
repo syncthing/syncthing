@@ -749,16 +749,20 @@ func TestHtmlFormLogin(t *testing.T) {
 		return httpGet(url, "", "", "", "", cookies, t)
 	}
 
-	t.Run("auth is not needed for index.html", func(t *testing.T) {
-		t.Parallel()
-		resp := httpGet(baseURL+"/index.html", "", "", "", "", nil, t)
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Unexpected non-200 return code %d at /index.html", resp.StatusCode)
-		}
-		if hasSessionCookie(resp.Cookies()) {
-			t.Errorf("Unexpected session cookie at /index.html")
-		}
-	})
+	testNoAuthPath := func(noAuthPath string) {
+		t.Run("auth is not needed for "+noAuthPath, func(t *testing.T) {
+			t.Parallel()
+			resp := httpGet(baseURL+noAuthPath, "", "", "", "", nil, t)
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Unexpected non-200 return code %d at %s", resp.StatusCode, noAuthPath)
+			}
+			if hasSessionCookie(resp.Cookies()) {
+				t.Errorf("Unexpected session cookie at " + noAuthPath)
+			}
+		})
+	}
+	testNoAuthPath("/index.html")
+	testNoAuthPath("/rest/svc/lang")
 
 	t.Run("incorrect password is rejected with 403", func(t *testing.T) {
 		t.Parallel()

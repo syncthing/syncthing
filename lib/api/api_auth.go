@@ -75,6 +75,7 @@ func noAuthPaths() []string {
 		"/",
 		"/index.html",
 		"/modal.html",
+		"/rest/svc/lang", // Required to load language settings on login page
 	}
 }
 
