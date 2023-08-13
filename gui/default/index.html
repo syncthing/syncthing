@@ -358,7 +358,7 @@
               </p>
             </div>
             <div class="col-md-3 text-right">
-              <button type="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log in</button>
+              <button type="submit" class="btn btn-default" ng-disabled="login.inProgress || login.username === ''" translate>Log in</button>
             </div>
           </div>
         </form>
