@@ -718,7 +718,7 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	meta, _ := json.Marshal(map[string]interface{}{
-		"deviceID": s.id.String(),
+		"deviceID":      s.id.String(),
 		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
