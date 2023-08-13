@@ -221,7 +221,7 @@ func handleLogout(cookieName string) http.Handler {
 			Secure: true,
 			Path: "/",
 		})
-		w.WriteHeader(204)
+		w.WriteHeader(http.StatusNoContent)
 	})
 }
 
