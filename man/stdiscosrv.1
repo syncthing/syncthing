@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STDISCOSRV" "1" "Jul 08, 2023" "v1.23.6" "Syncthing"
+.TH "STDISCOSRV" "1" "Aug 03, 2023" "v1.23.6" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .SH SYNOPSIS
@@ -438,6 +438,41 @@ configuration:
 .nf
 .ft C
 RemoteIPHeader X\-Forwarded\-For
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Caddy
+.sp
+The following lines must be added to the Caddyfile:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+  discovery.example.com {
+    reverse_proxy 192.0.2.1:8443 {
+      header_up X\-Forwarded\-For {http.request.remote.host}
+      header_up X\-Client\-Port {http.request.remote.port}
+      header_up X\-Tls\-Client\-Cert\-Der\-Base64 {http.request.tls.client.certificate_der_base64}
+    }
+
+    tls {
+      client_auth {
+        mode request
+      }
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+
 .ft P
 .fi
 .UNINDENT

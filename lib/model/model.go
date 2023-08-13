@@ -399,7 +399,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	// These are our metadata files, and they should always be hidden.
 	ffs := cfg.Filesystem(nil)
 	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(".stversions")
+	_ = ffs.Hide(versioner.DefaultPath)
 	_ = ffs.Hide(".stignore")
 
 	var ver versioner.Versioner
@@ -847,7 +847,7 @@ func (comp *FolderCompletion) setComplectionPct() {
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as JSON.
-func (comp FolderCompletion) Map() map[string]interface{} {
+func (comp *FolderCompletion) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"globalBytes": comp.GlobalBytes,
@@ -1110,22 +1110,23 @@ func (p *pager) done() bool {
 
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(deviceID, folder, fs, false)
+func (m *model) Index(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(conn, folder, fs, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
-func (m *model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(deviceID, folder, fs, true)
+func (m *model) IndexUpdate(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(conn, folder, fs, true)
 }
 
-func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) error {
+func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protocol.FileInfo, update bool) error {
 	op := "Index"
 	if update {
 		op += " update"
 	}
 
+	deviceID := conn.DeviceID()
 	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
@@ -1159,12 +1160,13 @@ type ClusterConfigReceivedEventData struct {
 	Device protocol.DeviceID `json:"device"`
 }
 
-func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) error {
+func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfig) error {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
+	deviceID := conn.DeviceID()
 	l.Debugf("Handling ClusterConfig from %v", deviceID.Short())
 
 	m.pmut.RLock()
@@ -1544,7 +1546,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	for _, conn := range ccConns {
-		cm, passwords := m.generateClusterConfig(conn.ID())
+		cm, passwords := m.generateClusterConfig(conn.DeviceID())
 		conn.SetFolderPasswords(passwords)
 		go conn.ClusterConfig(cm)
 	}
@@ -1774,7 +1776,8 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 // Closed is called when a connection has been closed
-func (m *model) Closed(device protocol.DeviceID, err error) {
+func (m *model) Closed(conn protocol.Connection, err error) {
+	device := conn.DeviceID()
 	m.pmut.Lock()
 	conn, ok := m.conn[device]
 	if !ok {
@@ -1834,10 +1837,12 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(deviceID protocol.DeviceID, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+func (m *model) Request(conn protocol.Connection, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
+
+	deviceID := conn.DeviceID()
 
 	m.fmut.RLock()
 	folderCfg, ok := m.folderCfgs[folder]
@@ -2214,7 +2219,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
 func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
-	deviceID := conn.ID()
+	deviceID := conn.DeviceID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Infoln("Trying to add connection to unknown device")
@@ -2303,11 +2308,12 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.deviceWasSeen(deviceID)
 }
 
-func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+func (m *model) DownloadProgress(conn protocol.Connection, folder string, updates []protocol.FileDownloadProgressUpdate) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
+	device := conn.DeviceID()
 	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
 		return nil
 	}

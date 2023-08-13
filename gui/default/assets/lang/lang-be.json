@@ -105,7 +105,6 @@
     "The maximum time to keep a version (in days, set to 0 to keep versions forever).": "The maximum time to keep a version (in days, set to 0 to keep versions forever).",
     "The number of old versions to keep, per file.": "Колькі старых вэрсій трымаць, для кожнага файлу.",
     "The number of versions must be a number and cannot be blank.": "The number of versions must be a number and cannot be blank.",
-    "Twitter": "Twitter",
     "Unknown": "Невядома",
     "Up to Date": "Найноўшае",
     "Upgrade To {%version%}": "Upgrade To {{version}}",

@@ -299,7 +299,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -1278,7 +1278,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	name := "foo"
 	if fd, err := f.mtimefs.Create(name); err != nil {
@@ -1296,7 +1296,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	if !ok {
 		t.Fatal("file missing")
 	}
-	must(t, m.Index(device1, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}}))
+	must(t, m.Index(conn, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}}))
 
 	scanChan := make(chan string)
 

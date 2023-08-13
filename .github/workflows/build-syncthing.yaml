@@ -3,12 +3,16 @@ name: Build Syncthing
 on:
   pull_request:
   push:
+  schedule:
+    # Run nightly build at 05:00 UTC
+    - cron: '00 05 * * *'
+  workflow_dispatch:
 
 env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "^1.20.3"
+  GO_VERSION: "~1.20.7"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -69,9 +73,19 @@ jobs:
         run: |
           go run build.go
 
+      - name: Install go-test-json-to-loki
+        run: |
+          go install calmh.dev/go-test-json-to-loki@latest
+
       - name: Test
         run: |
-          go run build.go test
+          go run build.go test | go-test-json-to-loki
+        env:
+          GOFLAGS: "-json"
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
+          LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
 
   #
   # Meta checks for formatting, copyright, etc
@@ -112,6 +126,7 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - govulncheck
     steps:
       - uses: actions/checkout@v3
 
@@ -375,6 +390,7 @@ jobs:
             | grep -v nacl/ \
             | grep -v plan9/ \
             | grep -v windows/ \
+            | grep -v /wasm \
           )
 
           for plat in $platforms; do
@@ -749,3 +765,25 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+
+  #
+  # Check for known vulnerabilities in Go dependencies
+  #
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Run govulncheck
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: run govulncheck
+        run: |
+          go run build.go assets
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...

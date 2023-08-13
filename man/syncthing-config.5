@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 08, 2023" "v1.23.6" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 03, 2023" "v1.23.6" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -1337,7 +1337,9 @@ ignores is usually not significant.
 .TP
 .B progressUpdateIntervalS
 How often in seconds the progress of ongoing downloads is made available to
-the GUI.
+the GUI. Set to \fB\-1\fP to disable. Note that when disabled, the detailed
+sync progress for Out of Sync Items which shows how much of each file has
+been reused, copied, and downloaded will not work.
 .UNINDENT
 .INDENT 0.0
 .TP

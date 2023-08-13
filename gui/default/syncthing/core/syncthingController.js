@@ -2817,9 +2817,17 @@ angular.module('syncthing.core')
 
             $scope.restoreVersions.tree.filterNodes(function (node) {
                 if (node.folder) return false;
-                if ($scope.restoreVersions.filters.text && node.key.indexOf($scope.restoreVersions.filters.text) < 0) {
-                    return false;
+
+                if ($scope.restoreVersions.filters.text) {
+                    // Use case-insensitive filter and convert backslashes to
+                    // forward slashes to allow using them as path separators.
+                    var filterText = $scope.restoreVersions.filters.text.toLowerCase().replace(/\\/g, '/');
+                    var versionPath = node.key.toLowerCase().replace(/\\/g, '/');
+                    if (versionPath.indexOf(filterText) < 0) {
+                        return false;
+                    }
                 }
+
                 if ($scope.restoreVersions.filterVersions(node.data.versions).length == 0) {
                     return false;
                 }
