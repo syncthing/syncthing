@@ -207,12 +207,15 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 
 func handleLogout(cookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		antiBruteForceSleep()
+
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
 			delete(sessions, cookie.Value)
 			sessionsMut.Unlock()
 		}
+		// else: If there is no session cookie, that's also a successful logout in terms of user experience.
 
 		http.SetCookie(w, &http.Cookie{
 			Name:   cookieName,

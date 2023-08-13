@@ -366,6 +366,8 @@ func (s *service) Serve(ctx context.Context) error {
 		sessionCookieName := "sessionid-"+s.id.String()[:5]
 		handler, handlePasswordAuth = authAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
+
+		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", handleLogout(sessionCookieName))
 	}
 
