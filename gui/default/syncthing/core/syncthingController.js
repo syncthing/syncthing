@@ -12,14 +12,10 @@ angular.module('syncthing.core')
         var online = false;
         var restarting = false;
 
-        // window.metadata is set in /meta.js which is behind API auth,
-        // so this will be present only when authenticated.
-        var authenticated = Boolean(window.metadata);
-
         function initController() {
             LocaleService.autoConfigLocale();
 
-            if (!authenticated) {
+            if (!$scope.authenticated) {
                 // Can't proceed yet - wait for the page reload after successful login.
                 return;
             }
@@ -30,7 +26,7 @@ angular.module('syncthing.core')
 
         // public/scope definitions
 
-        $scope.authenticated = authenticated;
+        $scope.authenticated = window.metadata && window.metadata.authenticated;
         $scope.login = {
             username: '',
             password: '',

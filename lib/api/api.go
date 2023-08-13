@@ -350,7 +350,7 @@ func (s *service) Serve(ctx context.Context) error {
 	mux.Handle("/", s.statics)
 
 	// Handle the special meta.js path
-	mux.HandleFunc("/meta.js", s.getJSMetadata)
+	mux.Handle("/meta.js", noCacheMiddleware(http.HandlerFunc(s.getJSMetadata)))
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
@@ -717,8 +717,9 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
-	meta, _ := json.Marshal(map[string]string{
+	meta, _ := json.Marshal(map[string]interface{}{
 		"deviceID": s.id.String(),
+		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)
