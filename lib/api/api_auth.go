@@ -37,18 +37,18 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
-func authFailureSleep() {
+func antiBruteForceSleep() {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 }
 
 func unauthorized(w http.ResponseWriter) {
-	authFailureSleep()
+	antiBruteForceSleep()
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
 func forbidden(w http.ResponseWriter) {
-	authFailureSleep()
+	antiBruteForceSleep()
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
