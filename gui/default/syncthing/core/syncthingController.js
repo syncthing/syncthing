@@ -3124,6 +3124,9 @@ angular.module('syncthing.core')
 
         $scope.docsURL = function (path) {
             var url = 'https://docs.syncthing.net';
+            if (!$scope.versionBase()) {
+                return url;
+            }
             if (!path) {
                 // Undefined or null should become a valid string.
                 path = '';
