@@ -135,7 +135,10 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 
 func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req struct{Username string; Password string}
+		var req struct {
+			Username string
+			Password string
+		}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse username and password:", err)
 			http.Error(w, "Failed to parse username and password.", 400)
@@ -196,7 +199,7 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 		Value:  sessionid,
 		MaxAge: 0,
 		Secure: useSecureCookie,
-		Path: "/",
+		Path:   "/",
 	})
 
 	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
