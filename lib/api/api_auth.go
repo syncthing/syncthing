@@ -37,18 +37,18 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	}
 }
 
-func authFailureSleep() {
+func antiBruteForceSleep() {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 }
 
 func unauthorized(w http.ResponseWriter) {
-	authFailureSleep()
+	antiBruteForceSleep()
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
 func forbidden(w http.ResponseWriter) {
-	authFailureSleep()
+	antiBruteForceSleep()
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
@@ -195,14 +195,39 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 	useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
 
 	http.SetCookie(w, &http.Cookie{
-		Name:   cookieName,
-		Value:  sessionid,
+		Name:  cookieName,
+		Value: sessionid,
+		// In HTTP spec Max-Age <= 0 means delete immediately,
+		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: 0,
 		Secure: useSecureCookie,
 		Path:   "/",
 	})
 
 	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
+}
+
+func handleLogout(cookieName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		antiBruteForceSleep()
+
+		cookie, err := r.Cookie(cookieName)
+		if err == nil && cookie != nil {
+			sessionsMut.Lock()
+			delete(sessions, cookie.Value)
+			sessionsMut.Unlock()
+		}
+		// else: If there is no session cookie, that's also a successful logout in terms of user experience.
+
+		http.SetCookie(w, &http.Cookie{
+			Name:   cookieName,
+			Value:  "",
+			MaxAge: -1,
+			Secure: true,
+			Path:   "/",
+		})
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
