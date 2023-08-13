@@ -74,7 +74,7 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/rest/noauth") {
+	if strings.HasPrefix(r.URL.Path, "/rest/noauth") { // FIXME: this duplicates some logic in basicAuthAndSessionMiddleware in api_auth.go
 		// REST calls that don't require authentication also do not
 		// need a CSRF token.
 		m.next.ServeHTTP(w, r)
