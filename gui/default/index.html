@@ -340,12 +340,12 @@
         <form ng-submit="authenticatePassword()">
           <div class="form-group">
             <label for="user" translate>User</label>
-            <input id="user" class="form-control" type="text" ng-model="login.username" autofocus required />
+            <input id="user" class="form-control" type="text" ng-model="login.username" autofocus required autocomplete="username" />
           </div>
 
           <div class="form-group">
             <label for="password" translate>Password</label>
-            <input id="password" class="form-control" type="password" ng-model="login.password" ng-trim="false" />
+            <input id="password" class="form-control" type="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
           </div>
 
           <div class="row">
