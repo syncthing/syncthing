@@ -340,7 +340,7 @@
         <form ng-submit="authenticatePassword()">
           <div class="form-group">
             <label for="user" translate>User</label>
-            <input id="user" class="form-control" type="text" ng-model="login.username" autofocus />
+            <input id="user" class="form-control" type="text" ng-model="login.username" autofocus required />
           </div>
 
           <div class="form-group">
@@ -358,7 +358,7 @@
               </p>
             </div>
             <div class="col-md-3 text-right">
-              <button type="submit" class="btn btn-default" ng-disabled="login.inProgress || login.username === ''" translate>Log in</button>
+              <button type="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log in</button>
             </div>
           </div>
         </form>
