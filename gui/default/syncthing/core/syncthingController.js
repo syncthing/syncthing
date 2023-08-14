@@ -26,7 +26,9 @@ angular.module('syncthing.core')
 
         // public/scope definitions
 
+        // window.metadata is set in /meta.js which requires authentication
         $scope.authenticated = window.metadata && window.metadata.authenticated;
+
         $scope.login = {
             username: '',
             password: '',
