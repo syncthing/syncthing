@@ -65,3 +65,53 @@ func TestAuthLDAPSendsCorrectBindDNWithNoTemplate(t *testing.T) {
 		t.Fatalf("ldapTemplateBindDN should be %s != %s", expectedDn, templatedDn)
 	}
 }
+
+func TestNoAuthPathsIsImmutable(t *testing.T) {
+	t.Parallel()
+
+	original := noAuthPaths()
+
+	mutated := noAuthPaths()
+	for i := range mutated {
+		mutated[i] = mutated[i] + "flrglgrgldrgl"
+	}
+
+	final := noAuthPaths()
+
+	if len(final) != len(original) {
+		t.Fatal("noAuthPaths is not immutable")
+	}
+	for i := range original {
+		if final[i] != original[i] {
+			t.Fatal("noAuthPaths is not immutable")
+		}
+		if final[i] == mutated[i] {
+			t.Fatal("noAuthPrefixes is not immutable")
+		}
+	}
+}
+
+func TestNoAuthPrefixesIsImmutable(t *testing.T) {
+	t.Parallel()
+
+	original := noAuthPrefixes()
+
+	mutated := noAuthPrefixes()
+	for i := range mutated {
+		mutated[i] = mutated[i] + "flrglgrgldrgl"
+	}
+
+	final := noAuthPrefixes()
+
+	if len(final) != len(original) {
+		t.Fatal("noAuthPrefixes is not immutable")
+	}
+	for i := range original {
+		if final[i] != original[i] {
+			t.Fatal("noAuthPrefixes is not immutable")
+		}
+		if final[i] == mutated[i] {
+			t.Fatal("noAuthPrefixes is not immutable")
+		}
+	}
+}
