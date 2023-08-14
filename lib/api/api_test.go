@@ -835,6 +835,43 @@ func TestHtmlFormLogin(t *testing.T) {
 	})
 }
 
+func TestApiCache(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		RawAddress: "127.0.0.1:0",
+		APIKey:     testAPIKey,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cancel)
+
+	httpGet := func(url string, bearer string) *http.Response {
+		return httpGet(url, "", "", "", bearer, nil, t)
+	}
+
+	t.Run("meta.js has no-cache headers", func(t *testing.T) {
+		t.Parallel()
+		url := baseURL + "/meta.js"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
+		}
+	})
+
+	t.Run("/rest/ has no-cache headers", func(t *testing.T) {
+		t.Parallel()
+		url := baseURL + "/rest/system/version"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
+		}
+	})
+}
+
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
