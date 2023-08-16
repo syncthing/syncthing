@@ -21,9 +21,8 @@ import (
 )
 
 var quicConfig = &quic.Config{
-	ConnectionIDLength: 4,
-	MaxIdleTimeout:     30 * time.Second,
-	KeepAlivePeriod:    15 * time.Second,
+	MaxIdleTimeout:  30 * time.Second,
+	KeepAlivePeriod: 15 * time.Second,
 }
 
 func quicNetwork(uri *url.URL) string {
@@ -61,11 +60,15 @@ func (q *quicTlsConn) Close() error {
 }
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
-	return q.Connection.ConnectionState().TLS.ConnectionState
+	return q.Connection.ConnectionState().TLS
 }
 
-func packetConnUnspecified(conn interface{}) bool {
-	addr := conn.(net.PacketConn).LocalAddr()
+func packetConnUnspecified(conn any) bool {
+	tran, ok := conn.(*quic.Transport)
+	if !ok {
+		return false
+	}
+	addr := tran.Conn.LocalAddr()
 	ip, err := osutil.IPFromAddr(addr)
 	return err == nil && ip.IsUnspecified()
 }
