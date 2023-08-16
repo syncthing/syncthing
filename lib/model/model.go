@@ -2409,6 +2409,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 }
 
 func (m *model) scheduleConnectionPromotion() {
+	// Keeps deferring to prevent multiple executions in quick succession, e.g. if multiple connections to a single device are closed.
 	m.promotionTimer.Reset(time.Second)
 }
 
