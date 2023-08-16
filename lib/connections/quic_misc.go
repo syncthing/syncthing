@@ -65,7 +65,7 @@ func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 	return q.Connection.ConnectionState().TLS
 }
 
-func packetConnUnspecified(conn any) bool {
+func transportConnUnspecified(conn any) bool {
 	tran, ok := conn.(*quic.Transport)
 	if !ok {
 		return false
@@ -94,14 +94,13 @@ func (t *writeTrackingTracer) LastWrite() time.Time {
 	return time.Unix(0, t.lastWrite.Load())
 }
 
+// A transportPacketConn is a net.PacketConn that uses a quic.Transport.
 type transportPacketConn struct {
 	tran *quic.Transport
 }
 
-var _ = net.PacketConn(&transportPacketConn{})
-
 func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	return 0, nil, errUnsupported // XXX
+	return 0, nil, errUnsupported // XXX to be implemented when supported
 }
 
 func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {

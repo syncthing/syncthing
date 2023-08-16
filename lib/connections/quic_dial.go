@@ -55,7 +55,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	// If we created the conn we need to close it at the end. If we got a
 	// Transport from the registry we have no conn to close.
 	var createdConn net.PacketConn
-	transport, _ := d.registry.Get(uri.Scheme, packetConnUnspecified).(*quic.Transport)
+	transport, _ := d.registry.Get(uri.Scheme, transportConnUnspecified).(*quic.Transport)
 	if transport == nil {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
 			return internalConn{}, err
