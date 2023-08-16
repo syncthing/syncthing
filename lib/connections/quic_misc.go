@@ -13,9 +13,11 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/logging"
 
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -71,4 +73,57 @@ func packetConnUnspecified(conn any) bool {
 	addr := tran.Conn.LocalAddr()
 	ip, err := osutil.IPFromAddr(addr)
 	return err == nil && ip.IsUnspecified()
+}
+
+type writeTrackingTracer struct {
+	lastWrite atomic.Int64 // unix nanos
+}
+
+func (t *writeTrackingTracer) SentPacket(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
+	t.lastWrite.Store(time.Now().UnixNano())
+}
+
+func (t *writeTrackingTracer) SentVersionNegotiationPacket(_ net.Addr, dest, src logging.ArbitraryLenConnectionID, _ []quic.VersionNumber) {
+	t.lastWrite.Store(time.Now().UnixNano())
+}
+
+func (t *writeTrackingTracer) DroppedPacket(net.Addr, logging.PacketType, logging.ByteCount, logging.PacketDropReason) {
+}
+
+func (t *writeTrackingTracer) LastWrite() time.Time {
+	return time.Unix(0, t.lastWrite.Load())
+}
+
+type transportPacketConn struct {
+	tran *quic.Transport
+}
+
+var _ = net.PacketConn(&transportPacketConn{})
+
+func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	return 0, nil, errUnsupported // XXX
+}
+
+func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	return t.tran.WriteTo(p, addr)
+}
+
+func (t *transportPacketConn) Close() error {
+	return errUnsupported
+}
+
+func (t *transportPacketConn) LocalAddr() net.Addr {
+	return t.tran.Conn.LocalAddr()
+}
+
+func (t *transportPacketConn) SetDeadline(_ time.Time) error {
+	return errUnsupported
+}
+
+func (t *transportPacketConn) SetReadDeadline(_ time.Time) error {
+	return errUnsupported
+}
+
+func (t *transportPacketConn) SetWriteDeadline(_ time.Time) error {
+	return errUnsupported
 }

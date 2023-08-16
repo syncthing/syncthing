@@ -171,7 +171,7 @@
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>quic://127.0.0.1:22002</listenAddress>
+        <listenAddress>quic://:22002</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>

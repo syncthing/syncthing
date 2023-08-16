@@ -97,11 +97,14 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer func() { _ = udpConn.Close() }()
 
-	quicTransport := &quic.Transport{Conn: udpConn}
+	tracer := &writeTrackingTracer{}
+	quicTransport := &quic.Transport{
+		Conn:   udpConn,
+		Tracer: tracer,
+	}
 
-	// svc, conn := stun.New(t.cfg, t, udpConn)
-	// defer conn.Close()
-	// go svc.Serve(ctx)
+	svc := stun.New(t.cfg, t, &transportPacketConn{quicTransport}, tracer)
+	go svc.Serve(ctx)
 
 	t.registry.Register(t.uri.Scheme, quicTransport)
 	defer t.registry.Unregister(t.uri.Scheme, quicTransport)
