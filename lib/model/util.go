@@ -19,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture/v4"
 )
 
 type Holdable interface {
@@ -173,58 +172,5 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 		case <-ctx.Done():
 			return
 		}
-	}
-}
-
-// A serviceMap is a utility map of arbitrary keys to a suture.Service of
-// some kind, where adding and removing services ensures they are properly
-// started and stopped on the given Supervisor.
-type serviceMap[K comparable, S suture.Service] struct {
-	services   map[K]S
-	tokens     map[K]suture.ServiceToken
-	supervisor *suture.Supervisor
-}
-
-func newServiceMap[K comparable, S suture.Service](s *suture.Supervisor) *serviceMap[K, S] {
-	return &serviceMap[K, S]{
-		services:   make(map[K]S),
-		tokens:     make(map[K]suture.ServiceToken),
-		supervisor: s,
-	}
-}
-
-func (s *serviceMap[K, S]) Add(k K, v S) {
-	s.services[k] = v
-	s.tokens[k] = s.supervisor.Add(v)
-}
-
-func (s *serviceMap[K, S]) Get(k K) (v S, ok bool) {
-	v, ok = s.services[k]
-	return
-}
-
-func (s *serviceMap[K, S]) Remove(k K) (found bool) {
-	if tok, ok := s.tokens[k]; ok {
-		found = true
-		s.supervisor.Remove(tok)
-	}
-	delete(s.services, k)
-	delete(s.tokens, k)
-	return
-}
-
-func (s *serviceMap[K, S]) RemoveAndWait(k K, timeout time.Duration) (found bool) {
-	if tok, ok := s.tokens[k]; ok {
-		found = true
-		s.supervisor.RemoveAndWait(tok, timeout)
-	}
-	delete(s.services, k)
-	delete(s.tokens, k)
-	return found
-}
-
-func (s *serviceMap[K, S]) Each(fn func(K, S)) {
-	for key, svc := range s.services {
-		fn(key, svc)
 	}
 }

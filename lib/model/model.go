@@ -249,12 +249,13 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
-		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](sup),
+		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
 	}
 	m.Add(m.progressEmitter)
+	m.Add(m.indexHandlers)
 	m.Add(svcutil.AsService(m.serve, m.String()))
 
 	return m
@@ -1793,7 +1794,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remoteFolderStates, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
-	m.indexHandlers.Remove(device)
+	m.indexHandlers.RemoveAndWait(device, 0)
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)

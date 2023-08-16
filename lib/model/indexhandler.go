@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture/v4"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -372,7 +370,6 @@ func (s *indexHandler) String() string {
 }
 
 type indexHandlerRegistry struct {
-	*suture.Supervisor
 	evLogger      events.Logger
 	conn          protocol.Connection
 	downloads     *deviceDownloadState
@@ -390,16 +387,21 @@ type indexHandlerFolderState struct {
 
 func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
-		conn:         conn,
-		downloads:    downloads,
-		evLogger:     evLogger,
-		startInfos:   make(map[string]*clusterConfigDeviceInfo),
-		folderStates: make(map[string]*indexHandlerFolderState),
-		mut:          sync.Mutex{},
+		conn:          conn,
+		downloads:     downloads,
+		indexHandlers: newServiceMap[string, *indexHandler](),
+		evLogger:      evLogger,
+		startInfos:    make(map[string]*clusterConfigDeviceInfo),
+		folderStates:  make(map[string]*indexHandlerFolderState),
+		mut:           sync.Mutex{},
 	}
-	r.Supervisor = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
-	r.indexHandlers = newServiceMap[string, *indexHandler](r.Supervisor)
 	return r
+}
+
+func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
+	// Running the index handler registry means running the individual index
+	// handler children.
+	return r.indexHandlers.Serve(ctx)
 }
 
 func (r *indexHandlerRegistry) String() string {
