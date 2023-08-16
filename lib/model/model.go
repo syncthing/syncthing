@@ -206,9 +206,8 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
-	sup := suture.New("model", spec)
 	m := &model{
-		Supervisor: sup,
+		Supervisor: suture.New("model", spec),
 
 		// constructor parameters
 		cfg:            cfg,

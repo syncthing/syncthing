@@ -387,10 +387,10 @@ type indexHandlerFolderState struct {
 
 func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
+		evLogger:      evLogger,
 		conn:          conn,
 		downloads:     downloads,
 		indexHandlers: newServiceMap[string, *indexHandler](),
-		evLogger:      evLogger,
 		startInfos:    make(map[string]*clusterConfigDeviceInfo),
 		folderStates:  make(map[string]*indexHandlerFolderState),
 		mut:           sync.Mutex{},
