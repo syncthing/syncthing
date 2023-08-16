@@ -398,14 +398,14 @@ func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownload
 	return r
 }
 
+func (r *indexHandlerRegistry) String() string {
+	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
+}
+
 func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
 	// Running the index handler registry means running the individual index
 	// handler children.
 	return r.indexHandlers.Serve(ctx)
-}
-
-func (r *indexHandlerRegistry) String() string {
-	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
 }
 
 func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
