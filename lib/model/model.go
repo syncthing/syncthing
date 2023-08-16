@@ -165,7 +165,7 @@ type model struct {
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remoteFolderStates  map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
-	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
+	indexHandlers       *serviceMap[protocol.DeviceID, *indexHandlerRegistry]
 
 	// for testing only
 	foldersRunning atomic.Int32
@@ -206,8 +206,9 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
+	sup := suture.New("model", spec)
 	m := &model{
-		Supervisor: suture.New("model", spec),
+		Supervisor: sup,
 
 		// constructor parameters
 		cfg:            cfg,
@@ -248,7 +249,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
-		indexHandlers:       make(map[protocol.DeviceID]*indexHandlerRegistry),
+		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](sup),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -487,9 +488,9 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	}
 
 	m.cleanupFolderLocked(cfg)
-	for _, r := range m.indexHandlers {
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
 		r.Remove(cfg.ID)
-	}
+	})
 
 	m.fmut.Unlock()
 	m.pmut.RUnlock()
@@ -563,9 +564,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	for _, indexRegistry := range m.indexHandlers {
-		indexRegistry.RegisterFolderState(to, fset, m.folderRunners[to.ID])
-	}
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
+		r.RegisterFolderState(to, fset, m.folderRunners[to.ID])
+	})
 	m.pmut.RUnlock()
 
 	var infoMsg string
@@ -601,9 +602,9 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	for _, indexRegistry := range m.indexHandlers {
-		indexRegistry.RegisterFolderState(cfg, fset, m.folderRunners[cfg.ID])
-	}
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
+		r.RegisterFolderState(cfg, fset, m.folderRunners[cfg.ID])
+	})
 	m.pmut.RUnlock()
 
 	return nil
@@ -1138,7 +1139,7 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 	}
 
 	m.pmut.RLock()
-	indexHandler, ok := m.indexHandlers[deviceID]
+	indexHandler, ok := m.indexHandlers.Get(deviceID)
 	m.pmut.RUnlock()
 	if !ok {
 		// This should be impossible, as an index handler always exists for an
@@ -1170,7 +1171,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 	l.Debugf("Handling ClusterConfig from %v", deviceID.Short())
 
 	m.pmut.RLock()
-	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
+	indexHandlerRegistry, ok := m.indexHandlers.Get(deviceID)
 	m.pmut.RUnlock()
 	if !ok {
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
@@ -1792,7 +1793,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remoteFolderStates, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
-	delete(m.indexHandlers, device)
+	m.indexHandlers.Remove(device)
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
@@ -2251,11 +2252,11 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	closed := make(chan struct{})
 	m.closed[deviceID] = closed
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.Supervisor, m.evLogger)
+	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
-	m.indexHandlers[deviceID] = indexRegistry
+	m.indexHandlers.Add(deviceID, indexRegistry)
 	m.fmut.RUnlock()
 	// 0: default, <0: no limiting
 	switch {
