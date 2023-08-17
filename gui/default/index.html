@@ -340,20 +340,20 @@
         <form ng-submit="authenticatePassword()">
           <div class="form-group">
             <label for="user" translate>User</label>
-            <input id="user" class="form-control" type="text" ng-model="login.username" autofocus required autocomplete="username" />
+            <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
           </div>
 
           <div class="form-group">
             <label for="password" translate>Password</label>
-            <input id="password" class="form-control" type="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
+            <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
           </div>
 
           <div class="row">
             <div class="col-md-9 login-form-messages">
-              <p ng-if="login.errors.badLogin" class="text-danger">
+              <p ng-if="login.errors.badLogin" class="text-danger" translate>
                 Incorrect user name or password.
               </p>
-              <p ng-if="login.errors.failed" class="text-danger">
+              <p ng-if="login.errors.failed" class="text-danger" translate>
                 Login failed, see Syncthing logs for details.
               </p>
             </div>

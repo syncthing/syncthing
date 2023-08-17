@@ -86,7 +86,7 @@ func TestNoAuthPathsIsImmutable(t *testing.T) {
 			t.Fatal("noAuthPaths is not immutable")
 		}
 		if final[i] == mutated[i] {
-			t.Fatal("noAuthPrefixes is not immutable")
+			t.Fatal("noAuthPaths is not immutable")
 		}
 	}
 }
