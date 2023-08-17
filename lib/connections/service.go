@@ -11,10 +11,14 @@ package connections
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base32"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/url"
@@ -23,6 +27,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/discover"
@@ -278,13 +283,35 @@ func (s *service) handleConns(ctx context.Context) error {
 
 		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
 		go func() {
-			hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
+			// Exchange Hello messages with the peer.
+			outgoing := s.helloForDevice(remoteID, c)
+			incoming, err := protocol.ExchangeHello(c, outgoing)
+			// The timestamps are used to create the connection ID.
+			c.connectionID = newConnectionID(outgoing.Timestamp, incoming.Timestamp)
+
 			select {
-			case s.hellos <- &connWithHello{c, hello, err, remoteID, remoteCert}:
+			case s.hellos <- &connWithHello{c, incoming, err, remoteID, remoteCert}:
 			case <-ctx.Done():
 			}
 		}()
 	}
+}
+
+func (s *service) helloForDevice(remoteID protocol.DeviceID, conn internalConn) protocol.Hello {
+	hello := protocol.Hello{
+		ClientName:    "syncthing",
+		ClientVersion: build.Version,
+		Timestamp:     time.Now().UnixNano(),
+	}
+	if cfg, ok := s.cfg.Device(remoteID); ok {
+		hello.NumConnections = cfg.NumConnections
+		// Set our name (from the config of our device ID) only if we
+		// already know about the other side device ID.
+		if myCfg, ok := s.cfg.Device(s.myID); ok {
+			hello.DeviceName = myCfg.Name
+		}
+	}
+	return hello
 }
 
 func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalConn) error {
@@ -416,7 +443,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
-		s.accountAddedConnection(remoteID, &hello)
+		s.accountAddedConnection(remoteID, hello)
 		go func() {
 			<-protoConn.Closed()
 			s.accountRemovedConnection(remoteID)
@@ -1327,7 +1354,7 @@ type deviceConnectionCounter struct {
 	wantSecondaries map[protocol.DeviceID]int // number of secondary (additional) connections they want
 }
 
-func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID, h *protocol.Hello) {
+func (c *deviceConnectionCounter) accountAddedConnection(d protocol.DeviceID, h protocol.Hello) {
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	if c.connections == nil {
@@ -1365,4 +1392,24 @@ func (c *deviceConnectionCounter) numConnectedDevices() int {
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	return len(c.connections)
+}
+
+// newConnectionID generates a connection ID. The connection ID is designed
+// to be unique for each connection and chronologically sortable. It is
+// based on the sum of two timestamps: when we think the connection was
+// started, and when the other side thinks the connection was started. We
+// then add some random data for good measure. This way, even if the other
+// side does some funny business with the timestamp, we will get no worse
+// than random connection IDs.
+func newConnectionID(t0, t1 int64) string {
+	var buf [16]byte // 8 bytes timestamp, 8 bytes random
+	binary.BigEndian.PutUint64(buf[:], uint64(t0+t1))
+	_, _ = io.ReadFull(rand.Reader, buf[8:])
+	enc := base32.HexEncoding.WithPadding(base32.NoPadding)
+	// We encode the two parts separately and concatenate the results. The
+	// reason for this is that the timestamp (64 bits) doesn't precisely
+	// align to the base32 encoding (5 bits per character), so we'd get a
+	// character in the middle that is a mix of bits from the timestamp and
+	// from the random. We want the timestamp part deterministic.
+	return enc.EncodeToString(buf[:8]) + enc.EncodeToString(buf[8:])
 }

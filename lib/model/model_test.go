@@ -270,7 +270,7 @@ func TestDeviceRename(t *testing.T) {
 	cfg, cfgCancel := newConfigWrapper(rawCfg)
 	defer cfgCancel()
 
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -422,7 +422,7 @@ func TestClusterConfig(t *testing.T) {
 
 	wrapper, cancel := newConfigWrapper(cfg)
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1625,7 +1625,7 @@ func TestROScanRecovery(t *testing.T) {
 		},
 	})
 	defer cancel()
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -1672,7 +1672,7 @@ func TestRWScanRecovery(t *testing.T) {
 		},
 	})
 	defer cancel()
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -2072,7 +2072,7 @@ func TestIssue4357(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper, cancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2124,7 +2124,7 @@ func TestIssue4357(t *testing.T) {
 }
 
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
-	m := newModel(t, defaultCfgWrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, defaultCfgWrapper, myID, nil)
 
 	files := newFileSet(t, "default", m.db)
 	files.Drop(device1)
@@ -2373,7 +2373,7 @@ func TestCustomMarkerName(t *testing.T) {
 
 	ffs := fcfg.Filesystem(nil)
 
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -2735,7 +2735,7 @@ func TestIssue4094(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper, cancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -3691,7 +3691,7 @@ func TestIssue6961(t *testing.T) {
 	must(t, err)
 	waiter.Wait()
 	// Always recalc/repair when opening a fileset.
-	m := newModel(t, wcfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, wcfg, myID, nil)
 	m.db.Close()
 	m.db, err = db.NewLowlevel(backend.OpenMemory(), m.evLogger, db.WithRecheckInterval(time.Millisecond))
 	if err != nil {
@@ -3953,7 +3953,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// A connection can happen before all the folders are started.

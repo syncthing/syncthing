@@ -129,7 +129,7 @@ func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testM
 
 func setupModel(t testing.TB, w config.Wrapper) *testModel {
 	t.Helper()
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	m.ServeBackground()
 	<-m.started
 
@@ -146,14 +146,14 @@ type testModel struct {
 	stopped  chan struct{}
 }
 
-func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, protectedFiles []string) *testModel {
+func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
 	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	m := NewModel(cfg, id, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{

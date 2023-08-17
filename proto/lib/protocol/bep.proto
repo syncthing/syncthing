@@ -12,6 +12,7 @@ message Hello {
     string client_name     = 2;
     string client_version  = 3;
     int32  num_connections = 4;
+    int64  timestamp       = 5;
 }
 
 // --- Header ---

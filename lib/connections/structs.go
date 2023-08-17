@@ -8,10 +8,7 @@ package connections
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
-	"encoding/base32"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -45,7 +42,7 @@ type internalConn struct {
 	isLocal       bool
 	priority      int
 	establishedAt time.Time
-	connectionID  string
+	connectionID  string // set after Hello exchange
 }
 
 type connType int
@@ -99,17 +96,7 @@ func newInternalConn(tc tlsConn, connType connType, isLocal bool, priority int) 
 		isLocal:       isLocal,
 		priority:      priority,
 		establishedAt: now.Truncate(time.Second),
-		connectionID:  newConnectionID(tc, connType, now),
 	}
-}
-
-// newConnectionID generates a connection ID. The connection ID is designed
-// to be unique for each connection and chronologicall sortable.
-func newConnectionID(tc tlsConn, connType connType, now time.Time) string {
-	buf := make([]byte, 16) // 8 bytes timestamp, 8 bytes random
-	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
-	_, _ = io.ReadFull(rand.Reader, buf[8:])
-	return base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
 }
 
 func (c internalConn) Close() error {
@@ -239,7 +226,6 @@ type Model interface {
 	AddConnection(conn protocol.Connection, hello protocol.Hello)
 	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
-	GetHello(protocol.DeviceID) protocol.HelloIntf
 	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 }
 

@@ -125,8 +125,6 @@ type model struct {
 	// constructor parameters
 	cfg            config.Wrapper
 	id             protocol.DeviceID
-	clientName     string
-	clientVersion  string
 	db             *db.Lowlevel
 	protectedFiles []string
 	evLogger       events.Logger
@@ -207,7 +205,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
@@ -215,8 +213,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		// constructor parameters
 		cfg:            cfg,
 		id:             id,
-		clientName:     clientName,
-		clientVersion:  clientVersion,
 		db:             ldb,
 		protectedFiles: protectedFiles,
 		evLogger:       evLogger,
@@ -2325,23 +2321,6 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDeviceUnknown
 	}
 	return nil
-}
-
-// GetHello is called when we are about to connect to some remote device.
-func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
-	hello := &protocol.Hello{
-		ClientName:    m.clientName,
-		ClientVersion: m.clientVersion,
-	}
-	if cfg, ok := m.cfg.Device(id); ok {
-		hello.NumConnections = cfg.NumConnections
-		// Set our name (from the config of our device ID) only if we
-		// already know about the other side device ID.
-		if myCfg, ok := m.cfg.Device(m.id); ok {
-			hello.DeviceName = myCfg.Name
-		}
-	}
-	return hello
 }
 
 // AddConnection adds a new peer connection to the model. An initial index will

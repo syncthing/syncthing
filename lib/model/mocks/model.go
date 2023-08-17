@@ -262,17 +262,6 @@ type Model struct {
 		result1 map[string][]versioner.FileVersion
 		result2 error
 	}
-	GetHelloStub        func(protocol.DeviceID) protocol.HelloIntf
-	getHelloMutex       sync.RWMutex
-	getHelloArgsForCall []struct {
-		arg1 protocol.DeviceID
-	}
-	getHelloReturns struct {
-		result1 protocol.HelloIntf
-	}
-	getHelloReturnsOnCall map[int]struct {
-		result1 protocol.HelloIntf
-	}
 	GetMtimeMappingStub        func(string, string) (fs.MtimeMapping, error)
 	getMtimeMappingMutex       sync.RWMutex
 	getMtimeMappingArgsForCall []struct {
@@ -377,16 +366,6 @@ type Model struct {
 		result2 []db.FileInfoTruncated
 		result3 []db.FileInfoTruncated
 		result4 error
-	}
-	NumConnectionsStub        func() int
-	numConnectionsMutex       sync.RWMutex
-	numConnectionsArgsForCall []struct {
-	}
-	numConnectionsReturns struct {
-		result1 int
-	}
-	numConnectionsReturnsOnCall map[int]struct {
-		result1 int
 	}
 	OnHelloStub        func(protocol.DeviceID, net.Addr, protocol.Hello) error
 	onHelloMutex       sync.RWMutex
@@ -1797,67 +1776,6 @@ func (fake *Model) GetFolderVersionsReturnsOnCall(i int, result1 map[string][]ve
 	}{result1, result2}
 }
 
-func (fake *Model) GetHello(arg1 protocol.DeviceID) protocol.HelloIntf {
-	fake.getHelloMutex.Lock()
-	ret, specificReturn := fake.getHelloReturnsOnCall[len(fake.getHelloArgsForCall)]
-	fake.getHelloArgsForCall = append(fake.getHelloArgsForCall, struct {
-		arg1 protocol.DeviceID
-	}{arg1})
-	stub := fake.GetHelloStub
-	fakeReturns := fake.getHelloReturns
-	fake.recordInvocation("GetHello", []interface{}{arg1})
-	fake.getHelloMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Model) GetHelloCallCount() int {
-	fake.getHelloMutex.RLock()
-	defer fake.getHelloMutex.RUnlock()
-	return len(fake.getHelloArgsForCall)
-}
-
-func (fake *Model) GetHelloCalls(stub func(protocol.DeviceID) protocol.HelloIntf) {
-	fake.getHelloMutex.Lock()
-	defer fake.getHelloMutex.Unlock()
-	fake.GetHelloStub = stub
-}
-
-func (fake *Model) GetHelloArgsForCall(i int) protocol.DeviceID {
-	fake.getHelloMutex.RLock()
-	defer fake.getHelloMutex.RUnlock()
-	argsForCall := fake.getHelloArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *Model) GetHelloReturns(result1 protocol.HelloIntf) {
-	fake.getHelloMutex.Lock()
-	defer fake.getHelloMutex.Unlock()
-	fake.GetHelloStub = nil
-	fake.getHelloReturns = struct {
-		result1 protocol.HelloIntf
-	}{result1}
-}
-
-func (fake *Model) GetHelloReturnsOnCall(i int, result1 protocol.HelloIntf) {
-	fake.getHelloMutex.Lock()
-	defer fake.getHelloMutex.Unlock()
-	fake.GetHelloStub = nil
-	if fake.getHelloReturnsOnCall == nil {
-		fake.getHelloReturnsOnCall = make(map[int]struct {
-			result1 protocol.HelloIntf
-		})
-	}
-	fake.getHelloReturnsOnCall[i] = struct {
-		result1 protocol.HelloIntf
-	}{result1}
-}
-
 func (fake *Model) GetMtimeMapping(arg1 string, arg2 string) (fs.MtimeMapping, error) {
 	fake.getMtimeMappingMutex.Lock()
 	ret, specificReturn := fake.getMtimeMappingReturnsOnCall[len(fake.getMtimeMappingArgsForCall)]
@@ -2329,59 +2247,6 @@ func (fake *Model) NeedFolderFilesReturnsOnCall(i int, result1 []db.FileInfoTrun
 		result3 []db.FileInfoTruncated
 		result4 error
 	}{result1, result2, result3, result4}
-}
-
-func (fake *Model) NumConnections() int {
-	fake.numConnectionsMutex.Lock()
-	ret, specificReturn := fake.numConnectionsReturnsOnCall[len(fake.numConnectionsArgsForCall)]
-	fake.numConnectionsArgsForCall = append(fake.numConnectionsArgsForCall, struct {
-	}{})
-	stub := fake.NumConnectionsStub
-	fakeReturns := fake.numConnectionsReturns
-	fake.recordInvocation("NumConnections", []interface{}{})
-	fake.numConnectionsMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Model) NumConnectionsCallCount() int {
-	fake.numConnectionsMutex.RLock()
-	defer fake.numConnectionsMutex.RUnlock()
-	return len(fake.numConnectionsArgsForCall)
-}
-
-func (fake *Model) NumConnectionsCalls(stub func() int) {
-	fake.numConnectionsMutex.Lock()
-	defer fake.numConnectionsMutex.Unlock()
-	fake.NumConnectionsStub = stub
-}
-
-func (fake *Model) NumConnectionsReturns(result1 int) {
-	fake.numConnectionsMutex.Lock()
-	defer fake.numConnectionsMutex.Unlock()
-	fake.NumConnectionsStub = nil
-	fake.numConnectionsReturns = struct {
-		result1 int
-	}{result1}
-}
-
-func (fake *Model) NumConnectionsReturnsOnCall(i int, result1 int) {
-	fake.numConnectionsMutex.Lock()
-	defer fake.numConnectionsMutex.Unlock()
-	fake.NumConnectionsStub = nil
-	if fake.numConnectionsReturnsOnCall == nil {
-		fake.numConnectionsReturnsOnCall = make(map[int]struct {
-			result1 int
-		})
-	}
-	fake.numConnectionsReturnsOnCall[i] = struct {
-		result1 int
-	}{result1}
 }
 
 func (fake *Model) OnHello(arg1 protocol.DeviceID, arg2 net.Addr, arg3 protocol.Hello) error {
@@ -3449,8 +3314,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.folderStatisticsMutex.RUnlock()
 	fake.getFolderVersionsMutex.RLock()
 	defer fake.getFolderVersionsMutex.RUnlock()
-	fake.getHelloMutex.RLock()
-	defer fake.getHelloMutex.RUnlock()
 	fake.getMtimeMappingMutex.RLock()
 	defer fake.getMtimeMappingMutex.RUnlock()
 	fake.globalDirectoryTreeMutex.RLock()
@@ -3465,8 +3328,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.localChangedFolderFilesMutex.RUnlock()
 	fake.needFolderFilesMutex.RLock()
 	defer fake.needFolderFilesMutex.RUnlock()
-	fake.numConnectionsMutex.RLock()
-	defer fake.numConnectionsMutex.RUnlock()
 	fake.onHelloMutex.RLock()
 	defer fake.onHelloMutex.RUnlock()
 	fake.overrideMutex.RLock()
