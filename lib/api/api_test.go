@@ -959,6 +959,10 @@ func TestCSRFRequired(t *testing.T) {
 		}
 	}
 
+	if csrfTokenValue == "" {
+		t.Fatal("Failed to initialize CSRF test: no CSRF cookie returned from " + baseURL)
+	}
+
 	t.Run("/rest without a token should fail", func(t *testing.T) {
 		t.Parallel()
 		resp, err := cli.Get(baseURL + "/rest/system/config")
