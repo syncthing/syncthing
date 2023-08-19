@@ -10,6 +10,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
@@ -100,7 +101,7 @@ type transportPacketConn struct {
 }
 
 func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	return 0, nil, errUnsupported // XXX to be implemented when supported
+	return t.tran.ReadNonQUICPacket(context.TODO(), p)
 }
 
 func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
