@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/thejerf/suture/v4"
 )
@@ -21,15 +22,17 @@ import (
 // suture.Service and should be added to a Supervisor.
 // Not safe for concurrent use.
 type serviceMap[K comparable, S suture.Service] struct {
-	services   map[K]S
-	tokens     map[K]suture.ServiceToken
-	supervisor *suture.Supervisor
+	services    map[K]S
+	tokens      map[K]suture.ServiceToken
+	supervisor  *suture.Supervisor
+	eventLogger events.Logger
 }
 
-func newServiceMap[K comparable, S suture.Service]() *serviceMap[K, S] {
+func newServiceMap[K comparable, S suture.Service](eventLogger events.Logger) *serviceMap[K, S] {
 	m := &serviceMap[K, S]{
-		services: make(map[K]S),
-		tokens:   make(map[K]suture.ServiceToken),
+		services:    make(map[K]S),
+		tokens:      make(map[K]suture.ServiceToken),
+		eventLogger: eventLogger,
 	}
 	m.supervisor = suture.New(m.String(), svcutil.SpecWithDebugLogger(l))
 	return m
@@ -41,6 +44,7 @@ func (s *serviceMap[K, S]) Add(k K, v S) {
 	if tok, ok := s.tokens[k]; ok {
 		// There is already a service at this key, remove it first.
 		s.supervisor.Remove(tok)
+		s.eventLogger.Log(events.Failure, fmt.Sprintf("%s replaced service at key %v", s, k))
 	}
 	s.services[k] = v
 	s.tokens[k] = s.supervisor.Add(v)

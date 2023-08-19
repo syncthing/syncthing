@@ -248,7 +248,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
-		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](),
+		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -2252,7 +2252,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	closed := make(chan struct{})
 	m.closed[deviceID] = closed
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], closed, m.evLogger)
+	indexRegistry := newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		indexRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}

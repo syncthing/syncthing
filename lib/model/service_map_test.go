@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -24,7 +25,7 @@ func TestServiceMap(t *testing.T) {
 	t.Run("SimpleAddRemove", func(t *testing.T) {
 		t.Parallel()
 
-		sm := newServiceMap[string, *dummyService]()
+		sm := newServiceMap[string, *dummyService](events.NoopLogger)
 		sup.Add(sm)
 
 		// Add two services. They should start.
@@ -54,7 +55,7 @@ func TestServiceMap(t *testing.T) {
 	t.Run("OverwriteImpliesRemove", func(t *testing.T) {
 		t.Parallel()
 
-		sm := newServiceMap[string, *dummyService]()
+		sm := newServiceMap[string, *dummyService](events.NoopLogger)
 		sup.Add(sm)
 
 		d1 := newDummyService()
@@ -82,7 +83,7 @@ func TestServiceMap(t *testing.T) {
 	t.Run("IterateWithRemoveAndWait", func(t *testing.T) {
 		t.Parallel()
 
-		sm := newServiceMap[string, *dummyService]()
+		sm := newServiceMap[string, *dummyService](events.NoopLogger)
 		sup.Add(sm)
 
 		// Add four services.

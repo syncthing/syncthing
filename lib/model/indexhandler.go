@@ -385,12 +385,12 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		evLogger:      evLogger,
 		conn:          conn,
 		downloads:     downloads,
-		indexHandlers: newServiceMap[string, *indexHandler](),
+		indexHandlers: newServiceMap[string, *indexHandler](evLogger),
 		startInfos:    make(map[string]*clusterConfigDeviceInfo),
 		folderStates:  make(map[string]*indexHandlerFolderState),
 		mut:           sync.Mutex{},
@@ -409,7 +409,7 @@ func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
 }
 
 func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
-	r.indexHandlers.Remove(folder.ID)
+	r.indexHandlers.RemoveAndWait(folder.ID, 0)
 	delete(r.startInfos, folder.ID)
 
 	is := newIndexHandler(r.conn, r.downloads, folder, fset, runner, startInfo, r.evLogger)
