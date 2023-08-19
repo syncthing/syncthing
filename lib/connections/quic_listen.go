@@ -103,7 +103,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		Tracer: tracer,
 	}
 
-	svc := stun.New(t.cfg, t, &transportPacketConn{quicTransport}, tracer)
+	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport}, tracer)
 	go svc.Serve(ctx)
 
 	t.registry.Register(t.uri.Scheme, quicTransport)

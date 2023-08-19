@@ -97,11 +97,18 @@ func (t *writeTrackingTracer) LastWrite() time.Time {
 
 // A transportPacketConn is a net.PacketConn that uses a quic.Transport.
 type transportPacketConn struct {
-	tran *quic.Transport
+	tran         *quic.Transport
+	readDeadline atomic.Value // time.Time
 }
 
 func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	return t.tran.ReadNonQUICPacket(context.TODO(), p)
+	ctx := context.Background()
+	if deadline, ok := t.readDeadline.Load().(time.Time); ok && !deadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+	return t.tran.ReadNonQUICPacket(ctx, p)
 }
 
 func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
@@ -116,14 +123,15 @@ func (t *transportPacketConn) LocalAddr() net.Addr {
 	return t.tran.Conn.LocalAddr()
 }
 
-func (t *transportPacketConn) SetDeadline(_ time.Time) error {
-	return errUnsupported
+func (t *transportPacketConn) SetDeadline(deadline time.Time) error {
+	return t.SetReadDeadline(deadline)
 }
 
-func (t *transportPacketConn) SetReadDeadline(_ time.Time) error {
-	return errUnsupported
+func (t *transportPacketConn) SetReadDeadline(deadline time.Time) error {
+	t.readDeadline.Store(deadline)
+	return nil
 }
 
 func (t *transportPacketConn) SetWriteDeadline(_ time.Time) error {
-	return errUnsupported
+	return nil // yolo
 }
