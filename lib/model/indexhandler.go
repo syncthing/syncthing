@@ -381,7 +381,6 @@ type indexHandlerRegistry struct {
 	startInfos    map[string]*clusterConfigDeviceInfo
 	folderStates  map[string]*indexHandlerFolderState
 	mut           sync.Mutex
-	stopFn        func()
 }
 
 type indexHandlerFolderState struct {
@@ -390,7 +389,7 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		conn:          conn,
 		downloads:     downloads,
@@ -401,10 +400,6 @@ func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownload
 		mut:           sync.Mutex{},
 	}
 	r.sup = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
-	token := parentSup.Add(r.sup)
-	r.stopFn = func() {
-		parentSup.RemoveAndWait(token, 0)
-	}
 	return r
 }
 
@@ -412,8 +407,8 @@ func (r *indexHandlerRegistry) String() string {
 	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
 }
 
-func (r *indexHandlerRegistry) Stop() {
-	r.stopFn()
+func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
+	return r.sup.Serve(ctx)
 }
 
 func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
