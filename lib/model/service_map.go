@@ -19,6 +19,7 @@ import (
 // some kind, where adding and removing services ensures they are properly
 // started and stopped on the given Supervisor. The serviceMap is itself a
 // suture.Service and should be added to a Supervisor.
+// Not safe for concurrent use.
 type serviceMap[K comparable, S suture.Service] struct {
 	services   map[K]S
 	tokens     map[K]suture.ServiceToken
