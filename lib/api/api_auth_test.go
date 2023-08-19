@@ -67,6 +67,11 @@ func TestAuthLDAPSendsCorrectBindDNWithNoTemplate(t *testing.T) {
 }
 
 func TestNoAuthPathsIsImmutable(t *testing.T) {
+	// It is an important security assumption that noAuthPaths is immutable, but
+	// Go doesn't have immutable slices. This test should catch if this security
+	// assumption is accidentally broken by future refactoring, such as returning
+	// a pointer to a long-lived mutable slice or replacing the function with a
+	// module variable.
 	t.Parallel()
 
 	original := noAuthPaths()
@@ -92,6 +97,11 @@ func TestNoAuthPathsIsImmutable(t *testing.T) {
 }
 
 func TestNoAuthPrefixesIsImmutable(t *testing.T) {
+	// It is an important security assumption that noAuthPrefixes is immutable,
+	// but Go doesn't have immutable slices. This test should catch if this
+	// security assumption is accidentally broken by future refactoring, such as
+	// returning a pointer to a long-lived mutable slice or replacing the function
+	// with a module variable.
 	t.Parallel()
 
 	original := noAuthPrefixes()
