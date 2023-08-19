@@ -92,6 +92,10 @@ func noAuthPrefixes() []string {
 	}
 }
 
+func isNoAuthPath(path string) bool {
+	return equalsAny(path, noAuthPaths()) || hasAnyPrefix(path, noAuthPrefixes())
+}
+
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hasValidAPIKeyHeader(r, guiCfg) {
@@ -100,7 +104,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		}
 
 		// Exception for static assets and REST calls that don't require authentication.
-		if equalsAny(r.URL.Path, noAuthPaths()) || hasAnyPrefix(r.URL.Path, noAuthPrefixes()) {
+		if isNoAuthPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
