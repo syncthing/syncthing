@@ -95,13 +95,14 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = udpConn.Close() }()
+	defer udpConn.Close()
 
 	tracer := &writeTrackingTracer{}
 	quicTransport := &quic.Transport{
 		Conn:   udpConn,
 		Tracer: tracer,
 	}
+	defer quicTransport.Close()
 
 	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport}, tracer)
 	go svc.Serve(ctx)
