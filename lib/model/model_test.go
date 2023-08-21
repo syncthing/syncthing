@@ -35,8 +35,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
 	srand "github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/testutils"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/semaphore"
+	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -2967,10 +2967,10 @@ func TestConnCloseOnRestart(t *testing.T) {
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
-	br := &testutils.BlockingRW{}
-	nw := &testutils.NoopRW{}
+	br := &testutil.BlockingRW{}
+	nw := &testutil.NoopRW{}
 	ci := &protocolmocks.ConnectionInfo{}
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutils.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))
@@ -3112,9 +3112,9 @@ func TestDeviceWasSeen(t *testing.T) {
 }
 
 func TestNewLimitedRequestResponse(t *testing.T) {
-	l0 := util.NewSemaphore(0)
-	l1 := util.NewSemaphore(1024)
-	l2 := (*util.Semaphore)(nil)
+	l0 := semaphore.New(0)
+	l1 := semaphore.New(1024)
+	l2 := (*semaphore.Semaphore)(nil)
 
 	// Should take 500 bytes from any non-unlimited non-nil limiters.
 	res := newLimitedRequestResponse(500, l0, l1, l2)

@@ -223,3 +223,18 @@ func asNonContextError(ctx context.Context, err error) error {
 	}
 	return err
 }
+
+func CallWithContext(ctx context.Context, fn func() error) error {
+	var err error
+	done := make(chan struct{})
+	go func() {
+		err = fn()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}

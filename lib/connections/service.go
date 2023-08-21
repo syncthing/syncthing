@@ -18,6 +18,7 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	stdsync "sync"
@@ -30,9 +31,10 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/semaphore"
+	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
@@ -582,7 +584,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// allowed additional number of connections (if limited).
 	numConns := 0
 	var numConnsMut stdsync.Mutex
-	dialSemaphore := util.NewSemaphore(dialMaxParallel)
+	dialSemaphore := semaphore.New(dialMaxParallel)
 	dialWG := new(stdsync.WaitGroup)
 	dialCtx, dialCancel := context.WithCancel(ctx)
 	defer func() {
@@ -698,7 +700,7 @@ func (s *service) resolveDeviceAddrs(ctx context.Context, cfg config.DeviceConfi
 			addrs = append(addrs, addr)
 		}
 	}
-	return util.UniqueTrimmedStrings(addrs)
+	return stringutil.UniqueTrimmedStrings(addrs)
 }
 
 type lanChecker struct {
@@ -875,7 +877,7 @@ func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Conf
 		if oldDev, ok := oldDevices[dev.DeviceID]; !ok || oldDev.Paused {
 			s.dialNowDevices[dev.DeviceID] = struct{}{}
 			dial = true
-		} else if !util.EqualStrings(oldDev.Addresses, dev.Addresses) {
+		} else if !slices.Equal(oldDev.Addresses, dev.Addresses) {
 			dial = true
 		}
 	}
@@ -905,7 +907,7 @@ func (s *service) AllAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueTrimmedStrings(addrs)
+	return stringutil.UniqueTrimmedStrings(addrs)
 }
 
 func (s *service) ExternalAddresses() []string {
@@ -920,7 +922,7 @@ func (s *service) ExternalAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueTrimmedStrings(addrs)
+	return stringutil.UniqueTrimmedStrings(addrs)
 }
 
 func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
@@ -1079,7 +1081,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget, parentSema *util.Semaphore) (internalConn, bool) {
+func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget, parentSema *semaphore.Semaphore) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -1095,7 +1097,7 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	// Sort the priorities so that we dial lowest first (which means highest...)
 	sort.Ints(priorities)
 
-	sema := util.MultiSemaphore{util.NewSemaphore(dialMaxParallelPerDevice), parentSema}
+	sema := semaphore.MultiSemaphore{semaphore.New(dialMaxParallelPerDevice), parentSema}
 	for _, prio := range priorities {
 		tgts := dialTargetBuckets[prio]
 		res := make(chan internalConn, len(tgts))

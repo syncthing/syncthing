@@ -22,9 +22,9 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The Manager aggregates results from multiple Finders. Each Finder has
@@ -158,7 +158,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	}
 	m.mut.RUnlock()
 
-	addresses = util.UniqueTrimmedStrings(addresses)
+	addresses = stringutil.UniqueTrimmedStrings(addresses)
 	sort.Strings(addresses)
 
 	l.Debugln("lookup results for", deviceID)
@@ -223,7 +223,7 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 	m.mut.RUnlock()
 
 	for k, v := range res {
-		v.Addresses = util.UniqueTrimmedStrings(v.Addresses)
+		v.Addresses = stringutil.UniqueTrimmedStrings(v.Addresses)
 		res[k] = v
 	}
 

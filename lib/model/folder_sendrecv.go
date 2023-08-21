@@ -27,9 +27,9 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -125,17 +125,17 @@ type sendReceiveFolder struct {
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
-	writeLimiter       *util.Semaphore
+	writeLimiter       *semaphore.Semaphore
 
 	tempPullErrors map[string]string // pull errors that might be just transient
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *util.Semaphore) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       util.NewSemaphore(cfg.MaxConcurrentWrites),
+		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
 	f.folder.puller = f
 
@@ -1492,7 +1492,7 @@ func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) err
 }
 
 func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := util.NewSemaphore(f.PullerMaxPendingKiB * 1024)
+	requestLimiter := semaphore.New(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {

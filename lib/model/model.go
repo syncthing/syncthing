@@ -38,11 +38,11 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -136,10 +136,10 @@ type model struct {
 	shortID         protocol.ShortID
 	// globalRequestLimiter limits the amount of data in concurrent incoming
 	// requests
-	globalRequestLimiter *util.Semaphore
+	globalRequestLimiter *semaphore.Semaphore
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
-	folderIOLimiter *util.Semaphore
+	folderIOLimiter *semaphore.Semaphore
 	fatalChan       chan error
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
@@ -160,7 +160,7 @@ type model struct {
 	// fields protected by pmut
 	pmut                sync.RWMutex
 	conn                map[protocol.DeviceID]protocol.Connection
-	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
+	connRequestLimiters map[protocol.DeviceID]*semaphore.Semaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
@@ -173,7 +173,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -222,8 +222,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
 		shortID:              id.Short(),
-		globalRequestLimiter: util.NewSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
-		folderIOLimiter:      util.NewSemaphore(cfg.Options().MaxFolderConcurrency()),
+		globalRequestLimiter: semaphore.New(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
+		folderIOLimiter:      semaphore.New(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
@@ -243,7 +243,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
 		conn:                make(map[protocol.DeviceID]protocol.Connection),
-		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
+		connRequestLimiters: make(map[protocol.DeviceID]*semaphore.Semaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
@@ -1965,8 +1965,8 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 // skipping nil limiters, then returns a requestResponse of the given size.
 // When the requestResponse is closed the limiters are given back the bytes,
 // in reverse order.
-func newLimitedRequestResponse(size int, limiters ...*util.Semaphore) *requestResponse {
-	multi := util.MultiSemaphore(limiters)
+func newLimitedRequestResponse(size int, limiters ...*semaphore.Semaphore) *requestResponse {
+	multi := semaphore.MultiSemaphore(limiters)
 	multi.Take(size)
 
 	res := newRequestResponse(size)
@@ -2260,9 +2260,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	// 0: default, <0: no limiting
 	switch {
 	case device.MaxRequestKiB > 0:
-		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * device.MaxRequestKiB)
+		m.connRequestLimiters[deviceID] = semaphore.New(1024 * device.MaxRequestKiB)
 	case device.MaxRequestKiB == 0:
-		m.connRequestLimiters[deviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
+		m.connRequestLimiters[deviceID] = semaphore.New(1024 * defaultPullerPendingKiB)
 	}
 
 	m.helloMessages[deviceID] = hello

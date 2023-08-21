@@ -19,7 +19,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func init() {
 
 func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
 	var ip net.IP
-	err := util.CallWithContext(ctx, func() error {
+	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
 		ip, err = gateway.DiscoverGateway()
 		return err
@@ -46,7 +46,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	c := natpmp.NewClientWithTimeout(ip, timeout)
 	// Try contacting the gateway, if it does not respond, assume it does not
 	// speak NAT-PMP.
-	err = util.CallWithContext(ctx, func() error {
+	err = svcutil.CallWithContext(ctx, func() error {
 		_, ierr := c.GetExternalAddress()
 		return ierr
 	})
@@ -104,7 +104,7 @@ func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, int
 		duration = w.renewal
 	}
 	var result *natpmp.AddPortMappingResult
-	err := util.CallWithContext(ctx, func() error {
+	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
 		result, err = w.client.AddPortMapping(strings.ToLower(string(protocol)), internalPort, externalPort, int(duration/time.Second))
 		return err
@@ -118,7 +118,7 @@ func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, int
 
 func (w *wrapper) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
 	var result *natpmp.GetExternalAddressResult
-	err := util.CallWithContext(ctx, func() error {
+	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
 		result, err = w.client.GetExternalAddress()
 		return err
