@@ -18,7 +18,7 @@ func GetLans() ([]*net.IPNet, error) {
 	var addrs []net.Addr
 
 	for _, currentIf := range ifs {
-		if currentIf.Flags&net.FlagRunning != net.FlagRunning {
+		if currentIf.Flags&net.FlagRunning == 0 {
 			continue
 		}
 		currentAddrs, err := currentIf.Addrs()
