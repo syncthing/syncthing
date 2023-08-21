@@ -12,7 +12,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.20.7"
+  GO_VERSION: "~1.21.0"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -48,7 +48,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.19", "1.20"]
+        go: ["1.20", "1.21"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF

@@ -2877,7 +2877,7 @@ angular.module('syncthing.core')
         };
 
         $scope.hasReceiveOnlyChanged = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
+            if (!folderCfg || ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
                 return false;
             }
             var counts = $scope.model[folderCfg.id];
