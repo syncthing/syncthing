@@ -9,11 +9,11 @@ package model
 import (
 	"fmt"
 	"math/rand"
-	"slices"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"golang.org/x/exp/slices"
 )
 
 func TestJobQueue(t *testing.T) {
