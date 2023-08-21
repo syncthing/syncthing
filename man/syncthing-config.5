@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Aug 09, 2023" "v1.23.6" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 18, 2023" "v1.23.7" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -193,7 +193,6 @@ may no longer correspond to the defaults.
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
-        <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
@@ -1141,7 +1140,6 @@ Search filter for user searches.
     <urURL>https://data.syncthing.net/newdata</urURL>
     <urPostInsecurely>false</urPostInsecurely>
     <urInitialDelayS>1800</urInitialDelayS>
-    <restartOnWakeup>true</restartOnWakeup>
     <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
     <upgradeToPreReleases>false</upgradeToPreReleases>
     <keepTemporariesH>24</keepTemporariesH>
@@ -1301,12 +1299,6 @@ certificate. The default is \fBfalse\fP\&.
 .B urInitialDelayS
 The time to wait from startup for the first usage report to be sent. Allows
 the system to stabilize before reporting statistics.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B restartOnWakeup
-Whether to perform a restart of Syncthing when it is detected that we are
-waking from sleep mode (i.e. an unfolding laptop).
 .UNINDENT
 .INDENT 0.0
 .TP
