@@ -23,9 +23,9 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -1042,7 +1042,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) (*metadataTracker, error)
 	}
 
 	if age := time.Since(meta.Created()); age > db.recheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, util.NiceDurationString(age))
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, stringutil.NiceDurationString(age))
 		return db.getMetaAndCheck(folder)
 	}
 
