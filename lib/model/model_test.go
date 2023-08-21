@@ -1337,8 +1337,9 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// Earlier tests might cause the connection to get closed, thus ClusterConfig
 	// would panic.
 	clusterConfig := func(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
-		m.AddConnection(newFakeConnection(deviceID, m), protocol.Hello{})
-		m.ClusterConfig(&protocolmocks.Connection{DeviceIDStub: func() protocol.DeviceID { return deviceID }}, cm)
+		conn := newFakeConnection(deviceID, m)
+		m.AddConnection(conn, protocol.Hello{})
+		m.ClusterConfig(conn, cm)
 	}
 
 	clusterConfig(device1, basicCC())
