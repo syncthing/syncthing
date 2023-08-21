@@ -100,7 +100,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows
-		if !build.IsWindows && (intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0) {
+		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 			continue
 		}
 
