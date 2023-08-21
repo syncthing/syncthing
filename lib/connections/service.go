@@ -18,11 +18,12 @@ import (
 	"math"
 	"net"
 	"net/url"
-	"slices"
 	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
