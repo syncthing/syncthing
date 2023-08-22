@@ -254,7 +254,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
-		m.setConnRequestLimiters(cfg)
+		m.setConnRequestLimitersPLocked(cfg)
 	}
 	m.Add(m.progressEmitter)
 	m.Add(m.indexHandlers)
@@ -768,9 +768,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 			cs.Primary.IsLocal = conn.IsLocal()
 			cs.Primary.Crypto = conn.Crypto()
 			cs.Primary.Statistics = conn.Statistics()
-			if addr := conn.RemoteAddr(); addr != nil {
-				cs.Primary.Address = addr.String()
-			}
+			cs.Primary.Address = conn.RemoteAddr().String()
 
 			cs.Type = cs.Primary.Type
 			cs.IsLocal = cs.Primary.IsLocal
@@ -1186,7 +1184,9 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 		return fmt.Errorf("%s: %w", folder, ErrFolderPaused)
 	}
 
-	indexHandler, ok := m.getIndexHandler(conn)
+	m.pmut.RLock()
+	indexHandler, ok := m.getIndexHandlerPRLocked(conn)
+	m.pmut.RUnlock()
 	if !ok {
 		l.Infof("%v for folder %s sent from %s (%s), but no index handler is registered for this connection.", op, folder, deviceID.Short(), conn)
 		return fmt.Errorf("%s: %w", folder, ErrFolderNotRunning)
@@ -1373,12 +1373,11 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	return indexHandlerRegistry
 }
 
-func (m *model) getIndexHandler(conn protocol.Connection) (*indexHandlerRegistry, bool) {
+func (m *model) getIndexHandlerPRLocked(conn protocol.Connection) (*indexHandlerRegistry, bool) {
+	// Reads from index handlers, which requires pmut to be read locked
+
 	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
-
-	m.pmut.RLock()
-	defer m.pmut.RUnlock()
 
 	indexHandlerRegistry, ok := m.indexHandlers.Get(deviceID)
 	if ok && indexHandlerRegistry.conn.ConnectionID() == connID {
@@ -3112,7 +3111,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if toCfg.MaxRequestKiB != fromCfg.MaxRequestKiB {
-			m.setConnRequestLimiters(toCfg)
+			m.pmut.Lock()
+			m.setConnRequestLimitersPLocked(toCfg)
+			m.pmut.Unlock()
 		}
 	}
 
@@ -3164,8 +3165,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (m *model) setConnRequestLimiters(cfg config.DeviceConfiguration) {
-	m.pmut.Lock()
+func (m *model) setConnRequestLimitersPLocked(cfg config.DeviceConfiguration) {
+	// Touches connRequestLimiters which is protected by pmut.
 	// 0: default, <0: no limiting
 	switch {
 	case cfg.MaxRequestKiB > 0:
@@ -3173,7 +3174,6 @@ func (m *model) setConnRequestLimiters(cfg config.DeviceConfiguration) {
 	case cfg.MaxRequestKiB == 0:
 		m.connRequestLimiters[cfg.DeviceID] = semaphore.New(1024 * defaultPullerPendingKiB)
 	}
-	m.pmut.Unlock()
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {

@@ -136,9 +136,9 @@ type Model interface {
 	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
 }
 
-// contextLessModel is the Model interface, but without the initial
-// Connection parameter. Internal use only.
-type contextLessModel interface {
+// rawModel is the Model interface, but without the initial Connection
+// parameter. Internal use only.
+type rawModel interface {
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
 	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
@@ -185,7 +185,7 @@ type rawConnection struct {
 
 	deviceID  DeviceID
 	idString  string
-	model     contextLessModel
+	model     rawModel
 	startTime time.Time
 	started   chan struct{}
 
@@ -265,7 +265,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 	return wc
 }
 
-func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver contextLessModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
+func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver rawModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
 	idString := deviceID.String()
 	cr := &countingReader{Reader: reader, idString: idString}
 	cw := &countingWriter{Writer: writer, idString: idString}
@@ -1128,7 +1128,7 @@ func messageContext(msg message) (string, error) {
 
 // connectionWrappingModel takes the Model interface from the model package,
 // which expects the Connection as the first parameter in all methods, and
-// wraps it to conform to the protocol.contextLessModel interface.
+// wraps it to conform to the rawModel interface.
 type connectionWrappingModel struct {
 	conn  Connection
 	model Model
