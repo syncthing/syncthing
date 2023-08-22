@@ -1906,12 +1906,15 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		delete(m.helloMessages, deviceID)
 		delete(m.remoteFolderStates, deviceID)
 		delete(m.deviceDownloads, deviceID)
-		m.deviceDidClose(deviceID, time.Since(conn.EstablishedAt()))
 	} else {
 		// Some connections remain
 		m.deviceConnIDs[deviceID] = remainingConns
 	}
 	m.pmut.Unlock()
+
+	m.fmut.RLock()
+	m.deviceDidCloseFRLocked(deviceID, time.Since(conn.EstablishedAt()))
+	m.fmut.RUnlock()
 
 	k := map[bool]string{false: "secondary", true: "primary"}[removedIsPrimary]
 	l.Infof("Lost %s connection to %s at %s: %v (%d remain)", k, deviceID.Short(), conn, err, len(remainingConns))
@@ -2495,11 +2498,8 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	}
 }
 
-func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duration) {
-	m.fmut.RLock()
-	sr, ok := m.deviceStatRefs[deviceID]
-	m.fmut.RUnlock()
-	if ok {
+func (m *model) deviceDidCloseFRLocked(deviceID protocol.DeviceID, duration time.Duration) {
+	if sr, ok := m.deviceStatRefs[deviceID]; ok {
 		_ = sr.LastConnectionDuration(duration)
 	}
 }
