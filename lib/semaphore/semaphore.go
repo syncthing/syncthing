@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package util
+package semaphore
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type Semaphore struct {
 	cond      *sync.Cond
 }
 
-func NewSemaphore(max int) *Semaphore {
+func New(max int) *Semaphore {
 	if max < 0 {
 		max = 0
 	}

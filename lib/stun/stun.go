@@ -14,7 +14,7 @@ import (
 	"github.com/ccding/go-stun/stun"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 const stunRetryInterval = 5 * time.Minute
@@ -159,7 +159,7 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 
 	var natType stun.NATType
 	var extAddr *stun.Host
-	err = util.CallWithContext(ctx, func() error {
+	err = svcutil.CallWithContext(ctx, func() error {
 		natType, extAddr, err = s.client.Discover()
 		return err
 	})

@@ -39,11 +39,11 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -135,10 +135,10 @@ type model struct {
 	shortID         protocol.ShortID
 	// globalRequestLimiter limits the amount of data in concurrent incoming
 	// requests
-	globalRequestLimiter *util.Semaphore
+	globalRequestLimiter *semaphore.Semaphore
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
-	folderIOLimiter *util.Semaphore
+	folderIOLimiter *semaphore.Semaphore
 	fatalChan       chan error
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
@@ -162,12 +162,12 @@ type model struct {
 	connections         map[string]protocol.Connection // connection ID -> connection
 	deviceConnIDs       map[protocol.DeviceID][]string // device -> connection IDs (invariant: if the key exists, the value is len >= 1, with the primary connection at the start of the slice)
 	promotedConnID      map[protocol.DeviceID]string   // device -> latest promoted connection ID
-	connRequestLimiters map[protocol.DeviceID]*util.Semaphore
+	connRequestLimiters map[protocol.DeviceID]*semaphore.Semaphore
 	closed              map[string]chan struct{} // connection ID -> closed channel
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remoteFolderStates  map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
-	indexHandlers       map[protocol.DeviceID]*indexHandlerRegistry
+	indexHandlers       *serviceMap[protocol.DeviceID, *indexHandlerRegistry]
 
 	// for testing only
 	foldersRunning atomic.Int32
@@ -175,7 +175,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *util.Semaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -221,8 +221,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
 		shortID:              id.Short(),
-		globalRequestLimiter: util.NewSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
-		folderIOLimiter:      util.NewSemaphore(cfg.Options().MaxFolderConcurrency()),
+		globalRequestLimiter: semaphore.New(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
+		folderIOLimiter:      semaphore.New(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
@@ -245,18 +245,19 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		connections:         make(map[string]protocol.Connection),
 		deviceConnIDs:       make(map[protocol.DeviceID][]string),
 		promotedConnID:      make(map[protocol.DeviceID]string),
-		connRequestLimiters: make(map[protocol.DeviceID]*util.Semaphore),
+		connRequestLimiters: make(map[protocol.DeviceID]*semaphore.Semaphore),
 		closed:              make(map[string]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:  make(map[protocol.DeviceID]map[string]remoteFolderState),
-		indexHandlers:       make(map[protocol.DeviceID]*indexHandlerRegistry),
+		indexHandlers:       newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
 		m.setConnRequestLimiters(cfg)
 	}
 	m.Add(m.progressEmitter)
+	m.Add(m.indexHandlers)
 	m.Add(svcutil.AsService(m.serve, m.String()))
 
 	return m
@@ -497,9 +498,9 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	}
 
 	m.cleanupFolderLocked(cfg)
-	for _, r := range m.indexHandlers {
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
 		r.Remove(cfg.ID)
-	}
+	})
 
 	m.fmut.Unlock()
 	m.pmut.RUnlock()
@@ -573,9 +574,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	for _, indexRegistry := range m.indexHandlers {
-		indexRegistry.RegisterFolderState(to, fset, m.folderRunners[to.ID])
-	}
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
+		r.RegisterFolderState(to, fset, m.folderRunners[to.ID])
+	})
 	m.pmut.RUnlock()
 
 	var infoMsg string
@@ -611,9 +612,9 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// Care needs to be taken because we already hold fmut and the lock order
 	// must be the same everywhere. As fmut is acquired first, this is fine.
 	m.pmut.RLock()
-	for _, indexRegistry := range m.indexHandlers {
-		indexRegistry.RegisterFolderState(cfg, fset, m.folderRunners[cfg.ID])
-	}
+	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) {
+		r.RegisterFolderState(cfg, fset, m.folderRunners[cfg.ID])
+	})
 	m.pmut.RUnlock()
 
 	return nil
@@ -1345,7 +1346,7 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	m.pmut.Lock()
 	defer m.pmut.Unlock()
 
-	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
+	indexHandlerRegistry, ok := m.indexHandlers.Get(deviceID)
 	if ok && indexHandlerRegistry.conn.ConnectionID() == connID {
 		// This is an existing and proper index handler for this connection.
 		return indexHandlerRegistry
@@ -1358,15 +1359,16 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 		// connection but we haven't seen it close yet. Ideally it will
 		// close shortly by itself...
 		l.Infof("Abandoning old index handler for %s (%s) in favour of %s", deviceID.Short(), indexHandlerRegistry.conn.ConnectionID(), connID)
+		m.indexHandlers.RemoveAndWait(deviceID, 0)
 	}
 
 	// Create a new index handler for this device.
-	indexHandlerRegistry = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.closed[connID], m.Supervisor, m.evLogger)
+	indexHandlerRegistry = newIndexHandlerRegistry(conn, m.deviceDownloads[deviceID], m.evLogger)
 	for id, fcfg := range m.folderCfgs {
 		l.Debugln("Registering folder", id, "for", deviceID.Short())
 		indexHandlerRegistry.RegisterFolderState(fcfg, m.folderFiles[id], m.folderRunners[id])
 	}
-	m.indexHandlers[deviceID] = indexHandlerRegistry
+	m.indexHandlers.Add(deviceID, indexHandlerRegistry)
 
 	return indexHandlerRegistry
 }
@@ -1378,7 +1380,7 @@ func (m *model) getIndexHandler(conn protocol.Connection) (*indexHandlerRegistry
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
 
-	indexHandlerRegistry, ok := m.indexHandlers[deviceID]
+	indexHandlerRegistry, ok := m.indexHandlers.Get(deviceID)
 	if ok && indexHandlerRegistry.conn.ConnectionID() == connID {
 		// This is an existing and proper index handler for this connection.
 		return indexHandlerRegistry, true
@@ -1892,8 +1894,8 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	remainingConns := without(m.deviceConnIDs[deviceID], connID)
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
-		if idxh, ok := m.indexHandlers[deviceID]; ok && idxh.conn.ConnectionID() == connID {
-			delete(m.indexHandlers, deviceID)
+		if idxh, ok := m.indexHandlers.Get(deviceID); ok && idxh.conn.ConnectionID() == connID {
+			m.indexHandlers.RemoveAndWait(deviceID, 0)
 		}
 		m.scheduleConnectionPromotion()
 	}
@@ -2084,8 +2086,8 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 // skipping nil limiters, then returns a requestResponse of the given size.
 // When the requestResponse is closed the limiters are given back the bytes,
 // in reverse order.
-func newLimitedRequestResponse(size int, limiters ...*util.Semaphore) *requestResponse {
-	multi := util.MultiSemaphore(limiters)
+func newLimitedRequestResponse(size int, limiters ...*semaphore.Semaphore) *requestResponse {
+	multi := semaphore.MultiSemaphore(limiters)
 	multi.Take(size)
 
 	res := newRequestResponse(size)
@@ -3167,9 +3169,9 @@ func (m *model) setConnRequestLimiters(cfg config.DeviceConfiguration) {
 	// 0: default, <0: no limiting
 	switch {
 	case cfg.MaxRequestKiB > 0:
-		m.connRequestLimiters[cfg.DeviceID] = util.NewSemaphore(1024 * cfg.MaxRequestKiB)
+		m.connRequestLimiters[cfg.DeviceID] = semaphore.New(1024 * cfg.MaxRequestKiB)
 	case cfg.MaxRequestKiB == 0:
-		m.connRequestLimiters[cfg.DeviceID] = util.NewSemaphore(1024 * defaultPullerPendingKiB)
+		m.connRequestLimiters[cfg.DeviceID] = semaphore.New(1024 * defaultPullerPendingKiB)
 	}
 	m.pmut.Unlock()
 }

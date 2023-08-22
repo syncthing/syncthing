@@ -38,10 +38,11 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 	f.CloseCalls(func(err error) {
 		f.closeOnce.Do(func() {
 			close(f.closed)
+			model.Closed(f, err)
 		})
-		model.Closed(f, err)
 		f.ClosedReturns(f.closed)
 	})
+	f.StringReturns(rand.String(8))
 	return f
 }
 

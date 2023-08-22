@@ -4,14 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package util
+package semaphore
 
 import "testing"
 
-func TestZeroByteSemaphore(_ *testing.T) {
+func TestZeroByteSemaphore(t *testing.T) {
+	t.Parallel()
+
 	// A semaphore with zero capacity is just a no-op.
 
-	s := NewSemaphore(0)
+	s := New(0)
 
 	// None of these should block or panic
 	s.Take(123)
@@ -20,9 +22,11 @@ func TestZeroByteSemaphore(_ *testing.T) {
 }
 
 func TestByteSemaphoreCapChangeUp(t *testing.T) {
+	t.Parallel()
+
 	// Waiting takes should unblock when the capacity increases
 
-	s := NewSemaphore(100)
+	s := New(100)
 
 	s.Take(75)
 	if s.available != 25 {
@@ -43,9 +47,11 @@ func TestByteSemaphoreCapChangeUp(t *testing.T) {
 }
 
 func TestByteSemaphoreCapChangeDown1(t *testing.T) {
+	t.Parallel()
+
 	// Things should make sense when capacity is adjusted down
 
-	s := NewSemaphore(100)
+	s := New(100)
 
 	s.Take(75)
 	if s.available != 25 {
@@ -64,9 +70,11 @@ func TestByteSemaphoreCapChangeDown1(t *testing.T) {
 }
 
 func TestByteSemaphoreCapChangeDown2(t *testing.T) {
+	t.Parallel()
+
 	// Things should make sense when capacity is adjusted down, different case
 
-	s := NewSemaphore(100)
+	s := New(100)
 
 	s.Take(75)
 	if s.available != 25 {
@@ -85,9 +93,11 @@ func TestByteSemaphoreCapChangeDown2(t *testing.T) {
 }
 
 func TestByteSemaphoreGiveMore(t *testing.T) {
+	t.Parallel()
+
 	// We shouldn't end up with more available than we have capacity...
 
-	s := NewSemaphore(100)
+	s := New(100)
 
 	s.Take(150)
 	if s.available != 0 {

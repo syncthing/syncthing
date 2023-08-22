@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/syncthing/syncthing/lib/testutils"
+	"github.com/syncthing/syncthing/lib/testutil"
 )
 
 func BenchmarkRequestsRawTCP(b *testing.B) {
@@ -60,9 +60,9 @@ func benchmarkRequestsTLS(b *testing.B, conn0, conn1 net.Conn) {
 
 func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	// Start up Connections on them
-	c0 := NewConnection(LocalDeviceID, conn0, conn0, testutils.NoopCloser{}, new(fakeModel), new(mockedConnectionInfo), CompressionMetadata, nil, testKeyGen)
+	c0 := NewConnection(LocalDeviceID, conn0, conn0, testutil.NoopCloser{}, new(fakeModel), new(mockedConnectionInfo), CompressionMetadata, nil, testKeyGen)
 	c0.Start()
-	c1 := NewConnection(LocalDeviceID, conn1, conn1, testutils.NoopCloser{}, new(fakeModel), new(mockedConnectionInfo), CompressionMetadata, nil, testKeyGen)
+	c1 := NewConnection(LocalDeviceID, conn1, conn1, testutil.NoopCloser{}, new(fakeModel), new(mockedConnectionInfo), CompressionMetadata, nil, testKeyGen)
 	c1.Start()
 
 	// Satisfy the assertions in the protocol by sending an initial cluster config

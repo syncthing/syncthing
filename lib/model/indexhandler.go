@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture/v4"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -28,7 +26,6 @@ type indexHandler struct {
 	folderIsReceiveEncrypted bool
 	prevSequence             int64
 	evLogger                 events.Logger
-	token                    suture.ServiceToken
 
 	cond   *sync.Cond
 	paused bool
@@ -373,11 +370,10 @@ func (s *indexHandler) String() string {
 }
 
 type indexHandlerRegistry struct {
-	sup           *suture.Supervisor
 	evLogger      events.Logger
 	conn          protocol.Connection
 	downloads     *deviceDownloadState
-	indexHandlers map[string]*indexHandler
+	indexHandlers *serviceMap[string, *indexHandler]
 	startInfos    map[string]*clusterConfigDeviceInfo
 	folderStates  map[string]*indexHandlerFolderState
 	mut           sync.Mutex
@@ -389,27 +385,16 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, closed chan struct{}, parentSup *suture.Supervisor, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
+		evLogger:      evLogger,
 		conn:          conn,
 		downloads:     downloads,
-		evLogger:      evLogger,
-		indexHandlers: make(map[string]*indexHandler),
+		indexHandlers: newServiceMap[string, *indexHandler](evLogger),
 		startInfos:    make(map[string]*clusterConfigDeviceInfo),
 		folderStates:  make(map[string]*indexHandlerFolderState),
 		mut:           sync.Mutex{},
 	}
-	r.sup = suture.New(r.String(), svcutil.SpecWithDebugLogger(l))
-	ourToken := parentSup.Add(r.sup)
-	r.sup.Add(svcutil.AsService(func(ctx context.Context) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-closed:
-			parentSup.Remove(ourToken)
-		}
-		return nil
-	}, fmt.Sprintf("%v/waitForClosed", r)))
 	return r
 }
 
@@ -417,20 +402,18 @@ func (r *indexHandlerRegistry) String() string {
 	return fmt.Sprintf("indexHandlerRegistry/%v", r.conn.DeviceID().Short())
 }
 
-func (r *indexHandlerRegistry) GetSupervisor() *suture.Supervisor {
-	return r.sup
+func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
+	// Running the index handler registry means running the individual index
+	// handler children.
+	return r.indexHandlers.Serve(ctx)
 }
 
 func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
-	if is, ok := r.indexHandlers[folder.ID]; ok {
-		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexHandlers, folder.ID)
-	}
+	r.indexHandlers.RemoveAndWait(folder.ID, 0)
 	delete(r.startInfos, folder.ID)
 
 	is := newIndexHandler(r.conn, r.downloads, folder, fset, runner, startInfo, r.evLogger)
-	is.token = r.sup.Add(is)
-	r.indexHandlers[folder.ID] = is
+	r.indexHandlers.Add(folder.ID, is)
 
 	// This new connection might help us get in sync.
 	runner.SchedulePull()
@@ -444,9 +427,7 @@ func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterCon
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	if is, ok := r.indexHandlers[folder]; ok {
-		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexHandlers, folder)
+	if r.indexHandlers.RemoveAndWait(folder, 0) {
 		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.conn.DeviceID().Short(), folder)
 	}
 	folderState, ok := r.folderStates[folder]
@@ -465,10 +446,7 @@ func (r *indexHandlerRegistry) Remove(folder string) {
 	defer r.mut.Unlock()
 
 	l.Debugf("Removing index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
-	if is, ok := r.indexHandlers[folder]; ok {
-		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexHandlers, folder)
-	}
+	r.indexHandlers.RemoveAndWait(folder, 0)
 	delete(r.startInfos, folder)
 	l.Debugf("Removed index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 }
@@ -480,13 +458,12 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderSta
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	for folder, is := range r.indexHandlers {
+	r.indexHandlers.Each(func(folder string, is *indexHandler) {
 		if _, ok := except[folder]; !ok {
-			r.sup.RemoveAndWait(is.token, 0)
-			delete(r.indexHandlers, folder)
+			r.indexHandlers.RemoveAndWait(folder, 0)
 			l.Debugf("Removed index handler for device %v and folder %v (removeAllExcept)", r.conn.DeviceID().Short(), folder)
 		}
-	}
+	})
 	for folder := range r.startInfos {
 		if _, ok := except[folder]; !ok {
 			delete(r.startInfos, folder)
@@ -518,7 +495,7 @@ func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfigura
 func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
 	l.Debugf("Pausing index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 	delete(r.folderStates, folder)
-	if is, ok := r.indexHandlers[folder]; ok {
+	if is, ok := r.indexHandlers.Get(folder); ok {
 		is.pause()
 		l.Debugf("Paused index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
 	} else {
@@ -536,11 +513,10 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 		runner: runner,
 	}
 
-	is, isOk := r.indexHandlers[folder.ID]
+	is, isOk := r.indexHandlers.Get(folder.ID)
 	if info, ok := r.startInfos[folder.ID]; ok {
 		if isOk {
-			r.sup.RemoveAndWait(is.token, 0)
-			delete(r.indexHandlers, folder.ID)
+			r.indexHandlers.RemoveAndWait(folder.ID, 0)
 			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 		}
 		r.startLocked(folder, fset, runner, info)
@@ -557,7 +533,7 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInfo, update bool, op string) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
-	is, isOk := r.indexHandlers[folder]
+	is, isOk := r.indexHandlers.Get(folder)
 	if !isOk {
 		l.Infof("%v for nonexistent or paused folder %q", op, folder)
 		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
