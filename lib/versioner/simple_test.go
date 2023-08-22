@@ -81,7 +81,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			t.Error(err)
 		}
 
-		n, err := fs.DirNames(".stversions")
+		n, err := fs.DirNames(DefaultPath)
 		if err != nil {
 			t.Error(err)
 		}

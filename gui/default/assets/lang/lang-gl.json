@@ -22,6 +22,5 @@
     "Alphabetic": "Alfabética",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Un comando externo xestiona as versións. Ten que eliminar o ficheiro do cartafol compartido. Si a ruta ao aplicativo contén espazos, deberían ir acotados.",
     "Anonymous Usage Reporting": "Informe anónimo de uso",
-    "LDAP": "LDAP",
-    "Twitter": "Twitter"
+    "LDAP": "LDAP"
 }

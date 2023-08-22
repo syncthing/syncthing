@@ -1,19 +1,15 @@
-// Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2023 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package util
+package structutil
 
 import (
-	"context"
-	"fmt"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type defaultParser interface {
@@ -21,7 +17,7 @@ type defaultParser interface {
 }
 
 // SetDefaults sets default values on a struct, based on the default annotation.
-func SetDefaults(data interface{}) {
+func SetDefaults(data any) {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -86,63 +82,15 @@ func SetDefaults(data interface{}) {
 	}
 }
 
-// CopyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
-func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy func(value string) bool) {
-	fromStruct := reflect.ValueOf(from).Elem()
-	fromType := fromStruct.Type()
-
-	toStruct := reflect.ValueOf(to).Elem()
-	toType := toStruct.Type()
-
-	if fromType != toType {
-		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
-	}
-
-	for i := 0; i < toStruct.NumField(); i++ {
-		fromField := fromStruct.Field(i)
-		toField := toStruct.Field(i)
-
-		if !toField.CanSet() {
-			// Unexported fields
-			continue
-		}
-
-		structTag := toType.Field(i).Tag
-
-		v := structTag.Get(tag)
-		if shouldCopy(v) {
-			toField.Set(fromField)
-		}
-	}
-}
-
-// UniqueTrimmedStrings returns a list of all unique strings in ss,
-// in the order in which they first appear in ss, after trimming away
-// leading and trailing spaces.
-func UniqueTrimmedStrings(ss []string) []string {
-	var m = make(map[string]struct{}, len(ss))
-	var us = make([]string, 0, len(ss))
-	for _, v := range ss {
-		v = strings.Trim(v, " ")
-		if _, ok := m[v]; ok {
-			continue
-		}
-		m[v] = struct{}{}
-		us = append(us, v)
-	}
-
-	return us
-}
-
-func FillNilExceptDeprecated(data interface{}) {
+func FillNilExceptDeprecated(data any) {
 	fillNil(data, true)
 }
 
-func FillNil(data interface{}) {
+func FillNil(data any) {
 	fillNil(data, false)
 }
 
-func fillNil(data interface{}, skipDeprecated bool) {
+func fillNil(data any, skipDeprecated bool) {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 	for i := 0; i < s.NumField(); i++ {
@@ -190,7 +138,7 @@ func fillNil(data interface{}, skipDeprecated bool) {
 }
 
 // FillNilSlices sets default value on slices that are still nil.
-func FillNilSlices(data interface{}) error {
+func FillNilSlices(data any) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -219,56 +167,4 @@ func FillNilSlices(data interface{}) error {
 		}
 	}
 	return nil
-}
-
-// Address constructs a URL from the given network and hostname.
-func Address(network, host string) string {
-	u := url.URL{
-		Scheme: network,
-		Host:   host,
-	}
-	return u.String()
-}
-
-func CallWithContext(ctx context.Context, fn func() error) error {
-	var err error
-	done := make(chan struct{})
-	go func() {
-		err = fn()
-		close(done)
-	}()
-	select {
-	case <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func NiceDurationString(d time.Duration) string {
-	switch {
-	case d > 24*time.Hour:
-		d = d.Round(time.Hour)
-	case d > time.Hour:
-		d = d.Round(time.Minute)
-	case d > time.Minute:
-		d = d.Round(time.Second)
-	case d > time.Second:
-		d = d.Round(time.Millisecond)
-	case d > time.Millisecond:
-		d = d.Round(time.Microsecond)
-	}
-	return d.String()
-}
-
-func EqualStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

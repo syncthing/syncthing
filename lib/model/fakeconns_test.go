@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
 
@@ -36,10 +37,11 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 	f.CloseCalls(func(err error) {
 		f.closeOnce.Do(func() {
 			close(f.closed)
+			model.Closed(f, err)
 		})
-		model.Closed(f, err)
 		f.ClosedReturns(f.closed)
 	})
+	f.StringReturns(rand.String(8))
 	return f
 }
 

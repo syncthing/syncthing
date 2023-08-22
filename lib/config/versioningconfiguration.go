@@ -12,7 +12,7 @@ import (
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 // internalVersioningConfiguration is used in XML serialization
@@ -39,7 +39,7 @@ func (c VersioningConfiguration) Copy() VersioningConfiguration {
 }
 
 func (c *VersioningConfiguration) UnmarshalJSON(data []byte) error {
-	util.SetDefaults(c)
+	structutil.SetDefaults(c)
 	type noCustomUnmarshal VersioningConfiguration
 	ptr := (*noCustomUnmarshal)(c)
 	return json.Unmarshal(data, ptr)
@@ -47,7 +47,7 @@ func (c *VersioningConfiguration) UnmarshalJSON(data []byte) error {
 
 func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var intCfg internalVersioningConfiguration
-	util.SetDefaults(&intCfg)
+	structutil.SetDefaults(&intCfg)
 	if err := d.DecodeElement(&intCfg, &start); err != nil {
 		return err
 	}
