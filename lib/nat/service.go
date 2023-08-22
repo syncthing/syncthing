@@ -318,7 +318,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	// If it already exists, the relevant UPnP standard requires that the gateway recognizes this and updates the lease time.
 	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
 	if natd.IsIPv6GatewayDevice() {
-		addr, err := natd.AddPinhole(ctx, TCP, intPort, "syncthing", leaseTime)
+		addr, err := natd.AddPinhole(ctx, TCP, intPort, leaseTime)
 		return Address{
 			addr,
 			intPort,

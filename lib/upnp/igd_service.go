@@ -57,7 +57,7 @@ type IGDService struct {
 
 // TryAddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // This is attempted for each IPv6 on the interface.
-func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration) (net.IP, error) {
+func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration) (net.IP, error) {
 	var returnErr error = nil
 	var lastIP net.IP = nil
 	if s.Interface == nil {
@@ -82,13 +82,12 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 			continue
 		}
 
-		err = s.tryAddPinholeForIP6(ctx, protocol, port, description, duration, ip.String())
+		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip.String())
 		if err != nil {
 			l.Infoln("Couldn't add pinhole for ", ip, err)
 			lastIP = ip
 			returnErr = err
 
-		} else {
 		}
 	}
 
@@ -100,7 +99,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 	}
 }
 
-func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, description string, duration time.Duration, ip string) error {
+func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration, ip string) error {
 	var protoNumber int
 	if protocol == nat.TCP {
 		protoNumber = 6

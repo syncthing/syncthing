@@ -23,7 +23,7 @@ type Device interface {
 	ID() string
 	GetLocalIPv4Address() net.IP
 	AddPortMapping(ctx context.Context, protocol Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error)
-	AddPinhole(ctx context.Context, protocol Protocol, port int, description string, duration time.Duration) (net.IP, error)
+	AddPinhole(ctx context.Context, protocol Protocol, port int, duration time.Duration) (net.IP, error)
 	GetExternalIPAddress(ctx context.Context) (net.IP, error)
 	IsIPv6GatewayDevice() bool
 }
