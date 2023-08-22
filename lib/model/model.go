@@ -2389,7 +2389,8 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 }
 
 func (m *model) scheduleConnectionPromotion() {
-	// Keeps deferring to prevent multiple executions in quick succession, e.g. if multiple connections to a single device are closed.
+	// Keeps deferring to prevent multiple executions in quick succession,
+	// e.g. if multiple connections to a single device are closed.
 	m.promotionTimer.Reset(time.Second)
 }
 
@@ -2399,7 +2400,7 @@ func (m *model) scheduleConnectionPromotion() {
 // be called after adding new connections, and after closing a primary
 // device connection.
 func (m *model) promoteConnections() {
-	m.fmut.RLock() // for generateClusterConfigFRLocked called by promoteDeviceConnectionLocked
+	m.fmut.RLock() // for generateClusterConfigFRLocked
 	defer m.fmut.RUnlock()
 
 	m.pmut.Lock() // for most other things
