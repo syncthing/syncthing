@@ -126,7 +126,7 @@ func (w *wrapper) IsIPv6GatewayDevice() bool {
 	return false
 }
 
-func (w *wrapper) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
+func (w *wrapper) GetExternalIPv4Address(ctx context.Context) (net.IP, error) {
 	var result *natpmp.GetExternalAddressResult
 	err := util.CallWithContext(ctx, func() error {
 		var err error

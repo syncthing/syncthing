@@ -176,7 +176,7 @@ func (s *IGDService) DeletePortMapping(ctx context.Context, protocol nat.Protoco
 // GetExternalIPAddress queries the IGD service for its external IP address.
 // Returns nil if the external IP address is invalid or undefined, along with
 // any relevant errors
-func (s *IGDService) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
+func (s *IGDService) GetExternalIPv4Address(ctx context.Context) (net.IP, error) {
 	const template = `<u:GetExternalIPAddress xmlns:u="%s" />`
 
 	body := fmt.Sprintf(template, s.URN)

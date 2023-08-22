@@ -361,7 +361,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	return Address{}, err
 
 findIP:
-	ip, err := natd.GetExternalIPAddress(ctx)
+	ip, err := natd.GetExternalIPv4Address(ctx)
 	if err != nil {
 		l.Debugln("Error getting external ip on", natd.ID(), err)
 		ip = nil
