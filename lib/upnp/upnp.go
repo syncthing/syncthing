@@ -47,6 +47,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -124,7 +125,6 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	}()
 
 	seenResults := make(map[string]bool)
-
 	for {
 		select {
 		case result, ok := <-resultChan:
