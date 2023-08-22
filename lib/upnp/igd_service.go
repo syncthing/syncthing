@@ -57,9 +57,9 @@ type IGDService struct {
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // This is attempted for each IPv6 on the interface.
-func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration) (net.IP, error) {
+func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration) ([]net.IP, error) {
 	var returnErr error = nil
-	var lastIP net.IP = nil
+	successfulIPs := []net.IP{}
 	if s.Interface == nil {
 		return nil, errors.New("no interface")
 	}
@@ -85,15 +85,15 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip.String())
 		if err != nil {
 			l.Infoln("Couldn't add pinhole for ", ip, err)
-			lastIP = ip
+			successfulIPs = append(successfulIPs, ip)
 			returnErr = err
 
 		}
 	}
 
-	if lastIP != nil {
+	if len(successfulIPs) > 0 {
 		// (Maybe partial) success, we added a pinhole for at least one GUA.
-		return lastIP, nil
+		return successfulIPs, nil
 	} else {
 		return nil, returnErr
 	}
