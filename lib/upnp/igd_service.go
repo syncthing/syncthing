@@ -82,7 +82,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 			continue
 		}
 
-		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip.String())
+		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip)
 		if err != nil {
 			l.Infoln("Couldn't add pinhole for ", ip, err)
 			successfulIPs = append(successfulIPs, ip)
@@ -99,7 +99,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 	}
 }
 
-func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration, ip string) error {
+func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration, ip net.IP) error {
 	var protoNumber int
 	if protocol == nat.TCP {
 		protoNumber = 6
@@ -118,12 +118,30 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip, duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip.String(), duration/time.Second)
 
 	// IP should be a global unicast address, so we can use it as the source IP.
 	// By the UPnP spec, the source address for unauthenticated clients should be the same as the InternalAddress the pinhole is requested for.
-	_, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: net.ParseIP(ip)})
+	var err error
+	var resp []byte
+	if s.Device.IsIPv6 {
+		resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
+	} else {
+		resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
+	}
+	envelope := &soapErrorResponse{}
 
+	if err != nil && resp != nil {
+		if unmarshalErr := xml.Unmarshal(resp, err); unmarshalErr != nil {
+			// There is an error response that we cannot parse.
+			return unmarshalErr
+		} else {
+			// There is a parsable UPnP error. Return that.
+			return fmt.Errorf("UPnP error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
+		}
+	}
+
+	// Either there was no error or an error not handled by the if (no response, e. g. network error).
 	return err
 }
 

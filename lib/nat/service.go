@@ -240,8 +240,9 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 		} else if renew {
 			// Only perform renewals on the nat's that have the right local IP
 			// address
+
 			localIP := nat.GetLocalIPv4Address()
-			if !mapping.validGateway(localIP) {
+			if !mapping.validGateway(localIP) && !nat.IsIPv6GatewayDevice() {
 				l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 				continue
 			}
@@ -330,6 +331,9 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 			})
 		}
 
+		if err != nil {
+			l.Debugln("Error extending lease on", natd.ID(), err)
+		}
 		return addrs, err
 
 	}
@@ -376,7 +380,7 @@ findIP:
 		ip = nil
 	}
 	return []Address{
-		Address{
+		{
 			IP:   ip,
 			Port: extPort,
 		},

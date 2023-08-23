@@ -64,6 +64,7 @@ type upnpService struct {
 }
 
 type upnpDevice struct {
+	IsIPv6       bool
 	DeviceType   string        `xml:"deviceType"`
 	FriendlyName string        `xml:"friendlyName"`
 	Devices      []upnpDevice  `xml:"deviceList>device"`
@@ -338,6 +339,11 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 		}
 	}
 
+	// This differs from IGDService.IsIPv6GatewayDevice(). While that method determines whether an already
+	// completely discovered device uses the IPv6 firewall protocol, this just checks if the gateway's is IPv6.
+	// Currently we only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa, which is why this needs to be stored
+	// but technically we could forgo this check and try WANIPv6FirewallControl via IPv4. This leads to errors though so we don't do it.
+	upnpRoot.Device.IsIPv6 = deviceIP.To4() == nil
 	services, err := getServiceDescriptions(deviceUUID, localIPv4Address, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
 		return nil, err
@@ -414,11 +420,28 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
-	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+	// Only look for the IPv6 service when the device has been discovered as an IPv6 device and vice versa
+	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			netInterface)
+
+		result = append(result, descriptions...)
+	} else if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
+			"urn:schemas-upnp-org:device:WANDevice:2",
+			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
+			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			netInterface)
+
+		result = append(result, descriptions...)
+	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
+			"urn:schemas-upnp-org:device:WANDevice:1",
+			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"},
 			netInterface)
 
 		result = append(result, descriptions...)
@@ -426,7 +449,7 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"},
 			netInterface)
 
 		result = append(result, descriptions...)
