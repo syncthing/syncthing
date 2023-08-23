@@ -64,9 +64,7 @@ var levelDBOptions = &opt.Options{
 	WriteBuffer: 32 << 20, // default 4<<20
 }
 
-var (
-	debug = false
-)
+var debug = false
 
 func main() {
 	var listen string
@@ -77,6 +75,7 @@ func main() {
 	var certFile string
 	var keyFile string
 	var useHTTP bool
+	var largeDB bool
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
@@ -90,12 +89,22 @@ func main() {
 	flag.StringVar(&metricsListen, "metrics-listen", "", "Metrics listen address")
 	flag.StringVar(&replicationPeers, "replicate", "", "Replication peers, id@address, comma separated")
 	flag.StringVar(&replicationListen, "replication-listen", ":19200", "Replication listen address")
+	flag.BoolVar(&largeDB, "large-db", false, "Use larger database settings")
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
 	log.Println(build.LongVersionFor("stdiscosrv"))
 	if *showVersion {
 		return
+	}
+
+	if largeDB {
+		levelDBOptions.BlockCacheCapacity = 64 << 20
+		levelDBOptions.BlockSize = 64 << 10
+		levelDBOptions.CompactionTableSize = 16 << 20
+		levelDBOptions.CompactionTableSizeMultiplier = 2.0
+		levelDBOptions.WriteBuffer = 64 << 20
+		levelDBOptions.CompactionL0Trigger = 8
 	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
