@@ -328,7 +328,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	}
 
 	// Figure out our IPv4 address on the interface used to reach the IGD.
-	localIPv4Address, err := localIPv4(ctx, netInterface)
+	localIPv4Address, err := localIPv4(netInterface)
 	if err != nil {
 		// On Android, we cannot enumerate IP addresses on interfaces directly. Therefore, we just try to connect to the IGD
 		// and look at which source IP address was used. This is not ideal, but it's the best we can do.
@@ -352,7 +352,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	return services, nil
 }
 
-func localIPv4(ctx context.Context, netInterface *net.Interface) (net.IP, error) {
+func localIPv4(netInterface *net.Interface) (net.IP, error) {
 	addrs, err := netInterface.Addrs()
 	if err != nil {
 		return nil, err
