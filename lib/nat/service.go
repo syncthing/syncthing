@@ -323,7 +323,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
 	if natd.IsIPv6GatewayDevice() {
 		ipaddrs, err := natd.AddPinhole(ctx, TCP, intPort, leaseTime)
-		addrs := []Address{}
+		var addrs []Address
 		for _, ipaddr := range ipaddrs {
 			addrs = append(addrs, Address{
 				ipaddr,
