@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	io "io"
 	"log"
 	"math/rand"
 	"net"
@@ -220,12 +222,21 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 
 	lookupRequestsTotal.WithLabelValues("success").Inc()
 
-	bs, _ := json.Marshal(announcement{
-		Seen:      time.Unix(0, rec.Seen),
+	w.Header().Set("Content-Type", "application/json")
+	var bw io.Writer = w
+
+	// Use compression if the client asks for it
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		gw := gzip.NewWriter(bw)
+		defer gw.Close()
+		bw = gw
+	}
+
+	json.NewEncoder(bw).Encode(announcement{
+		Seen:      time.Unix(0, rec.Seen).Truncate(time.Second),
 		Addresses: addressStrs(rec.Addresses),
 	})
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
 }
 
 func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
