@@ -127,7 +127,8 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	if s.Device.IsIPv6 {
 		resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
 	} else {
-		resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
+		// This is currently unused, but since this protocol can technically be done over IPv4, we only want to force the source address sometimes.
+		resp, err = soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
 	}
 	envelope := &soapErrorResponse{}
 
