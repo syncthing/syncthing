@@ -59,7 +59,7 @@ type IGDService struct {
 // This is attempted for each IPv6 on the interface.
 func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration) ([]net.IP, error) {
 	var returnErr error = nil
-	successfulIPs := []net.IP{}
+	var successfulIPs []net.IP
 	if s.Interface == nil {
 		return nil, errors.New("no interface")
 	}
