@@ -73,8 +73,7 @@ func getHostPortsForAllAdapters(port int) []string {
 	for _, network := range nets {
 		// Only accept IPv4 link-local unicast and the private ranges defined in RFC 1918 and RFC 4193
 		// IPv6 link-local addresses require an interface identifier to work correctly
-		if (network.IP.To4() != nil && network.IP.IsLinkLocalUnicast()) ||
-			(network.IP.IsPrivate() && network.IP.IsGlobalUnicast()) {
+		if (network.IP.To4() != nil && network.IP.IsLinkLocalUnicast()) || network.IP.IsPrivate() {
 			hostPorts = append(hostPorts, net.JoinHostPort(network.IP.String(), portStr))
 		}
 	}
