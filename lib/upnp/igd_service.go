@@ -111,7 +111,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 
 	const template = `<u:AddPinhole xmlns:u="%s">
 	<RemoteHost></RemoteHost>
-	<RemotePort></RemotePort>
+	<RemotePort>0</RemotePort>
 	<Protocol>%d</Protocol>
 	<InternalPort>%d</InternalPort>
 	<InternalClient>%s</InternalClient>
