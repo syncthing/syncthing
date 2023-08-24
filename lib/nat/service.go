@@ -247,7 +247,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
-			l.Debugf("Renewing %s -> %s mapping on %s", mapping, extAddrs, id)
+			l.Debugf("Renewing %s -> %s open port on %s", mapping, extAddrs, id)
 
 			if len(extAddrs) == 0 {
 				continue
@@ -258,13 +258,13 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
 
 			if err != nil {
-				l.Debugf("Failed to renew %s -> mapping on %s", mapping, extAddrs, id)
+				l.Debugf("Failed to renew %s -> open port on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
 			}
 
-			l.Debugf("Renewed %s -> %s mapping on %s", mapping, extAddrs, id)
+			l.Debugf("Renewed %s -> %s open port on %s", mapping, extAddrs, id)
 
 			// We shouldn't rely on the order in which the addresses are returned.
 			// Therefore, we test for set equality and report change if there is any difference.
@@ -301,15 +301,15 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 			continue
 		}
 
-		l.Debugf("Acquiring %s mapping on %s", mapping, id)
+		l.Debugf("Trying to open port %s on %s", mapping, id)
 
 		addrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, 0, leaseTime)
 		if err != nil {
-			l.Debugf("Failed to acquire %s mapping on %s", mapping, id)
+			l.Debugf("Failed to acquire %s open port on %s", mapping, id)
 			continue
 		}
 
-		l.Debugf("Acquired %s -> %s mapping on %v", mapping, addrs, id)
+		l.Debugf("Opened port %s -> %s on %v", mapping, addrs, id)
 		mapping.setAddressLocked(id, addrs)
 		change = true
 	}
