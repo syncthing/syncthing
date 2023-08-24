@@ -169,7 +169,7 @@ func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
 			IP:   ip,
 			Port: port,
 		},
-		extAddresses: make(map[string]Address),
+		extAddresses: make(map[string][]Address),
 		mut:          sync.NewRWMutex(),
 	}
 
@@ -224,7 +224,7 @@ func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[
 func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) (change bool) {
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
 
-	for id, address := range mapping.extAddresses {
+	for id, extAddrs := range mapping.extAddresses {
 		select {
 		case <-ctx.Done():
 			return false
@@ -239,32 +239,38 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			continue
 		} else if renew {
 			// Only perform renewals on the nat's that have the right local IP
-			// address
-
+			// address. For IPv6 the IP addresses are discovered by the service itself,
+			// so this check is skipped.
 			localIP := nat.GetLocalIPv4Address()
 			if !mapping.validGateway(localIP) && !nat.IsIPv6GatewayDevice() {
 				l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 				continue
 			}
 
-			l.Debugf("Renewing %s -> %s mapping on %s", mapping, address, id)
+			l.Debugf("Renewing %s -> %s mapping on %s", mapping, extAddrs, id)
 
-			addrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, address.Port, leaseTime)
+			if len(extAddrs) == 0 {
+				continue
+			}
+
+			// addresses either contains one IPv4 address or at least one IPv6 addresses with the rest using the same port.
+			// Therefore we can use address[0].Port for the external port
+			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
+
 			if err != nil {
-				l.Debugf("Failed to renew %s -> mapping on %s", mapping, address, id)
+				l.Debugf("Failed to renew %s -> mapping on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
 			}
 
-			l.Debugf("Renewed %s -> %s mapping on %s", mapping, address, id)
+			l.Debugf("Renewed %s -> %s mapping on %s", mapping, extAddrs, id)
 
-			for _, addr := range addrs {
-				if !addr.Equal(address) {
-					mapping.removeAddressLocked(id)
-					mapping.setAddressLocked(id, addr)
-					change = true
-				}
+			// We shouldn't rely on the order in which the addresses are returned.
+			// Therefore, we test for set equality and report change if there is any difference.
+			if !addrSetsEqual(responseAddrs, extAddrs) {
+				mapping.setAddressLocked(id, responseAddrs)
+				change = true
 			}
 		}
 	}
@@ -303,10 +309,8 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 			continue
 		}
 
-		for _, addr := range addrs {
-			l.Debugf("Acquired %s -> %s mapping on %s", mapping, addr, id)
-			mapping.setAddressLocked(id, addr)
-		}
+		l.Debugf("Acquired %s -> %s mapping on %v", mapping, addrs, id)
+		mapping.setAddressLocked(id, addrs)
 		change = true
 	}
 
@@ -395,4 +399,28 @@ func hash(input string) int64 {
 	h := fnv.New64a()
 	h.Write([]byte(input))
 	return int64(h.Sum64())
+}
+
+func addrSetsEqual(a []Address, b []Address) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// TODO: Rewrite this using slice.Contains once Go 1.21 is the minimum Go version.
+	for _, aElem := range a {
+		aElemFound := false
+		for _, bElem := range b {
+			if bElem.Equal(aElem) {
+				aElemFound = true
+				break
+			}
+		}
+		if !aElemFound {
+			// Found element in a that is not in b.
+			return false
+		}
+	}
+
+	// b contains all elements of a, and their lengths are equal, so the sets are equal.
+	return true
 }

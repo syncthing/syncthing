@@ -20,13 +20,13 @@ type Mapping struct {
 	protocol Protocol
 	address  Address
 
-	extAddresses map[string]Address // NAT ID -> Address
+	extAddresses map[string][]Address // NAT ID -> Address
 	expires      time.Time
 	subscribers  []MappingChangeSubscriber
 	mut          sync.RWMutex
 }
 
-func (m *Mapping) setAddressLocked(id string, address Address) {
+func (m *Mapping) setAddressLocked(id string, address []Address) {
 	l.Infof("New NAT port mapping: external %s address %s to local address %s.", m.protocol, address, m.address)
 	m.extAddresses[id] = address
 }
@@ -73,7 +73,7 @@ func (m *Mapping) ExternalAddresses() []Address {
 	m.mut.RLock()
 	addrs := make([]Address, 0, len(m.extAddresses))
 	for _, addr := range m.extAddresses {
-		addrs = append(addrs, addr)
+		addrs = append(addrs, addr...)
 	}
 	m.mut.RUnlock()
 	return addrs
