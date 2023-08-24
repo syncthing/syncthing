@@ -85,9 +85,9 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip)
 		if err != nil {
 			l.Infoln("Couldn't add pinhole for ", ip, err)
-			successfulIPs = append(successfulIPs, ip)
 			returnErr = err
-
+		} else {
+			successfulIPs = append(successfulIPs, ip)
 		}
 	}
 
@@ -133,7 +133,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	envelope := &soapErrorResponse{}
 
 	if err != nil && resp != nil {
-		if unmarshalErr := xml.Unmarshal(resp, err); unmarshalErr != nil {
+		if unmarshalErr := xml.Unmarshal(resp, envelope); unmarshalErr != nil {
 			// There is an error response that we cannot parse.
 			return unmarshalErr
 		} else {
