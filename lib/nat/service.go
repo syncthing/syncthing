@@ -296,7 +296,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 		// Only perform mappings on the nat's that have the right local IP
 		// address
 		localIP := nat.GetLocalIPv4Address()
-		if !mapping.validGateway(localIP) {
+		if !mapping.validGateway(localIP) && !nat.IsIPv6GatewayDevice() {
 			l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 			continue
 		}
