@@ -122,14 +122,11 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 
 	// IP should be a global unicast address, so we can use it as the source IP.
 	// By the UPnP spec, the source address for unauthenticated clients should be the same as the InternalAddress the pinhole is requested for.
+	// Currently, WANIPv6FirewallProtocol is restricted to IPv6 gateways, so we can always set the IP.
 	var err error
 	var resp []byte
-	if s.Device.IsIPv6 {
-		resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
-	} else {
-		// This is currently unused, but since this protocol can technically be done over IPv4, we only want to force the source address sometimes.
-		resp, err = soapRequest(ctx, s.URL, s.URN, "AddPinhole", body)
-	}
+	resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
+	succResponse := &soapAddPinholeResponse{}
 	envelope := &soapErrorResponse{}
 
 	if err != nil && resp != nil {
@@ -140,8 +137,15 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 			// There is a parsable UPnP error. Return that.
 			return fmt.Errorf("UPnP error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
 		}
+	} else if resp != nil {
+		// Ignore errors since this is only used for debug logging.
+		unmarshalErr := xml.Unmarshal(resp, succResponse)
+		if unmarshalErr == nil {
+			l.Debugln("UPnPv6: UID for pinhole on %s is %d", ip.String(), succResponse.UniqueID)
+		} else {
+			l.Debugln("Failed to parse respone from gateway")
+		}
 	}
-
 	// Either there was no error or an error not handled by the if (no response, e. g. network error).
 	return err
 }

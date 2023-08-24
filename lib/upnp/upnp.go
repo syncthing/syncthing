@@ -613,3 +613,7 @@ type soapErrorResponse struct {
 	ErrorCode        int    `xml:"Body>Fault>detail>UPnPError>errorCode"`
 	ErrorDescription string `xml:"Body>Fault>detail>UPnPError>errorDescription"`
 }
+
+type soapAddPinholeResponse struct {
+	UniqueID int `xml:"Body>AddPinholeResponse>UniqueID"`
+}
