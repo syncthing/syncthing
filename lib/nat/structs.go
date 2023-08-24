@@ -26,15 +26,15 @@ type Mapping struct {
 	mut          sync.RWMutex
 }
 
-func (m *Mapping) setAddressLocked(id string, address []Address) {
-	l.Infof("New NAT port mapping: external %s address %s to local address %s.", m.protocol, address, m.address)
-	m.extAddresses[id] = address
+func (m *Mapping) setAddressLocked(id string, addresses []Address) {
+	l.Infof("New external port opened: external %s address(es) %v to local address %s.", m.protocol, addresses, m.address)
+	m.extAddresses[id] = addresses
 }
 
 func (m *Mapping) removeAddressLocked(id string) {
-	addr, ok := m.extAddresses[id]
+	addresses, ok := m.extAddresses[id]
 	if ok {
-		l.Infof("Removing NAT port mapping: external %s address %s, NAT %s is no longer available.", m.protocol, addr, id)
+		l.Infof("Removing external open ports: external %s address(es) %v, Gateway %s is no longer available.", m.protocol, addresses, id)
 		delete(m.extAddresses, id)
 	}
 }
