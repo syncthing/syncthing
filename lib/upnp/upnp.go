@@ -324,7 +324,18 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	var upnpRoot upnpRoot
 	err = xml.NewDecoder(response.Body).Decode(&upnpRoot)
 	if err != nil {
-		return nil, err
+		// It was reported that a FritzBox (common WiFi router brand) sometimes responds
+		// with a broken description so we try the same request again after a second.
+		time.Sleep(time.Duration(time.Duration.Seconds(1)))
+		secondResponse, err := http.Get(deviceDescriptionLocation)
+
+		if err != nil {
+			return nil, err
+		} else {
+			if err := xml.NewDecoder(secondResponse.Body).Decode(&upnpRoot); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Figure out our IPv4 address on the interface used to reach the IGD.
