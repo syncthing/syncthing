@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	io "io"
 	"log"
 	"math/rand"
 	"net"
@@ -78,18 +80,9 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		s.listener = listener
 	} else {
 		tlsCfg := &tls.Config{
-			Certificates:           []tls.Certificate{s.cert},
-			ClientAuth:             tls.RequestClientCert,
-			SessionTicketsDisabled: true,
-			MinVersion:             tls.VersionTLS12,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			},
+			Certificates: []tls.Certificate{s.cert},
+			ClientAuth:   tls.RequestClientCert,
+			MinVersion:   tls.VersionTLS12,
 		}
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
@@ -107,6 +100,7 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		ReadTimeout:    httpReadTimeout,
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
+		ErrorLog:       log.New(io.Discard, "", 0),
 	}
 
 	err := srv.Serve(s.listener)
@@ -220,12 +214,21 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 
 	lookupRequestsTotal.WithLabelValues("success").Inc()
 
-	bs, _ := json.Marshal(announcement{
-		Seen:      time.Unix(0, rec.Seen),
+	w.Header().Set("Content-Type", "application/json")
+	var bw io.Writer = w
+
+	// Use compression if the client asks for it
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		gw := gzip.NewWriter(bw)
+		defer gw.Close()
+		bw = gw
+	}
+
+	json.NewEncoder(bw).Encode(announcement{
+		Seen:      time.Unix(0, rec.Seen).Truncate(time.Second),
 		Addresses: addressStrs(rec.Addresses),
 	})
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
 }
 
 func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
