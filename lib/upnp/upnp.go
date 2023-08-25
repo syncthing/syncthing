@@ -120,7 +120,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		wgforIPv4.Wait()
 		go func(intf net.Interface, deviceType string) {
 			// For each protocol, try to discover IPv6 gateways.
-			discover(ctx, &intf, deviceType, timeout, resultChan, false)
+			discover(ctx, &intf, deviceType, timeout, resultChan, true)
 			wg.Done()
 		}(intf, "urn:schemas-upnp-org:device:InternetGatewayDevice:2")
 
