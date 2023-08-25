@@ -420,16 +420,7 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
-	// Only look for the IPv6 service when the device has been discovered as an IPv6 device and vice versa
-	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:1",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
-			netInterface)
-
-		result = append(result, descriptions...)
-	} else if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
