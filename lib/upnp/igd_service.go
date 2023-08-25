@@ -73,7 +73,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		ip, _, err := net.ParseCIDR(addr.String())
 
 		if err != nil {
-			l.Infoln("Couldn't parse address ", addr, err)
+			l.Infoln("Couldn't parse address", addr, err)
 			continue
 		}
 
@@ -84,7 +84,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 
 		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip)
 		if err != nil {
-			l.Infoln("Couldn't add pinhole for ", ip, err)
+			l.Infof("Couldn't add pinhole for [%s]:%d/%s", ip.String(), port, protocol, err)
 			returnErr = err
 		} else {
 			successfulIPs = append(successfulIPs, ip)
@@ -141,7 +141,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 		// Ignore errors since this is only used for debug logging.
 		unmarshalErr := xml.Unmarshal(resp, succResponse)
 		if unmarshalErr == nil {
-			l.Debugln("UPnPv6: UID for pinhole on %s is %d", ip.String(), succResponse.UniqueID)
+			l.Debugf("UPnPv6: UID for pinhole on [%s]:%d/$s is %d", ip.String(), port, protocol, succResponse.UniqueID)
 		} else {
 			l.Debugln("Failed to parse respone from gateway")
 		}
@@ -175,8 +175,12 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
 			return externalPort, unmarshalErr
 		}
+
 		if envelope.ErrorCode == 725 {
 			return s.AddPortMapping(ctx, protocol, internalPort, externalPort, description, 0)
+		} else {
+			err = fmt.Errorf("UPnP Error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
+			l.Infof("Couldn't add pinhole for %s (external port %d -> internal port %d, protocol: %s) %s", s.LocalIPv4.String(), externalPort, internalPort, protocol, err)
 		}
 	}
 
