@@ -420,7 +420,12 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
-	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+		// IPv6 UPnP is only standardized for IGDv2. Furthermore, any WANIPConn services for IPv4 that
+		// we may discover here are likely to be broken because many routers make the choice to not allow
+		// port mappings for IPs differing from the source IP of the device making the request (which would be v6 here)
+		return nil, nil
+	} else if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
