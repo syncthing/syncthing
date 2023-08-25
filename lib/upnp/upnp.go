@@ -475,7 +475,9 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 			for _, URN := range URNs {
 				services := getChildServices(connection, URN)
 
-				l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
+				if len(services) == 0 {
+					l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
+				}
 
 				for _, service := range services {
 					if service.ControlURL == "" {
