@@ -387,7 +387,7 @@ func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	conn, err := dialer.DialContext(timeoutCtx, "tcp", url.Host)
+	conn, err := dialer.DialContext(timeoutCtx, "udp4", url.Host)
 
 	if err != nil {
 		return nil, err
