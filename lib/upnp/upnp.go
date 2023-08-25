@@ -98,26 +98,32 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	resultChan := make(chan nat.Device)
 
 	wg := &sync.WaitGroup{}
+	wgforIPv4 := &sync.WaitGroup{}
 
 	for _, intf := range interfaces {
 		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 			continue
 		}
 
-		wg.Add(4)
+		wg.Add(3)
+		wgforIPv4.Add(2)
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			go func(intf net.Interface, deviceType string) {
 				// For each protocol, try to discover IPv6 gateways.
-				discover(ctx, &intf, deviceType, timeout, resultChan, true)
-				wg.Done()
-			}(intf, deviceType)
-
-			go func(intf net.Interface, deviceType string) {
-				// For each protocol, try to discover IPv4 gateways.
 				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 				wg.Done()
+				wgforIPv4.Done()
 			}(intf, deviceType)
+
 		}
+
+		wgforIPv4.Wait()
+		go func(intf net.Interface, deviceType string) {
+			// For each protocol, try to discover IPv6 gateways.
+			discover(ctx, &intf, deviceType, timeout, resultChan, false)
+			wg.Done()
+		}(intf, "urn:schemas-upnp-org:device:InternetGatewayDevice:2")
+
 	}
 
 	go func() {
