@@ -341,7 +341,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Don't allow adding new WebAuthn credentials without passing a registration challenge,
-		// and only allow updating the nickname
+		// and only allow updating the Nickname and RequireUv fields
 		existingCredentials := make(map[string]config.WebauthnCredential)
 		for _, cred := range cfg.GUI.WebauthnCredentials {
 			existingCredentials[cred.ID] = cred
@@ -350,6 +350,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		for _, newCred := range to.GUI.WebauthnCredentials {
 			if exCred, ok := existingCredentials[newCred.ID]; ok {
 				exCred.Nickname = newCred.Nickname
+				exCred.RequireUv = newCred.RequireUv
 				updatedCredentials = append(updatedCredentials, exCred)
 			}
 		}

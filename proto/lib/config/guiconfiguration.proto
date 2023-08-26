@@ -32,4 +32,5 @@ message WebauthnCredential {
     string          public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
     uint32          sign_count      = 4 [(ext.xml) = "signCount,attr"];
     repeated string transports      = 5 [(ext.xml) = "transports,attr"];
+    bool            require_uv      = 6 [(ext.xml) = "requireUv,attr"];
 }

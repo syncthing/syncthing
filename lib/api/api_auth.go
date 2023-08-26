@@ -382,7 +382,23 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 		return
 	}
 
-	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(webauthnProtocol.VerificationDiscouraged))
+	allRequireUv := true
+	someRequiresUv := false
+	for _, cred := range s.cfg.GUI().WebauthnCredentials {
+		if cred.RequireUv {
+			someRequiresUv = true
+		} else {
+			allRequireUv = false
+		}
+	}
+	uv := webauthnProtocol.VerificationDiscouraged
+	if allRequireUv {
+		uv = webauthnProtocol.VerificationRequired
+	} else if someRequiresUv {
+		uv = webauthnProtocol.VerificationPreferred
+	}
+
+	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(uv))
 	if err != nil {
 		badRequest, ok := err.(*webauthnProtocol.Error)
 		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
@@ -420,6 +436,13 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	updatedCred, err := webauthn.ValidateLogin(guiCfg, state, parsedResponse)
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
+
+		if state.UserVerification == webauthnProtocol.VerificationRequired && !parsedResponse.Response.AuthenticatorData.Flags.HasUserVerified() {
+			antiBruteForceSleep()
+			http.Error(w, "Conflict", http.StatusConflict)
+			return
+		}
+
 		forbidden(w)
 		return
 	}

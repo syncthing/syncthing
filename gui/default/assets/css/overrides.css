@@ -558,3 +558,7 @@ html[lang|="ko"] i {
 .webauthn-credentials table.table > tbody > tr > td {
   vertical-align: middle;
 }
+
+.webauthn-credentials td input[type="checkbox"] {
+  margin: 0;
+}

@@ -209,6 +209,11 @@
                   <tr>
                     <th colspan="1000"><label translate>WebAuthn Credentials</label></th>
                   </tr>
+                  <tr>
+                    <th><label translate>Name</label></th>
+                    <th><label translate>Require UV</label></th>
+                    <th colspan="1000"><label translate>Actions</label></th>
+                  </tr>
                 </thead>
                 <tbody>
                   <tr ng-repeat="cred in tmpGUI.webauthnCredentials">
@@ -219,6 +224,9 @@
                       <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
                     </td>
 
+                    <td class="small-data text-center">
+                      <input type="checkbox" ng-model="cred.requireUv" />
+                    </td>
                     <td class="small-data">
                       <a class="btn btn-link btn-sm" href="" ng-click="cred.editing = true" ng-if="!cred.editing">
                         <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
