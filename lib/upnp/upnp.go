@@ -98,32 +98,25 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	resultChan := make(chan nat.Device)
 
 	wg := &sync.WaitGroup{}
-	wgforIPv4 := &sync.WaitGroup{}
 
 	for _, intf := range interfaces {
 		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 			continue
 		}
 
-		wg.Add(3)
-		wgforIPv4.Add(2)
-		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
-			go func(intf net.Interface, deviceType string) {
-				// For each protocol, try to discover IPv6 gateways.
-				discover(ctx, &intf, deviceType, timeout, resultChan, false)
-				wg.Done()
-				wgforIPv4.Done()
-			}(intf, deviceType)
+		wg.Add(1)
+		// Discovery is done sequentially per interface because we discovered that FritzBox routers
+		// return a broken result sometimes if the IPv4 and IPv6 request arrive at the same time.
+		go func(iface net.Interface) {
+			// Discover IPv4 gateways on interface.
+			for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
+				discover(ctx, &iface, deviceType, timeout, resultChan, false)
+			}
 
-		}
-
-		wgforIPv4.Wait()
-		go func(intf net.Interface, deviceType string) {
-			// For each protocol, try to discover IPv6 gateways.
-			discover(ctx, &intf, deviceType, timeout, resultChan, true)
+			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1 + IPv6 is not standardized and will lead to duplicates on routers.
+			discover(ctx, &iface, "urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, resultChan, true)
 			wg.Done()
-		}(intf, "urn:schemas-upnp-org:device:InternetGatewayDevice:2")
-
+		}(intf)
 	}
 
 	go func() {
@@ -330,18 +323,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	var upnpRoot upnpRoot
 	err = xml.NewDecoder(response.Body).Decode(&upnpRoot)
 	if err != nil {
-		// It was reported that a FritzBox (common WiFi router brand) sometimes responds
-		// with a broken description so we try the same request again after a second.
-		time.Sleep(time.Duration(time.Duration.Seconds(1)))
-		secondResponse, err := http.Get(deviceDescriptionLocation)
-
-		if err != nil {
-			return nil, err
-		} else {
-			if err := xml.NewDecoder(secondResponse.Body).Decode(&upnpRoot); err != nil {
-				return nil, err
-			}
-		}
+		return nil, err
 	}
 
 	// Figure out our IPv4 address on the interface used to reach the IGD.
