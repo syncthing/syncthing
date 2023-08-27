@@ -342,7 +342,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	// completely discovered device uses the IPv6 firewall protocol, this just checks if the gateway's is IPv6.
 	// Currently we only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa, which is why this needs to be stored
 	// but technically we could forgo this check and try WANIPv6FirewallControl via IPv4. This leads to errors though so we don't do it.
-	upnpRoot.Device.IsIPv6 = deviceIP.To4() == nil
+	upnpRoot.Device.IsIPv6 = addr.IP.To4() == nil
 	services, err := getServiceDescriptions(deviceUUID, localIPv4Address, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
 		return nil, err
