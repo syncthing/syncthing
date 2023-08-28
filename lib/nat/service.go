@@ -249,10 +249,6 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 
 			l.Debugf("Renewing %s -> %s open port on %s", mapping, extAddrs, id)
 
-			if len(extAddrs) == 0 {
-				continue
-			}
-
 			// addresses either contains one IPv4 address or at least one IPv6 addresses with the rest using the same port.
 			// Therefore we can use address[0].Port for the external port
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
