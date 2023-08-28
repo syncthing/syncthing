@@ -21,7 +21,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/greatroar/blobloom v0.7.2
-	github.com/hashicorp/golang-lru/v2 v2.0.5
+	github.com/hashicorp/golang-lru/v2 v2.0.6
 	github.com/jackpal/gateway v1.0.10
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/julienschmidt/httprouter v1.3.0
@@ -48,7 +48,7 @@ require (
 	github.com/urfave/cli v1.22.14
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.12.0
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
+	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.14.0
 	golang.org/x/sys v0.11.0
