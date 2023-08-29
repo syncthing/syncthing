@@ -1615,7 +1615,7 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
 	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if _, ok := s.model.Connection(device); ok {
+			if s.model.ConnectedTo(device) {
 				comp, err := s.model.Completion(device, folder.ID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)

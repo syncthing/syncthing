@@ -224,7 +224,6 @@ type genericListener interface {
 type Model interface {
 	protocol.Model
 	AddConnection(conn protocol.Connection, hello protocol.Hello)
-	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 }

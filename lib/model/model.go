@@ -109,6 +109,7 @@ type Model interface {
 	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
+	ConnectedTo(remoteID protocol.DeviceID) bool
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
@@ -187,7 +188,6 @@ var (
 	ErrFolderMissing    = errors.New("no such folder")
 	errNoVersioner      = errors.New("folder has no versioner")
 	// errors about why a connection is closed
-	errReplacingConnection                = errors.New("replacing connection")
 	errStopped                            = errors.New("Syncthing is being stopped")
 	errEncryptionInvConfigLocal           = errors.New("can't encrypt outgoing data because local data is encrypted (folder-type receive-encrypted)")
 	errEncryptionInvConfigRemote          = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
@@ -2196,20 +2196,12 @@ func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, er
 	return fs.GetMtimeMapping(fcfg.Filesystem(ffs), file)
 }
 
-// Connection returns the current (primary) connection for device, and a
-// boolean whether a connection was found.
-func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
-	var conn protocol.Connection
+// Connection returns if we are connected to the given device.
+func (m *model) ConnectedTo(deviceID protocol.DeviceID) bool {
 	m.pmut.RLock()
-	connID, ok := m.deviceConnIDs[deviceID]
-	if ok {
-		conn, ok = m.connections[connID[0]]
-	}
+	_, ok := m.deviceConnIDs[deviceID]
 	m.pmut.RUnlock()
-	if ok {
-		m.deviceWasSeen(deviceID)
-	}
-	return conn, ok
+	return ok
 }
 
 // LoadIgnores loads or refreshes the ignore patterns from disk, if the
@@ -2410,27 +2402,8 @@ func (m *model) promoteConnections() {
 	defer m.pmut.Unlock()
 
 	for deviceID, connIDs := range m.deviceConnIDs {
-		// Figure out the best current connection priority for this device.
-		bestPriority := m.connections[connIDs[0]].Priority()
-		for _, connID := range connIDs[1:] {
-			priority := m.connections[connID].Priority()
-			if priority < bestPriority {
-				bestPriority = priority
-			}
-		}
-
-		// Close connections with a worse connection priority than best.
-		closing := make(map[string]bool)
-		for _, connID := range connIDs {
-			if conn := m.connections[connID]; conn.Priority() > bestPriority {
-				l.Debugf("Closing connection to %s at %s because it has a worse connection priority than the best connection", deviceID.Short(), conn)
-				go conn.Close(errReplacingConnection)
-				closing[connID] = true
-			}
-		}
-
 		cm, passwords := m.generateClusterConfigFRLocked(deviceID)
-		if !closing[connIDs[0]] && m.promotedConnID[deviceID] != connIDs[0] {
+		if m.promotedConnID[deviceID] != connIDs[0] {
 			// The previously promoted connection is not the current
 			// primary; we should promote the primary connection to be the
 			// index handling one. We do this by sending a ClusterConfig on
@@ -2450,9 +2423,6 @@ func (m *model) promoteConnections() {
 		// Make sure any other new connections also get started, and that
 		// they get a secondary-marked ClusterConfig.
 		for _, connID := range connIDs[1:] {
-			if closing[connID] {
-				continue
-			}
 			conn := m.connections[connID]
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)

@@ -76,18 +76,16 @@ type Model struct {
 		result1 model.FolderCompletion
 		result2 error
 	}
-	ConnectionStub        func(protocol.DeviceID) (protocol.Connection, bool)
-	connectionMutex       sync.RWMutex
-	connectionArgsForCall []struct {
+	ConnectedToStub        func(protocol.DeviceID) bool
+	connectedToMutex       sync.RWMutex
+	connectedToArgsForCall []struct {
 		arg1 protocol.DeviceID
 	}
-	connectionReturns struct {
-		result1 protocol.Connection
-		result2 bool
+	connectedToReturns struct {
+		result1 bool
 	}
-	connectionReturnsOnCall map[int]struct {
-		result1 protocol.Connection
-		result2 bool
+	connectedToReturnsOnCall map[int]struct {
+		result1 bool
 	}
 	ConnectionStatsStub        func() map[string]interface{}
 	connectionStatsMutex       sync.RWMutex
@@ -867,68 +865,65 @@ func (fake *Model) CompletionReturnsOnCall(i int, result1 model.FolderCompletion
 	}{result1, result2}
 }
 
-func (fake *Model) Connection(arg1 protocol.DeviceID) (protocol.Connection, bool) {
-	fake.connectionMutex.Lock()
-	ret, specificReturn := fake.connectionReturnsOnCall[len(fake.connectionArgsForCall)]
-	fake.connectionArgsForCall = append(fake.connectionArgsForCall, struct {
+func (fake *Model) ConnectedTo(arg1 protocol.DeviceID) bool {
+	fake.connectedToMutex.Lock()
+	ret, specificReturn := fake.connectedToReturnsOnCall[len(fake.connectedToArgsForCall)]
+	fake.connectedToArgsForCall = append(fake.connectedToArgsForCall, struct {
 		arg1 protocol.DeviceID
 	}{arg1})
-	stub := fake.ConnectionStub
-	fakeReturns := fake.connectionReturns
-	fake.recordInvocation("Connection", []interface{}{arg1})
-	fake.connectionMutex.Unlock()
+	stub := fake.ConnectedToStub
+	fakeReturns := fake.connectedToReturns
+	fake.recordInvocation("ConnectedTo", []interface{}{arg1})
+	fake.connectedToMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fakeReturns.result1, fakeReturns.result2
+	return fakeReturns.result1
 }
 
-func (fake *Model) ConnectionCallCount() int {
-	fake.connectionMutex.RLock()
-	defer fake.connectionMutex.RUnlock()
-	return len(fake.connectionArgsForCall)
+func (fake *Model) ConnectedToCallCount() int {
+	fake.connectedToMutex.RLock()
+	defer fake.connectedToMutex.RUnlock()
+	return len(fake.connectedToArgsForCall)
 }
 
-func (fake *Model) ConnectionCalls(stub func(protocol.DeviceID) (protocol.Connection, bool)) {
-	fake.connectionMutex.Lock()
-	defer fake.connectionMutex.Unlock()
-	fake.ConnectionStub = stub
+func (fake *Model) ConnectedToCalls(stub func(protocol.DeviceID) bool) {
+	fake.connectedToMutex.Lock()
+	defer fake.connectedToMutex.Unlock()
+	fake.ConnectedToStub = stub
 }
 
-func (fake *Model) ConnectionArgsForCall(i int) protocol.DeviceID {
-	fake.connectionMutex.RLock()
-	defer fake.connectionMutex.RUnlock()
-	argsForCall := fake.connectionArgsForCall[i]
+func (fake *Model) ConnectedToArgsForCall(i int) protocol.DeviceID {
+	fake.connectedToMutex.RLock()
+	defer fake.connectedToMutex.RUnlock()
+	argsForCall := fake.connectedToArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *Model) ConnectionReturns(result1 protocol.Connection, result2 bool) {
-	fake.connectionMutex.Lock()
-	defer fake.connectionMutex.Unlock()
-	fake.ConnectionStub = nil
-	fake.connectionReturns = struct {
-		result1 protocol.Connection
-		result2 bool
-	}{result1, result2}
+func (fake *Model) ConnectedToReturns(result1 bool) {
+	fake.connectedToMutex.Lock()
+	defer fake.connectedToMutex.Unlock()
+	fake.ConnectedToStub = nil
+	fake.connectedToReturns = struct {
+		result1 bool
+	}{result1}
 }
 
-func (fake *Model) ConnectionReturnsOnCall(i int, result1 protocol.Connection, result2 bool) {
-	fake.connectionMutex.Lock()
-	defer fake.connectionMutex.Unlock()
-	fake.ConnectionStub = nil
-	if fake.connectionReturnsOnCall == nil {
-		fake.connectionReturnsOnCall = make(map[int]struct {
-			result1 protocol.Connection
-			result2 bool
+func (fake *Model) ConnectedToReturnsOnCall(i int, result1 bool) {
+	fake.connectedToMutex.Lock()
+	defer fake.connectedToMutex.Unlock()
+	fake.ConnectedToStub = nil
+	if fake.connectedToReturnsOnCall == nil {
+		fake.connectedToReturnsOnCall = make(map[int]struct {
+			result1 bool
 		})
 	}
-	fake.connectionReturnsOnCall[i] = struct {
-		result1 protocol.Connection
-		result2 bool
-	}{result1, result2}
+	fake.connectedToReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
 }
 
 func (fake *Model) ConnectionStats() map[string]interface{} {
@@ -3284,8 +3279,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.clusterConfigMutex.RUnlock()
 	fake.completionMutex.RLock()
 	defer fake.completionMutex.RUnlock()
-	fake.connectionMutex.RLock()
-	defer fake.connectionMutex.RUnlock()
+	fake.connectedToMutex.RLock()
+	defer fake.connectedToMutex.RUnlock()
 	fake.connectionStatsMutex.RLock()
 	defer fake.connectionStatsMutex.RUnlock()
 	fake.currentFolderFileMutex.RLock()
