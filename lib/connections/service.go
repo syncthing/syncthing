@@ -1377,7 +1377,7 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
 	// Close any connections we no longer want to retain.
-	c.closeWorsePriorityConnectionsLocked(d, upgradeThreshold)
+	c.closeWorsePriorityConnectionsLocked(d, conn.Priority()-upgradeThreshold)
 }
 
 func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connection) {
@@ -1432,23 +1432,12 @@ func (c *deviceConnectionTracker) worstConnectionPriority(d protocol.DeviceID) i
 }
 
 // closeWorsePriorityConnectionsLocked closes all connections to the given
-// device that are worse than the best priority plus the upgrade threshold.
-// Must be called with the lock held, and with a non-empty list of
-// connections (e.g., after adding a connection...).
-func (c *deviceConnectionTracker) closeWorsePriorityConnectionsLocked(d protocol.DeviceID, upgradeThreshold int) {
-	// Figure out the currently best connection priority.
-	conns := c.connections[d]
-	bestPriority := conns[0].Priority()
-	for _, conn := range conns {
-		if p := conn.Priority(); p < bestPriority {
-			bestPriority = p
-		}
-	}
-	// Close any connections that are worse than the best plus the upgrade
-	// threshold.
-	for _, conn := range conns {
-		if conn.Priority() > bestPriority+upgradeThreshold {
-			l.Debugf("Closing connection %s to %s with priority %d (best %d)", conn, d.Short(), conn.Priority(), bestPriority)
+// device that are worse than the cutoff priority. Must be called with the
+// lock held.
+func (c *deviceConnectionTracker) closeWorsePriorityConnectionsLocked(d protocol.DeviceID, cutoff int) {
+	for _, conn := range c.connections[d] {
+		if p := conn.Priority(); p > cutoff {
+			l.Debugf("Closing connection %s to %s with priority %d (cutoff %d)", conn, d.Short(), p, cutoff)
 			go conn.Close(errReplacingConnection)
 		}
 	}
