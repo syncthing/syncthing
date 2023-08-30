@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/net/http2"
 )
 
 type globalClient struct {
@@ -107,14 +108,16 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	}
 	var announceClient httpClient = &contextClient{&http.Client{
 		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			DialContext: dialContext,
-			Proxy:       http.ProxyFromEnvironment,
+		Transport: http2EnabledTransport(&http.Transport{
+			DialContext:       dialContext,
+			Proxy:             http.ProxyFromEnvironment,
+			DisableKeepAlives: true, // announcements are few and far between, so don't keep the connection open
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 				Certificates:       []tls.Certificate{cert},
+				MinVersion:         tls.VersionTLS12,
 			},
-		},
+		}),
 	}}
 	if opts.id != "" {
 		announceClient = newIDCheckingHTTPClient(announceClient, devID)
@@ -124,13 +127,15 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	// certificate here, so lets not include it. May be insecure if requested.
 	var queryClient httpClient = &contextClient{&http.Client{
 		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			DialContext: dialer.DialContext,
-			Proxy:       http.ProxyFromEnvironment,
+		Transport: http2EnabledTransport(&http.Transport{
+			DialContext:     dialer.DialContext,
+			Proxy:           http.ProxyFromEnvironment,
+			IdleConnTimeout: time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
+				MinVersion:         tls.VersionTLS12,
 			},
-		},
+		}),
 	}}
 	if opts.id != "" {
 		queryClient = newIDCheckingHTTPClient(queryClient, devID)
@@ -176,7 +181,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 		l.Debugln("globalClient.Lookup", qURL, err)
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
 		l.Debugln("globalClient.Lookup", qURL, resp.Status)
 		err := errors.New(resp.Status)
@@ -437,7 +442,7 @@ type contextClient struct {
 }
 
 func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +450,7 @@ func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, er
 }
 
 func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "POST", url, data)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, data)
 	if err != nil {
 		return nil, err
 	}
@@ -463,4 +468,9 @@ func ipv4Identity(port int) string {
 
 func ipv6Identity(addr string) string {
 	return fmt.Sprintf("IPv6 local multicast discovery on address %s", addr)
+}
+
+func http2EnabledTransport(t *http.Transport) *http.Transport {
+	_ = http2.ConfigureTransport(t)
+	return t
 }
