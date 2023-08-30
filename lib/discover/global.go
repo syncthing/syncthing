@@ -106,20 +106,18 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	} else {
 		dialContext = dialer.DialContext
 	}
-	trsp := &http.Transport{
-		DialContext: dialContext,
-		Proxy:       http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: opts.insecure,
-			Certificates:       []tls.Certificate{cert},
-			MinVersion:         tls.VersionTLS12,
-		},
-		DisableKeepAlives: true, // announcements are few and far between, so don't keep the connection open
-	}
-	http2.ConfigureTransport(trsp)
 	var announceClient httpClient = &contextClient{&http.Client{
-		Timeout:   requestTimeout,
-		Transport: trsp,
+		Timeout: requestTimeout,
+		Transport: http2EnabledTransport(&http.Transport{
+			DialContext:       dialContext,
+			Proxy:             http.ProxyFromEnvironment,
+			DisableKeepAlives: true, // announcements are few and far between, so don't keep the connection open
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: opts.insecure,
+				Certificates:       []tls.Certificate{cert},
+				MinVersion:         tls.VersionTLS12,
+			},
+		}),
 	}}
 	if opts.id != "" {
 		announceClient = newIDCheckingHTTPClient(announceClient, devID)
@@ -127,19 +125,17 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 
 	// The http.Client used for queries. We don't need to present our
 	// certificate here, so lets not include it. May be insecure if requested.
-	trsp = &http.Transport{
-		DialContext: dialer.DialContext,
-		Proxy:       http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: opts.insecure,
-			MinVersion:         tls.VersionTLS12,
-		},
-		IdleConnTimeout: time.Second,
-	}
-	http2.ConfigureTransport(trsp)
 	var queryClient httpClient = &contextClient{&http.Client{
-		Timeout:   requestTimeout,
-		Transport: trsp,
+		Timeout: requestTimeout,
+		Transport: http2EnabledTransport(&http.Transport{
+			DialContext:     dialer.DialContext,
+			Proxy:           http.ProxyFromEnvironment,
+			IdleConnTimeout: time.Second,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: opts.insecure,
+				MinVersion:         tls.VersionTLS12,
+			},
+		}),
 	}}
 	if opts.id != "" {
 		queryClient = newIDCheckingHTTPClient(queryClient, devID)
@@ -472,4 +468,9 @@ func ipv4Identity(port int) string {
 
 func ipv6Identity(addr string) string {
 	return fmt.Sprintf("IPv6 local multicast discovery on address %s", addr)
+}
+
+func http2EnabledTransport(t *http.Transport) *http.Transport {
+	_ = http2.ConfigureTransport(t)
+	return t
 }
