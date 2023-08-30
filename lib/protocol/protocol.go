@@ -271,7 +271,7 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 	cw := &countingWriter{Writer: writer, idString: idString}
 	registerDeviceMetrics(idString)
 
-	c := &rawConnection{
+	return &rawConnection{
 		ConnectionInfo:        connInfo,
 		deviceID:              deviceID,
 		idString:              deviceID.String(),
@@ -290,18 +290,6 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 		compression:           compress,
 		loopWG:                sync.WaitGroup{},
 	}
-	go func() {
-		// XXX: temporary debugging due to suspicious behavior
-		select {
-		case <-c.started:
-			return
-		case <-c.closed:
-			return
-		case <-time.After(20 * time.Second):
-			panic(fmt.Sprintf("connection %s %s not started or closed after 20s", deviceID.Short(), connInfo))
-		}
-	}()
-	return c
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
