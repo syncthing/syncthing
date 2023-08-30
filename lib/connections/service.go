@@ -1384,10 +1384,14 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	d := conn.DeviceID()
+	cid := conn.ConnectionID()
 	// Remove the connection from the list of current connections
-	for i, conns := range c.connections[d] {
-		if conns == conn {
-			c.connections[d] = append(c.connections[d][:i], c.connections[d][i+1:]...)
+	for i, conn := range c.connections[d] {
+		if conn.ConnectionID() == cid {
+			s := c.connections[d]
+			s[i] = s[len(s)-1]
+			s[len(s)-1] = nil
+			c.connections[d] = s[:len(s)-1]
 			break
 		}
 	}
