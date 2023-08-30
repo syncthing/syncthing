@@ -38,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -1388,10 +1389,7 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 	// Remove the connection from the list of current connections
 	for i, conn := range c.connections[d] {
 		if conn.ConnectionID() == cid {
-			s := c.connections[d]
-			s[i] = s[len(s)-1]
-			s[len(s)-1] = nil
-			c.connections[d] = s[:len(s)-1]
+			c.connections[d] = sliceutil.RemoveAndZero(c.connections[d], i)
 			break
 		}
 	}
