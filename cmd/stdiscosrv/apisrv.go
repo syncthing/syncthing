@@ -83,6 +83,7 @@ func (s *apiSrv) Serve(_ context.Context) error {
 			Certificates: []tls.Certificate{s.cert},
 			ClientAuth:   tls.RequestClientCert,
 			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2", "http/1.1"},
 		}
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
