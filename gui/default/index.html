@@ -661,6 +661,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxRecvKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxRecvKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
@@ -677,6 +680,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxSendKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxSendKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
