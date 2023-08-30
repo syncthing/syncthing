@@ -112,6 +112,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: opts.insecure,
 			Certificates:       []tls.Certificate{cert},
+			MinVersion:         tls.VersionTLS12,
 		},
 		DisableKeepAlives: true, // announcements are few and far between, so don't keep the connection open
 	}
@@ -131,6 +132,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		Proxy:       http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: opts.insecure,
+			MinVersion:         tls.VersionTLS12,
 		},
 		IdleConnTimeout: time.Second,
 	}
