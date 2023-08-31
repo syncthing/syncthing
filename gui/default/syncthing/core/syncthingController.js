@@ -1527,13 +1527,17 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function () {
+            $('#savingChanges').modal();
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             };
-            return $http.put(urlbase + '/config', cfg, opts).finally(refreshConfig).catch($scope.emitHTTPError);
+            return $http.put(urlbase + '/config', cfg, opts).finally(function () {
+                refreshConfig();
+                $('#savingChanges').modal("hide");
+            }).catch($scope.emitHTTPError);
         };
 
         $scope.urVersions = function () {
