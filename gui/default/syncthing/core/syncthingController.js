@@ -1329,8 +1329,22 @@ angular.module('syncthing.core')
             return device.deviceID.substr(0, 6);
         };
 
-        $scope.showDeviceIdentification = function (deviceCfg) {
-            $scope.currentDevice = deviceCfg;
+        $scope.showIdentification = function (cfg) {
+            if (cfg.id) {
+                $scope.currentFolder = cfg;
+                $scope.idqrType = "folder";
+                $scope.idqrLarge = "no";
+                $scope.idqrText = $scope.currentFolder.id;
+                $scope.idqrHeading = $translate.instant("Folder Identification") + " - " + $scope.idqrText;
+            } else if (cfg.deviceID) {
+                $scope.currentDevice = cfg;
+                $scope.idqrType = "device";
+                $scope.idqrLarge = "yes";
+                $scope.idqrText = $scope.currentDevice.deviceID;
+                $scope.idqrHeading = $translate.instant("Device Identification") + " - " + $scope.idqrText;
+            } else {
+                return;
+            }
             $('#idqr').modal();
         };
 

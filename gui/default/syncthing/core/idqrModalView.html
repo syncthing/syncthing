@@ -1,0 +1,24 @@
+<modal id="idqr" status="info" icon="fas fa-qrcode" heading="{{idqrHeading}}" large="{{idqrLarge}}" closeable="yes">
+  <div class="modal-body text-center">
+    <div class="well well-sm text-monospace" select-on-click>{{idqrText}}</div>
+    <div>
+      <img class="img-thumbnail" ng-src="qr/?text={{idqrText}}" height="328" width="328" alt="{{'QR code' | translate}}" />
+      <div class="btn-group-vertical" style="vertical-align: top;">
+        <button type="button" class="btn btn-default" ng-click="copyToClipboard($event, idqrText)">
+          <span class="fa fa-lg fa-clone text-left"></span>&nbsp;<span translate>Copy</span>
+        </button>
+        <button ng-if="idqrType === 'device'" type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('email')">
+          <span class="fa fa-lg fa-envelope-o"></span>&nbsp;<span translate>Share by Email</span>
+        </button>
+        <button ng-if="idqrType === 'device'" type="button" class="btn btn-default" ng-click="shareDeviceIdDialog('sms')">
+          <span class="fa fa-lg fa-comments-o"></span>&nbsp;<span translate>Share by SMS</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

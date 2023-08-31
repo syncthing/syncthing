@@ -101,7 +101,7 @@
             </a>
             <ul class="dropdown-menu">
               <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+              <li><a href="" ng-click="showIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
               <li class="divider" aria-hidden="true"></li>
               <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
               <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
@@ -393,7 +393,9 @@
                     <tbody>
                       <tr ng-show="folder.label != undefined && folder.label.length > 0">
                         <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
-                        <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
+                        <td class="text-right no-overflow-ellipse">
+                          <a href="" ng-click="showIdentification(folder)" tooltip data-original-title="{{'Click to see QR code.' | translate}}">{{folder.id}}</a>
+                        </td>
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
@@ -726,7 +728,7 @@
                       <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
-                          <a href="" ng-click="showDeviceIdentification(thisDevice())">{{deviceShortID(deviceCfg.deviceID)}}</a>
+                          <a href="" ng-click="showIdentification(thisDevice())">{{deviceShortID(deviceCfg.deviceID)}}</a>
                         </span>
                       </td>
                     </tr>
@@ -886,7 +888,7 @@
                         <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
                         <td class="text-right">
                           <span tooltip data-original-title="{{'Click to see full identification string and QR code.' | translate}}">
-                            <a href="" ng-click="showDeviceIdentification(deviceCfg)">{{deviceShortID(deviceCfg.deviceID)}}</a>
+                            <a href="" ng-click="showIdentification(deviceCfg)">{{deviceShortID(deviceCfg.deviceID)}}</a>
                           </span>
                         </td>
                       </tr>
@@ -978,7 +980,7 @@
   <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/idqrModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
