@@ -1521,8 +1521,8 @@ angular.module('syncthing.core')
                 }
             };
             return $http.put(urlbase + '/config', cfg, opts).finally(function () {
-              refreshConfig;
-              $('#savingChanges').modal("hide");
+                refreshConfig;
+                $('#savingChanges').modal("hide");
             }).catch($scope.emitHTTPError);
         };
 
