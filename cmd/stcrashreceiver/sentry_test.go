@@ -44,6 +44,20 @@ func TestParseVersion(t *testing.T) {
 				extra:    []string{"foo", "bar"},
 			},
 		},
+		{
+			longVersion: `syncthing v1.23.7-dev.26.gdf7b56ae-stversionextra "Fermium Flea" (go1.20.5 darwin-arm64) jb@ok.kastelo.net 2023-07-12 06:55:26 UTC [Some Wrapper, purego, stnoupgrade]`,
+			parsed: version{
+				version:  "v1.23.7-dev.26.gdf7b56ae-stversionextra",
+				tag:      "v1.23.7-dev",
+				commit:   "df7b56ae",
+				codename: "Fermium Flea",
+				runtime:  "go1.20.5",
+				goos:     "darwin",
+				goarch:   "arm64",
+				builder:  "jb@ok.kastelo.net",
+				extra:    []string{"Some Wrapper", "purego", "stnoupgrade"},
+			},
+		},
 	}
 
 	for _, tc := range cases {

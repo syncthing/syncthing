@@ -740,18 +740,10 @@ angular.module('syncthing.core')
         }
 
         function pathJoin(base, name) {
-            base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;
             }
             return base + name;
-        }
-
-        function expandTilde(path) {
-            if (path && path.trim().charAt(0) === '~') {
-                return $scope.system.tilde + path.trim().substring(1);
-            }
-            return path;
         }
 
         function shouldSetDefaultFolderPath() {
@@ -1098,7 +1090,7 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            if (!unused && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+            if (!unused && $scope.deviceStats[deviceCfg.deviceID] && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
                 return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
@@ -1521,13 +1513,17 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function () {
+            $('#savingChanges').modal();
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             };
-            return $http.put(urlbase + '/config', cfg, opts).finally(refreshConfig).catch($scope.emitHTTPError);
+            return $http.put(urlbase + '/config', cfg, opts).finally(function () {
+                refreshConfig();
+                $('#savingChanges').modal("hide");
+            }).catch($scope.emitHTTPError);
         };
 
         $scope.urVersions = function () {
@@ -1707,6 +1703,13 @@ angular.module('syncthing.core')
         $scope.editingDeviceNew = function() {
             // The "new-pending" value is intentionally disregarded here.
             return $scope.currentDevice._editing == 'new';
+        }
+
+        $scope.editDeviceUntrustedChanged = function () {
+            if (currentDevice.untrusted) {
+                currentDevice.introducer = false;
+                currentDevice.autoAcceptFolders = false;
+            }
         }
 
         $scope.editDeviceExisting = function (deviceCfg) {
@@ -1893,8 +1896,11 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.otherDevices = function () {
-            return $scope.deviceList().filter(function (n) {
+        $scope.otherDevices = function (devices) {
+            if (devices === undefined) {
+                devices = $scope.deviceList();
+            }
+            return devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
         };
@@ -1981,7 +1987,7 @@ angular.module('syncthing.core')
             if (!newvalue) {
                 return;
             }
-            $scope.currentFolder.path = expandTilde(newvalue);
+            $scope.currentFolder.path = newvalue;
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
@@ -2452,30 +2458,6 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
-        $scope.deviceNameMarkRemoteState = function (deviceID, folderID) {
-            var name = $scope.deviceName($scope.devices[deviceID]);
-            // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
-                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                    name += '<sup>1</sup>';
-                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
-                    name += '<sup>2</sup>';
-                }
-            }
-            return name;
-        };
-
-        $scope.sharesFolder = function (folderCfg) {
-            var names = [];
-            folderCfg.devices.forEach(function (device) {
-                if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceNameMarkRemoteState(device.deviceID, folderCfg.id));
-                }
-            });
-            names.sort();
-            return names.join(", ");
-        };
-
         $scope.folderHasUnacceptedDevices = function (folderCfg) {
             for (var deviceID in $scope.completion) {
                 if (deviceID in $scope.devices
@@ -2517,27 +2499,6 @@ angular.module('syncthing.core')
             }
             var label = $scope.folders[folderID].label;
             return label && label.length > 0 ? label : folderID;
-        };
-
-        $scope.folderLabelMarkRemoteState = function (folderID, deviceID) {
-            var label = $scope.folderLabel(folderID);
-            // Add footnote if sharing was not accepted on the remote device
-            if (deviceID in $scope.completion && folderID in $scope.completion[deviceID]) {
-                if ($scope.completion[deviceID][folderID].remoteState == 'notSharing') {
-                    label += '<sup>1</sup>';
-                } else if ($scope.completion[deviceID][folderID].remoteState == 'paused') {
-                    label += '<sup>2</sup>';
-                }
-            }
-            return label;
-        };
-
-        $scope.sharedFolders = function (deviceCfg) {
-            var labels = [];
-            $scope.deviceFolders(deviceCfg).forEach(function (folderID) {
-                labels.push($scope.folderLabelMarkRemoteState(folderID, deviceCfg.deviceID));
-            });
-            return labels.join(', ');
         };
 
         $scope.deviceHasUnacceptedFolders = function (deviceCfg) {
@@ -2821,9 +2782,17 @@ angular.module('syncthing.core')
 
             $scope.restoreVersions.tree.filterNodes(function (node) {
                 if (node.folder) return false;
-                if ($scope.restoreVersions.filters.text && node.key.indexOf($scope.restoreVersions.filters.text) < 0) {
-                    return false;
+
+                if ($scope.restoreVersions.filters.text) {
+                    // Use case-insensitive filter and convert backslashes to
+                    // forward slashes to allow using them as path separators.
+                    var filterText = $scope.restoreVersions.filters.text.toLowerCase().replace(/\\/g, '/');
+                    var versionPath = node.key.toLowerCase().replace(/\\/g, '/');
+                    if (versionPath.indexOf(filterText) < 0) {
+                        return false;
+                    }
                 }
+
                 if ($scope.restoreVersions.filterVersions(node.data.versions).length == 0) {
                     return false;
                 }
@@ -2912,7 +2881,7 @@ angular.module('syncthing.core')
         };
 
         $scope.hasReceiveOnlyChanged = function (folderCfg) {
-            if (!folderCfg || folderCfg.type !== ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
+            if (!folderCfg || ["receiveonly",  "receiveencrypted"].indexOf(folderCfg.type) === -1) {
                 return false;
             }
             var counts = $scope.model[folderCfg.id];
@@ -3094,7 +3063,11 @@ angular.module('syncthing.core')
                 arch += " Container";
             }
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            var verStr = $scope.version.version;
+            if ($scope.version.extra) {
+                verStr += ' (' + $scope.version.extra + ')';
+            }
+            return verStr + ', ' + os + ' (' + arch + ')';
         };
 
         $scope.versionBase = function () {
@@ -3429,6 +3402,7 @@ angular.module('syncthing.core')
                 id: '@',
                 label: '@',
                 folderType: '@',
+                remoteState: '@',
                 untrusted: '=',
             },
             link: function (scope, elem, attrs) {

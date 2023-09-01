@@ -8,7 +8,6 @@ package versioner
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -227,7 +226,7 @@ func TestTrashcanCleanOut(t *testing.T) {
 		".stversions/remove/removesubdir/file1": true,
 	}
 
-	t.Run(fmt.Sprintf("trashcan versioner trashcan clean up"), func(t *testing.T) {
+	t.Run("trashcan versioner trashcan clean up", func(t *testing.T) {
 		oldTime := time.Now().Add(-8 * 24 * time.Hour)
 		for file, shouldRemove := range testcases {
 			fs.MkdirAll(filepath.Dir(file), 0777)

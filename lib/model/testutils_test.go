@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol/mocks"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -27,20 +28,24 @@ var (
 	defaultCfgWrapper       config.Wrapper
 	defaultCfgWrapperCancel context.CancelFunc
 	defaultFolderConfig     config.FolderConfiguration
-	defaultFs               fs.Filesystem
 	defaultCfg              config.Configuration
 	defaultAutoAcceptCfg    config.Configuration
+	device1Conn             = &mocks.Connection{}
+	device2Conn             = &mocks.Connection{}
 )
 
 func init() {
 	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device1Conn.DeviceIDReturns(device1)
+	device2Conn.DeviceIDReturns(device2)
 
-	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
+	cfg := config.New(myID)
+	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks
+	defaultCfgWrapper, defaultCfgWrapperCancel = newConfigWrapper(cfg)
 
-	defaultFolderConfig = testFolderConfig("testdata")
-	defaultFs = defaultFolderConfig.Filesystem(nil)
+	defaultFolderConfig = newFolderConfig()
 
 	waiter, _ := defaultCfgWrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device1, "device1"))
@@ -68,41 +73,33 @@ func init() {
 		},
 		Defaults: config.Defaults{
 			Folder: config.FolderConfiguration{
-				Path: ".",
+				FilesystemType: fs.FilesystemTypeFake,
+				Path:           rand.String(32),
 			},
+		},
+		Options: config.OptionsConfiguration{
+			MinHomeDiskFree: config.Size{}, // avoids unnecessary free space checks
 		},
 	}
 }
 
-func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
-	if err != nil {
-		panic(err)
-	}
-	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
-	tmpFile.Close()
+func newConfigWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
+	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
 	ctx, cancel := context.WithCancel(context.Background())
 	go wrapper.Serve(ctx)
 	return wrapper, cancel
 }
 
-func tmpDefaultWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
-	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfig(t.TempDir())
+func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+	w, cancel := newConfigWrapper(defaultCfgWrapper.RawCopy())
+	fcfg := newFolderConfig()
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
 	return w, fcfg, cancel
 }
 
-func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, path)
-	cfg.FSWatcherEnabled = false
-	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
-	return cfg
-}
-
-func testFolderConfigFake() config.FolderConfiguration {
+func newFolderConfig() config.FolderConfiguration {
 	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
@@ -111,7 +108,7 @@ func testFolderConfigFake() config.FolderConfiguration {
 
 func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg, cancel := tmpDefaultWrapper(t)
+	w, fcfg, cancel := newDefaultCfgWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg, cancel
 }
@@ -237,7 +234,7 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 	return ok
 }
 
-func (c *alwaysChanged) Changed() bool {
+func (*alwaysChanged) Changed() bool {
 	return true
 }
 

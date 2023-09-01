@@ -30,22 +30,22 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
 	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
-		must(t, ffs.MkdirAll(dir, 0755))
+		must(t, ffs.MkdirAll(dir, 0o755))
 	}
-	writeFilePerm(t, ffs, "ignDir/ignFile", []byte("hello\n"), 0644)
-	writeFilePerm(t, ffs, "unknownDir/unknownFile", []byte("hello\n"), 0644)
-	writeFilePerm(t, ffs, ".stignore", []byte("ignDir\n"), 0644)
+	writeFilePerm(t, ffs, "ignDir/ignFile", []byte("hello\n"), 0o644)
+	writeFilePerm(t, ffs, "unknownDir/unknownFile", []byte("hello\n"), 0o644)
+	writeFilePerm(t, ffs, ".stignore", []byte("ignDir\n"), 0o644)
 
 	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	size := globalSize(t, m, "ro")
@@ -112,17 +112,17 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -151,7 +151,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	writeFilePerm(t, ffs, "knownDir/knownFile", newData, 0644)
+	writeFilePerm(t, ffs, "knownDir/knownFile", newData, 0o644)
 
 	// Rescan.
 
@@ -202,17 +202,17 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -241,8 +241,8 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Create a file and modify another
 
 	const file = "foo"
-	writeFilePerm(t, ffs, file, []byte("hello\n"), 0644)
-	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("bye\n"), 0644)
+	writeFilePerm(t, ffs, file, []byte("hello\n"), 0o644)
+	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("bye\n"), 0o644)
 
 	must(t, m.ScanFolder("ro"))
 
@@ -254,7 +254,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Remove the file again and undo the modification
 
 	must(t, ffs.Remove(file))
-	writeFilePerm(t, ffs, "knownDir/knownFile", oldData, 0644)
+	writeFilePerm(t, ffs, "knownDir/knownFile", oldData, 0o644)
 	must(t, ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime()))
 
 	must(t, m.ScanFolder("ro"))
@@ -272,17 +272,17 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -337,17 +337,17 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -377,8 +377,8 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	const file = "foo"
 	knownFile := filepath.Join("knownDir", "knownFile")
-	writeFilePerm(t, ffs, file, []byte("hello\n"), 0644)
-	writeFilePerm(t, ffs, knownFile, []byte("bye\n"), 0644)
+	writeFilePerm(t, ffs, file, []byte("hello\n"), 0o644)
+	writeFilePerm(t, ffs, knownFile, []byte("bye\n"), 0o644)
 
 	must(t, m.ScanFolder("ro"))
 
@@ -402,7 +402,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	must(t, m.IndexUpdate(device1, "ro", files))
+	must(t, m.IndexUpdate(conn, "ro", files))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
 	must(t, f.doInSync(func() error {
@@ -427,14 +427,14 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
 	data := []byte("hello\n")
 	name := "foo"
-	writeFilePerm(t, ffs, name, data, 0644)
+	writeFilePerm(t, ffs, name, data, 0o644)
 
 	// Make sure the file is scanned and locally changed
 	must(t, m.ScanFolder("ro"))
@@ -470,7 +470,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	}()
 
 	// Receive an index update with an older version, but valid and then revert
-	must(t, m.Index(device1, f.ID, []protocol.FileInfo{fi}))
+	must(t, m.Index(conn, f.ID, []protocol.FileInfo{fi}))
 	f.Revert()
 
 	select {
@@ -483,8 +483,8 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.FileInfo {
 	t.Helper()
 
-	must(t, ffs.MkdirAll("knownDir", 0755))
-	writeFilePerm(t, ffs, "knownDir/knownFile", data, 0644)
+	must(t, ffs.MkdirAll("knownDir", 0o755))
+	writeFilePerm(t, ffs, "knownDir/knownFile", data, 0o644)
 
 	t0 := time.Now().Add(-1 * time.Minute)
 	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))
@@ -498,14 +498,14 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 		{
 			Name:        "knownDir",
 			Type:        protocol.FileInfoTypeDirectory,
-			Permissions: 0755,
+			Permissions: 0o755,
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 42}}},
 			Sequence:    42,
 		},
 		{
 			Name:        "knownDir/knownFile",
 			Type:        protocol.FileInfoTypeFile,
-			Permissions: 0644,
+			Permissions: 0o644,
 			Size:        fi.Size(),
 			ModifiedS:   fi.ModTime().Unix(),
 			ModifiedNs:  int(fi.ModTime().UnixNano() % 1e9),
@@ -521,9 +521,9 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.CancelFunc) {
 	t.Helper()
 
-	w, cancel := createTmpWrapper(defaultCfg)
+	w, cancel := newConfigWrapper(defaultCfg)
 	cfg := w.RawCopy()
-	fcfg := testFolderConfigFake()
+	fcfg := newFolderConfig()
 	fcfg.ID = "ro"
 	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly

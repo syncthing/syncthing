@@ -69,6 +69,9 @@ func main() {
 	}
 
 	mux.Handle("/", cr)
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
+		w.Write([]byte("OK"))
+	})
 
 	if params.DSN != "" {
 		mux.HandleFunc("/newcrash/failure", handleFailureFn(params.DSN, filepath.Join(params.Dir, "failure_reports")))

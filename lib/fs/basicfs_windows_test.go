@@ -18,23 +18,31 @@ import (
 )
 
 func TestWindowsPaths(t *testing.T) {
-	testCases := []struct {
+	type testCase struct {
 		input        string
 		expectedRoot string
 		expectedURI  string
-	}{
+	}
+	testCases := []testCase{
+		{`e:`, `\\?\e:\`, `e:\`},
 		{`e:\`, `\\?\e:\`, `e:\`},
+		{`e:\\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:`, `\\?\e:\`, `e:\`},
 		{`\\?\e:\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:\\`, `\\?\e:\`, `e:\`},
+		{`e:\x`, `\\?\e:\x`, `e:\x`},
+		{`e:\x\`, `\\?\e:\x`, `e:\x`},
+		{`e:\x\\`, `\\?\e:\x`, `e:\x`},
 		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
 	}
 
-	for _, testCase := range testCases {
+	for i, testCase := range testCases {
 		fs := newBasicFilesystem(testCase.input)
 		if fs.root != testCase.expectedRoot {
-			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
+			t.Errorf("test %d: root: expected `%s`, got `%s`", i, testCase.expectedRoot, fs.root)
 		}
 		if fs.URI() != testCase.expectedURI {
-			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
+			t.Errorf("test %d: uri: expected `%s`, got `%s`", i, testCase.expectedURI, fs.URI())
 		}
 	}
 
@@ -195,7 +203,7 @@ func TestGetFinalPath(t *testing.T) {
 }
 
 func TestRemoveWindowsDirIcon(t *testing.T) {
-	//Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
+	// Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
 
 	fs, dir := setup(t)
 	relativePath := "folder_with_icon"

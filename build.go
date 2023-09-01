@@ -214,10 +214,16 @@ var targets = map[string]target{
 		binaryName:  "stupgrades",
 	},
 	"stcrashreceiver": {
-		name:        "stupgrastcrashreceiverdes",
+		name:        "stcrashreceiver",
 		description: "Syncthing Crash Server",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
 		binaryName:  "stcrashreceiver",
+	},
+	"ursrv": {
+		name:        "ursrv",
+		description: "Syncthing Usage Reporting Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/ursrv"},
+		binaryName:  "ursrv",
 	},
 }
 

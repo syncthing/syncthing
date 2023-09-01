@@ -8,7 +8,6 @@
 */
 
 body {
-    padding-bottom: 70px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     overflow-y: scroll;
 }
@@ -185,7 +184,7 @@ td input[type="checkbox"] {
 }
 
 /* Wrap long file paths to prevent text overflow. See issue #6268. */
-.file-path {
+.word-break-all {
     word-break: break-all;
 }
 
@@ -398,25 +397,6 @@ ul.three-columns li, ul.two-columns li {
     width: 100%;
 }
 
-/** Footer nav on small devices **/
-@media (max-width: 1199px) {
-    /* Stay at the end of the page, with space reserved for the footer
-    usually taking up two rows. */
-
-    html {
-        position: relative;
-        min-height: 100%;
-    }
-
-    body {
-        padding-bottom: 60px;
-    }
-
-    .navbar-fixed-bottom {
-        position: absolute;
-    }
-}
-
 @media (max-width: 768px) {
     /* Layout after the normal contents, as this is when the footer switches
     to a vertical layout. */
@@ -427,10 +407,6 @@ ul.three-columns li, ul.two-columns li {
 
     .navbar-brand {
         margin: 3.25px -15px;
-    }
-
-    .navbar-fixed-bottom {
-        position: relative;
     }
 
     .navbar-nav .open .dropdown-menu {
@@ -475,10 +451,6 @@ ul.three-columns li, ul.two-columns li {
 
     .navbar-nav .open .dropdown-menu > li > a {
         padding: 12px 15px 12px 25px;
-    }
-
-    .navbar-fixed-bottom li {
-         width: 100%;
     }
 }
 
@@ -549,6 +521,18 @@ ul.three-columns li, ul.two-columns li {
     opacity: 1;
 }
 
+.checkbox[disabled] {
+    background-color: #eeeeee;
+    opacity: 1;
+    margin-left: -5px;
+    padding-left: 5px;
+}
+
+.checkbox[disabled] *, .checkbox[disabled] .help-block {
+    color: #999999;
+    cursor: not-allowed;
+}
+
 /* Make a "well" look more like a readonly text input when grouped with a button */
 .input-group .well-sm {
   padding-top: 6px;
@@ -560,13 +544,6 @@ html[lang|="zh"] i,
 html[lang="ja"] i,
 html[lang|="ko"] i {
     font-style: normal;
-}
-
-/* Prevent buttons from jumping up and down
-   when a tooltip is shown for one of them. */
-.btn-group-vertical > .tooltip + .btn,
-.btn-group-vertical > .tooltip + .btn-group {
-    margin-top: -1px;
 }
 
 .select-on-click {

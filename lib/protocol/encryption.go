@@ -43,12 +43,12 @@ const (
 // receives encrypted metadata and requests from the untrusted device, so it
 // must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
-	model      Model
+	model      contextLessModel
 	folderKeys *folderKeyRegistry
 	keyGen     *KeyGenerator
 }
 
-func newEncryptedModel(model Model, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
+func newEncryptedModel(model contextLessModel, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
 	return encryptedModel{
 		model:      model,
 		folderKeys: folderKeys,
@@ -56,30 +56,30 @@ func newEncryptedModel(model Model, folderKeys *folderKeyRegistry, keyGen *KeyGe
 	}
 }
 
-func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
+func (e encryptedModel) Index(folder string, files []FileInfo) error {
 	if folderKey, ok := e.folderKeys.get(folder); ok {
 		// incoming index data to be decrypted
 		if err := decryptFileInfos(e.keyGen, files, folderKey); err != nil {
 			return err
 		}
 	}
-	return e.model.Index(deviceID, folder, files)
+	return e.model.Index(folder, files)
 }
 
-func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
+func (e encryptedModel) IndexUpdate(folder string, files []FileInfo) error {
 	if folderKey, ok := e.folderKeys.get(folder); ok {
 		// incoming index data to be decrypted
 		if err := decryptFileInfos(e.keyGen, files, folderKey); err != nil {
 			return err
 		}
 	}
-	return e.model.IndexUpdate(deviceID, folder, files)
+	return e.model.IndexUpdate(folder, files)
 }
 
-func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (e encryptedModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	folderKey, ok := e.folderKeys.get(folder)
 	if !ok {
-		return e.model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+		return e.model.Request(folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 	}
 
 	// Figure out the real file name, offset and size from the encrypted /
@@ -120,7 +120,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 
 	// Perform that request and grab the data.
 
-	resp, err := e.model.Request(deviceID, folder, realName, blockNo, realSize, realOffset, realHash, 0, false)
+	resp, err := e.model.Request(folder, realName, blockNo, realSize, realOffset, realHash, 0, false)
 	if err != nil {
 		return nil, err
 	}
@@ -142,21 +142,21 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	return rawResponse{enc}, nil
 }
 
-func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
+func (e encryptedModel) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error {
 	if _, ok := e.folderKeys.get(folder); !ok {
-		return e.model.DownloadProgress(deviceID, folder, updates)
+		return e.model.DownloadProgress(folder, updates)
 	}
 
 	// Encrypted devices shouldn't send these - ignore them.
 	return nil
 }
 
-func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
-	return e.model.ClusterConfig(deviceID, config)
+func (e encryptedModel) ClusterConfig(config ClusterConfig) error {
+	return e.model.ClusterConfig(config)
 }
 
-func (e encryptedModel) Closed(device DeviceID, err error) {
-	e.model.Closed(device, err)
+func (e encryptedModel) Closed(err error) {
+	e.model.Closed(err)
 }
 
 // The encryptedConnection sits between the model and the encrypted device. It
@@ -185,8 +185,8 @@ func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
 	e.folderKeys.setPasswords(passwords)
 }
 
-func (e encryptedConnection) ID() DeviceID {
-	return e.conn.ID()
+func (e encryptedConnection) DeviceID() DeviceID {
+	return e.conn.DeviceID()
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
