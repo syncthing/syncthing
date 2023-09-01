@@ -19,7 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/stringutil"
 )
 
 var (
@@ -126,7 +126,6 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +152,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	if err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir")
-			err := dstFs.MkdirAll(".", 0755)
+			err := dstFs.MkdirAll(".", 0o755)
 			if err != nil {
 				return err
 			}
@@ -166,7 +165,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
 
-	err = dstFs.MkdirAll(inFolderPath, 0755)
+	err = dstFs.MkdirAll(inFolderPath, 0o755)
 	if err != nil && !fs.IsExist(err) {
 		l.Debugln("archiving", filePath, err)
 		return err
@@ -253,7 +252,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 		return err
 	}
 
-	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
+	_ = dst.MkdirAll(filepath.Dir(filePath), 0o755)
 	err := osutil.RenameOrCopy(method, src, dst, sourceFile, filePath)
 	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
 	return err
@@ -285,7 +284,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
-	versions = util.UniqueTrimmedStrings(versions)
+	versions = stringutil.UniqueTrimmedStrings(versions)
 	sort.Strings(versions)
 
 	return versions

@@ -12,7 +12,8 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/stringutil"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 func (opts OptionsConfiguration) Copy() OptionsConfiguration {
@@ -29,10 +30,10 @@ func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 }
 
 func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
-	util.FillNilSlices(opts)
+	structutil.FillNilSlices(opts)
 
-	opts.RawListenAddresses = util.UniqueTrimmedStrings(opts.RawListenAddresses)
-	opts.RawGlobalAnnServers = util.UniqueTrimmedStrings(opts.RawGlobalAnnServers)
+	opts.RawListenAddresses = stringutil.UniqueTrimmedStrings(opts.RawListenAddresses)
+	opts.RawGlobalAnnServers = stringutil.UniqueTrimmedStrings(opts.RawGlobalAnnServers)
 
 	// Very short reconnection intervals are annoying
 	if opts.ReconnectIntervalS < 5 {
@@ -71,7 +72,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 func (opts OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 	optsCopy := opts
 	blank := OptionsConfiguration{}
-	util.CopyMatchingTag(&blank, &optsCopy, "restart", func(v string) bool {
+	copyMatchingTag(&blank, &optsCopy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "true" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. Expected untagged or "true"`, v))
 		}
@@ -94,7 +95,7 @@ func (opts OptionsConfiguration) ListenAddresses() []string {
 			addresses = append(addresses, addr)
 		}
 	}
-	return util.UniqueTrimmedStrings(addresses)
+	return stringutil.UniqueTrimmedStrings(addresses)
 }
 
 func (opts OptionsConfiguration) StunServers() []string {
@@ -116,7 +117,7 @@ func (opts OptionsConfiguration) StunServers() []string {
 		}
 	}
 
-	addresses = util.UniqueTrimmedStrings(addresses)
+	addresses = stringutil.UniqueTrimmedStrings(addresses)
 
 	return addresses
 }
@@ -135,7 +136,7 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 			servers = append(servers, srv)
 		}
 	}
-	return util.UniqueTrimmedStrings(servers)
+	return stringutil.UniqueTrimmedStrings(servers)
 }
 
 func (opts OptionsConfiguration) MaxFolderConcurrency() int {

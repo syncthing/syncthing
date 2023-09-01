@@ -44,8 +44,8 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -1502,7 +1502,7 @@ func TestBrowse(t *testing.T) {
 
 	for _, tc := range cases {
 		ret := browseFiles(ffs, tc.current)
-		if !util.EqualStrings(ret, tc.returns) {
+		if !slices.Equal(ret, tc.returns) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}
 	}

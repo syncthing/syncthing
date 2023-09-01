@@ -21,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -244,7 +243,7 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	// copier, yet should not cause a restart.
 
 	blank := FolderConfiguration{}
-	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+	copyMatchingTag(&blank, &copy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "false" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "false"`, v))
 		}
