@@ -565,10 +565,8 @@ func hasSessionCookie(cookies []*http.Cookie) bool {
 
 func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
 	req, err := http.NewRequest("GET", url, nil)
-	if cookies != nil {
-		for _, cookie := range cookies {
-			req.AddCookie(cookie)
-		}
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
 	}
 	if err != nil {
 		t.Fatal(err)
