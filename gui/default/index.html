@@ -87,36 +87,45 @@
             </button>
           </li>
           <li class="dropdown" language-select></li>
-          <li>
-            <a class="navbar-link" href="{{docsURL('intro/gui')}}" target="_blank">
-              <span class="fas fa-question-circle"></span>
+          <li class="dropdown action-menu">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+              <span class="fa fa-question-circle"></span>
               <span class="hidden-xs" translate>Help</span>
+              <span class="caret"></span>
             </a>
+            <ul class="dropdown-menu">
+              <li><a class="navbar-link" href="{{docsURL('intro/gui')}}" target="_blank"><span class="fa fa-fw fa-info-circle"></span>&nbsp;<span translate>Introduction</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
+              <li><a class="navbar-link" href="{{docsURL()}}" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
+              <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fa fa-fw fa-users"></span>&nbsp;<span translate>Support</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="fa fa-fw fa-file-text"></span>&nbsp;<span translate>Changelog</span></a></li>
+              <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fa fa-fw fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fa fa-fw fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
+              <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fa fa-fw fa-file-code-o"></span>&nbsp;<span translate>Source Code</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a href="" ng-click="about.show()"><span class="fa fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
+            </ul>
           </li>
           <li class="dropdown action-menu">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-              <span class="fas fa-cog"></span>
+              <span class="fa fa-cog"></span>
               <span class="hidden-xs" translate>Actions</span>
               <span class="caret"></span>
             </a>
             <ul class="dropdown-menu">
-              <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+              <li><a href="" ng-click="showSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
               <li class="divider" aria-hidden="true"></li>
-              <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-              <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+              <li><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
+              <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
               <li class="divider" aria-hidden="true"></li>
-              <li class="visible-xs">
-                <a href="{{docsURL('intro/gui')}}" target="_blank">
-                  <span class="fas fa-fw fa-question-circle"></span>&nbsp;<span translate>Help</span>
-                </a>
-              </li>
-              <li><a href="" ng-click="about.show()"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
-              <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
-              <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+              <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+              <li><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-wrench"></span>&nbsp;<span translate>Logs</span></a></li>
               <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
-              <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
+              <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-fw fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
             </ul>
           </li>
         </ul>
@@ -661,6 +670,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxRecvKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxRecvKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
@@ -677,6 +689,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxSendKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxSendKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
@@ -959,27 +974,12 @@
     </div> <!-- /container -->
   </div> <!-- /ng-cloak -->
 
-  <!-- Bottom bar -->
-
-  <nav class="navbar navbar-default navbar-fixed-bottom">
-    <div class="container">
-      <ul class="nav navbar-nav">
-        <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
-        <li><a class="navbar-link" href="{{docsURL()}}" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
-        <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a></li>
-        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="far fa-file-alt"></span>&nbsp;<span translate>Changelog</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fas fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fas fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>
-      </ul>
-    </div>
-  </nav>
-
   <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/savingChangesDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
