@@ -117,7 +117,8 @@ func setupSendReceiveFolder(t testing.TB, files ...protocol.FileInfo) (*testMode
 	model := setupModel(t, w)
 	model.cancel()
 	<-model.stopped
-	f := model.folderRunners[fcfg.ID].(*sendReceiveFolder)
+	r, _ := model.folderRunners.Get(fcfg.ID)
+	f := r.(*sendReceiveFolder)
 	f.tempPullErrors = make(map[string]string)
 	f.ctx = context.Background()
 
