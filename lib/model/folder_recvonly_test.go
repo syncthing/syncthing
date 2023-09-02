@@ -537,7 +537,8 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.Cancel
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	f := m.folderRunners["ro"].(*receiveOnlyFolder)
+	r, _ := m.folderRunners.Get("ro")
+	f := r.(*receiveOnlyFolder)
 
 	return m, f, cancel
 }

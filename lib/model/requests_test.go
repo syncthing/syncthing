@@ -377,7 +377,8 @@ func TestIssue4841(t *testing.T) {
 	}
 
 	// Setup file from remote that was ignored locally
-	folder := m.folderRunners[defaultFolderConfig.ID].(*sendReceiveFolder)
+	runner, _ := m.folderRunners.Get(defaultFolderConfig.ID)
+	folder := runner.(*sendReceiveFolder)
 	folder.updateLocals([]protocol.FileInfo{{
 		Name:       "foo",
 		Type:       protocol.FileInfoTypeFile,
