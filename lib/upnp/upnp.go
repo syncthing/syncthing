@@ -108,13 +108,13 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		// Discovery is done sequentially per interface because we discovered that FritzBox routers
 		// return a broken result sometimes if the IPv4 and IPv6 request arrive at the same time.
 		go func(iface net.Interface) {
-			// Discover IPv4 gateways on interface.
-			for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
-				discover(ctx, &iface, deviceType, timeout, resultChan, false)
-			}
-
 			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1 + IPv6 is not standardized and will lead to duplicates on routers.
 			discover(ctx, &iface, "urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, resultChan, true)
+
+			// Discover IPv4 gateways on interface.
+			for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:2", "urn:schemas-upnp-org:device:InternetGatewayDevice:1"} {
+				discover(ctx, &iface, deviceType, timeout, resultChan, false)
+			}
 			wg.Done()
 		}(intf)
 	}
