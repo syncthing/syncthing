@@ -13,10 +13,11 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
-	"github.com/gobwas/glob"
+	"github.com/bmatcuk/doublestar/v4"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -69,7 +70,7 @@ func parseError(err error) error {
 
 type Pattern struct {
 	pattern string
-	match   glob.Glob
+	match   *doublestarGlobWrapper
 	result  Result
 }
 
@@ -468,13 +469,13 @@ func parseLine(line string) ([]Pattern, error) {
 	var err error
 	if strings.HasPrefix(line, "/") {
 		// Pattern is rooted in the current dir only
-		pattern.match, err = glob.Compile(line[1:], '/')
+		pattern.match, err = validate(line[1:])
 		return []Pattern{pattern}, parseError(err)
 	}
 	patterns := make([]Pattern, 2)
 	if strings.HasPrefix(line, "**/") {
 		// Add the pattern as is, and without **/ so it matches in current dir
-		pattern.match, err = glob.Compile(line, '/')
+		pattern.match, err = validate(line)
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -482,7 +483,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 		line = line[3:]
 		pattern.pattern = line
-		pattern.match, err = glob.Compile(line, '/')
+		pattern.match, err = validate(line)
 		if err != nil {
 			return nil, parseError(err)
 		}
@@ -491,7 +492,7 @@ func parseLine(line string) ([]Pattern, error) {
 	}
 	// Path name or pattern, add it so it matches files both in
 	// current directory and subdirs.
-	pattern.match, err = glob.Compile(line, '/')
+	pattern.match, err = validate(line)
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -499,7 +500,7 @@ func parseLine(line string) ([]Pattern, error) {
 
 	line = "**/" + line
 	pattern.pattern = line
-	pattern.match, err = glob.Compile(line, '/')
+	pattern.match, err = validate(line)
 	if err != nil {
 		return nil, parseError(err)
 	}
@@ -507,9 +508,10 @@ func parseLine(line string) ([]Pattern, error) {
 	return patterns, nil
 }
 
+var interDoubleStarExp = regexp.MustCompile(`(.)\*\*(.)`)
+
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var patterns []Pattern
-
 	addPattern := func(line string) error {
 		newPatterns, err := parseLine(line)
 		if err != nil {
@@ -571,7 +573,44 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
-			err = addPattern(line + "**")
+			err = addPattern(line + "*")
+		// Used to widen the pattern accepted by ** in accordance to
+		// the specified behavior in syncthing.
+		case interDoubleStarExp.MatchString(line):
+			conv := interDoubleStarExp.ReplaceAllStringFunc(line, func(s string) string {
+				first := s[0]
+				last := s[len(s)-1]
+				switch {
+				case first == '/' && last == '/':
+					// Already a compliant doublestar pattern
+					return s
+				case first == '/':
+					// Doublestar after a slash, we leave the left side alone and add a slash-star to the right
+					return strings.Replace(s, "/**", "/**/*", 1)
+				case last == '/':
+					// Doublestar before a slash, we add a star-slash to the left and leave the right side alone
+					return strings.Replace(s, "**/", "*/**/", 1)
+				default:
+					// Doublestar in the middle, we expand on both sides
+					return strings.Replace(s, "**", "*/**/*", 1)
+				}
+			})
+			err = addPattern(conv)
+			if err == nil {
+				// Also match deeper, as always
+				err = addPattern(conv + "/**")
+			}
+
+			// If we changed something based on the doublestars we'll have
+			// "eaten" the single-star equivalent, so we add that too.
+			if err == nil && conv != line {
+				conv = strings.ReplaceAll(line, "**", "*")
+				err = addPattern(conv)
+				if err == nil {
+					// ... and also match deeper, as always
+					err = addPattern(conv + "/**")
+				}
+			}
 		default:
 			err = addPattern(line)
 			if err == nil {
@@ -655,4 +694,33 @@ func (c *modtimeChecker) Changed() bool {
 	}
 
 	return false
+}
+
+// Glue code to integrate the new Glob library while keeping the
+// old interface so we can rework it as soon as doublestar adds
+// support for compiling the patterns in advance.
+type doublestarGlobWrapper struct {
+	pattern string // Stores the pattern, rn uncompiled.
+}
+
+func (s *doublestarGlobWrapper) Match(path string) bool {
+	doesMatch, err := doublestar.Match(s.pattern, filepath.ToSlash(path))
+	return err == nil && doesMatch
+}
+
+func validate(pattern string) (*doublestarGlobWrapper, error) {
+	// Validate the pattern in advance to emulate the original behavior
+	// of Compile i.e. that errors in the pattern are thrown here instead
+	// of in Match. This is to keep stuff sane until doublestar adds support
+	// for compiling patterns in advance.
+	didValidate := doublestar.ValidatePattern(pattern)
+	var err error
+	if didValidate {
+		err = nil
+	} else {
+		err = doublestar.ErrBadPattern
+	}
+	return &doublestarGlobWrapper{
+		pattern,
+	}, err
 }

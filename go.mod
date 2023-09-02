@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/alecthomas/kong v0.8.0
+	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/calmh/incontainer v0.0.0-20221224152218-b3e71b103d7a
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.4
@@ -17,7 +18,6 @@ require (
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.5
-	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/greatroar/blobloom v0.7.2

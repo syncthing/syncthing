@@ -130,6 +130,39 @@ func TestExcludes(t *testing.T) {
 	}
 }
 
+func TestEscapeChar(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("There is no escape")
+	}
+
+	stignore := `
+	foo\[bar
+	baz\?\*quux
+	`
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		f string
+		r bool
+	}{
+		{"foo[bar", true},
+		{"foo/[bar", false},
+		{"baz?*quux", true},
+		{"baz/?/*quux", false},
+		{"bazxxquux", false},
+	}
+
+	for _, tc := range tests {
+		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
+			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
+		}
+	}
+}
+
 func TestFlagOrder(t *testing.T) {
 	testFs := newTestFS()
 
@@ -213,9 +246,10 @@ func TestDeletables(t *testing.T) {
 }
 
 func TestBadPatterns(t *testing.T) {
+	t.Skip("to fix: bad pattern not happening")
+
 	testFs := newTestFS()
 
-	t.Skip("to fix: bad pattern not happening")
 	badPatterns := []string{
 		"[",
 		"/[",
@@ -664,7 +698,7 @@ func TestWindowsPatterns(t *testing.T) {
 	testFs := newTestFS()
 
 	// We should accept patterns as both a/b and a\b and match that against
-	// both kinds of slash as well.
+	// both kinds of slash as well. Backslashes are not escapes on Windows.
 	if !build.IsWindows {
 		t.Skip("Windows specific test")
 		return
@@ -673,6 +707,7 @@ func TestWindowsPatterns(t *testing.T) {
 	stignore := `
 	a/b
 	c\d
+	e\?f
 	`
 	pats := New(testFs, WithCache(true))
 
@@ -681,10 +716,17 @@ func TestWindowsPatterns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tests := []string{`a\b`, `c\d`}
+	tests := []struct {
+		path  string
+		match bool
+	}{
+		{`a\b`, true},
+		{`c\d`, true},
+		{`e\af`, true},
+	}
 	for _, pat := range tests {
-		if !pats.Match(pat).IsIgnored() {
-			t.Errorf("Should match %s", pat)
+		if res := pats.Match(pat.path).IsIgnored(); res != pat.match {
+			t.Errorf("Match(%s) => %v, should be %v", pat.path, res, pat.match)
 		}
 	}
 }
@@ -1339,5 +1381,56 @@ func TestWindowsLineEndings(t *testing.T) {
 	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
 	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
 		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
+func TestIssue8733(t *testing.T) {
+	// Verify doublestar behavior
+
+	stignore := `
+	Documents/**/{document.txt,banana.jpg}
+	{Documents,Photos}**{fruit.txt,grenadine.jpg}
+	Documents/**apple.jpg
+	Documents**/mango.jpg
+	Documents**äpple.jpg
+	(?d)(?i)**PÄRON.JPG
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{"Documents/Photos/document.txt", true},
+		{"Documents/Photos/document.txt/extra", true},
+		{"Documents/fruit.txt", true},
+		{"Photos/misc/stuff/a-grenadine.jpg", true},
+		{"Documents/document.txt", true},
+		{"Documents/document.txt/extra", true},
+		{"Documents/Photos/banana.jpg", true},
+		{"Documents/Photos/banana.jpg/extra", true},
+		{"Documents/Photos/pineapple.jpg", true},
+		{"Documents/Photos/pineapple.jpg/extra", true},
+		{"Documents/Photos/mango.jpg", true},
+		{"Documents/Photos/mango.jpg/extra", true},
+		{"Documents/Photos/äpple.jpg", true},
+		{"Documents/Photos/äpple.jpg/extra", true},
+		{"Documents-an-äpple.jpg", true},
+		{"Documents-an-äpple.jpg/extra", true},
+		{"some/dir/augustipäron.jpg", true},
+		{"päron.jpg", true},
+		{"augustipäron.jpg", true},
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
 	}
 }
