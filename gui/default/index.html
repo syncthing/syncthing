@@ -874,9 +874,8 @@
                       <tr ng-if="connections[deviceCfg.deviceID].connected && (deviceCfg.numConnections > 1 || connections[deviceCfg.deviceID].secondary)">
                         <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Number of Connections</span></th>
                         <td class="text-right">
-                          <span>
-                            1 + {{connections[deviceCfg.deviceID].secondary.length | alwaysNumber}}
-                          </span>
+                          <span ng-if="connections[deviceCfg.deviceID].secondary.length">1 + {{connections[deviceCfg.deviceID].secondary.length | alwaysNumber}}</span>
+                          <span ng-if="!connections[deviceCfg.deviceID].secondary.length">1</span>
                         </td>
                       </tr>
                       <tr ng-if="deviceCfg.allowedNetworks.length > 0">
