@@ -353,7 +353,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 		l.Debugln("Error extending lease on", natd.ID(), err)
 	}
 
-	// Then try mapping our intPort since <external IP>:<intPort> -> <internal IP>:<intPort> is a nicer mapping 
+	// Then try mapping our intPort since <external IP>:<intPort> -> <internal IP>:<intPort> is a nicer mapping
 	// to work with than <external IP>:<random port> -> <internal IP>:<intPort>
 	// Put this in its own scope to avoid "goto jumps over variable declaration"
 	{
