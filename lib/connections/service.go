@@ -346,21 +346,22 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 		return errNetworkNotAllowed
 	}
 
-	if currentConns := s.numConnectionsForDevice(cfg.DeviceID); currentConns > 0 {
-		// Check if the new connection is better than an existing one. Lower
-		// priority is better, just like `nice` etc.
-		if worstPrio := s.worstConnectionPriority(remoteID); ok {
-			if worstPrio > c.priority+s.cfg.Options().ConnectionPriorityUpgradeThreshold {
-				l.Debugf("Adding connection %s for %s with better priority", c, remoteID)
-				return nil
-			}
+	currentConns := s.numConnectionsForDevice(cfg.DeviceID)
+	desiredConns := s.desiredConnectionsToDevice(cfg.DeviceID)
+	if currentConns >= desiredConns {
+		// We have as many connections to this device as we want. Check if
+		// the new connection is strictly better than the worst existing
+		// connection, in which case we'll evict and replace that
+		// connection.
+		worstPrio := s.worstConnectionPriority(remoteID)
+		if worstPrio > c.priority+s.cfg.Options().ConnectionPriorityUpgradeThreshold {
+			l.Debugf("Accepting connection %s for %s with better priority", c, remoteID)
+			return nil
 		}
-		if desired := s.desiredConnectionsToDevice(cfg.DeviceID); currentConns >= desired {
-			// We're not allowed to accept any more connections to this
-			// device.
-			l.Debugf("Not accepting connection to %s at %s: already have %d connections, desire %d", remoteID, c, currentConns, desired)
-			return errDeviceAlreadyConnected
-		}
+
+		// We're not supposed to accept any more connections to this device.
+		l.Debugf("Not accepting connection to %s at %s: already have %d connections, desire %d", remoteID, c, currentConns, desiredConns)
+		return errDeviceAlreadyConnected
 	}
 
 	return nil
@@ -581,8 +582,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		// See if we are already connected and, if so, what our cutoff is
 		// for dialer priority.
 		priorityCutoff := worstDialerPriority
-		connected := s.numConnectionsForDevice(deviceCfg.DeviceID) > 0
-		if connected {
+		if currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID); currentConns > 0 {
 			// Set the priority cutoff to the current connection's priority,
 			// so that we don't attempt any dialers with worse priority.
 			priorityCutoff = s.worstConnectionPriority(deviceCfg.DeviceID)
@@ -591,7 +591,6 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			// we don't attempt dialers that aren't considered a worthy upgrade.
 			priorityCutoff -= cfg.Options.ConnectionPriorityUpgradeThreshold
 
-			currentConns := s.numConnectionsForDevice(deviceCfg.DeviceID)
 			if bestDialerPriority >= priorityCutoff && currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) {
 				// Our best dialer is not any better than what we already
 				// have, and we already have the desired number of
@@ -1396,6 +1395,7 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 	// Clean up if required
 	if len(c.connections[d]) == 0 {
 		delete(c.connections, d)
+		delete(c.wantConnections, d)
 	}
 	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }
