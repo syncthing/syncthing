@@ -311,7 +311,7 @@ func (s *service) helloForDevice(remoteID protocol.DeviceID) protocol.Hello {
 		Timestamp:     time.Now().UnixNano(),
 	}
 	if cfg, ok := s.cfg.Device(remoteID); ok {
-		hello.NumConnections = cfg.NumConnections
+		hello.NumConnections = cfg.NumConnections()
 		// Set our name (from the config of our device ID) only if we
 		// already know about the other side device ID.
 		if myCfg, ok := s.cfg.Device(s.myID); ok {
@@ -1319,6 +1319,7 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 	}
 
 	otherSide := s.wantConnectionsForDevice(deviceID)
+	thisSide := cfg.NumConnections()
 	switch {
 	case otherSide <= 0:
 		// The other side doesn't support multiple connections, or we
@@ -1331,15 +1332,15 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 		// one. We should honour that.
 		return 1
 
-	case cfg.NumConnections == 1:
+	case thisSide == 1:
 		// We want only one connection, so we should honour that.
 		return 1
 
 	// Finally, we allow negotiation and use the higher of the two values.
-	case otherSide > cfg.NumConnections:
+	case otherSide > thisSide:
 		return otherSide
 	default:
-		return cfg.NumConnections
+		return thisSide
 	}
 }
 

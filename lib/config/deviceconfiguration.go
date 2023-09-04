@@ -11,6 +11,8 @@ import (
 	"sort"
 )
 
+const defaultNumConnections = 1 // number of connections to use by default; may change in the future.
+
 func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	c := cfg
 	c.Addresses = make([]string, len(cfg.Addresses))
@@ -25,15 +27,6 @@ func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	if len(cfg.Addresses) == 0 || len(cfg.Addresses) == 1 && cfg.Addresses[0] == "" {
 		cfg.Addresses = []string{"dynamic"}
-	}
-
-	if cfg.NumConnections == 0 {
-		// Default to three connections when unset.
-		cfg.NumConnections = 3
-	} else if cfg.NumConnections < 0 {
-		// Less than zero makes no sense, but maybe looks like an attempt to
-		// disable multiple connections, so default to one.
-		cfg.NumConnections = 1
 	}
 
 	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
@@ -55,6 +48,17 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 			l.Warnf("Device %s (%s) is both untrusted and auto-accepting folders, removing auto-accept flag", cfg.DeviceID.Short(), cfg.Name)
 			cfg.AutoAcceptFolders = false
 		}
+	}
+}
+
+func (cfg *DeviceConfiguration) NumConnections() int {
+	switch {
+	case cfg.RawNumConnections == 0:
+		return defaultNumConnections
+	case cfg.RawNumConnections < 0:
+		return 1
+	default:
+		return cfg.RawNumConnections
 	}
 }
 
