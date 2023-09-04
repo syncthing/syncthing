@@ -178,10 +178,10 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 			// For every address with a specified IP, add one without an IP,
 			// just in case the specified IP is still internal (router behind DMZ).
 			if len(addr.IP) != 0 && !addr.IP.IsUnspecified() {
-				uri = *t.uri
+				zeroUri := *t.uri
 				addr.IP = nil
-				uri.Host = addr.String()
-				uris = append(uris, &uri)
+				zeroUri.Host = addr.String()
+				uris = append(uris, &zeroUri)
 			}
 		}
 	}
