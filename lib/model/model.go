@@ -1187,7 +1187,11 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 	indexHandler, ok := m.getIndexHandlerPRLocked(conn)
 	m.pmut.RUnlock()
 	if !ok {
-		l.Infof("%v for folder %s sent from %s (%s), but no index handler is registered for this connection.", op, folder, deviceID.Short(), conn)
+		// This should be impossible, as an index handler is registered when
+		// we send a cluster config, and that is what triggers index
+		// sending.
+		m.evLogger.Log(events.Failure, "index sender does not exist for connection on which indexes were received")
+		l.Debugf("%v for folder (ID %q) sent from device %q: missing index handler", op, folder, deviceID)
 		return fmt.Errorf("%s: %w", folder, ErrFolderNotRunning)
 	}
 	return indexHandler.ReceiveIndex(folder, fs, update, op)
