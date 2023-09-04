@@ -357,7 +357,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	// to work with than <external IP>:<random port> -> <internal IP>:<intPort>
 	// Put this in its own scope to avoid "goto jumps over variable declaration"
 	{
-		name := fmt.Sprintf("syncthing-%d", extPort)
+		name := fmt.Sprintf("syncthing-%d", intPort)
 		port, err = natd.AddPortMapping(ctx, TCP, intPort, intPort, name, leaseTime)
 		if err == nil {
 			extPort = port
