@@ -27,6 +27,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -87,6 +88,7 @@ const (
 	shortLivedConnectionThreshold = 5 * time.Second
 	dialMaxParallel               = 64
 	dialMaxParallelPerDevice      = 8
+	maxNumConnections             = 128 // the maximum number of connections we maintain to any given device
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -1336,11 +1338,10 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 		// We want only one connection, so we should honour that.
 		return 1
 
-	// Finally, we allow negotiation and use the higher of the two values.
-	case otherSide > thisSide:
-		return otherSide
+	// Finally, we allow negotiation and use the higher of the two values,
+	// while keeping at or below the max allowed value.
 	default:
-		return thisSide
+		return min(max(thisSide, otherSide), maxNumConnections)
 	}
 }
 
@@ -1455,4 +1456,21 @@ func newConnectionID(t0, t1 int64) string {
 	// character in the middle that is a mix of bits from the timestamp and
 	// from the random. We want the timestamp part deterministic.
 	return enc.EncodeToString(buf[:8]) + enc.EncodeToString(buf[8:])
+}
+
+// temporary implementations of min and max, to be removed once we can use
+// Go 1.21 builtins. :)
+
+func min[T constraints.Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max[T constraints.Ordered](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
 }
