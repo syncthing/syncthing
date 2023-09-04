@@ -146,7 +146,7 @@
                   <input name="numConnections" id="numConnections" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.numConnections" min="0" />
                 </div>
               </div>
-              <p class="help-block" ng-if="!deviceEditor.numConnections.$valid && deviceEditor.numConnections.$dirty" translate>The number of connections must be a positive number.</p>
+              <p class="help-block" ng-if="!deviceEditor.numConnections.$valid && deviceEditor.numConnections.$dirty" translate>The number of connections must be a non-negative number.</p>
               <p class="help-block" ng-if="deviceEditor.numConnections.$valid || deviceEditor.numConnections.$pristine" translate>When set to more than one, Syncthing will attempt to establish multiple concurrent connections. One connection is reserved for control messages, the rest are used for data transfer. When set to one, the single connection is used for both. Set to zero to let Syncthing decide.</p>
             </div>
             <div class="col-md-6 form-group">
