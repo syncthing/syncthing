@@ -348,18 +348,9 @@ func (s *service) connectionCheckEarly(remoteID protocol.DeviceID, c internalCon
 
 	currentConns := s.numConnectionsForDevice(cfg.DeviceID)
 	desiredConns := s.desiredConnectionsToDevice(cfg.DeviceID)
-	if currentConns >= desiredConns {
-		// We have as many connections to this device as we want. Check if
-		// the new connection is strictly better than the worst existing
-		// connection, in which case we'll evict and replace that
-		// connection.
-		worstPrio := s.worstConnectionPriority(remoteID)
-		if worstPrio > c.priority+s.cfg.Options().ConnectionPriorityUpgradeThreshold {
-			l.Debugf("Accepting connection %s for %s with better priority", c, remoteID)
-			return nil
-		}
-
-		// We're not supposed to accept any more connections to this device.
+	worstPrio := s.worstConnectionPriority(remoteID)
+	ourUpgradeThreshold := c.priority + s.cfg.Options().ConnectionPriorityUpgradeThreshold
+	if currentConns >= desiredConns && ourUpgradeThreshold >= worstPrio {
 		l.Debugf("Not accepting connection to %s at %s: already have %d connections, desire %d", remoteID, c, currentConns, desiredConns)
 		return errDeviceAlreadyConnected
 	}
