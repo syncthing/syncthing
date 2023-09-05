@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 type TestStruct struct {
@@ -20,7 +20,7 @@ type TestStruct struct {
 func TestSizeDefaults(t *testing.T) {
 	x := &TestStruct{}
 
-	util.SetDefaults(x)
+	structutil.SetDefaults(x)
 
 	if !x.Size.Percentage() {
 		t.Error("not percentage")

@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol/mocks"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -29,12 +30,16 @@ var (
 	defaultFolderConfig     config.FolderConfiguration
 	defaultCfg              config.Configuration
 	defaultAutoAcceptCfg    config.Configuration
+	device1Conn             = &mocks.Connection{}
+	device2Conn             = &mocks.Connection{}
 )
 
 func init() {
 	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device1Conn.DeviceIDReturns(device1)
+	device2Conn.DeviceIDReturns(device2)
 
 	cfg := config.New(myID)
 	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks
@@ -229,7 +234,7 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 	return ok
 }
 
-func (c *alwaysChanged) Changed() bool {
+func (*alwaysChanged) Changed() bool {
 	return true
 }
 

@@ -241,9 +241,9 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 
 type fakeAddressLister struct{}
 
-func (f *fakeAddressLister) ExternalAddresses() []string {
+func (*fakeAddressLister) ExternalAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000"}
 }
-func (f *fakeAddressLister) AllAddresses() []string {
+func (*fakeAddressLister) AllAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000", "tcp://192.168.0.1:22000"}
 }

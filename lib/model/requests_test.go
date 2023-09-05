@@ -107,7 +107,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	res, err := m.Request(device1, "default", "symlink/requests_test.go", 0, 10, 0, nil, 0, false)
+	res, err := m.Request(device1Conn, "default", "symlink/requests_test.go", 0, 10, 0, nil, 0, false)
 	if err == nil || res != nil {
 		t.Error("Managed to traverse symlink")
 	}
@@ -377,7 +377,8 @@ func TestIssue4841(t *testing.T) {
 	}
 
 	// Setup file from remote that was ignored locally
-	folder := m.folderRunners[defaultFolderConfig.ID].(*sendReceiveFolder)
+	runner, _ := m.folderRunners.Get(defaultFolderConfig.ID)
+	folder := runner.(*sendReceiveFolder)
 	folder.updateLocals([]protocol.FileInfo{{
 		Name:       "foo",
 		Type:       protocol.FileInfoTypeFile,
@@ -439,7 +440,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	res, err := m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	res, err := m.Request(device1Conn, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +454,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	writeFile(t, tfs, "foo", payload)
 
-	_, err = m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device1Conn, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
@@ -1122,7 +1123,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	cc := basicClusterConfig(device1, myID, fcfg.ID)
 	cc.Folders[0].Paused = true
-	m.ClusterConfig(device1, cc)
+	m.ClusterConfig(fc, cc)
 
 	seq++
 	files[0].Sequence = seq
@@ -1143,7 +1144,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Remote unpaused
 
 	cc.Folders[0].Paused = false
-	m.ClusterConfig(device1, cc)
+	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out before receiving index")
@@ -1168,12 +1169,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Local and remote paused, then first resume remote, then local
 
 	cc.Folders[0].Paused = true
-	m.ClusterConfig(device1, cc)
+	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
 	cc.Folders[0].Paused = false
-	m.ClusterConfig(device1, cc)
+	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)
 
@@ -1190,7 +1191,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Folder removed on remote
 
 	cc = protocol.ClusterConfig{}
-	m.ClusterConfig(device1, cc)
+	m.ClusterConfig(fc, cc)
 
 	seq++
 	files[0].Sequence = seq
@@ -1304,7 +1305,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		return nil
 	})
 	m.AddConnection(fc, protocol.Hello{})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
+	m.ClusterConfig(fc, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -1354,7 +1355,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	}
 
 	// Simulate request from device that is untrusted too, i.e. with non-empty, but garbage hash
-	_, err := m.Request(device1, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
+	_, err := m.Request(fc, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
 	must(t, err)
 
 	changed, err := m.LocalChangedFolderFiles(fcfg.ID, 1, 10)
@@ -1380,7 +1381,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	})
 	must(t, err)
 	waiter.Wait()
-	addFakeConn(m, device2, fcfg.ID)
+	conn := addFakeConn(m, device2, fcfg.ID)
 	tfs := fcfg.Filesystem(nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1405,7 +1406,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	file := fc.files[0]
 	fc.mut.Unlock()
 	file.SetIgnored()
-	m.IndexUpdate(device2, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
+	m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
 
 	// Wait for the ignored file to be received and possible pulled
 	timeout := time.After(10 * time.Second)

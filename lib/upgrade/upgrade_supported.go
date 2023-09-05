@@ -30,6 +30,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
+	"golang.org/x/net/http2"
 )
 
 const DisabledByCompilation = false
@@ -75,8 +76,12 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+func init() {
+	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+}
+
 func insecureGet(url, version string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

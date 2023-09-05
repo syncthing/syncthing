@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jul 08, 2023" "v1.23.6" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Sep 03, 2023" "v1.23.7" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -40,9 +40,12 @@ interface is subject to change.
 To use the REST API an API key must be set and used. The API key can be
 generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
 the configuration file. To use an API key, set the request header
-\fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
-"X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
-with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
+\fBX\-API\-Key\fP to the API key value, or set it as a \fBBearer\fP token in the
+\fBAuthorization\fP header. For example, \fBcurl \-X POST \-H "X\-API\-Key: abc123"
+http://localhost:8384/rest/...\fP or \fBcurl \-X POST \-H "Authorization: Bearer
+abc123" http://localhost:8384/rest/...\fP can be used to invoke with \fBcurl\fP
+(add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed
+certificate).
 .sp
 One exception to this requirement is \fB/rest/noauth\fP, you do not need an API
 key to use those endpoints. This way third\-party devices and services can do
@@ -246,7 +249,6 @@ Returns the current configuration.
     "urURL": "https://data.syncthing.net/newdata",
     "urPostInsecurely": false,
     "urInitialDelayS": 1800,
-    "restartOnWakeup": true,
     "autoUpgradeIntervalH": 12,
     "upgradeToPreReleases": false,
     "keepTemporariesH": 24,

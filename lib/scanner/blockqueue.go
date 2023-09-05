@@ -16,7 +16,7 @@ import (
 )
 
 // HashFile hashes the files and returns a list of blocks representing the file.
-func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	fd, err := fs.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -42,6 +42,8 @@ func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int,
 		return nil, err
 	}
 
+	metricHashedBytes.WithLabelValues(folderID).Add(float64(size))
+
 	// Recheck the size and modtime again. If they differ, the file changed
 	// while we were reading it and our hash results are invalid.
 
@@ -62,22 +64,24 @@ func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int,
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 type parallelHasher struct {
-	fs      fs.Filesystem
-	outbox  chan<- ScanResult
-	inbox   <-chan protocol.FileInfo
-	counter Counter
-	done    chan<- struct{}
-	wg      sync.WaitGroup
+	folderID string
+	fs       fs.Filesystem
+	outbox   chan<- ScanResult
+	inbox    <-chan protocol.FileInfo
+	counter  Counter
+	done     chan<- struct{}
+	wg       sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
+func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
 	ph := &parallelHasher{
-		fs:      fs,
-		outbox:  outbox,
-		inbox:   inbox,
-		counter: counter,
-		done:    done,
-		wg:      sync.NewWaitGroup(),
+		folderID: folderID,
+		fs:       fs,
+		outbox:   outbox,
+		inbox:    inbox,
+		counter:  counter,
+		done:     done,
+		wg:       sync.NewWaitGroup(),
 	}
 
 	ph.wg.Add(workers)
@@ -104,7 +108,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
+			blocks, err := HashFile(ctx, ph.folderID, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
 			if err != nil {
 				handleError(ctx, "hashing", f.Name, err, ph.outbox)
 				continue

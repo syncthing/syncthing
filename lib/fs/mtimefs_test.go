@@ -260,6 +260,8 @@ func newMtimeFS(path string, db database, options ...MtimeFSOption) *mtimeFS {
 }
 
 func newMtimeFSWithWalk(path string, db database, options ...MtimeFSOption) (*mtimeFS, *walkFilesystem) {
-	wfs := NewFilesystem(FilesystemTypeBasic, path, NewMtimeOption(db, options...)).(*walkFilesystem)
-	return wfs.Filesystem.(*mtimeFS), wfs
+	fs := NewFilesystem(FilesystemTypeBasic, path, NewMtimeOption(db, options...))
+	wfs, _ := unwrapFilesystem(fs, filesystemWrapperTypeWalk)
+	mfs, _ := unwrapFilesystem(fs, filesystemWrapperTypeMtime)
+	return mfs.(*mtimeFS), wfs.(*walkFilesystem)
 }

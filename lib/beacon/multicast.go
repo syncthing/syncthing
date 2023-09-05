@@ -67,7 +67,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 
 		success := 0
 		for _, intf := range intfs {
-			if intf.Flags&net.FlagMulticast == 0 {
+			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 				continue
 			}
 

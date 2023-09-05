@@ -36,8 +36,14 @@ func listener(_, addr string, config *tls.Config, token string) {
 	for {
 		conn, isTLS, err := listener.AcceptNoWrapTLS()
 		if err != nil {
+			// Conn may be nil if accept failed, or non-nil if the initial
+			// read to figure out if it's TLS or not failed. In the latter
+			// case, close the connection before moving on.
+			if conn != nil {
+				conn.Close()
+			}
 			if debug {
-				log.Println("Listener failed to accept connection from", conn.RemoteAddr(), ". Possibly a TCP Ping.")
+				log.Println("Listener failed to accept:", err)
 			}
 			continue
 		}

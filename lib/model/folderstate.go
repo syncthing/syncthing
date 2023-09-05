@@ -111,6 +111,10 @@ func (s *stateTracker) setState(newState folderState) {
 		return
 	}
 
+	defer func() {
+		metricFolderState.WithLabelValues(s.folderID).Set(float64(s.current))
+	}()
+
 	/* This should hold later...
 	if s.current != FolderIdle && (newState == FolderScanning || newState == FolderSyncing) {
 		panic("illegal state transition " + s.current.String() + " -> " + newState.String())
@@ -147,6 +151,10 @@ func (s *stateTracker) getState() (current folderState, changed time.Time, err e
 func (s *stateTracker) setError(err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
+
+	defer func() {
+		metricFolderState.WithLabelValues(s.folderID).Set(float64(s.current))
+	}()
 
 	eventData := map[string]interface{}{
 		"folder": s.folderID,

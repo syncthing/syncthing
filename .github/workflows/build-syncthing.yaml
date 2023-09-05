@@ -3,12 +3,16 @@ name: Build Syncthing
 on:
   pull_request:
   push:
+  schedule:
+    # Run nightly build at 05:00 UTC
+    - cron: '00 05 * * *'
+  workflow_dispatch:
 
 env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "^1.20.3"
+  GO_VERSION: "~1.21.0"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -44,7 +48,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.19", "1.20"]
+        go: ["1.20", "1.21"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -57,7 +61,7 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
         with:
@@ -69,9 +73,19 @@ jobs:
         run: |
           go run build.go
 
+      - name: Install go-test-json-to-loki
+        run: |
+          go install calmh.dev/go-test-json-to-loki@latest
+
       - name: Test
         run: |
-          go run build.go test
+          go run build.go test | go-test-json-to-loki
+        env:
+          GOFLAGS: "-json"
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
+          LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
 
   #
   # Meta checks for formatting, copyright, etc
@@ -81,7 +95,7 @@ jobs:
     name: Check correctness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
         with:
@@ -112,8 +126,9 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - govulncheck
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
   #
   # Windows
@@ -134,7 +149,7 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -182,7 +197,7 @@ jobs:
     name: Package for Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -224,7 +239,7 @@ jobs:
     environment: signing
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -346,7 +361,7 @@ jobs:
     name: Package cross compiled
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -375,14 +390,21 @@ jobs:
             | grep -v nacl/ \
             | grep -v plan9/ \
             | grep -v windows/ \
+            | grep -v /wasm \
           )
 
+          # Build for each platform with errors silenced, because we expect
+          # some oddball platforms to fail. This avoids a bunch of errors in
+          # the GitHub Actions output, instead summarizing each build
+          # failure as a warning.
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
-            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
-              echo "*** $plat failed ***"
+            echo "::group ::$plat"
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar 2>/dev/null; then
+              echo "::warning ::Failed to build for $plat"
             fi
+            echo "::endgroup::"
           done
         env:
           CGO_ENABLED: "0"
@@ -401,7 +423,7 @@ jobs:
     name: Package source code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -450,11 +472,11 @@ jobs:
       - package-source
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
@@ -513,7 +535,7 @@ jobs:
     name: Package for Debian
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -565,7 +587,7 @@ jobs:
       - notarize-macos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
@@ -609,7 +631,7 @@ jobs:
       - package-debian
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -680,7 +702,7 @@ jobs:
             dockerfile: Dockerfile.stdiscosrv
             image: syncthing/discosrv
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -749,3 +771,25 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+
+  #
+  # Check for known vulnerabilities in Go dependencies
+  #
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Run govulncheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: run govulncheck
+        run: |
+          go run build.go assets
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...

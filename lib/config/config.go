@@ -16,14 +16,16 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 const (
@@ -42,9 +44,9 @@ var (
 	// "consumer" of the configuration as we don't want these saved to the
 	// config.
 	DefaultListenAddresses = []string{
-		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
+		netutil.AddressURL("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
-		util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
+		netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
 	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -101,7 +103,7 @@ func New(myID protocol.DeviceID) Configuration {
 
 	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -127,9 +129,9 @@ func (cfg *Configuration) ProbeFreePorts() error {
 		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
 		cfg.Options.RawListenAddresses = []string{
-			util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			netutil.AddressURL("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
-			util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 		}
 	}
 
@@ -144,7 +146,7 @@ type xmlConfiguration struct {
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 	var cfg xmlConfiguration
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, 0, err
@@ -166,7 +168,7 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 	var cfg Configuration
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	if err := json.Unmarshal(bs, &cfg); err != nil {
 		return Configuration{}, err
@@ -259,7 +261,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 
 	cfg.removeDeprecatedProtocols()
 
-	util.FillNilExceptDeprecated(cfg)
+	structutil.FillNilExceptDeprecated(cfg)
 
 	// TestIssue1750 relies on migrations happening after preparing options.
 	cfg.applyMigrations()
@@ -556,8 +558,8 @@ loop:
 func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
 	for i := 0; i < len(devices); i++ {
 		dev := devices[i]
-		if dev.EncryptionPassword != "" {
-			// There's a password set, no check required
+		if dev.EncryptionPassword != "" || f.Type == FolderTypeReceiveEncrypted {
+			// There's a password set or the folder is received encrypted, no check required
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
@@ -636,12 +638,42 @@ func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[pr
 }
 
 func ensureZeroForNodefault(empty interface{}, target interface{}) {
-	util.CopyMatchingTag(empty, target, "nodefault", func(v string) bool {
+	copyMatchingTag(empty, target, "nodefault", func(v string) bool {
 		if len(v) > 0 && v != "true" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
 		}
 		return len(v) > 0
 	})
+}
+
+// copyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
+func copyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy func(value string) bool) {
+	fromStruct := reflect.ValueOf(from).Elem()
+	fromType := fromStruct.Type()
+
+	toStruct := reflect.ValueOf(to).Elem()
+	toType := toStruct.Type()
+
+	if fromType != toType {
+		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
+	}
+
+	for i := 0; i < toStruct.NumField(); i++ {
+		fromField := fromStruct.Field(i)
+		toField := toStruct.Field(i)
+
+		if !toField.CanSet() {
+			// Unexported fields
+			continue
+		}
+
+		structTag := toType.Field(i).Tag
+
+		v := structTag.Get(tag)
+		if shouldCopy(v) {
+			toField.Set(fromField)
+		}
+	}
 }
 
 func (i Ignores) Copy() Ignores {

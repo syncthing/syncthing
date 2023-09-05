@@ -30,7 +30,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -45,7 +45,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	size := globalSize(t, m, "ro")
@@ -112,7 +112,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -122,7 +122,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -202,7 +202,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -212,7 +212,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -272,7 +272,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -282,7 +282,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -337,7 +337,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -347,7 +347,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(device1, "ro", knownFiles))
+	must(t, m.Index(conn, "ro", knownFiles))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -402,7 +402,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	must(t, m.IndexUpdate(device1, "ro", files))
+	must(t, m.IndexUpdate(conn, "ro", files))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
 	must(t, f.doInSync(func() error {
@@ -427,7 +427,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	defer wcfgCancel()
 	ffs := f.Filesystem(nil)
 	defer cleanupModel(m)
-	addFakeConn(m, device1, f.ID)
+	conn := addFakeConn(m, device1, f.ID)
 
 	// Create some test data
 
@@ -470,7 +470,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	}()
 
 	// Receive an index update with an older version, but valid and then revert
-	must(t, m.Index(device1, f.ID, []protocol.FileInfo{fi}))
+	must(t, m.Index(conn, f.ID, []protocol.FileInfo{fi}))
 	f.Revert()
 
 	select {
@@ -537,7 +537,8 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.Cancel
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	f := m.folderRunners["ro"].(*receiveOnlyFolder)
+	r, _ := m.folderRunners.Get("ro")
+	f := r.(*receiveOnlyFolder)
 
 	return m, f, cancel
 }

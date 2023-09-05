@@ -21,6 +21,11 @@ func SetLowPriority() error {
 	}
 	defer windows.CloseHandle(handle)
 
+	if cur, err := windows.GetPriorityClass(handle); err == nil && (cur == windows.IDLE_PRIORITY_CLASS || cur == windows.BELOW_NORMAL_PRIORITY_CLASS) {
+		// We're done here.
+		return nil
+	}
+
 	if err := windows.SetPriorityClass(handle, windows.BELOW_NORMAL_PRIORITY_CLASS); err != nil {
 		return fmt.Errorf("set priority class: %w", err)
 	}
