@@ -871,7 +871,7 @@
                           </span>
                         </td>
                       </tr>
-                      <tr ng-if="connections[deviceCfg.deviceID].connected && (deviceCfg.numConnections > 1 || connections[deviceCfg.deviceID].secondary)">
+                      <tr ng-if="connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Number of Connections</span></th>
                         <td class="text-right">
                           <span ng-if="connections[deviceCfg.deviceID].secondary.length">1 + {{connections[deviceCfg.deviceID].secondary.length | alwaysNumber}}</span>
