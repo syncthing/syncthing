@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stringutil"
 )
 
 // announcement is the format received from and sent to clients
@@ -437,6 +438,9 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 		uri.Host = net.JoinHostPort(host, port)
 		fixed = append(fixed, uri.String())
 	}
+
+	// Remove duplicate addresses
+	fixed = stringutil.UniqueTrimmedStrings(fixed)
 
 	return fixed
 }
