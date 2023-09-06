@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+const Codename = "Gold Grasshopper"
+
 var (
 	// Injected by build script
 	Version = "unknown-dev"
@@ -25,9 +27,6 @@ var (
 	User    = "unknown"
 	Stamp   = "0"
 	Tags    = ""
-
-	// Static
-	Codename = "Fermium Flea"
 
 	// Set by init()
 	Date        time.Time
