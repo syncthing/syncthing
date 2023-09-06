@@ -105,7 +105,9 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer quicTransport.Close()
 
 	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport}, tracer)
-	go svc.Serve(ctx)
+	stunCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go svc.Serve(stunCtx)
 
 	t.registry.Register(t.uri.Scheme, quicTransport)
 	defer t.registry.Unregister(t.uri.Scheme, quicTransport)

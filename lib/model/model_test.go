@@ -270,7 +270,7 @@ func TestDeviceRename(t *testing.T) {
 	cfg, cfgCancel := newConfigWrapper(rawCfg)
 	defer cfgCancel()
 
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -422,7 +422,7 @@ func TestClusterConfig(t *testing.T) {
 
 	wrapper, cancel := newConfigWrapper(cfg)
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -903,7 +903,7 @@ func TestIssue5063(t *testing.T) {
 	defer cancel()
 
 	m.pmut.Lock()
-	for _, c := range m.conn {
+	for _, c := range m.connections {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
 		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
@@ -1626,7 +1626,7 @@ func TestROScanRecovery(t *testing.T) {
 		},
 	})
 	defer cancel()
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -1673,7 +1673,7 @@ func TestRWScanRecovery(t *testing.T) {
 		},
 	})
 	defer cancel()
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -2073,7 +2073,7 @@ func TestIssue4357(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper, cancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2125,7 +2125,7 @@ func TestIssue4357(t *testing.T) {
 }
 
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
-	m := newModel(t, defaultCfgWrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, defaultCfgWrapper, myID, nil)
 
 	files := newFileSet(t, "default", m.db)
 	files.Drop(device1)
@@ -2231,7 +2231,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("device still in config")
 	}
 
-	if _, ok := m.conn[device2]; ok {
+	if _, ok := m.deviceConnIDs[device2]; ok {
 		t.Error("conn not missing")
 	}
 
@@ -2374,7 +2374,7 @@ func TestCustomMarkerName(t *testing.T) {
 
 	ffs := fcfg.Filesystem(nil)
 
-	m := newModel(t, cfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, cfg, myID, nil)
 
 	set := newFileSet(t, "default", m.db)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
@@ -2736,7 +2736,7 @@ func TestIssue4094(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper, cancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer cancel()
-	m := newModel(t, wrapper, myID, "syncthing", "dev", nil)
+	m := newModel(t, wrapper, myID, nil)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2971,6 +2971,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	br := &testutil.BlockingRW{}
 	nw := &testutil.NoopRW{}
 	ci := &protocolmocks.ConnectionInfo{}
+	ci.ConnectionIDReturns(srand.String(16))
 	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
@@ -3639,6 +3640,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	})
 	m.AddConnection(fc1, protocol.Hello{})
 	m.AddConnection(fc2, protocol.Hello{})
+	m.promoteConnections()
 
 	// Initial CCs
 	select {
@@ -3690,7 +3692,7 @@ func TestIssue6961(t *testing.T) {
 	must(t, err)
 	waiter.Wait()
 	// Always recalc/repair when opening a fileset.
-	m := newModel(t, wcfg, myID, "syncthing", "dev", nil)
+	m := newModel(t, wcfg, myID, nil)
 	m.db.Close()
 	m.db, err = db.NewLowlevel(backend.OpenMemory(), m.evLogger, db.WithRecheckInterval(time.Millisecond))
 	if err != nil {
@@ -3952,7 +3954,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
 	tfs := fcfg.Filesystem(nil)
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// A connection can happen before all the folders are started.

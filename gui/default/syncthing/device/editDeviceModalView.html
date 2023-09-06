@@ -137,11 +137,22 @@
               </div>
             </div>
           </div>
-          <div class="row form-group">
-            <div class="col-md-12">
+          <div class="row">
+            <div class="col-md-6" ng-class="{'has-error': deviceEditor.numConnections.$invalid && deviceEditor.numConnections.$dirty}">
+              <label translate>Connection Management</label>
+              <div class="row">
+                <span class="col-md-8" translate>Number of Connections</span>
+                <div class="col-md-4">
+                  <input name="numConnections" id="numConnections" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.numConnections" min="0" />
+                </div>
+              </div>
+              <p class="help-block" ng-if="!deviceEditor.numConnections.$valid && deviceEditor.numConnections.$dirty" translate>The number of connections must be a non-negative number.</p>
+              <p class="help-block" ng-if="deviceEditor.numConnections.$valid || deviceEditor.numConnections.$pristine" translate>When set to more than one on both devices, Syncthing will attempt to establish multiple concurrent connections. If the values differ, the highest will be used. Set to zero to let Syncthing decide.</p>
+            </div>
+            <div class="col-md-6 form-group">
               <label translate>Device rate limits</label>
               <div class="row">
-                <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
+                <div class="col-md-12" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
                   <div class="row">
                     <span class="col-md-8" translate>Incoming Rate Limit (KiB/s)</span>
                     <div class="col-md-4">
@@ -150,7 +161,7 @@
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
                 </div>
-                <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
+                <div class="col-md-12" ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
                   <div class="row">
                     <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
                     <div class="col-md-4">
@@ -158,6 +169,7 @@
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
+                  <p class="help-block" ng-if="(deviceEditor.maxSendKbps.$valid || deviceEditor.maxSendKbps.$pristine) && (deviceEditor.maxRecvKbps.$valid || deviceEditor.maxRecvKbps.$pristine)">The rate limit is applied to the accumulated traffic of all connections to this device.</p>
                 </div>
               </div>
             </div>

@@ -1214,7 +1214,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Initialise db with an entry and then stop everything again
 	must(t, tfs.Mkdir(dir1, 0o777))
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 	m.ServeBackground()
 	m.ScanFolders()
@@ -1223,7 +1223,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Add connection (sends incoming cluster config) before starting the new model
 	m = &testModel{
-		model:    NewModel(m.cfg, m.id, m.clientName, m.clientVersion, m.db, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
+		model:    NewModel(m.cfg, m.id, m.db, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
 		evCancel: m.evCancel,
 		stopped:  make(chan struct{}),
 	}
