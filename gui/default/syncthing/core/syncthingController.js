@@ -186,10 +186,10 @@ angular.module('syncthing.core')
                 } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
                     // A genuine HTTP error. 501/NotImplemented is considered intentional
                     // and not an error which we need to act upon.
-                    changeModalState('hide', '#networkError');
-                    changeModalState('hide', '#restarting', '#networkError');
-                    changeModalState('hide', '#shutdown', '#restarting');
-                    changeModalState('show', '#httpError', '#shutdown');
+                    $('#networkError').modal('hide');
+                    $('#restarting').modal('hide');
+                    $('#shutdown').modal('hide');
+                    changeModalState('show', '#httpError', '#networkError, #restarting, #shutdown');
                 }
             }
         });
@@ -1607,13 +1607,15 @@ angular.module('syncthing.core')
                 $scope.saveConfig().then(function () {
                     if (themeChanged) {
                         document.location.reload(true);
+                        // GUI is being reloaded, so there is no need to remove
+                        // the handler and hide the modal manually.
                         return;
                     }
                 });
             }
 
             $("#settings").off("hide.bs.modal");
-            changeModalState('hide', '#settings');
+            changeModalState('hide', '#settings', '#advanced, #savingChanges');
         };
 
         $scope.saveAdvanced = function () {
