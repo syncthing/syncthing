@@ -11,7 +11,7 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
-        
+
         function initController() {
             LocaleService.autoConfigLocale();
             setInterval($scope.refresh, 10000);
@@ -1623,7 +1623,7 @@ angular.module('syncthing.core')
         $scope.saveAdvanced = function () {
             $scope.config = $scope.advancedConfig;
             $scope.saveConfig();
-            changeModalState('hide', '#advanced');
+            hideModal('#advanced');
         };
 
         $scope.restart = function () {
@@ -1811,7 +1811,7 @@ angular.module('syncthing.core')
             }
 
             $scope.saveConfig();
-            changeModalState('hide', '#editDevice');
+            hideModal('#editDevice');
         };
 
         $scope.saveDevice = function () {
@@ -1827,7 +1827,7 @@ angular.module('syncthing.core')
             delete $scope.currentSharing;
             $scope.currentDevice = {};
             $scope.saveConfig();
-            // changeModalState('hide', '#editDevice');
+            // hideModal('#editDevice');
             hideModal('#editDevice');
         };
 
@@ -2313,7 +2313,7 @@ angular.module('syncthing.core')
                 // On modal being hidden without clicking save, the defaults will be saved.
                 $scope.ignores.saved = true;
                 saveFolderAddIgnores($scope.currentFolder.id);
-                changeModalState('hide', '#editFolder');
+                hideModal('#editFolder');
                 return;
             }
 
@@ -2369,7 +2369,7 @@ angular.module('syncthing.core')
                 $scope.config.defaults.ignores.lines = ignoresArray();
                 $scope.config.defaults.folder = folderCfg;
                 $scope.saveConfig();
-                changeModalState('hide', '#editFolder');
+                hideModal('#editFolder');
                 return;
             }
 
@@ -2383,14 +2383,14 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._editing == "existing") {
                 saveFolderIgnoresExisting();
                 $scope.saveConfig();
-                changeModalState('hide', '#editFolder');
+                hideModal('#editFolder');
                 return;
             }
 
             // No ignores to be set on the new folder, save directly.
             if (!$scope.currentFolder._addIgnores) {
                 $scope.saveConfig();
-                changeModalState('hide', '#editFolder');
+                hideModal('#editFolder');
                 return;
             }
 
@@ -2547,7 +2547,7 @@ angular.module('syncthing.core')
             recalcLocalStateTotal();
 
             $scope.saveConfig();
-            changeModalState('hide', '#editFolder');
+            hideModal('#editFolder');
         };
 
         function resetRestoreVersions() {
@@ -2816,7 +2816,7 @@ angular.module('syncthing.core')
             $scope.config.options.urAccepted = $scope.system.urVersionMax;
             $scope.config.options.urSeen = $scope.system.urVersionMax;
             $scope.saveConfig();
-            changeModalState('hide', '#ur');
+            hideModal('#ur');
         };
 
         $scope.declineUR = function () {
@@ -2825,7 +2825,7 @@ angular.module('syncthing.core')
             }
             $scope.config.options.urSeen = $scope.system.urVersionMax;
             $scope.saveConfig();
-            changeModalState('hide', '#ur');
+            hideModal('#ur');
         };
 
         $scope.showNeed = function (folder) {
