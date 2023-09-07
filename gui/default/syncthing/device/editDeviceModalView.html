@@ -141,7 +141,10 @@
             <div class="col-md-6" ng-class="{'has-error': deviceEditor.numConnections.$invalid && deviceEditor.numConnections.$dirty}">
               <label translate>Connection Management</label>
               <div class="row">
-                <span class="col-md-8" translate>Number of Connections</span>
+                <span class="col-md-8">
+                  <span translate>Number of Connections</span>
+                  &nbsp;<a href="{{docsURL('advanced/device-numconnections')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                </span>
                 <div class="col-md-4">
                   <input name="numConnections" id="numConnections" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.numConnections" min="0" />
                 </div>
