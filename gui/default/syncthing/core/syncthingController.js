@@ -1654,8 +1654,8 @@ angular.module('syncthing.core')
             hideModal('#majorUpgrade');
             showModal('#upgrading');
             $http.post(urlbase + '/system/upgrade').success(function () {
-                showModal('#restarting');
                 hideModal('#upgrading');
+                showModal('#restarting');
             }).error(function () {
                 hideModal('#upgrading');
             });
