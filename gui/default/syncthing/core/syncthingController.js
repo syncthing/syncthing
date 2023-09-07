@@ -1614,12 +1614,10 @@ angular.module('syncthing.core')
                     if (themeChanged) {
                         document.location.reload(true);
                     } else {
-                        $("#settings").off("hide.bs.modal");
                         hideModal('#settings');
                     }
                 });
             } else {
-                $("#settings").off("hide.bs.modal");
                 hideModal('#settings');
             }
         };
