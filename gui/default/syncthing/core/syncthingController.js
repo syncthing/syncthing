@@ -1516,6 +1516,10 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function () {
+            // Use "$scope.saveConfig().then" when hiding modals after saving
+            // changes, or otherwise the background modal will be hidden before
+            // the #savingChanges modal, causing the right body margin increase
+            // bug (see https://github.com/syncthing/syncthing/pull/9078).
             showModal('#savingChanges');
             var cfg = JSON.stringify($scope.config);
             var opts = {
@@ -3410,6 +3414,16 @@ angular.module('syncthing.core')
                 return n.match !== "";
             });
         };
+        
+        // The showModal and hideModal functions are a bandaid for a Bootstrap
+        // bug (see https://github.com/twbs/bootstrap/issues/3902) that causes
+        // multiple consecutively shown or hidden modals to overlap which leads
+        // to the right body margin in HTML increasing in size infinitely. These
+        // custom functions make sure that the previous modal has either been
+        // fully shown or hidden before showing or hiding a new one. Note that
+        // modals still need to be manipulated in the order of their appearance,
+        // i.e. the foreground first, the background later, or the body margin
+        // addition bug will still occur.
 
         var previousModalState = '';
         var previousModalID = '';
