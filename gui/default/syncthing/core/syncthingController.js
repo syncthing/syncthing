@@ -3423,7 +3423,7 @@ angular.module('syncthing.core')
         // fully shown or hidden before showing or hiding a new one. Note that
         // modals still need to be manipulated in the order of their appearance,
         // i.e. the foreground first, the background later, or the body margin
-        // addition bug will still occur.
+        // addition bug will occur.
 
         var previousModalState = '';
         var previousModalID = '';
