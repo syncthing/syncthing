@@ -1622,8 +1622,9 @@ angular.module('syncthing.core')
 
         $scope.saveAdvanced = function () {
             $scope.config = $scope.advancedConfig;
-            $scope.saveConfig();
-            hideModal('#advanced');
+            $scope.saveConfig().then(function () {
+                hideModal('#advanced');
+            });
         };
 
         $scope.restart = function () {
@@ -1810,8 +1811,9 @@ angular.module('syncthing.core')
                 });
             }
 
-            $scope.saveConfig();
-            hideModal('#editDevice');
+            $scope.saveConfig().then(function () {
+                hideModal('#editDevice');
+            });
         };
 
         $scope.saveDevice = function () {
@@ -1826,9 +1828,9 @@ angular.module('syncthing.core')
             }
             delete $scope.currentSharing;
             $scope.currentDevice = {};
-            $scope.saveConfig();
-            // hideModal('#editDevice');
-            hideModal('#editDevice');
+            $scope.saveConfig().then(function () {
+                hideModal('#editDevice');
+            });
         };
 
         function setDeviceConfig() {
@@ -2368,8 +2370,9 @@ angular.module('syncthing.core')
             if ($scope.currentFolder._editing == "defaults") {
                 $scope.config.defaults.ignores.lines = ignoresArray();
                 $scope.config.defaults.folder = folderCfg;
-                $scope.saveConfig();
-                hideModal('#editFolder');
+                $scope.saveConfig().then(function () {
+                    hideModal('#editFolder');
+                }
                 return;
             }
 
@@ -2382,15 +2385,17 @@ angular.module('syncthing.core')
 
             if ($scope.currentFolder._editing == "existing") {
                 saveFolderIgnoresExisting();
-                $scope.saveConfig();
-                hideModal('#editFolder');
+                $scope.saveConfig().then(function () {
+                    hideModal('#editFolder');
+                });
                 return;
             }
 
             // No ignores to be set on the new folder, save directly.
             if (!$scope.currentFolder._addIgnores) {
-                $scope.saveConfig();
-                hideModal('#editFolder');
+                $scope.saveConfig().then(function () {
+                    hideModal('#editFolder');
+                });
                 return;
             }
 
@@ -2546,8 +2551,9 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
             recalcLocalStateTotal();
 
-            $scope.saveConfig();
-            hideModal('#editFolder');
+            $scope.saveConfig().then(function () {
+                hideModal('#editFolder');
+            });
         };
 
         function resetRestoreVersions() {
@@ -2815,8 +2821,9 @@ angular.module('syncthing.core')
         $scope.acceptUR = function () {
             $scope.config.options.urAccepted = $scope.system.urVersionMax;
             $scope.config.options.urSeen = $scope.system.urVersionMax;
-            $scope.saveConfig();
-            hideModal('#ur');
+            $scope.saveConfig().then(function () {
+                hideModal('#ur');
+            });
         };
 
         $scope.declineUR = function () {
@@ -2824,8 +2831,9 @@ angular.module('syncthing.core')
                 $scope.config.options.urAccepted = -1;
             }
             $scope.config.options.urSeen = $scope.system.urVersionMax;
-            $scope.saveConfig();
-            hideModal('#ur');
+            $scope.saveConfig().then(function () {
+                hideModal('#ur');
+            });
         };
 
         $scope.showNeed = function (folder) {
