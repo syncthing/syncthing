@@ -2376,7 +2376,7 @@ angular.module('syncthing.core')
                 $scope.config.defaults.folder = folderCfg;
                 $scope.saveConfig().then(function () {
                     hideModal('#editFolder');
-                }
+                });
                 return;
             }
 
