@@ -91,14 +91,12 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	}
 }
 
-func TestFilterUnspecified(t *testing.T) {
+func TestFilterUndialable(t *testing.T) {
 	addrs := []string{
 		"quic://[2001:db8::1]:22000",             // OK
 		"tcp://192.0.2.42:22000",                 // OK
 		"quic://[2001:db8::1]:0",                 // remove, port zero
 		"tcp://192.0.2.42:0",                     // remove, port zero
-		"quic://[::]:22000",                      // remove, unspecified
-		"tcp://0.0.0.0:22000",                    // remove, unspecified
 		"tcp://[2001:db8::1]",                    // remove, no port
 		"tcp://192.0.2.42",                       // remove, no port
 		"tcp://foo:bar",                          // remove, host/port does not resolve
@@ -114,9 +112,9 @@ func TestFilterUnspecified(t *testing.T) {
 		"tcp://192.0.2.42:22000",
 		"tcp://[fe80::9ef:dff1:b332:5e56]:55681",
 	}
-	res := filterUnspecifiedLocal(addrs)
+	res := filterUndialableLocal(addrs)
 	if fmt.Sprint(res) != fmt.Sprint(exp) {
 		t.Log(res)
-		t.Error("filterUnspecified returned invalid addresses")
+		t.Error("filterUndialableLocal returned invalid addresses")
 	}
 }
