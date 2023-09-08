@@ -47,7 +47,6 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		intfs, err := net.Interfaces()
 		if err != nil {
 			l.Debugln(err)
-			return err
 		}
 
 		var dsts []net.IP
@@ -59,7 +58,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			addrs, err := intf.Addrs()
 			if err != nil {
 				l.Debugln(err)
-				return err
+				break
 			}
 
 			for _, addr := range addrs {
