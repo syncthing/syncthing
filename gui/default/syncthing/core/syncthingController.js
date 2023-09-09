@@ -1753,6 +1753,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < folders.length; i++) {
                 $scope.currentSharing.selected[folders[i].id] = !!state;
             }
+            $scope.deviceEditor.$setDirty();
         };
 
         $scope.selectAllUnrelatedFolders = function (state) {
@@ -1760,6 +1761,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < folders.length; i++) {
                 $scope.currentSharing.selected[folders[i].id] = !!state;
             }
+            $scope.deviceEditor.$setDirty();
         };
 
         $scope.addDevice = function (deviceID, name) {
@@ -2234,6 +2236,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < devices.length; i++) {
                 $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
+            $scope.folderEditor.$setDirty();
         };
 
         $scope.selectAllUnrelatedDevices = function (state) {
@@ -2241,6 +2244,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < devices.length; i++) {
                 $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
+            $scope.folderEditor.$setDirty();
         };
 
         $scope.addFolder = function () {

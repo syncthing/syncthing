@@ -333,7 +333,7 @@
   </div>
 
   <div class="modal-footer">
-    <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()">
+    <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()" ng-disabled="settingsEditor.$invalid || settingsEditor.$pristine">
       <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
