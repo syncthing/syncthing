@@ -61,7 +61,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 
 		intfs, ifErr := net.Interfaces()
 		if ifErr != nil {
-			l.Debugln(ifErr)
+			l.Debugln("Failed to list interfaces", ifErr)
 			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
 			// Let the OS determine the applicable interface instead
 		}

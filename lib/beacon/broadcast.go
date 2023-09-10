@@ -46,7 +46,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 
 		intfs, err := net.Interfaces()
 		if err != nil {
-			l.Debugln(err)
+			l.Debugln("Failed to list interfaces", err)
 			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
 			// Use the general broadcast address 255.255.255.255 instead.
 		}
@@ -59,7 +59,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 
 			addrs, err := intf.Addrs()
 			if err != nil {
-				l.Debugln(err)
+				l.Debugln("Failed to list interface addresses", err)
 				// Interface discovery might work while retrieving the addresses doesn't. So log the error and carry on.
 				continue
 			}
