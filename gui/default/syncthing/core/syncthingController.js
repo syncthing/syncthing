@@ -2218,11 +2218,11 @@ angular.module('syncthing.core')
             ) {
                 return 'invalid'
             } else if (
-                (interval1.$dirty && interval1.$valid && (interval1.$modelValue >= period1.$modelValue))
-                || (interval2.$dirty && interval2.$valid && (interval2.$modelValue >= period2.$modelValue))
-                || (interval3.$dirty && interval3.$valid && (interval3.$modelValue >= period3.$modelValue))
-                || (interval4.$dirty && interval4.$valid && (interval4.$modelValue >= period4.$modelValue))
-                || (interval5.$dirty && interval5.$valid && (interval5.$modelValue >= period5.$modelValue))
+                (interval1.$dirty && interval1.$valid && interval1.$modelValue >= period1.$modelValue)
+                || (interval2.$dirty && interval2.$valid && interval2.$modelValue >= period2.$modelValue)
+                || (interval3.$dirty && interval3.$valid && interval3.$modelValue >= period3.$modelValue)
+                || (interval4.$dirty && interval4.$valid && interval4.$modelValue >= period4.$modelValue)
+                || (interval5.$dirty && interval5.$valid && interval5.$modelValue >= period5.$modelValue)
             ) {
                 return 'intervalMaxError';
             } else if (
