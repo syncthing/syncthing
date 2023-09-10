@@ -72,9 +72,9 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 	if err != nil {
 		interval5 = 2592000 // Default: 1 month
 	}
-	staggeredMaxAge, err := strconv.ParseInt(params["staggeredMaxAge"], 10, 0)
+	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
-		staggeredMaxAge = 31536000 // Default: 1 year
+		maxAge = 31536000 // Default: 1 year
 	}
 
 	versionsFs := versionerFsFromFolderCfg(cfg)
@@ -87,7 +87,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 			{interval2, period2},         // first day     -> 1 h between versions
 			{interval3, period3},         // first 30 days -> 1 day between versions
 			{interval4, period4},         // first year    -> 1 week between versions
-			{interval5, staggeredMaxAge}, // next year     -> 1 month between versions
+			{interval5, maxAge}, // next year     -> 1 month between versions
 		},
 		copyRangeMethod: cfg.CopyRangeMethod,
 	}
