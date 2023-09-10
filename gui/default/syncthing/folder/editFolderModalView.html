@@ -115,19 +115,89 @@
               <span translate ng-if="folderEditor.simpleKeep.$error.min && folderEditor.simpleKeep.$dirty">You must keep at least one version.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
-            <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
-            <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
-            <label translate for="staggeredMaxAge">Maximum Age</label>
-            <div class="input-group">
-              <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredMaxAge" required="" aria-required="true" min="0" />
-              <div class="input-group-addon" translate>days</div>
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='staggered'">
+            <div class="help-block">
+              <p>
+                <span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span>
+                <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span>
+              </p>
+              <p translate>The following intervals are used by default:</p>
+              <ul>
+                <li translate>for the first hour a version is kept every 30 seconds</li>
+                <li translate>for the first day a version is kept every hour</li>
+                <li translate>for the first 30 days a version is kept every day</li>
+                <li translate>for the first year a version is kept every week</li>
+                <li translate>until the maximum age a version is kept every month</li>
+              </ul>
             </div>
-            <p class="help-block">
-              <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
-              <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
-              <span translate ng-if="folderEditor.staggeredMaxAge.$error.min && folderEditor.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
-            </p>
+            <div ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
+              <label translate for="staggeredMaxAge">Maximum Age</label>
+              <div class="input-group">
+                <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredMaxAge" required="" aria-required="true" min="0" />
+                <div class="input-group-addon" translate>days</div>
+              </div>
+              <p class="help-block">
+                <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
+                <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
+                <span translate ng-if="folderEditor.staggeredMaxAge.$error.min && folderEditor.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
+              </p>
+            </div>
+            <div>
+              <label translate>Staggered Intervals</label>
+              <div class="help-block">
+                <p class="text-warning">
+                  <span class="fas fa-exclamation-triangle"></span>&nbsp;
+                  <span translate>The interval editor is intended for advanced users only!</span>
+                </p>
+                <p>
+                  <span translate>You can customize the intervals below.</span>
+                  <span translate>In each interval, the first value means how often a version is kept, and the second value means a time period for when it happens.</span>
+                  <span translate>The last time period is tied to the maximum age and changes with it.</span>
+                </p>
+              </div>
+              <div ng-class="{'has-error': staggeredIntervalsState() !== 'valid'}">
+                <div class="input-group">
+                  <div class="input-group-addon" translate>Interval</div>
+                  <input name="staggeredInterval1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval1" required aria-required="true" min="1" />
+                  <div class="input-group-addon hidden-xs" translate>seconds</div>
+                  <input name="staggeredPeriod1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod1" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
+                  <div class="input-group-addon" translate>seconds</div>
+                </div>
+                <div class="input-group">
+                  <div class="input-group-addon" translate>Interval</div>
+                  <input name="staggeredInterval2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval2" required aria-required="true" min="1" />
+                  <div class="input-group-addon hidden-xs" translate>seconds</div>
+                  <input name="staggeredPeriod2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod2" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
+                  <div class="input-group-addon" translate>seconds</div>
+                </div>
+                <div class="input-group">
+                  <div class="input-group-addon" translate>Interval</div>
+                  <input name="staggeredInterval3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval3" required aria-required="true" min="1" />
+                  <div class="input-group-addon hidden-xs" translate>seconds</div>
+                  <input name="staggeredPeriod3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod3" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
+                  <div class="input-group-addon" translate>seconds</div>
+                </div>
+                <div class="input-group">
+                  <div class="input-group-addon" translate>Interval</div>
+                  <input name="staggeredInterval4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval4" required aria-required="true" min="1" />
+                  <div class="input-group-addon hidden-xs" translate>seconds</div>
+                  <input name="staggeredPeriod4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod4" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
+                  <div class="input-group-addon" translate>seconds</div>
+                </div>
+                <div class="input-group">
+                  <div class="input-group-addon" translate>Interval</div>
+                  <input name="staggeredInterval5" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval5" required aria-required="true" min="1" />
+                  <div class="input-group-addon hidden-xs" translate>seconds</div>
+                  <input name="staggeredPeriod5" class="form-control text-right" type="number" ng-value="currentFolder._guiVersioning.staggeredMaxAge === 0 ? '' : currentFolder._guiVersioning.staggeredMaxAge * 86400" required aria-required="true" disabled />
+                  <div class="input-group-addon" translate>seconds</div>
+                </div>
+                <p class="help-block" ng-switch="staggeredIntervalsState()">
+                  <span ng-switch-when="invalid" translate>The interval must be a positive number of seconds.</span>
+                  <span ng-switch-when="intervalMaxError" translate>The first value must be lower than the second value.</span>
+                  <span ng-switch-when="periodMinMaxError" translate>The second value must be higher than the first value. It must also be higher than the second value in the previous interval and lower than the second value in the next interval.</span>
+                </p>
+              </div>
+            </div>
           </div>
           <div class="form-group" ng-if="internalVersioningEnabled()">
             <label translate for="fsPath">Versions Path</label>

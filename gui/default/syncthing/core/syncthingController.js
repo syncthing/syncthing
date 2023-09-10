@@ -73,9 +73,23 @@ angular.module('syncthing.core')
             trashcanClean: 0,
             cleanupIntervalS: 3600,
             simpleKeep: 5,
-            staggeredMaxAge: 365,
+            staggeredInterval1: 30,
+            staggeredInterval2: 3600,
+            staggeredInterval3: 86400,
+            staggeredInterval4: 604800,
+            staggeredInterval5: 2592000,
+            staggeredPeriod1: 3600,
+            staggeredPeriod2: 86400,
+            staggeredPeriod3: 2592000,
+            staggeredPeriod4: 31536000,
+            staggeredMaxAge: 365, // 31536000 sec
             externalCommand: "",
         };
+
+        // The last staggered period is tied to the maximum age and cannot be
+        // modified on its own. It is ignored when versions are kept forever,
+        // and it is also not saved in the config file.
+        $scope.versioningDefaults.staggeredPeriod5 = $scope.versioningDefaults.staggeredMaxAge * 86400;
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -2161,11 +2175,66 @@ angular.module('syncthing.core')
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "staggered":
+                $scope.currentFolder._guiVersioning.staggeredInterval1 = +currentVersioning.params.staggeredInterval1;
+                $scope.currentFolder._guiVersioning.staggeredInterval2 = +currentVersioning.params.staggeredInterval2;
+                $scope.currentFolder._guiVersioning.staggeredInterval3 = +currentVersioning.params.staggeredInterval3;
+                $scope.currentFolder._guiVersioning.staggeredInterval4 = +currentVersioning.params.staggeredInterval4;
+                $scope.currentFolder._guiVersioning.staggeredInterval5 = +currentVersioning.params.staggeredInterval5;
+                $scope.currentFolder._guiVersioning.staggeredPeriod1 = +currentVersioning.params.staggeredPeriod1;
+                $scope.currentFolder._guiVersioning.staggeredPeriod2 = +currentVersioning.params.staggeredPeriod2;
+                $scope.currentFolder._guiVersioning.staggeredPeriod3 = +currentVersioning.params.staggeredPeriod3;
+                $scope.currentFolder._guiVersioning.staggeredPeriod4 = +currentVersioning.params.staggeredPeriod4;
+                $scope.currentFolder._guiVersioning.staggeredPeriod5 = +currentVersioning.params.maxAge;
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.externalCommand = currentVersioning.params.command;
                 break;
+            }
+        };
+
+        $scope.staggeredIntervalsState = function () {
+            // We needn't check period5 as it is always valid and equal to maxAge.
+            var interval1 = $scope.folderEditor.staggeredInterval1;
+            var interval2 = $scope.folderEditor.staggeredInterval2;
+            var interval3 = $scope.folderEditor.staggeredInterval3;
+            var interval4 = $scope.folderEditor.staggeredInterval4;
+            var interval5 = $scope.folderEditor.staggeredInterval5;
+            var period1 = $scope.folderEditor.staggeredPeriod1;
+            var period2 = $scope.folderEditor.staggeredPeriod2;
+            var period3 = $scope.folderEditor.staggeredPeriod3;
+            var period4 = $scope.folderEditor.staggeredPeriod4;
+
+            if (
+                (interval1.$dirty && interval1.$invalid)
+                || (interval2.$dirty && interval2.$invalid)
+                || (interval3.$dirty && interval3.$invalid)
+                || (interval4.$dirty && interval4.$invalid)
+                || (interval5.$dirty && interval5.$invalid)
+                || (period1.$dirty && period1.$invalid)
+                || (period2.$dirty && period2.$invalid)
+                || (period3.$dirty && period3.$invalid)
+                || (period4.$dirty && period4.$invalid)
+            ) {
+                return 'invalid'
+            } else if (
+                (interval1.$dirty && interval1.$valid && (interval1.$modelValue >= period1.$modelValue))
+                || (interval2.$dirty && interval2.$valid && (interval2.$modelValue >= period2.$modelValue))
+                || (interval3.$dirty && interval3.$valid && (interval3.$modelValue >= period3.$modelValue))
+                || (interval4.$dirty && interval4.$valid && (interval4.$modelValue >= period4.$modelValue))
+                || (interval5.$dirty && interval5.$valid && (interval5.$modelValue >= period5.$modelValue))
+            ) {
+                return 'intervalMaxError';
+            } else if (
+                (period1.$dirty && period1.$valid && (period1.$modelValue <= interval1.$modelValue || period1.$modelValue >= period2.$modelValue))
+                || (period2.$dirty && period2.$valid && (period2.$modelValue <= interval2.$modelValue || period2.$modelValue >= period3.$modelValue || period2.$modelValue <= period1.$modelValue))
+                || (period3.$dirty && period3.$valid && (period3.$modelValue <= interval3.$modelValue || period3.$modelValue >= period4.$modelValue || period3.$modelValue <= period2.$modelValue))
+                // Note: period4 need not be lower than period5 (maxAge).
+                || (period4.$dirty && period4.$valid && (period4.$modelValue <= interval4.$modelValue || period4.$modelValue <= period3.$modelValue))
+            ) {
+                return 'periodMinMaxError';
+            } else {
+                return 'valid';
             }
         };
 
@@ -2346,6 +2415,15 @@ angular.module('syncthing.core')
                 folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "staggered":
+                folderCfg.versioning.params.staggeredInterval1 = '' + (folderCfg._guiVersioning.staggeredInterval1);
+                folderCfg.versioning.params.staggeredInterval2 = '' + (folderCfg._guiVersioning.staggeredInterval2);
+                folderCfg.versioning.params.staggeredInterval3 = '' + (folderCfg._guiVersioning.staggeredInterval3);
+                folderCfg.versioning.params.staggeredInterval4 = '' + (folderCfg._guiVersioning.staggeredInterval4);
+                folderCfg.versioning.params.staggeredInterval5 = '' + (folderCfg._guiVersioning.staggeredInterval5);
+                folderCfg.versioning.params.staggeredPeriod1 = '' + folderCfg._guiVersioning.staggeredPeriod1;
+                folderCfg.versioning.params.staggeredPeriod2 = '' + (folderCfg._guiVersioning.staggeredPeriod2);
+                folderCfg.versioning.params.staggeredPeriod3 = '' + (folderCfg._guiVersioning.staggeredPeriod3);
+                folderCfg.versioning.params.staggeredPeriod4 = '' + (folderCfg._guiVersioning.staggeredPeriod4);
                 folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
                 break;
             case "external":

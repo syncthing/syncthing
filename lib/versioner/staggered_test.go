@@ -22,10 +22,11 @@ import (
 func TestStaggeredVersioningVersionCount(t *testing.T) {
 	/* Default settings:
 
-	{30, 3600},       // first hour -> 30 sec between versions
-	{3600, 86400},    // next day -> 1 h between versions
-	{86400, 592000},  // next 30 days -> 1 day between versions
-	{604800, maxAge}, // next year -> 1 week between versions
+	{30, 3600},         // first hour    -> 30 sec between versions
+	{3600, 86400},      // first day     -> 1 h between versions
+	{86400, 2592000},   // first 30 days -> 1 day between versions
+	{604800, 31536000}, // first year    -> 1 week between versions
+	{2592000, maxAge},  // next year     -> 1 month between versions
 	*/
 
 	now := parseTime("20160415-140000")
@@ -76,6 +77,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 		"test~20150416-135959", // 365 days 1 second ago
 		"test~20150416-135958", // 365 days 2 seconds ago
 		"test~20150414-140000", // 367 days ago
+		"test~20140415-140000", // 2 years ago
 	}
 
 	delete := []string{
@@ -96,6 +98,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 		"test~20150416-135959", // 365 days 1 second ago
 		"test~20150416-135958", // 365 days 2 seconds ago
 		"test~20150414-140000", // 367 days ago
+		"test~20140415-140000", // 2 years ago
 	}
 	sort.Strings(delete)
 

@@ -30,15 +30,51 @@ type interval struct {
 type staggered struct {
 	folderFs        fs.Filesystem
 	versionsFs      fs.Filesystem
-	interval        [4]interval
+	interval        [5]interval
 	copyRangeMethod fs.CopyRangeMethod
 }
 
 func newStaggered(cfg config.FolderConfiguration) Versioner {
 	params := cfg.Versioning.Params
-	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
+	interval1, err := strconv.ParseInt(params["staggeredInterval1"], 10, 0)
 	if err != nil {
-		maxAge = 31536000 // Default: ~1 year
+		interval1 = 30 // Default: 30 seconds
+	}
+	period1, err := strconv.ParseInt(params["staggeredPeriod1"], 10, 0)
+	if err != nil {
+		period1 = 3600 // Default: 1 minute
+	}
+	interval2, err := strconv.ParseInt(params["staggeredInterval2"], 10, 0)
+	if err != nil {
+		interval2 = 3600 // Default: 1 hour
+	}
+	period2, err := strconv.ParseInt(params["staggeredPeriod2"], 10, 0)
+	if err != nil {
+		period2 = 86400 // Default: 1 day
+	}
+	interval3, err := strconv.ParseInt(params["staggeredInterval3"], 10, 0)
+	if err != nil {
+		interval3 = 86400 // Default: 1 day
+	}
+	period3, err := strconv.ParseInt(params["staggeredPeriod3"], 10, 0)
+	if err != nil {
+		period3 = 2592000 // Default: 1 month
+	}
+	interval4, err := strconv.ParseInt(params["staggeredInterval4"], 10, 0)
+	if err != nil {
+		interval4 = 604800 // Default: 1 week
+	}
+	period4, err := strconv.ParseInt(params["staggeredPeriod4"], 10, 0)
+	if err != nil {
+		period4 = 31536000  // Default: 1 year
+	}
+	interval5, err := strconv.ParseInt(params["staggeredInterval5"], 10, 0)
+	if err != nil {
+		interval5 = 2592000 // Default: 1 month
+	}
+	staggeredMaxAge, err := strconv.ParseInt(params["staggeredMaxAge"], 10, 0)
+	if err != nil {
+		staggeredMaxAge = 31536000 // Default: 1 year
 	}
 
 	versionsFs := versionerFsFromFolderCfg(cfg)
@@ -46,11 +82,12 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 	s := &staggered{
 		folderFs:   cfg.Filesystem(nil),
 		versionsFs: versionsFs,
-		interval: [4]interval{
-			{30, 60 * 60},                     // first hour -> 30 sec between versions
-			{60 * 60, 24 * 60 * 60},           // next day -> 1 h between versions
-			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
-			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
+		interval: [5]interval{
+			{interval1, period1},         // first hour    -> 30 sec between versions
+			{interval2, period2},         // first day     -> 1 h between versions
+			{interval3, period3},         // first 30 days -> 1 day between versions
+			{interval4, period4},         // first year    -> 1 week between versions
+			{interval5, staggeredMaxAge}, // next year     -> 1 month between versions
 		},
 		copyRangeMethod: cfg.CopyRangeMethod,
 	}
