@@ -59,10 +59,11 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
-		if err != nil {
-			l.Debugln(err)
-			return err
+		intfs, ifErr := net.Interfaces()
+		if ifErr != nil {
+			l.Debugln(ifErr)
+			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
+			// Let the OS determine the applicable interface instead
 		}
 
 		success := 0
@@ -89,6 +90,26 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			case <-doneCtx.Done():
 				return doneCtx.Err()
 			default:
+			}
+		}
+
+		if ifErr != nil {
+			wcm.IfIndex = 0 // let the OS decide
+			pconn.SetWriteDeadline(time.Now().Add(time.Second))
+			_, err = pconn.WriteTo(bs, wcm, gaddr)
+			pconn.SetWriteDeadline(time.Time{})
+
+			if err != nil {
+				l.Debugln(err, "on write to", gaddr, "default interface")
+			} else {
+				l.Debugf("sent %d bytes to %v on default interface", len(bs), gaddr)
+				success++
+
+				select {
+				case <-doneCtx.Done():
+					return doneCtx.Err()
+				default:
+				}
 			}
 		}
 
