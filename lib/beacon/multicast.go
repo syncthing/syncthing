@@ -135,6 +135,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	// Handle failed interface lookup on Android
+	// see https://github.com/golang/go/issues/40569
 	if ifErr != nil {
 		err := pconn.JoinGroup(nil, &net.UDPAddr{IP: gaddr.IP})
 		if err != nil {
