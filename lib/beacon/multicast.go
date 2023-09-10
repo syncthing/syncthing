@@ -117,9 +117,9 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, err := net.Interfaces()
-	if err != nil {
-		l.Debugln(err)
+	intfs, ifErr := net.Interfaces()
+	if ifErr != nil {
+		l.Debugln(ifErr)
 	}
 
 	pconn := ipv6.NewPacketConn(conn)
@@ -135,7 +135,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	// Handle failed interface lookup on Android
-	if len(intfs) == 0 {
+	if ifErr != nil {
 		err := pconn.JoinGroup(nil, &net.UDPAddr{IP: gaddr.IP})
 		if err != nil {
 			l.Debugln("IPv6 join default interface failed:", err)
