@@ -793,7 +793,12 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 		}
 	}
 
-	lans, _ := osutil.GetLans()
+	lans, err := osutil.GetLans()
+
+	if err != nil {
+		return ip.IsPrivate() || ip.IsLinkLocalUnicast()
+	}
+
 	for _, lan := range lans {
 		if lan.Contains(ip) {
 			return true
