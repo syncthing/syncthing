@@ -162,7 +162,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		if err != nil {
 			l.Debugln("IPv6 join default interface failed:", err)
 		} else {
-			l.Debugln("IPv6 join default interface success:", err)
+			l.Debugln("IPv6 join default interface success")
 		}
 		joined++
 	}
