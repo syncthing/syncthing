@@ -169,7 +169,7 @@
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
-                  <p class="help-block" ng-if="(deviceEditor.maxSendKbps.$valid || deviceEditor.maxSendKbps.$pristine) && (deviceEditor.maxRecvKbps.$valid || deviceEditor.maxRecvKbps.$pristine)">The rate limit is applied to the accumulated traffic of all connections to this device.</p>
+                  <p class="help-block" ng-if="(deviceEditor.maxSendKbps.$valid || deviceEditor.maxSendKbps.$pristine) && (deviceEditor.maxRecvKbps.$valid || deviceEditor.maxRecvKbps.$pristine)" translate>The rate limit is applied to the accumulated traffic of all connections to this device.</p>
                 </div>
               </div>
             </div>
