@@ -195,17 +195,12 @@
                 </tbody>
               </table>
               <div ng-class="{'has-error': staggeredIntervalsState() !== 'valid'}">
-                <p class="help-block">
-                  <span ng-if="staggeredIntervalsState() !== 'valid'">
-                    <span class="fas fa-exclamation-triangle"></span>&nbsp;
-                  </span>
-                  <span ng-switch="staggeredIntervalsState()">
-                    <span ng-switch-when="invalid" translate>The interval must be a positive number of seconds.</span>
-                    <span ng-switch-when="intervalHigherThanPeriod" translate>The first value must not be higher than the second value.</span>
-                    <span ng-switch-when="periodLowerThanInterval" translate>The second value must not be lower than the first value.</span>
-                    <span ng-switch-when="periodHigherThanNextPeriod" translate>The second value must not be higher than the second value in the next interval.</span>
-                    <span ng-switch-when="periodLowerThanPreviousPeriod" translate>The second value must not be lower than the second value in the previous interval.</span>
-                  </span>
+                <p class="help-block" ng-switch="staggeredIntervalsState()">
+                  <span ng-switch-when="invalid" translate>The interval must be a positive number of seconds.</span>
+                  <span ng-switch-when="intervalHigherThanPeriod" translate>The first value must not be higher than the second value.</span>
+                  <span ng-switch-when="periodLowerThanInterval" translate>The second value must not be lower than the first value.</span>
+                  <span ng-switch-when="periodHigherThanNextPeriod" translate>The second value must not be higher than the second value in the next interval.</span>
+                  <span ng-switch-when="periodLowerThanPreviousPeriod" translate>The second value must not be lower than the second value in the previous interval.</span>
                 </p>
               </div>
             </div>
