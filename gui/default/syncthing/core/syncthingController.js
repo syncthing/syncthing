@@ -73,16 +73,16 @@ angular.module('syncthing.core')
             trashcanClean: 0,
             cleanupIntervalS: 3600,
             simpleKeep: 5,
-            staggeredInterval1: 30, // 30 seconds
-            staggeredInterval2: 1, // 1 hour = 3600 seconds
-            staggeredInterval3: 1, // 1 day = 86400 seconds
-            staggeredInterval4: 7, // 7 days = 604800 seconds
-            staggeredInterval5: 30, // 30 days = 2592000 seconds
-            staggeredPeriod1: 60, // 60 minutes = 3600 seconds
-            staggeredPeriod2: 24, // 24 hours = 86400 seconds
-            staggeredPeriod3: 30, // 30 days = 2592000 seconds
-            staggeredPeriod4: 365, // 1 year = 31536000 seconds
-            staggeredMaxAge: 365, // 1 year = 31536000 seconds
+            staggeredInterval1: 30, // seconds
+            staggeredInterval2: 1, // hour = 3600 seconds
+            staggeredInterval3: 1, // day = 86400 seconds
+            staggeredInterval4: 7, // days = 604800 seconds
+            staggeredInterval5: 30, // days = 2592000 seconds
+            staggeredPeriod1: 60, // minutes = 3600 seconds
+            staggeredPeriod2: 24, // hours = 86400 seconds
+            staggeredPeriod3: 30, // days = 2592000 seconds
+            staggeredPeriod4: 365, // year = 31536000 seconds
+            staggeredMaxAge: 365, // year = 31536000 seconds
             externalCommand: "",
         };
 
@@ -2187,7 +2187,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.staggeredIntervalsState = function () {
+        $scope.staggeredIntervals = function (command) {
             var interval1 = $scope.folderEditor.staggeredInterval1;
             var interval1Value = interval1.$modelValue;
             var interval2 = $scope.folderEditor.staggeredInterval2;
@@ -2209,50 +2209,52 @@ angular.module('syncthing.core')
             // We needn't check period5 as it is always valid and equal to maxAge.
             var period5Value = $scope.folderEditor.staggeredMaxAge.$modelValue * 86400;
 
-            if (
-                (interval1.$dirty && interval1.$invalid)
-                || (interval2.$dirty && interval2.$invalid)
-                || (interval3.$dirty && interval3.$invalid)
-                || (interval4.$dirty && interval4.$invalid)
-                || (interval5.$dirty && interval5.$invalid)
-                || (period1.$dirty && period1.$invalid)
-                || (period2.$dirty && period2.$invalid)
-                || (period3.$dirty && period3.$invalid)
-                || (period4.$dirty && period4.$invalid)
-            ) {
-                return 'invalid';
-            } else if (
-                (interval1.$dirty && interval1.$valid && interval1Value > period1Value)
-                || (interval2.$dirty && interval2.$valid && interval2Value > period2Value)
-                || (interval3.$dirty && interval3.$valid && interval3Value > period3Value)
-                || (interval4.$dirty && interval4.$valid && interval4Value > period4Value)
-                || (interval5.$dirty && interval5.$valid && interval5Value > period5Value)
-            ) {
-                return 'intervalHigherThanPeriod';
-            } else if (
-                (period1.$dirty && period1.$valid && period1Value < interval1Value)
-                || (period2.$dirty && period2.$valid && period2Value < interval2Value)
-                || (period3.$dirty && period3.$valid && period3Value < interval3Value)
-                || (period4.$dirty && period4.$valid && period4Value < interval4Value)
-            ) {
-                return 'periodLowerThanInterval';
-            } else if (
-                (period1.$dirty && period1.$valid && period1Value > period2Value)
-                || (period2.$dirty && period2.$valid && period2Value > period3Value)
-                || (period3.$dirty && period3.$valid && period3Value > period4Value)
-                // Note: period4 can be higher than period5 (maxAge).
-            ) {
-                return 'periodHigherThanNextPeriod';
-            } else if (
-                (period1.$dirty && period1.$valid && period1Value > period2Value)
-                || (period2.$dirty && period2.$valid && period2Value < period1Value)
-                || (period3.$dirty && period3.$valid && period3Value < period2Value)
-                || (period4.$dirty && period4.$valid && period4Value < period3Value)
-                // Note: period4 need not be lower than period5 (maxAge).
-            ) {
-                return 'periodLowerThanPreviousPeriod';
-            } else {
-                return 'valid';
+            switch (command) {
+                case 'isValid':
+                    if (
+                        (interval1.$dirty && interval1.$invalid)
+                        || (interval2.$dirty && interval2.$invalid)
+                        || (interval3.$dirty && interval3.$invalid)
+                        || (interval4.$dirty && interval4.$invalid)
+                        || (interval5.$dirty && interval5.$invalid)
+                        || (period1.$dirty && period1.$invalid)
+                        || (period2.$dirty && period2.$invalid)
+                        || (period3.$dirty && period3.$invalid)
+                        || (period4.$dirty && period4.$invalid)
+                    ) {
+                        return 'invalid';
+                    } else {
+                        return 'valid';
+                    }
+
+                case 'isDisabled2':
+                    if (period2Value <= period1Value) {
+                        return interval2.disable = true;
+                    } else {
+                        return interval2.disable = false;
+                    }
+                    break;
+                case 'isDisabled3':
+                    if (period3Value <= period2Value || interval2.disable) {
+                        return interval3.disable = true;
+                    } else {
+                        return interval3.disable = false;
+                    }
+                    break;
+                case 'isDisabled4':
+                    if (period4Value <= period3Value || interval2.disable || interval3.disable) {
+                        return interval4.disable = true;
+                    } else {
+                        return interval4.disable = false;
+                    }
+                    break;
+                case 'isDisabled5':
+                    if (period5Value <= period4Value || interval2.disable || interval3.disable || interval4.disable) {
+                        return interval5.disable = true;
+                    } else {
+                        return interval5.disable = false;
+                    }
+                    break;
             }
         };
 
@@ -2433,6 +2435,24 @@ angular.module('syncthing.core')
                 folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "staggered":
+                // Fix invalid values with interval larger than period. This is
+                // a cosmetic change though as they are harmless due to only the
+                // oldest version in each interval being kept.
+                if (folderCfg._guiVersioning.staggeredInterval1 > folderCfg._guiVersioning.staggeredPeriod1 * 60) {
+                    folderCfg._guiVersioning.staggeredInterval1 = folderCfg._guiVersioning.staggeredPeriod1 * 60;
+                }
+                if (folderCfg._guiVersioning.staggeredInterval2 > folderCfg._guiVersioning.staggeredPeriod2) {
+                    folderCfg._guiVersioning.staggeredInterval2 = folderCfg._guiVersioning.staggeredPeriod2;
+                }
+                if (folderCfg._guiVersioning.staggeredInterval3 > folderCfg._guiVersioning.staggeredPeriod3) {
+                    folderCfg._guiVersioning.staggeredInterval3 = folderCfg._guiVersioning.staggeredPeriod3;
+                }
+                if (folderCfg._guiVersioning.staggeredInterval4 > folderCfg._guiVersioning.staggeredPeriod4) {
+                    folderCfg._guiVersioning.staggeredInterval4 = folderCfg._guiVersioning.staggeredPeriod4;
+                }
+                if (folderCfg._guiVersioning.staggeredInterval5 > folderCfg._guiVersioning.maxAge) {
+                    folderCfg._guiVersioning.staggeredInterval5 = folderCfg._guiVersioning.maxAge;
+                }
                 folderCfg.versioning.params.staggeredInterval1 = '' + (folderCfg._guiVersioning.staggeredInterval1);
                 folderCfg.versioning.params.staggeredInterval2 = '' + (folderCfg._guiVersioning.staggeredInterval2 * 3600);
                 folderCfg.versioning.params.staggeredInterval3 = '' + (folderCfg._guiVersioning.staggeredInterval3 * 86400);
