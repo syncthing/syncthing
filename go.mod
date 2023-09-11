@@ -47,14 +47,14 @@ require (
 	github.com/thejerf/suture/v4 v4.0.2
 	github.com/urfave/cli v1.22.14
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.13.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.14.0
+	golang.org/x/net v0.15.0
 	golang.org/x/sys v0.12.0
 	golang.org/x/text v0.13.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846
+	golang.org/x/tools v0.13.0
 	google.golang.org/protobuf v1.31.0
 )
 
