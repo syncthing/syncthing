@@ -2188,16 +2188,26 @@ angular.module('syncthing.core')
         };
 
         $scope.staggeredIntervalsState = function () {
-            // We needn't check period5 as it is always valid and equal to maxAge.
             var interval1 = $scope.folderEditor.staggeredInterval1;
+            var interval1Value = interval1.$modelValue;
             var interval2 = $scope.folderEditor.staggeredInterval2;
+            var interval2Value = interval2.$modelValue * 3600;
             var interval3 = $scope.folderEditor.staggeredInterval3;
+            var interval3Value = interval3.$modelValue * 86400;
             var interval4 = $scope.folderEditor.staggeredInterval4;
+            var interval4Value = interval4.$modelValue * 86400;
             var interval5 = $scope.folderEditor.staggeredInterval5;
+            var interval5Value = interval5.$modelValue * 86400;
             var period1 = $scope.folderEditor.staggeredPeriod1;
+            var period1Value = period1.$modelValue * 60;
             var period2 = $scope.folderEditor.staggeredPeriod2;
+            var period2Value = period2.$modelValue * 3600;
             var period3 = $scope.folderEditor.staggeredPeriod3;
+            var period3Value = period3.$modelValue * 86400;
             var period4 = $scope.folderEditor.staggeredPeriod4;
+            var period4Value = period4.$modelValue * 86400;
+            // We needn't check period5 as it is always valid and equal to maxAge.
+            var period5Value = $scope.folderEditor.staggeredMaxAge * 86400;
 
             if (
                 (interval1.$dirty && interval1.$invalid)
@@ -2212,19 +2222,19 @@ angular.module('syncthing.core')
             ) {
                 return 'invalid'
             } else if (
-                (interval1.$dirty && interval1.$valid && interval1.$modelValue >= period1.$modelValue)
-                || (interval2.$dirty && interval2.$valid && interval2.$modelValue >= period2.$modelValue)
-                || (interval3.$dirty && interval3.$valid && interval3.$modelValue >= period3.$modelValue)
-                || (interval4.$dirty && interval4.$valid && interval4.$modelValue >= period4.$modelValue)
-                || (interval5.$dirty && interval5.$valid && interval5.$modelValue >= period5.$modelValue)
+                (interval1.$dirty && interval1.$valid && interval1Value >= period1Value)
+                || (interval2.$dirty && interval2.$valid && interval2Value >= period2Value)
+                || (interval3.$dirty && interval3.$valid && interval3Value >= period3Value)
+                || (interval4.$dirty && interval4.$valid && interval4Value >= period4Value)
+                || (interval5.$dirty && interval5.$valid && interval5Value >= period5Value)
             ) {
                 return 'intervalMaxError';
             } else if (
-                (period1.$dirty && period1.$valid && (period1.$modelValue <= interval1.$modelValue || period1.$modelValue >= period2.$modelValue))
-                || (period2.$dirty && period2.$valid && (period2.$modelValue <= interval2.$modelValue || period2.$modelValue >= period3.$modelValue || period2.$modelValue <= period1.$modelValue))
-                || (period3.$dirty && period3.$valid && (period3.$modelValue <= interval3.$modelValue || period3.$modelValue >= period4.$modelValue || period3.$modelValue <= period2.$modelValue))
+                (period1.$dirty && period1.$valid && (period1Value <= interval1Value || period1Value >= period2Value))
+                || (period2.$dirty && period2.$valid && (period2Value <= interval2Value || period2Value >= period3Value || period2Value <= period1Value))
+                || (period3.$dirty && period3.$valid && (period3Value <= interval3Value || period3Value >= period4Value || period3Value <= period2Value))
                 // Note: period4 need not be lower than period5 (maxAge).
-                || (period4.$dirty && period4.$valid && (period4.$modelValue <= interval4.$modelValue || period4.$modelValue <= period3.$modelValue))
+                || (period4.$dirty && period4.$valid && (period4Value <= interval4Value || period4Value <= period3Value))
             ) {
                 return 'periodMinMaxError';
             } else {
