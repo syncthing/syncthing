@@ -521,13 +521,10 @@ ul.three-columns li, ul.two-columns li {
     opacity: 1;
 }
 
-/* If table has borders already, there is no need for additional borders
+/* If the table has borders already, there is no need for additional borders
    on input elements inside it. */
 .table-bordered .form-control {
     border: 0;
-    border-radius: 0;
-    -webkit-box-shadow: none;
-    box-shadow: none;
 }
 
 .checkbox[disabled] {
@@ -546,6 +543,12 @@ ul.three-columns li, ul.two-columns li {
 .input-group .well-sm {
   padding-top: 6px;
   padding-bottom: 6px;
+}
+
+/* Bootstrap changes both the text color and background color to red, making
+   the text unreadable, so let's restore the original text color. */
+.has-error .input-group-addon {
+  color: #555555;
 }
 
 /* CJK languages don't use italic at all, hence don't force it on them. */

@@ -2207,7 +2207,7 @@ angular.module('syncthing.core')
             var period4 = $scope.folderEditor.staggeredPeriod4;
             var period4Value = period4.$modelValue * 86400;
             // We needn't check period5 as it is always valid and equal to maxAge.
-            var period5Value = $scope.folderEditor.staggeredMaxAge * 86400;
+            var period5Value = $scope.folderEditor.staggeredMaxAge.$modelValue * 86400;
 
             if (
                 (interval1.$dirty && interval1.$invalid)
@@ -2220,23 +2220,37 @@ angular.module('syncthing.core')
                 || (period3.$dirty && period3.$invalid)
                 || (period4.$dirty && period4.$invalid)
             ) {
-                return 'invalid'
+                return 'invalid';
             } else if (
-                (interval1.$dirty && interval1.$valid && interval1Value >= period1Value)
-                || (interval2.$dirty && interval2.$valid && interval2Value >= period2Value)
-                || (interval3.$dirty && interval3.$valid && interval3Value >= period3Value)
-                || (interval4.$dirty && interval4.$valid && interval4Value >= period4Value)
-                || (interval5.$dirty && interval5.$valid && interval5Value >= period5Value)
+                (interval1.$dirty && interval1.$valid && interval1Value > period1Value)
+                || (interval2.$dirty && interval2.$valid && interval2Value > period2Value)
+                || (interval3.$dirty && interval3.$valid && interval3Value > period3Value)
+                || (interval4.$dirty && interval4.$valid && interval4Value > period4Value)
+                || (interval5.$dirty && interval5.$valid && interval5Value > period5Value)
             ) {
-                return 'intervalMaxError';
+                return 'intervalHigherThanPeriod';
             } else if (
-                (period1.$dirty && period1.$valid && (period1Value <= interval1Value || period1Value >= period2Value))
-                || (period2.$dirty && period2.$valid && (period2Value <= interval2Value || period2Value >= period3Value || period2Value <= period1Value))
-                || (period3.$dirty && period3.$valid && (period3Value <= interval3Value || period3Value >= period4Value || period3Value <= period2Value))
+                (period1.$dirty && period1.$valid && period1Value < interval1Value)
+                || (period2.$dirty && period2.$valid && period2Value < interval2Value)
+                || (period3.$dirty && period3.$valid && period3Value < interval3Value)
+                || (period4.$dirty && period4.$valid && period4Value < interval4Value)
+            ) {
+                return 'periodLowerThanInterval';
+            } else if (
+                (period1.$dirty && period1.$valid && period1Value > period2Value)
+                || (period2.$dirty && period2.$valid && period2Value > period3Value)
+                || (period3.$dirty && period3.$valid && period3Value > period4Value)
+                // Note: period4 can be higher than period5 (maxAge).
+            ) {
+                return 'periodHigherThanNextPeriod';
+            } else if (
+                (period1.$dirty && period1.$valid && period1Value > period2Value)
+                || (period2.$dirty && period2.$valid && period2Value < period1Value)
+                || (period3.$dirty && period3.$valid && period3Value < period2Value)
+                || (period4.$dirty && period4.$valid && period4Value < period3Value)
                 // Note: period4 need not be lower than period5 (maxAge).
-                || (period4.$dirty && period4.$valid && (period4Value <= interval4Value || period4Value <= period3Value))
             ) {
-                return 'periodMinMaxError';
+                return 'periodLowerThanPreviousPeriod';
             } else {
                 return 'valid';
             }
