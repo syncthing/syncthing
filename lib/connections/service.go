@@ -782,6 +782,10 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 		return true
 	}
 
+	if ip.IsLinkLocalUnicast() {
+		return true
+	}
+
 	for _, lan := range s.cfg.Options().AlwaysLocalNets {
 		_, ipnet, err := net.ParseCIDR(lan)
 		if err != nil {
@@ -796,7 +800,8 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 	lans, err := osutil.GetLans()
 
 	if err != nil {
-		return ip.IsPrivate() || ip.IsLinkLocalUnicast()
+		l.Debugln("Failed to retrieve interface IPs:", err)
+		return ip.IsPrivate()
 	}
 
 	for _, lan := range lans {
