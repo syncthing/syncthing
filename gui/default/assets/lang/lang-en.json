@@ -434,6 +434,7 @@
     "The number of old versions to keep, per file.": "The number of old versions to keep, per file.",
     "The number of versions must be a number and cannot be blank.": "The number of versions must be a number and cannot be blank.",
     "The path cannot be blank.": "The path cannot be blank.",
+    "The rate limit is applied to the accumulated traffic of all connections to this device.": "The rate limit is applied to the accumulated traffic of all connections to this device.",
     "The rate limit must be a non-negative number (0: no limit)": "The rate limit must be a non-negative number (0: no limit)",
     "The remote device has not accepted sharing this folder.": "The remote device has not accepted sharing this folder.",
     "The remote device has paused this folder.": "The remote device has paused this folder.",
