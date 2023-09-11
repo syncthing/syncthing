@@ -155,42 +155,46 @@
                   <span translate>The last time period is tied to the maximum age and changes with it.</span>
                 </p>
               </div>
+              <table class="input-group table-bordered" ng-class="{'has-error': staggeredIntervalsState() !== 'valid'}">
+                <tbody>
+                  <tr>
+                    <th class="input-group-addon" translate>Interval</th>
+                    <td><input name="staggeredInterval1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval1" required aria-required="true" min="1" /></td>
+                    <td class="input-group-addon hidden-xs" translate>seconds</td>
+                    <td><input name="staggeredPeriod1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod1" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" /></td>
+                    <td class="input-group-addon" translate>minutes</td>
+                  </div>
+                  <tr>
+                    <th class="input-group-addon" translate>Interval</th>
+                    <td><input name="staggeredInterval2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval2" required aria-required="true" min="1" /></td>
+                    <td class="input-group-addon hidden-xs" translate>hours</td>
+                    <td><input name="staggeredPeriod2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod2" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" /></td>
+                    <td class="input-group-addon" translate>hours</td>
+                  </div>
+                  <tr>
+                    <th class="input-group-addon" translate>Interval</th>
+                    <td><input name="staggeredInterval3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval3" required aria-required="true" min="1" /></td>
+                    <td class="input-group-addon hidden-xs" translate>days</td>
+                    <td><input name="staggeredPeriod3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod3" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" /></td>
+                    <td class="input-group-addon" translate>days</td>
+                  </tr>
+                  <tr>
+                    <th class="input-group-addon" translate>Interval</th>
+                    <td><input name="staggeredInterval4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval4" required aria-required="true" min="1" /></td>
+                    <td class="input-group-addon hidden-xs" translate>days</td>
+                    <td><input name="staggeredPeriod4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod4" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" /></td>
+                    <td class="input-group-addon" translate>days</td>
+                  </tr>
+                  <tr>
+                    <th class="input-group-addon" translate>Interval</th>
+                    <td><input name="staggeredInterval5" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval5" required aria-required="true" min="1" /></td>
+                    <td class="input-group-addon hidden-xs" translate>days</td>
+                    <td><input name="staggeredPeriod5" class="form-control text-right" type="number" ng-value="currentFolder._guiVersioning.staggeredMaxAge === 0 ? '' : currentFolder._guiVersioning.staggeredMaxAge" required aria-required="true" disabled />
+                    <td class="input-group-addon" translate>days</td>
+                  </tr>
+                </tbody>
+              </table>
               <div ng-class="{'has-error': staggeredIntervalsState() !== 'valid'}">
-                <div class="input-group">
-                  <div class="input-group-addon" translate>Interval</div>
-                  <input name="staggeredInterval1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval1" required aria-required="true" min="1" />
-                  <div class="input-group-addon hidden-xs" translate>seconds</div>
-                  <input name="staggeredPeriod1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod1" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
-                  <div class="input-group-addon" translate>seconds</div>
-                </div>
-                <div class="input-group">
-                  <div class="input-group-addon" translate>Interval</div>
-                  <input name="staggeredInterval2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval2" required aria-required="true" min="1" />
-                  <div class="input-group-addon hidden-xs" translate>seconds</div>
-                  <input name="staggeredPeriod2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod2" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
-                  <div class="input-group-addon" translate>seconds</div>
-                </div>
-                <div class="input-group">
-                  <div class="input-group-addon" translate>Interval</div>
-                  <input name="staggeredInterval3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval3" required aria-required="true" min="1" />
-                  <div class="input-group-addon hidden-xs" translate>seconds</div>
-                  <input name="staggeredPeriod3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod3" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
-                  <div class="input-group-addon" translate>seconds</div>
-                </div>
-                <div class="input-group">
-                  <div class="input-group-addon" translate>Interval</div>
-                  <input name="staggeredInterval4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval4" required aria-required="true" min="1" />
-                  <div class="input-group-addon hidden-xs" translate>seconds</div>
-                  <input name="staggeredPeriod4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredPeriod4" required aria-required="true" min="1" ng-change="staggeredIntervalEditor()" />
-                  <div class="input-group-addon" translate>seconds</div>
-                </div>
-                <div class="input-group">
-                  <div class="input-group-addon" translate>Interval</div>
-                  <input name="staggeredInterval5" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval5" required aria-required="true" min="1" />
-                  <div class="input-group-addon hidden-xs" translate>seconds</div>
-                  <input name="staggeredPeriod5" class="form-control text-right" type="number" ng-value="currentFolder._guiVersioning.staggeredMaxAge === 0 ? '' : currentFolder._guiVersioning.staggeredMaxAge * 86400" required aria-required="true" disabled />
-                  <div class="input-group-addon" translate>seconds</div>
-                </div>
                 <p class="help-block" ng-switch="staggeredIntervalsState()">
                   <span ng-switch-when="invalid" translate>The interval must be a positive number of seconds.</span>
                   <span ng-switch-when="intervalMaxError" translate>The first value must be lower than the second value.</span>

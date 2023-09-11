@@ -521,6 +521,15 @@ ul.three-columns li, ul.two-columns li {
     opacity: 1;
 }
 
+/* If table has borders already, there is no need for additional borders
+   on input elements inside it. */
+.table-bordered .form-control {
+    border: 0;
+    border-radius: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+}
+
 .checkbox[disabled] {
     background-color: #eeeeee;
     opacity: 1;

@@ -73,23 +73,18 @@ angular.module('syncthing.core')
             trashcanClean: 0,
             cleanupIntervalS: 3600,
             simpleKeep: 5,
-            staggeredInterval1: 30,
-            staggeredInterval2: 3600,
-            staggeredInterval3: 86400,
-            staggeredInterval4: 604800,
-            staggeredInterval5: 2592000,
-            staggeredPeriod1: 3600,
-            staggeredPeriod2: 86400,
-            staggeredPeriod3: 2592000,
-            staggeredPeriod4: 31536000,
-            staggeredMaxAge: 365, // 31536000 sec
+            staggeredInterval1: 30, // seconds
+            staggeredInterval2: 1, // 1 hour = 3600 seconds
+            staggeredInterval3: 1, // 1 day = 86400 seconds
+            staggeredInterval4: 7, // 7 days = 604800 seconds
+            staggeredInterval5: 30, // 30 days = 2592000 seconds
+            staggeredPeriod1: 1, // 1 minute = 3600 seconds
+            staggeredPeriod2: 24, // 24 hours = 86400 seconds
+            staggeredPeriod3: 30, // 30 days = 2592000 seconds
+            staggeredPeriod4: 365, // 1 year = 31536000 seconds
+            staggeredMaxAge: 365, // 1 year = 31536000 seconds
             externalCommand: "",
         };
-
-        // The last staggered period is tied to the maximum age and cannot be
-        // modified on its own. It is ignored when versions are kept forever,
-        // and it is also not saved in the config file.
-        $scope.versioningDefaults.staggeredPeriod5 = $scope.versioningDefaults.staggeredMaxAge * 86400;
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -2176,15 +2171,14 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 $scope.currentFolder._guiVersioning.staggeredInterval1 = +currentVersioning.params.staggeredInterval1;
-                $scope.currentFolder._guiVersioning.staggeredInterval2 = +currentVersioning.params.staggeredInterval2;
-                $scope.currentFolder._guiVersioning.staggeredInterval3 = +currentVersioning.params.staggeredInterval3;
-                $scope.currentFolder._guiVersioning.staggeredInterval4 = +currentVersioning.params.staggeredInterval4;
-                $scope.currentFolder._guiVersioning.staggeredInterval5 = +currentVersioning.params.staggeredInterval5;
-                $scope.currentFolder._guiVersioning.staggeredPeriod1 = +currentVersioning.params.staggeredPeriod1;
-                $scope.currentFolder._guiVersioning.staggeredPeriod2 = +currentVersioning.params.staggeredPeriod2;
-                $scope.currentFolder._guiVersioning.staggeredPeriod3 = +currentVersioning.params.staggeredPeriod3;
-                $scope.currentFolder._guiVersioning.staggeredPeriod4 = +currentVersioning.params.staggeredPeriod4;
-                $scope.currentFolder._guiVersioning.staggeredPeriod5 = +currentVersioning.params.maxAge;
+                $scope.currentFolder._guiVersioning.staggeredInterval2 = Math.floor(+currentVersioning.params.staggeredInterval2 / 3600);
+                $scope.currentFolder._guiVersioning.staggeredInterval3 = Math.floor(+currentVersioning.params.staggeredInterval3 / 86400);
+                $scope.currentFolder._guiVersioning.staggeredInterval4 = Math.floor(+currentVersioning.params.staggeredInterval4 / 86400);
+                $scope.currentFolder._guiVersioning.staggeredInterval5 = Math.floor(+currentVersioning.params.staggeredInterval5 / 86400);
+                $scope.currentFolder._guiVersioning.staggeredPeriod1 = Math.floor(+currentVersioning.params.staggeredPeriod1 / 60);
+                $scope.currentFolder._guiVersioning.staggeredPeriod2 = Math.floor(+currentVersioning.params.staggeredPeriod2 / 3600);
+                $scope.currentFolder._guiVersioning.staggeredPeriod3 = Math.floor(+currentVersioning.params.staggeredPeriod3 / 86400);
+                $scope.currentFolder._guiVersioning.staggeredPeriod4 = Math.floor(+currentVersioning.params.staggeredPeriod4 / 86400);
                 $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
                 break;
             case "external":
@@ -2416,14 +2410,14 @@ angular.module('syncthing.core')
                 break;
             case "staggered":
                 folderCfg.versioning.params.staggeredInterval1 = '' + (folderCfg._guiVersioning.staggeredInterval1);
-                folderCfg.versioning.params.staggeredInterval2 = '' + (folderCfg._guiVersioning.staggeredInterval2);
-                folderCfg.versioning.params.staggeredInterval3 = '' + (folderCfg._guiVersioning.staggeredInterval3);
-                folderCfg.versioning.params.staggeredInterval4 = '' + (folderCfg._guiVersioning.staggeredInterval4);
-                folderCfg.versioning.params.staggeredInterval5 = '' + (folderCfg._guiVersioning.staggeredInterval5);
-                folderCfg.versioning.params.staggeredPeriod1 = '' + folderCfg._guiVersioning.staggeredPeriod1;
-                folderCfg.versioning.params.staggeredPeriod2 = '' + (folderCfg._guiVersioning.staggeredPeriod2);
-                folderCfg.versioning.params.staggeredPeriod3 = '' + (folderCfg._guiVersioning.staggeredPeriod3);
-                folderCfg.versioning.params.staggeredPeriod4 = '' + (folderCfg._guiVersioning.staggeredPeriod4);
+                folderCfg.versioning.params.staggeredInterval2 = '' + (folderCfg._guiVersioning.staggeredInterval2 * 3600);
+                folderCfg.versioning.params.staggeredInterval3 = '' + (folderCfg._guiVersioning.staggeredInterval3 * 86400);
+                folderCfg.versioning.params.staggeredInterval4 = '' + (folderCfg._guiVersioning.staggeredInterval4 * 86400);
+                folderCfg.versioning.params.staggeredInterval5 = '' + (folderCfg._guiVersioning.staggeredInterval5 * 86400);
+                folderCfg.versioning.params.staggeredPeriod1 = '' + (folderCfg._guiVersioning.staggeredPeriod1 * 60);
+                folderCfg.versioning.params.staggeredPeriod2 = '' + (folderCfg._guiVersioning.staggeredPeriod2 * 3600);
+                folderCfg.versioning.params.staggeredPeriod3 = '' + (folderCfg._guiVersioning.staggeredPeriod3 * 86400);
+                folderCfg.versioning.params.staggeredPeriod4 = '' + (folderCfg._guiVersioning.staggeredPeriod4 * 86400);
                 folderCfg.versioning.params.maxAge = '' + (folderCfg._guiVersioning.staggeredMaxAge * 86400);
                 break;
             case "external":
