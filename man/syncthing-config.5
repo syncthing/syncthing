@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Sep 03, 2023" "v1.23.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Sep 07, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -721,6 +721,7 @@ devices when this is set to \fBtrue\fP\&. See
     <maxRequestKiB>0</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>0</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
 <device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="true" skipIntroductionRemovals="false" introducedBy="">
     <address>tcp://192.0.2.1:22001</address>
@@ -732,6 +733,7 @@ devices when this is set to \fBtrue\fP\&. See
     <maxRequestKiB>65536</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>8384</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
 .ft P
 .fi
@@ -923,6 +925,12 @@ ever sharing any unencrypted data with it.  Every folder shared with that
 device then needs an encryption password set, or must already be of the
 “receive encrypted” type locally.  Refer to the detailed explanation under
 untrusted\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numConnections
+The number of connections to this device. See
+/advanced/device\-numconnections for more information.
 .UNINDENT
 .SH GUI ELEMENT
 .INDENT 0.0
@@ -1545,6 +1553,7 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
+        <numConnections>0</numConnections>
     </device>
     <ignores>
         <line>!foo2</line>
