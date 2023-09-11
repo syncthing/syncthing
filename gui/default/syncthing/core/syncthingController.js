@@ -73,12 +73,12 @@ angular.module('syncthing.core')
             trashcanClean: 0,
             cleanupIntervalS: 3600,
             simpleKeep: 5,
-            staggeredInterval1: 30, // seconds
+            staggeredInterval1: 30, // 30 seconds
             staggeredInterval2: 1, // 1 hour = 3600 seconds
             staggeredInterval3: 1, // 1 day = 86400 seconds
             staggeredInterval4: 7, // 7 days = 604800 seconds
             staggeredInterval5: 30, // 30 days = 2592000 seconds
-            staggeredPeriod1: 1, // 1 minute = 3600 seconds
+            staggeredPeriod1: 60, // 60 minutes = 3600 seconds
             staggeredPeriod2: 24, // 24 hours = 86400 seconds
             staggeredPeriod3: 30, // 30 days = 2592000 seconds
             staggeredPeriod4: 365, // 1 year = 31536000 seconds
