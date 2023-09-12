@@ -548,7 +548,7 @@ ul.three-columns li, ul.two-columns li {
 /* Bootstrap changes both the text color and background color to red, making
    the text unreadable, so let's restore the original text color. */
 .has-error .input-group-addon {
-  color: #555555;
+    color: #555555;
 }
 
 /* CJK languages don't use italic at all, hence don't force it on them. */

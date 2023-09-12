@@ -2292,8 +2292,6 @@ angular.module('syncthing.core')
             return count;
         }
 
-// ('Staggered Intervals' | translate) + ': ' + folder.versioning.params.staggeredInterval1 + 's/' + folder.versioning.params.staggeredPeriod1 / 60 + 'm, ' + folder.versioning.params.staggeredInterval2 / 3600 + 'h/' + folder.versioning.params.staggeredPeriod2 / 3600 + 'h, ' + folder.versioning.params.staggeredInterval3 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod3 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval4 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod4 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval5 / 86400 + 'd/' + (folder.versioning.params.maxAge === '0' ? ('Forever' | translate) : folder.versioning.params.maxAge / 86400 + 'd')
-
         $scope.editFolderExisting = function (folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);
             $scope.currentFolder._editing = "existing";
