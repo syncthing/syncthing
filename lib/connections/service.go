@@ -798,10 +798,11 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 	}
 
 	lans, err := osutil.GetLans()
-
 	if err != nil {
 		l.Debugln("Failed to retrieve interface IPs:", err)
-		return ip.IsPrivate()
+		priv := ip.IsPrivate()
+		l.Debugf("Assuming isLAN=%v for IP %v", priv, ip)
+		return priv
 	}
 
 	for _, lan := range lans {
