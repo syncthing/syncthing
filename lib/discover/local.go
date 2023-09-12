@@ -307,8 +307,7 @@ func filterUndialableLocal(addrs []string) []string {
 		switch {
 		case len(tcpAddr.IP) == 0:
 		case tcpAddr.Port == 0:
-		case !tcpAddr.IP.IsGlobalUnicast() && !tcpAddr.IP.IsLinkLocalUnicast() && !tcpAddr.IP.IsUnspecified():
-		default:
+		case tcpAddr.IP.IsGlobalUnicast(), tcpAddr.IP.IsLinkLocalUnicast(), tcpAddr.IP.IsUnspecified():
 			filtered = append(filtered, addr)
 		}
 	}
