@@ -110,11 +110,8 @@ func (c *localClient) Error() error {
 func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, bool) {
 	addrs := c.addrList.AllAddresses()
 
-	// The list of all addresses can include unspecified addresses intended
-	// for a discovery server to complete, based on the packet source. We
-	// don't do that for local discovery, so filter out addresses that are
-	// usable as-is.
-	addrs = filterUnspecifiedLocal(addrs)
+	// remove all addresses which are not dialable
+	addrs = filterUndialableLocal(addrs)
 
 	// do not leak relay tokens to discovery
 	addrs = sanitizeRelayAddresses(addrs)
@@ -266,7 +263,7 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 				continue
 			}
 			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
-			l.Debugf("discover: Reconstructed URL is %#v", u)
+			l.Debugf("discover: Reconstructed URL is %v", u)
 			validAddresses = append(validAddresses, u.String())
 			l.Debugf("discover: Replaced address %v in %s to get %s", tcpAddr.IP, addr, u.String())
 		} else {
@@ -292,9 +289,9 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	return isNewDevice
 }
 
-// filterUnspecifiedLocal returns the list of addresses after removing any
-// unspecified, localhost, multicast, broadcast or port-zero addresses.
-func filterUnspecifiedLocal(addrs []string) []string {
+// filterUndialableLocal returns the list of addresses after removing any
+// localhost, multicast, broadcast or port-zero addresses.
+func filterUndialableLocal(addrs []string) []string {
 	filtered := addrs[:0]
 	for _, addr := range addrs {
 		u, err := url.Parse(addr)
@@ -310,9 +307,7 @@ func filterUnspecifiedLocal(addrs []string) []string {
 		switch {
 		case len(tcpAddr.IP) == 0:
 		case tcpAddr.Port == 0:
-		case tcpAddr.IP.IsUnspecified():
-		case !tcpAddr.IP.IsGlobalUnicast() && !tcpAddr.IP.IsLinkLocalUnicast():
-		default:
+		case tcpAddr.IP.IsGlobalUnicast(), tcpAddr.IP.IsLinkLocalUnicast(), tcpAddr.IP.IsUnspecified():
 			filtered = append(filtered, addr)
 		}
 	}

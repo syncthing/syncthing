@@ -1522,7 +1522,10 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function () {
-            $('#savingChanges').modal();
+            // Only block the UI when there is a significant delay.
+            var timeout = setTimeout(function () {
+                $('#savingChanges').modal('show');
+            }, 200);
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1530,8 +1533,10 @@ angular.module('syncthing.core')
                 }
             };
             return $http.put(urlbase + '/config', cfg, opts).finally(function () {
+                console.log('saveConfig', $scope.config);
                 refreshConfig();
-                $('#savingChanges').modal("hide");
+                clearTimeout(timeout);
+                $('#savingChanges').modal('hide');
             }).catch($scope.emitHTTPError);
         };
 
