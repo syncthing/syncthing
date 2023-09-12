@@ -427,7 +427,7 @@ func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterCon
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	if r.indexHandlers.RemoveAndWait(folder, 0) {
+	if r.indexHandlers.RemoveAndWait(folder, 0) == nil {
 		l.Debugf("Removed index sender for device %v and folder %v due to added pending", r.conn.DeviceID().Short(), folder)
 	}
 	folderState, ok := r.folderStates[folder]
@@ -458,11 +458,12 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderSta
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	r.indexHandlers.Each(func(folder string, is *indexHandler) {
+	r.indexHandlers.Each(func(folder string, is *indexHandler) error {
 		if _, ok := except[folder]; !ok {
 			r.indexHandlers.RemoveAndWait(folder, 0)
 			l.Debugf("Removed index handler for device %v and folder %v (removeAllExcept)", r.conn.DeviceID().Short(), folder)
 		}
+		return nil
 	})
 	for folder := range r.startInfos {
 		if _, ok := except[folder]; !ok {

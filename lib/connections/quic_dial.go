@@ -91,6 +91,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	if isLocal {
 		priority = d.lanPriority
 	}
+
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, isLocal, priority), nil
 }
 
@@ -108,9 +109,10 @@ func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Confi
 		commonDialer: commonDialer{
 			reconnectInterval: time.Duration(quicInterval) * time.Second,
 			tlsCfg:            tlsCfg,
+			lanChecker:        lanChecker,
 			lanPriority:       opts.ConnectionPriorityQUICLAN,
 			wanPriority:       opts.ConnectionPriorityQUICWAN,
-			lanChecker:        lanChecker,
+			allowsMultiConns:  true,
 		},
 		registry: registry,
 	}

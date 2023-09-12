@@ -53,7 +53,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 
 		var dsts []net.IP
 		for _, intf := range intfs {
-			if intf.Flags&net.FlagBroadcast == 0 {
+			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagBroadcast == 0 {
 				continue
 			}
 

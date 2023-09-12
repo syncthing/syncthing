@@ -105,10 +105,11 @@ func TestServiceMap(t *testing.T) {
 
 		// Remove two of them from within the iterator.
 
-		sm.Each(func(k string, v *dummyService) {
+		sm.Each(func(k string, v *dummyService) error {
 			if strings.HasPrefix(k, "remove") {
 				sm.RemoveAndWait(k, 0)
 			}
+			return nil
 		})
 
 		// They should have stopped.

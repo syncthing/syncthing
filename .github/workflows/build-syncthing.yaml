@@ -12,7 +12,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.21.0"
+  GO_VERSION: "~1.21.1"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -61,7 +61,7 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
         with:
@@ -95,7 +95,7 @@ jobs:
     name: Check correctness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
         with:
@@ -128,7 +128,7 @@ jobs:
       - package-debian
       - govulncheck
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
   #
   # Windows
@@ -149,7 +149,7 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -197,7 +197,7 @@ jobs:
     name: Package for Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -239,7 +239,7 @@ jobs:
     environment: signing
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -361,7 +361,7 @@ jobs:
     name: Package cross compiled
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -393,12 +393,18 @@ jobs:
             | grep -v /wasm \
           )
 
+          # Build for each platform with errors silenced, because we expect
+          # some oddball platforms to fail. This avoids a bunch of errors in
+          # the GitHub Actions output, instead summarizing each build
+          # failure as a warning.
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
-            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
-              echo "*** $plat failed ***"
+            echo "::group ::$plat"
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar 2>/dev/null; then
+              echo "::warning ::Failed to build for $plat"
             fi
+            echo "::endgroup::"
           done
         env:
           CGO_ENABLED: "0"
@@ -417,7 +423,7 @@ jobs:
     name: Package source code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -466,11 +472,11 @@ jobs:
       - package-source
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
@@ -529,7 +535,7 @@ jobs:
     name: Package for Debian
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -581,7 +587,7 @@ jobs:
       - notarize-macos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
@@ -625,7 +631,7 @@ jobs:
       - package-debian
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -696,7 +702,7 @@ jobs:
             dockerfile: Dockerfile.stdiscosrv
             image: syncthing/discosrv
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -774,7 +780,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Run govulncheck
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v4
         with:

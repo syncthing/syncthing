@@ -6,7 +6,7 @@ on:
       - infrastructure
 
 env:
-    GO_VERSION: "^1.21.0"
+    GO_VERSION: "~1.21.1"
     CGO_ENABLED: "0"
     BUILD_USER: docker
     BUILD_HOST: github.syncthing.net
@@ -24,7 +24,7 @@ jobs:
                 - strelaypoolsrv
                 - stupgrades
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
