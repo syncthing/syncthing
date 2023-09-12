@@ -2187,76 +2187,109 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.staggeredIntervals = function (command) {
-            var interval1 = $scope.folderEditor.staggeredInterval1;
-            var interval1Value = interval1.$modelValue;
-            var interval2 = $scope.folderEditor.staggeredInterval2;
-            var interval2Value = interval2.$modelValue * 3600;
-            var interval3 = $scope.folderEditor.staggeredInterval3;
-            var interval3Value = interval3.$modelValue * 86400;
-            var interval4 = $scope.folderEditor.staggeredInterval4;
-            var interval4Value = interval4.$modelValue * 86400;
-            var interval5 = $scope.folderEditor.staggeredInterval5;
-            var interval5Value = interval5.$modelValue * 86400;
-            var period1 = $scope.folderEditor.staggeredPeriod1;
-            var period1Value = period1.$modelValue * 60;
-            var period2 = $scope.folderEditor.staggeredPeriod2;
-            var period2Value = period2.$modelValue * 3600;
-            var period3 = $scope.folderEditor.staggeredPeriod3;
-            var period3Value = period3.$modelValue * 86400;
-            var period4 = $scope.folderEditor.staggeredPeriod4;
-            var period4Value = period4.$modelValue * 86400;
+        $scope.areStaggeredIntervalsValid = function () {
+            if (
+                ($scope.folderEditor.staggeredInterval1.$dirty && $scope.folderEditor.staggeredInterval1.$invalid)
+                || ($scope.folderEditor.staggeredInterval2.$dirty && $scope.folderEditor.staggeredInterval2.$invalid)
+                || ($scope.folderEditor.staggeredInterval3.$dirty && $scope.folderEditor.staggeredInterval3.$invalid)
+                || ($scope.folderEditor.staggeredInterval4.$dirty && $scope.folderEditor.staggeredInterval4.$invalid)
+                || ($scope.folderEditor.staggeredInterval5.$dirty && $scope.folderEditor.staggeredInterval5.$invalid)
+                || ($scope.folderEditor.staggeredPeriod1.$dirty && $scope.folderEditor.staggeredPeriod1.$invalid)
+                || ($scope.folderEditor.staggeredPeriod2.$dirty && $scope.folderEditor.staggeredPeriod2.$invalid)
+                || ($scope.folderEditor.staggeredPeriod3.$dirty && $scope.folderEditor.staggeredPeriod3.$invalid)
+                || ($scope.folderEditor.staggeredPeriod4.$dirty && $scope.folderEditor.staggeredPeriod4.$invalid)
+            ) {
+                return false;
+            } else {
+                return true;
+            }
+        };
+
+        $scope.isStaggeredIntervalDisabled = function (args, folder) {
+            if (folder) {
+                folder = folder.versioning.params
+            } else {
+                folder = $scope.currentFolder._guiVersioning;
+            }
+            var interval1 = folder.staggeredInterval1;
+            var interval2 = folder.staggeredInterval2 * 3600;
+            var interval3 = folder.staggeredInterval3 * 86400;
+            var interval4 = folder.staggeredInterval4 * 86400;
+            var interval5 = folder.staggeredInterval5 * 86400;
+            var period1 = folder.staggeredPeriod1 * 60;
+            var period2 = folder.staggeredPeriod2 * 3600;
+            var period3 = folder.staggeredPeriod3 * 86400;
+            var period4 = folder.staggeredPeriod4 * 86400;
             // We needn't check period5 as it is always valid and equal to maxAge.
-            var period5Value = $scope.folderEditor.staggeredMaxAge.$modelValue * 86400;
-
-            switch (command) {
-                case 'isValid':
-                    if (
-                        (interval1.$dirty && interval1.$invalid)
-                        || (interval2.$dirty && interval2.$invalid)
-                        || (interval3.$dirty && interval3.$invalid)
-                        || (interval4.$dirty && interval4.$invalid)
-                        || (interval5.$dirty && interval5.$invalid)
-                        || (period1.$dirty && period1.$invalid)
-                        || (period2.$dirty && period2.$invalid)
-                        || (period3.$dirty && period3.$invalid)
-                        || (period4.$dirty && period4.$invalid)
-                    ) {
-                        return 'invalid';
+            var period5 = folder.maxAge * 86400;
+            
+            switch (args) {
+                case '2':
+                    if (period2 <= period1) {
+                        return true;
                     } else {
-                        return 'valid';
-                    }
-
-                case 'isDisabled2':
-                    if (period2Value <= period1Value) {
-                        return interval2.disable = true;
-                    } else {
-                        return interval2.disable = false;
+                        return false;
                     }
                     break;
-                case 'isDisabled3':
-                    if (period3Value <= period2Value || interval2.disable) {
-                        return interval3.disable = true;
+                case '3':
+                    if (period3 <= period2 || period2 <= period1) {
+                        return true;
                     } else {
-                        return interval3.disable = false;
+                        return false;
                     }
                     break;
-                case 'isDisabled4':
-                    if (period4Value <= period3Value || interval2.disable || interval3.disable) {
-                        return interval4.disable = true;
+                case '4':
+                    if (period4 <= period3 || period3 <= period2 || period2 <= period1) {
+                        return true;
                     } else {
-                        return interval4.disable = false;
+                        return false;
                     }
                     break;
-                case 'isDisabled5':
-                    if (period5Value <= period4Value || interval2.disable || interval3.disable || interval4.disable) {
-                        return interval5.disable = true;
+                case '5':
+                    if (period5 <= period4 || period4 <= period3 || period3 <= period2 || period2 <= period1) {
+                        return true;
                     } else {
-                        return interval5.disable = false;
+                        return false;
                     }
                     break;
             }
-        };
+        }
+
+        $scope.getEnabledStaggeredIntervals = function (folder) {
+            var intervals = $translate.instant('Staggered Intervals') + ': ' + folder.versioning.params.staggeredInterval1 + 's/' + folder.versioning.params.staggeredPeriod1 / 60 + 'm';
+            if (!$scope.isStaggeredIntervalDisabled('2', folder)) {
+                intervals += ', ' + folder.versioning.params.staggeredInterval2 / 3600 + 'h/' + folder.versioning.params.staggeredPeriod2 / 3600 + 'h'
+            }
+            if (!$scope.isStaggeredIntervalDisabled('3', folder)) {
+                intervals += ', ' + folder.versioning.params.staggeredInterval3 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod3 / 86400 + 'd'
+            }
+            if (!$scope.isStaggeredIntervalDisabled('4', folder)) {
+                intervals += ', ' + folder.versioning.params.staggeredInterval4 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod4 / 86400 + 'd'
+            }
+            if (!$scope.isStaggeredIntervalDisabled('5', folder)) {
+                intervals += ', ' + folder.versioning.params.staggeredInterval5 / 86400 + 'd/' + folder.versioning.params.maxAge / 86400 + 'd'
+            }
+            return intervals;
+        }
+
+        $scope.countEnabledStaggeredIntervals = function (folder) {
+            var count = 1;
+            if (!$scope.isStaggeredIntervalDisabled('2', folder)) {
+                count += 1;
+            }
+            if (!$scope.isStaggeredIntervalDisabled('3', folder)) {
+                count += 1;
+            }
+            if (!$scope.isStaggeredIntervalDisabled('4', folder)) {
+                count += 1;
+            }
+            if (!$scope.isStaggeredIntervalDisabled('5', folder)) {
+                count += 1;
+            }
+            return count;
+        }
+
+// ('Staggered Intervals' | translate) + ': ' + folder.versioning.params.staggeredInterval1 + 's/' + folder.versioning.params.staggeredPeriod1 / 60 + 'm, ' + folder.versioning.params.staggeredInterval2 / 3600 + 'h/' + folder.versioning.params.staggeredPeriod2 / 3600 + 'h, ' + folder.versioning.params.staggeredInterval3 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod3 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval4 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod4 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval5 / 86400 + 'd/' + (folder.versioning.params.maxAge === '0' ? ('Forever' | translate) : folder.versioning.params.maxAge / 86400 + 'd')
 
         $scope.editFolderExisting = function (folderCfg, initialTab) {
             $scope.currentFolder = angular.copy(folderCfg);

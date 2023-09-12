@@ -553,8 +553,8 @@
                               <span tooltip data-original-title="{{'Maximum Age' | translate}}">
                                 &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.maxAge == 0" translate>Forever</span><span ng-if="folder.versioning.params.maxAge > 0">{{folder.versioning.params.maxAge | duration}}</span>
                               </span>
-                              <span tooltip data-original-title="{{('Staggered Intervals' | translate) + ': ' + folder.versioning.params.staggeredInterval1 + 's/' + folder.versioning.params.staggeredPeriod1 / 60 + 'm, ' + folder.versioning.params.staggeredInterval2 / 3600 + 'h/' + folder.versioning.params.staggeredPeriod2 / 3600 + 'h, ' + folder.versioning.params.staggeredInterval3 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod3 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval4 / 86400 + 'd/' + folder.versioning.params.staggeredPeriod4 / 86400 + 'd, ' + folder.versioning.params.staggeredInterval5 / 86400 + 'd/' + (folder.versioning.params.maxAge === '0' ? ('Forever' | translate) : folder.versioning.params.maxAge / 86400 + 'd')}}">
-                                &ensp;<span class="fa fa-bars"></span>&nbsp;5</span>
+                              <span tooltip data-original-title="{{getEnabledStaggeredIntervals(folder)}}">
+                                &ensp;<span class="fa fa-bars"></span>&nbsp;{{countEnabledStaggeredIntervals(folder)}}</span>
                             </span>
                             <span tooltip data-original-title="{{'Cleanup Interval' | translate}}">
                               &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>

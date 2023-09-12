@@ -156,10 +156,10 @@
                   <span translate>Subsequent intervals are only enabled if their time period is larger than the previous ones.</span>
                 </p>
               </div>
-              <table class="input-group table-bordered" ng-class="{'has-error': staggeredIntervals('isValid') !== 'valid'}">
+              <table class="input-group table-bordered" ng-class="{'has-error': !areStaggeredIntervalsValid()}">
                 <tbody>
                   <tr>
-                    <th class="input-group-addon"><span class="fa fa-check-square-o"></span></th>
+                    <th class="input-group-addon"><span class="fa fa-check-square-o" tooltip data-original-title="{{'Enabled' | translate}}"></span></th>
                     <th class="input-group-addon" translate>Interval</th>
                     <td><input name="staggeredInterval1" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval1" required aria-required="true" min="1"></td>
                     <td class="input-group-addon hidden-xs" translate>seconds</td>
@@ -167,7 +167,7 @@
                     <td class="input-group-addon" translate>minutes</td>
                   </div>
                   <tr>
-                    <th class="input-group-addon"><span class="fa" ng-class="{'fa-square-o': staggeredIntervals('isDisabled2'), 'fa-check-square-o': !staggeredIntervals('isDisabled2')}"></span></th>
+                    <th class="input-group-addon"><span class="fa fa-square-o" tooltip data-original-title="{{'Disabled' | translate}}" ng-if="isStaggeredIntervalDisabled('2')"></span><span class="fa fa-check-square-o" tooltip data-original-title="{{'Enabled' | translate}}" ng-if="!isStaggeredIntervalDisabled('2')"></span></th>
                     <th class="input-group-addon" translate>Interval</th>
                     <td><input name="staggeredInterval2" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval2" required aria-required="true" min="1"></td>
                     <td class="input-group-addon hidden-xs" translate>hours</td>
@@ -175,7 +175,7 @@
                     <td class="input-group-addon" translate>hours</td>
                   </div>
                   <tr>
-                    <th class="input-group-addon"><span class="fa" ng-class="{'fa-square-o': staggeredIntervals('isDisabled3'), 'fa-check-square-o': !staggeredIntervals('isDisabled3')}"></span></th>
+                    <th class="input-group-addon"><span class="fa fa-square-o" tooltip data-original-title="{{'Disabled' | translate}}" ng-if="isStaggeredIntervalDisabled('3')"></span><span class="fa fa-check-square-o" tooltip data-original-title="{{'Enabled' | translate}}" ng-if="!isStaggeredIntervalDisabled('3')"></span></th>
                     <th class="input-group-addon" translate>Interval</th>
                     <td><input name="staggeredInterval3" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval3" required aria-required="true" min="1"></td>
                     <td class="input-group-addon hidden-xs" translate>days</td>
@@ -183,7 +183,7 @@
                     <td class="input-group-addon" translate>days</td>
                   </tr>
                   <tr>
-                    <th class="input-group-addon"><span class="fa" ng-class="{'fa-square-o': staggeredIntervals('isDisabled4'), 'fa-check-square-o': !staggeredIntervals('isDisabled4')}"></span></th>
+                    <th class="input-group-addon"><span class="fa fa-square-o" tooltip data-original-title="{{'Disabled' | translate}}" ng-if="isStaggeredIntervalDisabled('4')"></span><span class="fa fa-check-square-o" tooltip data-original-title="{{'Enabled' | translate}}" ng-if="!isStaggeredIntervalDisabled('4')"></span></th>
                     <th class="input-group-addon" translate>Interval</th>
                     <td><input name="staggeredInterval4" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval4" required aria-required="true" min="1"></td>
                     <td class="input-group-addon hidden-xs" translate>days</td>
@@ -191,7 +191,7 @@
                     <td class="input-group-addon" translate>days</td>
                   </tr>
                   <tr>
-                    <th class="input-group-addon"><span class="fa" ng-class="{'fa-square-o': staggeredIntervals('isDisabled5'), 'fa-check-square-o': !staggeredIntervals('isDisabled5')}"></span></th>
+                    <th class="input-group-addon"><span class="fa fa-square-o" tooltip data-original-title="{{'Disabled' | translate}}" ng-if="isStaggeredIntervalDisabled('5')"></span><span class="fa fa-check-square-o" tooltip data-original-title="{{'Enabled' | translate}}" ng-if="!isStaggeredIntervalDisabled('5')"></span></th>
                     <th class="input-group-addon" translate>Interval</th>
                     <td><input name="staggeredInterval5" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.staggeredInterval5" required aria-required="true" min="1"></td>
                     <td class="input-group-addon hidden-xs" translate>days</td>
@@ -200,10 +200,8 @@
                   </tr>
                 </tbody>
               </table>
-              <div ng-class="{'has-error': staggeredIntervals('isValid') !== 'valid'}">
-                <p class="help-block" ng-switch="staggeredIntervals('isValid')" translate>
-                    The interval must be a positive number of seconds.
-                </p>
+              <div ng-class="{'has-error': !areStaggeredIntervalsValid()}" ng-if="!areStaggeredIntervalsValid()">
+                <p class="help-block" translate>The interval must be a positive number of seconds.</p>
               </div>
             </div>
           </div>
