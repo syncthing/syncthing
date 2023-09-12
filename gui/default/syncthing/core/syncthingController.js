@@ -2206,10 +2206,15 @@ angular.module('syncthing.core')
         };
 
         $scope.isStaggeredIntervalDisabled = function (args, folder) {
+            // period5 must be defined separately as the name is staggeredMaxAge
+            // in the GUI and just maxAge in the config.
+            var period5 = '';
             if (folder) {
-                folder = folder.versioning.params
+                folder = folder.versioning.params;
+                period5 = folder.maxAge * 86400;
             } else {
                 folder = $scope.currentFolder._guiVersioning;
+                period5 = folder.staggeredMaxAge * 86400;
             }
             var interval1 = folder.staggeredInterval1;
             var interval2 = folder.staggeredInterval2 * 3600;
@@ -2220,9 +2225,7 @@ angular.module('syncthing.core')
             var period2 = folder.staggeredPeriod2 * 3600;
             var period3 = folder.staggeredPeriod3 * 86400;
             var period4 = folder.staggeredPeriod4 * 86400;
-            // We needn't check period5 as it is always valid and equal to maxAge.
-            var period5 = folder.maxAge * 86400;
-            
+
             switch (args) {
                 case '2':
                     if (period2 <= period1) {
