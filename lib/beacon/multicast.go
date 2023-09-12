@@ -59,16 +59,15 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, ifErr := net.Interfaces()
-		if ifErr != nil {
-			l.Debugln("Failed to list interfaces", ifErr)
-			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
-			// Let the OS determine the applicable interface instead
+		intfs, err := net.Interfaces()
+		if err != nil {
+			l.Debugln(err)
+			return err
 		}
 
 		success := 0
 		for _, intf := range intfs {
-			if intf.Flags&net.FlagMulticast == 0 {
+			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 				continue
 			}
 
@@ -90,26 +89,6 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			case <-doneCtx.Done():
 				return doneCtx.Err()
 			default:
-			}
-		}
-
-		if ifErr != nil {
-			wcm.IfIndex = 0 // let the OS decide
-			pconn.SetWriteDeadline(time.Now().Add(time.Second))
-			_, err = pconn.WriteTo(bs, wcm, gaddr)
-			pconn.SetWriteDeadline(time.Time{})
-
-			if err != nil {
-				l.Debugln(err, "on write to", gaddr, "default interface")
-			} else {
-				l.Debugf("sent %d bytes to %v on default interface", len(bs), gaddr)
-				success++
-
-				select {
-				case <-doneCtx.Done():
-					return doneCtx.Err()
-				default:
-				}
 			}
 		}
 
@@ -138,9 +117,10 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, ifErr := net.Interfaces()
-	if ifErr != nil {
-		l.Debugln(ifErr)
+	intfs, err := net.Interfaces()
+	if err != nil {
+		l.Debugln(err)
+		return err
 	}
 
 	pconn := ipv6.NewPacketConn(conn)
@@ -151,18 +131,6 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 			l.Debugln("IPv6 join", intf.Name, "failed:", err)
 		} else {
 			l.Debugln("IPv6 join", intf.Name, "success")
-		}
-		joined++
-	}
-
-	// Handle failed interface lookup on Android
-	// see https://github.com/golang/go/issues/40569
-	if ifErr != nil {
-		err := pconn.JoinGroup(nil, &net.UDPAddr{IP: gaddr.IP})
-		if err != nil {
-			l.Debugln("IPv6 join default interface failed:", err)
-		} else {
-			l.Debugln("IPv6 join default interface success")
 		}
 		joined++
 	}
