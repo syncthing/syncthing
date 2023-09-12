@@ -39,7 +39,9 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 	device1Conn.DeviceIDReturns(device1)
+	device1Conn.ConnectionIDReturns(rand.String(16))
 	device2Conn.DeviceIDReturns(device2)
+	device2Conn.ConnectionIDReturns(rand.String(16))
 
 	cfg := config.New(myID)
 	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks
@@ -127,7 +129,7 @@ func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testM
 
 func setupModel(t testing.TB, w config.Wrapper) *testModel {
 	t.Helper()
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	m.ServeBackground()
 	<-m.started
 
@@ -144,14 +146,14 @@ type testModel struct {
 	stopped  chan struct{}
 }
 
-func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, protectedFiles []string) *testModel {
+func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
 	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	m := NewModel(cfg, id, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{

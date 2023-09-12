@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/structutil"
 )
 
@@ -564,8 +565,7 @@ func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDe
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
 			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
-			copy(devices[i:], devices[i+1:])
-			devices = devices[:len(devices)-1]
+			devices = sliceutil.RemoveAndZero(devices, i)
 			i--
 		}
 	}
@@ -601,9 +601,7 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 			continue
 		}
 		if strings.HasPrefix(uri.Scheme, prefix) {
-			// Remove this entry
-			copy(addrs[i:], addrs[i+1:])
-			addrs = addrs[:len(addrs)-1]
+			addrs = sliceutil.RemoveAndZero(addrs, i)
 			i--
 		}
 	}

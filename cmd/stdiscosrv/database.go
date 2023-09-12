@@ -15,6 +15,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -352,14 +353,7 @@ func expire(addrs []DatabaseAddress, now int64) []DatabaseAddress {
 	i := 0
 	for i < len(addrs) {
 		if addrs[i].Expires < now {
-			// This item is expired. Replace it with the last in the list
-			// (noop if we are at the last item).
-			addrs[i] = addrs[len(addrs)-1]
-			// Wipe the last item of the list to release references to
-			// strings and stuff.
-			addrs[len(addrs)-1] = DatabaseAddress{}
-			// Shorten the slice.
-			addrs = addrs[:len(addrs)-1]
+			addrs = sliceutil.RemoveAndZero(addrs, i)
 			continue
 		}
 		i++

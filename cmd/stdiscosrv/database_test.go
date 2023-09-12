@@ -185,7 +185,7 @@ func TestFilter(t *testing.T) {
 		},
 		{
 			a: []DatabaseAddress{{Address: "a", Expires: 5}, {Address: "b", Expires: 15}, {Address: "c", Expires: 5}, {Address: "d", Expires: 15}, {Address: "e", Expires: 5}},
-			b: []DatabaseAddress{{Address: "d", Expires: 15}, {Address: "b", Expires: 15}}, // gets reordered
+			b: []DatabaseAddress{{Address: "b", Expires: 15}, {Address: "d", Expires: 15}},
 		},
 	}
 

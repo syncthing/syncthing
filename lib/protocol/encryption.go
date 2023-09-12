@@ -43,12 +43,12 @@ const (
 // receives encrypted metadata and requests from the untrusted device, so it
 // must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
-	model      contextLessModel
+	model      rawModel
 	folderKeys *folderKeyRegistry
 	keyGen     *KeyGenerator
 }
 
-func newEncryptedModel(model contextLessModel, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
+func newEncryptedModel(model rawModel, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
 	return encryptedModel{
 		model:      model,
 		folderKeys: folderKeys,

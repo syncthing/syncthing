@@ -1520,7 +1520,10 @@ angular.module('syncthing.core')
             // changes, or otherwise the background modal will be hidden before
             // the #savingChanges modal, causing the right body margin increase
             // bug (see https://github.com/syncthing/syncthing/pull/9078).
-            showModal('#savingChanges');
+            var timeout = setTimeout(function () {
+                // Only block the UI when there is a significant delay.
+                showModal('#savingChanges');
+            }, 200);
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1528,7 +1531,9 @@ angular.module('syncthing.core')
                 }
             };
             return $http.put(urlbase + '/config', cfg, opts).finally(function () {
+                console.log('saveConfig', $scope.config);
                 refreshConfig();
+                clearTimeout(timeout);
                 hideModal('#savingChanges');
             }).catch($scope.emitHTTPError);
         };

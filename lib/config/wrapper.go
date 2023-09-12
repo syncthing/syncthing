@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture/v4"
 )
@@ -198,9 +199,7 @@ func (w *wrapper) Unsubscribe(c Committer) {
 	w.mut.Lock()
 	for i := range w.subs {
 		if w.subs[i] == c {
-			copy(w.subs[i:], w.subs[i+1:])
-			w.subs[len(w.subs)-1] = nil
-			w.subs = w.subs[:len(w.subs)-1]
+			w.subs = sliceutil.RemoveAndZero(w.subs, i)
 			break
 		}
 	}
