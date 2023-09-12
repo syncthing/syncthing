@@ -59,7 +59,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 
 			addrs, err := intf.Addrs()
 			if err != nil {
-				l.Debugln("Failed to list interface addresses", err)
+				l.Debugln("Failed to list interface addresses:", err)
 				// Interface discovery might work while retrieving the addresses doesn't. So log the error and carry on.
 				continue
 			}
