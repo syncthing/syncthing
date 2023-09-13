@@ -84,17 +84,19 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
 }
 
-const urnIgdV1 = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-const urnIgdV2 = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
-const urnWANDeviceV1 = "urn:schemas-upnp-org:device:WANDevice:1"
-const urnWANDeviceV2 = "urn:schemas-upnp-org:device:WANDevice:2"
-const urnWANConnectionDeviceV1 = "urn:schemas-upnp-org:device:WANConnectionDevice:1"
-const urnWANConnectionDeviceV2 = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
-const urnWANIPConnectionV1 = "urn:schemas-upnp-org:service:WANIPConnection:1"
-const urnWANIPConnectionV2 = "urn:schemas-upnp-org:service:WANIPConnection:2"
-const urnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
-const urnWANPPPConnectionV1 = "urn:schemas-upnp-org:service:WANPPPConnection:1"
-const urnWANPPPConnectionV2 = "urn:schemas-upnp-org:service:WANPPPConnection:2"
+const (
+	urnIgdV1                    = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
+	urnIgdV2                    = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
+	urnWANDeviceV1              = "urn:schemas-upnp-org:device:WANDevice:1"
+	urnWANDeviceV2              = "urn:schemas-upnp-org:device:WANDevice:2"
+	urnWANConnectionDeviceV1    = "urn:schemas-upnp-org:device:WANConnectionDevice:1"
+	urnWANConnectionDeviceV2    = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
+	urnWANIPConnectionV1        = "urn:schemas-upnp-org:service:WANIPConnection:1"
+	urnWANIPConnectionV2        = "urn:schemas-upnp-org:service:WANIPConnection:2"
+	urnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
+	urnWANPPPConnectionV1       = "urn:schemas-upnp-org:service:WANPPPConnection:1"
+	urnWANPPPConnectionV2       = "urn:schemas-upnp-org:service:WANPPPConnection:2"
+)
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
