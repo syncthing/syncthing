@@ -122,9 +122,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	// By the UPnP spec, the source address for unauthenticated clients should be
 	// the same as the InternalAddress the pinhole is requested for.
 	// Currently, WANIPv6FirewallProtocol is restricted to IPv6 gateways, so we can always set the IP.
-	var err error
-	var resp []byte
-	resp, err = soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
+	resp, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
 	succResponse := &soapAddPinholeResponse{}
 	envelope := &soapErrorResponse{}
 
