@@ -72,7 +72,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
-			l.Infoln("Couldn't parse address", addr, err)
+			l.Infof("Couldn't parse address %s: %s", addr, err)
 			continue
 		}
 
