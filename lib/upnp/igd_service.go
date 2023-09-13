@@ -52,7 +52,7 @@ type IGDService struct {
 	URN       string
 	LocalIPv4 net.IP
 	Interface *net.Interface
-	
+
 	nat.Service
 }
 
