@@ -137,7 +137,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 		var succResponse soapAddPinholeResponse
 		// Ignore errors since this is only used for debug logging.
 		if unmarshalErr := xml.Unmarshal(resp, &succResponse); unmarshalErr == nil {
-			l.Debugf("igd_service IPv6: UID for pinhole on [%s]:%d/%s is %d on gateway %s", ip.String(), port, protocol, succResponse.UniqueID, s.ID())
+			l.Debugf("UPnPv6: UID for pinhole on [%s]:%d/%s is %d on gateway %s", ip, port, protocol, succResponse.UniqueID, s.ID())
 		} else {
 			l.Debugf("Failed to parse response from gateway %s: %s", s.ID(), unmarshalErr)
 		}
