@@ -384,7 +384,6 @@ func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
 	defer conn.Close()
 
 	ip, err := osutil.IPFromAddr(conn.LocalAddr())
-
 	if err != nil {
 		return nil, err
 	}
