@@ -119,11 +119,30 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		}
 
 		wg.Add(1)
-		// Discovery is done sequentially per interface because we discovered that FritzBox routers
-		// return a broken result sometimes if the IPv4 and IPv6 request arrive at the same time.
+		// Discovery is done sequentially per interface because we discovered that
+		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
+		// request arrive at the same time.
 		go func(iface net.Interface) {
-			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1 + IPv6 is not standardized and will lead to duplicates on routers.
-			discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
+			nonLLIPv6Found := false
+			addrs, err := iface.Addrs()
+
+			if err == nil {
+				for _, addr := range addrs {
+					ip, _, err := net.ParseCIDR(addr.String())
+					if err == nil && !ip.IsLinkLocalUnicast() && ip.To4() == nil {
+						nonLLIPv6Found = true
+						break
+					}
+				}
+			}
+
+			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
+			// + IPv6 is not standardized and will lead to duplicates on routers.
+			// Only do this when a non-link-local IPv6 is available. if we can't
+			// enumerate the interface, the IPv6 code will not work anyway
+			if nonLLIPv6Found {
+				discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
+			}
 
 			// Discover IPv4 gateways on interface.
 			for _, deviceType := range []string{urnIgdV2, urnIgdV1} {
