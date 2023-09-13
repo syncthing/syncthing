@@ -546,6 +546,7 @@ func replaceRawPath(u *url.URL, rp string) {
 		u.RawQuery = q
 	}
 }
+
 func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
 	return soapRequestWithIP(ctx, url, service, function, message, nil)
 }
