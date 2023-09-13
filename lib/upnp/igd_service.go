@@ -124,7 +124,6 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	// the same as the InternalAddress the pinhole is requested for.
 	// Currently, WANIPv6FirewallProtocol is restricted to IPv6 gateways, so we can always set the IP.
 	resp, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
-
 	if err != nil && resp != nil {
 		var errResponse soapErrorResponse
 		if unmarshalErr := xml.Unmarshal(resp, &errResponse); unmarshalErr != nil {
@@ -190,6 +189,7 @@ func (s *IGDService) DeletePortMapping(ctx context.Context, protocol nat.Protoco
 	<NewExternalPort>%d</NewExternalPort>
 	<NewProtocol>%s</NewProtocol>
 	</u:DeletePortMapping>`
+
 	body := fmt.Sprintf(template, s.URN, externalPort, protocol)
 
 	_, err := soapRequest(ctx, s.URL, s.URN, "DeletePortMapping", body)
