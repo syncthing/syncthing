@@ -388,7 +388,6 @@ func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if ip.To4() != nil {
 		return ip, nil
 	} else {
