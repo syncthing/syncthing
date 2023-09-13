@@ -123,18 +123,18 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	// the same as the InternalAddress the pinhole is requested for.
 	// Currently, WANIPv6FirewallProtocol is restricted to IPv6 gateways, so we can always set the IP.
 	resp, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
-	succResponse := &soapAddPinholeResponse{}
-	envelope := &soapErrorResponse{}
 
 	if err != nil && resp != nil {
-		if unmarshalErr := xml.Unmarshal(resp, envelope); unmarshalErr != nil {
+		errResponse := &soapErrorResponse{}
+		if unmarshalErr := xml.Unmarshal(resp, errResponse); unmarshalErr != nil {
 			// There is an error response that we cannot parse.
 			return unmarshalErr
 		} else {
 			// There is a parsable UPnP error. Return that.
-			return fmt.Errorf("UPnP error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
+			return fmt.Errorf("UPnP error: %s (%d)", errResponse.ErrorDescription, errResponse.ErrorCode)
 		}
 	} else if resp != nil {
+		succResponse := &soapAddPinholeResponse{}
 		// Ignore errors since this is only used for debug logging.
 		unmarshalErr := xml.Unmarshal(resp, succResponse)
 		if unmarshalErr == nil {
