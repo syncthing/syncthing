@@ -125,8 +125,8 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	resp, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPinhole", body, &net.TCPAddr{IP: ip})
 
 	if err != nil && resp != nil {
-		errResponse := &soapErrorResponse{}
-		if unmarshalErr := xml.Unmarshal(resp, errResponse); unmarshalErr != nil {
+		var errResponse soapErrorResponse
+		if unmarshalErr := xml.Unmarshal(resp, &errResponse); unmarshalErr != nil {
 			// There is an error response that we cannot parse.
 			return unmarshalErr
 		} else {
@@ -134,9 +134,9 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 			return fmt.Errorf("UPnP error: %s (%d)", errResponse.ErrorDescription, errResponse.ErrorCode)
 		}
 	} else if resp != nil {
-		succResponse := &soapAddPinholeResponse{}
+		var succResponse soapAddPinholeResponse
 		// Ignore errors since this is only used for debug logging.
-		unmarshalErr := xml.Unmarshal(resp, succResponse)
+		unmarshalErr := xml.Unmarshal(resp, &succResponse)
 		if unmarshalErr == nil {
 			l.Debugf("UPnPv6: UID for pinhole on [%s]:%d/%s is %d", ip.String(), port, protocol, succResponse.UniqueID)
 		} else {
