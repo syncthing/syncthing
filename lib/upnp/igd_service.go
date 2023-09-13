@@ -83,7 +83,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 
 		err = s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip)
 		if err != nil {
-			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip.String(), port, protocol, err.Error())
+			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip, port, protocol, err)
 			returnErr = err
 		} else {
 			successfulIPs = append(successfulIPs, ip)
