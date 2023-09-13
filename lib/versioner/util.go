@@ -330,7 +330,9 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 	}
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
-		l.Warnln("Versioner: error scanning versions dir", err)
+		if !errors.Is(err, context.Canceled) {
+			l.Warnln("Versioner: scanning versions dir:", err)
+		}
 		return err
 	}
 

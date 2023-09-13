@@ -208,6 +208,7 @@ type rawConnection struct {
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
 	compression           Compression
+	startStopMut          sync.Mutex // start and stop must be serialized
 
 	loopWG sync.WaitGroup // Need to ensure no leftover routines in testing
 }
@@ -295,6 +296,8 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -963,6 +966,8 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
 		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {

@@ -141,7 +141,10 @@
             <div class="col-md-6" ng-class="{'has-error': deviceEditor.numConnections.$invalid && deviceEditor.numConnections.$dirty}">
               <label translate>Connection Management</label>
               <div class="row">
-                <span class="col-md-8" translate>Number of Connections</span>
+                <span class="col-md-8">
+                  <span translate>Number of Connections</span>
+                  &nbsp;<a href="{{docsURL('advanced/device-numconnections')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                </span>
                 <div class="col-md-4">
                   <input name="numConnections" id="numConnections" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.numConnections" min="0" />
                 </div>
@@ -169,7 +172,7 @@
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
-                  <p class="help-block" ng-if="(deviceEditor.maxSendKbps.$valid || deviceEditor.maxSendKbps.$pristine) && (deviceEditor.maxRecvKbps.$valid || deviceEditor.maxRecvKbps.$pristine)">The rate limit is applied to the accumulated traffic of all connections to this device.</p>
+                  <p class="help-block" ng-if="(deviceEditor.maxSendKbps.$valid || deviceEditor.maxSendKbps.$pristine) && (deviceEditor.maxRecvKbps.$valid || deviceEditor.maxRecvKbps.$pristine)" translate>The rate limit is applied to the accumulated traffic of all connections to this device.</p>
                 </div>
               </div>
             </div>

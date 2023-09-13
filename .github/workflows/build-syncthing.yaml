@@ -12,7 +12,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.21.0"
+  GO_VERSION: "~1.21.1"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
