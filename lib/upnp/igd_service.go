@@ -203,7 +203,6 @@ func (s *IGDService) GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 	const template = `<u:GetExternalIPAddress xmlns:u="%s" />`
 
 	body := fmt.Sprintf(template, s.URN)
-
 	response, err := soapRequest(ctx, s.URL, s.URN, "GetExternalIPAddress", body)
 
 	if err != nil {
