@@ -84,16 +84,16 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
 }
 
-const UrnIgdV2 = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
 const UrnIgdV1 = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-const UrnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
-const UrnWANDeviceV2 = "urn:schemas-upnp-org:device:WANDevice:2"
-const UrnWANConnectionDeviceV2 = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
+const UrnIgdV2 = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
 const UrnWANDeviceV1 = "urn:schemas-upnp-org:device:WANDevice:1"
+const UrnWANDeviceV2 = "urn:schemas-upnp-org:device:WANDevice:2"
 const UrnWANConnectionDeviceV1 = "urn:schemas-upnp-org:device:WANConnectionDevice:1"
+const UrnWANConnectionDeviceV2 = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
 const UrnWANIPConnectionV1 = "urn:schemas-upnp-org:service:WANIPConnection:1"
-const UrnWANPPPConnectionV1 = "urn:schemas-upnp-org:service:WANPPPConnection:1"
 const UrnWANIPConnectionV2 = "urn:schemas-upnp-org:service:WANIPConnection:2"
+const UrnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
+const UrnWANPPPConnectionV1 = "urn:schemas-upnp-org:service:WANPPPConnection:1"
 const UrnWANPPPConnectionV2 = "urn:schemas-upnp-org:service:WANPPPConnection:2"
 
 // Discover discovers UPnP InternetGatewayDevices.
