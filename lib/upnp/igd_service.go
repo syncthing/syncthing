@@ -52,6 +52,8 @@ type IGDService struct {
 	URN       string
 	LocalIPv4 net.IP
 	Interface *net.Interface
+	
+	nat.Service
 }
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
