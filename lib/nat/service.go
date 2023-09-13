@@ -253,7 +253,6 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			// IPv6 addresses all using the same port.  Therefore the first
 			// entry always has the external port.
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
-
 			if err != nil {
 				l.Debugf("Failed to renew %s -> open port on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
