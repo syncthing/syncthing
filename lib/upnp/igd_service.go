@@ -204,14 +204,12 @@ func (s *IGDService) GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 
 	body := fmt.Sprintf(template, s.URN)
 	response, err := soapRequest(ctx, s.URL, s.URN, "GetExternalIPAddress", body)
-
 	if err != nil {
 		return nil, err
 	}
 
 	var envelope soapGetExternalIPAddressResponseEnvelope
-	err = xml.Unmarshal(response, &envelope)
-	if err != nil {
+	if err := xml.Unmarshal(response, &envelope); err != nil {
 		return nil, err
 	}
 
