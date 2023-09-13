@@ -336,7 +336,6 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 			l.Debugln("Error extending lease on", natd.ID(), err)
 		}
 		return addrs, err
-
 	}
 	// Generate a predictable random which is based on device ID + local port + hash of the device ID
 	// number so that the ports we'd try to acquire for the mapping would always be the same for the
