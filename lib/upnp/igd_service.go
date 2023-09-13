@@ -209,8 +209,8 @@ func (s *IGDService) GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 		return nil, err
 	}
 
-	envelope := &soapGetExternalIPAddressResponseEnvelope{}
-	err = xml.Unmarshal(response, envelope)
+	var envelope soapGetExternalIPAddressResponseEnvelope
+	err = xml.Unmarshal(response, &envelope)
 	if err != nil {
 		return nil, err
 	}
