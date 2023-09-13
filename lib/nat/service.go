@@ -367,7 +367,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 			extPort = port
 			goto findIP
 		}
-		l.Debugln("Error getting new lease on", natd.ID(), err)
+		l.Debugf("Error getting new lease on %s: %s", natd.ID(), err)
 	}
 
 	return nil, err
