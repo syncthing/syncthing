@@ -95,6 +95,7 @@ const UrnWANIPConnectionV1 = "urn:schemas-upnp-org:service:WANIPConnection:1"
 const UrnWANPPPConnectionV1 = "urn:schemas-upnp-org:service:WANPPPConnection:1"
 const UrnWANIPConnectionV2 = "urn:schemas-upnp-org:service:WANIPConnection:2"
 const UrnWANPPPConnectionV2 = "urn:schemas-upnp-org:service:WANPPPConnection:2"
+
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
 func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
@@ -444,7 +445,7 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			UrnWANDeviceV1,
 			UrnWANConnectionDeviceV1,
-			[]string {UrnWANIPConnectionV1, UrnWANPPPConnectionV1},
+			[]string{UrnWANIPConnectionV1, UrnWANPPPConnectionV1},
 			netInterface)
 
 		result = append(result, descriptions...)
@@ -452,7 +453,7 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			UrnWANDeviceV2,
 			UrnWANConnectionDeviceV2,
-			[]string {UrnWANIPConnectionV2, UrnWANPPPConnectionV2},
+			[]string{UrnWANIPConnectionV2, UrnWANPPPConnectionV2},
 			netInterface)
 
 		result = append(result, descriptions...)
