@@ -121,7 +121,8 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip.String(), duration/time.Second)
 
 	// IP should be a global unicast address, so we can use it as the source IP.
-	// By the UPnP spec, the source address for unauthenticated clients should be the same as the InternalAddress the pinhole is requested for.
+	// By the UPnP spec, the source address for unauthenticated clients should be
+	// the same as the InternalAddress the pinhole is requested for.
 	// Currently, WANIPv6FirewallProtocol is restricted to IPv6 gateways, so we can always set the IP.
 	var err error
 	var resp []byte
@@ -230,12 +231,13 @@ func (s *IGDService) GetLocalIPv4Address() net.IP {
 	return s.LocalIPv4
 }
 
-// IsIPv6 checks whether this is a WANIPv6FirewallControl device, in which case pinholing instead of port mapping should be done
+// IsIPv6GatewayDevice checks whether this is a WANIPv6FirewallControl device,
+// in which case pinholing instead of port mapping should be done
 func (s *IGDService) IsIPv6GatewayDevice() bool {
 	return s.URN == "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
 }
 
-// ID returns a unique ID for the servic
+// ID returns a unique ID for the service
 func (s *IGDService) ID() string {
 	return s.UUID + "/" + s.Device.FriendlyName + "/" + s.ServiceID + "/" + s.URN + "/" + s.URL
 }
