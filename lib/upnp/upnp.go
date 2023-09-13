@@ -129,7 +129,9 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 			if err == nil {
 				for _, addr := range addrs {
 					ip, _, err := net.ParseCIDR(addr.String())
-					if err == nil && !ip.IsLinkLocalUnicast() && ip.To4() == nil {
+					// Use the same condition that igd_service.go uses so we only discover 
+					// IPv6 gateways if we have a "useful" IPv6 address.
+					if err == nil && ip.IsGlobalUnicast() && ip.To4() == nil {
 						nonLLIPv6Found = true
 						break
 					}
