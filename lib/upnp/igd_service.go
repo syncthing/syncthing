@@ -229,7 +229,7 @@ func (s *IGDService) GetLocalIPv4Address() net.IP {
 // IsIPv6GatewayDevice checks whether this is a WANIPv6FirewallControl device,
 // in which case pinholing instead of port mapping should be done
 func (s *IGDService) IsIPv6GatewayDevice() bool {
-	return s.URN == "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
+	return s.URN == UrnWANIPv6FirewallControlV1
 }
 
 // ID returns a unique ID for the service
