@@ -84,6 +84,17 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
 }
 
+const UrnIgdV2 = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
+const UrnIgdV1 = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
+const UrnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
+const UrnWANDeviceV2 = "urn:schemas-upnp-org:device:WANDevice:2"
+const UrnWANConnectionDeviceV2 = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
+const UrnWANDeviceV1 = "urn:schemas-upnp-org:device:WANDevice:1"
+const UrnWANConnectionDeviceV1 = "urn:schemas-upnp-org:device:WANConnectionDevice:1"
+const UrnWANIPConnectionV1 = "urn:schemas-upnp-org:service:WANIPConnection:1"
+const UrnWANPPPConnectionV1 = "urn:schemas-upnp-org:service:WANPPPConnection:1"
+const UrnWANIPConnectionV2 = "urn:schemas-upnp-org:service:WANIPConnection:2"
+const UrnWANPPPConnectionV2 = "urn:schemas-upnp-org:service:WANPPPConnection:2"
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
 func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
@@ -109,10 +120,10 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		// return a broken result sometimes if the IPv4 and IPv6 request arrive at the same time.
 		go func(iface net.Interface) {
 			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1 + IPv6 is not standardized and will lead to duplicates on routers.
-			discover(ctx, &iface, "urn:schemas-upnp-org:device:InternetGatewayDevice:2", timeout, resultChan, true)
+			discover(ctx, &iface, UrnIgdV2, timeout, resultChan, true)
 
 			// Discover IPv4 gateways on interface.
-			for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:2", "urn:schemas-upnp-org:device:InternetGatewayDevice:1"} {
+			for _, deviceType := range []string{UrnIgdV2, UrnIgdV1} {
 				discover(ctx, &iface, deviceType, timeout, resultChan, false)
 			}
 			wg.Done()
@@ -416,32 +427,32 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
-	if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+	if device.IsIPv6 && device.DeviceType == UrnIgdV1 {
 		// IPv6 UPnP is only standardized for IGDv2. Furthermore, any WANIPConn services for IPv4 that
 		// we may discover here are likely to be broken because many routers make the choice to not allow
 		// port mappings for IPs differing from the source IP of the device making the request (which would be v6 here)
 		return nil, nil
-	} else if device.IsIPv6 && device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+	} else if device.IsIPv6 && device.DeviceType == UrnIgdV2 {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:2",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+			UrnWANDeviceV2,
+			UrnWANConnectionDeviceV2,
+			[]string{UrnWANIPv6FirewallControlV1},
 			netInterface)
 
 		result = append(result, descriptions...)
-	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+	} else if device.DeviceType == UrnIgdV1 {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:1",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"},
+			UrnWANDeviceV1,
+			UrnWANConnectionDeviceV1,
+			[]string {UrnWANIPConnectionV1, UrnWANPPPConnectionV1},
 			netInterface)
 
 		result = append(result, descriptions...)
-	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+	} else if device.DeviceType == UrnIgdV2 {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:2",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"},
+			UrnWANDeviceV2,
+			UrnWANConnectionDeviceV2,
+			[]string {UrnWANIPConnectionV2, UrnWANPPPConnectionV2},
 			netInterface)
 
 		result = append(result, descriptions...)
