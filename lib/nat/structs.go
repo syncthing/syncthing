@@ -34,7 +34,7 @@ func (m *Mapping) setAddressLocked(id string, addresses []Address) {
 func (m *Mapping) removeAddressLocked(id string) {
 	addresses, ok := m.extAddresses[id]
 	if ok {
-		l.Infof("Removing external open ports: external %s address(es) %v, Gateway %s is no longer available.", m.protocol, addresses, id)
+		l.Infof("Removing external open port: %s address(es) %v for gateway %s.", m.protocol, addresses, id)
 		delete(m.extAddresses, id)
 	}
 }
