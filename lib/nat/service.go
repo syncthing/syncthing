@@ -254,7 +254,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			// entry always has the external port.
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
 			if err != nil {
-				l.Debugf("Failed to renew %s -> open port on %s", mapping, extAddrs, id)
+				l.Debugf("Failed to renew %s -> %v open port on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
@@ -416,6 +416,6 @@ func addrSetsEqual(a []Address, b []Address) bool {
 		}
 	}
 
-	// b contains all elements of a, and their lengths are equal, so the sets are equal.
+	// b contains all elements of a and their lengths are equal, so the sets are equal.
 	return true
 }
