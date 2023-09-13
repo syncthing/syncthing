@@ -86,7 +86,7 @@ func (m *Mapping) OnChanged(subscribed MappingChangeSubscriber) {
 }
 
 func (m *Mapping) String() string {
-	return fmt.Sprintf("%s/%s", m.protocol, m.address)
+	return fmt.Sprintf("%s/%s", m.address, m.protocol)
 }
 
 func (m *Mapping) GoString() string {
