@@ -540,7 +540,7 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 }
 
 func soapRequestWithIP(ctx context.Context, url, service, function, message string, localIP *net.TCPAddr) ([]byte, error) {
-	template := `<?xml version="1.0" ?>
+	const template = `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
