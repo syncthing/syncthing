@@ -140,7 +140,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 			l.Debugf("Failed to parse response from gateway %s: %s", s.ID(), unmarshalErr)
 		}
 	}
-	// Either there was no error or an error not handled by the if (no response, e. g. network error).
+	// Either there was no error or an error not handled above (no response, e.g. network error).
 	return err
 }
 
