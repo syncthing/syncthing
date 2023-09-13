@@ -117,7 +117,7 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 	<LeaseTime>%d</LeaseTime>
 	</u:AddPinhole>`
 
-	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip.String(), duration/time.Second)
+	body := fmt.Sprintf(template, s.URN, protoNumber, port, ip, duration/time.Second)
 
 	// IP should be a global unicast address, so we can use it as the source IP.
 	// By the UPnP spec, the source address for unauthenticated clients should be
