@@ -225,7 +225,7 @@ func (s *IGDService) GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 	return result, nil
 }
 
-// GetLocalIPAddress returns local IP address used to contact this service
+// GetLocalIPv4Address returns local IP address used to contact this service
 func (s *IGDService) GetLocalIPv4Address() net.IP {
 	return s.LocalIPv4
 }
