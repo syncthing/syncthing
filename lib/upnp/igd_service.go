@@ -167,17 +167,17 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && duration > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
-		envelope := &soapErrorResponse{}
-		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
+		var envelope soapErrorResponse
+		if unmarshalErr := xml.Unmarshal(response, &envelope); unmarshalErr != nil {
 			return externalPort, unmarshalErr
 		}
 
 		if envelope.ErrorCode == 725 {
 			return s.AddPortMapping(ctx, protocol, internalPort, externalPort, description, 0)
-		} else {
-			err = fmt.Errorf("UPnP Error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
-			l.Infof("Couldn't add port mapping for %s (external port %d -> internal port %d/%s): %s", s.LocalIPv4, externalPort, internalPort, protocol, err)
 		}
+
+		err = fmt.Errorf("UPnP Error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
+		l.Infof("Couldn't add port mapping for %s (external port %d -> internal port %d/%s): %s", s.LocalIPv4, externalPort, internalPort, protocol, err)
 	}
 
 	return externalPort, err
