@@ -129,10 +129,9 @@ func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Proto
 		if unmarshalErr := xml.Unmarshal(resp, &errResponse); unmarshalErr != nil {
 			// There is an error response that we cannot parse.
 			return unmarshalErr
-		} else {
-			// There is a parsable UPnP error. Return that.
-			return fmt.Errorf("UPnP error: %s (%d)", errResponse.ErrorDescription, errResponse.ErrorCode)
 		}
+		// There is a parsable UPnP error. Return that.
+		return fmt.Errorf("UPnP error: %s (%d)", errResponse.ErrorDescription, errResponse.ErrorCode)
 	} else if resp != nil {
 		var succResponse soapAddPinholeResponse
 		// Ignore errors since this is only used for debug logging.
@@ -154,15 +153,15 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 	}
 
 	const template = `<u:AddPortMapping xmlns:u="%s">
-	<NewRemoteHost></NewRemoteHost>
-	<NewExternalPort>%d</NewExternalPort>
-	<NewProtocol>%s</NewProtocol>
-	<NewInternalPort>%d</NewInternalPort>
-	<NewInternalClient>%s</NewInternalClient>
-	<NewEnabled>1</NewEnabled>
-	<NewPortMappingDescription>%s</NewPortMappingDescription>
-	<NewLeaseDuration>%d</NewLeaseDuration>
-	</u:AddPortMapping>`
+		<NewRemoteHost></NewRemoteHost>
+		<NewExternalPort>%d</NewExternalPort>
+		<NewProtocol>%s</NewProtocol>
+		<NewInternalPort>%d</NewInternalPort>
+		<NewInternalClient>%s</NewInternalClient>
+		<NewEnabled>1</NewEnabled>
+		<NewPortMappingDescription>%s</NewPortMappingDescription>
+		<NewLeaseDuration>%d</NewLeaseDuration>
+		</u:AddPortMapping>`
 	body := fmt.Sprintf(template, s.URN, externalPort, protocol, internalPort, s.LocalIPv4, description, duration/time.Second)
 
 	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
