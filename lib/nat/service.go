@@ -247,7 +247,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
-			l.Debugf("Renewing %s -> %s open port on %s", mapping, extAddrs, id)
+			l.Debugf("Renewing %s -> %v open port on %s", mapping, extAddrs, id)
 
 			// extAddrs either contains one IPv4 address, or possibly several
 			// IPv6 addresses all using the same port.  Therefore the first
@@ -260,7 +260,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
-			l.Debugf("Renewed %s -> %s open port on %s", mapping, extAddrs, id)
+			l.Debugf("Renewed %s -> %v open port on %s", mapping, extAddrs, id)
 
 			// We shouldn't rely on the order in which the addresses are returned.
 			// Therefore, we test for set equality and report change if there is any difference.
@@ -305,7 +305,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 			continue
 		}
 
-		l.Debugf("Opened port %s -> %s on %v", mapping, addrs, id)
+		l.Debugf("Opened port %s -> %v on %s", mapping, addrs, id)
 		mapping.setAddressLocked(id, addrs)
 		change = true
 	}
