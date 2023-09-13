@@ -388,11 +388,10 @@ func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ip.To4() != nil {
-		return ip, nil
-	} else {
+	if ip.To4() == nil {
 		return nil, errors.New("tried to obtain IPv4 through fallback but got IPv6 address")
 	}
+	return ip, nil
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
