@@ -174,7 +174,7 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 			return s.AddPortMapping(ctx, protocol, internalPort, externalPort, description, 0)
 		} else {
 			err = fmt.Errorf("UPnP Error: %s (%d)", envelope.ErrorDescription, envelope.ErrorCode)
-			l.Infof("Couldn't add port mapping for %s (external port %d -> internal port %d, protocol: %s) %s", s.LocalIPv4.String(), externalPort, internalPort, protocol, err)
+			l.Infof("Couldn't add port mapping for %s (external port %d -> internal port %d/%s): %s", s.LocalIPv4, externalPort, internalPort, protocol, err)
 		}
 	}
 
