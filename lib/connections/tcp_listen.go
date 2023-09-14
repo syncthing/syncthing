@@ -77,7 +77,15 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	l.Infof("TCP listener (%v) starting", tcaddr)
 	defer l.Infof("TCP listener (%v) shutting down", tcaddr)
 
-	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
+	var ipVersion nat.IPVersion
+	if t.uri.Scheme == "tcp4" {
+		ipVersion = nat.IPv4Only
+	} else if t.uri.Scheme == "tcp6" {
+		ipVersion = nat.IPv6Only
+	} else {
+		ipVersion = nat.DualStack
+	}
+	mapping := t.natService.NewMapping(nat.TCP, ipVersion, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func() {
 		t.notifyAddressesChanged(t)
 	})

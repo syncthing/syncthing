@@ -162,7 +162,7 @@ func (s *Service) scheduleProcess() {
 	}
 }
 
-func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
+func (s *Service) NewMapping(protocol Protocol, ipVersion IPVersion, ip net.IP, port int) *Mapping {
 	mapping := &Mapping{
 		protocol: protocol,
 		address: Address{
@@ -171,6 +171,7 @@ func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
 		},
 		extAddresses: make(map[string][]Address),
 		mut:          sync.NewRWMutex(),
+		ipVersion: ipVersion,
 	}
 
 	s.mut.Lock()
@@ -249,10 +250,18 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 
 			l.Debugf("Renewing %s -> %v open port on %s", mapping, extAddrs, id)
 
+			if mapping.ipVersion == IPv4Only && nat.IsIPv6GatewayDevice() {
+				continue
+			}
+
+			if mapping.ipVersion == IPv6Only && !nat.IsIPv6GatewayDevice() {
+				continue
+			}
+
 			// extAddrs either contains one IPv4 address, or possibly several
 			// IPv6 addresses all using the same port.  Therefore the first
 			// entry always has the external port.
-			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, extAddrs[0].Port, leaseTime)
+			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address, extAddrs[0].Port, leaseTime)
 			if err != nil {
 				l.Debugf("Failed to renew %s -> %v open port on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
@@ -299,7 +308,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		l.Debugf("Trying to open port %s on %s", mapping, id)
 
-		addrs, err := s.tryNATDevice(ctx, nat, mapping.address.Port, 0, leaseTime)
+		addrs, err := s.tryNATDevice(ctx, nat, mapping.address, 0, leaseTime)
 		if err != nil {
 			l.Debugf("Failed to acquire %s open port on %s", mapping, id)
 			continue
@@ -315,19 +324,19 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
 // the given external port. If external port is 0, picks a pseudo-random port.
-func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPort int, leaseTime time.Duration) ([]Address, error) {
+func (s *Service) tryNATDevice(ctx context.Context, natd Device, intAddr Address, extPort int, leaseTime time.Duration) ([]Address, error) {
 	var err error
 	var port int
 	// For IPv6, we just try to create the pinhole. If it fails, nothing can be done (probably no IGDv2 support).
 	// If it already exists, the relevant UPnP standard requires that the gateway recognizes this and updates the lease time.
 	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
 	if natd.IsIPv6GatewayDevice() {
-		ipaddrs, err := natd.AddPinhole(ctx, TCP, intPort, leaseTime)
+		ipaddrs, err := natd.AddPinhole(ctx, TCP, intAddr, leaseTime)
 		var addrs []Address
 		for _, ipaddr := range ipaddrs {
 			addrs = append(addrs, Address{
 				ipaddr,
-				intPort,
+				intAddr.Port,
 			})
 		}
 
@@ -339,12 +348,12 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	// Generate a predictable random which is based on device ID + local port + hash of the device ID
 	// number so that the ports we'd try to acquire for the mapping would always be the same for the
 	// same device trying to get the same internal port.
-	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intPort) + hash(natd.ID())))
+	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intAddr.Port) + hash(natd.ID())))
 
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intAddr.Port, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
@@ -362,7 +371,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intAddr.Port, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP

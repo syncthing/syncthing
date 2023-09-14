@@ -19,11 +19,19 @@ const (
 	UDP Protocol = "UDP"
 )
 
+type IPVersion int8
+
+const (
+	DualStack = iota
+	IPv4Only
+	IPv6Only
+)
+
 type Device interface {
 	ID() string
 	GetLocalIPv4Address() net.IP
 	AddPortMapping(ctx context.Context, protocol Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error)
-	AddPinhole(ctx context.Context, protocol Protocol, port int, duration time.Duration) ([]net.IP, error)
+	AddPinhole(ctx context.Context, protocol Protocol, addr Address, duration time.Duration) ([]net.IP, error)
 	GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 	IsIPv6GatewayDevice() bool
 }

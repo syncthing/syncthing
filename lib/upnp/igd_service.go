@@ -58,7 +58,7 @@ type IGDService struct {
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
 // This is attempted for each IPv6 on the interface.
-func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration) ([]net.IP, error) {
+func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intAddr nat.Address, duration time.Duration) ([]net.IP, error) {
 	var returnErr error
 	var successfulIPs []net.IP
 	if s.Interface == nil {
@@ -70,6 +70,31 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		return nil, err
 	}
 
+	// We have an explicit listener address. Check if that's on the interface
+	// and pinhole it if so. It's not an error if not though, so don't return
+	// an error if one doesn't occur.
+	if !intAddr.IP.IsUnspecified() {
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				return nil, err
+			}
+
+			if ip.Equal(intAddr.IP) {
+				err := s.tryAddPinholeForIP6(ctx, protocol, intAddr.Port, duration, intAddr.IP)
+				if err != nil {
+					return nil, err
+				}
+				return []net.IP{
+					intAddr.IP,
+				}, nil
+			}
+
+			return nil, nil
+		}
+	}
+
+	// Otherwise, try to get a pinhole for all IPs, since we are listening on all
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
@@ -82,8 +107,8 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 			continue
 		}
 
-		if err := s.tryAddPinholeForIP6(ctx, protocol, port, duration, ip); err != nil {
-			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip, port, protocol, err)
+		if err := s.tryAddPinholeForIP6(ctx, protocol, intAddr.Port, duration, ip); err != nil {
+			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip, intAddr.Port, protocol, err)
 			returnErr = err
 		} else {
 			successfulIPs = append(successfulIPs, ip)

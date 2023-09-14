@@ -18,6 +18,7 @@ type MappingChangeSubscriber func()
 
 type Mapping struct {
 	protocol Protocol
+	ipVersion IPVersion
 	address  Address
 
 	extAddresses map[string][]Address // NAT ID -> Address
