@@ -78,7 +78,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, port
 		}
 
 		// Note that IsGlobalUnicast allows ULAs.
-		if ip.To4() != nil || !ip.IsGlobalUnicast() {
+		if ip.To4() != nil || !ip.IsGlobalUnicast() || ip.IsPrivate() {
 			continue
 		}
 
