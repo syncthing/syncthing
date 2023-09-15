@@ -195,9 +195,9 @@ func main() {
 	})
 	natSvc := nat.NewService(id, wrapper)
 	var ipVersion nat.IPVersion
-	if proto[len(proto) - 1] == '4' {
+	if proto[len(proto)-1] == '4' {
 		ipVersion = nat.IPv4Only
-	} else if proto[len(proto) - 1] == '6' {
+	} else if proto[len(proto)-1] == '6' {
 		ipVersion = nat.IPv6Only
 	} else {
 		ipVersion = nat.DualStack
