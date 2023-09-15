@@ -171,7 +171,7 @@ func (s *Service) NewMapping(protocol Protocol, ipVersion IPVersion, ip net.IP, 
 		},
 		extAddresses: make(map[string][]Address),
 		mut:          sync.NewRWMutex(),
-		ipVersion: ipVersion,
+		ipVersion:    ipVersion,
 	}
 
 	s.mut.Lock()

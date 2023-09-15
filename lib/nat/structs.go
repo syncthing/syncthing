@@ -17,9 +17,9 @@ import (
 type MappingChangeSubscriber func()
 
 type Mapping struct {
-	protocol Protocol
+	protocol  Protocol
 	ipVersion IPVersion
-	address  Address
+	address   Address
 
 	extAddresses map[string][]Address // NAT ID -> Address
 	expires      time.Time
