@@ -13,27 +13,36 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
 func TestWindowsPaths(t *testing.T) {
-	testCases := []struct {
+	type testCase struct {
 		input        string
 		expectedRoot string
 		expectedURI  string
-	}{
+	}
+	testCases := []testCase{
+		{`e:`, `\\?\e:\`, `e:\`},
 		{`e:\`, `\\?\e:\`, `e:\`},
+		{`e:\\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:`, `\\?\e:\`, `e:\`},
 		{`\\?\e:\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:\\`, `\\?\e:\`, `e:\`},
+		{`e:\x`, `\\?\e:\x`, `e:\x`},
+		{`e:\x\`, `\\?\e:\x`, `e:\x`},
+		{`e:\x\\`, `\\?\e:\x`, `e:\x`},
 		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
 	}
 
-	for _, testCase := range testCases {
+	for i, testCase := range testCases {
 		fs := newBasicFilesystem(testCase.input)
 		if fs.root != testCase.expectedRoot {
-			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
+			t.Errorf("test %d: root: expected `%s`, got `%s`", i, testCase.expectedRoot, fs.root)
 		}
 		if fs.URI() != testCase.expectedURI {
-			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
+			t.Errorf("test %d: uri: expected `%s`, got `%s`", i, testCase.expectedURI, fs.URI())
 		}
 	}
 
@@ -190,5 +199,27 @@ func TestGetFinalPath(t *testing.T) {
 				t.Errorf("EvalSymlinks got different results %q %s", evlPath, err1)
 			}
 		}
+	}
+}
+
+func TestRemoveWindowsDirIcon(t *testing.T) {
+	// Try to delete a folder with a custom icon with os.Remove (simulated by the readonly file attribute)
+
+	fs, dir := setup(t)
+	relativePath := "folder_with_icon"
+	path := filepath.Join(dir, relativePath)
+
+	if err := os.Mkdir(path, os.ModeDir); err != nil {
+		t.Fatal(err)
+	}
+	ptr, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.SetFileAttributes(ptr, uint32(syscall.FILE_ATTRIBUTE_DIRECTORY+syscall.FILE_ATTRIBUTE_READONLY)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Remove(relativePath); err != nil {
+		t.Fatal(err)
 	}
 }

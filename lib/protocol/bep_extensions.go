@@ -46,6 +46,7 @@ type FileIntf interface {
 	ModTime() time.Time
 	PlatformData() PlatformData
 	InodeChangeTime() time.Time
+	FileBlocksHash() []byte
 }
 
 func (Hello) Magic() uint32 {
@@ -170,6 +171,10 @@ func (f FileInfo) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
 }
 
+func (f FileInfo) FileBlocksHash() []byte {
+	return f.BlocksHash
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func WinsConflict(f, other FileIntf) bool {
@@ -244,9 +249,9 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		return false
 	}
 
-	// If we are recording inode change times and it changed, they are not
-	// equal.
-	if (f.InodeChangeNs != 0 && other.InodeChangeNs != 0) && f.InodeChangeNs != other.InodeChangeNs {
+	// If we care about either ownership or xattrs, are recording inode change
+	// times and it changed, they are not equal.
+	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 

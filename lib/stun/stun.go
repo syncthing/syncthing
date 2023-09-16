@@ -9,20 +9,20 @@ package stun
 import (
 	"context"
 	"net"
-	"sync/atomic"
 	"time"
 
-	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 const stunRetryInterval = 5 * time.Minute
 
-type Host = stun.Host
-type NATType = stun.NATType
+type (
+	Host    = stun.Host
+	NATType = stun.NATType
+)
 
 // NAT types.
 
@@ -38,39 +38,6 @@ const (
 	NATSymmetricUDPFirewall = stun.NATSymmetricUDPFirewall
 )
 
-type writeTrackingUdpConn struct {
-	lastWrite int64 // atomic, must remain 64-bit aligned
-	// Needs to be UDPConn not PacketConn, as pfilter checks for WriteMsgUDP/ReadMsgUDP
-	// and even if we embed UDPConn here, in place of a PacketConn, seems the interface
-	// check fails.
-	*net.UDPConn
-}
-
-func (c *writeTrackingUdpConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
-	return c.UDPConn.WriteTo(p, addr)
-}
-
-func (c *writeTrackingUdpConn) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, err error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
-	return c.UDPConn.WriteMsgUDP(b, oob, addr)
-}
-
-func (c *writeTrackingUdpConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
-	return c.UDPConn.WriteToUDP(b, addr)
-}
-
-func (c *writeTrackingUdpConn) Write(b []byte) (int, error) {
-	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
-	return c.UDPConn.Write(b)
-}
-
-func (c *writeTrackingUdpConn) getLastWrite() time.Time {
-	unix := atomic.LoadInt64(&c.lastWrite)
-	return time.Unix(unix, 0)
-}
-
 type Subscriber interface {
 	OnNATTypeChanged(natType NATType)
 	OnExternalAddressChanged(address *Host, via string)
@@ -80,30 +47,21 @@ type Service struct {
 	name       string
 	cfg        config.Wrapper
 	subscriber Subscriber
-	stunConn   net.PacketConn
 	client     *stun.Client
 
-	writeTrackingUdpConn *writeTrackingUdpConn
+	lastWriter LastWriter
 
 	natType NATType
 	addr    *Host
 }
 
-func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service, net.PacketConn) {
-	// Wrap the original connection to track writes on it
-	writeTrackingUdpConn := &writeTrackingUdpConn{lastWrite: 0, UDPConn: conn}
+type LastWriter interface {
+	LastWrite() time.Time
+}
 
-	// Wrap it in a filter and split it up, so that stun packets arrive on stun conn, others arrive on the data conn
-	filterConn := pfilter.NewPacketFilter(writeTrackingUdpConn)
-	otherDataConn := filterConn.NewConn(otherDataPriority, nil)
-	stunConn := filterConn.NewConn(stunFilterPriority, &stunFilter{
-		ids: make(map[string]time.Time),
-	})
-
-	filterConn.Start()
-
+func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn, lastWriter LastWriter) *Service {
 	// Construct the client to use the stun conn
-	client := stun.NewClientWithConnection(stunConn)
+	client := stun.NewClientWithConnection(conn)
 	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
 
 	// Return the service and the other conn to the client
@@ -118,28 +76,20 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn *net.UDPConn) (*Service
 
 		cfg:        cfg,
 		subscriber: subscriber,
-		stunConn:   stunConn,
 		client:     client,
 
-		writeTrackingUdpConn: writeTrackingUdpConn,
+		lastWriter: lastWriter,
 
 		natType: NATUnknown,
 		addr:    nil,
 	}
-	return s, otherDataConn
+	return s
 }
 
 func (s *Service) Serve(ctx context.Context) error {
 	defer func() {
 		s.setNATType(NATUnknown)
 		s.setExternalAddress(nil, "")
-	}()
-
-	// Closing s.stunConn unblocks operations that use the connection
-	// (Discover, Keepalive) and might otherwise block us from returning.
-	go func() {
-		<-ctx.Done()
-		_ = s.stunConn.Close()
 	}()
 
 	timer := time.NewTimer(time.Millisecond)
@@ -209,7 +159,7 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 
 	var natType stun.NATType
 	var extAddr *stun.Host
-	err = util.CallWithContext(ctx, func() error {
+	err = svcutil.CallWithContext(ctx, func() error {
 		natType, extAddr, err = s.client.Discover()
 		return err
 	})
@@ -245,6 +195,7 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 
 	l.Debugf("%s starting stun keepalive via %s, next sleep %s", s, addr, nextSleep)
 
+	var ourLastWrite time.Time
 	for {
 		if areDifferent(s.addr, extAddr) {
 			// If the port has changed (addresses are not equal but the hosts are equal),
@@ -265,7 +216,10 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		}
 
 		// Adjust the keepalives to fire only nextSleep after last write.
-		lastWrite := s.writeTrackingUdpConn.getLastWrite()
+		lastWrite := ourLastWrite
+		if quicLastWrite := s.lastWriter.LastWrite(); quicLastWrite.After(lastWrite) {
+			lastWrite = quicLastWrite
+		}
 		minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
 		if nextSleep < minSleep {
 			nextSleep = minSleep
@@ -294,7 +248,7 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		}
 
 		// Check if any writes happened while we were sleeping, if they did, sleep again
-		lastWrite = s.writeTrackingUdpConn.getLastWrite()
+		lastWrite = s.lastWriter.LastWrite()
 		if gap := time.Since(lastWrite); gap < nextSleep {
 			l.Debugf("%s stun last write gap less than next sleep: %s < %s. Will try later", s, gap, nextSleep)
 			goto tryLater
@@ -307,6 +261,7 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 			l.Debugf("%s stun keepalive on %s: %s (%v)", s, addr, err, extAddr)
 			return
 		}
+		ourLastWrite = time.Now()
 	}
 }
 

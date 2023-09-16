@@ -1,0 +1,8 @@
+FROM alpine
+ARG TARGETARCH
+
+EXPOSE 8080
+
+COPY stupgrades-linux-${TARGETARCH} /bin/stupgrades
+
+ENTRYPOINT [ "/bin/stupgrades" ]

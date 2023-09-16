@@ -23,8 +23,8 @@ var (
 	sessionMut      = sync.RWMutex{}
 	activeSessions  = make([]*session, 0)
 	pendingSessions = make(map[string]*session)
-	numProxies      int64
-	bytesProxied    int64
+	numProxies      atomic.Int64
+	bytesProxied    atomic.Int64
 )
 
 func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *rate.Limiter) *session {
@@ -251,8 +251,8 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 		log.Println("Proxy", c1.RemoteAddr(), "->", c2.RemoteAddr())
 	}
 
-	atomic.AddInt64(&numProxies, 1)
-	defer atomic.AddInt64(&numProxies, -1)
+	numProxies.Add(1)
+	defer numProxies.Add(-1)
 
 	buf := make([]byte, networkBufferSize)
 	for {
@@ -262,7 +262,7 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 			return err
 		}
 
-		atomic.AddInt64(&bytesProxied, int64(n))
+		bytesProxied.Add(int64(n))
 
 		if debug {
 			log.Printf("%d bytes from %s to %s", n, c1.RemoteAddr(), c2.RemoteAddr())

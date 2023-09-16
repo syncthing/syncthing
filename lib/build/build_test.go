@@ -35,3 +35,23 @@ func TestAllowedVersions(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterString(t *testing.T) {
+	cases := []struct {
+		input  string
+		filter string
+		output string
+	}{
+		{"abcba", "abc", "abcba"},
+		{"abcba", "ab", "abba"},
+		{"abcba", "c", "c"},
+		{"abcba", "!", ""},
+		{"Foo (v1.5)", versionExtraAllowedChars, "Foo v1.5"},
+	}
+
+	for i, c := range cases {
+		if out := filterString(c.input, c.filter); out != c.output {
+			t.Errorf("%d: %q != %q", i, out, c.output)
+		}
+	}
+}

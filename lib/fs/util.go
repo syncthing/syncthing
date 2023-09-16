@@ -53,9 +53,17 @@ const windowsDisallowedCharacters = (`<>:"|?*` +
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f")
 
 func WindowsInvalidFilename(name string) error {
+	// The path must not contain any disallowed characters.
+	if idx := strings.IndexAny(name, windowsDisallowedCharacters); idx != -1 {
+		return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedChar, name[idx:idx+1])
+	}
+
 	// None of the path components should end in space or period, or be a
 	// reserved name.
-	for _, part := range strings.Split(name, `\`) {
+	for len(name) > 0 {
+		part, rest, _ := strings.Cut(name, `\`)
+		name = rest
+
 		if part == "" {
 			continue
 		}
@@ -64,14 +72,9 @@ func WindowsInvalidFilename(name string) error {
 			// Names ending in space or period are not valid.
 			return errInvalidFilenameWindowsSpacePeriod
 		}
-		if windowsIsReserved(part) {
-			return errInvalidFilenameWindowsReservedName
+		if reserved := windowsReservedNamePart(part); reserved != "" {
+			return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedName, reserved)
 		}
-	}
-
-	// The path must not contain any disallowed characters
-	if strings.ContainsAny(name, windowsDisallowedCharacters) {
-		return errInvalidFilenameWindowsReservedChar
 	}
 
 	return nil
@@ -114,13 +117,13 @@ func SanitizePath(path string) string {
 	}
 
 	path = strings.TrimSpace(b.String())
-	if windowsIsReserved(path) {
+	if reserved := windowsReservedNamePart(path); reserved != "" {
 		path = "-" + path
 	}
 	return path
 }
 
-func windowsIsReserved(part string) bool {
+func windowsReservedNamePart(part string) string {
 	// nul.txt.jpg is also disallowed.
 	dot := strings.IndexByte(part, '.')
 	if dot != -1 {
@@ -129,7 +132,7 @@ func windowsIsReserved(part string) bool {
 
 	// Check length to skip allocating ToUpper.
 	if len(part) != 3 && len(part) != 4 {
-		return false
+		return ""
 	}
 
 	// COM0 and LPT0 are missing from the Microsoft docs,
@@ -141,9 +144,9 @@ func windowsIsReserved(part string) bool {
 		"COM5", "COM6", "COM7", "COM8", "COM9",
 		"LPT0", "LPT1", "LPT2", "LPT3", "LPT4",
 		"LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
-		return true
+		return part
 	}
-	return false
+	return ""
 }
 
 // IsParent compares paths purely lexicographically, meaning it returns false

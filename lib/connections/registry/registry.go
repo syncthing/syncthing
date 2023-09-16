@@ -12,6 +12,7 @@ package registry
 import (
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -41,9 +42,7 @@ func (r *Registry) Unregister(scheme string, item interface{}) {
 	candidates := r.available[scheme]
 	for i, existingItem := range candidates {
 		if existingItem == item {
-			candidates[i] = candidates[len(candidates)-1]
-			candidates[len(candidates)-1] = nil
-			r.available[scheme] = candidates[:len(candidates)-1]
+			r.available[scheme] = sliceutil.RemoveAndZero(candidates, i)
 			break
 		}
 	}

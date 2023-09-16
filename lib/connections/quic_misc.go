@@ -10,22 +10,23 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
+	"sync/atomic"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/logging"
+
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-var (
-	quicConfig = &quic.Config{
-		ConnectionIDLength: 4,
-		MaxIdleTimeout:     30 * time.Second,
-		KeepAlivePeriod:    15 * time.Second,
-	}
-)
+var quicConfig = &quic.Config{
+	MaxIdleTimeout:  30 * time.Second,
+	KeepAlivePeriod: 15 * time.Second,
+}
 
 func quicNetwork(uri *url.URL) string {
 	switch uri.Scheme {
@@ -62,11 +63,75 @@ func (q *quicTlsConn) Close() error {
 }
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
-	return q.Connection.ConnectionState().TLS.ConnectionState
+	return q.Connection.ConnectionState().TLS
 }
 
-func packetConnUnspecified(conn interface{}) bool {
-	addr := conn.(net.PacketConn).LocalAddr()
+func transportConnUnspecified(conn any) bool {
+	tran, ok := conn.(*quic.Transport)
+	if !ok {
+		return false
+	}
+	addr := tran.Conn.LocalAddr()
 	ip, err := osutil.IPFromAddr(addr)
 	return err == nil && ip.IsUnspecified()
+}
+
+type writeTrackingTracer struct {
+	lastWrite atomic.Int64 // unix nanos
+}
+
+func (t *writeTrackingTracer) SentPacket(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
+	t.lastWrite.Store(time.Now().UnixNano())
+}
+
+func (t *writeTrackingTracer) SentVersionNegotiationPacket(_ net.Addr, dest, src logging.ArbitraryLenConnectionID, _ []quic.VersionNumber) {
+	t.lastWrite.Store(time.Now().UnixNano())
+}
+
+func (t *writeTrackingTracer) DroppedPacket(net.Addr, logging.PacketType, logging.ByteCount, logging.PacketDropReason) {
+}
+
+func (t *writeTrackingTracer) LastWrite() time.Time {
+	return time.Unix(0, t.lastWrite.Load())
+}
+
+// A transportPacketConn is a net.PacketConn that uses a quic.Transport.
+type transportPacketConn struct {
+	tran         *quic.Transport
+	readDeadline atomic.Value // time.Time
+}
+
+func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	ctx := context.Background()
+	if deadline, ok := t.readDeadline.Load().(time.Time); ok && !deadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+	return t.tran.ReadNonQUICPacket(ctx, p)
+}
+
+func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	return t.tran.WriteTo(p, addr)
+}
+
+func (t *transportPacketConn) Close() error {
+	return errUnsupported
+}
+
+func (t *transportPacketConn) LocalAddr() net.Addr {
+	return t.tran.Conn.LocalAddr()
+}
+
+func (t *transportPacketConn) SetDeadline(deadline time.Time) error {
+	return t.SetReadDeadline(deadline)
+}
+
+func (t *transportPacketConn) SetReadDeadline(deadline time.Time) error {
+	t.readDeadline.Store(deadline)
+	return nil
+}
+
+func (t *transportPacketConn) SetWriteDeadline(_ time.Time) error {
+	return nil // yolo
 }

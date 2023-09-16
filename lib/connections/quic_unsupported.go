@@ -9,6 +9,10 @@
 
 package connections
 
+import (
+	"fmt"
+)
+
 var errNotInBuild = fmt.Errorf("%w: disabled at build time", errUnsupported)
 
 func init() {

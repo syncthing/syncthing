@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -206,6 +207,24 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
+	"stupgrades": {
+		name:        "stupgrades",
+		description: "Syncthing Upgrade Check Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stupgrades"},
+		binaryName:  "stupgrades",
+	},
+	"stcrashreceiver": {
+		name:        "stcrashreceiver",
+		description: "Syncthing Crash Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
+		binaryName:  "stcrashreceiver",
+	},
+	"ursrv": {
+		name:        "ursrv",
+		description: "Syncthing Usage Reporting Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/ursrv"},
+		binaryName:  "ursrv",
+	},
 }
 
 func initTargets() {
@@ -318,6 +337,9 @@ func runCommand(cmd string, target target) {
 
 	case "transifex":
 		transifex()
+
+	case "weblate":
+		weblate()
 
 	case "tar":
 		buildTar(target, tags)
@@ -896,7 +918,7 @@ func updateDependencies() {
 	}
 	goVersion := string(matches[1])
 
-	runPrint(goCmd, "get", "-u", "all")
+	runPrint(goCmd, "get", "-u", "./...")
 	runPrint(goCmd, "mod", "tidy", "-go="+goVersion, "-compat="+goVersion)
 
 	// We might have updated the protobuf package and should regenerate to match.
@@ -950,6 +972,11 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
+}
+
+func weblate() {
+	os.Chdir("gui/default/assets/lang")
+	runPrint(goCmd, "run", "../../../../script/weblatedl.go")
 }
 
 func ldflags(tags []string) string {
@@ -1087,8 +1114,12 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release", "main":
+	case "release", "main":
 		// these are not special
+		return ""
+	}
+	if strings.HasPrefix(branch, "release-") {
+		// release branches are not special
 		return ""
 	}
 
@@ -1383,6 +1414,33 @@ func windowsCodesign(file string) {
 		args := []string{"sign", "/fd", algo}
 		if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
 			args = append(args, "/f", f)
+		} else if b := os.Getenv("CODESIGN_CERTIFICATE_BASE64"); b != "" {
+			// Decode the PFX certificate from base64.
+			bs, err := base64.RawStdEncoding.DecodeString(b)
+			if err != nil {
+				log.Println("Codesign: signing failed: decoding base64:", err)
+				return
+			}
+
+			// Write it to a temporary file
+			f, err := os.CreateTemp("", "codesign-*.pfx")
+			if err != nil {
+				log.Println("Codesign: signing failed: creating temp file:", err)
+				return
+			}
+			_ = f.Chmod(0600) // best effort remove other users' access
+			defer os.Remove(f.Name())
+			if _, err := f.Write(bs); err != nil {
+				log.Println("Codesign: signing failed: writing temp file:", err)
+				return
+			}
+			if err := f.Close(); err != nil {
+				log.Println("Codesign: signing failed: closing temp file:", err)
+				return
+			}
+
+			// Use that when signing
+			args = append(args, "/f", f.Name())
 		}
 		if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
 			args = append(args, "/p", p)
@@ -1402,7 +1460,7 @@ func windowsCodesign(file string) {
 
 		bs, err := runError(st, args...)
 		if err != nil {
-			log.Println("Codesign: signing failed:", string(bs))
+			log.Printf("Codesign: signing failed: %v: %s", err, string(bs))
 			return
 		}
 		log.Println("Codesign: successfully signed", file, "using", algo)

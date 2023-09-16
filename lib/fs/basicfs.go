@@ -22,8 +22,8 @@ import (
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
-	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name (NUL, COM1, etc.)")
-	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character (?, *, etc.)")
+	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name")
+	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character")
 )
 
 type OptionJunctionsAsDirs struct{}
@@ -51,8 +51,10 @@ type BasicFilesystem struct {
 	groupCache      *groupCache
 }
 
-type userCache = valueCache[string, *user.User]
-type groupCache = valueCache[string, *user.Group]
+type (
+	userCache  = valueCache[string, *user.User]
+	groupCache = valueCache[string, *user.Group]
+)
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {
@@ -62,11 +64,11 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
-	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
+	// C:\somedir\ ->  C:\somedir\    ->  C:\somedir
 	// This way in the tests, we get away without OS specific separators
 	// in the test configs.
 	sep := string(filepath.Separator)
-	root = filepath.Dir(root + sep)
+	root = filepath.Clean(filepath.Dir(root + sep))
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
@@ -178,14 +180,6 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	return basicFileInfo{fi}, err
 }
 
-func (f *BasicFilesystem) Remove(name string) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return os.Remove(name)
-}
-
 func (f *BasicFilesystem) RemoveAll(name string) error {
 	name, err := f.rooted(name)
 	if err != nil {
@@ -223,7 +217,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	fd, err := os.OpenFile(name, OptReadOnly, 0777)
+	fd, err := os.OpenFile(name, OptReadOnly, 0o777)
 	if err != nil {
 		return nil, err
 	}

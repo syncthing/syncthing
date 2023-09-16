@@ -20,7 +20,7 @@ import (
 var (
 	outboxesMut    = sync.RWMutex{}
 	outboxes       = make(map[syncthingprotocol.DeviceID]chan interface{})
-	numConnections int64
+	numConnections atomic.Int64
 )
 
 func listener(_, addr string, config *tls.Config, token string) {
@@ -36,8 +36,14 @@ func listener(_, addr string, config *tls.Config, token string) {
 	for {
 		conn, isTLS, err := listener.AcceptNoWrapTLS()
 		if err != nil {
+			// Conn may be nil if accept failed, or non-nil if the initial
+			// read to figure out if it's TLS or not failed. In the latter
+			// case, close the connection before moving on.
+			if conn != nil {
+				conn.Close()
+			}
 			if debug {
-				log.Println("Listener failed to accept connection from", conn.RemoteAddr(), ". Possibly a TCP Ping.")
+				log.Println("Listener failed to accept:", err)
 			}
 			continue
 		}
@@ -128,7 +134,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 
-				if atomic.LoadInt32(&overLimit) > 0 {
+				if overLimit.Load() {
 					protocol.WriteMessage(conn, protocol.RelayFull{})
 					if debug {
 						log.Println("Refusing join request from", id, "due to being over limits")
@@ -267,7 +273,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 				conn.Close()
 			}
 
-			if atomic.LoadInt32(&overLimit) > 0 && !hasSessions(id) {
+			if overLimit.Load() && !hasSessions(id) {
 				if debug {
 					log.Println("Dropping", id, "as it has no sessions and we are over our limits")
 				}
@@ -360,8 +366,8 @@ func sessionConnectionHandler(conn net.Conn) {
 }
 
 func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
-	atomic.AddInt64(&numConnections, 1)
-	defer atomic.AddInt64(&numConnections, -1)
+	numConnections.Add(1)
+	defer numConnections.Add(-1)
 
 	for {
 		msg, err := protocol.ReadMessage(conn)

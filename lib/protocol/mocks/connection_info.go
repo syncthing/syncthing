@@ -10,6 +10,16 @@ import (
 )
 
 type ConnectionInfo struct {
+	ConnectionIDStub        func() string
+	connectionIDMutex       sync.RWMutex
+	connectionIDArgsForCall []struct {
+	}
+	connectionIDReturns struct {
+		result1 string
+	}
+	connectionIDReturnsOnCall map[int]struct {
+		result1 string
+	}
 	CryptoStub        func() string
 	cryptoMutex       sync.RWMutex
 	cryptoArgsForCall []struct {
@@ -29,6 +39,16 @@ type ConnectionInfo struct {
 	}
 	establishedAtReturnsOnCall map[int]struct {
 		result1 time.Time
+	}
+	IsLocalStub        func() bool
+	isLocalMutex       sync.RWMutex
+	isLocalArgsForCall []struct {
+	}
+	isLocalReturns struct {
+		result1 bool
+	}
+	isLocalReturnsOnCall map[int]struct {
+		result1 bool
 	}
 	PriorityStub        func() int
 	priorityMutex       sync.RWMutex
@@ -82,6 +102,59 @@ type ConnectionInfo struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *ConnectionInfo) ConnectionID() string {
+	fake.connectionIDMutex.Lock()
+	ret, specificReturn := fake.connectionIDReturnsOnCall[len(fake.connectionIDArgsForCall)]
+	fake.connectionIDArgsForCall = append(fake.connectionIDArgsForCall, struct {
+	}{})
+	stub := fake.ConnectionIDStub
+	fakeReturns := fake.connectionIDReturns
+	fake.recordInvocation("ConnectionID", []interface{}{})
+	fake.connectionIDMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConnectionInfo) ConnectionIDCallCount() int {
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
+	return len(fake.connectionIDArgsForCall)
+}
+
+func (fake *ConnectionInfo) ConnectionIDCalls(stub func() string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = stub
+}
+
+func (fake *ConnectionInfo) ConnectionIDReturns(result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	fake.connectionIDReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ConnectionInfo) ConnectionIDReturnsOnCall(i int, result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	if fake.connectionIDReturnsOnCall == nil {
+		fake.connectionIDReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.connectionIDReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *ConnectionInfo) Crypto() string {
@@ -187,6 +260,59 @@ func (fake *ConnectionInfo) EstablishedAtReturnsOnCall(i int, result1 time.Time)
 	}
 	fake.establishedAtReturnsOnCall[i] = struct {
 		result1 time.Time
+	}{result1}
+}
+
+func (fake *ConnectionInfo) IsLocal() bool {
+	fake.isLocalMutex.Lock()
+	ret, specificReturn := fake.isLocalReturnsOnCall[len(fake.isLocalArgsForCall)]
+	fake.isLocalArgsForCall = append(fake.isLocalArgsForCall, struct {
+	}{})
+	stub := fake.IsLocalStub
+	fakeReturns := fake.isLocalReturns
+	fake.recordInvocation("IsLocal", []interface{}{})
+	fake.isLocalMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConnectionInfo) IsLocalCallCount() int {
+	fake.isLocalMutex.RLock()
+	defer fake.isLocalMutex.RUnlock()
+	return len(fake.isLocalArgsForCall)
+}
+
+func (fake *ConnectionInfo) IsLocalCalls(stub func() bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = stub
+}
+
+func (fake *ConnectionInfo) IsLocalReturns(result1 bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = nil
+	fake.isLocalReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConnectionInfo) IsLocalReturnsOnCall(i int, result1 bool) {
+	fake.isLocalMutex.Lock()
+	defer fake.isLocalMutex.Unlock()
+	fake.IsLocalStub = nil
+	if fake.isLocalReturnsOnCall == nil {
+		fake.isLocalReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isLocalReturnsOnCall[i] = struct {
+		result1 bool
 	}{result1}
 }
 
@@ -458,10 +584,14 @@ func (fake *ConnectionInfo) TypeReturnsOnCall(i int, result1 string) {
 func (fake *ConnectionInfo) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
 	fake.cryptoMutex.RLock()
 	defer fake.cryptoMutex.RUnlock()
 	fake.establishedAtMutex.RLock()
 	defer fake.establishedAtMutex.RUnlock()
+	fake.isLocalMutex.RLock()
+	defer fake.isLocalMutex.RUnlock()
 	fake.priorityMutex.RLock()
 	defer fake.priorityMutex.RUnlock()
 	fake.remoteAddrMutex.RLock()

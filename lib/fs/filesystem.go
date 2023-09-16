@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,7 @@ const (
 	filesystemWrapperTypeError
 	filesystemWrapperTypeWalk
 	filesystemWrapperTypeLog
+	filesystemWrapperTypeMetrics
 )
 
 type XattrFilter interface {
@@ -171,41 +173,48 @@ var (
 
 // Equivalents from os package.
 
-const ModePerm = FileMode(os.ModePerm)
-const ModeSetgid = FileMode(os.ModeSetgid)
-const ModeSetuid = FileMode(os.ModeSetuid)
-const ModeSticky = FileMode(os.ModeSticky)
-const ModeSymlink = FileMode(os.ModeSymlink)
-const ModeType = FileMode(os.ModeType)
-const PathSeparator = os.PathSeparator
-const OptAppend = os.O_APPEND
-const OptCreate = os.O_CREATE
-const OptExclusive = os.O_EXCL
-const OptReadOnly = os.O_RDONLY
-const OptReadWrite = os.O_RDWR
-const OptSync = os.O_SYNC
-const OptTruncate = os.O_TRUNC
-const OptWriteOnly = os.O_WRONLY
+const (
+	ModePerm      = FileMode(os.ModePerm)
+	ModeSetgid    = FileMode(os.ModeSetgid)
+	ModeSetuid    = FileMode(os.ModeSetuid)
+	ModeSticky    = FileMode(os.ModeSticky)
+	ModeSymlink   = FileMode(os.ModeSymlink)
+	ModeType      = FileMode(os.ModeType)
+	PathSeparator = os.PathSeparator
+	OptAppend     = os.O_APPEND
+	OptCreate     = os.O_CREATE
+	OptExclusive  = os.O_EXCL
+	OptReadOnly   = os.O_RDONLY
+	OptReadWrite  = os.O_RDWR
+	OptSync       = os.O_SYNC
+	OptTruncate   = os.O_TRUNC
+	OptWriteOnly  = os.O_WRONLY
+)
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
 // as an error by any function.
 var SkipDir = filepath.SkipDir
 
-// IsExist is the equivalent of os.IsExist
-var IsExist = os.IsExist
+func IsExist(err error) bool {
+	return errors.Is(err, ErrExist)
+}
 
-// IsExist is the equivalent of os.ErrExist
-var ErrExist = os.ErrExist
+// ErrExist is the equivalent of os.ErrExist
+var ErrExist = fs.ErrExist
 
 // IsNotExist is the equivalent of os.IsNotExist
-var IsNotExist = os.IsNotExist
+func IsNotExist(err error) bool {
+	return errors.Is(err, ErrNotExist)
+}
 
 // ErrNotExist is the equivalent of os.ErrNotExist
-var ErrNotExist = os.ErrNotExist
+var ErrNotExist = fs.ErrNotExist
 
 // IsPermission is the equivalent of os.IsPermission
-var IsPermission = os.IsPermission
+func IsPermission(err error) bool {
+	return errors.Is(err, fs.ErrPermission)
+}
 
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
@@ -267,6 +276,8 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		fs = mtimeOpt.apply(fs)
 	}
 
+	fs = &metricsFS{next: fs}
+
 	if l.ShouldDebug("walkfs") {
 		return NewWalkFilesystem(&logFilesystem{fs})
 	}
@@ -282,7 +293,8 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 // root, represents an internal file that should always be ignored. The file
 // path must be clean (i.e., in canonical shortest form).
 func IsInternal(file string) bool {
-	// fs cannot import config, so we hard code .stfolder here (config.DefaultMarkerName)
+	// fs cannot import config or versioner, so we hard code .stfolder
+	// (config.DefaultMarkerName) and .stversions (versioner.DefaultPath)
 	internals := []string{".stfolder", ".stignore", ".stversions"}
 	for _, internal := range internals {
 		if file == internal {
@@ -347,4 +359,21 @@ func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesys
 			return nil, false
 		}
 	}
+}
+
+// WriteFile writes data to the named file, creating it if necessary.
+// If the file does not exist, WriteFile creates it with permissions perm (before umask);
+// otherwise WriteFile truncates it before writing, without changing permissions.
+// Since Writefile requires multiple system calls to complete, a failure mid-operation
+// can leave the file in a partially written state.
+func WriteFile(fs Filesystem, name string, data []byte, perm FileMode) error {
+	f, err := fs.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+	return err
 }

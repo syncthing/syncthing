@@ -19,7 +19,7 @@ import (
 	lz4 "github.com/pierrec/lz4/v4"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/testutils"
+	"github.com/syncthing/syncthing/lib/testutil"
 )
 
 var (
@@ -32,10 +32,10 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutils.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil))
+	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -58,10 +58,10 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionAlways, nil))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, nil)
+	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -102,8 +102,8 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	m := newTestModel()
 
-	rw := testutils.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -145,7 +145,7 @@ func TestCloseRace(t *testing.T) {
 	indexReceived := make(chan struct{})
 	unblockIndex := make(chan struct{})
 	m0 := newTestModel()
-	m0.indexFn = func(_ DeviceID, _ string, _ []FileInfo) {
+	m0.indexFn = func(string, []FileInfo) {
 		close(indexReceived)
 		<-unblockIndex
 	}
@@ -154,10 +154,10 @@ func TestCloseRace(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutils.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionNever, nil))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionNever, nil, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutils.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, nil)
+	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, nil, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
@@ -193,8 +193,8 @@ func TestCloseRace(t *testing.T) {
 func TestClusterConfigFirst(t *testing.T) {
 	m := newTestModel()
 
-	rw := testutils.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -245,8 +245,8 @@ func TestCloseTimeout(t *testing.T) {
 
 	m := newTestModel()
 
-	rw := testutils.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -432,8 +432,8 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	bs1, _ := json.MarshalIndent(m1, "", "  ")
 	bs2, _ := json.MarshalIndent(m2, "", "  ")
 	if !bytes.Equal(bs1, bs2) {
-		os.WriteFile(prefix+"-1.txt", bs1, 0644)
-		os.WriteFile(prefix+"-2.txt", bs2, 0644)
+		os.WriteFile(prefix+"-1.txt", bs1, 0o644)
+		os.WriteFile(prefix+"-2.txt", bs2, 0o644)
 		return false
 	}
 
@@ -468,9 +468,9 @@ func TestWriteCompressed(t *testing.T) {
 
 		hdr := Header{Type: typeOf(msg)}
 		size := int64(2 + hdr.ProtoSize() + 4 + msg.ProtoSize())
-		if c.cr.tot > size {
+		if c.cr.Tot() > size {
 			t.Errorf("compression enlarged message from %d to %d",
-				size, c.cr.tot)
+				size, c.cr.Tot())
 		}
 	}
 }
@@ -794,16 +794,16 @@ func TestIsEquivalent(t *testing.T) {
 
 		// Difference in permissions is not OK.
 		{
-			a:        FileInfo{Permissions: 0444},
-			b:        FileInfo{Permissions: 0666},
+			a:        FileInfo{Permissions: 0o444},
+			b:        FileInfo{Permissions: 0o666},
 			ignPerms: b(false),
 			eq:       false,
 		},
 
 		// ... unless we say it is
 		{
-			a:        FileInfo{Permissions: 0666},
-			b:        FileInfo{Permissions: 0444},
+			a:        FileInfo{Permissions: 0o666},
+			b:        FileInfo{Permissions: 0o444},
 			ignPerms: b(true),
 			eq:       true,
 		},
@@ -852,8 +852,8 @@ func TestIsEquivalent(t *testing.T) {
 		// On windows we only check the user writable bit of the permission
 		// set, so these are equivalent.
 		cases = append(cases, testCase{
-			a:        FileInfo{Permissions: 0777},
-			b:        FileInfo{Permissions: 0600},
+			a:        FileInfo{Permissions: 0o777},
+			b:        FileInfo{Permissions: 0o600},
 			ignPerms: b(false),
 			eq:       true,
 		})
@@ -898,8 +898,8 @@ func TestSha256OfEmptyBlock(t *testing.T) {
 func TestClusterConfigAfterClose(t *testing.T) {
 	m := newTestModel()
 
-	rw := testutils.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -922,9 +922,9 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	// Verify that we don't deadlock when calling Close() from within one of
 	// the model callbacks (ClusterConfig).
 	m := newTestModel()
-	rw := testutils.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, &testutils.NoopRW{}, testutils.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil))
-	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	m.ccFn = func(ClusterConfig) {
 		c.Close(errManual)
 	}
 	c.Start()

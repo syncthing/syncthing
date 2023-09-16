@@ -63,9 +63,7 @@ var sha256OfEmptyBlock = map[int][sha256.Size]byte{
 	16 << MiB:  {0x8, 0xa, 0xcf, 0x35, 0xa5, 0x7, 0xac, 0x98, 0x49, 0xcf, 0xcb, 0xa4, 0x7d, 0xc2, 0xad, 0x83, 0xe0, 0x1b, 0x75, 0x66, 0x3a, 0x51, 0x62, 0x79, 0xc8, 0xb9, 0xd2, 0x43, 0xb7, 0x19, 0x64, 0x3e},
 }
 
-var (
-	errNotCompressible = errors.New("not compressible")
-)
+var errNotCompressible = errors.New("not compressible")
 
 func init() {
 	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
@@ -125,17 +123,28 @@ var (
 
 type Model interface {
 	// An index was received from the peer device
-	Index(deviceID DeviceID, folder string, files []FileInfo) error
+	Index(conn Connection, folder string, files []FileInfo) error
 	// An index update was received from the peer device
-	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error
+	IndexUpdate(conn Connection, folder string, files []FileInfo) error
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	Request(conn Connection, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
-	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
+	ClusterConfig(conn Connection, config ClusterConfig) error
 	// The peer device closed the connection or an error occurred
-	Closed(device DeviceID, err error)
+	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
-	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
+	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
+}
+
+// rawModel is the Model interface, but without the initial Connection
+// parameter. Internal use only.
+type rawModel interface {
+	Index(folder string, files []FileInfo) error
+	IndexUpdate(folder string, files []FileInfo) error
+	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	ClusterConfig(config ClusterConfig) error
+	Closed(err error)
+	DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error
 }
 
 type RequestResponse interface {
@@ -148,7 +157,7 @@ type Connection interface {
 	Start()
 	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
-	ID() DeviceID
+	DeviceID() DeviceID
 	Index(ctx context.Context, folder string, files []FileInfo) error
 	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
 	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
@@ -162,19 +171,23 @@ type Connection interface {
 type ConnectionInfo interface {
 	Type() string
 	Transport() string
+	IsLocal() bool
 	RemoteAddr() net.Addr
 	Priority() int
 	String() string
 	Crypto() string
 	EstablishedAt() time.Time
+	ConnectionID() string
 }
 
 type rawConnection struct {
 	ConnectionInfo
 
-	id        DeviceID
-	receiver  Model
+	deviceID  DeviceID
+	idString  string
+	model     rawModel
 	startTime time.Time
+	started   chan struct{}
 
 	cr     *countingReader
 	cw     *countingWriter
@@ -195,6 +208,7 @@ type rawConnection struct {
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
 	compression           Compression
+	startStopMut          sync.Mutex // start and stop must be serialized
 
 	loopWG sync.WaitGroup // Need to ensure no leftover routines in testing
 }
@@ -230,29 +244,40 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, model Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
+	// We create the wrapper for the model first, as it needs to be passed
+	// in at the lowest level in the stack. At the end of construction,
+	// before returning, we add the connection to cwm so that it can be used
+	// by the model.
+	cwm := &connectionWrappingModel{model: model}
+
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
-	nm := makeNative(receiver)
-	em := &encryptedModel{model: nm, folderKeys: newFolderKeyRegistry(passwords)}
+	nm := makeNative(cwm)
+	em := newEncryptedModel(nm, newFolderKeyRegistry(keyGen, passwords), keyGen)
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, closer, em, connInfo, compress)
-	ec := encryptedConnection{ConnectionInfo: rc, conn: rc, folderKeys: em.folderKeys}
+	ec := newEncryptedConnection(rc, rc, em.folderKeys, keyGen)
 	wc := wireFormatConnection{ec}
 
+	cwm.conn = wc
 	return wc
 }
 
-func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver Model, connInfo ConnectionInfo, compress Compression) *rawConnection {
-	cr := &countingReader{Reader: reader}
-	cw := &countingWriter{Writer: writer}
+func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver rawModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
+	idString := deviceID.String()
+	cr := &countingReader{Reader: reader, idString: idString}
+	cw := &countingWriter{Writer: writer, idString: idString}
+	registerDeviceMetrics(idString)
 
 	return &rawConnection{
 		ConnectionInfo:        connInfo,
-		id:                    deviceID,
-		receiver:              receiver,
+		deviceID:              deviceID,
+		idString:              deviceID.String(),
+		model:                 receiver,
+		started:               make(chan struct{}),
 		cr:                    cr,
 		cw:                    cw,
 		closer:                closer,
@@ -271,6 +296,8 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -294,10 +321,11 @@ func (c *rawConnection) Start() {
 		c.loopWG.Done()
 	}()
 	c.startTime = time.Now().Truncate(time.Second)
+	close(c.started)
 }
 
-func (c *rawConnection) ID() DeviceID {
-	return c.id
+func (c *rawConnection) DeviceID() DeviceID {
+	return c.deviceID
 }
 
 // Index writes the list of file information to the connected peer device
@@ -428,6 +456,8 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			return ErrClosed
 		}
 
+		metricDeviceRecvMessages.WithLabelValues(c.idString).Inc()
+
 		msgContext, err := messageContext(msg)
 		if err != nil {
 			return fmt.Errorf("protocol error: %w", err)
@@ -463,7 +493,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 
 		switch msg := msg.(type) {
 		case *ClusterConfig:
-			err = c.receiver.ClusterConfig(c.id, *msg)
+			err = c.model.ClusterConfig(*msg)
 
 		case *Index:
 			err = c.handleIndex(*msg)
@@ -478,7 +508,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
-			err = c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
+			err = c.model.DownloadProgress(msg.Folder, msg.Updates)
 		}
 		if err != nil {
 			return newHandleError(err, msgContext)
@@ -536,6 +566,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	// ... and is then unmarshalled
 
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(4 + len(buf)))
+
 	msg, err := newMessage(hdr.Type)
 	if err != nil {
 		BufferPool.Put(buf)
@@ -576,17 +608,19 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
 	}
 
+	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(2 + len(buf)))
+
 	return hdr, nil
 }
 
 func (c *rawConnection) handleIndex(im Index) error {
-	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
-	return c.receiver.Index(c.id, im.Folder, im.Files)
+	l.Debugf("Index(%v, %v, %d file)", c.deviceID, im.Folder, len(im.Files))
+	return c.model.Index(im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
-	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
-	return c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
+	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.deviceID, im.Folder, len(im.Files))
+	return c.model.IndexUpdate(im.Folder, im.Files)
 }
 
 // checkIndexConsistency verifies a number of invariants on FileInfos received in
@@ -652,7 +686,7 @@ func checkFilename(name string) error {
 }
 
 func (c *rawConnection) handleRequest(req Request) {
-	res, err := c.receiver.Request(c.id, req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	res, err := c.model.Request(req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
 		c.send(context.Background(), &Response{
 			ID:   req.ID,
@@ -741,6 +775,10 @@ func (c *rawConnection) writeMessage(msg message) error {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
 
+	defer func() {
+		metricDeviceSentMessages.WithLabelValues(c.idString).Inc()
+	}()
+
 	size := msg.ProtoSize()
 	hdr := Header{
 		Type: typeOf(msg),
@@ -766,6 +804,8 @@ func (c *rawConnection) writeMessage(msg message) error {
 			return err
 		}
 	}
+
+	metricDeviceSentUncompressedBytes.WithLabelValues(c.idString).Add(float64(totSize))
 
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
@@ -800,6 +840,9 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	}
 
 	cOverhead := 2 + hdrSize + 4
+
+	metricDeviceSentUncompressedBytes.WithLabelValues(c.idString).Add(float64(cOverhead + len(marshaled)))
+
 	// The compressed size may be at most n-n/32 = .96875*n bytes,
 	// I.e., if we can't save at least 3.125% bandwidth, we forgo compression.
 	// This number is arbitrary but cheap to compute.
@@ -923,10 +966,12 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
-		l.Debugln("close due to", err)
+		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
-			l.Debugln(c.id, "failed to close underlying conn:", cerr)
+			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
 		}
 		close(c.closed)
 
@@ -939,9 +984,13 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		<-c.dispatcherLoopStopped
+		if !c.startTime.IsZero() {
+			// Wait for the dispatcher loop to exit, if it was started to
+			// begin with.
+			<-c.dispatcherLoopStopped
+		}
 
-		c.receiver.Closed(c.ID(), err)
+		c.model.Closed(err)
 	})
 }
 
@@ -959,11 +1008,11 @@ func (c *rawConnection) pingSender() {
 		case <-ticker.C:
 			d := time.Since(c.cw.Last())
 			if d < PingSendInterval/2 {
-				l.Debugln(c.id, "ping skipped after wr", d)
+				l.Debugln(c.deviceID, "ping skipped after wr", d)
 				continue
 			}
 
-			l.Debugln(c.id, "ping -> after", d)
+			l.Debugln(c.deviceID, "ping -> after", d)
 			c.ping()
 
 		case <-c.closed:
@@ -984,11 +1033,11 @@ func (c *rawConnection) pingReceiver() {
 		case <-ticker.C:
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
-				l.Debugln(c.id, "ping timeout", d)
+				l.Debugln(c.deviceID, "ping timeout", d)
 				c.internalClose(ErrTimeout)
 			}
 
-			l.Debugln(c.id, "last read within", d)
+			l.Debugln(c.deviceID, "last read within", d)
 
 		case <-c.closed:
 			return
@@ -1068,4 +1117,36 @@ func messageContext(msg message) (string, error) {
 	default:
 		return "", errors.New("unknown or empty message")
 	}
+}
+
+// connectionWrappingModel takes the Model interface from the model package,
+// which expects the Connection as the first parameter in all methods, and
+// wraps it to conform to the rawModel interface.
+type connectionWrappingModel struct {
+	conn  Connection
+	model Model
+}
+
+func (c *connectionWrappingModel) Index(folder string, files []FileInfo) error {
+	return c.model.Index(c.conn, folder, files)
+}
+
+func (c *connectionWrappingModel) IndexUpdate(folder string, files []FileInfo) error {
+	return c.model.IndexUpdate(c.conn, folder, files)
+}
+
+func (c *connectionWrappingModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+	return c.model.Request(c.conn, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+}
+
+func (c *connectionWrappingModel) ClusterConfig(config ClusterConfig) error {
+	return c.model.ClusterConfig(c.conn, config)
+}
+
+func (c *connectionWrappingModel) Closed(err error) {
+	c.model.Closed(c.conn, err)
+}
+
+func (c *connectionWrappingModel) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error {
+	return c.model.DownloadProgress(c.conn, folder, updates)
 }

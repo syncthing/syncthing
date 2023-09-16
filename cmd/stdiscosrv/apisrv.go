@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	io "io"
 	"log"
 	"math/rand"
 	"net"
@@ -27,6 +29,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stringutil"
 )
 
 // announcement is the format received from and sent to clients
@@ -78,18 +81,10 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		s.listener = listener
 	} else {
 		tlsCfg := &tls.Config{
-			Certificates:           []tls.Certificate{s.cert},
-			ClientAuth:             tls.RequestClientCert,
-			SessionTicketsDisabled: true,
-			MinVersion:             tls.VersionTLS12,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			},
+			Certificates: []tls.Certificate{s.cert},
+			ClientAuth:   tls.RequestClientCert,
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2", "http/1.1"},
 		}
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
@@ -107,6 +102,7 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		ReadTimeout:    httpReadTimeout,
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
+		ErrorLog:       log.New(io.Discard, "", 0),
 	}
 
 	err := srv.Serve(s.listener)
@@ -115,8 +111,6 @@ func (s *apiSrv) Serve(_ context.Context) error {
 	}
 	return err
 }
-
-var topCtx = context.Background()
 
 func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now()
@@ -130,10 +124,10 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	reqID := requestID(rand.Int63())
-	ctx := context.WithValue(topCtx, idKey, reqID)
+	req = req.WithContext(context.WithValue(req.Context(), idKey, reqID))
 
 	if debug {
-		log.Println(reqID, req.Method, req.URL)
+		log.Println(reqID, req.Method, req.URL, req.Proto)
 	}
 
 	remoteAddr := &net.TCPAddr{
@@ -159,17 +153,17 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch req.Method {
-	case "GET":
-		s.handleGET(ctx, lw, req)
-	case "POST":
-		s.handlePOST(ctx, remoteAddr, lw, req)
+	case http.MethodGet:
+		s.handleGET(lw, req)
+	case http.MethodPost:
+		s.handlePOST(remoteAddr, lw, req)
 	default:
 		http.Error(lw, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	reqID := ctx.Value(idKey).(requestID)
+func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
+	reqID := req.Context().Value(idKey).(requestID)
 
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
@@ -220,16 +214,25 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 
 	lookupRequestsTotal.WithLabelValues("success").Inc()
 
-	bs, _ := json.Marshal(announcement{
-		Seen:      time.Unix(0, rec.Seen),
+	w.Header().Set("Content-Type", "application/json")
+	var bw io.Writer = w
+
+	// Use compression if the client asks for it
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		gw := gzip.NewWriter(bw)
+		defer gw.Close()
+		bw = gw
+	}
+
+	json.NewEncoder(bw).Encode(announcement{
+		Seen:      time.Unix(0, rec.Seen).Truncate(time.Second),
 		Addresses: addressStrs(rec.Addresses),
 	})
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
 }
 
-func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
-	reqID := ctx.Value(idKey).(requestID)
+func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
+	reqID := req.Context().Value(idKey).(requestID)
 
 	rawCert, err := certificateBytes(req)
 	if err != nil {
@@ -437,6 +440,9 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 		uri.Host = net.JoinHostPort(host, port)
 		fixed = append(fixed, uri.String())
 	}
+
+	// Remove duplicate addresses
+	fixed = stringutil.UniqueTrimmedStrings(fixed)
 
 	return fixed
 }

@@ -30,7 +30,9 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
@@ -349,6 +351,15 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
+
+	// Handle Prometheus metrics
+	promHttpHandler := promhttp.Handler()
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+		// fetching metrics counts as an event, for the purpose of whether
+		// we should prepare folder summaries etc.
+		s.fss.OnEventRequest()
+		promHttpHandler.ServeHTTP(w, req)
+	})
 
 	guiCfg := s.cfg.GUI()
 
@@ -712,6 +723,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
+		"extra":       build.Extra,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 		"isBeta":      build.IsBeta,
@@ -721,6 +733,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 		"tags":        build.TagsList(),
 		"stamp":       build.Stamp,
 		"user":        build.User,
+		"container":   incontainer.Detect(),
 	})
 }
 
@@ -773,9 +786,9 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")    // empty means all folders
-	var deviceStr = qs.Get("device") // empty means local device ID
+	qs := r.URL.Query()
+	folder := qs.Get("folder")    // empty means all folders
+	deviceStr := qs.Get("device") // empty means local device ID
 
 	// We will check completion status for either the local device, or a
 	// specific given device ID.
@@ -812,14 +825,14 @@ func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) postDBOverride(_ http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
 	go s.model.Override(folder)
 }
 
 func (s *service) postDBRevert(_ http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
 	go s.model.Revert(folder)
 }
 
@@ -1013,7 +1026,7 @@ func (s *service) postSystemRestart(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
+	qs := r.URL.Query()
 	folder := qs.Get("folder")
 
 	if len(folder) > 0 {
@@ -1208,8 +1221,21 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 			l.Warnln("Support bundle: failed to serialize usage-reporting.json.txt", err)
 		} else {
 			files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
-
 		}
+	}
+
+	// Metrics data as text
+	buf := bytes.NewBuffer(nil)
+	wr := bufferedResponseWriter{Writer: buf}
+	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
+	files = append(files, fileEntry{name: "metrics.txt", data: buf.Bytes()})
+
+	// Connection data as JSON
+	connStats := s.model.ConnectionStats()
+	if connStatsJSON, err := json.MarshalIndent(connStats, "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to serialize connection-stats.json.txt", err)
+	} else {
+		files = append(files, fileEntry{name: "connection-stats.json.txt", data: connStatsJSON})
 	}
 
 	// Heap and CPU Proofs as a pprof extension
@@ -1241,7 +1267,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	zipFilePath := filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), zipFileName)
 
 	// Write buffer zip to local zip file (back up)
-	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0o600); err != nil {
 		l.Warnln("Support bundle: support bundle zip could not be created:", err)
 	}
 
@@ -1297,7 +1323,6 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	} else {
 		sendJSON(w, r)
 	}
-
 }
 
 func (*service) getRandomString(w http.ResponseWriter, r *http.Request) {
@@ -1495,8 +1520,8 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 
 func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var qs = r.URL.Query()
-		var deviceStr = qs.Get("device")
+		qs := r.URL.Query()
+		deviceStr := qs.Get("device")
 
 		var msg string
 		var status int
@@ -1571,8 +1596,8 @@ func (*service) getHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (*service) getQR(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var text = qs.Get("text")
+	qs := r.URL.Query()
+	text := qs.Get("text")
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
 		http.Error(w, "Invalid", http.StatusInternalServerError)
@@ -1590,7 +1615,7 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
 	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if _, ok := s.model.Connection(device); ok {
+			if s.model.ConnectedTo(device) {
 				comp, err := s.model.Completion(device, folder.ID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1653,7 +1678,6 @@ func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 	page, perpage := getPagingParams(qs)
 
 	errors, err := s.model.FolderErrors(folder)
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -1685,7 +1709,21 @@ func (*service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	var fsType fs.FilesystemType
 	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
-	sendJSON(w, browseFiles(current, fsType))
+	sendJSON(w, browse(fsType, current))
+}
+
+func browse(fsType fs.FilesystemType, current string) []string {
+	if current == "" {
+		return browseRoots(fsType)
+	}
+
+	parent, base := parentAndBase(current)
+	ffs := fs.NewFilesystem(fsType, parent)
+	files := browseFiles(ffs, base)
+	for i := range files {
+		files[i] = filepath.Join(parent, files[i])
+	}
+	return files
 }
 
 const (
@@ -1706,14 +1744,18 @@ func checkPrefixMatch(s, prefix string) int {
 	return noMatch
 }
 
-func browseFiles(current string, fsType fs.FilesystemType) []string {
-	if current == "" {
-		filesystem := fs.NewFilesystem(fsType, "")
-		if roots, err := filesystem.Roots(); err == nil {
-			return roots
-		}
-		return nil
+func browseRoots(fsType fs.FilesystemType) []string {
+	filesystem := fs.NewFilesystem(fsType, "")
+	if roots, err := filesystem.Roots(); err == nil {
+		return roots
 	}
+
+	return nil
+}
+
+// parentAndBase returns the parent directory and the remaining base of the
+// path. The base may be empty if the path ends with a path separator.
+func parentAndBase(current string) (string, string) {
 	search, _ := fs.ExpandTilde(current)
 	pathSeparator := string(fs.PathSeparator)
 
@@ -1729,24 +1771,27 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 		searchFile = filepath.Base(search)
 	}
 
-	fs := fs.NewFilesystem(fsType, searchDir)
+	return searchDir, searchFile
+}
 
-	subdirectories, _ := fs.DirNames(".")
+func browseFiles(ffs fs.Filesystem, search string) []string {
+	subdirectories, _ := ffs.DirNames(".")
+	pathSeparator := string(fs.PathSeparator)
 
 	exactMatches := make([]string, 0, len(subdirectories))
 	caseInsMatches := make([]string, 0, len(subdirectories))
 
 	for _, subdirectory := range subdirectories {
-		info, err := fs.Stat(subdirectory)
+		info, err := ffs.Stat(subdirectory)
 		if err != nil || !info.IsDir() {
 			continue
 		}
 
-		switch checkPrefixMatch(subdirectory, searchFile) {
+		switch checkPrefixMatch(subdirectory, search) {
 		case matchExact:
-			exactMatches = append(exactMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+			exactMatches = append(exactMatches, subdirectory+pathSeparator)
 		case matchCaseIns:
-			caseInsMatches = append(caseInsMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+			caseInsMatches = append(caseInsMatches, subdirectory+pathSeparator)
 		}
 	}
 
@@ -1826,6 +1871,7 @@ func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 		"localFlags":    f.FileLocalFlags(),
 		"platform":      f.PlatformData(),
 		"inodeChange":   f.InodeChangeTime(),
+		"blocksHash":    f.FileBlocksHash(),
 	}
 	if f.HasPermissionBits() {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
@@ -1844,13 +1890,7 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 }
 
 func dirNames(dir string) []string {
-	fd, err := os.Open(dir)
-	if err != nil {
-		return nil
-	}
-	defer fd.Close()
-
-	fis, err := fd.Readdir(-1)
+	fis, err := os.ReadDir(dir)
 	if err != nil {
 		return nil
 	}
@@ -2026,4 +2066,13 @@ func httpError(w http.ResponseWriter, err error) {
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+type bufferedResponseWriter struct {
+	io.Writer
+}
+
+func (w bufferedResponseWriter) WriteHeader(int) {}
+func (w bufferedResponseWriter) Header() http.Header {
+	return http.Header{}
 }

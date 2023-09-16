@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+const Codename = "Gold Grasshopper"
+
 var (
 	// Injected by build script
 	Version = "unknown-dev"
@@ -26,15 +28,13 @@ var (
 	Stamp   = "0"
 	Tags    = ""
 
-	// Static
-	Codename = "Fermium Flea"
-
 	// Set by init()
 	Date        time.Time
 	IsRelease   bool
 	IsCandidate bool
 	IsBeta      bool
 	LongVersion string
+	Extra       string
 
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 
@@ -45,6 +45,8 @@ var (
 		"STNOUPGRADE",
 	}
 )
+
+const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-. "
 
 func init() {
 	if Version != "unknown-dev" {
@@ -75,6 +77,7 @@ func setBuildData() {
 	IsRelease = exp.MatchString(Version)
 	IsCandidate = strings.Contains(Version, "-rc.")
 	IsBeta = strings.Contains(Version, "-")
+	Extra = filterString(os.Getenv("STVERSIONEXTRA"), versionExtraAllowedChars)
 
 	stamp, _ := strconv.Atoi(Stamp)
 	Date = time.Unix(int64(stamp), 0)
@@ -103,7 +106,22 @@ func TagsList() []string {
 			tags = append(tags, strings.ToLower(envVar))
 		}
 	}
+	if Extra != "" {
+		tags = append(tags, Extra)
+	}
 
 	sort.Strings(tags)
 	return tags
+}
+
+// filterString returns a copy of s with all characters not in allowedChars
+// removed.
+func filterString(s, allowedChars string) string {
+	var res strings.Builder
+	for _, c := range s {
+		if strings.ContainsRune(allowedChars, c) {
+			res.WriteRune(c)
+		}
+	}
+	return res.String()
 }

@@ -8,8 +8,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -30,6 +32,44 @@ var (
 	clients    = make(map[string]*raven.Client)
 	clientsMut sync.Mutex
 )
+
+type sentryService struct {
+	dsn   string
+	inbox chan sentryRequest
+}
+
+type sentryRequest struct {
+	reportID string
+	data     []byte
+}
+
+func (s *sentryService) Serve(ctx context.Context) {
+	for {
+		select {
+		case req := <-s.inbox:
+			pkt, err := parseCrashReport(req.reportID, req.data)
+			if err != nil {
+				log.Println("Failed to parse crash report:", err)
+				continue
+			}
+			if err := sendReport(s.dsn, pkt, req.reportID); err != nil {
+				log.Println("Failed to send crash report:", err)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *sentryService) Send(reportID string, data []byte) bool {
+	select {
+	case s.inbox <- sentryRequest{reportID, data}:
+		return true
+	default:
+		return false
+	}
+}
 
 func sendReport(dsn string, pkt *raven.Packet, userID string) error {
 	pkt.Interfaces = append(pkt.Interfaces, &raven.User{ID: userID})
@@ -175,7 +215,13 @@ func crashReportFingerprint(message string) []string {
 }
 
 // syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC [foo, bar]
-var longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
+// or, somewhere along the way the "+" in the version tag disappeared:
+// syncthing v1.23.7-dev.26.gdf7b56ae.dirty-stversionextra "Fermium Flea" (go1.20.5 darwin-arm64) jb@ok.kastelo.net 2023-07-12 06:55:26 UTC [Some Wrapper, purego, stnoupgrade]
+var (
+	longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
+	gitExtraRE    = regexp.MustCompile(`\.\d+\.g[0-9a-f]+`) // ".1.g6aaae618"
+	gitExtraSepRE = regexp.MustCompile(`[.-]`)              // dot or dash
+)
 
 type version struct {
 	version  string   // "v1.1.4-rc.1+30-g6aaae618-dirty-crashrep"
@@ -217,10 +263,21 @@ func parseVersion(line string) (version, error) {
 		builder:  m[6],
 	}
 
-	parts := strings.Split(v.version, "+")
+	// Split the version tag into tag and commit. This is old style
+	// v1.2.3-something.4+11-g12345678 or newer with just dots
+	// v1.2.3-something.4.11.g12345678 or v1.2.3-dev.11.g12345678.
+	parts := []string{v.version}
+	if strings.Contains(v.version, "+") {
+		parts = strings.Split(v.version, "+")
+	} else {
+		idxs := gitExtraRE.FindStringIndex(v.version)
+		if len(idxs) > 0 {
+			parts = []string{v.version[:idxs[0]], v.version[idxs[0]+1:]}
+		}
+	}
 	v.tag = parts[0]
 	if len(parts) > 1 {
-		fields := strings.Split(parts[1], "-")
+		fields := gitExtraSepRE.Split(parts[1], -1)
 		if len(fields) >= 2 && strings.HasPrefix(fields[1], "g") {
 			v.commit = fields[1][1:]
 		}

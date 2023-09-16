@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Oct 07, 2022" "v1.22.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Sep 07, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -193,7 +193,6 @@ may no longer correspond to the defaults.
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
-        <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
@@ -722,6 +721,7 @@ devices when this is set to \fBtrue\fP\&. See
     <maxRequestKiB>0</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>0</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
 <device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="true" skipIntroductionRemovals="false" introducedBy="">
     <address>tcp://192.0.2.1:22001</address>
@@ -733,6 +733,7 @@ devices when this is set to \fBtrue\fP\&. See
     <maxRequestKiB>65536</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>8384</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
 .ft P
 .fi
@@ -924,6 +925,12 @@ ever sharing any unencrypted data with it.  Every folder shared with that
 device then needs an encryption password set, or must already be of the
 “receive encrypted” type locally.  Refer to the detailed explanation under
 untrusted\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numConnections
+The number of connections to this device. See
+/advanced/device\-numconnections for more information.
 .UNINDENT
 .SH GUI ELEMENT
 .INDENT 0.0
@@ -1141,7 +1148,6 @@ Search filter for user searches.
     <urURL>https://data.syncthing.net/newdata</urURL>
     <urPostInsecurely>false</urPostInsecurely>
     <urInitialDelayS>1800</urInitialDelayS>
-    <restartOnWakeup>true</restartOnWakeup>
     <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
     <upgradeToPreReleases>false</upgradeToPreReleases>
     <keepTemporariesH>24</keepTemporariesH>
@@ -1304,12 +1310,6 @@ the system to stabilize before reporting statistics.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B restartOnWakeup
-Whether to perform a restart of Syncthing when it is detected that we are
-waking from sleep mode (i.e. an unfolding laptop).
-.UNINDENT
-.INDENT 0.0
-.TP
 .B autoUpgradeIntervalH
 Check for a newer version after this many hours. Set to \fB0\fP to disable
 automatic upgrades.
@@ -1337,7 +1337,9 @@ ignores is usually not significant.
 .TP
 .B progressUpdateIntervalS
 How often in seconds the progress of ongoing downloads is made available to
-the GUI.
+the GUI. Set to \fB\-1\fP to disable. Note that when disabled, the detailed
+sync progress for Out of Sync Items which shows how much of each file has
+been reused, copied, and downloaded will not work.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1551,6 +1553,7 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
+        <numConnections>0</numConnections>
     </device>
     <ignores>
         <line>!foo2</line>

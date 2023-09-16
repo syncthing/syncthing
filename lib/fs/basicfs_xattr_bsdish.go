@@ -34,7 +34,7 @@ func listXattr(path string) ([]string, error) {
 		if errors.Is(err, unix.ERANGE) || size == len(buf) {
 			// Buffer is too small. Try again with a zero sized buffer to
 			// get the size, then allocate a buffer of the correct size. We
-			// inlude the size == len(buf) because apparently macOS doesn't
+			// include the size == len(buf) because apparently macOS doesn't
 			// return ERANGE as it should -- no harm done, just an extra
 			// read if we happened to need precisely 1024 bytes on the first
 			// pass.

@@ -13,30 +13,30 @@ import (
 	"strings"
 )
 
-func makeNative(m Model) Model { return nativeModel{m} }
+func makeNative(m rawModel) rawModel { return nativeModel{m} }
 
 type nativeModel struct {
-	Model
+	rawModel
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
+func (m nativeModel) Index(folder string, files []FileInfo) error {
 	files = fixupFiles(files)
-	return m.Model.Index(deviceID, folder, files)
+	return m.rawModel.Index(folder, files)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
+func (m nativeModel) IndexUpdate(folder string, files []FileInfo) error {
 	files = fixupFiles(files)
-	return m.Model.IndexUpdate(deviceID, folder, files)
+	return m.rawModel.IndexUpdate(folder, files)
 }
 
-func (m nativeModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (m nativeModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	if strings.Contains(name, `\`) {
 		l.Warnf("Dropping request for %s, contains invalid path separator", name)
 		return nil, ErrNoSuchFile
 	}
 
 	name = filepath.FromSlash(name)
-	return m.Model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+	return m.rawModel.Request(folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 }
 
 func fixupFiles(files []FileInfo) []FileInfo {

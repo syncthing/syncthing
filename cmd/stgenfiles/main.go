@@ -66,7 +66,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 }
 
 func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
-	src := io.LimitReader(&inifiteReader{fd}, s)
+	src := io.LimitReader(&infiniteReader{fd}, s)
 	dst, err := os.Create(p1)
 	if err != nil {
 		return err
@@ -105,11 +105,11 @@ func readRand(bs []byte) (int, error) {
 	return len(bs), nil
 }
 
-type inifiteReader struct {
+type infiniteReader struct {
 	rd io.ReadSeeker
 }
 
-func (i *inifiteReader) Read(bs []byte) (int, error) {
+func (i *infiniteReader) Read(bs []byte) (int, error) {
 	n, err := i.rd.Read(bs)
 	if err == io.EOF {
 		err = nil

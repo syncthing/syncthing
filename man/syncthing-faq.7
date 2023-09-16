@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Oct 07, 2022" "v1.22.0" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Sep 07, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -72,6 +72,8 @@ syncthing-faq \- Frequently Asked Questions
 \fI\%Does the audit log contain every change?\fP
 .IP \(bu 2
 \fI\%Why does Syncthing connect to this unknown/suspicious address?\fP
+.IP \(bu 2
+\fI\%I am seeing the error message “folder marker missing”. What do I do?\fP
 .UNINDENT
 .IP \(bu 2
 \fI\%Usage\fP
@@ -172,6 +174,9 @@ Windows ACLs (not preserved)
 Devices, FIFOs, and other specials (ignored)
 .IP \(bu 2
 Sparse file sparseness (will become sparse, when supported by the OS & filesystem)
+.IP \(bu 2
+Syncthing internal files and folders (e.g. \fB\&.stfolder\fP, \fB\&.stignore\fP,
+\fB\&.stversions\fP, temporary files, etc.)
 .UNINDENT
 .SS Is synchronization fast?
 .sp
@@ -372,8 +377,43 @@ If you see outgoing connections to odd and unexpected addresses these are
 most likely connections to relay servers\&. Relay servers
 are run by volunteers all over the world. They usually listen on ports 443 or
 22067, though this is controlled by the user running it. You can compare the
-address you are concernced about with \fI\%the current list of active relays\fP <\fBhttps://relays.syncthing.net\fP>\&. Relays do not and can not see the data
+address you are concerned about with \fI\%the current list of active relays\fP <\fBhttps://relays.syncthing.net\fP>\&. Relays do not and can not see the data
 transmitted via them.
+.SS I am seeing the error message “folder marker missing”. What do I do?
+.sp
+Syncthing uses a specific marker usually called \fB\&.stfolder\fP to determine whether
+a folder is healthy. This is a safety check to ensure that your folder is properly
+readable and present on disk. For example, if you remove a USB drive from your computer
+or unmount a filesystem, then syncthing must know whether you have really deleted \fBall\fP of
+your files. Therefore, syncthing always checks that the \fB\&.stfolder\fP is present.
+.sp
+When this error appears, syncthing assumes that the folder has encountered some type of error
+and will stop syncing it until the \fB\&.stfolder\fP reappears. Once that happens, all changes made
+to the folder locally will be synced (i.e. missing files will be considered deletions).
+.INDENT 0.0
+.IP \(bu 2
+If you get this error message, check the folder in question on your storage. If you have
+unmounted the folder (or a parent of it), you must remount it for syncthing to resume syncing
+this folder.
+.IP \(bu 2
+If you have moved the folder, you must either move it back to its original location, or remove the
+folder from within the syncthing UI and re\-add it at its new location.
+.IP \(bu 2
+If the folder is present on disk, with all of its children files and directories, but the \fB\&.stfolder\fP
+is still missing:
+.sp
+It is possible that a file cleaning software has removed the \fB\&.stfolder\fP\&. Some software
+removes empty folders, and the \fB\&.stfolder\fP is often empty. This happens particularly often on Android.
+To remediate, recreate the \fB\&.stfolder\fP and add a dummy file in it, or add an exception to your
+cleaning software.
+.UNINDENT
+.sp
+If you are still unsure what has happened, you can remove the folder from within the syncthing UI and re\-add it
+at the same location. This causes syncthing to attempt an automatic re\-creation of the \fB\&.stfolder\fP\&. Next,
+it will also reset the database state of this folder. It will be considered a “new” folder, meaning that its files
+will be merged with files from remote devices.
+.sp
+Also see the \fI\%marker FAQ\fP for more information about the folder marker.
 .SH USAGE
 .SS What if there is a conflict?
 .sp
