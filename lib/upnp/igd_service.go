@@ -74,6 +74,10 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 	// and pinhole it if so. It's not an error if not though, so don't return
 	// an error if one doesn't occur.
 	if !intAddr.IP.IsUnspecified() {
+		if intAddr.IP.To4() != nil {
+			l.Debugf("Listener is IPv4. Not using gateway %s", s.ID())
+			return nil, nil
+		}
 		for _, addr := range addrs {
 			ip, _, err := net.ParseCIDR(addr.String())
 			if err != nil {
@@ -90,6 +94,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 				}, nil
 			}
 
+			l.Debugf("Listener IP %s not on interface for gateway %s", intAddr.IP, s.ID())
 			return nil, nil
 		}
 	}
