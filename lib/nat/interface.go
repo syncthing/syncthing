@@ -22,7 +22,7 @@ const (
 type IPVersion int8
 
 const (
-	DualStack = iota
+	IPvAny = iota
 	IPv4Only
 	IPv6Only
 )

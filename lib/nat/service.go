@@ -248,7 +248,6 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
-			l.Debugf("Renewing %s -> %v open port on %s", mapping, extAddrs, id)
 
 			if mapping.ipVersion == IPv4Only && nat.IsIPv6GatewayDevice() {
 				l.Debugf("Skipping renew for %s because listener is IPv4-only", nat.ID())
@@ -260,6 +259,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
+			l.Debugf("Renewing %s -> %v open port on %s", mapping, extAddrs, id)
 			// extAddrs either contains one IPv4 address, or possibly several
 			// IPv6 addresses all using the same port.  Therefore the first
 			// entry always has the external port.

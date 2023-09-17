@@ -83,7 +83,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	} else if t.uri.Scheme == "tcp6" {
 		ipVersion = nat.IPv6Only
 	} else {
-		ipVersion = nat.DualStack
+		ipVersion = nat.IPvAny
 	}
 	mapping := t.natService.NewMapping(nat.TCP, ipVersion, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func() {

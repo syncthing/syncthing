@@ -200,7 +200,7 @@ func main() {
 	} else if proto[len(proto)-1] == '6' {
 		ipVersion = nat.IPv6Only
 	} else {
-		ipVersion = nat.DualStack
+		ipVersion = nat.IPvAny
 	}
 	mapping := mapping{natSvc.NewMapping(nat.TCP, ipVersion, addr.IP, addr.Port)}
 
