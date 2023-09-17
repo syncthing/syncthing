@@ -95,8 +95,8 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 			}
 
 			l.Debugf("Listener IP %s not on interface for gateway %s", intAddr.IP, s.ID())
-			return nil, nil
 		}
+		return nil, nil
 	}
 
 	// Otherwise, try to get a pinhole for all IPs, since we are listening on all
