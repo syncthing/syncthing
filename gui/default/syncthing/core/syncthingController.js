@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate, percentFilter, binaryFilter) {
         'use strict';
 
         // private/helper definitions
@@ -1100,32 +1100,32 @@ angular.module('syncthing.core')
         $scope.deviceStatusIcon = function(cfg) {
             switch ($scope.deviceStatus(cfg)) {
                 case 'insync':
-                    return 'fa fa-fw fa-check';
+                    return 'fa-check';
                 case 'unused-insync':
-                    return 'fa fa-fw fa-unlink';
+                    return 'fa-unlink';
                 case 'syncing':
-                    return 'fa fa-fw fa-sync';
+                    return 'fa-sync';
                 case 'paused':
-                    return 'fa fa-fw fa-pause';
+                    return 'fa-pause';
                 case 'unused-paused':
-                    return 'fa fa-fw fa-unlink';
+                    return 'fa-unlink';
                 case 'disconnected':
-                    return 'fa fa-fw fa-power-off';
+                    return 'fa-power-off';
                 case 'disconnected-inactive':
-                    return 'fa fa-fw fa-power-off';
+                    return 'fa-power-off';
                 case 'unused-disconnected':
-                    return 'fa fa-fw fa-unlink';
+                    return 'fa-unlink';
             }
         };
 
-        $scope.deviceStatusText = function(cfg) {
-            switch ($scope.deviceStatus(cfg)) {
+        $scope.deviceStatusText = function(device) {
+            switch ($scope.deviceStatus(device)) {
                 case 'insync':
                     return $translate.instant('Up to Date');
                 case 'unused-insync':
                     return $translate.instant('Connected (Unused)');
                 case 'syncing':
-                    return $translate.instant('Syncing');
+                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' + binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
                 case 'paused':
                     return $translate.instant('Paused');
                 case 'unused-paused':
@@ -1142,42 +1142,42 @@ angular.module('syncthing.core')
         $scope.folderStatusIcon = function(cfg) {
             switch ($scope.folderStatus(cfg)) {
                 case 'paused':
-                    return 'fa fa-fw fa-pause';
+                    return 'fa-pause';
                 case 'unknown':
-                    return 'fa fa-fw fa-question-circle';
+                    return 'fa-question-circle';
                 case 'unshared':
-                    return 'fa fa-fw fa-unlink';
+                    return 'fa-unlink';
                 case 'scan-waiting':
-                    return 'fa fa-fw fa-hourglass-half';
+                    return 'fa-hourglass-half';
                 case 'cleaning':
-                    return 'fa fa-fw fa-recycle';
+                    return 'fa-recycle';
                 case 'clean-waiting':
-                    return 'fa fa-fw fa-hourglass-half';
+                    return 'fa-hourglass-half';
                 case 'stopped':
-                    return 'fa fa-fw fa-stop';
+                    return 'fa-stop';
                 case 'scanning':
-                    return 'fa fa-fw fa-search';
+                    return 'fa-search';
                 case 'idle':
-                    return 'fa fa-fw fa-check';
+                    return 'fa-check';
                 case 'localadditions':
-                    return 'fa fa-fw fa-check';
+                    return 'fa-check';
                 case 'sync-waiting':
-                    return 'fa fa-fw fa-hourglass-half';
+                    return 'fa-hourglass-half';
                 case 'sync-preparing':
-                    return 'fa fa-fw fa-hourglass-half';
+                    return 'fa-hourglass-half';
                 case 'syncing':
-                    return 'fa fa-fw fa-sync';
+                    return 'fa-sync';
                 case 'outofsync':
-                    return 'fa fa-fw fa-exclamation-circle';
+                    return 'fa-exclamation-circle';
                 case 'faileditems':
-                    return 'fa fa-fw fa-exclamation-circle';
+                    return 'fa-exclamation-circle';
                 case 'localunencrypted':
-                    return 'fa fa-fw fa-exclamation-circle';
+                    return 'fa-exclamation-circle';
             }
         };
 
-        $scope.folderStatusText = function(cfg) {
-            switch ($scope.folderStatus(cfg)) {
+        $scope.folderStatusText = function(folder) {
+            switch ($scope.folderStatus(folder)) {
                 case 'paused':
                     return $translate.instant('Paused');
                 case 'unknown':
@@ -1193,7 +1193,11 @@ angular.module('syncthing.core')
                 case 'stopped':
                     return $translate.instant('Stopped');
                 case 'scanning':
-                    return $translate.instant('Scanning');
+                    var text = $translate.instant('Scanning');
+                    if ($scope.scanPercentage(folder.id) !== undefined) {
+                        text += ' (' + percentFilter($scope.scanPercentage(folder.id)) + ')';
+                    }
+                    return text;
                 case 'idle':
                     return $translate.instant('Up to Date');
                 case 'localadditions':
@@ -1203,7 +1207,7 @@ angular.module('syncthing.core')
                 case 'sync-preparing':
                     return $translate.instant('Preparing to Sync');
                 case 'syncing':
-                    return $translate.instant('Syncing');
+                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.syncPercentage(folder.id)) + ', ' + binaryFilter($scope.model[folder.id].needBytes) + 'B)';
                 case 'outofsync':
                     return $translate.instant('Out of Sync');
                 case 'faileditems':

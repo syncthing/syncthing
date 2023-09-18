@@ -358,38 +358,9 @@
                     <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
                     <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
                   </div>
-                  <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                    <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                    <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs" aria-label="{{'Unknown' | translate}}"><i class="fas fa-fw fa-question-circle"></i></span></span>
-                    <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs" aria-label="{{'Unshared' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="scan-waiting"><span class="hidden-xs" translate>Waiting to Scan</span><span class="visible-xs" aria-label="{{'Waiting to Scan' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
-                    <span ng-switch-when="cleaning"><span class="hidden-xs" translate>Cleaning Versions</span><span class="visible-xs" aria-label="{{'Cleaning Versions' | translate}}"><i class="fas fa-fw fa-recycle"></i></span></span>
-                    <span ng-switch-when="clean-waiting"><span class="hidden-xs" translate>Waiting to Clean</span><span class="visible-xs" aria-label="{{'Waiting to Clean' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
-                    <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs" aria-label="{{'Stopped' | translate}}"><i class="fas fa-fw fa-stop"></i></span></span>
-                    <span ng-switch-when="scanning">
-                      <span class="hidden-xs" translate>Scanning</span>
-                      <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
-                        ({{scanPercentage(folder.id) | percent}})
-                      </span>
-                      <span class="visible-xs" aria-label="{{'Scanning' | translate}}"><i class="fas fa-fw fa-search"></i></span>
-                    </span>
-                    <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="localadditions"><span class="hidden-xs" translate>Local Additions</span><span class="visible-xs" aria-label="{{'Local Additions' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="sync-waiting">
-                      <span class="hidden-xs" translate>Waiting to Sync</span>
-                      <span class="visible-xs" aria-label="{{'Waiting to Sync' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span>
-                    </span>
-                    <span ng-switch-when="sync-preparing">
-                      <span class="hidden-xs" translate>Preparing to Sync</span>
-                      <span class="visible-xs" aria-label="{{'Preparing to Sync' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span>
-                    </span>
-                    <span ng-switch-when="syncing">
-                      <span class="hidden-xs" translate>Syncing</span>
-                      <span>({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
-                    </span>
-                    <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
-                    <span ng-switch-when="faileditems"><span class="hidden-xs" translate>Failed Items</span><span class="visible-xs" aria-label="{{'Failed Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
-                    <span ng-switch-when="localunencrypted"><span class="hidden-xs">{{'Unexpected Items' | translate}}</span><span class="visible-xs" aria-label="{{'Unexpected Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
+                  <div class="panel-status pull-right text-{{folderClass(folder)}}">
+                    <span class="hidden-xs">{{folderStatusText(folder)}}</span>
+                    <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -402,9 +373,9 @@
                     <tbody>
                       <tr class="visible-xs">
                         <th>
-                          <span class="{{ folderStatusIcon(folder) }}"></span>&nbsp;<span translate>Folder Status</span>
+                          <span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span>
                         </th>
-                        <td class="text-right"> {{ folderStatusText(folder) }}</td>
+                        <td class="text-right">{{folderStatusText(folder)}}</td>
                       </tr>
                       <tr ng-show="folder.label != undefined && folder.label.length > 0">
                         <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
@@ -765,17 +736,9 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <span class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel">
-                      <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                      <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                      <span ng-switch-when="syncing">
-                        <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
-                      </span>
-                      <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                      <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                      <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                      <span ng-switch-when="disconnected-inactive"><span class="hidden-xs" translate>Disconnected (Inactive)</span><span class="visible-xs" aria-label="{{'Disconnected (Inactive)' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                      <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                    <span class="remote-devices-panel">
+                      <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
+                      <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
                     </span>
                     <span class="remote-devices-panel">
                       <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
@@ -790,9 +753,9 @@
                     <tbody>
                       <tr class="visible-xs">
                         <th>
-                          <span class="{{ deviceStatusIcon(deviceCfg) }}"></span>&nbsp;<span translate>Device Status</span>
+                          <span class="fa fa-fw {{deviceStatusIcon(deviceCfg)}}"></span>&nbsp;<span translate>Device Status</span>
                         </th>
-                        <td class="text-right">{{ deviceStatusText(deviceCfg) }}</td>
+                        <td class="text-right">{{deviceStatusText(deviceCfg)}}</td>
                       </tr>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
