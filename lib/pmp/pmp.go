@@ -122,8 +122,13 @@ func (*wrapper) AddPinhole(_ context.Context, _ nat.Protocol, _ nat.Address, _ t
 }
 
 func (*wrapper) IsIPv6GatewayDevice() bool {
-	// NAT-PMP gateways should always try to create port mappings and not pinholes.
+	// NAT-PMP gateways should always try to create port mappings and not pinholes
+	// since NAT-PMP doesn't support IPv6.
 	return false
+}
+
+func (*wrapper) SupportsIPVersion(version nat.IPVersion) bool {
+	return version == nat.IPvAny || version == nat.IPv4Only
 }
 
 func (w *wrapper) GetExternalIPv4Address(ctx context.Context) (net.IP, error) {

@@ -248,14 +248,8 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 				continue
 			}
 
-
-			if mapping.ipVersion == IPv4Only && nat.IsIPv6GatewayDevice() {
-				l.Debugf("Skipping renew for %s because listener is IPv4-only", nat.ID())
-				continue
-			}
-
-			if mapping.ipVersion == IPv6Only && !nat.IsIPv6GatewayDevice() {
-				l.Debugf("Skipping renew for %s because listener is IPv6-only", nat.ID())
+			if !nat.SupportsIPVersion(mapping.ipVersion) {
+				l.Debugf("Skipping renew on gateway %s because it doesn't match the listener address family", nat.ID())
 				continue
 			}
 
@@ -310,13 +304,8 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		l.Debugf("Trying to open port %s on %s", mapping, id)
 
-		if mapping.ipVersion == IPv4Only && nat.IsIPv6GatewayDevice() {
-			l.Debugf("Skipping pinholing for %s because listener is IPv4-only", nat.ID())
-			continue
-		}
-
-		if mapping.ipVersion == IPv6Only && !nat.IsIPv6GatewayDevice() {
-			l.Debugf("Skipping port mapping for %s because listener is IPv6-only", nat.ID())
+		if !nat.SupportsIPVersion(mapping.ipVersion) {
+			l.Debugf("Skipping firewall traversal on gateway %s because it doesn't match the listener address family", nat.ID())
 			continue
 		}
 

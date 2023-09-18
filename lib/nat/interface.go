@@ -34,4 +34,5 @@ type Device interface {
 	AddPinhole(ctx context.Context, protocol Protocol, addr Address, duration time.Duration) ([]net.IP, error)
 	GetExternalIPv4Address(ctx context.Context) (net.IP, error)
 	IsIPv6GatewayDevice() bool
+	SupportsIPVersion(version IPVersion) bool
 }

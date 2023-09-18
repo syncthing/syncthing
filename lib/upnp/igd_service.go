@@ -259,6 +259,18 @@ func (s *IGDService) IsIPv6GatewayDevice() bool {
 	return s.URN == urnWANIPv6FirewallControlV1
 }
 
+func (s *IGDService) SupportsIPVersion(version nat.IPVersion) bool {
+	if version == nat.IPvAny {
+		return true
+	} else if version == nat.IPv6Only {
+		return s.IsIPv6GatewayDevice()
+	} else if version == nat.IPv4Only {
+		return !s.IsIPv6GatewayDevice()
+	}
+
+	return true
+}
+
 // ID returns a unique ID for the service
 func (s *IGDService) ID() string {
 	return s.UUID + "/" + s.Device.FriendlyName + "/" + s.ServiceID + "/" + s.URN + "/" + s.URL
