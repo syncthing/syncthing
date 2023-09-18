@@ -764,7 +764,7 @@ jobs:
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ${{ matrix.dockerfile }}
