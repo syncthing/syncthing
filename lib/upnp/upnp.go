@@ -618,7 +618,6 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 	return resp, nil
 }
 
-
 func interfaceHasGUAIPv6(intf net.Interface) (bool, error) {
 	addrs, err := intf.Addrs()
 	if err != nil {
@@ -639,6 +638,7 @@ func interfaceHasGUAIPv6(intf net.Interface) (bool, error) {
 
 	return false, nil
 }
+
 type soapGetExternalIPAddressResponseEnvelope struct {
 	XMLName xml.Name
 	Body    soapGetExternalIPAddressResponseBody `xml:"Body"`
