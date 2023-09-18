@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Sep 07, 2023" "v1.24.0" "Syncthing"
+.TH "SYNCTHING" "1" "Sep 17, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -99,7 +99,7 @@ Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .INDENT 0.0
 .TP
 .B \-\-auditfile=<file|\-|\-\->
-Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for
+Use specified file or stream (\fB\(dq\-\(dq\fP for stdout, \fB\(dq\-\-\(dq\fP for stderr) for
 audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
@@ -170,7 +170,7 @@ together with \fB\-\-config\fP\&.
 .INDENT 0.0
 .TP
 .B \-\-logfile=<filename>
-Set destination filename for logging (use \fB"\-"\fP for stdout, which is the
+Set destination filename for logging (use \fB\(dq\-\(dq\fP for stdout, which is the
 default option).
 .UNINDENT
 .INDENT 0.0
@@ -363,7 +363,7 @@ it is validated and updated to the latest configuration schema, including adding
 default values for any new options.
 .sp
 The \fBdecrypt\fP subcommand is used in conjunction with untrusted (encrypted)
-devices, see the relevant section on decryption for
+devices, see the relevant section on \fI\%decryption\fP for
 details.  It does not depend on Syncthing to be running, but works on offline
 data.
 .sp

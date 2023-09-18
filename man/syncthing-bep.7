@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-BEP" "7" "Sep 07, 2023" "v1.24.0" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Sep 17, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
@@ -389,7 +389,7 @@ The \fBencryption_password_token\fP field contains a token derived from the pass
 used to encrypt data sent to this device. If the device is the same as the
 device sending the message, it signifies that the device itself has encrypted
 data that was encrypted with the given token. It is empty or missing if there is
-no encryption. See untrusted for details on the encryption scheme.
+no encryption. See \fI\%Untrusted Device Encryption\fP for details on the encryption scheme.
 .SS Index and Index Update
 .sp
 The Index and Index Update messages define the contents of the senders
