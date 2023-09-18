@@ -123,26 +123,14 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
 		// request arrive at the same time.
 		go func(iface net.Interface) {
-			nonLLIPv6Found := false
-			addrs, err := iface.Addrs()
-
-			if err == nil {
-				for _, addr := range addrs {
-					ip, _, err := net.ParseCIDR(addr.String())
-					// Use the same condition that igd_service.go uses so we only discover
-					// IPv6 gateways if we have a "useful" IPv6 address.
-					if err == nil && ip.IsGlobalUnicast() && !ip.IsPrivate() && ip.To4() == nil {
-						nonLLIPv6Found = true
-						break
-					}
-				}
-			}
-
-			// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
-			// + IPv6 is not standardized and will lead to duplicates on routers.
-			// Only do this when a non-link-local IPv6 is available. if we can't
-			// enumerate the interface, the IPv6 code will not work anyway
-			if nonLLIPv6Found {
+			hasGUA, err := interfaceHasGUAIPv6(iface)
+			if err != nil {
+				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", iface.Name, err)
+			} else if hasGUA {
+				// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
+				// + IPv6 is not standardized and will lead to duplicates on routers.
+				// Only do this when a non-link-local IPv6 is available. if we can't
+				// enumerate the interface, the IPv6 code will not work anyway
 				discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
 			}
 
@@ -630,6 +618,27 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 	return resp, nil
 }
 
+
+func interfaceHasGUAIPv6(intf net.Interface) (bool, error) {
+	addrs, err := intf.Addrs()
+	if err != nil {
+		return false, err
+	}
+
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			return false, err
+		}
+
+		// IsGlobalUnicast returns true for ULAs, so check for those separately.
+		if ip.To4() == nil && ip.IsGlobalUnicast() && !ip.IsPrivate() {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
 type soapGetExternalIPAddressResponseEnvelope struct {
 	XMLName xml.Name
 	Body    soapGetExternalIPAddressResponseBody `xml:"Body"`
