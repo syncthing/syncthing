@@ -123,6 +123,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
 		// request arrive at the same time.
 		go func(iface net.Interface) {
+			defer wg.Done()
 			hasGUA, err := interfaceHasGUAIPv6(iface)
 			if err != nil {
 				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", iface.Name, err)
@@ -138,7 +139,6 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 			for _, deviceType := range []string{urnIgdV2, urnIgdV1} {
 				discover(ctx, &iface, deviceType, timeout, resultChan, false)
 			}
-			wg.Done()
 		}(intf)
 	}
 
