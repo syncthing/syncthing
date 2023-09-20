@@ -900,6 +900,10 @@
                         <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
                         <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                       </tr>
+                      <tr ng-if="deviceCfg.autoAcceptFolders">
+                        <th><span class="fa fa-fw fa-level-down"></span>&nbsp;<span translate>Auto Accept</span></th>
+                        <td translate class="text-right">Yes</td>
+                      </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
                         <td class="text-right">
