@@ -1129,6 +1129,11 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 		dialTargetBuckets[tgt.priority] = append(dialTargetBuckets[tgt.priority], tgt)
 	}
 
+	// Sort targets, preferring IPv6
+	for _, tgts := range dialTargetBuckets {
+		sort.Sort(targetsByIP(tgts))
+	}
+
 	// Get all available priorities
 	priorities := make([]int, 0, len(dialTargetBuckets))
 	for prio := range dialTargetBuckets {
@@ -1473,4 +1478,52 @@ func max[T constraints.Ordered](a, b T) T {
 		return a
 	}
 	return b
+}
+
+type targetsByIP []dialTarget
+
+func (tgts targetsByIP) Len() int {
+	return len(tgts)
+}
+
+func (tgts targetsByIP) Swap(i, j int) {
+	tgts[i], tgts[j] = tgts[j], tgts[i]
+}
+
+func (tgts targetsByIP) Less(i, j int) bool {
+	return ipPrio(tgts[i].addr) < ipPrio(tgts[j].addr)
+}
+
+// Returns a sort key based on the IP address family of the address.
+//   - IPv6			-> 0
+//   - Domain name	-> 1
+//   - IPv4			-> 2
+//   - Unparsable	-> 3
+func ipPrio(addr string) int {
+	url, err := url.Parse(addr)
+	if err != nil {
+		// broken address
+		return 3
+	}
+
+	host, _, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		// broken address
+		return 3
+	}
+
+	// Remove zone
+	host, _, _ = strings.Cut(host, "%")
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// DNS name; might still have an AAAA record
+		return 1
+	}
+
+	if ip.To4() != nil {
+		return 2
+	}
+
+	return 0
 }
