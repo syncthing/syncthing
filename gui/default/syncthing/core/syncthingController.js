@@ -1129,11 +1129,11 @@ angular.module('syncthing.core')
                     return $translate.instant('Paused');
                 case 'syncing':
                     text = $translate.instant('Syncing') +
-                           ' (' +
-                           percentFilter($scope.completion[device.deviceID]._total) +
-                           ', ' +
-                           binaryFilter($scope.completion[device.deviceID]._needBytes) +
-                           'B)';
+                    ' (' +
+                    percentFilter($scope.completion[device.deviceID]._total) +
+                    ', ' +
+                    binaryFilter($scope.completion[device.deviceID]._needBytes) +
+                    'B)';
                     return text;
                 case 'unused-disconnected':
                     return $translate.instant('Disconnected (Unused)');
@@ -1204,19 +1204,19 @@ angular.module('syncthing.core')
                     text = $translate.instant('Scanning');
                     if ($scope.scanPercentage(folder.id) !== undefined) {
                         text += ' (' +
-                                percentFilter($scope.scanPercentage(folder.id)) +
-                                ')';
+                        percentFilter($scope.scanPercentage(folder.id)) +
+                        ')';
                     }
                     return text;
                 case 'stopped':
                     return $translate.instant('Stopped');
                 case 'syncing':
                     text = $translate.instant('Syncing') +
-                           ' (' + 
-                           percentFilter($scope.syncPercentage(folder.id)) + 
-                           ', ' +
-                           binaryFilter($scope.model[folder.id].needBytes) +
-                           'B)';
+                    ' (' + 
+                    percentFilter($scope.syncPercentage(folder.id)) + 
+                    ', ' +
+                    binaryFilter($scope.model[folder.id].needBytes) +
+                    'B)';
                     return text;
                 case 'unknown':
                     return $translate.instant('Unknown');
