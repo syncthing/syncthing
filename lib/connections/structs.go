@@ -126,7 +126,7 @@ func (c internalConn) Crypto() string {
 
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
-	ip, err := osutil.IPFromAddr(c.LocalAddr())
+	ip, err := osutil.IPFromAddr(c.RemoteAddr())
 	if err != nil {
 		return transport
 	}
