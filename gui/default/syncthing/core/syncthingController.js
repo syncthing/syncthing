@@ -1099,121 +1099,122 @@ angular.module('syncthing.core')
 
         $scope.deviceStatusIcon = function(cfg) {
             switch ($scope.deviceStatus(cfg)) {
-                case 'insync':
-                    return 'fa-check';
-                case 'unused-insync':
-                    return 'fa-unlink';
-                case 'syncing':
-                    return 'fa-sync';
-                case 'paused':
-                    return 'fa-pause';
-                case 'unused-paused':
-                    return 'fa-unlink';
                 case 'disconnected':
-                    return 'fa-power-off';
                 case 'disconnected-inactive':
                     return 'fa-power-off';
+                case 'insync':
+                    return 'fa-check';
+                case 'paused':
+                    return 'fa-pause';
+                case 'syncing':
+                    return 'fa-sync';
                 case 'unused-disconnected':
+                case 'unused-insync':
+                case 'unused-paused':
                     return 'fa-unlink';
+
             }
         };
 
         $scope.deviceStatusText = function(device) {
             switch ($scope.deviceStatus(device)) {
-                case 'insync':
-                    return $translate.instant('Up to Date');
-                case 'unused-insync':
-                    return $translate.instant('Connected (Unused)');
-                case 'syncing':
-                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' + binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
-                case 'paused':
-                    return $translate.instant('Paused');
-                case 'unused-paused':
-                    return $translate.instant('Paused (Unused)');
                 case 'disconnected':
                     return $translate.instant('Disconnected');
                 case 'disconnected-inactive':
                     return $translate.instant('Disconnected (Inactive)');
+                case 'insync':
+                    return $translate.instant('Up to Date');
+                case 'paused':
+                    return $translate.instant('Paused');
+                case 'syncing':
+                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' + binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
                 case 'unused-disconnected':
                     return $translate.instant('Disconnected (Unused)');
+                case 'unused-insync':
+                    return $translate.instant('Connected (Unused)');
+                case 'unused-paused':
+                    return $translate.instant('Paused (Unused)');
             }
         };
 
         $scope.folderStatusIcon = function(cfg) {
             switch ($scope.folderStatus(cfg)) {
+                case 'clean-waiting':
+                case 'scan-waiting':
+                case 'sync-preparing':
+                case 'sync-waiting':
+                    return 'fa-hourglass-half';
+                case 'cleaning':
+                    return 'fa-recycle';
+                case 'faileditems':
+                case 'localunencrypted':
+                case 'outofsync':
+                    return 'fa-exclamation-circle';
+                case 'idle':
+                case 'localadditions':
+                    return 'fa-check';
                 case 'paused':
                     return 'fa-pause';
+                case 'scanning':
+                    return 'fa-search';
+                case 'stopped':
+                    return 'fa-stop';
+                case 'syncing':
+                    return 'fa-sync';
                 case 'unknown':
                     return 'fa-question-circle';
                 case 'unshared':
                     return 'fa-unlink';
-                case 'scan-waiting':
-                    return 'fa-hourglass-half';
-                case 'cleaning':
-                    return 'fa-recycle';
-                case 'clean-waiting':
-                    return 'fa-hourglass-half';
-                case 'stopped':
-                    return 'fa-stop';
-                case 'scanning':
-                    return 'fa-search';
-                case 'idle':
-                    return 'fa-check';
-                case 'localadditions':
-                    return 'fa-check';
-                case 'sync-waiting':
-                    return 'fa-hourglass-half';
-                case 'sync-preparing':
-                    return 'fa-hourglass-half';
-                case 'syncing':
-                    return 'fa-sync';
-                case 'outofsync':
-                    return 'fa-exclamation-circle';
-                case 'faileditems':
-                    return 'fa-exclamation-circle';
-                case 'localunencrypted':
-                    return 'fa-exclamation-circle';
             }
         };
 
         $scope.folderStatusText = function(folder) {
+            var text = '';
             switch ($scope.folderStatus(folder)) {
-                case 'paused':
-                    return $translate.instant('Paused');
-                case 'unknown':
-                    return $translate.instant('Unknown');
-                case 'unshared':
-                    return $translate.instant('Unshared');
-                case 'scan-waiting':
-                    return $translate.instant('Waiting to Scan');
-                case 'cleaning':
-                    return $translate.instant('Cleaning Versions');
                 case 'clean-waiting':
                     return $translate.instant('Waiting to Clean');
-                case 'stopped':
-                    return $translate.instant('Stopped');
-                case 'scanning':
-                    var text = $translate.instant('Scanning');
-                    if ($scope.scanPercentage(folder.id) !== undefined) {
-                        text += ' (' + percentFilter($scope.scanPercentage(folder.id)) + ')';
-                    }
-                    return text;
-                case 'idle':
-                    return $translate.instant('Up to Date');
-                case 'localadditions':
-                    return $translate.instant('Local Additions');
-                case 'sync-waiting':
-                    return $translate.instant('Waiting to Sync');
+                case 'scan-waiting':
+                    return $translate.instant('Waiting to Scan');
                 case 'sync-preparing':
                     return $translate.instant('Preparing to Sync');
-                case 'syncing':
-                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.syncPercentage(folder.id)) + ', ' + binaryFilter($scope.model[folder.id].needBytes) + 'B)';
-                case 'outofsync':
-                    return $translate.instant('Out of Sync');
+                case 'sync-waiting':
+                    return $translate.instant('Waiting to Sync');
+                case 'cleaning':
+                    return $translate.instant('Cleaning Versions');
                 case 'faileditems':
                     return $translate.instant('Failed Items');
                 case 'localunencrypted':
                     return $translate.instant('Unexpected Items');
+                case 'outofsync':
+                    return $translate.instant('Out of Sync');
+                case 'idle':
+                    return $translate.instant('Up to Date');
+                case 'localadditions':
+                    return $translate.instant('Local Additions');
+                case 'paused':
+                    return $translate.instant('Paused');
+                case 'scanning':
+                    text = $translate.instant('Scanning');
+                    if ($scope.scanPercentage(folder.id) !== undefined) {
+                        text += ' (' +
+                                percentFilter($scope.scanPercentage(folder.id)) +
+                                ')';
+                    }
+                    return text;
+                case 'stopped':
+                    return $translate.instant('Stopped');
+                case 'syncing':
+                    text = $translate.instant('Syncing') +
+                           ' (' + 
+                           percentFilter($scope.syncPercentage(folder.id)) + 
+                           ', ' +
+                           binaryFilter($scope.model[folder.id].needBytes) +
+                           'B)';
+                    return text;
+                case 'unknown':
+                    return $translate.instant('Unknown');
+                case 'unshared':
+                    return $translate.instant('Unshared');
             }
         };
 
