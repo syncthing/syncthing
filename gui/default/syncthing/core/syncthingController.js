@@ -1711,9 +1711,9 @@ angular.module('syncthing.core')
         }
 
         $scope.editDeviceUntrustedChanged = function () {
-            if (currentDevice.untrusted) {
-                currentDevice.introducer = false;
-                currentDevice.autoAcceptFolders = false;
+            if ($scope.currentDevice.untrusted) {
+                $scope.currentDevice.introducer = false;
+                $scope.currentDevice.autoAcceptFolders = false;
             }
         }
 
