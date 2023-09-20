@@ -1495,10 +1495,8 @@ func (tgts targetsByIP) Less(i, j int) bool {
 }
 
 // Returns a sort key based on the IP address family of the address.
-//   - IPv6			-> 0
-//   - Domain name	-> 1
-//   - IPv4			-> 2
-//   - Unparsable	-> 3
+//
+// Order: IPv6 < Domain Name < IPv4 < Unparsable
 func ipPrio(addr string) int {
 	url, err := url.Parse(addr)
 	if err != nil {
