@@ -1117,6 +1117,7 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceStatusText = function(device) {
+            var text = '';
             switch ($scope.deviceStatus(device)) {
                 case 'disconnected':
                     return $translate.instant('Disconnected');
@@ -1127,7 +1128,13 @@ angular.module('syncthing.core')
                 case 'paused':
                     return $translate.instant('Paused');
                 case 'syncing':
-                    return $translate.instant('Syncing') + ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' + binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
+                    text = $translate.instant('Syncing') +
+                           ' (' +
+                           percentFilter($scope.completion[device.deviceID]._total) +
+                           ', '+
+                           binaryFilter($scope.completion[device.deviceID]._needBytes) +
+                           'B)';
+                    return text;
                 case 'unused-disconnected':
                     return $translate.instant('Disconnected (Unused)');
                 case 'unused-insync':
