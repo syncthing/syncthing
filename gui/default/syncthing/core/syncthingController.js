@@ -1131,7 +1131,7 @@ angular.module('syncthing.core')
                     text = $translate.instant('Syncing') +
                            ' (' +
                            percentFilter($scope.completion[device.deviceID]._total) +
-                           ', '+
+                           ', ' +
                            binaryFilter($scope.completion[device.deviceID]._needBytes) +
                            'B)';
                     return text;
