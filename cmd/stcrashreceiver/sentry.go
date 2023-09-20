@@ -40,6 +40,7 @@ type sentryService struct {
 
 type sentryRequest struct {
 	reportID string
+	userID   string
 	data     []byte
 }
 
@@ -52,7 +53,7 @@ func (s *sentryService) Serve(ctx context.Context) {
 				log.Println("Failed to parse crash report:", err)
 				continue
 			}
-			if err := sendReport(s.dsn, pkt, req.reportID); err != nil {
+			if err := sendReport(s.dsn, pkt, req.userID); err != nil {
 				log.Println("Failed to send crash report:", err)
 			}
 
@@ -62,9 +63,9 @@ func (s *sentryService) Serve(ctx context.Context) {
 	}
 }
 
-func (s *sentryService) Send(reportID string, data []byte) bool {
+func (s *sentryService) Send(reportID, userID string, data []byte) bool {
 	select {
-	case s.inbox <- sentryRequest{reportID, data}:
+	case s.inbox <- sentryRequest{reportID, userID, data}:
 		return true
 	default:
 		return false
