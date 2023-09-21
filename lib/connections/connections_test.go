@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -401,6 +402,39 @@ func TestConnectionEstablishment(t *testing.T) {
 			})
 		})
 
+	}
+}
+
+func TestDialTargetSorter(t *testing.T) {
+	addrs := []string{
+		"tcp://192.168.1.1:220000",
+		"quic://example.com:220000",
+		"tcp://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:220000",
+		"tcp://[fe80::1ff:fe23:4567:890a%25eth0]:220000",
+		"garbage",
+	}
+	expected := []string{
+		"tcp://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:220000",
+		"tcp://[fe80::1ff:fe23:4567:890a%25eth0]:220000",
+		"quic://example.com:220000",
+		"tcp://192.168.1.1:220000",
+		"garbage",
+	}
+
+	tgts := make([]dialTarget, 0, len(addrs))
+	for _, addr := range addrs {
+		var tgt dialTarget
+		tgt.addr = addr
+		tgts = append(tgts, tgt)
+	}
+
+	sorter := newDialTargetSorter(tgts)
+	sort.Stable(sorter)
+
+	for i, addr := range expected {
+		if tgts[i].addr != addr {
+			t.Fatal("Invalid order")
+		}
 	}
 }
 
