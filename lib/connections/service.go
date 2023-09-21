@@ -1131,7 +1131,8 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 
 	// Sort targets, preferring IPv6
 	for _, tgts := range dialTargetBuckets {
-		sort.Sort(targetsByIP(tgts))
+		sorter := newDialTargetSorter(tgts)
+		sort.Sort(sorter)
 	}
 
 	// Get all available priorities
@@ -1480,18 +1481,33 @@ func max[T constraints.Ordered](a, b T) T {
 	return b
 }
 
-type targetsByIP []dialTarget
-
-func (tgts targetsByIP) Len() int {
-	return len(tgts)
+type dialTargetSorter struct {
+	tgts  []dialTarget
+	prios []int
 }
 
-func (tgts targetsByIP) Swap(i, j int) {
-	tgts[i], tgts[j] = tgts[j], tgts[i]
+func (sorter *dialTargetSorter) Len() int {
+	return len(sorter.tgts)
 }
 
-func (tgts targetsByIP) Less(i, j int) bool {
-	return ipPrio(tgts[i].addr) < ipPrio(tgts[j].addr)
+func (sorter *dialTargetSorter) Swap(i, j int) {
+	sorter.tgts[i], sorter.tgts[j] = sorter.tgts[j], sorter.tgts[i]
+	sorter.prios[i], sorter.prios[j] = sorter.prios[j], sorter.prios[i]
+}
+
+func (sorter dialTargetSorter) Less(i, j int) bool {
+	return sorter.prios[i] < sorter.prios[j]
+}
+
+func newDialTargetSorter(tgts []dialTarget) *dialTargetSorter {
+	prios := make([]int, len(tgts))
+	for i, tgt := range tgts {
+		prios[i] = ipPrio(tgt.addr)
+	}
+	return &dialTargetSorter{
+		tgts:  tgts,
+		prios: prios,
+	}
 }
 
 // Returns a sort key based on the IP address family of the address.
