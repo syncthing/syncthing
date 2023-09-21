@@ -360,7 +360,10 @@
                   </div>
                   <div class="panel-status pull-right text-{{folderClass(folder)}}">
                     <span class="hidden-xs">{{folderStatusText(folder)}}</span>
-                    <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
+                    <span ng-switch="folderStatus(folder)">
+                      <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
+                      <span ng-switch-default class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
+                    </span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -372,9 +375,7 @@
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
                       <tr class="visible-xs">
-                        <th>
-                          <span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span>
-                        </th>
+                        <th><span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span></th>
                         <td class="text-right">{{folderStatusText(folder)}}</td>
                       </tr>
                       <tr ng-show="folder.label != undefined && folder.label.length > 0">
@@ -752,10 +753,8 @@
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
                       <tr class="visible-xs">
-                        <th>
-                          <span class="fa fa-fw {{deviceStatusIcon(deviceCfg)}}"></span>&nbsp;<span translate>Device Status</span>
-                        </th>
-                        <td class="text-right">{{deviceStatusText(deviceCfg)}}</td>
+                        <th><span class="fa fa-fw {{deviceStatusIcon(deviceCfg)}}"></span>&nbsp;<span translate>Device Status</span>
+                        </th><td class="text-right">{{deviceStatusText(deviceCfg)}}</td>
                       </tr>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>

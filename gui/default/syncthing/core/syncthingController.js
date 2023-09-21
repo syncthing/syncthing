@@ -1129,11 +1129,8 @@ angular.module('syncthing.core')
                     return $translate.instant('Paused');
                 case 'syncing':
                     text = $translate.instant('Syncing') +
-                    ' (' +
-                    percentFilter($scope.completion[device.deviceID]._total) +
-                    ', ' +
-                    binaryFilter($scope.completion[device.deviceID]._needBytes) +
-                    'B)';
+                    ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' +
+                    binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
                     return text;
                 case 'unused-disconnected':
                     return $translate.instant('Disconnected (Unused)');
@@ -1180,44 +1177,36 @@ angular.module('syncthing.core')
             switch ($scope.folderStatus(folder)) {
                 case 'clean-waiting':
                     return $translate.instant('Waiting to Clean');
-                case 'scan-waiting':
-                    return $translate.instant('Waiting to Scan');
-                case 'sync-preparing':
-                    return $translate.instant('Preparing to Sync');
-                case 'sync-waiting':
-                    return $translate.instant('Waiting to Sync');
                 case 'cleaning':
                     return $translate.instant('Cleaning Versions');
                 case 'faileditems':
                     return $translate.instant('Failed Items');
-                case 'localunencrypted':
-                    return $translate.instant('Unexpected Items');
-                case 'outofsync':
-                    return $translate.instant('Out of Sync');
                 case 'idle':
                     return $translate.instant('Up to Date');
                 case 'localadditions':
                     return $translate.instant('Local Additions');
+                case 'localunencrypted':
+                    return $translate.instant('Unexpected Items');
+                case 'outofsync':
+                    return $translate.instant('Out of Sync');
                 case 'paused':
                     return $translate.instant('Paused');
+                case 'scan-waiting':
+                    return $translate.instant('Waiting to Scan');
                 case 'scanning':
                     text = $translate.instant('Scanning');
                     if ($scope.scanPercentage(folder.id) !== undefined) {
-                        text += ' (' +
-                        percentFilter($scope.scanPercentage(folder.id)) +
-                        ')';
+                        text += ' (' + percentFilter($scope.scanPercentage(folder.id)) +')';
                     }
                     return text;
                 case 'stopped':
                     return $translate.instant('Stopped');
+                case 'sync-preparing':
+                    return $translate.instant('Preparing to Sync');
+                case 'sync-waiting':
+                    return $translate.instant('Waiting to Sync');
                 case 'syncing':
-                    text = $translate.instant('Syncing') +
-                    ' (' + 
-                    percentFilter($scope.syncPercentage(folder.id)) + 
-                    ', ' +
-                    binaryFilter($scope.model[folder.id].needBytes) +
-                    'B)';
-                    return text;
+                    return $translate.instant('Syncing')
                 case 'unknown':
                     return $translate.instant('Unknown');
                 case 'unshared':
