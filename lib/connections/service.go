@@ -1495,7 +1495,7 @@ func (sorter *dialTargetSorter) Swap(i, j int) {
 	sorter.prios[i], sorter.prios[j] = sorter.prios[j], sorter.prios[i]
 }
 
-func (sorter dialTargetSorter) Less(i, j int) bool {
+func (sorter *dialTargetSorter) Less(i, j int) bool {
 	return sorter.prios[i] < sorter.prios[j]
 }
 
