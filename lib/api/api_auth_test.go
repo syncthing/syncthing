@@ -16,7 +16,7 @@ var guiCfg config.GUIConfiguration
 
 func init() {
 	guiCfg.User = "user"
-	guiCfg.HashAndSetPassword("pass")
+	guiCfg.SetPassword("pass")
 }
 
 func TestStaticAuthOK(t *testing.T) {
