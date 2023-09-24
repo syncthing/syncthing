@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
@@ -773,8 +774,9 @@ func TestGUIConfigURL(t *testing.T) {
 func TestGUIPasswordHash(t *testing.T) {
 	var c GUIConfiguration
 
+	// Setting a plaintext password should work
 	testPass := "pass"
-	if err := c.HashAndSetPassword(testPass); err != nil {
+	if err := c.SetPassword(testPass); err != nil {
 		t.Fatal(err)
 	}
 	if c.Password == testPass {
@@ -788,6 +790,16 @@ func TestGUIPasswordHash(t *testing.T) {
 	failPass := "different"
 	if err := c.CompareHashedPassword(failPass); err == nil {
 		t.Errorf("Match on different password: %v", err)
+	}
+
+	// Setting a bcrypt hash directly should also work
+	hash, err := bcrypt.GenerateFromPassword([]byte("test"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetPassword(string(hash))
+	if err := c.CompareHashedPassword("test"); err != nil {
+		t.Errorf("No match on hashed password: %v", err)
 	}
 }
 
