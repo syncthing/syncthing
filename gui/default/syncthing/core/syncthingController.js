@@ -1429,6 +1429,11 @@ angular.module('syncthing.core')
                 // Browser events do not cause redraw, trigger manually.
                 $scope.$apply();
             },
+            scrollToBottom: function () {
+                var textArea = $('#logViewerText');
+                var scrollHeight = textArea.prop('scrollHeight');
+                textArea.prop('scrollTop', scrollHeight);
+            },
             timer: null,
             entries: [],
             paused: false,
