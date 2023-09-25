@@ -115,7 +115,7 @@ func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error
 	return t.tran.WriteTo(p, addr)
 }
 
-func (t *transportPacketConn) Close() error {
+func (*transportPacketConn) Close() error {
 	return errUnsupported
 }
 
@@ -132,6 +132,6 @@ func (t *transportPacketConn) SetReadDeadline(deadline time.Time) error {
 	return nil
 }
 
-func (t *transportPacketConn) SetWriteDeadline(_ time.Time) error {
+func (*transportPacketConn) SetWriteDeadline(_ time.Time) error {
 	return nil // yolo
 }
