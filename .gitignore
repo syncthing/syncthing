@@ -18,5 +18,3 @@ deb
 /repos
 /proto/scripts/protoc-gen-gosyncthing
 /gui/next-gen-gui
-.idea
-.vscode
