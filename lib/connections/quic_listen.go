@@ -100,7 +100,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	tracer := &writeTrackingTracer{}
 	quicTransport := &quic.Transport{
 		Conn:   udpConn,
-		Tracer: tracer,
+		Tracer: tracer.loggingTracer(),
 	}
 	defer quicTransport.Close()
 

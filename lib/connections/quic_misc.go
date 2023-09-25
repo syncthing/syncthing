@@ -80,15 +80,15 @@ type writeTrackingTracer struct {
 	lastWrite atomic.Int64 // unix nanos
 }
 
-func (t *writeTrackingTracer) SentPacket(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
-	t.lastWrite.Store(time.Now().UnixNano())
-}
-
-func (t *writeTrackingTracer) SentVersionNegotiationPacket(_ net.Addr, dest, src logging.ArbitraryLenConnectionID, _ []quic.VersionNumber) {
-	t.lastWrite.Store(time.Now().UnixNano())
-}
-
-func (t *writeTrackingTracer) DroppedPacket(net.Addr, logging.PacketType, logging.ByteCount, logging.PacketDropReason) {
+func (t *writeTrackingTracer) loggingTracer() *logging.Tracer {
+	return &logging.Tracer{
+		SentPacket: func(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
+			t.lastWrite.Store(time.Now().UnixNano())
+		},
+		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.VersionNumber) {
+			t.lastWrite.Store(time.Now().UnixNano())
+		},
+	}
 }
 
 func (t *writeTrackingTracer) LastWrite() time.Time {
