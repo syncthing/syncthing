@@ -6,6 +6,7 @@ stdiscosrv.exe
 *.zip
 *.asc
 *.deb
+*.exe
 .jshintrc
 coverage.out
 files/pidx
@@ -20,3 +21,4 @@ deb
 /proto/scripts/protoc-gen-gosyncthing
 /gui/next-gen-gui
 .idea
+.vscode
