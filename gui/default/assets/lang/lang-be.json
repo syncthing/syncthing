@@ -153,7 +153,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.",
     "The device ID cannot be blank.": "The device ID cannot be blank.",
-    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.",
+    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.": "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.",
     "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.": "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.",
     "The folder ID cannot be blank.": "The folder ID cannot be blank.",
     "The folder ID must be unique.": "The folder ID must be unique.",

@@ -411,7 +411,7 @@
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "设置已经保存，但是还未生效。Syncthing 需要重启以启用新的设置。",
     "The device ID cannot be blank.": "设备 ID 不能为空。",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "在这里所需要输入的设备 ID，可以在目标设备的“操作->显示 ID”中看到。空格和横线可选（将会被忽略）。",
-    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "经过加密的使用报告会每天发送。它用来跟踪统计使用本软件的平台，文件夹大小，以及本软件的版本。如果报告的内容有任何变化，本对话框会再次弹出提示您。",
+    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.": "经过加密的使用报告会每天发送。它用来跟踪统计使用本软件的平台，文件夹大小，以及本软件的版本。如果报告的内容有任何变化，本对话框会再次弹出提示您。",
     "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.": "输入的设备 ID 似乎无效。设备 ID 包含字母和数字，长度为 52 或 56，空格和横线不计在内。",
     "The folder ID cannot be blank.": "文件夹 ID 不能为空。",
     "The folder ID must be unique.": "文件夹 ID 不得重复。",
