@@ -1,10 +1,10 @@
 <modal id="advanced" status="danger" icon="fas fa-cogs" heading="{{'Advanced Configuration' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
 
-      <p class="text-danger">
-        <b translate>Be careful!</b>
-        <span translate>Incorrect configuration may damage your folder contents and render Syncthing inoperable.</span>
-      </p>
+    <p class="text-danger">
+      <b translate>Be careful!</b>
+      <span translate>Incorrect configuration may damage your folder contents and render Syncthing inoperable.</span>
+    </p>
 
     <form name="advancedSettingsEditor">
       <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
@@ -159,7 +159,7 @@
                 </div>
                 <div id="advancedDefaultDevice" class="panel-collapse collapse" role="tabpanel" aria-labelledby="advancedDefaultDeviceHeading">
                   <div class="panel-body">
-                  <div class="form-horizontal">
+                    <div class="form-horizontal">
                       <div ng-repeat="(key, value) in advancedConfig.defaults.device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                         <label for="advancedDefaultDeviceInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-device.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
                         <div class="col-sm-8">
@@ -197,17 +197,17 @@
           </div>
         </div>
       </div>
+    </form>
 
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()" ng-disabled="advancedSettingsEditor.$invalid || advancedSettingsEditor.$pristine">
-          <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
-        </button>
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-          <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
-        </button>
-      </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary btn-sm" ng-click="saveAdvanced()" ng-disabled="advancedSettingsEditor.$invalid || advancedSettingsEditor.$pristine">
+        <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
+      </button>
+      <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+        <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+      </button>
+    </div>
 
-  </form>
   </div>
 
 </modal>
