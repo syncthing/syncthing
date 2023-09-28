@@ -9,6 +9,7 @@ package config
 import (
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -115,9 +116,19 @@ func (c GUIConfiguration) URL() string {
 	return u.String()
 }
 
-// SetHashedPassword hashes the given plaintext password and stores the new hash.
-func (c *GUIConfiguration) HashAndSetPassword(password string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
+// matches a bcrypt hash and not too much else
+var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
+
+// SetPassword takes a bcrypt hash or a plaintext password and stores it.
+// Plaintext passwords are hashed. Returns an error if the password is not
+// valid.
+func (c *GUIConfiguration) SetPassword(password string) error {
+	if bcryptExpr.MatchString(password) {
+		// Already hashed
+		c.Password = password
+		return nil
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}

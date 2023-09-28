@@ -92,7 +92,9 @@ func (m *metricsFS) account(op string) func(bytes int) {
 	t0 := time.Now()
 	root := m.next.URI()
 	return func(bytes int) {
-		metricTotalOperationSeconds.WithLabelValues(root, op).Add(time.Since(t0).Seconds())
+		if dur := time.Since(t0).Seconds(); dur > 0 {
+			metricTotalOperationSeconds.WithLabelValues(root, op).Add(dur)
+		}
 		metricTotalOperationsCount.WithLabelValues(root, op).Inc()
 		if bytes >= 0 {
 			metricTotalBytesCount.WithLabelValues(root, op).Add(float64(bytes))

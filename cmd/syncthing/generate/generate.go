@@ -69,7 +69,7 @@ func Generate(l logger.Logger, confDir, guiUser, guiPassword string, noDefaultFo
 		return err
 	}
 
-	if err := syncthing.EnsureDir(dir, 0700); err != nil {
+	if err := syncthing.EnsureDir(dir, 0o700); err != nil {
 		return err
 	}
 	locations.SetBaseDir(locations.ConfigBaseDir, dir)
@@ -127,7 +127,7 @@ func updateGUIAuthentication(l logger.Logger, guiCfg *config.GUIConfiguration, g
 	}
 
 	if guiPassword != "" && guiCfg.Password != guiPassword {
-		if err := guiCfg.HashAndSetPassword(guiPassword); err != nil {
+		if err := guiCfg.SetPassword(guiPassword); err != nil {
 			return fmt.Errorf("failed to set GUI authentication password: %w", err)
 		}
 		l.Infoln("Updated GUI authentication password.")

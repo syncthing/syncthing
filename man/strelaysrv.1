@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "Sep 07, 2023" "v1.24.0" "Syncthing"
+.TH "STRELAYSRV" "1" "Sep 17, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -202,7 +202,7 @@ $ sudo \-u strelaysrv /usr/local/bin/strelaysrv \-keys /etc/strelaysrv
 .sp
 This creates a user \fBstrelaysrv\fP and a directory \fB/etc/strelaysrv\fP to store
 the keys. The keys are generated on first startup. The relay will join the
-global relay pool, unless a \fB\-pools=""\fP argument is given.
+global relay pool, unless a \fB\-pools=\(dq\(dq\fP argument is given.
 .sp
 To make the relay server start automatically at boot, use the recommended
 procedure for your operating system.
@@ -272,7 +272,7 @@ COMMIT
 .UNINDENT
 .UNINDENT
 .sp
-You will need to start \fBstrelaysrv\fP with \fB\-ext\-address ":443"\fP\&. This tells
+You will need to start \fBstrelaysrv\fP with \fB\-ext\-address \(dq:443\(dq\fP\&. This tells
 \fBstrelaysrv\fP that it can be contacted on port 443, even though it is listening
 on port 22067. You will also need to let both port 443 and 22067 through your
 firewall.
