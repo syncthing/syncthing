@@ -1,7 +1,7 @@
 <modal id="settings" status="default" icon="fas fa-cog" heading="{{'Settings' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="settingsEditor">
-      <ul class="nav nav-tabs">
+      <ul class="nav nav-tabs" ng-init="loadFormIntoScope(settingsEditor)">
         <li class="active"><a data-toggle="tab" href="#settings-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li><a data-toggle="tab" href="#settings-gui"><span class="fas fa-desktop"></span> <span translate>GUI</span></a></li>
         <li><a data-toggle="tab" href="#settings-connections"><span class="fas fa-sitemap"></span> <span translate>Connections</span></a></li>

@@ -1517,6 +1517,7 @@ angular.module('syncthing.core')
                     $("#settings").off("hide.bs.modal");
                 }
             });
+            $scope.settingsEditor.$setPristine();
             showModal('#settings');
         };
 
@@ -2070,6 +2071,12 @@ angular.module('syncthing.core')
                     break;
                 case 'folderEditor':
                     $scope.folderEditor = form;
+                    break;
+                case 'settingsEditor':
+                    $scope.settingsEditor = form;
+                    break;
+                case 'advancedSettingsEditor':
+                    $scope.advancedSettingsEditor = form;
                     break;
             }
         };
@@ -2966,6 +2973,7 @@ angular.module('syncthing.core')
                 }
                 return $scope.advancedConfig.defaults.ignores.lines.join('\n');
             };
+            $scope.advancedSettingsEditor.$setPristine();
             showModal('#advanced');
         };
 

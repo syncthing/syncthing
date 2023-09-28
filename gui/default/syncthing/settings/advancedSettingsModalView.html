@@ -7,7 +7,7 @@
     </p>
 
     <form name="advancedSettingsEditor">
-      <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
+      <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true"  ng-init="loadFormIntoScope(advancedSettingsEditor)">
 
         <div class="panel panel-default">
           <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="false" aria-controls="guiConfig" style="cursor: pointer;">
@@ -209,5 +209,4 @@
     </div>
 
   </div>
-
 </modal>
