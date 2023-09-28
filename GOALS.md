@@ -24,17 +24,17 @@ to avoid corrupting the user's files.
 ### 2. Secure Against Attackers
 
 Again, protecting the user's data is paramount. Regardless of our other
-goals we must never allow the user's data to be susceptible to eavesdropping
+goals, we must never allow the user's data to be susceptible to eavesdropping
 or modification by unauthorized parties.
 
 > This should be understood in context. It is not necessarily reasonable to
 > expect Syncthing to be resistant against well equipped state level
-> attackers. We will however do our best. Note also that this is different
+> attackers. We will, however, do our best. Note also that this is different
 > from anonymity which is not, currently, a goal.
 
 ### 3. Easy to Use
 
-Syncthing should be approachable, understandable and inclusive.
+Syncthing should be approachable, understandable, and inclusive.
 
 > Complex concepts and maths form the base of Syncthing's functionality.
 > This should nonetheless be abstracted or hidden to a degree where
@@ -52,18 +52,18 @@ User interaction should be required only when absolutely necessary.
 ### 5. Universally Available
 
 Syncthing should run on every common computer. We are mindful that the
-latest technology is not always available to any given individual.
+latest technology is not always available to every individual.
 
 > Computers include desktops, laptops, servers, virtual machines, small
 > general purpose computers such as Raspberry Pis and, *where possible*,
-> tablets and phones. NAS appliances, toasters, cars, firearms, thermostats
+> tablets and phones. NAS appliances, toasters, cars, firearms, thermostats,
 > and so on may include computing capabilities but it is not our goal for
 > Syncthing to run smoothly on these devices.
 
 ### 6. For Individuals
 
 Syncthing is primarily about empowering the individual user with safe,
-secure and easy to use file synchronization.
+secure, and easy to use file synchronization.
 
 > We acknowledge that it's also useful in an enterprise setting and include
 > functionality to support that. If this is in conflict with the
