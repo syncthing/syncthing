@@ -64,6 +64,7 @@ var (
 		{regexp.MustCompile(`docker@build.syncthing\.net`), "Docker Hub"},
 		{regexp.MustCompile(`docker@github.syncthing\.net`), "Docker Hub"},
 
+		{regexp.MustCompile(`android-builder@github\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
 		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
