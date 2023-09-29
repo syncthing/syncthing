@@ -67,6 +67,7 @@ var (
 		{regexp.MustCompile(`android-builder@github\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`vagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
