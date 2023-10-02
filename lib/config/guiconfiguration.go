@@ -60,14 +60,12 @@ func (c GUIConfiguration) UnixSocketPermissions() os.FileMode {
 }
 
 func (c GUIConfiguration) Network() string {
-	if override := os.Getenv("STGUIADDRESS"); strings.Contains(override, "/") {
+	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		url, err := url.Parse(override)
-		if err != nil {
-			return "tcp"
-		}
-		if strings.HasPrefix(url.Scheme, "unix") {
+		if err == nil && strings.HasPrefix(url.Scheme, "unix") {
 			return "unix"
 		}
+		return "tcp"
 	}
 	if strings.HasPrefix(c.RawAddress, "/") {
 		return "unix"
@@ -77,19 +75,17 @@ func (c GUIConfiguration) Network() string {
 
 func (c GUIConfiguration) UseTLS() bool {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		if strings.HasPrefix(override, "http") {
-			return strings.HasPrefix(override, "https:")
-		}
-		if strings.HasPrefix(override, "unix") {
-			return strings.HasPrefix(override, "unixs:")
-		}
+		return strings.HasPrefix(override, "https:") || strings.HasPrefix(override, "unixs:")
 	}
 	return c.RawUseTLS
 }
 
 func (c GUIConfiguration) URL() string {
-	if strings.HasPrefix(c.RawAddress, "/") {
-		return "unix://" + c.RawAddress
+	if c.Network() == "unix" {
+		if c.UseTLS() {
+			return "unixs://" + c.Address()
+		}
+		return "unix://" + c.Address()
 	}
 
 	u := url.URL{
