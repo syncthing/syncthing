@@ -614,20 +614,6 @@ func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
 func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
 
-	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
-		User:                "üser",
-		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
-		RawAddress:          "127.0.0.1:0",
-		APIKey:              testAPIKey,
-		SendBasicAuthPrompt: true,
-	})
-	baseURL, cancel, err := startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(cancel)
-
 	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
 		return httpGet(url, username, password, "", "", nil, t)
 	}
@@ -640,7 +626,22 @@ func TestHTTPLogin(t *testing.T) {
 		return httpGet(url, "", "", "", bearer, nil, t)
 	}
 
-	testWithUrl := func(expectedOkStatus int, url string) {
+	testWith := func(expectedOkStatus int, path string) {
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "üser",
+			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+			RawAddress:          "127.0.0.1:0",
+			APIKey:              testAPIKey,
+			SendBasicAuthPrompt: true,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(cancel)
+		url := baseURL + path
+
 		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
 			t.Run("no auth is rejected", func(t *testing.T) {
 				t.Parallel()
@@ -716,8 +717,8 @@ func TestHTTPLogin(t *testing.T) {
 		})
 	}
 
-	testWithUrl(http.StatusOK, baseURL+"/meta.js")
-	testWithUrl(http.StatusNotFound, baseURL+"/any-path/that/does/nooooooot/match-any/noauth-pattern")
+	testWith(http.StatusOK, "/meta.js")
+	testWith(http.StatusNotFound, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
 }
 
 func TestHtmlFormLogin(t *testing.T) {
