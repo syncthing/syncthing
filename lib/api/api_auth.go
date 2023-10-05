@@ -214,8 +214,6 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 
 func handleLogout(cookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		antiBruteForceSleep()
-
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
