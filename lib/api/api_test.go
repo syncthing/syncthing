@@ -626,14 +626,14 @@ func TestHTTPLogin(t *testing.T) {
 		return httpGet(url, "", "", "", bearer, nil, t)
 	}
 
-	testWith := func(expectedOkStatus int, path string) {
+	testWith := func(sendBasicAuthPrompt bool, expectedOkStatus int, expectedFailStatus int, path string) {
 		cfg := newMockedConfig()
 		cfg.GUIReturns(config.GUIConfiguration{
 			User:                "üser",
 			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 			RawAddress:          "127.0.0.1:0",
 			APIKey:              testAPIKey,
-			SendBasicAuthPrompt: true,
+			SendBasicAuthPrompt: sendBasicAuthPrompt,
 		})
 		baseURL, cancel, err := startHTTP(cfg)
 		if err != nil {
@@ -646,24 +646,24 @@ func TestHTTPLogin(t *testing.T) {
 			t.Run("no auth is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetBasicAuth(url, "", "")
-				if resp.StatusCode != http.StatusUnauthorized {
-					t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for unauthed request", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
 			t.Run("incorrect password is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetBasicAuth(url, "üser", "rksmrgs")
-				if resp.StatusCode != http.StatusUnauthorized {
-					t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect password", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
 			t.Run("incorrect username is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetBasicAuth(url, "user", "räksmörgås") // string literals in Go source code are in UTF-8
-				if resp.StatusCode != http.StatusUnauthorized {
-					t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect username", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
@@ -686,8 +686,8 @@ func TestHTTPLogin(t *testing.T) {
 			t.Run("bad X-API-Key is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetXapikey(url, testAPIKey+"X")
-				if resp.StatusCode != http.StatusUnauthorized {
-					t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
@@ -702,8 +702,8 @@ func TestHTTPLogin(t *testing.T) {
 			t.Run("bad Bearer is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetAuthorizationBearer(url, testAPIKey+"X")
-				if resp.StatusCode != http.StatusUnauthorized {
-					t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
@@ -717,8 +717,11 @@ func TestHTTPLogin(t *testing.T) {
 		})
 	}
 
-	testWith(http.StatusOK, "/meta.js")
-	testWith(http.StatusNotFound, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+	testWith(true, http.StatusOK, http.StatusUnauthorized, "/meta.js")
+	testWith(true, http.StatusNotFound, http.StatusUnauthorized, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+
+	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
+	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
 }
 
 func TestHtmlFormLogin(t *testing.T) {
