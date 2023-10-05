@@ -1180,7 +1180,7 @@ angular.module('syncthing.core')
             }
 
             // all used devices are paused
-            if (pauseCount === deviceCount) {
+            if (pauseCount === deviceCount && deviceCount > 0) {
                 return 'pause';
             }
 
