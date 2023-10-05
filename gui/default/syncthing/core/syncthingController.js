@@ -1144,6 +1144,9 @@ angular.module('syncthing.core')
             // loop through all devices
             var deviceCount = 0;
             for (var id in $scope.devices) {
+                if (id === $scope.myID) {
+                    continue
+                }
                 var status = $scope.deviceStatus({
                     deviceID: id
                 });
@@ -1176,8 +1179,8 @@ angular.module('syncthing.core')
                 return 'notify';
             }
 
-            // all used devices are paused except (this) one
-            if (pauseCount === deviceCount - 1) {
+            // all used devices are paused
+            if (pauseCount === deviceCount) {
                 return 'pause';
             }
 
