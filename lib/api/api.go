@@ -350,7 +350,7 @@ func (s *service) Serve(ctx context.Context) error {
 	mux.Handle("/", s.statics)
 
 	// Handle the special meta.js path
-	mux.HandleFunc("/meta.js", s.getJSMetadata)
+	mux.Handle("/meta.js", noCacheMiddleware(http.HandlerFunc(s.getJSMetadata)))
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
@@ -372,7 +372,13 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		sessionCookieName := "sessionid-" + s.id.String()[:5]
+		handler = basicAuthAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
+
+		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", handleLogout(sessionCookieName))
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -711,8 +717,9 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
-	meta, _ := json.Marshal(map[string]string{
-		"deviceID": s.id.String(),
+	meta, _ := json.Marshal(map[string]interface{}{
+		"deviceID":      s.id.String(),
+		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)

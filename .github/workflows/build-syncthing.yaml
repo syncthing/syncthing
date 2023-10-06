@@ -136,7 +136,7 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     runs-on: windows-latest
     steps:
@@ -235,7 +235,7 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     runs-on: macos-latest
     steps:
@@ -325,7 +325,7 @@ jobs:
 
   notarize-macos:
     name: Notarize for macOS
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - package-macos
@@ -461,7 +461,7 @@ jobs:
 
   sign-for-upgrade:
     name: Sign for upgrade
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-'))
     environment: signing
     needs:
       - basics
@@ -580,7 +580,7 @@ jobs:
 
   publish-nightly:
     name: Publish nightly build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release-nightly')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/release-nightly')
     environment: signing
     needs:
       - sign-for-upgrade
@@ -624,7 +624,7 @@ jobs:
 
   publish-release-files:
     name: Publish release files
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/release'
     environment: signing
     needs:
       - sign-for-upgrade
@@ -683,7 +683,7 @@ jobs:
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     environment: docker
     strategy:
       matrix:

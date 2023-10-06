@@ -14,12 +14,26 @@ angular.module('syncthing.core')
 
         function initController() {
             LocaleService.autoConfigLocale();
+
+            if (!$scope.authenticated) {
+                // Can't proceed yet - wait for the page reload after successful login.
+                return;
+            }
+
             setInterval($scope.refresh, 10000);
             Events.start();
         }
 
         // public/scope definitions
 
+        // window.metadata is set in /meta.js which requires authentication
+        $scope.authenticated = window.metadata && window.metadata.authenticated;
+
+        $scope.login = {
+            username: '',
+            password: '',
+            errors: {},
+        };
         $scope.completion = {};
         $scope.config = {};
         $scope.configInSync = true;
@@ -81,6 +95,35 @@ angular.module('syncthing.core')
             bytes: 0,
             directories: 0,
             files: 0
+        };
+
+        $scope.authenticatePassword = function () {
+            $scope.login.inProgress = true;
+            $scope.login.errors = {};
+            $http.post(authUrlbase + '/password', {
+              username: $scope.login.username,
+              password: $scope.login.password,
+            }).then(function () {
+                location.reload();
+            }).catch(function (response) {
+                if (response.status === 403) {
+                    $scope.login.errors.badLogin = true;
+                } else {
+                    $scope.login.errors.failed = true;
+                    console.log('Password authentication failed:', response);
+                }
+            }).finally(function () {
+                $scope.login.inProgress = false;
+            });
+        };
+
+        $scope.logout = function() {
+            $http.post(authUrlbase + '/logout', {})
+            .then(function () {
+                location.reload();
+            }).catch(function (response) {
+                console.log('Failed to log out:', response);
+            });
         };
 
         $(window).bind('beforeunload', function () {
@@ -183,6 +226,9 @@ angular.module('syncthing.core')
                 if (arg.status === 0) {
                     // A network error, not an HTTP error
                     $scope.$emit(Events.OFFLINE);
+                } else if (arg.status === 403) {
+                    // Auth error - reload login page
+                    location.reload();
                 } else if (arg.status >= 400 && arg.status <= 599 && arg.status != 501) {
                     // A genuine HTTP error. 501/NotImplemented is considered intentional
                     // and not an error which we need to act upon.
@@ -1144,6 +1190,9 @@ angular.module('syncthing.core')
             // loop through all devices
             var deviceCount = 0;
             for (var id in $scope.devices) {
+                if (id === $scope.myID) {
+                    continue
+                }
                 var status = $scope.deviceStatus({
                     deviceID: id
                 });
@@ -1176,8 +1225,8 @@ angular.module('syncthing.core')
                 return 'notify';
             }
 
-            // all used devices are paused except (this) one
-            if (pauseCount === deviceCount - 1) {
+            // all used devices are paused
+            if (pauseCount === deviceCount && deviceCount > 0) {
                 return 'pause';
             }
 
@@ -3116,6 +3165,9 @@ angular.module('syncthing.core')
 
         $scope.docsURL = function (path) {
             var url = 'https://docs.syncthing.net';
+            if (!$scope.versionBase()) {
+                return url;
+            }
             if (!path) {
                 // Undefined or null should become a valid string.
                 path = '';

@@ -554,13 +554,294 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
+func hasSessionCookie(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return true
+		}
+	}
+	return false
+}
+
+func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	req, err := http.NewRequest("GET", url, nil)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if basicAuthUsername != "" || basicAuthPassword != "" {
+		req.SetBasicAuth(basicAuthUsername, basicAuthPassword)
+	}
+
+	if xapikeyHeader != "" {
+		req.Header.Set("X-API-Key", xapikeyHeader)
+	}
+
+	if authorizationBearer != "" {
+		req.Header.Set("Authorization", "Bearer "+authorizationBearer)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
+func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
 func TestHTTPLogin(t *testing.T) {
+	t.Parallel()
+
+	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
+		return httpGet(url, username, password, "", "", nil, t)
+	}
+
+	httpGetXapikey := func(url string, xapikeyHeader string) *http.Response {
+		return httpGet(url, "", "", xapikeyHeader, "", nil, t)
+	}
+
+	httpGetAuthorizationBearer := func(url string, bearer string) *http.Response {
+		return httpGet(url, "", "", "", bearer, nil, t)
+	}
+
+	testWith := func(sendBasicAuthPrompt bool, expectedOkStatus int, expectedFailStatus int, path string) {
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "üser",
+			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+			RawAddress:          "127.0.0.1:0",
+			APIKey:              testAPIKey,
+			SendBasicAuthPrompt: sendBasicAuthPrompt,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(cancel)
+		url := baseURL + path
+
+		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
+			t.Run("no auth is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "", "")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for unauthed request", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("incorrect password is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "rksmrgs")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect password", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("incorrect username is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "user", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect username", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("UTF-8 auth works", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("ISO-8859-1 auth works", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (ISO-8859-1)", expectedOkStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("bad X-API-Key is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetXapikey(url, testAPIKey+"X")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("good X-API-Key is accepted", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetXapikey(url, testAPIKey)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("bad Bearer is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetAuthorizationBearer(url, testAPIKey+"X")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
+			t.Run("good Bearer is accepted", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetAuthorizationBearer(url, testAPIKey)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
+				}
+			})
+		})
+	}
+
+	testWith(true, http.StatusOK, http.StatusUnauthorized, "/meta.js")
+	testWith(true, http.StatusNotFound, http.StatusUnauthorized, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+
+	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
+	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+}
+
+func TestHtmlFormLogin(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:       "üser",
-		Password:   "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: false,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cancel)
+
+	loginUrl := baseURL + "/rest/noauth/auth/password"
+	resourceUrl := baseURL + "/meta.js"
+	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
+
+	performLogin := func(username string, password string) *http.Response {
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
+	}
+
+	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
+		return httpGet(url, "", "", "", "", cookies, t)
+	}
+
+	testNoAuthPath := func(noAuthPath string) {
+		t.Run("auth is not needed for "+noAuthPath, func(t *testing.T) {
+			t.Parallel()
+			resp := httpGet(baseURL+noAuthPath, "", "", "", "", nil, t)
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Unexpected non-200 return code %d at %s", resp.StatusCode, noAuthPath)
+			}
+			if hasSessionCookie(resp.Cookies()) {
+				t.Errorf("Unexpected session cookie at " + noAuthPath)
+			}
+		})
+	}
+	testNoAuthPath("/index.html")
+	testNoAuthPath("/rest/svc/lang")
+
+	t.Run("incorrect password is rejected with 403", func(t *testing.T) {
+		t.Parallel()
+		resp := performLogin("üser", "rksmrgs") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect password")
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
+		}
+	})
+
+	t.Run("incorrect username is rejected with 403", func(t *testing.T) {
+		t.Parallel()
+		resp := performLogin("user", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect username")
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
+		}
+	})
+
+	t.Run("UTF-8 auth works", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		resp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+	})
+
+	t.Run("form login is not applicable to other URLs", func(t *testing.T) {
+		t.Parallel()
+		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, t)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect form login URL", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect form login URL")
+		}
+	})
+
+	t.Run("invalid URL returns 403 before auth and 404 after auth", func(t *testing.T) {
+		t.Parallel()
+		resp := performResourceRequest(resourceUrl404, nil)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
+		}
+		resp = performLogin("üser", "räksmörgås")
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request", resp.StatusCode)
+		}
+		resp = performResourceRequest(resourceUrl404, resp.Cookies())
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Unexpected non-404 return code %d for authed request", resp.StatusCode)
+		}
+	})
+}
+
+func TestApiCache(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
 		RawAddress: "127.0.0.1:0",
 		APIKey:     testAPIKey,
 	})
@@ -570,119 +851,25 @@ func TestHTTPLogin(t *testing.T) {
 	}
 	t.Cleanup(cancel)
 
-	t.Run("no auth is rejected", func(t *testing.T) {
+	httpGet := func(url string, bearer string) *http.Response {
+		return httpGet(url, "", "", "", bearer, nil, t)
+	}
+
+	t.Run("meta.js has no-cache headers", func(t *testing.T) {
 		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+		url := baseURL + "/meta.js"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
 		}
 	})
 
-	t.Run("incorrect password is rejected", func(t *testing.T) {
+	t.Run("/rest/ has no-cache headers", func(t *testing.T) {
 		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.SetBasicAuth("üser", "rksmrgs")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
-		}
-	})
-
-	t.Run("incorrect username is rejected", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
-		}
-	})
-
-	t.Run("UTF-8 auth works", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
-		}
-	})
-
-	t.Run("ISO-8859-1 auth work", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
-		}
-	})
-
-	t.Run("bad X-API-Key is rejected", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.Header.Set("X-API-Key", testAPIKey+"X")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
-		}
-	})
-
-	t.Run("good X-API-Key is accepted", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.Header.Set("X-API-Key", testAPIKey)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Unexpected non-200 return code %d for API key", resp.StatusCode)
-		}
-	})
-
-	t.Run("bad Bearer is rejected", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("Unexpected non-401 return code %d for bad API key", resp.StatusCode)
-		}
-	})
-
-	t.Run("good Bearer is accepted", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest("GET", baseURL, nil)
-		req.Header.Set("Authorization", "Bearer "+testAPIKey)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Unexpected non-200 return code %d for API key", resp.StatusCode)
+		url := baseURL + "/rest/system/version"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
 		}
 	})
 }
@@ -772,6 +959,10 @@ func TestCSRFRequired(t *testing.T) {
 			csrfTokenValue = cookie.Value
 			break
 		}
+	}
+
+	if csrfTokenValue == "" {
+		t.Fatal("Failed to initialize CSRF test: no CSRF cookie returned from " + baseURL)
 	}
 
 	t.Run("/rest without a token should fail", func(t *testing.T) {
