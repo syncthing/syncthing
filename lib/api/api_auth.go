@@ -70,25 +70,27 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-var noAuthPaths []string = []string{
-	"/",
-	"/index.html",
-	"/modal.html",
-	"/rest/svc/lang", // Required to load language settings on login page
-}
-
-var noAuthPrefixes []string = []string{
-	// Static assets
-	"/assets/",
-	"/syncthing/",
-	"/vendor/",
-	"/theme-assets/", // This leaks information from config, but probably not sensitive
-
-	// No-auth API endpoints
-	"/rest/noauth",
-}
-
 func isNoAuthPath(path string) bool {
+	// Local variable instead of module var to prevent accidental mutation
+	noAuthPaths := []string{
+		"/",
+		"/index.html",
+		"/modal.html",
+		"/rest/svc/lang", // Required to load language settings on login page
+	}
+
+	// Local variable instead of module var to prevent accidental mutation
+	noAuthPrefixes := []string{
+		// Static assets
+		"/assets/",
+		"/syncthing/",
+		"/vendor/",
+		"/theme-assets/", // This leaks information from config, but probably not sensitive
+
+		// No-auth API endpoints
+		"/rest/noauth",
+	}
+
 	return equalsAny(path, noAuthPaths) || hasAnyPrefix(path, noAuthPrefixes)
 }
 
