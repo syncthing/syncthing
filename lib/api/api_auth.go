@@ -70,30 +70,26 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-func noAuthPaths() []string {
-	return []string{
-		"/",
-		"/index.html",
-		"/modal.html",
-		"/rest/svc/lang", // Required to load language settings on login page
-	}
+var noAuthPaths []string = []string{
+	"/",
+	"/index.html",
+	"/modal.html",
+	"/rest/svc/lang", // Required to load language settings on login page
 }
 
-func noAuthPrefixes() []string {
-	return []string{
-		// Static assets
-		"/assets/",
-		"/syncthing/",
-		"/vendor/",
-		"/theme-assets/", // This leaks information from config, but probably not sensitive
+var noAuthPrefixes []string = []string{
+	// Static assets
+	"/assets/",
+	"/syncthing/",
+	"/vendor/",
+	"/theme-assets/", // This leaks information from config, but probably not sensitive
 
-		// No-auth API endpoints
-		"/rest/noauth",
-	}
+	// No-auth API endpoints
+	"/rest/noauth",
 }
 
 func isNoAuthPath(path string) bool {
-	return equalsAny(path, noAuthPaths()) || hasAnyPrefix(path, noAuthPrefixes())
+	return equalsAny(path, noAuthPaths) || hasAnyPrefix(path, noAuthPrefixes)
 }
 
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
