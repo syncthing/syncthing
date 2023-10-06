@@ -109,7 +109,7 @@
               <li><a href="" ng-click="about.show()"><span class="fa fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
             </ul>
           </li>
-          <li class="dropdown action-menu">
+          <li ng-if="authenticated || config.gui.debugging" class="dropdown action-menu">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
               <span class="fa fa-cog"></span>
               <span class="hidden-xs" translate>Actions</span>
