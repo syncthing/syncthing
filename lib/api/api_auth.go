@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -52,24 +53,6 @@ func forbidden(w http.ResponseWriter) {
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
-func equalsAny(s string, values []string) bool {
-	for _, value := range values {
-		if s == value {
-			return true
-		}
-	}
-	return false
-}
-
-func hasAnyPrefix(s string, prefixes []string) bool {
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(s, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
 func isNoAuthPath(path string) bool {
 	// Local variable instead of module var to prevent accidental mutation
 	noAuthPaths := []string{
@@ -91,7 +74,10 @@ func isNoAuthPath(path string) bool {
 		"/rest/noauth",
 	}
 
-	return equalsAny(path, noAuthPaths) || hasAnyPrefix(path, noAuthPrefixes)
+	return slices.Contains(noAuthPaths, path) ||
+		slices.ContainsFunc(noAuthPrefixes, func(prefix string) bool {
+			return strings.HasPrefix(path, prefix)
+		})
 }
 
 func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
@@ -144,7 +130,7 @@ func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldap
 		}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse username and password:", err)
-			http.Error(w, "Failed to parse username and password.", 400)
+			http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
 			return
 		}
 
