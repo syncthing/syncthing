@@ -19,8 +19,11 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const replicationReadTimeout = time.Minute
-const replicationHeartbeatInterval = time.Second * 30
+const (
+	replicationReadTimeout       = time.Minute
+	replicationWriteTimeout      = 30 * time.Second
+	replicationHeartbeatInterval = time.Second * 30
+)
 
 type replicator interface {
 	send(key string, addrs []DatabaseAddress, seen int64)
@@ -67,6 +70,12 @@ func (s *replicationSender) Serve(ctx context.Context) error {
 		conn.SetWriteDeadline(time.Now().Add(time.Second))
 		conn.Close()
 	}()
+
+	// The replication stream is not especially latency sensitive, but it is
+	// quite a lot of data in small writes. Make it more efficient.
+	if tcpc, ok := conn.NetConn().(*net.TCPConn); ok {
+		_ = tcpc.SetNoDelay(false)
+	}
 
 	// Get the other side device ID.
 	remoteID, err := deviceID(conn)
@@ -116,7 +125,7 @@ func (s *replicationSender) Serve(ctx context.Context) error {
 			binary.BigEndian.PutUint32(buf, uint32(n))
 
 			// Send
-			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			conn.SetWriteDeadline(time.Now().Add(replicationWriteTimeout))
 			if _, err := conn.Write(buf[:4+n]); err != nil {
 				replicationSendsTotal.WithLabelValues("error").Inc()
 				log.Println("Replication write:", err)

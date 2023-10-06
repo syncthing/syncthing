@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Aug 18, 2023" "v1.23.7" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Sep 30, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -114,6 +114,9 @@ included more than once. Note that while this can be used to include
 patterns from a file in a subdirectory, the patterns themselves are
 still relative to the synced folder \fIroot\fP\&. Example:
 \fB#include more\-patterns.txt\fP\&.
+.sp
+Any \fB#include\fP directives inside a file loaded by \fB#include\fP require paths specified relative
+to the directory containing the loaded file, rather than the synchronised root directory.
 .IP \(bu 2
 A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
@@ -147,7 +150,7 @@ single pair of parentheses (not “(?di)”).
 .INDENT 3.5
 Include patterns (that begin with \fB!\fP) cause Syncthing to traverse
 the entire directory tree regardless of other ignore patterns.
-If the watcher is enabled, the entire directory
+If the \fI\%watcher\fP is enabled, the entire directory
 tree will be watched as well.
 .sp
 Top\-level include patterns are treated as special cases and will not force Syncthing to
@@ -207,16 +210,16 @@ all files and directories called “foo”, ending in a “2” or starting with
 .nf
 .ft C
 \&.DS_Store     # ignored, will be deleted if gets in the way of parent directory removal
-foo           # ignored, matches "foo"
-foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
+foo           # ignored, matches \(dqfoo\(dq
+foofoo        # synced, does not match \(dqfoo\(dq but would match \(dqfoo*\(dq or \(dq*foo\(dq
 bar/          # synced
     baz       # synced
-    quux      # ignored, matches "qu*"
-    quuz      # synced, matches "qu*" but is excluded by the preceding "!quuz"
-bar2/         # synced, despite matching "*2" due to child frobble
+    quux      # ignored, matches \(dqqu*\(dq
+    quuz      # synced, matches \(dqqu*\(dq but is excluded by the preceding \(dq!quuz\(dq
+bar2/         # synced, despite matching \(dq*2\(dq due to child frobble
     baz       # ignored, due to parent being ignored
-    frobble   # synced, due to "!frobble"
-My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
+    frobble   # synced, due to \(dq!frobble\(dq
+My Pictures/  # ignored, matched case insensitive \(dq(?i)my pictures\(dq pattern
     Img15.PNG # ignored, due to parent being ignored
 .ft P
 .fi

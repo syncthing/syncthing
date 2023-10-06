@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-NETWORKING" "7" "Aug 18, 2023" "v1.23.7" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "Sep 30, 2023" "v1.24.0" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .SH ROUTER SETUP
@@ -57,7 +57,7 @@ Communication in Syncthing works both ways. Therefore if you set up port
 forwards for one device, other devices will be able to connect to it even when
 they are behind a NAT network or firewall.
 .sp
-In the absence of port forwarding, relaying may work well enough to get
+In the absence of port forwarding, \fI\%Relaying\fP may work well enough to get
 devices connected and synced, but will perform poorly in comparison to a
 direct connection.
 .SS Local Discovery
@@ -171,7 +171,7 @@ port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
 .SH VIA A PROXY
 .sp
-Syncthing can use a SOCKS5 proxy for outbound connections. Please see proxying\&.
+Syncthing can use a SOCKS5 proxy for outbound connections. Please see \fI\%Using Proxies\fP\&.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

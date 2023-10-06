@@ -11,6 +11,8 @@ import (
 	"sort"
 )
 
+const defaultNumConnections = 1 // number of connections to use by default; may change in the future.
+
 func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	c := cfg
 	c.Addresses = make([]string, len(cfg.Addresses))
@@ -46,6 +48,17 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 			l.Warnf("Device %s (%s) is both untrusted and auto-accepting folders, removing auto-accept flag", cfg.DeviceID.Short(), cfg.Name)
 			cfg.AutoAcceptFolders = false
 		}
+	}
+}
+
+func (cfg *DeviceConfiguration) NumConnections() int {
+	switch {
+	case cfg.RawNumConnections == 0:
+		return defaultNumConnections
+	case cfg.RawNumConnections < 0:
+		return 1
+	default:
+		return cfg.RawNumConnections
 	}
 }
 

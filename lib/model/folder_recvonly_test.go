@@ -530,14 +530,15 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.Cancel
 	cfg.Folders = []config.FolderConfiguration{fcfg}
 	replace(t, w, cfg)
 
-	m := newModel(t, w, myID, "syncthing", "dev", nil)
+	m := newModel(t, w, myID, nil)
 	m.ServeBackground()
 	<-m.started
 	must(t, m.ScanFolder("ro"))
 
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	f := m.folderRunners["ro"].(*receiveOnlyFolder)
+	r, _ := m.folderRunners.Get("ro")
+	f := r.(*receiveOnlyFolder)
 
 	return m, f, cancel
 }

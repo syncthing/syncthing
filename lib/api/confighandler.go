@@ -319,7 +319,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if to.GUI.Password != cfg.GUI.Password {
-			if err := to.GUI.HashAndSetPassword(to.GUI.Password); err != nil {
+			if err := to.GUI.SetPassword(to.GUI.Password); err != nil {
 				l.Warnln("hashing password:", err)
 				errMsg = err.Error()
 				status = http.StatusInternalServerError
@@ -401,7 +401,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if gui.Password != oldPassword {
-			if err := gui.HashAndSetPassword(gui.Password); err != nil {
+			if err := gui.SetPassword(gui.Password); err != nil {
 				l.Warnln("hashing password:", err)
 				errMsg = err.Error()
 				status = http.StatusInternalServerError
