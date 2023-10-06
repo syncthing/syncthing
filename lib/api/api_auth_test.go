@@ -46,22 +46,66 @@ func TestStaticAuthPasswordFail(t *testing.T) {
 	}
 }
 
-func TestAuthLDAPSendsCorrectBindDNWithTemplate(t *testing.T) {
+func TestFormatOptionalPercentS(t *testing.T) {
 	t.Parallel()
 
-	templatedDn := ldapTemplateBindDN("cn=%s,dc=some,dc=example,dc=com", "username")
-	expectedDn := "cn=username,dc=some,dc=example,dc=com"
-	if expectedDn != templatedDn {
-		t.Fatalf("ldapTemplateBindDN should be %s != %s", expectedDn, templatedDn)
+	cases := []struct {
+		template string
+		username string
+		expected string
+	}{
+		{"cn=%s,dc=some,dc=example,dc=com", "username", "cn=username,dc=some,dc=example,dc=com"},
+		{"cn=fixedusername,dc=some,dc=example,dc=com", "username", "cn=fixedusername,dc=some,dc=example,dc=com"},
+		{"cn=%%s,dc=%s,dc=example,dc=com", "username", "cn=%s,dc=username,dc=example,dc=com"},
+		{"cn=%%s,dc=%%s,dc=example,dc=com", "username", "cn=%s,dc=%s,dc=example,dc=com"},
+	}
+
+	for _, c := range cases {
+		templatedDn := formatOptionalPercentS(c.template, c.username)
+		if c.expected != templatedDn {
+			t.Fatalf("result should be %s != %s", c.expected, templatedDn)
+		}
 	}
 }
 
-func TestAuthLDAPSendsCorrectBindDNWithNoTemplate(t *testing.T) {
+func TestEscapeForLDAPFilter(t *testing.T) {
 	t.Parallel()
 
-	templatedDn := ldapTemplateBindDN("cn=fixedusername,dc=some,dc=example,dc=com", "username")
-	expectedDn := "cn=fixedusername,dc=some,dc=example,dc=com"
-	if expectedDn != templatedDn {
-		t.Fatalf("ldapTemplateBindDN should be %s != %s", expectedDn, templatedDn)
+	cases := []struct {
+		in  string
+		out string
+	}{
+		{"username", `username`},
+		{"user(name", `user\28name`},
+		{"user)name", `user\29name`},
+		{"user\\name", `user\5Cname`},
+		{"user*name", `user\2Aname`},
+		{"*,CN=asdf", `\2A,CN=asdf`},
+	}
+
+	for _, c := range cases {
+		res := escapeForLDAPFilter(c.in)
+		if c.out != res {
+			t.Fatalf("result should be %s != %s", c.out, res)
+		}
+	}
+}
+
+func TestEscapeForLDAPDN(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		in  string
+		out string
+	}{
+		{"username", `username`},
+		{"* ,CN=asdf", `*\20\2CCN\3Dasdf`},
+	}
+
+	for _, c := range cases {
+		res := escapeForLDAPDN(c.in)
+		if c.out != res {
+			t.Fatalf("result should be %s != %s", c.out, res)
+		}
 	}
 }
