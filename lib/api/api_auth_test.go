@@ -58,6 +58,7 @@ func TestFormatOptionalPercentS(t *testing.T) {
 		{"cn=fixedusername,dc=some,dc=example,dc=com", "username", "cn=fixedusername,dc=some,dc=example,dc=com"},
 		{"cn=%%s,dc=%s,dc=example,dc=com", "username", "cn=%s,dc=username,dc=example,dc=com"},
 		{"cn=%%s,dc=%%s,dc=example,dc=com", "username", "cn=%s,dc=%s,dc=example,dc=com"},
+		{"cn=%s,dc=%s,dc=example,dc=com", "username", "cn=username,dc=username,dc=example,dc=com"},
 	}
 
 	for _, c := range cases {

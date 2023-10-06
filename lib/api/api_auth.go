@@ -321,13 +321,15 @@ func escapeRunes(value string, runes []rune) string {
 }
 
 func formatOptionalPercentS(template string, username string) string {
-	// Check if formatting directives are included in the template - if so
-	// add username. (%%s is a literal %s - unlikely for LDAP, but easy to
-	// handle here).
-	if strings.Count(template, "%s") > strings.Count(template, "%%s") {
-		template = fmt.Sprintf(template, username)
+	var replacements []any
+	nReps := strings.Count(template, "%s") - strings.Count(template, "%%s")
+	if nReps < 0 {
+		nReps = 0
 	}
-	return template
+	for i := 0; i < nReps; i++ {
+		replacements = append(replacements, username)
+	}
+	return fmt.Sprintf(template, replacements...)
 }
 
 // Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the
