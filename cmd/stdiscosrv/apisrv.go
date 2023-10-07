@@ -354,13 +354,14 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		bs = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: hdr})
 	} else if hdr := req.Header.Get("X-Forwarded-Tls-Client-Cert"); hdr != "" {
 		// Traefik 2 passtlsclientcert
-		// The certificate is in PEM format with url encoding but without newlines
-		// and start/end statements. We need to decode, reinstate the newlines every 64
+		//
+		// The certificate is in PEM format, maybe with URL encoding
+		// (depends on Traefik version) but without newlines and start/end
+		// statements. We need to decode, reinstate the newlines every 64
 		// character and add statements for the PEM decoder
-		hdr, err := url.QueryUnescape(hdr)
-		if err != nil {
-			// Decoding failed
-			return nil, err
+
+		if unesc, err := url.QueryUnescape(hdr); err == nil {
+			hdr = unesc
 		}
 
 		for i := 64; i < len(hdr); i += 65 {
@@ -368,7 +369,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		}
 
 		hdr = "-----BEGIN CERTIFICATE-----\n" + hdr
-		hdr = hdr + "\n-----END CERTIFICATE-----\n"
+		hdr += "\n-----END CERTIFICATE-----\n"
 		bs = []byte(hdr)
 	}
 
