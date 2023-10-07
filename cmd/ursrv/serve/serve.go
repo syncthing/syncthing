@@ -1014,7 +1014,7 @@ func getSummary(db *sql.DB, min int) (summary, error) {
 			ver = ver[:3] + "0" + ver[3:] // now v0.0x
 		}
 
-		s.setCount(day.Format("2006-01-02"), ver, num)
+		s.setCount(day.Format(time.DateOnly), ver, num)
 	}
 
 	s.filter(min)
@@ -1041,7 +1041,7 @@ func getPerformance(db *sql.DB) ([][]interface{}, error) {
 			return nil, err
 		}
 
-		row := []interface{}{day.Format("2006-01-02"), totFiles, totMiB, float64(int(sha256Perf*10)) / 10, memorySize, memoryUsage}
+		row := []interface{}{day.Format(time.DateOnly), totFiles, totMiB, float64(int(sha256Perf*10)) / 10, memorySize, memoryUsage}
 		res = append(res, row)
 	}
 
@@ -1071,7 +1071,7 @@ func getBlockStats(db *sql.DB) ([][]interface{}, error) {
 			continue
 		}
 		row := []interface{}{
-			day.Format("2006-01-02"),
+			day.Format(time.DateOnly),
 			reports,
 			pulled / blocksToGb,
 			renamed / blocksToGb,
