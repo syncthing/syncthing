@@ -306,7 +306,7 @@ func escapeForLDAPFilter(value string) string {
 	return escapeRunes(value, []rune{'\\', '*', '(', ')', 0})
 }
 
-// escapeForLDAPFilter escapes a value that will be used in a filter clause
+// escapeForLDAPDN escapes a value that will be used in a bind DN
 func escapeForLDAPDN(value string) string {
 	// https://social.technet.microsoft.com/wiki/contents/articles/5312.active-directory-characters-to-escape.aspx
 	// Backslash must always be first in the list so we don't double escape them.
