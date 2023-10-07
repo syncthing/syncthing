@@ -2976,6 +2976,16 @@ func (*model) VerifyConfiguration(from, to config.Configuration) error {
 			return errors.New("folder type must not be changed from/to receive-encrypted")
 		}
 	}
+
+	// Verify that any requested versioning is possible to construct, or we
+	// will panic later when starting the folder.
+	for _, to := range to.Folders {
+		if to.Versioning.Type != "" {
+			if _, err := versioner.New(to); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
