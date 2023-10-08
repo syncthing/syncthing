@@ -75,6 +75,9 @@ type folder struct {
 	forcedRescanPaths     map[string]struct{}
 	forcedRescanPathsMut  sync.Mutex
 
+	conflictFiles    []string
+	conflictFilesMut sync.Mutex
+
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
 	restartWatchChan chan struct{}
@@ -128,6 +131,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		forcedRescanRequested: make(chan struct{}, 1),
 		forcedRescanPaths:     make(map[string]struct{}),
 		forcedRescanPathsMut:  sync.NewMutex(),
+
+		conflictFiles:    make([]string, 0),
+		conflictFilesMut: sync.NewMutex(),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -455,6 +461,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 	}()
 
+	f.conflictFilesMut.Lock()
+	f.conflictFiles = make([]string, 0)
+	f.conflictFilesMut.Unlock()
 	f.setState(FolderScanWaiting)
 	defer f.setState(FolderIdle)
 
@@ -1239,6 +1248,16 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		delete(f.forcedRescanPaths, file.Name)
 	}
 	f.forcedRescanPathsMut.Unlock()
+	l.Infof("WTF", fs)
+
+	for _, file := range fs {
+		if isConflict(file.Name) {
+			f.conflictFilesMut.Lock()
+			f.conflictFiles = append(f.conflictFiles, file.Name)
+			f.conflictFilesMut.Unlock()
+			// TODO: emit event
+		}
+	}
 
 	seq := f.fset.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
@@ -1248,6 +1267,15 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		"sequence":  seq,
 		"version":   seq, // legacy for sequence
 	})
+}
+
+func (f *folder) GetConflicts() []string {
+	f.conflictFilesMut.Lock()
+	defer f.conflictFilesMut.Unlock()
+
+	sCopy := make([]string, len(f.conflictFiles))
+	copy(sCopy, f.conflictFiles)
+	return sCopy
 }
 
 func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events.EventType) {

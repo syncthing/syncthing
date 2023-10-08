@@ -257,6 +257,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/status", s.getDBStatus)                     // folder
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/browse", s.getDBBrowse)                     // folder [prefix] [dirsonly] [levels]
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/versions", s.getFolderVersions)         // folder
+	restMux.HandlerFunc(http.MethodGet, "/rest/folder/conflicts", s.getFolderConflicts)       // folder
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/errors", s.getFolderErrors)             // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/pullerrors", s.getFolderErrors)         // folder (deprecated)
 	restMux.HandlerFunc(http.MethodGet, "/rest/events", s.getIndexEvents)                     // [since] [limit] [timeout] [events]
@@ -1642,6 +1643,12 @@ func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, versions)
+}
+
+func (s *service) getFolderConflicts(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	conflicts := s.model.GetFolderConflicts(qs.Get("folder"))
+	sendJSON(w, conflicts)
 }
 
 func (s *service) postFolderVersionsRestore(w http.ResponseWriter, r *http.Request) {

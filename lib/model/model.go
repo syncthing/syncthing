@@ -61,6 +61,7 @@ type service interface {
 	WatchError() error
 	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
+	GetConflicts() []string
 
 	getState() (folderState, time.Time, error)
 }
@@ -92,6 +93,7 @@ type Model interface {
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
+	GetFolderConflicts(folder string) []string
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
@@ -2677,6 +2679,17 @@ func (m *model) State(folder string) (string, time.Time, error) {
 	}
 	state, changed, err := runner.getState()
 	return state.String(), changed, err
+}
+
+func (m *model) GetFolderConflicts(folder string) []string {
+	m.fmut.RLock()
+	runner, ok := m.folderRunners.Get(folder)
+	m.fmut.RUnlock()
+	if !ok {
+		return []string{}
+	}
+
+	return runner.GetConflicts()
 }
 
 func (m *model) FolderErrors(folder string) ([]FileError, error) {

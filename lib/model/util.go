@@ -90,3 +90,7 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 		}
 	}
 }
+
+func isConflict(name string) bool {
+	return strings.Contains(filepath.Base(name), ".sync-conflict-")
+}

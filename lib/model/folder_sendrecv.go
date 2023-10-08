@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -2227,10 +2226,6 @@ func (l fileErrorList) Swap(a, b int) {
 func conflictName(name, lastModBy string) string {
 	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
-}
-
-func isConflict(name string) bool {
-	return strings.Contains(filepath.Base(name), ".sync-conflict-")
 }
 
 func existingConflicts(name string, fs fs.Filesystem) []string {
