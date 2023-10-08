@@ -7,10 +7,12 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
 
+	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -20,8 +22,9 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id            protocol.DeviceID
+	cfg           config.Wrapper
+	webauthnState webauthnLib.SessionData
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -83,7 +86,7 @@ func (c *configMuxBuilder) registerFolders(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.finish(w, waiter)
+		c.cfg.Finish(w, waiter)
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +121,7 @@ func (c *configMuxBuilder) registerDevices(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.finish(w, waiter)
+		c.cfg.Finish(w, waiter)
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +158,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		c.finish(w, waiter)
+		c.cfg.Finish(w, waiter)
 	})
 }
 
@@ -201,7 +204,7 @@ func (c *configMuxBuilder) registerDevice(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		c.finish(w, waiter)
+		c.cfg.Finish(w, waiter)
 	})
 }
 
@@ -255,7 +258,7 @@ func (c *configMuxBuilder) registerDefaultIgnores(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.finish(w, waiter)
+		c.cfg.Finish(w, waiter)
 	})
 }
 
@@ -307,6 +310,16 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerWebauthnConfig(path string) {
+	c.HandlerFunc(http.MethodPost, path+"/register-start", func(w http.ResponseWriter, r *http.Request) {
+		c.startWebauthnRegistration(w, r)
+	})
+
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", func(w http.ResponseWriter, r *http.Request) {
+		c.finishWebauthnRegistration(w, r)
+	})
+}
+
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, c.id)
 	r.Body.Close()
@@ -326,6 +339,22 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
+
+		// Don't allow adding new WebAuthn credentials without passing a registration challenge,
+		// and only allow updating the nickname
+		existingCredentials := make(map[string]config.WebauthnCredential)
+		for _, cred := range cfg.GUI.WebauthnCredentials {
+			existingCredentials[cred.ID] = cred
+		}
+		var updatedCredentials []config.WebauthnCredential
+		for _, newCred := range to.GUI.WebauthnCredentials {
+			if exCred, ok := existingCredentials[newCred.ID]; ok {
+				exCred.Nickname = newCred.Nickname
+				updatedCredentials = append(updatedCredentials, exCred)
+			}
+		}
+		to.GUI.WebauthnCredentials = updatedCredentials
+
 		*cfg = to
 	})
 	if errMsg != "" {
@@ -334,7 +363,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
@@ -353,7 +382,7 @@ func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration, defaults bool) {
@@ -372,7 +401,7 @@ func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request, opts config.OptionsConfiguration) {
@@ -387,7 +416,7 @@ func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request,
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui config.GUIConfiguration) {
@@ -416,7 +445,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {
@@ -431,7 +460,69 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	c.cfg.Finish(w, waiter)
+}
+
+func (c *configMuxBuilder) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(c.cfg)
+	if err != nil {
+		l.Warnln("Failed to instantiate WebAuthn engine:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	options, sessionData, err := webauthn.BeginRegistration(c.cfg.GUI())
+	if err != nil {
+		l.Warnln("Failed to initiate WebAuthn registration:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	c.webauthnState = *sessionData
+
+	sendJSON(w, options)
+}
+
+func (c *configMuxBuilder) finishWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(c.cfg)
+	if err != nil {
+		l.Warnln("Failed to instantiate WebAuthn engine:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	state := c.webauthnState
+	c.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+
+	credential, err := webauthn.FinishRegistration(c.cfg.GUI(), state, r)
+	if err != nil {
+		l.Infoln("Failed to register WebAuthn credential:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	transports := make([]string, len(credential.Transport))
+	for i, t := range credential.Transport {
+		transports[i] = string(t)
+	}
+
+	configCred := config.WebauthnCredential{
+		ID:            base64.URLEncoding.EncodeToString(credential.ID),
+		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
+		SignCount:     credential.Authenticator.SignCount,
+		Transports:    transports,
+	}
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
+		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)
+	})
+	if err != nil {
+		l.Warnln("Failed to save new WebAuthn credential to config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSON(w, configCred)
+	c.cfg.Finish(w, waiter)
 }
 
 // Unmarshals the content of the given body and stores it in to (i.e. to must be a pointer).
@@ -448,12 +539,4 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	err := unmarshalTo(body, &data)
 	return data, err
-}
-
-func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
-	waiter.Wait()
-	if err := c.cfg.Save(); err != nil {
-		l.Warnln("Saving config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

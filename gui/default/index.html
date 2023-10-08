@@ -348,7 +348,7 @@
       <div ng-if="!authenticated" class="center-block">
         <h3 translate>Authentication Required</h3>
 
-        <form ng-submit="authenticatePassword()">
+        <form ng-submit="authenticatePassword()" class="col-md-6">
           <div class="form-group">
             <label for="user" translate>User</label>
             <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
@@ -373,6 +373,53 @@
             </div>
           </div>
         </form>
+
+        <div class="col-md-6" style="text-align: center">
+          <p translate>
+            Or...
+          </p>
+          <button
+            type="button"
+            class="btn btn-primary"
+            style="margin-bottom: 0.5em;"
+            ng-click="authenticateWebauthnFinish()"
+            ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()"
+            tabindex="3">
+            <span translate>Log in with WebAuthn</span>
+          </button>
+
+          <p class="text-info" ng-if="!webauthnAvailable()" translate>
+            Your browser does not support WebAuthn.
+          </p>
+          <p class="text-info" ng-if="locationDoesNotMatchWebauthnRpId()" translate>
+            Current location does not match WebAuthn configuration.
+          </p>
+          <p class="text-info" ng-if="isLocationInsecure()" translate>
+            WebAuthn requires HTTPS.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
+            This device or security key is not registered. Please try a different one.
+          </p>
+          <p class="text-info" ng-if="webauthn.errors.aborted" translate>
+            Authentication aborted by user.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
+            Authentication failed, please try again.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
+            Initialization failed, see Syncthing logs for details.
+          </p>
+          <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
+            Authentication failed, see Syncthing logs for details.
+          </p>
+          <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>
+            User has not configured any WebAuthn credentials.
+          </p>
+
+          <button ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress()" translate>
+            Reload page at {{inferWebauthnAddress()}}
+          </button>
+        </div>
       </div>
 
       <!-- First regular row -->
@@ -1061,6 +1108,7 @@
   <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
   <script type="text/javascript" src="vendor/daterangepicker/daterangepicker.js"></script>
   <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
+  <script type="text/javascript" src="vendor/webauthn-json-1.0.3/webauthn-json.browser-global.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->

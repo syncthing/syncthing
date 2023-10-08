@@ -159,6 +159,137 @@
               </div>
             </div>
           </div>
+
+          <!-- WebAuthn settings -->
+          <div class="form-group">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label translate for="RPID">WebAuthn RP ID</label>
+                  <input id="RPID" class="form-control text-monospace" type="text" ng-model="tmpGUI.webauthnRpId" placeholder="localhost" ng-disabled="!tmpGUI.useTLS" />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label translate for="WebauthnOrigin">WebAuthn Origin</label>
+                  <input id="WebauthnOrigin" class="form-control text-monospace" type="text" ng-model="tmpGUI.webauthnOrigin" placeholder="{{ getDefaultWebauthnOrigin(tmpGUI) }}" ng-disabled="!tmpGUI.useTLS" />
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <p class="text-warning" ng-if="webauthnRpIdChanged(config.gui, tmpGUI) && tmpGUI.webauthnCredentials.length > 0" translate>
+                  Changing the RP ID will make existing credentials stop working.
+                </p>
+
+                <p class="text-warning" ng-if="!webauthnRpIdMatchesLocation(tmpGUI) && !isRawIpAddress()" translate translate-value-current-domain="{{ getLocationHost() }}">
+                  RP ID should be equal to or a parent domain of the current webpage domain: "{%currentDomain%}"
+                </p>
+
+                <p class="text-warning" ng-if="isRawIpAddress(tmpGUI.webauthnRpId || 'localhost')" translate>
+                  WebAuthn is not supported on raw IP address hosts.
+                </p>
+
+                <p ng-if="!locationMatchesWebauthnOrigin(tmpGUI) && !isRawIpAddress(tmpGUI.webauthnRpId || 'localhost')">
+                  <button ng-if="settingsModified()" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress(true, tmpGUI)">
+                    <span class="fas fa-check"></span>&nbsp;<span translate>Save settings and reload page at WebAuthn Origin</span>
+                  </button>
+
+                  <button ng-if="!settingsModified()" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress(false, tmpGUI)" translate>
+                    Reload page at WebAuthn Origin
+                  </button>
+                </p>
+              </div>
+            </div>
+
+            <!-- WebAuthn credentials -->
+            <div class="table-responsive webauthn-credentials">
+              <table class="table-striped table">
+                <thead>
+                  <tr>
+                    <th colspan="1000"><label translate>WebAuthn Credentials</label></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="cred in tmpGUI.webauthnCredentials">
+                    <td ng-if="!cred.editing" class="no-overflow-ellipse stretch">
+                      {{ cred.nickname || (cred.id | limitTo: 20) }}
+                    </td>
+                    <td ng-if="cred.editing" class="no-overflow-ellipse stretch">
+                      <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
+                    </td>
+
+                    <td class="small-data">
+                      <a class="btn btn-link btn-sm" href="" ng-click="cred.editing = true" ng-if="!cred.editing">
+                        <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
+                      </a>
+                    </td>
+                    <td class="small-data">
+                      <a class="btn btn-link btn-sm" href="" ng-click="deleteWebauthnCredential(tmpGUI, cred)">
+                        <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                      </a>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <p class="text-info" ng-if="!config.gui.user" translate>
+                        Set a username and save to enable WebAuthn.
+                      </p>
+
+                      <p class="text-info" ng-if="!tmpGUI.useTLS" translate>
+                        WebAuthn requires HTTPS.
+                      </p>
+
+                      <p class="text-success" ng-if="tmpGUI.useTLS && isLocationInsecure()" translate>
+                        Save and reload in HTTPS to enable WebAuthn.
+                      </p>
+
+                      <p class="text-danger" ng-if="webauthn.errors.alreadyRegistered" translate>
+                        This device or security key is already registered. Please use a different one.
+                      </p>
+
+                      <p class="text-info" ng-if="webauthn.errors.aborted" translate>
+                        Registration aborted by user.
+                      </p>
+
+                      <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
+                        Registration failed - possibly aborted, timed out, or blocked by the browser.
+                      </p>
+
+                      <p class="text-danger" ng-if="webauthn.errors.registrationFailed" translate>
+                        Failed to create credential, see Syncthing logs for details.
+                      </p>
+
+                      <p class="text-info" ng-if="webauthnRpIdChanged(config.gui, tmpGUI)" translate>
+                        New RP ID must be saved before adding new credentials.
+                      </p>
+
+                      <p class="text-info" ng-if="webauthnOriginChanged(config.gui, tmpGUI)" translate>
+                        New origin must be saved before adding new credentials.
+                      </p>
+
+                      <p class="text-info" ng-if="isRawIpAddress()" translate>
+                        WebAuthn is not supported on raw IP address hosts.
+                      </p>
+
+                      <p class="text-info" ng-if="!webauthnAvailable()" translate>
+                        Your browser does not support WebAuthn.
+                      </p>
+                    </td>
+
+                    <td></td>
+                    <td class="small-data" colspan="1000">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential(tmpGUI)" ng-disabled="!config.gui.user || isLocationInsecure() || !webauthnAvailable() || webauthnRpIdChanged(config.gui, tmpGUI) || webauthnOriginChanged(config.gui, tmpGUI) || isRawIpAddress()">
+                        <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">

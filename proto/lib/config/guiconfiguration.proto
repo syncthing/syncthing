@@ -7,18 +7,29 @@ import "lib/config/authmode.proto";
 import "ext.proto";
 
 message GUIConfiguration {
-    bool     enabled                      = 1 [(ext.xml) = "enabled,attr", (ext.default) = "true"];
-    string   address                      = 2 [(ext.goname) = "RawAddress", (ext.default) = "127.0.0.1:8384"];
-    string   unix_socket_permissions      = 3 [(ext.goname) = "RawUnixSocketPermissions", (ext.xml) = "unixSocketPermissions,omitempty"];
-    string   user                         = 4 [(ext.xml) = "user,omitempty"];
-    string   password                     = 5 [(ext.xml) = "password,omitempty"];
-    AuthMode auth_mode                    = 6 [(ext.xml) = "authMode,omitempty"];
-    bool     use_tls                      = 7 [(ext.goname) = "RawUseTLS", (ext.xml) = "tls,attr", (ext.json) = "useTLS"];
-    string   api_key                      = 8 [(ext.goname) = "APIKey", (ext.xml) = "apikey,omitempty"];
-    bool     insecure_admin_access        = 9 [(ext.xml) = "insecureAdminAccess,omitempty"];
-    string   theme                        = 10 [(ext.default) = "default"];
-    bool     debugging                    = 11 [(ext.xml) = "debugging,attr"];
-    bool     insecure_skip_host_check     = 12 [(ext.xml) = "insecureSkipHostcheck,omitempty", (ext.json) = "insecureSkipHostcheck"];
-    bool     insecure_allow_frame_loading = 13 [(ext.xml) = "insecureAllowFrameLoading,omitempty"];
-    bool     send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
+    bool                        enabled                      = 1 [(ext.xml) = "enabled,attr", (ext.default) = "true"];
+    string                      address                      = 2 [(ext.goname) = "RawAddress", (ext.default) = "127.0.0.1:8384"];
+    string                      unix_socket_permissions      = 3 [(ext.goname) = "RawUnixSocketPermissions", (ext.xml) = "unixSocketPermissions,omitempty"];
+    string                      user                         = 4 [(ext.xml) = "user,omitempty"];
+    string                      password                     = 5 [(ext.xml) = "password,omitempty"];
+    AuthMode                    auth_mode                    = 6 [(ext.xml) = "authMode,omitempty"];
+    bool                        use_tls                      = 7 [(ext.goname) = "RawUseTLS", (ext.xml) = "tls,attr", (ext.json) = "useTLS"];
+    string                      api_key                      = 8 [(ext.goname) = "APIKey", (ext.xml) = "apikey,omitempty"];
+    bool                        insecure_admin_access        = 9 [(ext.xml) = "insecureAdminAccess,omitempty"];
+    string                      theme                        = 10 [(ext.default) = "default"];
+    bool                        debugging                    = 11 [(ext.xml) = "debugging,attr"];
+    bool                        insecure_skip_host_check     = 12 [(ext.xml) = "insecureSkipHostcheck,omitempty", (ext.json) = "insecureSkipHostcheck"];
+    bool                        insecure_allow_frame_loading = 13 [(ext.xml) = "insecureAllowFrameLoading,omitempty"];
+    bool                        send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
+    string                      webauthn_rp_id               = 15 [(ext.xml) = "webauthnRpId"];
+    string                      webauthn_origin              = 16 [(ext.xml) = "webauthnOrigin"];
+    repeated WebauthnCredential webauthn_credentials         = 17 [(ext.xml) = "webauthnCredential"];
+}
+
+message WebauthnCredential {
+    string          id              = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr"];
+    string          nickname        = 2 [(ext.xml) = "nickname,attr"];
+    string          public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
+    uint32          sign_count      = 4 [(ext.xml) = "signCount,attr"];
+    repeated string transports      = 5 [(ext.xml) = "transports,attr"];
 }

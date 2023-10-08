@@ -254,7 +254,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	cfg.GUI.prepare()
 
 	guiPWIsSet := cfg.GUI.User != "" && cfg.GUI.Password != ""
-	cfg.Options.prepare(guiPWIsSet)
+	guiWebauthnIsSet := cfg.GUI.WebauthnReady()
+	cfg.Options.prepare(guiPWIsSet, guiWebauthnIsSet)
 
 	cfg.prepareIgnoredDevices(existingDevices)
 

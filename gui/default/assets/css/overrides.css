@@ -106,6 +106,10 @@ ul+h5 {
     white-space: nowrap;
 }
 
+.table td.stretch {
+    width: 100%;
+}
+
 /* Removing text decoration on anchor link hover pull request: #4135 */
 .table td.small-data span a:hover {
     text-decoration: none;
@@ -549,4 +553,8 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
+}
+
+.webauthn-credentials table.table > tbody > tr > td {
+  vertical-align: middle;
 }

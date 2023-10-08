@@ -8,6 +8,7 @@ package api
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,6 +16,9 @@ import (
 	"time"
 
 	ldap "github.com/go-ldap/ldap/v3"
+	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
+	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -49,6 +53,14 @@ func unauthorized(w http.ResponseWriter) {
 
 func forbidden(w http.ResponseWriter) {
 	http.Error(w, "Forbidden", http.StatusForbidden)
+}
+
+func internalServerError(w http.ResponseWriter) {
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
+}
+
+func badRequest(w http.ResponseWriter) {
+	http.Error(w, "Bad request", http.StatusBadRequest)
 }
 
 func isNoAuthPath(path string) bool {
@@ -218,11 +230,14 @@ func handleLogout(cookieName string) http.Handler {
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
-	if guiCfg.AuthMode == config.AuthModeLDAP {
-		return authLDAP(username, password, ldapCfg)
-	} else {
-		return authStatic(username, password, guiCfg)
+	if guiCfg.IsPasswordAuthEnabled() {
+		if guiCfg.AuthMode == config.AuthModeLDAP {
+			return authLDAP(username, password, ldapCfg)
+		} else {
+			return authStatic(username, password, guiCfg)
+		}
 	}
+	return false
 }
 
 func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {
@@ -342,4 +357,92 @@ func iso88591ToUTF8(s []byte) []byte {
 		runes[i] = rune(s[i])
 	}
 	return []byte(string(runes))
+}
+
+type webauthnService struct {
+	webauthnState webauthnLib.SessionData
+	cfg           config.Wrapper
+	cookieName    string
+	evLogger      events.Logger
+}
+
+func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnService {
+	return webauthnService{
+		cfg:        cfg,
+		cookieName: cookieName,
+		evLogger:   evLogger,
+	}
+}
+
+func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		l.Warnln("Failed to initialize WebAuthn handle", err)
+		internalServerError(w)
+		return
+	}
+
+	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(webauthnProtocol.VerificationDiscouraged))
+	if err != nil {
+		badRequest, ok := err.(*webauthnProtocol.Error)
+		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
+			sendJSON(w, make(map[string]string))
+		} else {
+			l.Warnln("Failed to initialize WebAuthn login", err)
+		}
+		return
+	}
+
+	s.webauthnState = *sessionData
+
+	sendJSON(w, options)
+}
+
+func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		l.Warnln("Failed to initialize WebAuthn handle", err)
+		internalServerError(w)
+		return
+	}
+
+	state := s.webauthnState
+	s.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+
+	parsedResponse, err := webauthnProtocol.ParseCredentialRequestResponse(r)
+	if err != nil {
+		l.Debugln("Failed to parse WebAuthn authentication response", err)
+		badRequest(w)
+		return
+	}
+
+	guiCfg := s.cfg.GUI()
+	updatedCred, err := webauthn.ValidateLogin(guiCfg, state, parsedResponse)
+	if err != nil {
+		l.Infoln("WebAuthn authentication failed", err)
+		forbidden(w)
+		return
+	}
+
+	authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
+	authenticatedCredName := authenticatedCredId
+	var signCountBefore uint32 = 0
+	waiter, err := s.cfg.Modify(func(cfg *config.Configuration) {
+		for i, cred := range cfg.GUI.WebauthnCredentials {
+			if cred.ID == authenticatedCredId {
+				signCountBefore = cfg.GUI.WebauthnCredentials[i].SignCount
+				authenticatedCredName = cfg.GUI.WebauthnCredentials[i].Nickname
+				cfg.GUI.WebauthnCredentials[i].SignCount = updatedCred.Authenticator.SignCount
+				break
+			}
+		}
+	})
+	s.cfg.Finish(w, waiter)
+
+	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
+		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential \"%s\": expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
+	}
+
+	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)
+	w.WriteHeader(http.StatusNoContent)
 }
