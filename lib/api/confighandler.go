@@ -41,7 +41,7 @@ func (c *configMuxBuilder) registerConfig(path string) {
 			Configuration: cfg,
 			GUI: guiCfgWithExtras{
 				GUIConfiguration: cfg.GUI,
-				IsAuthEnabled: cfg.GUI.IsAuthEnabled(),
+				IsAuthEnabled:    cfg.GUI.IsAuthEnabled(),
 			},
 		})
 	})
