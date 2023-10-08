@@ -744,9 +744,11 @@ func TestHTTPLogin(t *testing.T) {
 		})
 	}
 
+	testWith(true, http.StatusOK, http.StatusOK, "/")
 	testWith(true, http.StatusOK, http.StatusUnauthorized, "/meta.js")
 	testWith(true, http.StatusNotFound, http.StatusUnauthorized, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
 
+	testWith(false, http.StatusOK, http.StatusOK, "/")
 	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
 	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
 }
