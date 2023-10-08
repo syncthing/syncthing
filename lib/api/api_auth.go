@@ -164,6 +164,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	}
 
 	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	antiBruteForceSleep()
 	return "", false
 }
 
