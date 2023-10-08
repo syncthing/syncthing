@@ -649,6 +649,9 @@ func TestHTTPLogin(t *testing.T) {
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for unauthed request", expectedFailStatus, resp.StatusCode)
 				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for unauthed request")
+				}
 			})
 
 			t.Run("incorrect password is rejected", func(t *testing.T) {
@@ -656,6 +659,9 @@ func TestHTTPLogin(t *testing.T) {
 				resp := httpGetBasicAuth(url, "üser", "rksmrgs")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for incorrect password", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for incorrect password")
 				}
 			})
 
@@ -665,6 +671,9 @@ func TestHTTPLogin(t *testing.T) {
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for incorrect username", expectedFailStatus, resp.StatusCode)
 				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for incorrect username")
+				}
 			})
 
 			t.Run("UTF-8 auth works", func(t *testing.T) {
@@ -672,6 +681,9 @@ func TestHTTPLogin(t *testing.T) {
 				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
 				}
 			})
 
@@ -681,6 +693,9 @@ func TestHTTPLogin(t *testing.T) {
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (ISO-8859-1)", expectedOkStatus, resp.StatusCode)
 				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (ISO-8859-1)")
+				}
 			})
 
 			t.Run("bad X-API-Key is rejected", func(t *testing.T) {
@@ -688,6 +703,9 @@ func TestHTTPLogin(t *testing.T) {
 				resp := httpGetXapikey(url, testAPIKey+"X")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad API key")
 				}
 			})
 
@@ -697,13 +715,19 @@ func TestHTTPLogin(t *testing.T) {
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
 				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for API key")
+				}
 			})
 
 			t.Run("bad Bearer is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetAuthorizationBearer(url, testAPIKey+"X")
 				if resp.StatusCode != expectedFailStatus {
-					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
+					t.Errorf("Unexpected non-%d return code %d for bad Authorization: Bearer", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad Authorization: Bearer")
 				}
 			})
 
@@ -711,7 +735,10 @@ func TestHTTPLogin(t *testing.T) {
 				t.Parallel()
 				resp := httpGetAuthorizationBearer(url, testAPIKey)
 				if resp.StatusCode != expectedOkStatus {
-					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
+					t.Errorf("Unexpected non-%d return code %d for Authorization: Bearer", expectedOkStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad Authorization: Bearer")
 				}
 			})
 		})
