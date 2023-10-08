@@ -26,24 +26,7 @@ type configMuxBuilder struct {
 
 func (c *configMuxBuilder) registerConfig(path string) {
 	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
-		cfg := c.cfg.RawCopy()
-
-		type guiCfgWithExtras struct {
-			config.GUIConfiguration
-			IsAuthEnabled bool `json:"isAuthEnabled"`
-		}
-		type configWithExtras struct {
-			config.Configuration
-			GUI guiCfgWithExtras `json:"gui"`
-		}
-
-		sendJSON(w, configWithExtras{
-			Configuration: cfg,
-			GUI: guiCfgWithExtras{
-				GUIConfiguration: cfg.GUI,
-				IsAuthEnabled:    cfg.GUI.IsAuthEnabled(),
-			},
-		})
+		sendJSON(w, c.cfg.RawCopy())
 	})
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {

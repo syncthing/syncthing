@@ -565,6 +565,14 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
+        $scope.isAuthEnabled = function (config) {
+            // This function should match IsAuthEnabled() in guiconfiguration.go
+            if (config && config.gui) {
+	        return config.gui.authMode === 'ldap' || (config.gui.user && config.gui.password);
+            }
+            return false;
+        };
+
         function refreshNoAuthWarning() {
             if (!$scope.system || !$scope.config || !$scope.config.gui) {
                 // We need all to be able to determine the state.
@@ -579,7 +587,7 @@ angular.module('syncthing.core')
             $scope.openNoAuth = addr.substr(0, 4) !== "127."
                 && addr.substr(0, 6) !== "[::1]:"
                 && addr.substr(0, 1) !== "/"
-                && !guiCfg.isAuthEnabled
+                && !$scope.isAuthEnabled($scope.config)
                 && !guiCfg.insecureAdminAccess;
 
             if ((guiCfg.user && guiCfg.password) || guiCfg.authMode === 'ldap') {
