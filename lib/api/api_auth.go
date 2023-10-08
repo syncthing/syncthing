@@ -35,6 +35,7 @@ func emitLoginAttempt(success bool, username, address string, evLogger events.Lo
 	})
 	if !success {
 		l.Infof("Wrong credentials supplied during API authorization from %s", address)
+		antiBruteForceSleep()
 	}
 }
 
@@ -139,7 +140,6 @@ func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldap
 		}
 
 		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
-		antiBruteForceSleep()
 		forbidden(w)
 	})
 }
@@ -163,7 +163,6 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	}
 
 	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
-	antiBruteForceSleep()
 	return "", false
 }
 
