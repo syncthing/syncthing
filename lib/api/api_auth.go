@@ -43,13 +43,11 @@ func antiBruteForceSleep() {
 }
 
 func unauthorized(w http.ResponseWriter) {
-	antiBruteForceSleep()
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
 func forbidden(w http.ResponseWriter) {
-	antiBruteForceSleep()
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
@@ -141,6 +139,7 @@ func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldap
 		}
 
 		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
+		antiBruteForceSleep()
 		forbidden(w)
 	})
 }
