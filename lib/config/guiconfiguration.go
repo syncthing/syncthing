@@ -119,7 +119,13 @@ var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 // SetPassword takes a bcrypt hash or a plaintext password and stores it.
 // Plaintext passwords are hashed. Returns an error if the password is not
 // valid.
+// If the plaintext password is empty, the password is unset instead.
 func (c *GUIConfiguration) SetPassword(password string) error {
+	if password == "" {
+		c.Password = ""
+		return nil
+	}
+
 	if bcryptExpr.MatchString(password) {
 		// Already hashed
 		c.Password = password
