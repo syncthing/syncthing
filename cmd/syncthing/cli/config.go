@@ -13,6 +13,7 @@ import (
 	"reflect"
 
 	"github.com/AudriusButkevicius/recli"
+	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )
@@ -21,6 +22,26 @@ type configHandler struct {
 	original, cfg config.Configuration
 	client        APIClient
 	err           error
+}
+
+type configCommand struct {
+	Args []string `arg:"" default:"-h"`
+}
+
+func (c *configCommand) Run(ctx Context, kongCtx *kong.Context) error {
+	app := cli.NewApp()
+	app.Author = "The Syncthing Authors"
+	app.Metadata = map[string]interface{}{
+		"clientFactory": ctx.clientFactory,
+	}
+
+	realConfigCommand, err := getConfigCommand(ctx.clientFactory)
+	if err != nil {
+		return err
+	}
+	app.Commands = []cli.Command{realConfigCommand}
+
+	return app.Run(kongCtx.Args)
 }
 
 func getConfigCommand(f *apiClientFactory) (cli.Command, error) {

@@ -9,37 +9,30 @@ package cli
 import (
 	"net/url"
 
-	"github.com/urfave/cli"
+	"github.com/alecthomas/kong"
 )
 
-var pendingCommand = cli.Command{
-	Name:     "pending",
-	HideHelp: true,
-	Usage:    "Pending subcommand group",
-	Subcommands: []cli.Command{
-		{
-			Name:   "devices",
-			Usage:  "Show pending devices",
-			Action: expects(0, indexDumpOutput("cluster/pending/devices")),
-		},
-		{
-			Name:  "folders",
-			Usage: "Show pending folders",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "device", Usage: "Show pending folders offered by given device"},
-			},
-			Action: expects(0, folders()),
-		},
-	},
+type pendingCommand struct {
+	Devices struct{} `cmd:"" help:"Show pending devices"`
+	Folders struct {
+		Device string `help:"Show pending folders offered by given device"`
+	} `cmd:"" help:"Show pending folders"`
 }
 
-func folders() cli.ActionFunc {
-	return func(c *cli.Context) error {
-		if c.String("device") != "" {
+func (p *pendingCommand) Run(ctx Context, kongCtx *kong.Context) error {
+	indexDumpOutput := indexDumpOutputWrapper(ctx.clientFactory)
+
+	switch kongCtx.Path[len(kongCtx.Path)-1].Command.Name {
+	case "devices":
+		return indexDumpOutput("cluster/pending/devices")
+	case "folders":
+		if p.Folders.Device != "" {
 			query := make(url.Values)
-			query.Set("device", c.String("device"))
-			return indexDumpOutput("cluster/pending/folders?" + query.Encode())(c)
+			query.Set("device", p.Folders.Device)
+			return indexDumpOutput("cluster/pending/folders?" + query.Encode())
 		}
-		return indexDumpOutput("cluster/pending/folders")(c)
+		return indexDumpOutput("cluster/pending/folders")
 	}
+
+	return nil
 }

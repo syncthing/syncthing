@@ -7,32 +7,26 @@
 package cli
 
 import (
-	"github.com/urfave/cli"
+	"github.com/alecthomas/kong"
 )
 
-var indexCommand = cli.Command{
-	Name:  "index",
-	Usage: "Show information about the index (database)",
-	Subcommands: []cli.Command{
-		{
-			Name:   "dump",
-			Usage:  "Print the entire db",
-			Action: expects(0, indexDump),
-		},
-		{
-			Name:   "dump-size",
-			Usage:  "Print the db size of different categories of information",
-			Action: expects(0, indexDumpSize),
-		},
-		{
-			Name:   "check",
-			Usage:  "Check the database for inconsistencies",
-			Action: expects(0, indexCheck),
-		},
-		{
-			Name:   "account",
-			Usage:  "Print key and value size statistics per key type",
-			Action: expects(0, indexAccount),
-		},
-	},
+type indexCommand struct {
+	Dump     struct{} `cmd:"" help:"Print the entire db"`
+	DumpSize struct{} `cmd:"" help:"Print the db size of different categories of information"`
+	Check    struct{} `cmd:"" help:"Check the database for inconsistencies"`
+	Account  struct{} `cmd:"" help:"Print key and value size statistics per key type"`
+}
+
+func (i *indexCommand) Run(kongCtx *kong.Context) error {
+	switch kongCtx.Selected().Name {
+	case "dump":
+		return indexDump()
+	case "dump-size":
+		return indexDumpSize()
+	case "check":
+		return indexCheck()
+	case "account":
+		return indexAccount()
+	}
+	return nil
 }

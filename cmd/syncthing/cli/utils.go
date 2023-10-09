@@ -30,7 +30,16 @@ func responseToBArray(response *http.Response) ([]byte, error) {
 	return bytes, response.Body.Close()
 }
 
-func emptyPost(url string) cli.ActionFunc {
+func emptyPost(url string, apiClientFactory *apiClientFactory) error {
+	client, err := apiClientFactory.getClient()
+	if err != nil {
+		return err
+	}
+	_, err = client.Post(url, "")
+	return err
+}
+
+func emptyPostOld(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client, err := getClientFactory(c).getClient()
 		if err != nil {
@@ -41,7 +50,28 @@ func emptyPost(url string) cli.ActionFunc {
 	}
 }
 
-func indexDumpOutput(url string) cli.ActionFunc {
+func indexDumpOutputWrapper(apiClientFactory *apiClientFactory) func(url string) error {
+	return func(url string) error {
+		return indexDumpOutput(url, apiClientFactory)
+	}
+}
+
+func indexDumpOutput(url string, apiClientFactory *apiClientFactory) error {
+	client, err := apiClientFactory.getClient()
+	if err != nil {
+		return err
+	}
+	response, err := client.Get(url)
+	if errors.Is(err, errNotFound) {
+		return errors.New("not found (folder/file not in database)")
+	}
+	if err != nil {
+		return err
+	}
+	return prettyPrintResponse(response)
+}
+
+func indexDumpOutputDELETE(url string) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		client, err := getClientFactory(c).getClient()
 		if err != nil {
@@ -58,40 +88,38 @@ func indexDumpOutput(url string) cli.ActionFunc {
 	}
 }
 
-func saveToFile(url string) cli.ActionFunc {
-	return func(c *cli.Context) error {
-		client, err := getClientFactory(c).getClient()
-		if err != nil {
-			return err
-		}
-		response, err := client.Get(url)
-		if err != nil {
-			return err
-		}
-		_, params, err := mime.ParseMediaType(response.Header.Get("Content-Disposition"))
-		if err != nil {
-			return err
-		}
-		filename := params["filename"]
-		if filename == "" {
-			return errors.New("Missing filename in response")
-		}
-		bs, err := responseToBArray(response)
-		if err != nil {
-			return err
-		}
-		f, err := os.Create(filename)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = f.Write(bs)
-		if err != nil {
-			return err
-		}
-		fmt.Println("Wrote results to", filename)
+func saveToFile(url string, apiClientFactory *apiClientFactory) error {
+	client, err := apiClientFactory.getClient()
+	if err != nil {
 		return err
 	}
+	response, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	_, params, err := mime.ParseMediaType(response.Header.Get("Content-Disposition"))
+	if err != nil {
+		return err
+	}
+	filename := params["filename"]
+	if filename == "" {
+		return errors.New("Missing filename in response")
+	}
+	bs, err := responseToBArray(response)
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(bs)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Wrote results to", filename)
+	return err
 }
 
 func getConfig(c APIClient) (config.Configuration, error) {

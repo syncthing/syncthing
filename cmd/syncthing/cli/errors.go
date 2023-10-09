@@ -11,36 +11,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli"
+	"github.com/alecthomas/kong"
 )
 
-var errorsCommand = cli.Command{
-	Name:     "errors",
-	HideHelp: true,
-	Usage:    "Error command group",
-	Subcommands: []cli.Command{
-		{
-			Name:   "show",
-			Usage:  "Show pending errors",
-			Action: expects(0, indexDumpOutput("system/error")),
-		},
-		{
-			Name:      "push",
-			Usage:     "Push an error to active clients",
-			ArgsUsage: "ERROR-MESSAGE",
-			Action:    expects(1, errorsPush),
-		},
-		{
-			Name:   "clear",
-			Usage:  "Clear pending errors",
-			Action: expects(0, emptyPost("system/error/clear")),
-		},
-	},
+type errorsCommand struct {
+	Show  struct{}          `cmd:"" help:"Show pending errors"`
+	Push  errorsPushCommand `cmd:"" help:"Push an error to active clients"`
+	Clear struct{}          `cmd:"" help:"Clear pending errors"`
 }
 
-func errorsPush(c *cli.Context) error {
-	client := c.App.Metadata["client"].(APIClient)
-	errStr := strings.Join(c.Args(), " ")
+type errorsPushCommand struct {
+	ErrorMessage string `arg:""`
+}
+
+func (e *errorsPushCommand) Run(ctx Context) error {
+	client, err := ctx.clientFactory.getClient()
+	if err != nil {
+		return err
+	}
+	errStr := e.ErrorMessage
 	response, err := client.Post("system/error", strings.TrimSpace(errStr))
 	if err != nil {
 		return err
@@ -56,6 +45,16 @@ func errorsPush(c *cli.Context) error {
 			errStr += "\nBody: " + body
 		}
 		return errors.New(errStr)
+	}
+	return nil
+}
+
+func (e *errorsCommand) Run(ctx Context, kongCtx *kong.Context) error {
+	switch kongCtx.Selected().Name {
+	case "show":
+		return indexDumpOutput("system/error", ctx.clientFactory)
+	case "clear":
+		return emptyPost("system/error/clear", ctx.clientFactory)
 	}
 	return nil
 }
