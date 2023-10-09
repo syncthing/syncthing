@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Sep 30, 2023" "v1.24.0" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Oct 05, 2023" "v1.25.0" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -930,6 +930,15 @@ patterns to be used by default on folders, as an array of single\-line strings.
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and
 \fBPATCH\fP replaces only the given child objects.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+The \fI\%gui.password\fP configuration option has special handling to
+accept already hashed passwords.  Any valid bcrypt hash is stored verbatim,
+while a plaintext password is first hashed.
+.UNINDENT
+.UNINDENT
 .SH CLUSTER ENDPOINTS
 .sp
 Concerns the mesh network structure.

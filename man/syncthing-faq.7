@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Sep 30, 2023" "v1.24.0" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Oct 05, 2023" "v1.25.0" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -519,11 +519,10 @@ On Windows, escaping special characters is not supported as the \fB\e\fP
 character is used as a path separator.
 .SS How do I access the web GUI from another computer?
 .sp
-The default listening address is 127.0.0.1:8384, so you can only access the
-GUI from the same machine. This is for security reasons. To access the web
-GUI from another computer, change the \fBGUI listen address\fP through the web
-UI from \fB127.0.0.1:8384\fP to
-\fB0.0.0.0:8384\fP or change the config.xml:
+The default listening address is 127.0.0.1:8384, so you can only access the GUI
+from the same machine.  This is for security reasons.  To access it from another
+computer, change the \fBGUI listen address\fP option in the web GUI from
+\fB127.0.0.1:8384\fP to \fB0.0.0.0:8384\fP, or change the \fBconfig.xml\fP:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -542,19 +541,19 @@ to
 .sp
 .nf
 .ft C
-<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
+<gui enabled=\(dqtrue\(dq tls=\(dqtrue\(dq>
   <address>0.0.0.0:8384</address>
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-Then the GUI is accessible from everywhere. You should set a password and
-enable HTTPS with this configuration. You can do this from inside the GUI.
+Then the GUI is accessible from everywhere.  There is no filtering based on
+e.g. source address (use a firewall for that).  You should set a password and
+enable HTTPS with this configuration.  You can do this from inside the GUI.
 .sp
 If both your computers are Unix\-like (Linux, Mac, etc.) you can also leave the
-GUI settings at default and use an ssh port forward to access it. For
-example,
+GUI settings at default and use an SSH port forward to access it.  For example,
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -566,11 +565,11 @@ $ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 .UNINDENT
 .UNINDENT
 .sp
-will log you into othercomputer.example.com, and present the \fIremote\fP
+will log you into \fBothercomputer.example.com\fP, and present the \fIremote\fP
 Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
 .sp
-If you only want to access the remote gui and don’t want the terminal
-session, use this example,
+If you only want to access the remote GUI and don’t want the terminal session,
+use this example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -582,13 +581,9 @@ $ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 .UNINDENT
 .UNINDENT
 .sp
-If only your remote computer is Unix\-like,
-you can still access it with ssh from Windows.
-.sp
-Under Windows 10 or later (64\-bit only) you can use the same ssh command
-if you install the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install\fP>\&.
-.sp
-Another Windows way to run ssh is to install \fI\%gow (Gnu On Windows)\fP <\fBhttps://github.com/bmatzelle/gow\fP>\&. The easiest way to install gow is with the \fI\%chocolatey\fP <\fBhttps://chocolatey.org/\fP> package manager.
+If only your remote computer is Unix\-like, you can still access it with SSH from
+Windows.  Under Windows 10 or later you can use the same \fBssh\fP command if you
+\fI\%install the OpenSSH Client\fP <\fBhttps://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse\fP>\&.
 .SS I don’t like the GUI or the theme. Can it be changed?
 .sp
 You can change the theme in the settings. Syncthing ships with other themes
