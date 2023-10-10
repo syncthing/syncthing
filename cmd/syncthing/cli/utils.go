@@ -19,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/urfave/cli"
 )
 
 func responseToBArray(response *http.Response) ([]byte, error) {
@@ -37,17 +36,6 @@ func emptyPost(url string, apiClientFactory *apiClientFactory) error {
 	}
 	_, err = client.Post(url, "")
 	return err
-}
-
-func emptyPostOld(url string) cli.ActionFunc {
-	return func(c *cli.Context) error {
-		client, err := getClientFactory(c).getClient()
-		if err != nil {
-			return err
-		}
-		_, err = client.Post(url, "")
-		return err
-	}
 }
 
 func indexDumpOutputWrapper(apiClientFactory *apiClientFactory) func(url string) error {
@@ -69,23 +57,6 @@ func indexDumpOutput(url string, apiClientFactory *apiClientFactory) error {
 		return err
 	}
 	return prettyPrintResponse(response)
-}
-
-func indexDumpOutputDELETE(url string) cli.ActionFunc {
-	return func(c *cli.Context) error {
-		client, err := getClientFactory(c).getClient()
-		if err != nil {
-			return err
-		}
-		response, err := client.Get(url)
-		if errors.Is(err, errNotFound) {
-			return errors.New("not found (folder/file not in database)")
-		}
-		if err != nil {
-			return err
-		}
-		return prettyPrintResponse(response)
-	}
 }
 
 func saveToFile(url string, apiClientFactory *apiClientFactory) error {
@@ -139,19 +110,6 @@ func getConfig(c APIClient) (config.Configuration, error) {
 	return cfg, nil
 }
 
-func expects(n int, actionFunc cli.ActionFunc) cli.ActionFunc {
-	return func(ctx *cli.Context) error {
-		if ctx.NArg() != n {
-			plural := ""
-			if n != 1 {
-				plural = "s"
-			}
-			return fmt.Errorf("expected %d argument%s, got %d", n, plural, ctx.NArg())
-		}
-		return actionFunc(ctx)
-	}
-}
-
 func prettyPrintJSON(data interface{}) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -186,8 +144,4 @@ func nulString(bs []byte) string {
 
 func normalizePath(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
-}
-
-func getClientFactory(c *cli.Context) *apiClientFactory {
-	return c.App.Metadata["clientFactory"].(*apiClientFactory)
 }
