@@ -81,7 +81,7 @@ func (s *stdinCommand) Run(kongCtx *kong.Context) error {
 			continue
 		}
 		err = ctx.Run()
-		// TODO: auto exit
+		// FIXME: the app will auto exit when printed a help, need to investigate why
 		if err != nil {
 			fmt.Println(err)
 		}

@@ -30,7 +30,7 @@ type operationCommand struct {
 	Shutdown       struct{}              `cmd:"" help:"Shutdown syncthing"`
 	Upgrade        struct{}              `cmd:"" help:"Upgrade syncthing (if a newer version is available)"`
 	FolderOverride folderOverrideCommand `cmd:"" help:"Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data"`
-	DefaultIgnores struct{}              `cmd:"" help:"Set the default ignores (config) from a file"`
+	DefaultIgnores defaultIgnoresCommand `cmd:"" help:"Set the default ignores (config) from a file"`
 }
 
 func (o *operationCommand) Run(ctx Context, kongCtx *kong.Context) error {
