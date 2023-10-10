@@ -22,7 +22,7 @@ type pendingCommand struct {
 func (p *pendingCommand) Run(ctx Context, kongCtx *kong.Context) error {
 	indexDumpOutput := indexDumpOutputWrapper(ctx.clientFactory)
 
-	switch kongCtx.Path[len(kongCtx.Path)-1].Command.Name {
+	switch kongCtx.Selected().Name {
 	case "devices":
 		return indexDumpOutput("cluster/pending/devices")
 	case "folders":
