@@ -30,23 +30,14 @@ type configCommand struct {
 
 func (c *configCommand) Run(ctx Context, kongCtx *kong.Context) error {
 	app := cli.NewApp()
+	app.Name = "syncthing"
 	app.Author = "The Syncthing Authors"
 	app.Metadata = map[string]interface{}{
 		"clientFactory": ctx.clientFactory,
 	}
 
-	realConfigCommand, err := getConfigCommand(ctx.clientFactory)
-	if err != nil {
-		return err
-	}
-	app.Commands = []cli.Command{realConfigCommand}
-
-	return app.Run(kongCtx.Args)
-}
-
-func getConfigCommand(f *apiClientFactory) (cli.Command, error) {
 	h := new(configHandler)
-	h.client, h.err = f.getClient()
+	h.client, h.err = ctx.clientFactory.getClient()
 	if h.err == nil {
 		h.cfg, h.err = getConfig(h.client)
 	}
@@ -59,17 +50,15 @@ func getConfigCommand(f *apiClientFactory) (cli.Command, error) {
 
 	commands, err := recli.New(recliCfg).Construct(&h.cfg)
 	if err != nil {
-		return cli.Command{}, fmt.Errorf("config reflect: %w", err)
+		return fmt.Errorf("config reflect: %w", err)
 	}
 
-	return cli.Command{
-		Name:        "config",
-		HideHelp:    true,
-		Usage:       "Configuration modification command group",
-		Subcommands: commands,
-		Before:      h.configBefore,
-		After:       h.configAfter,
-	}, nil
+	app.Commands = commands
+	app.HideHelp = true
+	app.Before = h.configBefore
+	app.After = h.configAfter
+
+	return app.Run(append([]string{app.Name}, c.Args...))
 }
 
 func (h *configHandler) configBefore(c *cli.Context) error {
