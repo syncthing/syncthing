@@ -43,13 +43,11 @@ func antiBruteForceSleep() {
 }
 
 func unauthorized(w http.ResponseWriter) {
-	antiBruteForceSleep()
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
 func forbidden(w http.ResponseWriter) {
-	antiBruteForceSleep()
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
@@ -87,12 +85,6 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
-		// Exception for static assets and REST calls that don't require authentication.
-		if isNoAuthPath(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
@@ -107,6 +99,12 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		// Fall back to Basic auth if provided
 		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
 			createSession(cookieName, username, guiCfg, evLogger, w, r)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Exception for static assets and REST calls that don't require authentication.
+		if isNoAuthPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -141,6 +139,7 @@ func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldap
 		}
 
 		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
+		antiBruteForceSleep()
 		forbidden(w)
 	})
 }
@@ -164,6 +163,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	}
 
 	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	antiBruteForceSleep()
 	return "", false
 }
 
