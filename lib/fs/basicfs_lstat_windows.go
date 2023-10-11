@@ -94,16 +94,18 @@ func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
 	// There are cases where files are tagged as symlink, but they end up being
 	// something else. Make sure we properly handle those types.
 	if err == nil {
-		if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil {
-			// NTFS directory junctions can be treated as ordinary directories,
-			// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
-			if fi.Mode()&os.ModeSymlink != 0 && f.junctionsAsDirs && isDirectoryJunction(reparseTag) {
+		// NTFS directory junctions can be treated as ordinary directories,
+		// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
+		if fi.Mode()&os.ModeSymlink != 0 && f.junctionsAsDirs {
+			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDirectoryJunction(reparseTag) {
 				return &dirJunctFileInfo{fi}, nil
 			}
+		}
 
-			// Workaround for #9120 till golang properly handles deduplicated files by
-			// considering them regular files.
-			if fi.Mode()&os.ModeIrregular != 0 && isDeduplicatedFile(reparseTag) {
+		// Workaround for #9120 till golang properly handles deduplicated files by
+		// considering them regular files.
+		if fi.Mode()&os.ModeIrregular != 0 {
+			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDeduplicatedFile(reparseTag) {
 				return &dedupFileInfo{fi}, nil
 			}
 		}
