@@ -85,7 +85,7 @@ type dedupFileInfo struct {
 func (fi *dedupFileInfo) Mode() os.FileMode {
 	// A deduplicated file should be treated as a regular file and not an
 	// irregular file.
-	return fi.FileInfo.Mode() ^ os.ModeIrregular
+	return fi.FileInfo.Mode() &^ os.ModeIrregular
 }
 
 func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
