@@ -20,7 +20,7 @@ type showCommand struct {
 	Pending      pendingCommand `cmd:"" help:"Pending subcommand group"`
 }
 
-func (s *showCommand) Run(ctx Context, kongCtx *kong.Context) error {
+func (*showCommand) Run(ctx Context, kongCtx *kong.Context) error {
 	indexDumpOutput := indexDumpOutputWrapper(ctx.clientFactory)
 
 	switch kongCtx.Selected().Name {

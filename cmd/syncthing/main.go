@@ -238,10 +238,15 @@ func main() {
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.
-	parser, err := kong.New(&entrypoint, kong.ConfigureHelp(kong.HelpOptions{
-		NoExpandSubcommands: true,
-		Compact:             true,
-	}), kong.Help(helpHandler), defaultVars())
+	parser, err := kong.New(
+		&entrypoint,
+		kong.ConfigureHelp(kong.HelpOptions{
+			NoExpandSubcommands: true,
+			Compact:             true,
+		}),
+		kong.Help(helpHandler),
+		defaultVars(),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

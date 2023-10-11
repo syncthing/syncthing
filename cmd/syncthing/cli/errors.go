@@ -49,7 +49,7 @@ func (e *errorsPushCommand) Run(ctx Context) error {
 	return nil
 }
 
-func (e *errorsCommand) Run(ctx Context, kongCtx *kong.Context) error {
+func (*errorsCommand) Run(ctx Context, kongCtx *kong.Context) error {
 	switch kongCtx.Selected().Name {
 	case "show":
 		return indexDumpOutput("system/error", ctx.clientFactory)

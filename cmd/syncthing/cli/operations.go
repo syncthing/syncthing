@@ -33,7 +33,7 @@ type operationCommand struct {
 	DefaultIgnores defaultIgnoresCommand `cmd:"" help:"Set the default ignores (config) from a file"`
 }
 
-func (o *operationCommand) Run(ctx Context, kongCtx *kong.Context) error {
+func (*operationCommand) Run(ctx Context, kongCtx *kong.Context) error {
 	f := ctx.clientFactory
 
 	switch kongCtx.Selected().Name {

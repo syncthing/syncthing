@@ -17,7 +17,7 @@ type indexCommand struct {
 	Account  struct{} `cmd:"" help:"Print key and value size statistics per key type"`
 }
 
-func (i *indexCommand) Run(kongCtx *kong.Context) error {
+func (*indexCommand) Run(kongCtx *kong.Context) error {
 	switch kongCtx.Selected().Name {
 	case "dump":
 		return indexDump()

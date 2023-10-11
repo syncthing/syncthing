@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
@@ -59,11 +60,10 @@ func (cli CLI) AfterApply(kongCtx *kong.Context) error {
 
 type stdinCommand struct{}
 
-func (s *stdinCommand) Run(kongCtx *kong.Context) error {
-	fmt.Println(kongCtx.Args)
+func (*stdinCommand) Run() error {
 	// Drop the `-` not to recurse into self.
-	args := make([]string, len(kongCtx.Args)-1)
-	copy(args, kongCtx.Args)
+	args := make([]string, len(os.Args)-1)
+	copy(args, os.Args)
 
 	fmt.Println("Reading commands from stdin...", args)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -75,15 +75,16 @@ func (s *stdinCommand) Run(kongCtx *kong.Context) error {
 		if len(input) == 0 {
 			continue
 		}
-		ctx, err := kongCtx.Parse(append(args, input...))
+		cmd := exec.Command(os.Args[0], append(args[1:], input...)...)
+		out, err := cmd.CombinedOutput()
+		fmt.Print(string(out))
 		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		err = ctx.Run()
-		// FIXME: the app will auto exit when printed a help, need to investigate why
-		if err != nil {
-			fmt.Println(err)
+			if _, ok := err.(*exec.ExitError); ok {
+				// we will continue loop no matter the command succeeds or not
+				continue
+			} else {
+				return err
+			}
 		}
 	}
 	return scanner.Err()
