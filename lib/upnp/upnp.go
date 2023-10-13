@@ -315,9 +315,11 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	}
 
 	deviceIP := net.ParseIP(deviceDescriptionURL.Hostname())
-	// If the hostname of the device parses as an IPv6 link-local address, we need to use the source IP address
-	// of the response as the hostname instead of the one given, since only the former contains the zone index, while the URL returned from the gateway
-	// cannot contain the zone index. (It can't know how interfaces are named/numbered on our machine)
+	// If the hostname of the device parses as an IPv6 link-local address, we need
+	// to use the source IP address of the response as the hostname
+	// instead of the one given, since only the  former contains the zone index,
+	// while the URL returned from the gateway cannot contain the zone index.
+	// (It can't know how interfaces are named/numbered on our machine)
 	if deviceIP != nil && deviceIP.To4() == nil && deviceIP.IsLinkLocalUnicast() {
 		ipAddr := net.IPAddr{
 			IP:   addr.IP,
@@ -352,19 +354,22 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	// Figure out our IPv4 address on the interface used to reach the IGD.
 	localIPv4Address, err := localIPv4(netInterface)
 	if err != nil {
-		// On Android, we cannot enumerate IP addresses on interfaces directly. Therefore, we just try to connect to the IGD
-		// and look at which source IP address was used. This is not ideal, but it's the best we can do.
-		// Maybe we are on an IPv6-only network though, so don't error out in case pinholing is available.
+		// On Android, we cannot enumerate IP addresses on interfaces directly.
+		// Therefore, we just try to connect to the IGD and look at which source IP
+		// address was used. This is not ideal, but it's the best we can do. Maybe
+		// we are on an IPv6-only network though, so don't error out in case pinholing is available.
 		localIPv4Address, err = localIPv4Fallback(ctx, deviceDescriptionURL)
 		if err != nil {
 			l.Infoln("Unable to determine local IPv4 address for IGD: " + err.Error())
 		}
 	}
 
-	// This differs from IGDService.IsIPv6GatewayDevice(). While that method determines whether an already
-	// completely discovered device uses the IPv6 firewall protocol, this just checks if the gateway's is IPv6.
-	// Currently we only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa, which is why this needs to be stored
-	// but technically we could forgo this check and try WANIPv6FirewallControl via IPv4. This leads to errors though so we don't do it.
+	// This differs from IGDService.IsIPv6GatewayDevice(). While that method
+	// determines whether an already completely discovered device uses the IPv6
+	// firewall protocol, this just checks if the gateway's is IPv6. Currently we
+	// only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa,
+	// which is why this needs to be stored but technically we could forgo this check
+	// and try WANIPv6FirewallControl via IPv4. This leads to errors though so we don't do it.
 	upnpRoot.Device.IsIPv6 = addr.IP.To4() == nil
 	services, err := getServiceDescriptions(deviceUUID, localIPv4Address, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
