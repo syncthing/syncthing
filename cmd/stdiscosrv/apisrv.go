@@ -360,8 +360,10 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		// statements. We need to decode, reinstate the newlines every 64
 		// character and add statements for the PEM decoder
 
-		if unesc, err := url.QueryUnescape(hdr); err == nil {
-			hdr = unesc
+		if strings.Contains(hdr, "%") {
+			if unesc, err := url.QueryUnescape(hdr); err == nil {
+				hdr = unesc
+			}
 		}
 
 		for i := 64; i < len(hdr); i += 65 {
