@@ -460,7 +460,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 			}
 		}
 	})
-	s.cfg.Finish(w, waiter)
+	awaitSaveConfig(w, s.cfg, waiter)
 
 	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
 		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential \"%s\": expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))

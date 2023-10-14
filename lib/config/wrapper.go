@@ -12,7 +12,6 @@ package config
 import (
 	"context"
 	"errors"
-	"net/http"
 	"os"
 	"reflect"
 	"sync/atomic"
@@ -94,7 +93,6 @@ type Wrapper interface {
 	RawCopy() Configuration
 	RequiresRestart() bool
 	Save() error
-	Finish(w http.ResponseWriter, waiter Waiter)
 
 	Modify(ModifyFunction) (Waiter, error)
 	RemoveFolder(id string) (Waiter, error)
@@ -527,14 +525,6 @@ func (w *wrapper) Save() error {
 
 	w.evLogger.Log(events.ConfigSaved, w.cfg)
 	return nil
-}
-
-func (wrp *wrapper) Finish(w http.ResponseWriter, waiter Waiter) {
-	waiter.Wait()
-	if err := wrp.Save(); err != nil {
-		l.Warnln("Saving config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
 func (w *wrapper) RequiresRestart() bool { return w.requiresRestart.Load() }

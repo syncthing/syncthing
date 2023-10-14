@@ -86,7 +86,7 @@ func (c *configMuxBuilder) registerFolders(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.cfg.Finish(w, waiter)
+		c.finish(w, waiter)
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +121,7 @@ func (c *configMuxBuilder) registerDevices(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.cfg.Finish(w, waiter)
+		c.finish(w, waiter)
 	})
 
 	c.HandlerFunc(http.MethodPost, path, func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +158,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		c.cfg.Finish(w, waiter)
+		c.finish(w, waiter)
 	})
 }
 
@@ -204,7 +204,7 @@ func (c *configMuxBuilder) registerDevice(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		c.cfg.Finish(w, waiter)
+		c.finish(w, waiter)
 	})
 }
 
@@ -258,7 +258,7 @@ func (c *configMuxBuilder) registerDefaultIgnores(path string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		c.cfg.Finish(w, waiter)
+		c.finish(w, waiter)
 	})
 }
 
@@ -364,7 +364,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
@@ -383,7 +383,7 @@ func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration, defaults bool) {
@@ -402,7 +402,7 @@ func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request, opts config.OptionsConfiguration) {
@@ -417,7 +417,7 @@ func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request,
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui config.GUIConfiguration) {
@@ -446,7 +446,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {
@@ -461,7 +461,7 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
@@ -523,7 +523,7 @@ func (c *configMuxBuilder) finishWebauthnRegistration(w http.ResponseWriter, r *
 	}
 
 	sendJSON(w, configCred)
-	c.cfg.Finish(w, waiter)
+	c.finish(w, waiter)
 }
 
 // Unmarshals the content of the given body and stores it in to (i.e. to must be a pointer).
@@ -540,4 +540,16 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	err := unmarshalTo(body, &data)
 	return data, err
+}
+
+func awaitSaveConfig(w http.ResponseWriter, wrapper config.Wrapper, waiter config.Waiter) {
+	waiter.Wait()
+	if err := wrapper.Save(); err != nil {
+		l.Warnln("Failed to save config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
+	awaitSaveConfig(w, c.cfg, waiter)
 }
