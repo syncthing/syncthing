@@ -230,3 +230,11 @@ func (c *GUIConfiguration) prepare() {
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
 }
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	} else {
+		return c.ID
+	}
+}

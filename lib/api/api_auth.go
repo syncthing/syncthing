@@ -454,7 +454,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		for i, cred := range cfg.GUI.WebauthnCredentials {
 			if cred.ID == authenticatedCredId {
 				signCountBefore = cfg.GUI.WebauthnCredentials[i].SignCount
-				authenticatedCredName = cfg.GUI.WebauthnCredentials[i].Nickname
+				authenticatedCredName = cfg.GUI.WebauthnCredentials[i].NicknameOrID()
 				cfg.GUI.WebauthnCredentials[i].SignCount = updatedCred.Authenticator.SignCount
 				break
 			}
