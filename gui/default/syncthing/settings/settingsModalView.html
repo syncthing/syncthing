@@ -297,7 +297,7 @@
 
                     <td></td>
                     <td class="small-data" colspan="1000">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential(tmpGUI)" ng-disabled="!config.gui.user || isLocationInsecure() || !webauthnAvailable() || webauthnRpIdChanged(config.gui, tmpGUI) || webauthnOriginChanged(config.gui, tmpGUI) || isRawIpAddress()">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!config.gui.user || isLocationInsecure() || !webauthnAvailable() || webauthnRpIdChanged(config.gui, tmpGUI) || webauthnOriginChanged(config.gui, tmpGUI) || isRawIpAddress()">
                         <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
                       </button>
                     </td>
