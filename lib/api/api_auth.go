@@ -456,6 +456,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 				signCountBefore = cfg.GUI.WebauthnCredentials[i].SignCount
 				authenticatedCredName = cfg.GUI.WebauthnCredentials[i].NicknameOrID()
 				cfg.GUI.WebauthnCredentials[i].SignCount = updatedCred.Authenticator.SignCount
+				cfg.GUI.WebauthnCredentials[i].LastUseTime = time.Now().Truncate(time.Second)
 				break
 			}
 		}

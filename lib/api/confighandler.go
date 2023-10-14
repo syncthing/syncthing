@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/julienschmidt/httprouter"
@@ -507,11 +508,14 @@ func (c *configMuxBuilder) finishWebauthnRegistration(w http.ResponseWriter, r *
 		transports[i] = string(t)
 	}
 
+	now := time.Now().Truncate(time.Second)
 	configCred := config.WebauthnCredential{
 		ID:            base64.URLEncoding.EncodeToString(credential.ID),
 		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
 		SignCount:     credential.Authenticator.SignCount,
 		Transports:    transports,
+		CreateTime:    now,
+		LastUseTime:   now,
 	}
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)

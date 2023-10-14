@@ -211,6 +211,8 @@
                   </tr>
                   <tr>
                     <th><label translate>Name</label></th>
+                    <th><label translate>Created</label></th>
+                    <th><label translate>Last used</label></th>
                     <th><label translate>Require UV</label></th>
                     <th colspan="1000"><label translate>Actions</label></th>
                   </tr>
@@ -222,6 +224,13 @@
                     </td>
                     <td ng-if="cred.editing" class="no-overflow-ellipse stretch">
                       <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
+                    </td>
+
+                    <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
+                      {{cred.createTime | date:'yyyy-MM-dd'}}
+                    </td>
+                    <td class="small-data" title="{{ cred.lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">
+                      {{ cred.lastUseTime | date:'yyyy-MM-dd' }}
                     </td>
 
                     <td class="small-data text-center">

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package config;
 
+import "google/protobuf/timestamp.proto";
 import "lib/config/authmode.proto";
 
 import "ext.proto";
@@ -27,10 +28,12 @@ message GUIConfiguration {
 }
 
 message WebauthnCredential {
-    string          id              = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr"];
-    string          nickname        = 2 [(ext.xml) = "nickname,attr"];
-    string          public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
-    uint32          sign_count      = 4 [(ext.xml) = "signCount,attr"];
-    repeated string transports      = 5 [(ext.xml) = "transports,attr"];
-    bool            require_uv      = 6 [(ext.xml) = "requireUv,attr"];
+    string                    id              = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr"];
+    string                    nickname        = 2 [(ext.xml) = "nickname,attr"];
+    string                    public_key_cose = 3 [(ext.xml) = "publicKeyCose,attr"];
+    uint32                    sign_count      = 4 [(ext.xml) = "signCount,attr"];
+    repeated string           transports      = 5 [(ext.xml) = "transports,attr"];
+    bool                      require_uv      = 6 [(ext.xml) = "requireUv,attr"];
+    google.protobuf.Timestamp create_time     = 7 [(ext.xml) = "createTime,attr"];
+    google.protobuf.Timestamp last_use_time   = 8 [(ext.xml) = "lastUseTime,attr"];
 }
