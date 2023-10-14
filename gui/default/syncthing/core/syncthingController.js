@@ -1691,6 +1691,17 @@ angular.module('syncthing.core')
                     });
                 };
 
+                $scope.webauthnReady = function () {
+                    return $scope.config
+                        && $scope.config.gui
+                        && $scope.config.gui.user
+                        && !$scope.isLocationInsecure()
+                        && $scope.webauthnAvailable()
+                        && !$scope.webauthnRpIdChanged($scope.config.gui, $scope.tmpGUI)
+                        && !$scope.webauthnOriginChanged($scope.config.gui, $scope.tmpGUI)
+                        && !$scope.isRawIpAddress();
+                };
+
             } else {
                 // Functions for use on the login page
 
