@@ -8,6 +8,7 @@
 */
 
 body {
+    padding-bottom: 70px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     overflow-y: scroll;
 }
@@ -397,6 +398,25 @@ ul.three-columns li, ul.two-columns li {
     width: 100%;
 }
 
+/** Footer nav on small devices **/
+@media (max-width: 1199px) {
+    /* Stay at the end of the page, with space reserved for the footer
+    usually taking up two rows. */
+
+    html {
+        position: relative;
+        min-height: 100%;
+    }
+
+    body {
+        padding-bottom: 60px;
+    }
+
+    .navbar-fixed-bottom {
+        position: absolute;
+    }
+}
+
 @media (max-width: 768px) {
     /* Layout after the normal contents, as this is when the footer switches
     to a vertical layout. */
@@ -407,6 +427,10 @@ ul.three-columns li, ul.two-columns li {
 
     .navbar-brand {
         margin: 3.25px -15px;
+    }
+
+    .navbar-fixed-bottom {
+        position: relative;
     }
 
     .navbar-nav .open .dropdown-menu {
@@ -451,6 +475,10 @@ ul.three-columns li, ul.two-columns li {
 
     .navbar-nav .open .dropdown-menu > li > a {
         padding: 12px 15px 12px 25px;
+    }
+
+    .navbar-fixed-bottom li {
+         width: 100%;
     }
 }
 

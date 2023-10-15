@@ -393,18 +393,12 @@ jobs:
             | grep -v /wasm \
           )
 
-          # Build for each platform with errors silenced, because we expect
-          # some oddball platforms to fail. This avoids a bunch of errors in
-          # the GitHub Actions output, instead summarizing each build
-          # failure as a warning.
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
-            echo "::group ::$plat"
-            if ! go run build.go -goos "$goos" -goarch "$goarch" tar 2>/dev/null; then
-              echo "::warning ::Failed to build for $plat"
+            if ! go run build.go -goos "$goos" -goarch "$goarch" tar ; then
+              echo "*** $plat failed ***"
             fi
-            echo "::endgroup::"
           done
         env:
           CGO_ENABLED: "0"
