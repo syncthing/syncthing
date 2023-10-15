@@ -360,11 +360,12 @@ func iso88591ToUTF8(s []byte) []byte {
 }
 
 type webauthnService struct {
-	registrationState   webauthnLib.SessionData
-	authenticationState webauthnLib.SessionData
-	cfg                 config.Wrapper
-	cookieName          string
-	evLogger            events.Logger
+	registrationState              webauthnLib.SessionData
+	authenticationState            webauthnLib.SessionData
+	cfg                            config.Wrapper
+	cookieName                     string
+	evLogger                       events.Logger
+	credentialsPendingRegistration []config.WebauthnCredential
 }
 
 func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnService {
@@ -427,17 +428,9 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 		CreateTime:    now,
 		LastUseTime:   now,
 	}
-	waiter, err := s.cfg.Modify(func(cfg *config.Configuration) {
-		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)
-	})
-	if err != nil {
-		l.Warnln("Failed to save new WebAuthn credential to config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	s.credentialsPendingRegistration = append(s.credentialsPendingRegistration, configCred)
 
 	sendJSON(w, configCred)
-	awaitSaveConfig(w, s.cfg, waiter)
 }
 
 func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {

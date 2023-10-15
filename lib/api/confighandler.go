@@ -20,8 +20,9 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id              protocol.DeviceID
+	cfg             config.Wrapper
+	webauthnService *webauthnService
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -307,9 +308,9 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
-func (c *configMuxBuilder) registerWebauthnConfig(path string, webauthnService *webauthnService) {
-	c.HandlerFunc(http.MethodPost, path+"/register-start", webauthnService.startWebauthnRegistration)
-	c.HandlerFunc(http.MethodPost, path+"/register-finish", webauthnService.finishWebauthnRegistration)
+func (c *configMuxBuilder) registerWebauthnConfig(path string) {
+	c.HandlerFunc(http.MethodPost, path+"/register-start", c.webauthnService.startWebauthnRegistration)
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration)
 }
 
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
@@ -338,6 +339,10 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		for _, cred := range cfg.GUI.WebauthnCredentials {
 			existingCredentials[cred.ID] = cred
 		}
+		for _, cred := range c.webauthnService.credentialsPendingRegistration {
+			existingCredentials[cred.ID] = cred
+		}
+
 		var updatedCredentials []config.WebauthnCredential
 		for _, newCred := range to.GUI.WebauthnCredentials {
 			if exCred, ok := existingCredentials[newCred.ID]; ok {
@@ -356,7 +361,9 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	if c.finish(w, waiter) {
+		c.webauthnService.credentialsPendingRegistration = make([]config.WebauthnCredential, 0)
+	}
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
@@ -472,14 +479,16 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	return data, err
 }
 
-func awaitSaveConfig(w http.ResponseWriter, wrapper config.Wrapper, waiter config.Waiter) {
+func awaitSaveConfig(w http.ResponseWriter, wrapper config.Wrapper, waiter config.Waiter) bool {
 	waiter.Wait()
 	if err := wrapper.Save(); err != nil {
 		l.Warnln("Failed to save config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return false
 	}
+	return true
 }
 
-func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
-	awaitSaveConfig(w, c.cfg, waiter)
+func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) bool {
+	return awaitSaveConfig(w, c.cfg, waiter)
 }

@@ -309,9 +309,10 @@ func (s *service) Serve(ctx context.Context) error {
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
-		Router: restMux,
-		id:     s.id,
-		cfg:    s.cfg,
+		Router:          restMux,
+		id:              s.id,
+		cfg:             s.cfg,
+		webauthnService: &webauthnService,
 	}
 
 	configBuilder.registerConfig("/rest/config")
@@ -326,7 +327,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
-	configBuilder.registerWebauthnConfig("/rest/config/webauthn", &webauthnService)
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
