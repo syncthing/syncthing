@@ -304,7 +304,10 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
 	sessionCookieName := "sessionid-" + s.id.String()[:5]
-	webauthnService := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
+	webauthnService, err := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
+	if err != nil {
+		return err
+	}
 
 	// Config endpoints
 

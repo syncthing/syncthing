@@ -21,7 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
-func newWebauthnHandle(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
+func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 	guiCfg := cfg.GUI()
 
 	displayName := "Syncthing"
@@ -56,6 +56,7 @@ func newWebauthnHandle(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 }
 
 type webauthnService struct {
+	engine                         *webauthnLib.WebAuthn
 	registrationState              webauthnLib.SessionData
 	authenticationState            webauthnLib.SessionData
 	cfg                            config.Wrapper
@@ -64,23 +65,22 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 }
 
-func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnService {
+func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) (webauthnService, error) {
+	engine, err := newWebauthnEngine(cfg)
+	if err != nil {
+		return webauthnService{}, err
+	}
+
 	return webauthnService{
+		engine:     engine,
 		cfg:        cfg,
 		cookieName: cookieName,
 		evLogger:   evLogger,
-	}
+	}, nil
 }
 
 func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := newWebauthnHandle(s.cfg)
-	if err != nil {
-		l.Warnln("Failed to instantiate WebAuthn engine:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	options, sessionData, err := webauthn.BeginRegistration(s.cfg.GUI())
+	options, sessionData, err := s.engine.BeginRegistration(s.cfg.GUI())
 	if err != nil {
 		l.Warnln("Failed to initiate WebAuthn registration:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -93,17 +93,10 @@ func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *ht
 }
 
 func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := newWebauthnHandle(s.cfg)
-	if err != nil {
-		l.Warnln("Failed to instantiate WebAuthn engine:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	state := s.registrationState
 	s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-	credential, err := webauthn.FinishRegistration(s.cfg.GUI(), state, r)
+	credential, err := s.engine.FinishRegistration(s.cfg.GUI(), state, r)
 	if err != nil {
 		l.Infoln("Failed to register WebAuthn credential:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -130,13 +123,6 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 }
 
 func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := newWebauthnHandle(s.cfg)
-	if err != nil {
-		l.Warnln("Failed to initialize WebAuthn handle", err)
-		internalServerError(w)
-		return
-	}
-
 	allRequireUv := true
 	someRequiresUv := false
 	for _, cred := range s.cfg.GUI().WebauthnCredentials {
@@ -153,7 +139,7 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 		uv = webauthnProtocol.VerificationPreferred
 	}
 
-	options, sessionData, err := webauthn.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(uv))
+	options, sessionData, err := s.engine.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(uv))
 	if err != nil {
 		badRequest, ok := err.(*webauthnProtocol.Error)
 		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
@@ -170,13 +156,6 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 }
 
 func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := newWebauthnHandle(s.cfg)
-	if err != nil {
-		l.Warnln("Failed to initialize WebAuthn handle", err)
-		internalServerError(w)
-		return
-	}
-
 	state := s.authenticationState
 	s.authenticationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
@@ -188,7 +167,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	}
 
 	guiCfg := s.cfg.GUI()
-	updatedCred, err := webauthn.ValidateLogin(guiCfg, state, parsedResponse)
+	updatedCred, err := s.engine.ValidateLogin(guiCfg, state, parsedResponse)
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
 
