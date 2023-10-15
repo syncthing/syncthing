@@ -70,10 +70,10 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 		return nil, err
 	}
 
-	// We have an explicit listener address. Check if that's on the interface
-	// and pinhole it if so. It's not an error if not though, so don't return
-	// an error if one doesn't occur.
 	if !intAddr.IP.IsUnspecified() {
+		// We have an explicit listener address. Check if that's on the interface
+		// and pinhole it if so. It's not an error if not though, so don't return
+		// an error if one doesn't occur.
 		if intAddr.IP.To4() != nil {
 			l.Debugf("Listener is IPv4. Not using gateway %s", s.ID())
 			return nil, nil
@@ -193,7 +193,7 @@ func (s *IGDService) AddPortMapping(ctx context.Context, protocol nat.Protocol, 
 		</u:AddPortMapping>`
 	body := fmt.Sprintf(template, s.URN, externalPort, protocol, internalPort, s.LocalIPv4, description, duration/time.Second)
 
-	response, err := soapRequest(ctx, s.URL, s.URN, "AddPortMapping", body)
+	response, err := soapRequestWithIP(ctx, s.URL, s.URN, "AddPortMapping", body, &net.TCPAddr{IP: s.LocalIPv4})
 	if err != nil && duration > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
 		var envelope soapErrorResponse
