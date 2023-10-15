@@ -21,7 +21,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-var trans = make(map[string]string)
+var trans = make(map[string]interface{})
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
 
@@ -41,6 +41,7 @@ var aboutRe = regexp.MustCompile(`^([^/]+/[^/]+|(The Go Pro|Font Awesome ).+|Bui
 
 func generalNode(n *html.Node, filename string) {
 	translate := false
+	translationId := ""
 	if n.Type == html.ElementNode {
 		if n.Data == "translate" { // for <translate>Text</translate>
 			translate = true
@@ -50,6 +51,7 @@ func generalNode(n *html.Node, filename string) {
 			for _, a := range n.Attr {
 				if a.Key == "translate" {
 					translate = true
+					translationId = a.Val
 				} else if a.Key == "id" && (a.Val == "contributor-list" ||
 					a.Val == "copyright-notices") {
 					// Don't translate a list of names and
@@ -57,11 +59,11 @@ func generalNode(n *html.Node, filename string) {
 					return
 				} else {
 					for _, matches := range attrRe.FindAllStringSubmatch(a.Val, -1) {
-						translation(matches[1])
+						translation("", matches[1])
 					}
 					for _, matches := range attrReCond.FindAllStringSubmatch(a.Val, -1) {
-						translation(matches[1])
-						translation(matches[2])
+						translation("", matches[1])
+						translation("", matches[2])
 					}
 					if a.Key == "data-content" &&
 						!noStringRe.MatchString(a.Val) {
@@ -82,16 +84,16 @@ func generalNode(n *html.Node, filename string) {
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if translate {
-			inTranslate(c, filename)
+			inTranslate(c, translationId, filename)
 		} else {
 			generalNode(c, filename)
 		}
 	}
 }
 
-func inTranslate(n *html.Node, filename string) {
+func inTranslate(n *html.Node, translationId string, filename string) {
 	if n.Type == html.TextNode {
-		translation(n.Data)
+		translation(translationId, n.Data)
 	} else {
 		log.Println("translate node with non-text child < (" + filename + ")")
 		log.Println(n)
@@ -102,12 +104,51 @@ func inTranslate(n *html.Node, filename string) {
 	}
 }
 
-func translation(v string) {
+func isNamespacedTranslationId(id string) bool {
+	if !strings.Contains(id, ".") {
+		return false
+	}
+
+	if id[len(id)-1] == '.' {
+		// Last section of namespaced ID must not be empty
+		return false
+	}
+
+	if strings.Contains(id, " ") {
+		// Probably a sentence
+		return false
+	}
+
+	if strings.Contains(id, "..") {
+		// Probably something like "Loading..."
+		return false
+	}
+
+	return true
+}
+
+func translation(id string, v string) {
 	v = strings.TrimSpace(v)
-	if _, ok := trans[v]; !ok {
+	if id == "" {
+		id = v
+	}
+
+	namespace := trans
+	if isNamespacedTranslationId(id) {
+		idParts := strings.Split(id, ".")
+		id = idParts[len(idParts)-1]
+		for _, subNamespace := range idParts[0 : len(idParts)-1] {
+			if _, ok := namespace[subNamespace]; !ok {
+				namespace[subNamespace] = make(map[string]interface{})
+			}
+			namespace = namespace[subNamespace].(map[string]interface{})
+		}
+	}
+
+	if _, ok := namespace[id]; !ok {
 		av := strings.Replace(v, "{%", "{{", -1)
 		av = strings.Replace(av, "%}", "}}", -1)
-		trans[v] = av
+		namespace[id] = av
 	}
 }
 
@@ -136,7 +177,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			for s := bufio.NewScanner(fd); s.Scan(); {
 				for _, re := range jsRe {
 					for _, matches := range re.FindAllStringSubmatch(s.Text(), -1) {
-						translation(matches[1])
+						translation("", matches[1])
 					}
 				}
 			}
