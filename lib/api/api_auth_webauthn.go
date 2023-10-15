@@ -60,6 +60,7 @@ type webauthnService struct {
 	cfg                            config.Wrapper
 	cookieName                     string
 	evLogger                       events.Logger
+	userHandle                     []byte
 	registrationState              webauthnLib.SessionData
 	authenticationState            webauthnLib.SessionData
 	credentialsPendingRegistration []config.WebauthnCredential
@@ -71,16 +72,22 @@ func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.L
 		return webauthnService{}, err
 	}
 
+	userHandle, err := base64.URLEncoding.DecodeString(cfg.GUI().WebauthnUserId)
+	if err != nil {
+		return webauthnService{}, err
+	}
+
 	return webauthnService{
 		engine:     engine,
 		cfg:        cfg,
 		cookieName: cookieName,
 		evLogger:   evLogger,
+		userHandle: userHandle,
 	}, nil
 }
 
 func (s *webauthnService) WebAuthnID() []byte {
-	return []byte{0, 1, 2, 3}
+	return s.userHandle
 }
 
 func (s *webauthnService) WebAuthnName() string {

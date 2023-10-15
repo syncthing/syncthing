@@ -7,6 +7,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"net/url"
 	"os"
 	"regexp"
@@ -168,10 +169,21 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
-func (c *GUIConfiguration) prepare() {
+func (c *GUIConfiguration) prepare() error {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
+
+	if len(c.WebauthnUserId) == 0 {
+		newUserId := make([]byte, 64)
+		_, err := rand.Read(newUserId)
+		if err != nil {
+			return err
+		}
+		c.WebauthnUserId = base64.URLEncoding.EncodeToString(newUserId)
+	}
+
+	return nil
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
