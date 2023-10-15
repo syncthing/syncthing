@@ -210,10 +210,10 @@
                     <th colspan="1000"><label translate>WebAuthn Credentials</label></th>
                   </tr>
                   <tr>
-                    <th><label translate>Name</label></th>
-                    <th><label translate>Created</label></th>
-                    <th><label translate>Last used</label></th>
-                    <th><label translate>Require UV</label></th>
+                    <th><label translate="settings.webauthn.credentials.columnHeading.name">Name</label></th>
+                    <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
+                    <th><label translate="settings.webauthn.credentials.columnHeading.lastUseTime">Last used</label></th>
+                    <th><label translate="settings.webauthn.credentials.columnHeading.requireUserVerification">Require UV</label></th>
                     <th colspan="1000"><label translate>Actions</label></th>
                   </tr>
                 </thead>
@@ -238,12 +238,12 @@
                     </td>
                     <td class="small-data">
                       <a class="btn btn-link btn-sm" href="" ng-click="cred.editing = true" ng-if="!cred.editing">
-                        <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
+                        <span class="fas fa-edit"></span>&nbsp;<span translate="settings.webauthn.credentials.action.rename">Rename</span>
                       </a>
                     </td>
                     <td class="small-data">
                       <a class="btn btn-link btn-sm" href="" ng-click="deleteWebauthnCredential(tmpGUI, cred)">
-                        <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                        <span class="fas fa-trash"></span>&nbsp;<span translate="settings.webauthn.credentials.action.delete">Delete</span>
                       </a>
                     </td>
                   </tr>
@@ -298,7 +298,7 @@
                     <td></td>
                     <td class="small-data" colspan="1000">
                       <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
-                        <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
+                        <span class="fas fa-plus"></span>&nbsp;<span translate="settings.webauthn.credentials.action.add">Add</span>
                       </button>
                     </td>
                   </tr>
