@@ -16,8 +16,6 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
-var errSvcNotFound = fmt.Errorf("service not found")
-
 // A serviceMap is a utility map of arbitrary keys to a suture.Service of
 // some kind, where adding and removing services ensures they are properly
 // started and stopped on the given Supervisor. The serviceMap is itself a
@@ -73,39 +71,23 @@ func (s *serviceMap[K, S]) Remove(k K) (found bool) {
 }
 
 // RemoveAndWait removes the service at the given key, stopping it on the
-// supervisor. Returns errSvcNotFound if there is no service at the given
-// key, otherwise the return value from the supervisor's RemoveAndWait.
-func (s *serviceMap[K, S]) RemoveAndWait(k K, timeout time.Duration) error {
-	return <-s.RemoveAndWaitChan(k, timeout)
-}
-
-// RemoveAndWaitChan removes the service at the given key, stopping it on
-// the supervisor. The returned channel will produce precisely one error
-// value: either the return value from RemoveAndWait (possibly nil), or
-// errSvcNotFound if the service was not found.
-func (s *serviceMap[K, S]) RemoveAndWaitChan(k K, timeout time.Duration) <-chan error {
-	ret := make(chan error, 1)
+// supervisor. If there is no service at the given key, nothing happens. The
+// return value indicates whether a service was removed.
+func (s *serviceMap[K, S]) RemoveAndWait(k K, timeout time.Duration) (found bool) {
 	if tok, ok := s.tokens[k]; ok {
-		go func() {
-			ret <- s.supervisor.RemoveAndWait(tok, timeout)
-		}()
-	} else {
-		ret <- errSvcNotFound
+		found = true
+		s.supervisor.RemoveAndWait(tok, timeout)
 	}
 	delete(s.services, k)
 	delete(s.tokens, k)
-	return ret
+	return found
 }
 
-// Each calls the given function for each service in the map. An error from
-// fn will stop the iteration and be returned as-is.
-func (s *serviceMap[K, S]) Each(fn func(K, S) error) error {
+// Each calls the given function for each service in the map.
+func (s *serviceMap[K, S]) Each(fn func(K, S)) {
 	for key, svc := range s.services {
-		if err := fn(key, svc); err != nil {
-			return err
-		}
+		fn(key, svc)
 	}
-	return nil
 }
 
 // Suture implementation

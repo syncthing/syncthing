@@ -83,7 +83,6 @@ func (s *apiSrv) Serve(_ context.Context) error {
 			Certificates: []tls.Certificate{s.cert},
 			ClientAuth:   tls.RequestClientCert,
 			MinVersion:   tls.VersionTLS12,
-			NextProtos:   []string{"h2", "http/1.1"},
 		}
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
@@ -111,6 +110,8 @@ func (s *apiSrv) Serve(_ context.Context) error {
 	return err
 }
 
+var topCtx = context.Background()
+
 func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now()
 
@@ -123,10 +124,10 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	reqID := requestID(rand.Int63())
-	req = req.WithContext(context.WithValue(req.Context(), idKey, reqID))
+	ctx := context.WithValue(topCtx, idKey, reqID)
 
 	if debug {
-		log.Println(reqID, req.Method, req.URL, req.Proto)
+		log.Println(reqID, req.Method, req.URL)
 	}
 
 	remoteAddr := &net.TCPAddr{
@@ -152,17 +153,17 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch req.Method {
-	case http.MethodGet:
-		s.handleGET(lw, req)
-	case http.MethodPost:
-		s.handlePOST(remoteAddr, lw, req)
+	case "GET":
+		s.handleGET(ctx, lw, req)
+	case "POST":
+		s.handlePOST(ctx, remoteAddr, lw, req)
 	default:
 		http.Error(lw, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
-	reqID := req.Context().Value(idKey).(requestID)
+func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	reqID := ctx.Value(idKey).(requestID)
 
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
@@ -230,8 +231,8 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
-	reqID := req.Context().Value(idKey).(requestID)
+func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
+	reqID := ctx.Value(idKey).(requestID)
 
 	rawCert, err := certificateBytes(req)
 	if err != nil {
