@@ -360,10 +360,11 @@ func iso88591ToUTF8(s []byte) []byte {
 }
 
 type webauthnService struct {
-	webauthnState webauthnLib.SessionData
-	cfg           config.Wrapper
-	cookieName    string
-	evLogger      events.Logger
+	registrationState   webauthnLib.SessionData
+	authenticationState webauthnLib.SessionData
+	cfg                 config.Wrapper
+	cookieName          string
+	evLogger            events.Logger
 }
 
 func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) webauthnService {
@@ -372,6 +373,71 @@ func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.L
 		cookieName: cookieName,
 		evLogger:   evLogger,
 	}
+}
+
+func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		l.Warnln("Failed to instantiate WebAuthn engine:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	options, sessionData, err := webauthn.BeginRegistration(s.cfg.GUI())
+	if err != nil {
+		l.Warnln("Failed to initiate WebAuthn registration:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.registrationState = *sessionData
+
+	sendJSON(w, options)
+}
+
+func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
+	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	if err != nil {
+		l.Warnln("Failed to instantiate WebAuthn engine:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	state := s.registrationState
+	s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+
+	credential, err := webauthn.FinishRegistration(s.cfg.GUI(), state, r)
+	if err != nil {
+		l.Infoln("Failed to register WebAuthn credential:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	transports := make([]string, len(credential.Transport))
+	for i, t := range credential.Transport {
+		transports[i] = string(t)
+	}
+
+	now := time.Now().Truncate(time.Second)
+	configCred := config.WebauthnCredential{
+		ID:            base64.URLEncoding.EncodeToString(credential.ID),
+		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
+		SignCount:     credential.Authenticator.SignCount,
+		Transports:    transports,
+		CreateTime:    now,
+		LastUseTime:   now,
+	}
+	waiter, err := s.cfg.Modify(func(cfg *config.Configuration) {
+		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)
+	})
+	if err != nil {
+		l.Warnln("Failed to save new WebAuthn credential to config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSON(w, configCred)
+	awaitSaveConfig(w, s.cfg, waiter)
 }
 
 func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +475,7 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 		return
 	}
 
-	s.webauthnState = *sessionData
+	s.authenticationState = *sessionData
 
 	sendJSON(w, options)
 }
@@ -422,8 +488,8 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		return
 	}
 
-	state := s.webauthnState
-	s.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+	state := s.authenticationState
+	s.authenticationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
 	parsedResponse, err := webauthnProtocol.ParseCredentialRequestResponse(r)
 	if err != nil {

@@ -303,6 +303,9 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
+	sessionCookieName := "sessionid-" + s.id.String()[:5]
+	webauthnService := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
+
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
@@ -323,7 +326,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
-	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn", &webauthnService)
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
@@ -374,10 +377,8 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		sessionCookieName := "sessionid-" + s.id.String()[:5]
 		handler = basicAuthAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
-		webauthnService := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
 		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication)
 		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication)

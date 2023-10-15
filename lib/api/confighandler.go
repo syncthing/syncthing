@@ -7,13 +7,10 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
-	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -23,9 +20,8 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id            protocol.DeviceID
-	cfg           config.Wrapper
-	webauthnState webauthnLib.SessionData
+	id  protocol.DeviceID
+	cfg config.Wrapper
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -311,14 +307,9 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
-func (c *configMuxBuilder) registerWebauthnConfig(path string) {
-	c.HandlerFunc(http.MethodPost, path+"/register-start", func(w http.ResponseWriter, r *http.Request) {
-		c.startWebauthnRegistration(w, r)
-	})
-
-	c.HandlerFunc(http.MethodPost, path+"/register-finish", func(w http.ResponseWriter, r *http.Request) {
-		c.finishWebauthnRegistration(w, r)
-	})
+func (c *configMuxBuilder) registerWebauthnConfig(path string, webauthnService *webauthnService) {
+	c.HandlerFunc(http.MethodPost, path+"/register-start", webauthnService.startWebauthnRegistration)
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", webauthnService.finishWebauthnRegistration)
 }
 
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
@@ -462,71 +453,6 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
-}
-
-func (c *configMuxBuilder) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(c.cfg)
-	if err != nil {
-		l.Warnln("Failed to instantiate WebAuthn engine:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	options, sessionData, err := webauthn.BeginRegistration(c.cfg.GUI())
-	if err != nil {
-		l.Warnln("Failed to initiate WebAuthn registration:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	c.webauthnState = *sessionData
-
-	sendJSON(w, options)
-}
-
-func (c *configMuxBuilder) finishWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(c.cfg)
-	if err != nil {
-		l.Warnln("Failed to instantiate WebAuthn engine:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	state := c.webauthnState
-	c.webauthnState = webauthnLib.SessionData{} // Allow only one attempt per challenge
-
-	credential, err := webauthn.FinishRegistration(c.cfg.GUI(), state, r)
-	if err != nil {
-		l.Infoln("Failed to register WebAuthn credential:", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	transports := make([]string, len(credential.Transport))
-	for i, t := range credential.Transport {
-		transports[i] = string(t)
-	}
-
-	now := time.Now().Truncate(time.Second)
-	configCred := config.WebauthnCredential{
-		ID:            base64.URLEncoding.EncodeToString(credential.ID),
-		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
-		SignCount:     credential.Authenticator.SignCount,
-		Transports:    transports,
-		CreateTime:    now,
-		LastUseTime:   now,
-	}
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		cfg.GUI.WebauthnCredentials = append(cfg.GUI.WebauthnCredentials, configCred)
-	})
-	if err != nil {
-		l.Warnln("Failed to save new WebAuthn credential to config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	sendJSON(w, configCred)
 	c.finish(w, waiter)
 }
 
