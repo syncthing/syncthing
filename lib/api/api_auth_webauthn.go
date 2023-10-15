@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
@@ -18,6 +20,40 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 )
+
+func newWebauthnHandle(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
+	guiCfg := cfg.GUI()
+
+	displayName := "Syncthing"
+	if dev, ok := cfg.Device(cfg.MyID()); ok && dev.Name != "" {
+		displayName = "Syncthing @ " + dev.Name
+	}
+
+	rpId := guiCfg.WebauthnRpId
+	if rpId == "" {
+		rpId = "localhost"
+	}
+
+	origin := guiCfg.WebauthnOrigin
+	if origin == "" {
+		port := strconv.Itoa(config.DefaultGUIPort)
+		addressSplits := strings.Split(guiCfg.RawAddress, ":")
+		if len(addressSplits) > 0 {
+			port = addressSplits[len(addressSplits)-1]
+		}
+		if port == "443" {
+			origin = "https://" + rpId
+		} else {
+			origin = "https://" + rpId + ":" + port
+		}
+	}
+
+	return webauthnLib.New(&webauthnLib.Config{
+		RPDisplayName: displayName,
+		RPID:          rpId,
+		RPOrigin:      origin,
+	})
+}
 
 type webauthnService struct {
 	registrationState              webauthnLib.SessionData
@@ -37,7 +73,7 @@ func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.L
 }
 
 func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	webauthn, err := newWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to instantiate WebAuthn engine:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -57,7 +93,7 @@ func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *ht
 }
 
 func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	webauthn, err := newWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to instantiate WebAuthn engine:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -94,7 +130,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 }
 
 func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	webauthn, err := newWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)
 		internalServerError(w)
@@ -134,7 +170,7 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 }
 
 func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
-	webauthn, err := config.NewWebauthnHandle(s.cfg)
+	webauthn, err := newWebauthnHandle(s.cfg)
 	if err != nil {
 		l.Warnln("Failed to initialize WebAuthn handle", err)
 		internalServerError(w)
