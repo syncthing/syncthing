@@ -249,7 +249,7 @@
                   </tr>
 
                   <tr>
-                    <td>
+                    <td colspan="4">
                       <p class="text-info" ng-if="!config.gui.user" translate>
                         Set a username and save to enable WebAuthn.
                       </p>
@@ -295,7 +295,6 @@
                       </p>
                     </td>
 
-                    <td></td>
                     <td class="small-data" colspan="1000">
                       <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
                         <span class="fas fa-plus"></span>&nbsp;<span translate="settings.webauthn.credentials.action.add">Add</span>
