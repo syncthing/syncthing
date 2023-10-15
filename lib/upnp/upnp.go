@@ -364,7 +364,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 		}
 	}
 
-	// This differs from IGDService.IsIPv6GatewayDevice(). While that method
+	// This differs from IGDService.SupportsIPVersion(). While that method
 	// determines whether an already completely discovered device uses the IPv6
 	// firewall protocol, this just checks if the gateway's is IPv6. Currently we
 	// only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa,
