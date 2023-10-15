@@ -19,6 +19,7 @@ import (
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
+	// This function should match isAuthEnabled() in syncthingController.js
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
