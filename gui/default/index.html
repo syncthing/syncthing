@@ -419,8 +419,15 @@
             User verification is required, but was not performed.
           </p>
 
-          <button ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress()" translate>
-            Reload page at {{inferWebauthnAddress()}}
+          <button
+            ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())"
+            type="button"
+            class="btn btn-primary"
+            ng-click="reloadAtWebauthnAddress()"
+            translate
+            translate-value-webauthn-address="{{ inferWebauthnAddress() }}"
+          >
+            Reload page at {%webauthnAddress%}
           </button>
         </div>
       </div>
