@@ -1241,7 +1241,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
-	if _, ok := m.folderRunners[id]; ok {
+	if _, ok := m.folderRunners.Get(id); ok {
 		t.Fatal("folder running?")
 	}
 
@@ -1261,7 +1261,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 		t.Error("device missing")
 	}
 
-	if _, ok := m.folderRunners[id]; ok {
+	if _, ok := m.folderRunners.Get(id); ok {
 		t.Error("folder started")
 	}
 }
@@ -1290,7 +1290,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
-	if _, ok := m.folderRunners[id]; ok {
+	if _, ok := m.folderRunners.Get(id); ok {
 		t.Fatal("folder running?")
 	}
 
@@ -1310,7 +1310,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 		t.Error("device missing")
 	}
 
-	if _, ok := m.folderRunners[id]; ok {
+	if _, ok := m.folderRunners.Get(id); ok {
 		t.Error("folder started")
 	}
 }
