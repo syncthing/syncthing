@@ -57,11 +57,11 @@ func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 
 type webauthnService struct {
 	engine                         *webauthnLib.WebAuthn
-	registrationState              webauthnLib.SessionData
-	authenticationState            webauthnLib.SessionData
 	cfg                            config.Wrapper
 	cookieName                     string
 	evLogger                       events.Logger
+	registrationState              webauthnLib.SessionData
+	authenticationState            webauthnLib.SessionData
 	credentialsPendingRegistration []config.WebauthnCredential
 }
 
