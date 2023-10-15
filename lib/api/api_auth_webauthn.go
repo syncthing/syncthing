@@ -79,8 +79,56 @@ func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.L
 	}, nil
 }
 
+func (s *webauthnService) WebAuthnID() []byte {
+	return []byte{0, 1, 2, 3}
+}
+
+func (s *webauthnService) WebAuthnName() string {
+	return s.cfg.GUI().User
+}
+
+func (s *webauthnService) WebAuthnDisplayName() string {
+	return s.cfg.GUI().User
+}
+
+func (s *webauthnService) WebAuthnIcon() string {
+	return ""
+}
+
+func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
+	var result []webauthnLib.Credential
+	for _, cred := range s.cfg.GUI().WebauthnCredentials {
+		id, err := base64.URLEncoding.DecodeString(cred.ID)
+		if err != nil {
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential \"%s\": %s", cred.Nickname, cred.ID), err)
+			continue
+		}
+
+		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
+		if err != nil {
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential \"%s\" (%s)", cred.Nickname, cred.ID), err)
+			continue
+		}
+
+		transports := make([]webauthnProtocol.AuthenticatorTransport, len(cred.Transports))
+		for i, t := range cred.Transports {
+			transports[i] = webauthnProtocol.AuthenticatorTransport(t)
+		}
+
+		result = append(result, webauthnLib.Credential{
+			ID:        id,
+			PublicKey: pubkey,
+			Authenticator: webauthnLib.Authenticator{
+				SignCount: cred.SignCount,
+			},
+			Transport: transports,
+		})
+	}
+	return result
+}
+
 func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
-	options, sessionData, err := s.engine.BeginRegistration(s.cfg.GUI())
+	options, sessionData, err := s.engine.BeginRegistration(s)
 	if err != nil {
 		l.Warnln("Failed to initiate WebAuthn registration:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -96,7 +144,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 	state := s.registrationState
 	s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-	credential, err := s.engine.FinishRegistration(s.cfg.GUI(), state, r)
+	credential, err := s.engine.FinishRegistration(s, state, r)
 	if err != nil {
 		l.Infoln("Failed to register WebAuthn credential:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -139,7 +187,7 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *
 		uv = webauthnProtocol.VerificationPreferred
 	}
 
-	options, sessionData, err := s.engine.BeginLogin(s.cfg.GUI(), webauthnLib.WithUserVerification(uv))
+	options, sessionData, err := s.engine.BeginLogin(s, webauthnLib.WithUserVerification(uv))
 	if err != nil {
 		badRequest, ok := err.(*webauthnProtocol.Error)
 		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
@@ -166,8 +214,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		return
 	}
 
-	guiCfg := s.cfg.GUI()
-	updatedCred, err := s.engine.ValidateLogin(guiCfg, state, parsedResponse)
+	updatedCred, err := s.engine.ValidateLogin(s, state, parsedResponse)
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
 
@@ -201,6 +248,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential \"%s\": expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
 	}
 
+	guiCfg := s.cfg.GUI()
 	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)
 	w.WriteHeader(http.StatusNoContent)
 }

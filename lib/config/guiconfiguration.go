@@ -7,19 +7,14 @@
 package config
 
 import (
-	"encoding/base64"
-	"fmt"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
-
-	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/syncthing/syncthing/lib/rand"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
@@ -171,54 +166,6 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	default:
 		return false
 	}
-}
-
-func (gui GUIConfiguration) WebAuthnID() []byte {
-	return []byte{0, 1, 2, 3}
-}
-
-func (gui GUIConfiguration) WebAuthnName() string {
-	return gui.User
-}
-
-func (gui GUIConfiguration) WebAuthnDisplayName() string {
-	return gui.User
-}
-
-func (gui GUIConfiguration) WebAuthnIcon() string {
-	return ""
-}
-
-func (gui GUIConfiguration) WebAuthnCredentials() []webauthn.Credential {
-	var result []webauthn.Credential
-	for _, cred := range gui.WebauthnCredentials {
-		id, err := base64.URLEncoding.DecodeString(cred.ID)
-		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential \"%s\": %s", cred.Nickname, cred.ID), err)
-			continue
-		}
-
-		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
-		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential \"%s\" (%s)", cred.Nickname, cred.ID), err)
-			continue
-		}
-
-		transports := make([]webauthnProtocol.AuthenticatorTransport, len(cred.Transports))
-		for i, t := range cred.Transports {
-			transports[i] = webauthnProtocol.AuthenticatorTransport(t)
-		}
-
-		result = append(result, webauthn.Credential{
-			ID:        id,
-			PublicKey: pubkey,
-			Authenticator: webauthn.Authenticator{
-				SignCount: cred.SignCount,
-			},
-			Transport: transports,
-		})
-	}
-	return result
 }
 
 func (c *GUIConfiguration) prepare() {
