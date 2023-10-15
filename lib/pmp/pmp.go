@@ -122,6 +122,8 @@ func (*wrapper) AddPinhole(_ context.Context, _ nat.Protocol, _ nat.Address, _ t
 }
 
 func (*wrapper) SupportsIPVersion(version nat.IPVersion) bool {
+	// NAT-PMP gateways should always try to create port mappings and not pinholes
+	// since NAT-PMP doesn't support IPv6.
 	return version == nat.IPvAny || version == nat.IPv4Only
 }
 

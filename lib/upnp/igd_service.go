@@ -253,6 +253,8 @@ func (s *IGDService) GetLocalIPv4Address() net.IP {
 	return s.LocalIPv4
 }
 
+// SupportsIPVersion checks whether this is a WANIPv6FirewallControl device,
+// in which case pinholing instead of port mapping should be done
 func (s *IGDService) SupportsIPVersion(version nat.IPVersion) bool {
 	if version == nat.IPvAny {
 		return true

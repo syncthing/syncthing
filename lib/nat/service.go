@@ -243,7 +243,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			// address. For IPv6 the IP addresses are discovered by the service itself,
 			// so this check is skipped.
 			localIP := nat.GetLocalIPv4Address()
-			if !mapping.validGateway(localIP) && !nat.SupportsIPVersion(IPv6Only) {
+			if !mapping.validGateway(localIP) && nat.SupportsIPVersion(IPv4Only) {
 				l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 				continue
 			}
@@ -297,7 +297,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 		// Only perform mappings on the nat's that have the right local IP
 		// address
 		localIP := nat.GetLocalIPv4Address()
-		if !mapping.validGateway(localIP) && !nat.SupportsIPVersion(IPv6Only) {
+		if !mapping.validGateway(localIP) && nat.SupportsIPVersion(IPv4Only) {
 			l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 			continue
 		}
