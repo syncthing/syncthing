@@ -225,7 +225,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
 
-		if state.UserVerification == webauthnProtocol.VerificationRequired && !parsedResponse.Response.AuthenticatorData.Flags.HasUserVerified() {
+		if state.UserVerification == webauthnProtocol.VerificationRequired && !updatedCred.Flags.UserVerified {
 			antiBruteForceSleep()
 			http.Error(w, "Conflict", http.StatusConflict)
 			return
