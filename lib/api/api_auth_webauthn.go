@@ -236,6 +236,18 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	}
 
 	authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
+
+	for _, cred := range s.cfg.GUI().WebauthnCredentials {
+		if cred.ID == authenticatedCredId {
+			if cred.RequireUv && !updatedCred.Flags.UserVerified {
+				antiBruteForceSleep()
+				http.Error(w, "Conflict", http.StatusConflict)
+				return
+			}
+			break
+		}
+	}
+
 	authenticatedCredName := authenticatedCredId
 	var signCountBefore uint32 = 0
 	waiter, err := s.cfg.Modify(func(cfg *config.Configuration) {
