@@ -87,7 +87,7 @@ func (r *crashReceiver) servePut(reportID string, w http.ResponseWriter, req *ht
 	}
 
 	// Send the report to Sentry
-	if !r.sentry.Send(reportID, bs) {
+	if !r.sentry.Send(reportID, userIDFor(req), bs) {
 		log.Println("Failed to send report to sentry (queue full):", reportID)
 	}
 }

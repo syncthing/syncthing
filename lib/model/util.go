@@ -158,7 +158,9 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 	t0 := time.Now()
 	defer func() {
-		counter.Add(time.Since(t0).Seconds())
+		if dur := time.Since(t0).Seconds(); dur > 0 {
+			counter.Add(dur)
+		}
 	}()
 
 	ticker := time.NewTicker(time.Second)
@@ -167,7 +169,9 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 	for {
 		select {
 		case t := <-ticker.C:
-			counter.Add(t.Sub(t0).Seconds())
+			if dur := t.Sub(t0).Seconds(); dur > 0 {
+				counter.Add(dur)
+			}
 			t0 = t
 		case <-ctx.Done():
 			return

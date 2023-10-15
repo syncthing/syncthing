@@ -350,7 +350,7 @@ func (s *service) Serve(ctx context.Context) error {
 	mux.Handle("/", s.statics)
 
 	// Handle the special meta.js path
-	mux.HandleFunc("/meta.js", s.getJSMetadata)
+	mux.Handle("/meta.js", noCacheMiddleware(http.HandlerFunc(s.getJSMetadata)))
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
@@ -372,7 +372,13 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		sessionCookieName := "sessionid-" + s.id.String()[:5]
+		handler = basicAuthAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
+
+		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", handleLogout(sessionCookieName))
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -711,8 +717,9 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
-	meta, _ := json.Marshal(map[string]string{
-		"deviceID": s.id.String(),
+	meta, _ := json.Marshal(map[string]interface{}{
+		"deviceID":      s.id.String(),
+		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
 	fmt.Fprintf(w, "var metadata = %s;\n", meta)
@@ -1230,6 +1237,14 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
 	files = append(files, fileEntry{name: "metrics.txt", data: buf.Bytes()})
 
+	// Connection data as JSON
+	connStats := s.model.ConnectionStats()
+	if connStatsJSON, err := json.MarshalIndent(connStats, "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to serialize connection-stats.json.txt", err)
+	} else {
+		files = append(files, fileEntry{name: "connection-stats.json.txt", data: connStatsJSON})
+	}
+
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
@@ -1607,7 +1622,7 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
 	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if _, ok := s.model.Connection(device); ok {
+			if s.model.ConnectedTo(device) {
 				comp, err := s.model.Completion(device, folder.ID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)

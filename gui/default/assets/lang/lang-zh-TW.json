@@ -360,7 +360,7 @@
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "組態已經儲存但尚未啟用。Syncthing 必須重新啟動以便啟用新的組態。",
     "The device ID cannot be blank.": "裝置識別碼不能為空白。",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "其它裝置的裝置識別碼可在它們的 \"操作 > 顯示識別碼\" 對話框找到。空白及連接符號可省略。",
-    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "經過加密的數據報告將每日傳送。報告是用來追蹤常用的平台、資料夾大小以及應用程式版本。若傳送的資料集有異動，您將再次看到此對話框。",
+    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.": "經過加密的數據報告將每日傳送。報告是用來追蹤常用的平台、資料夾大小以及應用程式版本。若傳送的資料集有異動，您將再次看到此對話框。",
     "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.": "輸入的裝置識別碼似乎無效。它應該為一串長度為 52 或 56 個字元長的半形英文字母及數字，並可能會含有額外的空白或連接符號。",
     "The folder ID cannot be blank.": "資料夾識別碼不能為空白。",
     "The folder ID must be unique.": "資料夾識別碼必須為獨一無二的。",

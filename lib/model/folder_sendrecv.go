@@ -507,7 +507,7 @@ nextFile:
 
 		devices := snap.Availability(fileName)
 		for _, dev := range devices {
-			if _, ok := f.model.Connection(dev); ok {
+			if f.model.ConnectedTo(dev) {
 				// Handle the file normally, by copying and pulling, etc.
 				f.handleFile(fi, snap, copyChan)
 				continue nextFile

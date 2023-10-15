@@ -34,6 +34,7 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 		return f.fileData[name], nil
 	})
 	f.DeviceIDReturns(id)
+	f.ConnectionIDReturns(rand.String(16))
 	f.CloseCalls(func(err error) {
 		f.closeOnce.Do(func() {
 			close(f.closed)

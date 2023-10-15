@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STDISCOSRV" "1" "Aug 18, 2023" "v1.23.7" "Syncthing"
+.TH "STDISCOSRV" "1" "Oct 05, 2023" "v1.25.0" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .SH SYNOPSIS
@@ -114,7 +114,7 @@ entry from the list.
 .SS Description
 .sp
 This guide assumes that you have already set up Syncthing. If you
-haven’t yet, head over to getting\-started first.
+haven’t yet, head over to \fI\%Getting Started\fP first.
 .SS Installing
 .sp
 Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/discosrv/releases\fP> and
@@ -398,7 +398,7 @@ server {
         ssl_dhparam /path/to/dhparam;
 
         # HSTS (ngx_http_headers_module is required) (63072000 seconds)
-        add_header Strict\-Transport\-Security "max\-age=63072000" always;
+        add_header Strict\-Transport\-Security \(dqmax\-age=63072000\(dq always;
 
         location / {
                 proxy_pass http://discovery.example.com;
@@ -421,7 +421,7 @@ The following lines must be added to the configuration:
 .ft C
 SSLProxyEngine On
 SSLVerifyClient optional_no_ca
-RequestHeader set X\-SSL\-Cert "%{SSL_CLIENT_CERT}s"
+RequestHeader set X\-SSL\-Cert \(dq%{SSL_CLIENT_CERT}s\(dq
 .ft P
 .fi
 .UNINDENT

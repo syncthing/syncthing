@@ -35,10 +35,11 @@ func TestVersion14Hello(t *testing.T) {
 
 	conn := &readWriter{outBuf, inBuf}
 
-	send := &Hello{
+	send := Hello{
 		DeviceName:    "this device",
 		ClientName:    "other client",
 		ClientVersion: "v0.14.6",
+		Timestamp:     1234567890,
 	}
 
 	res, err := ExchangeHello(conn, send)
@@ -80,10 +81,11 @@ func TestOldHelloMsgs(t *testing.T) {
 
 		conn := &readWriter{outBuf, inBuf}
 
-		send := &Hello{
+		send := Hello{
 			DeviceName:    "this device",
 			ClientName:    "other client",
 			ClientVersion: "v1.0.0",
+			Timestamp:     1234567890,
 		}
 
 		_, err := ExchangeHello(conn, send)

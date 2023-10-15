@@ -1,6 +1,6 @@
 <modal id="idqr" status="info" icon="fas fa-qrcode" heading="{{'Device Identification' | translate}} - {{deviceName(currentDevice)}}" large="yes" closeable="yes">
   <div class="modal-body text-center">
-    <div class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
+    <div class="well well-sm text-monospace select-on-click">{{currentDevice.deviceID}}</div>
     <div ng-if="currentDevice.deviceID">
       <img class="img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}" height="328" width="328" alt="{{'QR code' | translate}}" />
       <div class="btn-group-vertical" style="vertical-align: top;">

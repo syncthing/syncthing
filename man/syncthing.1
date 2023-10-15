@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Aug 18, 2023" "v1.23.7" "Syncthing"
+.TH "SYNCTHING" "1" "Oct 05, 2023" "v1.25.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -99,7 +99,7 @@ Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .INDENT 0.0
 .TP
 .B \-\-auditfile=<file|\-|\-\->
-Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for
+Use specified file or stream (\fB\(dq\-\(dq\fP for stdout, \fB\(dq\-\-\(dq\fP for stderr) for
 audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
@@ -121,7 +121,11 @@ Generate key and config in specified dir, then exit.
 .TP
 .B \-\-gui\-address=<address>
 Override GUI listen address. Set this to an address (\fB0.0.0.0:8384\fP)
-or file path (\fB/var/run/st.sock\fP, for UNIX sockets).
+or a URL (\fBhttp://0.0.0.0:8384\fP). Supported schemes are \fBhttp\fP for
+plain HTTP, \fBhttps\fP for HTTP over TLS, \fBunix\fP for plain Unix sockets
+or \fBunixs\fP for TLS over Unix sockets. A Unix socket could look like this:
+\fBunix:///run/syncthing/syncthing.socket\fP (notice the three slashes: two
+as part of the URL structure, one to specify an absolute path).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -132,9 +136,10 @@ Override the API key needed to access the GUI / REST API.
 .TP
 .B \-\-gui\-password=<password|\->
 Specify new GUI authentication password, to update the config file.  Read
-from the standard input stream if only a single dash (\fB\-\fP) is given.  The
-password is hashed before writing to the config file.  As a special case,
-giving the existing password hash as password will leave it untouched.
+from the standard input stream if only a single dash (\fB\-\fP) is given.  A
+plaintext password is hashed before writing to the config file, but an
+already bcrypt\-hashed input is stored verbatim.  As a special case, giving
+the existing password hash as password will leave it untouched.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -170,7 +175,7 @@ together with \fB\-\-config\fP\&.
 .INDENT 0.0
 .TP
 .B \-\-logfile=<filename>
-Set destination filename for logging (use \fB"\-"\fP for stdout, which is the
+Set destination filename for logging (use \fB\(dq\-\(dq\fP for stdout, which is the
 default option).
 .UNINDENT
 .INDENT 0.0
@@ -363,7 +368,7 @@ it is validated and updated to the latest configuration schema, including adding
 default values for any new options.
 .sp
 The \fBdecrypt\fP subcommand is used in conjunction with untrusted (encrypted)
-devices, see the relevant section on decryption for
+devices, see the relevant section on \fI\%decryption\fP for
 details.  It does not depend on Syncthing to be running, but works on offline
 data.
 .sp

@@ -136,9 +136,9 @@ type Model interface {
 	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
 }
 
-// contextLessModel is the Model interface, but without the initial
-// Connection parameter. Internal use only.
-type contextLessModel interface {
+// rawModel is the Model interface, but without the initial Connection
+// parameter. Internal use only.
+type rawModel interface {
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
 	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
@@ -177,6 +177,7 @@ type ConnectionInfo interface {
 	String() string
 	Crypto() string
 	EstablishedAt() time.Time
+	ConnectionID() string
 }
 
 type rawConnection struct {
@@ -184,8 +185,9 @@ type rawConnection struct {
 
 	deviceID  DeviceID
 	idString  string
-	model     contextLessModel
+	model     rawModel
 	startTime time.Time
+	started   chan struct{}
 
 	cr     *countingReader
 	cw     *countingWriter
@@ -206,6 +208,7 @@ type rawConnection struct {
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
 	compression           Compression
+	startStopMut          sync.Mutex // start and stop must be serialized
 
 	loopWG sync.WaitGroup // Need to ensure no leftover routines in testing
 }
@@ -263,7 +266,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 	return wc
 }
 
-func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver contextLessModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
+func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, receiver rawModel, connInfo ConnectionInfo, compress Compression) *rawConnection {
 	idString := deviceID.String()
 	cr := &countingReader{Reader: reader, idString: idString}
 	cw := &countingWriter{Writer: writer, idString: idString}
@@ -274,6 +277,7 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 		deviceID:              deviceID,
 		idString:              deviceID.String(),
 		model:                 receiver,
+		started:               make(chan struct{}),
 		cr:                    cr,
 		cw:                    cw,
 		closer:                closer,
@@ -292,6 +296,8 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -315,6 +321,7 @@ func (c *rawConnection) Start() {
 		c.loopWG.Done()
 	}()
 	c.startTime = time.Now().Truncate(time.Second)
+	close(c.started)
 }
 
 func (c *rawConnection) DeviceID() DeviceID {
@@ -959,10 +966,12 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
+	c.startStopMut.Lock()
+	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
-		l.Debugln("close due to", err)
+		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
-			l.Debugln(c.deviceID, "failed to close underlying conn:", cerr)
+			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
 		}
 		close(c.closed)
 
@@ -975,7 +984,11 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		<-c.dispatcherLoopStopped
+		if !c.startTime.IsZero() {
+			// Wait for the dispatcher loop to exit, if it was started to
+			// begin with.
+			<-c.dispatcherLoopStopped
+		}
 
 		c.model.Closed(err)
 	})
@@ -1108,7 +1121,7 @@ func messageContext(msg message) (string, error) {
 
 // connectionWrappingModel takes the Model interface from the model package,
 // which expects the Connection as the first parameter in all methods, and
-// wraps it to conform to the protocol.contextLessModel interface.
+// wraps it to conform to the rawModel interface.
 type connectionWrappingModel struct {
 	conn  Connection
 	model Model

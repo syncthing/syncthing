@@ -1,11 +1,10 @@
 /syncthing
 /stdiscosrv
-syncthing.exe
-stdiscosrv.exe
 *.tar.gz
 *.zip
 *.asc
 *.deb
+*.exe
 .jshintrc
 coverage.out
 files/pidx
@@ -19,4 +18,3 @@ deb
 /repos
 /proto/scripts/protoc-gen-gosyncthing
 /gui/next-gen-gui
-.idea

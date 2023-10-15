@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Aug 18, 2023" "v1.23.7" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Oct 05, 2023" "v1.25.0" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -156,14 +156,14 @@ set \-eu
 versionspath=~/.trashcan
 
 # The parameters we get from Syncthing
-folderpath="$1"
-filepath="$2"
+folderpath=\(dq$1\(dq
+filepath=\(dq$2\(dq
 
 # First ensure the dir where we need to store the file exists
-outpath=$(dirname "$versionspath/$filepath")
-mkdir \-p "$outpath"
+outpath=$(dirname \(dq$versionspath/$filepath\(dq)
+mkdir \-p \(dq$outpath\(dq
 # Then move the file there
-mv \-f "$folderpath/$filepath" "$versionspath/$filepath"
+mv \-f \(dq$folderpath/$filepath\(dq \(dq$versionspath/$filepath\(dq
 .ft P
 .fi
 .UNINDENT
@@ -209,25 +209,25 @@ rem We need command extensions for md to create intermediate folders in one go
 setlocal enableextensions
 
 rem Where I want my versions stored
-set "versions_path=%USERPROFILE%\e.trashcan"
+set \(dqversions_path=%USERPROFILE%\e.trashcan\(dq
 
 rem The parameters we get from Syncthing, \(aq~\(aq removes quotes if any
-set "folder_path=%~1"
-set "file_path=%~2"
+set \(dqfolder_path=%~1\(dq
+set \(dqfile_path=%~2\(dq
 
 rem First ensure the dir where we need to store the file exists
-for %%f in ("%versions_path%\e%file_path%") do set "output_path=%%~dpf"
-if not exist "%output_path%" md "%output_path%" || exit /b
+for %%f in (\(dq%versions_path%\e%file_path%\(dq) do set \(dqoutput_path=%%~dpf\(dq
+if not exist \(dq%output_path%\(dq md \(dq%output_path%\(dq || exit /b
 
 rem Finally move the file, overwrite existing file if any
-move /y "%folder_path%\e%file_path%" "%versions_path%\e%file_path%"
+move /y \(dq%folder_path%\e%file_path%\(dq \(dq%versions_path%\e%file_path%\(dq
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-Finally, I set \fB"C:\eUsers\emfrnd\eScripts\eonlylatest.bat" "%FOLDER_PATH%"
-"%FILE_PATH%"\fP as the command name in Syncthing.
+Finally, I set \fB\(dqC:\eUsers\emfrnd\eScripts\eonlylatest.bat\(dq \(dq%FOLDER_PATH%\(dq
+\(dq%FILE_PATH%\(dq\fP as the command name in Syncthing.
 .SS Move to the Recycle Bin using PowerShell
 .sp
 We can use PowerShell to send files directly to the Recycle Bin, which
@@ -245,7 +245,7 @@ location, e.g. \fBC:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1\fP\&.
 Add\-Type \-AssemblyName Microsoft.VisualBasic
 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqSendToRecycleBin\(aq)
 if ($?) {
-  Write\-Output ("Recycled " + $args + ".")
+  Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
 }
 .ft P
 .fi
@@ -268,15 +268,15 @@ Add\-Type \-AssemblyName Microsoft.VisualBasic
 # a modification and delete the existing file. If if does not, we assume
 # a deletion and recycle the current file. If succeeded, we also include
 # the deleted/recycled file in the Syncthing\(aqs DEBUG output.
-if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + "\e~syncthing~" + (Split\-Path \-Path $args \-Leaf) + ".tmp")) {
+if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + \(dq\e~syncthing~\(dq + (Split\-Path \-Path $args \-Leaf) + \(dq.tmp\(dq)) {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqDeletePermanently\(aq)
   if ($?) {
-    Write\-Output ("Deleted " + $args + ".")
+    Write\-Output (\(dqDeleted \(dq + $args + \(dq.\(dq)
   }
 } else {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqSendToRecycleBin\(aq)
   if ($?) {
-    Write\-Output ("Recycled " + $args + ".")
+    Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
   }
 }
 .ft P
@@ -285,8 +285,8 @@ if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + "\e~syncthing~" + (Sp
 .UNINDENT
 .sp
 Finally, we set the command name in Syncthing to \fBpowershell.exe
-\-ExecutionPolicy Bypass \-File "C:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1"
-"%FOLDER_PATH%\e%FILE_PATH%"\fP\&.
+\-ExecutionPolicy Bypass \-File \(dqC:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1\(dq
+\(dq%FOLDER_PATH%\e%FILE_PATH%\(dq\fP\&.
 .sp
 The only caveat that you should be aware of is that if your Syncthing
 folder is located on a portable storage, such as a USB stick, or if you
@@ -295,20 +295,20 @@ files permanently.
 .SH CONFIGURATION PARAMETER REFERENCE
 .sp
 The versioning settings are grouped into their own section of each folder in the
-\fBconfiguration file\fP\&.  The following shows an
+\fI\%configuration file\fP\&.  The following shows an
 example of such a section in the XML:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-<folder id="...">
-    <versioning type="simple">
+<folder id=\(dq...\(dq>
+    <versioning type=\(dqsimple\(dq>
         <cleanupIntervalS>3600</cleanupIntervalS>
         <fsPath></fsPath>
         <fsType>basic</fsType>
-        <param key="cleanoutDays" val="0"></param>
-        <param key="keep" val="5"></param>
+        <param key=\(dqcleanoutDays\(dq val=\(dq0\(dq></param>
+        <param key=\(dqkeep\(dq val=\(dq5\(dq></param>
     </versioning>
 </folder>
 .ft P
@@ -338,7 +338,7 @@ in the \fI\%params\fP element.
 .B versioning.fsType
 The internal file system implementation used to access this versions folder.
 Only applies if \fI\%fsPath\fP is also set non\-empty,
-otherwise the \fBfilesystemType\fP from the folder element is used
+otherwise the \fI\%filesystemType\fP from the folder element is used
 instead.  Refer to that option description for possible values.  Ignored for
 the \fBexternal\fP versioning strategy.
 .sp

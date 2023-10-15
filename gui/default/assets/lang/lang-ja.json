@@ -347,7 +347,7 @@
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "設定が保存されましたが、まだ有効になっていません。新しい設定を有効にするにはSyncthingを再起動してください。",
     "The device ID cannot be blank.": "デバイスIDを入力してください。",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "ここに入力するデバイスIDは、接続したい相手側デバイスの [メニュー]→[IDを表示] で確認できます。スペースとハイフンは入力しなくてもかまいません。",
-    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "使用状況レポートは暗号化されて毎日送信されます。この情報はプラットフォーム、フォルダーのサイズ、アプリケーションのバージョンを調査するために使われます。送信するデータセットが変更された場合、このダイアログで再度確認が求められます。",
+    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.": "使用状況レポートは暗号化されて毎日送信されます。この情報はプラットフォーム、フォルダーのサイズ、アプリケーションのバージョンを調査するために使われます。送信するデータセットが変更された場合、このダイアログで再度確認が求められます。",
     "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.": "入力されたデバイスIDが正しくありません。デバイスIDは52文字または56文字で、アルファベットと数字からなります。スペースとハイフンは入力してもしなくてもかまいません。",
     "The folder ID cannot be blank.": "フォルダーIDは空欄にできません。",
     "The folder ID must be unique.": "フォルダーIDが重複しています。",
