@@ -185,7 +185,6 @@ var (
 	ldbFileRe        = regexp.MustCompile(`(\[file=)([0-9]+)(\.ldb\])`)
 	ldbInternalKeyRe = regexp.MustCompile(`(internal key ")[^"]+(", len=)[0-9]+`)
 	ldbPathRe        = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
-	sliceBoundsRe    = regexp.MustCompile(`(slice bounds out of range) \[.+`)
 )
 
 func sanitizeMessageLDB(message string) string {
@@ -194,7 +193,6 @@ func sanitizeMessageLDB(message string) string {
 	message = ldbChecksumRe.ReplaceAllString(message, "${1}X${3}X")
 	message = ldbInternalKeyRe.ReplaceAllString(message, "${1}x${2}x")
 	message = ldbPathRe.ReplaceAllString(message, "$1 x: ")
-	message = sliceBoundsRe.ReplaceAllString(message, "$1")
 	return message
 }
 
