@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -26,6 +27,7 @@ import (
 
 	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -196,6 +198,7 @@ func (cli *CLI) Run() error {
 	http.HandleFunc("/performance.json", srv.performanceHandler)
 	http.HandleFunc("/blockstats.json", srv.blockStatsHandler)
 	http.HandleFunc("/locations.json", srv.locationsHandler)
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/static/", http.FileServer(http.FS(statics)))
 
 	go srv.cacheRefresher()
@@ -289,6 +292,12 @@ func (s *server) locationsHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
+	version := "fail"
+	defer func() {
+		// Version is "fail", "duplicate", "v2", "v3", ...
+		metricReportsTotal.WithLabelValues(version).Inc()
+	}()
+
 	defer r.Body.Close()
 
 	addr := r.Header.Get("X-Forwarded-For")
@@ -334,6 +343,7 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidjsonindex"` {
 			// We already have a report today for the same unique ID; drop
 			// this one without complaining.
+			version = "duplicate"
 			return
 		}
 		log.Println("insert:", err)
@@ -343,6 +353,8 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database Error", http.StatusInternalServerError)
 		return
 	}
+
+	version = fmt.Sprintf("v%d", rep.URVersion)
 }
 
 func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
