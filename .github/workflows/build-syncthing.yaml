@@ -82,8 +82,8 @@ jobs:
           go run build.go test | go-test-json-to-loki
         env:
           GOFLAGS: "-json"
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_URL: ${{ vars.LOKI_URL }}
+          LOKI_USER: ${{ vars.LOKI_USER }}
           LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
           LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
 
