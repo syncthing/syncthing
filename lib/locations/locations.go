@@ -191,7 +191,10 @@ func defaultConfigDir(userHome string) string {
 		return filepath.Join(userHome, "Library/Application Support/Syncthing")
 
 	default:
-		// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing, use that
+		// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing,
+		// use that. The variable should be set to an absolute path or be
+		// ignored, but that's not what we did previously, so we retain the
+		// old behavior.
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			candidate := filepath.Join(xdgCfg, "syncthing")
 			if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
@@ -203,8 +206,8 @@ func defaultConfigDir(userHome string) string {
 		if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
 			return candidate
 		}
-		// If XDG_STATE_HOME is set, use that
-		if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
+		// If XDG_STATE_HOME is set to an absolute path, use that
+		if xdgState := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(xdgState) {
 			return filepath.Join(xdgState, "syncthing")
 		}
 		// Use our default
@@ -223,7 +226,9 @@ func defaultDataDir(userHome, config string) string {
 	if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
 		return config
 	}
-	// Legacy: if a database exists under $XDG_DATA_HOME/syncthing, use that
+	// Legacy: if a database exists under $XDG_DATA_HOME/syncthing, use
+	// that. The variable should be set to an absolute path or be ignored,
+	// but that's not what we did previously, so we retain the old behavior.
 	if xdgData := os.Getenv("XDG_DATA_HOME"); xdgData != "" {
 		candidate := filepath.Join(xdgData, "syncthing")
 		if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
@@ -235,8 +240,8 @@ func defaultDataDir(userHome, config string) string {
 	if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
 		return candidate
 	}
-	// If XDG_STATE_HOME is set, use that
-	if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
+	// If XDG_STATE_HOME is set to an absolute path, use that
+	if xdgState := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(xdgState) {
 		return filepath.Join(xdgState, "syncthing")
 	}
 	// Use our default
