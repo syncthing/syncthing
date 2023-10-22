@@ -40,9 +40,11 @@ const (
 type BaseDirEnum string
 
 const (
-	// Overridden by --home flag
+	// Overridden by --home flag, $STHOMEDIR, --config flag, or $STCONFDIR
 	ConfigBaseDir BaseDirEnum = "config"
-	DataBaseDir   BaseDirEnum = "data"
+	// Overriddeb by --home flag, $STHOMEDIR, --data flag, or $STDATADIR
+	DataBaseDir BaseDirEnum = "data"
+
 	// User's home directory, *not* --home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
@@ -55,12 +57,13 @@ var baseDirs = make(map[BaseDirEnum]string, 3)
 func init() {
 	userHome := userHomeDir()
 	config := defaultConfigDir(userHome)
+	data := defaultDataDir(userHome, config)
+
 	baseDirs[UserHomeBaseDir] = userHome
 	baseDirs[ConfigBaseDir] = config
-	baseDirs[DataBaseDir] = defaultDataDir(userHome, config)
+	baseDirs[DataBaseDir] = data
 
-	err := expandLocations()
-	if err != nil {
+	if err := expandLocations(); err != nil {
 		fmt.Println(err)
 		panic("Failed to expand locations at init time")
 	}
@@ -92,8 +95,7 @@ func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 			return err
 		}
 	}
-	_, ok := baseDirs[baseDirName]
-	if !ok {
+	if _, ok := baseDirs[baseDirName]; !ok {
 		return fmt.Errorf("unknown base dir: %s", baseDirName)
 	}
 	baseDirs[baseDirName] = filepath.Clean(path)
@@ -131,9 +133,9 @@ var locations = make(map[LocationEnum]string)
 func expandLocations() error {
 	newLocations := make(map[LocationEnum]string)
 	for key, dir := range locationTemplates {
-		for varName, value := range baseDirs {
-			dir = strings.ReplaceAll(dir, "${"+string(varName)+"}", value)
-		}
+		dir = os.Expand(dir, func(s string) string {
+			return baseDirs[BaseDirEnum(s)]
+		})
 		var err error
 		dir, err = fs.ExpandTilde(dir)
 		if err != nil {
@@ -186,38 +188,56 @@ func defaultConfigDir(userHome string) string {
 		return filepath.Join(userHome, "Library/Application Support/Syncthing")
 
 	default:
+		// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing, use that
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			return filepath.Join(xdgCfg, "syncthing")
+			candidate := filepath.Join(xdgCfg, "syncthing")
+			if _, err := os.Lstat(filepath.Join(candidate, "config.xml")); err == nil {
+				return candidate
+			}
 		}
-		return filepath.Join(userHome, ".config/syncthing")
+		// Legacy: if our config exists under ~/.config/syncthing, use that
+		candidate := filepath.Join(userHome, ".config/syncthing")
+		if _, err := os.Lstat(filepath.Join(candidate, "config.xml")); err == nil {
+			return candidate
+		}
+		// If XDG_STATE_HOME is set, use that
+		if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
+			return filepath.Join(xdgState, "syncthing")
+		}
+		// Use our default
+		return filepath.Join(userHome, ".local/state/syncthing")
 	}
 }
 
-// defaultDataDir returns the default data directory, which usually is the
-// config directory but might be something else.
+// defaultDataDir returns the default data directory, where we store the
+// database, log files, etc.
 func defaultDataDir(userHome, config string) string {
 	if build.IsWindows || build.IsDarwin {
 		return config
 	}
 
-	// If a database exists at the "normal" location, use that anyway.
+	// Legacy: if a database exists at the config location, use that.
 	if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
 		return config
 	}
-	// Always use this env var, as it's explicitly set by the user
-	if xdgHome := os.Getenv("XDG_DATA_HOME"); xdgHome != "" {
-		return filepath.Join(xdgHome, "syncthing")
+	// Legacy: if a database exists under $XDG_DATA_HOME/syncthing, use that
+	if xdgData := os.Getenv("XDG_DATA_HOME"); xdgData != "" {
+		candidate := filepath.Join(xdgData, "syncthing")
+		if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
+			return candidate
+		}
 	}
-	// Only use the XDG default, if a syncthing specific dir already
-	// exists. Existence of ~/.local/share is not deemed enough, as
-	// it may also exist erroneously on non-XDG systems.
-	xdgDefault := filepath.Join(userHome, ".local/share/syncthing")
-	if _, err := os.Lstat(xdgDefault); err == nil {
-		return xdgDefault
+	// Legacy: if a database exists under ~/.config/syncthing, use that
+	candidate := filepath.Join(userHome, ".config/syncthing")
+	if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
+		return candidate
 	}
-	// FYI: XDG_DATA_DIRS is not relevant, as it is for system-wide
-	// data dirs, not user specific ones.
-	return config
+	// If XDG_STATE_HOME is set, use that
+	if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
+		return filepath.Join(xdgState, "syncthing")
+	}
+	// Use our default
+	return filepath.Join(userHome, ".local/state/syncthing")
 }
 
 // userHomeDir returns the user's home directory, or dies trying.
