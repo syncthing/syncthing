@@ -48,7 +48,10 @@ const (
 	// User's home directory, *not* --home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
-	LevelDBDir = "index-v0.14.0.db"
+	LevelDBDir          = "index-v0.14.0.db"
+	configFileName      = "config.xml"
+	defaultStateDir     = ".local/state/syncthing"
+	oldDefaultConfigDir = ".config/syncthing"
 )
 
 // Platform dependent directories
@@ -191,13 +194,13 @@ func defaultConfigDir(userHome string) string {
 		// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing, use that
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			candidate := filepath.Join(xdgCfg, "syncthing")
-			if _, err := os.Lstat(filepath.Join(candidate, "config.xml")); err == nil {
+			if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
 				return candidate
 			}
 		}
 		// Legacy: if our config exists under ~/.config/syncthing, use that
-		candidate := filepath.Join(userHome, ".config/syncthing")
-		if _, err := os.Lstat(filepath.Join(candidate, "config.xml")); err == nil {
+		candidate := filepath.Join(userHome, oldDefaultConfigDir)
+		if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
 			return candidate
 		}
 		// If XDG_STATE_HOME is set, use that
@@ -205,7 +208,7 @@ func defaultConfigDir(userHome string) string {
 			return filepath.Join(xdgState, "syncthing")
 		}
 		// Use our default
-		return filepath.Join(userHome, ".local/state/syncthing")
+		return filepath.Join(userHome, defaultStateDir)
 	}
 }
 
@@ -228,7 +231,7 @@ func defaultDataDir(userHome, config string) string {
 		}
 	}
 	// Legacy: if a database exists under ~/.config/syncthing, use that
-	candidate := filepath.Join(userHome, ".config/syncthing")
+	candidate := filepath.Join(userHome, oldDefaultConfigDir)
 	if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
 		return candidate
 	}
@@ -237,7 +240,7 @@ func defaultDataDir(userHome, config string) string {
 		return filepath.Join(xdgState, "syncthing")
 	}
 	// Use our default
-	return filepath.Join(userHome, ".local/state/syncthing")
+	return filepath.Join(userHome, defaultStateDir)
 }
 
 // userHomeDir returns the user's home directory, or dies trying.
