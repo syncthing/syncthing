@@ -42,7 +42,7 @@ type BaseDirEnum string
 const (
 	// Overridden by --home flag, $STHOMEDIR, --config flag, or $STCONFDIR
 	ConfigBaseDir BaseDirEnum = "config"
-	// Overriddeb by --home flag, $STHOMEDIR, --data flag, or $STDATADIR
+	// Overridden by --home flag, $STHOMEDIR, --data flag, or $STDATADIR
 	DataBaseDir BaseDirEnum = "data"
 
 	// User's home directory, *not* --home flag
