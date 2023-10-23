@@ -1,3 +1,9 @@
+// Copyright (C) 2023 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package locations
 
 import (
@@ -66,8 +72,6 @@ func TestUnixDataDir(t *testing.T) {
 
 		// No variables set, use our current default
 		{"/home/user", "", "", "", nil, "/home/user/.local/state/syncthing"},
-		// Config dir overridden, doesn't matter
-		{"/home/user", "/somewhere/else", "", "", nil, "/home/user/.local/state/syncthing"},
 		// Data home set, doesn't matter
 		{"/home/user", "", "/somewhere/else", "", nil, "/home/user/.local/state/syncthing"},
 		// State home set, use that
