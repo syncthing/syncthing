@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -180,70 +179,97 @@ func PrettyPaths() string {
 // out by various the environment variables present on each platform, or dies
 // trying.
 func defaultConfigDir(userHome string) string {
-	switch runtime.GOOS {
-	case build.Windows:
-		if p := os.Getenv("LocalAppData"); p != "" {
-			return filepath.Join(p, "Syncthing")
-		}
-		return filepath.Join(os.Getenv("AppData"), "Syncthing")
+	switch {
+	case build.IsWindows:
+		return windowsConfigDataDir()
 
-	case build.Darwin:
-		return filepath.Join(userHome, "Library/Application Support/Syncthing")
+	case build.IsDarwin:
+		return darwinConfigDataDir(userHome)
 
 	default:
-		// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing,
-		// use that. The variable should be set to an absolute path or be
-		// ignored, but that's not what we did previously, so we retain the
-		// old behavior.
-		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
-			candidate := filepath.Join(xdgCfg, "syncthing")
-			if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
-				return candidate
-			}
-		}
-		// Legacy: if our config exists under ~/.config/syncthing, use that
-		candidate := filepath.Join(userHome, oldDefaultConfigDir)
-		if _, err := os.Lstat(filepath.Join(candidate, configFileName)); err == nil {
-			return candidate
-		}
-		// If XDG_STATE_HOME is set to an absolute path, use that
-		if xdgState := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(xdgState) {
-			return filepath.Join(xdgState, "syncthing")
-		}
-		// Use our default
-		return filepath.Join(userHome, defaultStateDir)
+		return unixConfigDir(userHome, os.Getenv("XDG_CONFIG_HOME"), os.Getenv("XDG_STATE_HOME"), fileExists)
 	}
 }
 
 // defaultDataDir returns the default data directory, where we store the
 // database, log files, etc.
-func defaultDataDir(userHome, config string) string {
+func defaultDataDir(userHome, configDir string) string {
 	if build.IsWindows || build.IsDarwin {
-		return config
+		return configDir
 	}
 
-	// Legacy: if a database exists at the config location, use that.
-	if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
-		return config
+	return unixDataDir(userHome, configDir, os.Getenv("XDG_DATA_HOME"), os.Getenv("XDG_STATE_HOME"), fileExists)
+}
+
+func windowsConfigDataDir() string {
+	if p := os.Getenv("LocalAppData"); p != "" {
+		return filepath.Join(p, "Syncthing")
 	}
-	// Legacy: if a database exists under $XDG_DATA_HOME/syncthing, use
-	// that. The variable should be set to an absolute path or be ignored,
-	// but that's not what we did previously, so we retain the old behavior.
-	if xdgData := os.Getenv("XDG_DATA_HOME"); xdgData != "" {
-		candidate := filepath.Join(xdgData, "syncthing")
-		if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
+	return filepath.Join(os.Getenv("AppData"), "Syncthing")
+}
+
+func darwinConfigDataDir(userHome string) string {
+	return filepath.Join(userHome, "Library/Application Support/Syncthing")
+}
+
+func unixConfigDir(userHome, xdgConfigHome, xdgStateHome string, fileExists func(string) bool) string {
+	// Legacy: if our config exists under $XDG_CONFIG_HOME/syncthing,
+	// use that. The variable should be set to an absolute path or be
+	// ignored, but that's not what we did previously, so we retain the
+	// old behavior.
+	if xdgConfigHome != "" {
+		candidate := filepath.Join(xdgConfigHome, "syncthing")
+		if fileExists(filepath.Join(candidate, configFileName)) {
 			return candidate
 		}
 	}
-	// Legacy: if a database exists under ~/.config/syncthing, use that
+
+	// Legacy: if our config exists under ~/.config/syncthing, use that
 	candidate := filepath.Join(userHome, oldDefaultConfigDir)
-	if _, err := os.Lstat(filepath.Join(candidate, LevelDBDir)); err == nil {
+	if fileExists(filepath.Join(candidate, configFileName)) {
 		return candidate
 	}
+
 	// If XDG_STATE_HOME is set to an absolute path, use that
-	if xdgState := os.Getenv("XDG_STATE_HOME"); filepath.IsAbs(xdgState) {
-		return filepath.Join(xdgState, "syncthing")
+	if filepath.IsAbs(xdgStateHome) {
+		return filepath.Join(xdgStateHome, "syncthing")
 	}
+
+	// Use our default
+	return filepath.Join(userHome, defaultStateDir)
+}
+
+// unixDataDir returns the default data directory, where we store the
+// database, log files, etc, on Unix-like systems.
+func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExists func(string) bool) string {
+	// If a database exists at the config location, use that. This is the
+	// most common case for both legacy (~/.config/syncthing) and current
+	// (~/.local/state/syncthing) setups.
+	if fileExists(filepath.Join(configDir, LevelDBDir)) {
+		return configDir
+	}
+
+	// Legacy: if a database exists under $XDG_DATA_HOME/syncthing, use
+	// that. The variable should be set to an absolute path or be ignored,
+	// but that's not what we did previously, so we retain the old behavior.
+	if xdgDataHome != "" {
+		candidate := filepath.Join(xdgDataHome, "syncthing")
+		if fileExists(filepath.Join(candidate, LevelDBDir)) {
+			return candidate
+		}
+	}
+
+	// Legacy: if a database exists under ~/.config/syncthing, use that
+	candidate := filepath.Join(userHome, oldDefaultConfigDir)
+	if fileExists(filepath.Join(candidate, LevelDBDir)) {
+		return candidate
+	}
+
+	// If XDG_STATE_HOME is set to an absolute path, use that
+	if filepath.IsAbs(xdgStateHome) {
+		return filepath.Join(xdgStateHome, "syncthing")
+	}
+
 	// Use our default
 	return filepath.Join(userHome, defaultStateDir)
 }
@@ -267,4 +293,9 @@ func GetTimestamped(key LocationEnum) string {
 	tpl := locations[key]
 	now := time.Now().Format("20060102-150405")
 	return strings.ReplaceAll(tpl, "${timestamp}", now)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
 }
