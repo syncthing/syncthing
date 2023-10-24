@@ -26,6 +26,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
+    $translateProvider.fallbackLanguage('en');
 
     LocaleServiceProvider.setAvailableLocales(validLangs);
     LocaleServiceProvider.setDefaultLocale('en');
