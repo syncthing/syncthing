@@ -39,6 +39,17 @@ jobs:
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
   # with the list of expected supported Go versions (current, previous).
   #
+  test:
+    name: Commit Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Commit Check Action
+        uses: commit-check/commit-check-action@v0.3.3
+        with:
+          dry-run: true
+      - name: Test
+        run: |
+          ls -lah
 
   build-test:
     name: Build and test
