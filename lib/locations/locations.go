@@ -285,10 +285,10 @@ func userHomeDir() string {
 }
 
 func GetTimestamped(key LocationEnum) string {
-	return getTimestamped(key, time.Now())
+	return getTimestampedAt(key, time.Now())
 }
 
-func getTimestamped(key LocationEnum, when time.Time) string {
+func getTimestampedAt(key LocationEnum, when time.Time) string {
 	// We take the roundtrip via "%{timestamp}" instead of passing the path
 	// directly through time.Format() to avoid issues when the path we are
 	// expanding contains numbers; otherwise for example

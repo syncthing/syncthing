@@ -104,7 +104,7 @@ func TestUnixDataDir(t *testing.T) {
 }
 
 func TestGetTimestamped(t *testing.T) {
-	s := getTimestamped(PanicLog, time.Date(2023, 10, 25, 21, 47, 0, 0, time.UTC))
+	s := getTimestampedAt(PanicLog, time.Date(2023, 10, 25, 21, 47, 0, 0, time.UTC))
 	exp := "panic-20231025-214700.log"
 	if file := filepath.Base(s); file != exp {
 		t.Errorf("got %q, expected %q", file, exp)
