@@ -122,8 +122,8 @@ var locationTemplates = map[LocationEnum]string{
 	Database:      "${data}/" + LevelDBDir,
 	LogFile:       "${data}/syncthing.log", // --logfile on Windows
 	CsrfTokens:    "${data}/csrftokens.txt",
-	PanicLog:      "${data}/panic-${timestamp}.log",
-	AuditLog:      "${data}/audit-${timestamp}.log",
+	PanicLog:      "${data}/panic-%{timestamp}.log",
+	AuditLog:      "${data}/audit-%{timestamp}.log",
 	GUIAssets:     "${config}/gui",
 	DefFolder:     "${userHome}/Sync",
 }
@@ -285,14 +285,18 @@ func userHomeDir() string {
 }
 
 func GetTimestamped(key LocationEnum) string {
-	// We take the roundtrip via "${timestamp}" instead of passing the path
+	return getTimestampedAt(key, time.Now())
+}
+
+func getTimestampedAt(key LocationEnum, when time.Time) string {
+	// We take the roundtrip via "%{timestamp}" instead of passing the path
 	// directly through time.Format() to avoid issues when the path we are
 	// expanding contains numbers; otherwise for example
 	// /home/user2006/.../panic-20060102-150405.log would get both instances of
 	// 2006 replaced by 2015...
 	tpl := locations[key]
-	now := time.Now().Format("20060102-150405")
-	return strings.ReplaceAll(tpl, "${timestamp}", now)
+	timestamp := when.Format("20060102-150405")
+	return strings.ReplaceAll(tpl, "%{timestamp}", timestamp)
 }
 
 func fileExists(path string) bool {

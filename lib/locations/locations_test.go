@@ -9,7 +9,9 @@
 package locations
 
 import (
+	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -98,5 +100,13 @@ func TestUnixDataDir(t *testing.T) {
 		if actual != c.expected {
 			t.Errorf("unixDataDir(%q, %q, %q, %q) == %q, expected %q", c.userHome, c.configDir, c.xdgDataHome, c.xdgStateHome, actual, c.expected)
 		}
+	}
+}
+
+func TestGetTimestamped(t *testing.T) {
+	s := getTimestampedAt(PanicLog, time.Date(2023, 10, 25, 21, 47, 0, 0, time.UTC))
+	exp := "panic-20231025-214700.log"
+	if file := filepath.Base(s); file != exp {
+		t.Errorf("got %q, expected %q", file, exp)
 	}
 }
