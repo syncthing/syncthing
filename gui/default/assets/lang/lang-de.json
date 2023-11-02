@@ -27,7 +27,7 @@
     "Allowed Networks": "Erlaubte Netzwerke",
     "Alphabetic": "Alphabetisch",
     "Altered by ignoring deletes.": "Weicht ab, weil Löschungen ignoriert werden.",
-    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Die Versionskontrolle erfolgt über einen externen Befehl. Die Datei aus dem freigegebenen Ordner muss entfernen werden. Wenn der Pfad der Anwendung Leerzeichen enthält, sollte dieser in Anführungszeichen stehen.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Die Versionierung erfolgt über einen externen Befehl. Er muss die Datei aus dem gemeinsamen Ordner entfernen. Wenn der Pfad zur Anwendung Leerzeichen enthält, sollte er in Anführungszeichen gesetzt werden.",
     "Anonymous Usage Reporting": "Anonymer Nutzungsbericht",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Das Format des anonymen Nutzungsberichts hat sich geändert. Möchten Sie auf das neue Format umsteigen?",
     "Applied to LAN": "Angewendet auf LAN",
