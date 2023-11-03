@@ -212,7 +212,9 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 			s.db.put(key, rec)
 		}
 
-		w.Header().Set("Retry-After", notFoundRetryAfterString(int(misses)))
+		afterS := notFoundRetryAfterSeconds(int(misses))
+		retryAfterHistogram.Observe(float64(afterS))
+		w.Header().Set("Retry-After", strconv.Itoa(afterS))
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
@@ -492,13 +494,13 @@ func errorRetryAfterString() string {
 	return strconv.Itoa(errorRetryAfterSeconds + rand.Intn(errorRetryFuzzSeconds))
 }
 
-func notFoundRetryAfterString(misses int) string {
+func notFoundRetryAfterSeconds(misses int) int {
 	retryAfterS := notFoundRetryMinSeconds + notFoundRetryIncSeconds*misses
 	if retryAfterS > notFoundRetryMaxSeconds {
 		retryAfterS = notFoundRetryMaxSeconds
 	}
 	retryAfterS += rand.Intn(notFoundRetryFuzzSeconds)
-	return strconv.Itoa(retryAfterS)
+	return retryAfterS
 }
 
 func reannounceAfterString() string {
