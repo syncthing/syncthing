@@ -104,45 +104,20 @@ func inTranslate(n *html.Node, translationId string, filename string) {
 	}
 }
 
-func isNamespacedTranslationId(id string) bool {
-	if !strings.Contains(id, ".") {
-		return false
-	}
-
-	if id[len(id)-1] == '.' {
-		// Last section of namespaced ID must not be empty
-		return false
-	}
-
-	if strings.Contains(id, " ") {
-		// Probably a sentence
-		return false
-	}
-
-	if strings.Contains(id, "..") {
-		// Probably something like "Loading..."
-		return false
-	}
-
-	return true
-}
-
 func translation(id string, v string) {
+	namespace := trans
+	idParts := strings.Split(id, ".")
+	id = idParts[len(idParts)-1]
+	for _, subNamespace := range idParts[0 : len(idParts)-1] {
+		if _, ok := namespace[subNamespace]; !ok {
+			namespace[subNamespace] = make(map[string]interface{})
+		}
+		namespace = namespace[subNamespace].(map[string]interface{})
+	}
+
 	v = strings.TrimSpace(v)
 	if id == "" {
 		id = v
-	}
-
-	namespace := trans
-	if isNamespacedTranslationId(id) {
-		idParts := strings.Split(id, ".")
-		id = idParts[len(idParts)-1]
-		for _, subNamespace := range idParts[0 : len(idParts)-1] {
-			if _, ok := namespace[subNamespace]; !ok {
-				namespace[subNamespace] = make(map[string]interface{})
-			}
-			namespace = namespace[subNamespace].(map[string]interface{})
-		}
 	}
 
 	if _, ok := namespace[id]; !ok {
