@@ -179,7 +179,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="cred in tmpGUI.webauthnCredentials">
+                  <tr ng-repeat="cred in tmpGUI._webauthnCredentials">
                     <td ng-if="!cred.editing" class="no-overflow-ellipse stretch">
                       {{ cred.nickname || (cred.id | limitTo: 20) }}
                     </td>

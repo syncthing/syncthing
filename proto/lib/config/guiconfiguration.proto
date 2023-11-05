@@ -25,7 +25,7 @@ message GUIConfiguration {
     string                      webauthn_user_id             = 15 [(ext.xml) = "webauthnUserId"];
     string                      webauthn_rp_id               = 16 [(ext.xml) = "webauthnRpId"];
     string                      webauthn_origin              = 17 [(ext.xml) = "webauthnOrigin"];
-    repeated WebauthnCredential webauthn_credentials         = 18 [(ext.xml) = "webauthnCredential"];
+    repeated WebauthnCredential webauthn_credentials         = 18 [(ext.xml) = "webauthnCredential", (ext.json) = "_webauthnCredentials"]; // _ prefix in JSON to omit from advanced settings
 }
 
 message WebauthnCredential {

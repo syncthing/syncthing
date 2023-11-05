@@ -590,7 +590,7 @@ angular.module('syncthing.core')
             if (guiCfg) {
                 return (guiCfg.authMode === 'ldap'
                     || (guiCfg.user && guiCfg.password)
-                    || (guiCfg.webauthnCredentials || []).length > 0
+                    || (guiCfg._webauthnCredentials || []).length > 0
                 );
             }
             return false;
@@ -1614,7 +1614,7 @@ angular.module('syncthing.core')
                     $http.post(urlbase + '/config/webauthn/register-start')
                         .then(function (resp) {
                             // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                            resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
+                            resp.data.publicKey.excludeCredentials = $scope.tmpGUI._webauthnCredentials.map(function (cred) {
                                 return { type: "public-key", id: cred.id };
                             });
                             return webauthnJSON.create(resp.data);
@@ -1623,7 +1623,7 @@ angular.module('syncthing.core')
                             return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
                         })
                         .then(function (resp) {
-                            $scope.tmpGUI.webauthnCredentials.push(resp.data);
+                            $scope.tmpGUI._webauthnCredentials.push(resp.data);
                         })
                         .catch(function (e) {
                             if (e instanceof DOMException && e.name === "InvalidStateError") {
@@ -1641,7 +1641,7 @@ angular.module('syncthing.core')
 
                 $scope.deleteWebauthnCredential = function (cfg, cred) {
                     // Array.filter is fine since WebAuthn only works in modern browsers
-                    cfg.webauthnCredentials = cfg.webauthnCredentials.filter(function (cr) {
+                    cfg._webauthnCredentials = cfg._webauthnCredentials.filter(function (cr) {
                         return cr.id !== cred.id;
                     });
                 };
