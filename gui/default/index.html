@@ -423,7 +423,7 @@
             ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())"
             type="button"
             class="btn btn-primary"
-            ng-click="reloadAtWebauthnAddress()"
+            ng-click="reloadLoginAtWebauthnAddress()"
             translate
             translate-value-webauthn-address="{{ inferWebauthnAddress() }}"
           >

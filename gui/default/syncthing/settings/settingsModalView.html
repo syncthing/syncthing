@@ -162,45 +162,6 @@
 
           <!-- WebAuthn settings -->
           <div class="form-group">
-            <div class="row">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label translate for="RPID">WebAuthn RP ID</label>
-                  <input id="RPID" class="form-control text-monospace" type="text" ng-model="tmpGUI.webauthnRpId" placeholder="localhost" ng-disabled="!tmpGUI.useTLS" />
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label translate for="WebauthnOrigin">WebAuthn Origin</label>
-                  <input id="WebauthnOrigin" class="form-control text-monospace" type="text" ng-model="tmpGUI.webauthnOrigin" placeholder="{{ getDefaultWebauthnOrigin(tmpGUI) }}" ng-disabled="!tmpGUI.useTLS" />
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12">
-                <p class="text-warning" ng-if="webauthnRpIdChanged(config.gui, tmpGUI) && tmpGUI.webauthnCredentials.length > 0" translate>
-                  Changing the RP ID will make existing credentials stop working.
-                </p>
-
-                <p class="text-warning" ng-if="!webauthnRpIdMatchesLocation(tmpGUI) && !isRawIpAddress()" translate translate-value-current-domain="{{ getLocationHost() }}">
-                  RP ID should be equal to or a parent domain of the current webpage domain: "{%currentDomain%}"
-                </p>
-
-                <p class="text-warning" ng-if="isRawIpAddress(tmpGUI.webauthnRpId || 'localhost')" translate>
-                  WebAuthn is not supported on raw IP address hosts.
-                </p>
-
-                <p ng-if="!locationMatchesWebauthnOrigin(tmpGUI) && !isRawIpAddress(tmpGUI.webauthnRpId || 'localhost')">
-                  <button ng-if="settingsModified()" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress(true, tmpGUI)">
-                    <span class="fas fa-check"></span>&nbsp;<span translate>Save settings and reload page at WebAuthn Origin</span>
-                  </button>
-
-                  <button ng-if="!settingsModified()" type="button" class="btn btn-primary" ng-click="reloadAtWebauthnAddress(false, tmpGUI)" translate>
-                    Reload page at WebAuthn Origin
-                  </button>
-                </p>
-              </div>
-            </div>
 
             <!-- WebAuthn credentials -->
             <div class="table-responsive webauthn-credentials">
@@ -278,20 +239,30 @@
                         Failed to create credential, see Syncthing logs for details.
                       </p>
 
-                      <p class="text-info" ng-if="webauthnRpIdChanged(config.gui, tmpGUI)" translate>
-                        New RP ID must be saved before adding new credentials.
-                      </p>
-
-                      <p class="text-info" ng-if="webauthnOriginChanged(config.gui, tmpGUI)" translate>
-                        New origin must be saved before adding new credentials.
-                      </p>
-
                       <p class="text-info" ng-if="isRawIpAddress()" translate>
                         WebAuthn is not supported on raw IP address hosts.
                       </p>
 
                       <p class="text-info" ng-if="!webauthnAvailable()" translate>
                         Your browser does not support WebAuthn.
+                      </p>
+
+                      <p class="text-warning" ng-if="!locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
+                        Reload page at {%webauthnOrigin%} to enable WebAuthn.
+                      </p>
+
+                      <p ng-if="!locationMatchesWebauthnOrigin()">
+                        <button ng-if="settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)">
+                          <span class="fas fa-check"></span>
+                          &nbsp;
+                          <span translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
+                            Save settings and reload page at {%webauthnOrigin%}
+                          </span>
+                        </button>
+
+                        <button ng-if="!settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
+                          Reload page at {%webauthnOrigin%}
+                        </button>
                       </p>
                     </td>
 

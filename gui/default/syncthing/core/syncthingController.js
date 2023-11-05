@@ -1646,29 +1646,7 @@ angular.module('syncthing.core')
                     });
                 };
 
-                $scope.webauthnRpIdChanged = function (fromCfg, toCfg) {
-                    return fromCfg && toCfg
-                        && fromCfg.webauthnRpId !== toCfg.webauthnRpId
-                        && !(
-                            (fromCfg.webauthnRpId === 'localhost' && toCfg.webauthnRpId === '')
-                            || (fromCfg.webauthnRpId === '' && toCfg.webauthnRpId === 'localhost')
-                        );
-                };
-
-                $scope.webauthnRpIdMatchesLocation = function (cfg) {
-                    return cfg && ($location.host() === (cfg.webauthnRpId || 'localhost') || $location.host().endsWith('.' + cfg.webauthnRpId));
-                };
-
-                $scope.webauthnOriginChanged = function (fromCfg, toCfg) {
-                    return fromCfg && toCfg
-                        && fromCfg.webauthnOrigin !== toCfg.webauthnOrigin
-                        && !(
-                            (fromCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(fromCfg) && toCfg.webauthnOrigin === '')
-                            || (fromCfg.webauthnOrigin === '' && toCfg.webauthnOrigin === $scope.getDefaultWebauthnOrigin(toCfg))
-                        );
-                };
-
-                $scope.getDefaultWebauthnOrigin = function (cfg) {
+                function getDefaultWebauthnOrigin(cfg) {
                     if (cfg) {
                         var splits = (cfg.address || '').split(':');
                         var port = '';
@@ -1679,18 +1657,24 @@ angular.module('syncthing.core')
                     } else {
                         return '';
                     }
+                }
+
+                $scope.getWebauthnOrigin = function () {
+                    var cfg = $scope.config.gui;
+                    return cfg && (cfg.webauthnOrigin || getDefaultWebauthnOrigin(cfg));
                 };
 
-                $scope.locationMatchesWebauthnOrigin = function (cfg) {
-                    return cfg && $location.absUrl().startsWith(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+                $scope.locationMatchesWebauthnOrigin = function () {
+                    var cfg = $scope.config.gui;
+                    return cfg && $location.absUrl().startsWith($scope.getWebauthnOrigin());
                 };
 
-                $scope.reloadAtWebauthnAddress = function (save, cfg) {
+                $scope.reloadSettingsAtWebauthnAddress = function (save) {
                     (save
                         ? $scope.saveSettings()
                         : Promise.resolve()
                     ).then(function () {
-                        location.assign(cfg.webauthnOrigin || $scope.getDefaultWebauthnOrigin(cfg));
+                        location.assign($scope.getWebauthnOrigin());
                     });
                 };
 
@@ -1700,9 +1684,7 @@ angular.module('syncthing.core')
                         && $scope.config.gui.user
                         && !$scope.isLocationInsecure()
                         && $scope.webauthnAvailable()
-                        && !$scope.webauthnRpIdChanged($scope.config.gui, $scope.tmpGUI)
-                        && !$scope.webauthnOriginChanged($scope.config.gui, $scope.tmpGUI)
-                        && !$scope.isRawIpAddress();
+                        && $scope.locationMatchesWebauthnOrigin();
                 };
 
             } else {
@@ -1794,7 +1776,7 @@ angular.module('syncthing.core')
                     return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
                 };
 
-                $scope.reloadAtWebauthnAddress = function () {
+                $scope.reloadLoginAtWebauthnAddress = function () {
                     var address = $scope.inferWebauthnAddress();
                     if (address) {
                         location.assign(address);
