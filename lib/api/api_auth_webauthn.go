@@ -10,8 +10,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
@@ -29,29 +27,10 @@ func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 		displayName = "Syncthing @ " + dev.Name
 	}
 
-	rpId := guiCfg.WebauthnRpId
-	if rpId == "" {
-		rpId = "localhost"
-	}
-
-	origin := guiCfg.WebauthnOrigin
-	if origin == "" {
-		port := strconv.Itoa(config.DefaultGUIPort)
-		addressSplits := strings.Split(guiCfg.RawAddress, ":")
-		if len(addressSplits) > 0 {
-			port = addressSplits[len(addressSplits)-1]
-		}
-		if port == "443" {
-			origin = "https://" + rpId
-		} else {
-			origin = "https://" + rpId + ":" + port
-		}
-	}
-
 	return webauthnLib.New(&webauthnLib.Config{
 		RPDisplayName: displayName,
-		RPID:          rpId,
-		RPOrigin:      origin,
+		RPID:          guiCfg.WebauthnRpId,
+		RPOrigin:      guiCfg.WebauthnOrigin,
 	})
 }
 

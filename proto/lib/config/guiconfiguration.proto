@@ -23,8 +23,8 @@ message GUIConfiguration {
     bool                        insecure_allow_frame_loading = 13 [(ext.xml) = "insecureAllowFrameLoading,omitempty"];
     bool                        send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
     string                      webauthn_user_id             = 15 [(ext.xml) = "webauthnUserId"];
-    string                      webauthn_rp_id               = 16 [(ext.xml) = "webauthnRpId"];
-    string                      webauthn_origin              = 17 [(ext.xml) = "webauthnOrigin"];
+    string                      webauthn_rp_id               = 16 [(ext.xml) = "webauthnRpId", (ext.default) = "localhost"];
+    string                      webauthn_origin              = 17 [(ext.xml) = "webauthnOrigin", (ext.default) = "https://localhost:8384"];
     repeated WebauthnCredential webauthn_credentials         = 18 [(ext.xml) = "webauthnCredential", (ext.json) = "_webauthnCredentials"]; // _ prefix in JSON to omit from advanced settings
 }
 

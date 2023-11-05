@@ -1646,22 +1646,9 @@ angular.module('syncthing.core')
                     });
                 };
 
-                function getDefaultWebauthnOrigin(cfg) {
-                    if (cfg) {
-                        var splits = (cfg.address || '').split(':');
-                        var port = '';
-                        if (splits.length > 0) {
-                            port = splits[splits.length - 1];
-                        }
-                        return 'https://' + (cfg.webauthnRpId || 'localhost') + (port ? ':' : '') + port;
-                    } else {
-                        return '';
-                    }
-                }
-
                 $scope.getWebauthnOrigin = function () {
                     var cfg = $scope.config.gui;
-                    return cfg && (cfg.webauthnOrigin || getDefaultWebauthnOrigin(cfg));
+                    return cfg && cfg.webauthnOrigin;
                 };
 
                 $scope.locationMatchesWebauthnOrigin = function () {
