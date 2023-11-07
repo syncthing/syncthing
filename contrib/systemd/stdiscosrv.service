@@ -1,0 +1,28 @@
+[Unit]
+Description=Syncthing discovery server
+Wants=network-online.target
+After=multi-user.target network.target network-online.target
+
+[Service]
+Type=simple
+User=stdiscosrv
+Group=stdiscosrv
+EnvironmentFile=/etc/stdiscosrv.conf
+WorkingDirectory=/var/lib/stdiscosrv
+ExecStart=/usr/bin/stdiscosrv $STDISCOSRV_PARAMS
+Restart=always
+RestartSec=30
+TimeoutStartSec=300
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectSystem=strict
+ProtectHome=read-only
+SystemCallFilter=~@mount
+ReadWritePaths=/var/lib/stdiscosrv
+
+[Install]
+WantedBy=multi-user.target

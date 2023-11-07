@@ -1,0 +1,3 @@
+u strelaysrv - "strelaysrv user" /var/lib/strelaysrv -
+g strelaysrv - -
+m strelaysrv strelaysrv
