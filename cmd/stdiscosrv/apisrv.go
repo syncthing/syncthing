@@ -137,11 +137,10 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 
 	if s.useHTTP {
 		// X-Forwarded-For can have multiple client IPs; split using the comma separator
-		forwardIP, _, found := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
-		if found {
-			// net.ParseIP will return nil if leading/trailing whitespace exists; use strings.TrimSpace()
-			remoteAddr.IP = net.ParseIP(strings.TrimSpace(forwardIP))
-		}
+		forwardIP, _, _ := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
+
+		// net.ParseIP will return nil if leading/trailing whitespace exists; use strings.TrimSpace()
+		remoteAddr.IP = net.ParseIP(strings.TrimSpace(forwardIP))
 
 		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
 			remoteAddr.Port = int(parsedPort)
