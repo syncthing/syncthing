@@ -136,7 +136,12 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.useHTTP {
-		remoteAddr.IP = net.ParseIP(req.Header.Get("X-Forwarded-For"))
+		// X-Forwarded-For can have multiple client IPs; split using the comma separator
+		forwardIP, _, _ := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
+
+		// net.ParseIP will return nil if leading/trailing whitespace exists; use strings.TrimSpace()
+		remoteAddr.IP = net.ParseIP(strings.TrimSpace(forwardIP))
+
 		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
 			remoteAddr.Port = int(parsedPort)
 		}
@@ -410,13 +415,13 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 			continue
 		}
 
-		if remote != nil {
-			if host == "" || ip.IsUnspecified() {
+		if host == "" || ip.IsUnspecified() {
+			if remote != nil {
 				// Replace the unspecified IP with the request source.
 
 				// ... unless the request source is the loopback address or
 				// multicast/unspecified (can't happen, really).
-				if remote.IP.IsLoopback() || remote.IP.IsMulticast() || remote.IP.IsUnspecified() {
+				if remote.IP == nil || remote.IP.IsLoopback() || remote.IP.IsMulticast() || remote.IP.IsUnspecified() {
 					continue
 				}
 
@@ -432,11 +437,22 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 				}
 
 				host = remote.IP.String()
+
+			} else {
+				// remote is nil, unable to determine host IP
+				continue
 			}
 
-			// If zero port was specified, use remote port.
-			if port == "0" && remote.Port > 0 {
+		}
+
+		// If zero port was specified, use remote port.
+		if port == "0" {
+			if remote != nil && remote.Port > 0 {
+				// use remote port
 				port = strconv.Itoa(remote.Port)
+			} else {
+				// unable to determine remote port
+				continue
 			}
 		}
 
