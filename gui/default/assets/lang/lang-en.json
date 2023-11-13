@@ -538,11 +538,6 @@
     "modified": "modified",
     "permit": "permit",
     "seconds": "seconds",
-    "test": {
-        "translation": {
-            "dummy": "(This is just a test string for nested translation namespaces. This does not need to be translated.)"
-        }
-    },
     "theme": {
         "name": {
             "black": "Black",
