@@ -456,10 +456,14 @@
     "full documentation": "完整說明文件",
     "items": "個項目",
     "seconds": "秒",
-    "theme-name-black": "黑色",
-    "theme-name-dark": "深色",
-    "theme-name-default": "預設",
-    "theme-name-light": "淺色",
+    "theme": {
+        "name": {
+            "black": "黑色",
+            "dark": "深色",
+            "default": "預設",
+            "light": "淺色"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想要共享資料夾 \"{{folder}}\"。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享資料夾 \"{{folderlabel}}\" ({{folder}})。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} 可能會重新引入此裝置。"

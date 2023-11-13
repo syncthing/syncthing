@@ -538,10 +538,14 @@
     "modified": "已修改",
     "permit": "允许",
     "seconds": "秒",
-    "theme-name-black": "黑色",
-    "theme-name-dark": "深色",
-    "theme-name-default": "默认",
-    "theme-name-light": "浅色",
+    "theme": {
+        "name": {
+            "black": "黑色",
+            "dark": "深色",
+            "default": "默认",
+            "light": "浅色"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享 \"{{folderlabel}}\" ({{folder}}) 文件夹给您。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}}可能会重新引入此设备。"
