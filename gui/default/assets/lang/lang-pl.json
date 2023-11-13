@@ -395,7 +395,7 @@
     "Sync Protocol Listen Addresses": "Adres nasłuchu protokołu synchronizacji",
     "Sync Status": "Stan synchronizacji",
     "Syncing": "Synchronizowanie",
-    "Syncthing device ID for \"{%devicename%}\"": "Identyfikator Syncthinga dla urządzenia \"{{devicename}}\"",
+    "Syncthing device ID for \"{%devicename%}\"": "Identyfikator Syncthing dla urządzenia \"{{devicename}}\"",
     "Syncthing has been shut down.": "Syncthing został wyłączony.",
     "Syncthing includes the following software or portions thereof:": "Syncthing zawiera następujące oprogramowanie lub ich części:",
     "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing to wolne i otwarte oprogramowanie na licencji MPL 2.0.",
