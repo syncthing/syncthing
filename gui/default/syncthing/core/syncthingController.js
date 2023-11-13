@@ -3215,8 +3215,8 @@ angular.module('syncthing.core')
         };
 
         $scope.themeName = function (theme) {
-            var translation = $translate.instant("theme-name-" + theme);
-            if (translation.indexOf("theme-name-") == 0) {
+            var translation = $translate.instant("theme.name." + theme);
+            if (translation.indexOf("theme.name.") == 0) {
                 // Fall back to simple Title Casing on missing translation
                 translation = theme.toLowerCase().replace(/(?:^|\s)\S/g, function (a) {
                     return a.toUpperCase();

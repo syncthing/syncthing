@@ -543,10 +543,14 @@
             "dummy": "(This is just a test string for nested translation namespaces. This does not need to be translated.)"
         }
     },
-    "theme-name-black": "Black",
-    "theme-name-dark": "Dark",
-    "theme-name-default": "Default",
-    "theme-name-light": "Light",
+    "theme": {
+        "name": {
+            "black": "Black",
+            "dark": "Dark",
+            "default": "Default",
+            "light": "Light"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."

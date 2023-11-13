@@ -104,6 +104,21 @@ func inTranslate(n *html.Node, translationId string, filename string) {
 	}
 }
 
+func isTranslated(id string) bool {
+	namespace := trans
+	idParts := strings.Split(id, ".")
+	id = idParts[len(idParts)-1]
+	for _, subNamespace := range idParts[0 : len(idParts)-1] {
+		if _, ok := namespace[subNamespace]; !ok {
+			return false
+		}
+		namespace = namespace[subNamespace].(map[string]interface{})
+	}
+
+	_, ok := namespace[id]
+	return ok
+}
+
 func translation(id string, v string) {
 	namespace := trans
 	idParts := strings.Split(id, ".")
@@ -169,10 +184,10 @@ func collectThemes(basePath string) {
 	}
 	for _, f := range files {
 		if f.IsDir() {
-			key := "theme-name-" + f.Name()
-			if _, ok := trans[key]; !ok {
+			key := "theme.name." + f.Name()
+			if !isTranslated(key) {
 				name := strings.Title(f.Name())
-				trans[key] = name
+				translation(key, name)
 			}
 		}
 	}
