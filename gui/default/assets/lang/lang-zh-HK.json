@@ -498,10 +498,6 @@
     "full documentation": "完整文檔",
     "items": "條目",
     "seconds": "秒",
-    "theme-name-black": "theme-name-black",
-    "theme-name-dark": "theme-name-dark",
-    "theme-name-default": "theme-name-default",
-    "theme-name-light": "theme-name-light",
     "{%device%} wants to share folder \"{%folder%}\".": "{%device%} 想將 「{%folder%}」 文件夾共享給您。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{%device%} 想要共享 \"{%folderlabel%}\" ({%folder%}) 文件夾給您。",
     "{%reintroducer%} might reintroduce this device.": "{%reintroducer%} 可能會重新引入此設備。"
