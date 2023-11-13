@@ -173,7 +173,7 @@ func TestHTTPPOSTWithoutCSRF(t *testing.T) {
 	}
 	res.Body.Close()
 	hdr := res.Header.Get("Set-Cookie")
-	id := res.Header.Get("X-Syncthing-ID")[:5]
+	id := res.Header.Get("X-Syncthing-ID")[:7]
 	if !strings.Contains(hdr, "CSRF-Token") {
 		t.Error("Missing CSRF-Token in", hdr)
 	}
