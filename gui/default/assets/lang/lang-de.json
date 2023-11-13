@@ -538,6 +538,11 @@
     "modified": "geändert",
     "permit": "erlauben",
     "seconds": "Sekunden",
+    "test": {
+        "translation": {
+            "dummy": "(Yes, I know it's just for testing - so is this \"translation\". Will be removed soon.)"
+        }
+    },
     "theme-name-black": "Schwarz",
     "theme-name-dark": "Dunkel",
     "theme-name-default": "Standard",
