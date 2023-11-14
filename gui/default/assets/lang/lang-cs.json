@@ -499,10 +499,14 @@
     "full documentation": "úplná dokumentace",
     "items": "položky",
     "seconds": "sekund",
-    "theme-name-black": "Černý",
-    "theme-name-dark": "Tmavý",
-    "theme-name-default": "Výchozí",
-    "theme-name-light": "Světlý",
+    "theme": {
+        "name": {
+            "black": "Černý",
+            "dark": "Tmavý",
+            "default": "Výchozí",
+            "light": "Světlý"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce sdílet složku „{{folder}}“.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce sdílet složku „{{folderlabel}}“ ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} může toto zařízení znovu uvést."

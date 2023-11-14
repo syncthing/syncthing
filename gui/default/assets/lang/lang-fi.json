@@ -376,10 +376,14 @@
     "files": "tiedostot",
     "full documentation": "täysi dokumentaatio",
     "items": "kohteet",
-    "theme-name-black": "Musta",
-    "theme-name-dark": "Tumma",
-    "theme-name-default": "Oletus",
-    "theme-name-light": "Vaalea",
+    "theme": {
+        "name": {
+            "black": "Musta",
+            "dark": "Tumma",
+            "default": "Oletus",
+            "light": "Vaalea"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} haluaa jakaa kansion \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} haluaa jakaa kansion \"{{folderlabel}}\" ({{folder}})."
 }

@@ -85,14 +85,19 @@ func basicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUI
 			return
 		}
 
-		cookie, err := r.Cookie(cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			_, ok := sessions[cookie.Value]
-			sessionsMut.Unlock()
-			if ok {
-				next.ServeHTTP(w, r)
-				return
+		for _, cookie := range r.Cookies() {
+			// We iterate here since there may, historically, be multiple
+			// cookies with the same name but different path. Any "old" ones
+			// won't match an existing session and will be ignored, then
+			// later removed on logout or when timing out.
+			if cookie.Name == cookieName {
+				sessionsMut.Lock()
+				_, ok := sessions[cookie.Value]
+				sessionsMut.Unlock()
+				if ok {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		}
 
@@ -198,21 +203,26 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 
 func handleLogout(cookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			delete(sessions, cookie.Value)
-			sessionsMut.Unlock()
-		}
-		// else: If there is no session cookie, that's also a successful logout in terms of user experience.
+		for _, cookie := range r.Cookies() {
+			// We iterate here since there may, historically, be multiple
+			// cookies with the same name but different path. We drop them
+			// all.
+			if cookie.Name == cookieName {
+				sessionsMut.Lock()
+				delete(sessions, cookie.Value)
+				sessionsMut.Unlock()
 
-		http.SetCookie(w, &http.Cookie{
-			Name:   cookieName,
-			Value:  "",
-			MaxAge: -1,
-			Secure: true,
-			Path:   "/",
-		})
+				// Delete the cookie
+				http.SetCookie(w, &http.Cookie{
+					Name:   cookieName,
+					Value:  "",
+					MaxAge: -1,
+					Secure: cookie.Secure,
+					Path:   cookie.Path,
+				})
+			}
+		}
+
 		w.WriteHeader(http.StatusNoContent)
 	})
 }

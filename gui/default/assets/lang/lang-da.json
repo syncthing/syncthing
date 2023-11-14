@@ -538,10 +538,14 @@
     "modified": "ændret",
     "permit": "tillad",
     "seconds": "sekunder",
-    "theme-name-black": "Sort",
-    "theme-name-dark": "Mørk",
-    "theme-name-default": "Standard",
-    "theme-name-light": "Lys",
+    "theme": {
+        "name": {
+            "black": "Sort",
+            "dark": "Mørk",
+            "default": "Standard",
+            "light": "Lys"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker at dele mappen “{{folder}}”.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker at dele mappen “{{folderlabel}}” ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} vil muligvis genindføre denne enhed."

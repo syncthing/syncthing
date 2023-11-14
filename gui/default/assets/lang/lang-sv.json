@@ -538,10 +538,14 @@
     "modified": "ändrad",
     "permit": "tillåt",
     "seconds": "sekunder",
-    "theme-name-black": "Svart",
-    "theme-name-dark": "Mörkt",
-    "theme-name-default": "Standard",
-    "theme-name-light": "Ljust",
+    "theme": {
+        "name": {
+            "black": "Svart",
+            "dark": "Mörkt",
+            "default": "Standard",
+            "light": "Ljust"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vill dela mapp \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vill dela mapp \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kan återinföra denna enhet."

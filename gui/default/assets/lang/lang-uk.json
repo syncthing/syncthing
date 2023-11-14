@@ -507,10 +507,14 @@
     "items": "елементи",
     "modified": "змінено",
     "seconds": "секунд",
-    "theme-name-black": "Чорна",
-    "theme-name-dark": "Темна",
-    "theme-name-default": "Стандартна",
-    "theme-name-light": "Світла",
+    "theme": {
+        "name": {
+            "black": "Чорна",
+            "dark": "Темна",
+            "default": "Стандартна",
+            "light": "Світла"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися папкою \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися папкою \"{{folderLabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} може повторно порекомендувати цей пристрій."

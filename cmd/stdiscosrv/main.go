@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -101,6 +102,8 @@ func main() {
 	if *showVersion {
 		return
 	}
+
+	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
 	if largeDB {
 		levelDBOptions.BlockCacheCapacity = 64 << 20
