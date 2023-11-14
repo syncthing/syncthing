@@ -1,8 +1,7 @@
 import { environment } from '../environments/environment'
 
 export const deviceID = (): String => {
-    const dID: String = environment.production ? globalThis.metadata['deviceID'] : '1234567';
-    return dID.substring(0, 7)
+    return environment.production ? globalThis.metadata['deviceIDShort'] : '1234567';
 }
 
 export const apiURL: String = '/'
