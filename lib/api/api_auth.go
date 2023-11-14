@@ -42,8 +42,8 @@ func antiBruteForceSleep() {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 }
 
-func unauthorized(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
+func unauthorized(w http.ResponseWriter, shortID string) {
+	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="Authorization Required (%s)"`, shortID))
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
@@ -78,7 +78,7 @@ func isNoAuthPath(path string) bool {
 		})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hasValidAPIKeyHeader(r, guiCfg) {
 			next.ServeHTTP(w, r)
@@ -117,7 +117,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		// Some browsers don't send the Authorization request header unless prompted by a 401 response.
 		// This enables https://user:pass@localhost style URLs to keep working.
 		if guiCfg.SendBasicAuthPrompt {
-			unauthorized(w)
+			unauthorized(w, shortID)
 			return
 		}
 

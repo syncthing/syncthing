@@ -38,9 +38,8 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         return;
     }
 
-    var deviceIDShort = metadata.deviceID.substr(0, 5);
-    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
-    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + metadata.deviceIDShort;
+    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + metadata.deviceIDShort;
 });
 
 // @TODO: extract global level functions into separate service(s)
