@@ -808,6 +808,7 @@ jobs:
             tags=${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
+          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -817,6 +818,9 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          outputs: |
+            annotation.org.opencontainers.image.version="${{ env.VERSION }}"
+            annotation.org.opencontainers.image.revision="${{ github.sha }}"
 
   #
   # Check for known vulnerabilities in Go dependencies

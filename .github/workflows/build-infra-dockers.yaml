@@ -6,23 +6,22 @@ on:
       - infrastructure
 
 env:
-    GO_VERSION: "~1.21.1"
-    CGO_ENABLED: "0"
-    BUILD_USER: docker
-    BUILD_HOST: github.syncthing.net
+  GO_VERSION: "~1.21.1"
+  CGO_ENABLED: "0"
+  BUILD_USER: docker
+  BUILD_HOST: github.syncthing.net
 
 jobs:
-
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
     environment: docker
     strategy:
-        matrix:
-            pkg:
-                - stcrashreceiver
-                - strelaypoolsrv
-                - stupgrades
+      matrix:
+        pkg:
+          - stcrashreceiver
+          - strelaypoolsrv
+          - stupgrades
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,3 +51,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: syncthing/${{ matrix.pkg }}:latest,syncthing/${{ matrix.pkg }}:${{ github.sha }}
+          outputs: |
+            annotation.org.opencontainers.image.revision="${{ github.sha }}"
