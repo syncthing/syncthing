@@ -51,5 +51,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: syncthing/${{ matrix.pkg }}:latest,syncthing/${{ matrix.pkg }}:${{ github.sha }}
-          outputs: |
-            annotation.org.opencontainers.image.revision="${{ github.sha }}"
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}

@@ -818,9 +818,9 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
-          outputs: |
-            annotation.org.opencontainers.image.version="${{ env.VERSION }}"
-            annotation.org.opencontainers.image.revision="${{ github.sha }}"
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
   #
   # Check for known vulnerabilities in Go dependencies
