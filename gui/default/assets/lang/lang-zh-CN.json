@@ -538,6 +538,11 @@
     "modified": "已修改",
     "permit": "允许",
     "seconds": "秒",
+    "test": {
+        "translation": {
+            "dummy": "(This is just a test string for nested translation namespaces. This does not need to be translated.)"
+        }
+    },
     "theme-name-black": "黑色",
     "theme-name-dark": "深色",
     "theme-name-default": "默认",
