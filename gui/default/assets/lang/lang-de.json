@@ -446,7 +446,7 @@
     "The rate limit must be a non-negative number (0: no limit)": "Die Datenratenbegrenzung muss eine nicht-negative Zahl sein (0 = keine Begrenzung)",
     "The remote device has not accepted sharing this folder.": "Dieser geteilte Ordner wurde vom Gerät nicht angenommen.",
     "The remote device has paused this folder.": "Dieser geteilte Ordner ist auf dem Gerät pausiert.",
-    "The rescan interval must be a non-negative number of seconds.": "Das Scanintervall muss eine nicht negative Anzahl (in Sekunden) sein.",
+    "The rescan interval must be a non-negative number of seconds.": "Das Scanintervall muss eine nicht-negative Zahl (in Sekunden) sein.",
     "There are no devices to share this folder with.": "Es sind keine Geräte vorhanden, mit denen dieser Ordner geteilt werden kann.",
     "There are no file versions to restore.": "Es sind keine Dateiversionen zum Wiederherstellen vorhanden.",
     "There are no folders to share with this device.": "Es sind keine Ordner vorhanden, die mit diesem Gerät geteilt werden können.",
