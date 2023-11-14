@@ -538,10 +538,14 @@
     "modified": "modyfikacja",
     "permit": "zezwól",
     "seconds": "sekundy",
-    "theme-name-black": "Czarny",
-    "theme-name-dark": "Ciemny",
-    "theme-name-default": "Domyślny",
-    "theme-name-light": "Jasny",
+    "theme": {
+        "name": {
+            "black": "Czarny",
+            "dark": "Ciemny",
+            "default": "Domyślny",
+            "light": "Jasny"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "Urządzenie {{device}} chce współdzielić folder \"{{folder}}\"",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "Urządzenie {{device}} chce współdzielić folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Urządzenie {{reintroducer}} może ponownie wprowadzić to urządzenie."

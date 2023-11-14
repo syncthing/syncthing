@@ -440,10 +440,14 @@
     "items": "項目",
     "modified": "更新",
     "seconds": "秒",
-    "theme-name-black": "ブラック",
-    "theme-name-dark": "ダーク",
-    "theme-name-default": "デフォルト",
-    "theme-name-light": "ライト",
+    "theme": {
+        "name": {
+            "black": "ブラック",
+            "dark": "ダーク",
+            "default": "デフォルト",
+            "light": "ライト"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} がフォルダー \"{{folder}}\" を共有するよう求めています。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} がフォルダー「{{folderlabel}}」 ({{folder}}) を共有するよう求めています。"
 }

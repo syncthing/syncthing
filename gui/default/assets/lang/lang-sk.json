@@ -538,10 +538,14 @@
     "modified": "zmenené",
     "permit": "povolenie",
     "seconds": "sekúnd",
-    "theme-name-black": "Čierna",
-    "theme-name-dark": "Tmavé",
-    "theme-name-default": "Predvolené",
-    "theme-name-light": "Svetlá",
+    "theme": {
+        "name": {
+            "black": "Čierna",
+            "dark": "Tmavé",
+            "default": "Predvolené",
+            "light": "Svetlá"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce zdieľať adresár \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce zdieľať adresár \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} môže znova uviesť toto zariadenie."

@@ -538,10 +538,14 @@
     "modified": "modificado",
     "permit": "permiso",
     "seconds": "segundos",
-    "theme-name-black": "Negro",
-    "theme-name-dark": "Oscuro",
-    "theme-name-default": "Por Defecto",
-    "theme-name-light": "Claro",
+    "theme": {
+        "name": {
+            "black": "Negro",
+            "dark": "Oscuro",
+            "default": "Por Defecto",
+            "light": "Claro"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir la carpeta \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quiere compartir la carpeta \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} puede reintroducir este dispositivo."

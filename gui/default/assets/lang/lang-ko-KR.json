@@ -538,10 +538,14 @@
     "modified": "수정됨",
     "permit": "허용",
     "seconds": "초",
-    "theme-name-black": "검은색",
-    "theme-name-dark": "어두운 색",
-    "theme-name-default": "기본 색",
-    "theme-name-light": "밝은 색",
+    "theme": {
+        "name": {
+            "black": "검은색",
+            "dark": "어두운 색",
+            "default": "기본 색",
+            "light": "밝은 색"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 기기가 \"{{folder}}\" 폴더를 공유하길 원합니다.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 기기가 \"{{folderlabel}}\" ({{folder}}) 폴더를 공유하길 원합니다.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} 기기에서 이 기기를 다시 소개할 수 있습니다."

@@ -538,10 +538,14 @@
     "modified": "geändert",
     "permit": "erlauben",
     "seconds": "Sekunden",
-    "theme-name-black": "Schwarz",
-    "theme-name-dark": "Dunkel",
-    "theme-name-default": "Standard",
-    "theme-name-light": "Hell",
+    "theme": {
+        "name": {
+            "black": "Schwarz",
+            "dark": "Dunkel",
+            "default": "Standard",
+            "light": "Hell"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} möchte den Ordner „{{folder}}“ teilen.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} möchte den Ordner „{{folderlabel}}“ ({{folder}}) teilen.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} könnte dieses Gerät wieder einführen."
