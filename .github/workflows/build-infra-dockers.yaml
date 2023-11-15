@@ -22,6 +22,7 @@ jobs:
           - stcrashreceiver
           - strelaypoolsrv
           - stupgrades
+          - ursrv
     steps:
       - uses: actions/checkout@v4
         with:
