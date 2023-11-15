@@ -722,6 +722,10 @@ func getReport(db *sql.DB, geoIPPath string) map[string]interface{} {
 				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
 			}
 
+			for key, value := range rep.FolderUsesV3.CopyRangeMethod {
+				add(featureGroups["Folder"]["v3"], "Copy Range Method", prettyCase(key), value)
+			}
+
 			inc(features["Device"]["v3"], "Untrusted", rep.DeviceUsesV3.Untrusted)
 
 			totals["GUI"] += rep.GUIStats.Enabled
