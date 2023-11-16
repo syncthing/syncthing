@@ -545,6 +545,7 @@
             "light": "밝은 색"
         }
     },
+    "unknown device": "알 수 없는 기기",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 기기가 \"{{folder}}\" 폴더를 공유하길 원합니다.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 기기가 \"{{folderlabel}}\" ({{folder}}) 폴더를 공유하길 원합니다.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} 기기에서 이 기기를 다시 소개할 수 있습니다."
