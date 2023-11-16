@@ -545,6 +545,7 @@
             "light": "Hell"
         }
     },
+    "unknown device": "unbekanntes Gerät",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} möchte den Ordner „{{folder}}“ teilen.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} möchte den Ordner „{{folderlabel}}“ ({{folder}}) teilen.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} könnte dieses Gerät wieder einführen."
