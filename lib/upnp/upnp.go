@@ -43,6 +43,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -209,8 +210,14 @@ USER-AGENT: syncthing/%s
 		proto = "udp6"
 	}
 	socket, err := net.ListenMulticastUDP(proto, intf, &net.UDPAddr{IP: ssdp.IP})
+
 	if err != nil {
-		l.Debugln("UPnP discovery: listening to udp multicast:", err)
+		if runtime.GOOS == "windows" && ip6 {
+			// Requires https://github.com/golang/go/issues/63529 to be fixed.
+			l.Infoln("Support for IPv6 UPnP is currently not available on Windows:", err)
+		} else {
+			l.Debugln("UPnP discovery: listening to udp multicast:", err)
+		}
 		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
