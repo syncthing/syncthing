@@ -9,6 +9,8 @@ package fs
 import (
 	"errors"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 // The database is where we store the virtual mtimes
@@ -23,6 +25,7 @@ type mtimeFS struct {
 	chtimes         func(string, time.Time, time.Time) error
 	db              database
 	caseInsensitive bool
+	hackFATDST      bool
 }
 
 type MtimeFSOption func(*mtimeFS)
@@ -52,6 +55,7 @@ func (o *optionMtime) apply(fs Filesystem) Filesystem {
 		Filesystem: fs,
 		chtimes:    fs.Chtimes, // for mocking it out in the tests
 		db:         o.db,
+		hackFATDST: build.IsAndroid, // or can be set in tests
 	}
 	for _, opt := range o.options {
 		opt(f)
@@ -81,34 +85,41 @@ func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 func (f *mtimeFS) Stat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Stat(name)
 	if err != nil {
+		f.db.Delete(name) // forget any mtime we might have had
 		return nil, err
 	}
-
-	mtimeMapping, err := f.load(name)
-	if err != nil {
-		return nil, err
-	}
-	if mtimeMapping.Real == info.ModTime() {
-		info = mtimeFileInfo{
-			FileInfo: info,
-			mtime:    mtimeMapping.Virtual,
-		}
-	}
-
-	return info, nil
+	return f.mapped(name, info)
 }
 
 func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
+		f.db.Delete(name) // forget any mtime we might have had
 		return nil, err
 	}
+	return f.mapped(name, info)
+}
 
+func (f *mtimeFS) mapped(name string, info FileInfo) (FileInfo, error) {
 	mtimeMapping, err := f.load(name)
 	if err != nil {
 		return nil, err
 	}
-	if mtimeMapping.Real == info.ModTime() {
+
+	if mtimeMapping.Real.IsZero() {
+		// No entry for this file.
+		if f.hackFATDST {
+			// Save one for the future, so we can detect DST changes below.
+			f.save(name, info.ModTime(), info.ModTime())
+		}
+		return info, nil
+	}
+
+	if mtime := info.ModTime(); mtime.Equal(mtimeMapping.Real) ||
+		f.hackFATDST &&
+			mtime.Nanosecond() == 0 && // modtime has second precision or worse
+			mtime.Second()%2 == 0 && // modtime is even
+			mtime.Sub(mtimeMapping.Real).Abs() == time.Hour { // time is off by precisely one hour
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,
@@ -155,9 +166,10 @@ func (f *mtimeFS) save(name string, real, virtual time.Time) {
 		name = UnicodeLowercaseNormalized(name)
 	}
 
-	if real.Equal(virtual) {
+	if !f.hackFATDST && real.Equal(virtual) {
 		// If the virtual time and the real on disk time are equal we don't
-		// need to store anything.
+		// need to store anything. Except on Android, where we keep it
+		// around to catch DST changes.
 		f.db.Delete(name)
 		return
 	}

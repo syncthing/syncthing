@@ -81,6 +81,56 @@ func TestMtimeFS(t *testing.T) {
 	}
 }
 
+func TestHackFATDST(t *testing.T) {
+	td := t.TempDir()
+
+	testFile := filepath.Join(td, "file")
+	os.WriteFile(testFile, []byte("hello"), 0o644)
+
+	// A timestamp that looks like it belongs on a FAT filesystem;
+	// two-second precision only.
+	ts := time.Now().Truncate(2 * time.Second)
+	if err := os.Chtimes(testFile, ts, ts); err != nil {
+		t.Fatal(err)
+	}
+
+	mtimefs := newMtimeFS(td, make(mapStore))
+	mtimefs.hackFATDST = true
+
+	// Check the file; it should have its original timestamp.
+	if info, err := mtimefs.Lstat("file"); err != nil {
+		t.Error("Lstat shouldn't fail:", err)
+	} else if !info.ModTime().Equal(ts) {
+		t.Errorf("Unexpected time mismatch; %v != %v", info.ModTime(), ts)
+	}
+
+	// Change the timestamp by precisely one hour, simulating a DST change.
+	dst := ts.Add(time.Hour)
+	if err := os.Chtimes(testFile, dst, dst); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the file; it should still have its original timestamp.
+	if info, err := mtimefs.Lstat("file"); err != nil {
+		t.Error("Lstat shouldn't fail:", err)
+	} else if !info.ModTime().Equal(ts) {
+		t.Errorf("Unexpected time mismatch; %v != %v", info.ModTime(), ts)
+	}
+
+	// Instead, change the timestamp by one hour plus a second.
+	other := ts.Add(time.Hour).Add(time.Second)
+	if err := os.Chtimes(testFile, other, other); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the file; the new timestamp should shine through.
+	if info, err := mtimefs.Lstat("file"); err != nil {
+		t.Error("Lstat shouldn't fail:", err)
+	} else if !info.ModTime().Equal(other) {
+		t.Errorf("Unexpected time mismatch; %v != %v", info.ModTime(), other)
+	}
+}
+
 func TestMtimeFSWalk(t *testing.T) {
 	dir := t.TempDir()
 
