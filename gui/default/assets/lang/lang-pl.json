@@ -545,6 +545,7 @@
             "light": "Jasny"
         }
     },
+    "unknown device": "nieznane urządzenie",
     "{%device%} wants to share folder \"{%folder%}\".": "Urządzenie {{device}} chce współdzielić folder \"{{folder}}\"",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "Urządzenie {{device}} chce współdzielić folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Urządzenie {{reintroducer}} może ponownie wprowadzić to urządzenie."
