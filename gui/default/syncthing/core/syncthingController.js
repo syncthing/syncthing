@@ -1378,7 +1378,7 @@ angular.module('syncthing.core')
         $scope.thisDeviceName = function () {
             var device = $scope.thisDevice();
             if (typeof device === 'undefined') {
-                return "(unknown device)";
+                return '(' + $translate.instant("unknown device") + ')';
             }
             if (device.name) {
                 return device.name;
