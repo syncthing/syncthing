@@ -545,6 +545,7 @@
             "light": "浅色"
         }
     },
+    "unknown device": "未知设备",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享 \"{{folderlabel}}\" ({{folder}}) 文件夹给您。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}}可能会重新引入此设备。"
