@@ -52,6 +52,7 @@ type service interface {
 	BringToFront(string)
 	Override()
 	Revert()
+	DeleteIgnored()
 	DelayScan(d time.Duration)
 	ScheduleScan()
 	SchedulePull()                                    // something relevant changed, we should try a pull
@@ -85,6 +86,7 @@ type Model interface {
 	WatchError(folder string) error
 	Override(folder string)
 	Revert(folder string)
+	DeleteIgnored(folder string)
 	BringToFront(folder, file string)
 	LoadIgnores(folder string) ([]string, []string, error)
 	CurrentIgnores(folder string) ([]string, []string, error)
@@ -97,6 +99,7 @@ type Model interface {
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
 	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error)
 	LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalIgnoredFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	FolderProgressBytesCompleted(folder string) int64
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
@@ -1117,6 +1120,44 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
+		if p.skip() {
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		return !p.done()
+	})
+
+	return files, nil
+}
+
+func (m *model) LocalIgnoredFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, ErrFolderMissing
+	}
+
+	snap, err := rf.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Release()
+
+	if snap.ReceiveRemoveIgnoredSize().TotalItems() == 0 {
+		return nil, nil
+	}
+
+	p := newPager(page, perpage)
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+		if !f.IsRemoveIgnored() {
+			return true
+		}
+
 		if p.skip() {
 			return true
 		}
@@ -2753,6 +2794,20 @@ func (m *model) Revert(folder string) {
 	// Run the revert, taking updates as if they came from scanning.
 
 	runner.Revert()
+}
+
+func (m *model) DeleteIgnored(folder string) {
+	// Grab the runner and the file set.
+
+	m.fmut.RLock()
+	runner, ok := m.folderRunners.Get(folder)
+	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
+
+	// Run the deletation, taking updates as they came from scanning.
+	runner.DeleteIgnored()
 }
 
 type TreeEntry struct {

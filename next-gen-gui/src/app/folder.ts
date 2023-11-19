@@ -191,6 +191,12 @@ namespace Folder {
         receiveOnlyChangedFiles: number;
         receiveOnlyChangedSymlinks: number;
         receiveOnlyTotalItems: number;
+        localIgnoredBytes: number;
+        localIgnoredDeletes: number;
+        localIgnoredDirectories: number;
+        localIgnoreddFiles: number;
+        localIgnoredSymlinks: number;
+        localIgnoredTotalItems: number;
         sequence: number;
         state: string;
         stateChanged: string;

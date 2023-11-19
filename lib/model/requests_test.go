@@ -1405,7 +1405,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	fc.mut.Lock()
 	file := fc.files[0]
 	fc.mut.Unlock()
-	file.SetIgnored()
+	file.SetIgnored(false)
 	m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
 
 	// Wait for the ignored file to be received and possible pulled

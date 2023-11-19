@@ -47,6 +47,10 @@ func (f FileInfoTruncated) IsIgnored() bool {
 	return f.LocalFlags&protocol.FlagLocalIgnored != 0
 }
 
+func (f FileInfoTruncated) IsRemoveIgnored() bool {
+	return f.LocalFlags&protocol.FlagRemoveIgnored != 0
+}
+
 func (f FileInfoTruncated) MustRescan() bool {
 	return f.LocalFlags&protocol.FlagLocalMustRescan != 0
 }
@@ -137,15 +141,22 @@ func (f FileInfoTruncated) FileBlocksHash() []byte {
 	return f.BlocksHash
 }
 
-func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {
+func (f FileInfoTruncated) ConvertToIgnoredFileInfo(removeIgnored bool) protocol.FileInfo {
 	file := f.copyToFileInfo()
-	file.SetIgnored()
+	file.SetIgnored(removeIgnored)
+	return file
+}
+
+func (f FileInfoTruncated) ConvertToRemoveIgnoredFileInfo(removeIgnored bool) protocol.FileInfo {
+	file := f.copyToFileInfo()
+	file.SetRemoveIgnored(removeIgnored)
 	return file
 }
 
 func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protocol.FileInfo {
 	file := f.copyToFileInfo()
 	file.SetDeleted(by)
+	file.LocalFlags &^= protocol.FlagRemoveIgnored
 	return file
 }
 

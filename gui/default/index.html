@@ -510,6 +510,12 @@
                           <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
+                      <tr ng-if="hasLocalIgnored(folder)">
+                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Ignored items</span></th>
+                        <td class="text-right">
+                          <a href="" ng-click="showLocalIgnored(folder.id, folder.type)">{{model[folder.id].localIgnoredTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].localIgnoredBytes | binary}}B</a>
+                        </td>
+                      </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                         <td class="text-right">
@@ -638,6 +644,9 @@
                   </button>
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder)">
                     <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteIgn', folder.id)" ng-if="hasDeleteIgnoredItems(folder)">
+                    <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Delete ignored files</span>
                   </button>
                   <span class="pull-right">
                     <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
@@ -1040,6 +1049,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/localIgnoredFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>

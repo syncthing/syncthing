@@ -245,6 +245,8 @@ func (*folder) Override() {}
 
 func (*folder) Revert() {}
 
+func (*folder) DeleteIgnored() {}
+
 func (f *folder) DelayScan(next time.Duration) {
 	select {
 	case f.scanDelay <- next:
@@ -602,7 +604,10 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
-	switch gf, ok := snap.GetGlobal(fi.Name); {
+	// TODO p0l0us: revert this change, for debugging only.
+	gf, ok := snap.GetGlobal(fi.Name)
+	l.Debugf("%v scanning: File update ignore state", fi.Name, fi.IsIgnored(), fi.IsRemoveIgnored(), gf.IsIgnored(), gf.IsRemoveIgnored())
+	switch ok {
 	case !ok:
 	case gf.IsReceiveOnlyChanged():
 		if fi.IsDeleted() {
@@ -728,10 +733,13 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				return false
 			}
 
+			fileExist := !osutil.IsDeleted(f.mtimefs, file.Name)
+			matchResult := f.ignores.Match(file.Name)
+			isRemoveIgnored := fileExist && matchResult.IsRemoveLocally()
 			if ignoredParent != "" && !fs.IsParent(file.Name, ignoredParent) {
-				for _, file := range toIgnore {
-					l.Debugln("marking file as ignored", file)
-					nf := file.ConvertToIgnoredFileInfo()
+				for _, fig := range toIgnore {
+					l.Debugln("marking file as ignored", fig)
+					nf := fig.ConvertToIgnoredFileInfo(f.ignores.Match(fig.Name).IsRemoveLocally())
 					if batch.Update(nf, snap) {
 						changes++
 					}
@@ -744,8 +752,16 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				ignoredParent = ""
 			}
 
-			switch ignored := f.ignores.Match(file.Name).IsIgnored(); {
+			switch ignored := matchResult.IsIgnored(); {
 			case file.IsIgnored() && ignored:
+				// Ignored file might be deleted between scans
+				// or pattern can change, so we update if needed
+				if isRemoveIgnored != file.IsRemoveIgnored() {
+					nf := file.ConvertToRemoveIgnoredFileInfo(isRemoveIgnored)
+					if batch.Update(nf, snap) {
+						changes++
+					}
+				}
 				return true
 			case !file.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
@@ -761,7 +777,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				}
 
 				l.Debugln("marking file as ignored", file)
-				nf := file.ConvertToIgnoredFileInfo()
+				nf := file.ConvertToIgnoredFileInfo(isRemoveIgnored)
 				if batch.Update(nf, snap) {
 					changes++
 				}
@@ -772,13 +788,20 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				fallthrough
 			case !file.IsIgnored() && !file.IsDeleted() && !file.IsUnsupported():
 				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it won't do as there are
+				// it's still here. Simply stating it won't do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !osutil.IsDeleted(f.mtimefs, file.Name) {
+				if fileExist {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
-						toIgnore = toIgnore[:0]
+						// but keep folders which are not parents of current item
+						newToIgnore := []db.FileInfoTruncated{}
+						for _, tig := range toIgnore {
+							if !fs.IsParent(file.Name, tig.Name) {
+								newToIgnore = append(newToIgnore, tig)
+							}
+						}
+						toIgnore = newToIgnore
 						ignoredParent = ""
 					}
 					return true
@@ -836,7 +859,8 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 		if iterError == nil && len(toIgnore) > 0 {
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", f)
-				nf := file.ConvertToIgnoredFileInfo()
+				isRemovalCandidate := !osutil.IsDeleted(f.mtimefs, file.Name) && f.ignores.Match(file.Name).IsRemoveLocally()
+				nf := file.ConvertToIgnoredFileInfo(isRemovalCandidate)
 				if batch.Update(nf, snap) {
 					changes++
 				}

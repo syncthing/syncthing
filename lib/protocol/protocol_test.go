@@ -665,22 +665,27 @@ func BenchmarkBlockSize(b *testing.B) {
 
 func TestLocalFlagBits(t *testing.T) {
 	var f FileInfo
-	if f.IsIgnored() || f.MustRescan() || f.IsInvalid() {
+	if f.IsIgnored() || f.MustRescan() || f.IsInvalid() || f.IsRemoveIgnored() {
 		t.Error("file should have no weird bits set by default")
 	}
 
-	f.SetIgnored()
-	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+	f.SetIgnored(true)
+	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() || !f.IsRemoveIgnored() {
+		t.Error("file should be ignored and invalid")
+	}
+
+	f.SetIgnored(false)
+	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() || f.IsRemoveIgnored() {
 		t.Error("file should be ignored and invalid")
 	}
 
 	f.SetMustRescan()
-	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() {
+	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() || f.IsRemoveIgnored() {
 		t.Error("file should be must-rescan and invalid")
 	}
 
 	f.SetUnsupported()
-	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() || f.IsRemoveIgnored() {
 		t.Error("file should be invalid")
 	}
 }

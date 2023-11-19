@@ -26,10 +26,11 @@ import (
 )
 
 const (
-	resultNotMatched Result = 0
-	resultInclude    Result = 1 << iota
-	resultDeletable         = 1 << iota
-	resultFoldCase          = 1 << iota
+	resultNotMatched    Result = 0
+	resultInclude       Result = 1 << iota
+	resultDeletable            = 1 << iota
+	resultFoldCase             = 1 << iota
+	resultRemoveIgnored        = 1 << iota
 )
 
 var defaultResult Result = resultInclude
@@ -84,10 +85,16 @@ func (p Pattern) String() string {
 	if p.result&resultDeletable == resultDeletable {
 		ret = "(?d)" + ret
 	}
+	if p.result&resultRemoveIgnored == resultRemoveIgnored {
+		ret = "(?r)" + ret
+	}
 	return ret
 }
 
 func (p Pattern) allowsSkippingIgnoredDirs() bool {
+	// if p.result.IsRemoveLocally() {
+	// 	return false
+	// }
 	if p.result.IsIgnored() {
 		return true
 	}
@@ -109,6 +116,10 @@ func (r Result) IsIgnored() bool {
 
 func (r Result) IsDeletable() bool {
 	return r.IsIgnored() && r&resultDeletable == resultDeletable
+}
+
+func (r Result) IsRemoveLocally() bool {
+	return r.IsIgnored() && r&resultRemoveIgnored == resultRemoveIgnored
 }
 
 func (r Result) IsCaseFolded() bool {
@@ -435,7 +446,7 @@ func parseLine(line string) ([]Pattern, error) {
 	}
 
 	// Allow prefixes to be specified in any order, but only once.
-	var seenPrefix [3]bool
+	var seenPrefix [4]bool
 
 	for {
 		if strings.HasPrefix(line, "!") && !seenPrefix[0] {
@@ -449,6 +460,10 @@ func parseLine(line string) ([]Pattern, error) {
 		} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 			seenPrefix[2] = true
 			pattern.result |= resultDeletable
+			line = line[4:]
+		} else if strings.HasPrefix(line, "(?r)") && !seenPrefix[3] {
+			seenPrefix[3] = true
+			pattern.result |= resultRemoveIgnored
 			line = line[4:]
 		} else {
 			break

@@ -284,8 +284,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			l.Debugln(w, "ignored (internal):", path)
 			return skip
 		}
-
-		if w.Matcher.Match(path).IsIgnored() {
+		matchResult := w.Matcher.Match(path)
+		if matchResult.IsIgnored() && !matchResult.IsRemoveLocally() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
 			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
