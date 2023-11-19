@@ -145,6 +145,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 	now := time.Now().Truncate(time.Second)
 	configCred := config.WebauthnCredential{
 		ID:            base64.URLEncoding.EncodeToString(credential.ID),
+		RpId:          s.cfg.GUI().WebauthnRpId,
 		PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
 		SignCount:     credential.Authenticator.SignCount,
 		Transports:    transports,
