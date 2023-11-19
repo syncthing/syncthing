@@ -29,6 +29,14 @@ RUN if [ ! -f syncthing-linux-$TARGETARCH ] ; then \
 FROM alpine
 ARG TARGETARCH
 
+LABEL org.opencontainers.image.authors="The Syncthing Project" \
+      org.opencontainers.image.url="https://syncthing.net" \
+      org.opencontainers.image.documentation="https://docs.syncthing.net" \
+      org.opencontainers.image.source="https://github.com/syncthing/syncthing" \
+      org.opencontainers.image.vendor="The Syncthing Project" \
+      org.opencontainers.image.licenses="MPL-2.0" \
+      org.opencontainers.image.title="Syncthing"
+
 EXPOSE 8384 22000/tcp 22000/udp 21027/udp
 
 VOLUME ["/var/syncthing"]

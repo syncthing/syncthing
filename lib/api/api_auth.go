@@ -42,8 +42,8 @@ func antiBruteForceSleep() {
 	time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 }
 
-func unauthorized(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", "Basic realm=\"Authorization Required\"")
+func unauthorized(w http.ResponseWriter, shortID string) {
+	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="Authorization Required (%s)"`, shortID))
 	http.Error(w, "Not Authorized", http.StatusUnauthorized)
 }
 
@@ -86,21 +86,26 @@ func isNoAuthPath(path string) bool {
 		})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hasValidAPIKeyHeader(r, guiCfg) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		cookie, err := r.Cookie(cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			_, ok := sessions[cookie.Value]
-			sessionsMut.Unlock()
-			if ok {
-				next.ServeHTTP(w, r)
-				return
+		for _, cookie := range r.Cookies() {
+			// We iterate here since there may, historically, be multiple
+			// cookies with the same name but different path. Any "old" ones
+			// won't match an existing session and will be ignored, then
+			// later removed on logout or when timing out.
+			if cookie.Name == cookieName {
+				sessionsMut.Lock()
+				_, ok := sessions[cookie.Value]
+				sessionsMut.Unlock()
+				if ok {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		}
 
@@ -120,7 +125,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		// Some browsers don't send the Authorization request header unless prompted by a 401 response.
 		// This enables https://user:pass@localhost style URLs to keep working.
 		if guiCfg.SendBasicAuthPrompt {
-			unauthorized(w)
+			unauthorized(w, shortID)
 			return
 		}
 
@@ -206,21 +211,26 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 
 func handleLogout(cookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			delete(sessions, cookie.Value)
-			sessionsMut.Unlock()
-		}
-		// else: If there is no session cookie, that's also a successful logout in terms of user experience.
+		for _, cookie := range r.Cookies() {
+			// We iterate here since there may, historically, be multiple
+			// cookies with the same name but different path. We drop them
+			// all.
+			if cookie.Name == cookieName {
+				sessionsMut.Lock()
+				delete(sessions, cookie.Value)
+				sessionsMut.Unlock()
 
-		http.SetCookie(w, &http.Cookie{
-			Name:   cookieName,
-			Value:  "",
-			MaxAge: -1,
-			Secure: true,
-			Path:   "/",
-		})
+				// Delete the cookie
+				http.SetCookie(w, &http.Cookie{
+					Name:   cookieName,
+					Value:  "",
+					MaxAge: -1,
+					Secure: cookie.Secure,
+					Path:   cookie.Path,
+				})
+			}
+		}
+
 		w.WriteHeader(http.StatusNoContent)
 	})
 }

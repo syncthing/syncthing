@@ -1,5 +1,5 @@
-ARG GOVERSION=latest
-FROM golang:$GOVERSION
+FROM alpine
+ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
       org.opencontainers.image.url="https://syncthing.net" \
@@ -7,11 +7,10 @@ LABEL org.opencontainers.image.authors="The Syncthing Project" \
       org.opencontainers.image.source="https://github.com/syncthing/syncthing" \
       org.opencontainers.image.vendor="The Syncthing Project" \
       org.opencontainers.image.licenses="MPL-2.0" \
-      org.opencontainers.image.title="Syncthing Builder"
+      org.opencontainers.image.title="Syncthing Usage Reporting Server"
 
-# FPM to build Debian packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	locales rubygems ruby-dev build-essential git \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/* \
-	&& gem install fpm
+EXPOSE 8080
+
+COPY ursrv-linux-${TARGETARCH} /bin/ursrv
+
+ENTRYPOINT [ "/bin/ursrv" ]

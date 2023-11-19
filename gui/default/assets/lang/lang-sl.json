@@ -456,10 +456,14 @@
     "items": "predmeti",
     "modified": "spremenjeno",
     "seconds": "sekunde",
-    "theme-name-black": "Črna",
-    "theme-name-dark": "Temno",
-    "theme-name-default": "Privzeto",
-    "theme-name-light": "Svetlo",
+    "theme": {
+        "name": {
+            "black": "Črna",
+            "dark": "Temno",
+            "default": "Privzeto",
+            "light": "Svetlo"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} želi deliti mapo \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} želi deliti mapo \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} bo morda znova predstavil to napravo."

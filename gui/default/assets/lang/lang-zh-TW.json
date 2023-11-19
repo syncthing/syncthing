@@ -68,6 +68,7 @@
     "Default Configuration": "預設配置",
     "Default Device": "預設裝置",
     "Default Folder": "預設資料夾",
+    "Default Ignore Patterns": "預設忽略樣式",
     "Defaults": "預設",
     "Delete": "刪除",
     "Delete Unexpected Items": "刪除不預期的項目",
@@ -223,6 +224,7 @@
     "No upgrades": "不更新",
     "Not shared": "未共享",
     "Notice": "注意",
+    "Number of Connections": "連線數量",
     "OK": "確定",
     "Off": "關閉",
     "Oldest First": "最舊的優先",
@@ -454,10 +456,14 @@
     "full documentation": "完整說明文件",
     "items": "個項目",
     "seconds": "秒",
-    "theme-name-black": "黑色",
-    "theme-name-dark": "深色",
-    "theme-name-default": "預設",
-    "theme-name-light": "淺色",
+    "theme": {
+        "name": {
+            "black": "黑色",
+            "dark": "深色",
+            "default": "預設",
+            "light": "淺色"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想要共享資料夾 \"{{folder}}\"。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享資料夾 \"{{folderlabel}}\" ({{folder}})。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} 可能會重新引入此裝置。"

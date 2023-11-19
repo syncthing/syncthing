@@ -507,10 +507,14 @@
     "items": "elem",
     "modified": "módosított",
     "seconds": "másodperc",
-    "theme-name-black": "Fekete",
-    "theme-name-dark": "Sötét",
-    "theme-name-default": "Alapértelmezett",
-    "theme-name-light": "Világos",
+    "theme": {
+        "name": {
+            "black": "Fekete",
+            "dark": "Sötét",
+            "default": "Alapértelmezett",
+            "light": "Világos"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} szeretné megosztani a mappát: „{{folder}}”.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} szeretné megosztani a mappát: „{{folderlabel}}” ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} újra bevezetheti ezt az eszközt."

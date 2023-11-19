@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Oct 05, 2023" "v1.25.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 08, 2023" "v1.26.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -1050,6 +1050,27 @@ Authentication using user and password.
 .B \fBldap\fP
 LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sendBasicAuthPrompt
+New in version 1.26.0.
+
+.sp
+Prior to version 1.26.0 the GUI used HTTP Basic Authorization for login, but
+starting in version 1.26.0 it uses an HTML form by default. Basic
+Authorization is still supported when the \fBAuthorization\fP request header
+is present in a request, but some browsers don’t send the header unless
+prompted by a 401 response.
+.sp
+When this setting is enabled, the GUI will respond to unauthenticated
+requests with a 401 response prompting for Basic Authorization, so that
+\fBhttps://user:pass@localhost\fP style URLs continue to work in standard
+browsers. Other clients that always send the \fBAuthorization\fP request
+header do not need this setting.
+.sp
+When this setting is disabled, the GUI will not send 401 responses so users
+won’t see browser popups prompting for username and password.
 .UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0

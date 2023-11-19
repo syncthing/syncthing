@@ -69,6 +69,14 @@ func TestFixupAddresses(t *testing.T) {
 			remote: addr("123.123.123.123", 9000),
 			in:     []string{"tcp://44.44.44.44:0"},
 			out:    []string{"tcp://44.44.44.44:9000"},
+		}, { // remote ip nil
+			remote: addr("", 9000),
+			in:     []string{"tcp://:22000", "tcp://44.44.44.44:9000"},
+			out:    []string{"tcp://44.44.44.44:9000"},
+		}, { // remote port 0
+			remote: addr("123.123.123.123", 0),
+			in:     []string{"tcp://:22000", "tcp://44.44.44.44"},
+			out:    []string{"tcp://123.123.123.123:22000"},
 		},
 	}
 

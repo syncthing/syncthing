@@ -303,7 +303,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
-	sessionCookieName := "sessionid-" + s.id.String()[:5]
+	sessionCookieName := "sessionid-" + s.id.Short().String()
 	webauthnService, err := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
 	if err != nil {
 		return err
@@ -374,14 +374,14 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
+	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		handler = basicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
 		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication)
@@ -729,6 +729,7 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	meta, _ := json.Marshal(map[string]interface{}{
 		"deviceID":      s.id.String(),
+		"deviceIDShort": s.id.Short().String(),
 		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")

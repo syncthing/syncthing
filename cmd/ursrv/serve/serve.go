@@ -53,26 +53,26 @@ var (
 		// Maps well known builders to the official distribution method that
 		// they represent
 
-		{regexp.MustCompile(`teamcity@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`jenkins@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`builder@github\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\steamcity@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sjenkins@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sbuilder@github\.syncthing\.net`), "GitHub"},
 
-		{regexp.MustCompile(`deb@build\.syncthing\.net`), "APT"},
-		{regexp.MustCompile(`debian@github\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`\sdeb@build\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`\sdebian@github\.syncthing\.net`), "APT"},
 
-		{regexp.MustCompile(`docker@syncthing\.net`), "Docker Hub"},
-		{regexp.MustCompile(`docker@build.syncthing\.net`), "Docker Hub"},
-		{regexp.MustCompile(`docker@github.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@build.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@github.syncthing\.net`), "Docker Hub"},
 
-		{regexp.MustCompile(`android-builder@github\.syncthing\.net`), "Google Play"},
-		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
-		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
-		{regexp.MustCompile(`vagrant@bullseye`), "F-Droid"},
-		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
+		{regexp.MustCompile(`\sandroid-builder@github\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*teamcity@build\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
+		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
-		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
-		{regexp.MustCompile(`root@buildkitsandbox`), "LinuxServer.io (3rd party)"},
+		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
+		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )
@@ -720,6 +720,10 @@ func getReport(db *sql.DB, geoIPPath string) map[string]interface{} {
 
 			for key, value := range rep.FolderUsesV3.PullOrder {
 				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
+			}
+
+			for key, value := range rep.FolderUsesV3.CopyRangeMethod {
+				add(featureGroups["Folder"]["v3"], "Copy Range Method", prettyCase(key), value)
 			}
 
 			inc(features["Device"]["v3"], "Untrusted", rep.DeviceUsesV3.Untrusted)

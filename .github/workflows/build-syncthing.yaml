@@ -49,6 +49,19 @@ jobs:
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
         go: ["1.20", "1.21"]
+
+        # Don't run the Windows tests with Go 1.21.4 or 1.20.11; this can be
+        # removed when 1.21.5 and 1.20.12 is released.
+        exclude:
+          - runner: windows-latest
+            go: "1.20"
+          - runner: windows-latest
+            go: "1.21"
+        include:
+          - runner: windows-latest
+            go: "~1.20.12 || ~1.20.0 <1.20.11"
+          - runner: windows-latest
+            go: "~1.21.5 || ~1.21.1 <1.21.4"
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -79,11 +92,12 @@ jobs:
 
       - name: Test
         run: |
+          go version
           go run build.go test | go-test-json-to-loki
         env:
           GOFLAGS: "-json"
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_URL: ${{ vars.LOKI_URL }}
+          LOKI_USER: ${{ vars.LOKI_USER }}
           LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
           LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
 
@@ -155,9 +169,16 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          # Temporary version constraint to avoid 1.21.4 which has a bug in
+          # path handling. This can be removed when 1.21.5 is released.
+          go-version: "~1.21.5 || ~1.21.1 <1.21.4"
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -207,6 +228,11 @@ jobs:
           cache: false
           check-latest: true
 
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+
       - uses: actions/cache@v3
         with:
           path: |
@@ -248,6 +274,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -370,6 +401,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -545,6 +581,11 @@ jobs:
           cache: false
           check-latest: true
 
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.0'
@@ -683,7 +724,7 @@ jobs:
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/heads/release-'))
     environment: docker
     strategy:
       matrix:
@@ -711,6 +752,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -762,6 +808,7 @@ jobs:
             tags=${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
+          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -771,6 +818,9 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
   #
   # Check for known vulnerabilities in Go dependencies
