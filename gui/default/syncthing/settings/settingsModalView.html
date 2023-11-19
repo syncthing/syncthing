@@ -270,16 +270,12 @@
                       <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
                         <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
                       </button>
-
-                      <label class="checkbox-inline text-nowrap">
-                        <input type="checkbox" ng-model="webauthnShowIneligibleCredentials" /> <span translate>Show ineligible</span>
-                      </label>
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              <table class="table-striped table" ng-if="webauthnShowIneligibleCredentials">
+              <table class="table-striped table" ng-repeat="_ in tmpGUI._webauthnCredentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
                 <thead>
                   <tr>
                     <th colspan="1000"><label translate>Ineligible WebAuthn Credentials</label></th>
