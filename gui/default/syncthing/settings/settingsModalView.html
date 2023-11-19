@@ -198,7 +198,7 @@
                       <input type="checkbox" ng-model="cred.requireUv" />
                     </td>
                     <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="cred.editing = true" ng-if="!cred.editing">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="cred.editing = true" ng-disabled="cred.editing">
                         <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
                       </button>
                     </td>
