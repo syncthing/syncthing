@@ -102,6 +102,10 @@ ul+h5 {
     /*padding-left: 20px !important;*/
 }
 
+.table td.button-cell {
+  padding: 0;
+}
+
 .table td.small-data {
     white-space: nowrap;
 }

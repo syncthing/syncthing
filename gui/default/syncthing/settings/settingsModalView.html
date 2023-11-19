@@ -197,12 +197,12 @@
                     <td class="small-data text-center">
                       <input type="checkbox" ng-model="cred.requireUv" />
                     </td>
-                    <td class="small-data">
+                    <td class="small-data button-cell">
                       <a class="btn btn-link btn-sm" href="" ng-click="cred.editing = true" ng-if="!cred.editing">
                         <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
                       </a>
                     </td>
-                    <td class="small-data">
+                    <td class="small-data button-cell">
                       <a class="btn btn-link btn-sm" href="" ng-click="deleteWebauthnCredential(tmpGUI, cred)">
                         <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
                       </a>
@@ -266,7 +266,7 @@
                       </p>
                     </td>
 
-                    <td class="small-data" colspan="1000">
+                    <td class="small-data button-cell" colspan="1000">
                       <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
                         <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
                       </button>
