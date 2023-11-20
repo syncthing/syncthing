@@ -2398,7 +2398,7 @@ angular.module('syncthing.core')
             // console.log("formatGlobalTreeNodes", "data", data, "ignores", ignores);
             if (ignores[0] !== generatedByTreeSelector) {
                 ignores = [];
-                setIgnoresText([generatedByTreeSelector, "*"]);
+                setIgnoresText([generatedByTreeSelector, "(?r)*"]);
             } else {
                 ignores = ignores.slice(1, -1)
             }
@@ -2448,7 +2448,7 @@ angular.module('syncthing.core')
                 select: function (event, data) {
                     console.log("initFolderGlobalTree | fancyTree select");
                     const rootNode = $scope.folderGlobalTree.getRootNode();
-                    const generatedIgnorePatterns = ["*"];
+                    const generatedIgnorePatterns = ["(?r)*"];
                     $.each(rootNode.getSelectedNodes(), function (_, node) {
                         if (node.parent == rootNode || !node.parent.selected)
                             generatedIgnorePatterns.unshift("!" + node.key);
@@ -2486,7 +2486,7 @@ angular.module('syncthing.core')
                     fancyTreeGlobalDataWorker.onmessage = function (msg) {
                         console.log("fancyTreeGlobalDataWorker.onmessage", msg.data);
                         if (msg.data.invalidPatterns)
-                            setIgnoresText([generatedByTreeSelector, "*"]);
+                            setIgnoresText([generatedByTreeSelector, "(?r)*"]);
                         setFolderGlobalTreeFancyData(msg.data.data);
                     }
                     console.log('initFancyTreeGlobalDataWorker | worker ready', !!$scope.fancyTreeGlobalDataWorker);
