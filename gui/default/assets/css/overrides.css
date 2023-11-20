@@ -342,6 +342,24 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /*
+ * Folder Basic Ignores Tree tweaks
+ */
+
+#folderGlobalTree-container {
+    overflow-y: scroll;
+    resize: vertical;
+    /* Limit height to prevent vertical screen overflow. */
+    max-height: calc(100vh - 390px);
+    /* Always fit at least one folder with dropdown open. */
+    min-height: 136px;
+}
+
+/* Ignore fixed height when manually resized. */
+#folderGlobalTree-container[style*="height"] {
+    max-height: none;
+}
+
+/*
  * Restore Versions tweaks
  */
 
