@@ -304,7 +304,6 @@
     "QR code": "Kod QR",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "Połączenia przez QUIC w większości przypadków są uważane za nieoptymalne",
     "Quick guide to supported patterns": "Krótki przewodnik po obsługiwanych wzorcach",
     "Random": "Losowo",
     "Receive Encrypted": "Odbierz zaszyfrowane",
@@ -546,6 +545,7 @@
             "light": "Jasny"
         }
     },
+    "unknown device": "nieznane urządzenie",
     "{%device%} wants to share folder \"{%folder%}\".": "Urządzenie {{device}} chce współdzielić folder \"{{folder}}\"",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "Urządzenie {{device}} chce współdzielić folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Urządzenie {{reintroducer}} może ponownie wprowadzić to urządzenie."

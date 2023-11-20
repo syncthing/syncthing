@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Nov 08, 2023" "v1.26.0" "Syncthing"
+.TH "SYNCTHING" "1" "Nov 15, 2023" "v1.26.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -156,7 +156,8 @@ given subcommand.
 .TP
 .B \-\-home=<dir>
 Set common configuration and data directory. The default configuration
-directory is \fB$HOME/.config/syncthing\fP (Unix\-like),
+directory is \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP (Unix\-like),
 \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
 \fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
 .UNINDENT
