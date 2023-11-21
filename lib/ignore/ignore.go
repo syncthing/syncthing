@@ -560,7 +560,14 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
 			var includePatterns []Pattern
 			if includePatterns, err = loadParseIncludeFile(fs, includeFile, cd, linesSeen); err == nil {
-				patterns = append(patterns, includePatterns...)
+				// If the filename included .gitignore, filter out the inverted patterns that start with '!'
+				// because the semantics are different.
+				isGitIgnore := strings.Contains(includeFile, ".gitignore")
+				for _, includePattern := range includePatterns {
+					if !isGitIgnore || (len(includePattern.pattern) > 0 && includePattern.pattern[0] != '!') {
+						patterns = append(patterns, includePattern)
+					}
+				}
 			} else {
 				// Wrap the error, as if the include does not exist, we get a
 				// IsNotExists(err) == true error, which we use to check
