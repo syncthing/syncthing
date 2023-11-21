@@ -506,7 +506,7 @@
     "Warning, this path is a subdirectory of an existing folder \"{%otherFolder%}\".": "Peligro! Esta ruta es un subdirectorio de una carpeta ya existente llamada \"{{otherFolder}}\".",
     "Warning, this path is a subdirectory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Peligro, esta ruta es un subdirectorio de una carpeta ya existente llamada \"{{otherFolderLabel}}\" ({{otherFolder}}).",
     "Warning: If you are using an external watcher like {%syncthingInotify%}, you should make sure it is deactivated.": "Advertencia: Si estás utilizando un observador externo como {{syncthingInotify}}, debes asegurarte de que está desactivado.",
-    "Watch for Changes": "Vigila los cambios",
+    "Watch for Changes": "Monitorear los cambios",
     "Watching for Changes": "Vigilando los cambios",
     "Watching for changes discovers most changes without periodic scanning.": "El control de cambios descubre la mayoría de cambios sin el escaneo periódico.",
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Cuando añada un nuevo dispositivo, tenga en cuenta que este debe añadirse también en el otro lado.",
@@ -545,6 +545,7 @@
             "light": "Claro"
         }
     },
+    "unknown device": "dispositivo desconocido",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir la carpeta \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quiere compartir la carpeta \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} puede reintroducir este dispositivo."

@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "En enhet med detta ID har redan lagts tillagt.",
+    "A device with that ID is already added.": "En enhet med detta ID har redan lagts till.",
     "A negative number of days doesn't make sense.": "Ett negativt antal dagar är inte rimligt.",
     "A new major version may not be compatible with previous versions.": "En ny huvudversion kan eventuellt vara inkompatibel med tidigare versioner.",
     "API Key": "API-nyckel",
@@ -545,6 +545,7 @@
             "light": "Ljust"
         }
     },
+    "unknown device": "okänd enhet",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vill dela mapp \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vill dela mapp \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kan återinföra denna enhet."
