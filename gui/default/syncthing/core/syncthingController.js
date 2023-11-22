@@ -590,7 +590,7 @@ angular.module('syncthing.core')
             if (guiCfg) {
                 return (guiCfg.authMode === 'ldap'
                     || (guiCfg.user && guiCfg.password)
-                    || (guiCfg._webauthnCredentials || []).length > 0
+                    || (guiCfg._webauthnCredentials || []).some(function (c) { return c.rpId === guiCfg.webauthnRpId; })
                 );
             }
             return false;

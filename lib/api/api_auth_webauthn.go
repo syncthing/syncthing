@@ -83,12 +83,7 @@ func (s *webauthnService) WebAuthnIcon() string {
 
 func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
-	rpId := s.cfg.GUI().WebauthnRpId
-	for _, cred := range s.cfg.GUI().WebauthnCredentials {
-		if cred.RpId != rpId {
-			continue
-		}
-
+	for _, cred := range s.cfg.GUI().EligibleWebAuthnCredentials() {
 		id, err := base64.URLEncoding.DecodeString(cred.ID)
 		if err != nil {
 			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential \"%s\": %s", cred.Nickname, cred.ID), err)

@@ -86,7 +86,18 @@ func (c GUIConfiguration) UseTLS() bool {
 }
 
 func (c GUIConfiguration) WebauthnReady() bool {
-	return c.UseTLS() && len(c.WebauthnCredentials) > 0
+	return c.UseTLS() && len(c.EligibleWebAuthnCredentials()) > 0
+}
+
+func (c GUIConfiguration) EligibleWebAuthnCredentials() []WebauthnCredential {
+	var result []WebauthnCredential
+	rpId := c.WebauthnRpId
+	for _, cred := range c.WebauthnCredentials {
+		if cred.RpId == rpId {
+			result = append(result, cred)
+		}
+	}
+	return result
 }
 
 func (c GUIConfiguration) URL() string {
