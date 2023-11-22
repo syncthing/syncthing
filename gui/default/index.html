@@ -645,9 +645,6 @@
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder)">
                     <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteIgn', folder.id)" ng-if="hasDeleteIgnoredItems(folder)">
-                    <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Delete ignored files</span>
-                  </button>
                   <span class="pull-right">
                     <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
                       <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>

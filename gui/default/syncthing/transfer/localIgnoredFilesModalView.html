@@ -24,6 +24,9 @@
     <div class="clearfix"></div>
   </div>
   <div class="modal-footer">
+    <button type="button" class="btn btn-sm btn-danger pull-left"  data-dismiss="modal" ng-click="revertOverrideConfirmationModal('deleteIgn', localIgnoredFolder)" ng-if="model[localIgnoredFolder].localIgnoredTotalItems > 0">
+      <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Delete ignored files</span>
+    </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
