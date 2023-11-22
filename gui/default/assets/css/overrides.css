@@ -151,7 +151,8 @@ table.table-auto td {
     max-width: 0px;
 }
 
-td input[type="checkbox"] {
+/* Tag name is needed for selector to be specific enough to override Bootstrap style */
+input[type="checkbox"].extended-attributes-filter-rule-checkbox {
     margin-top: 13px;
 }
 

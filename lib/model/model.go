@@ -1346,6 +1346,9 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
 
+	// We must acquire fmut first when acquiring both locks.
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	m.pmut.Lock()
 	defer m.pmut.Unlock()
 
