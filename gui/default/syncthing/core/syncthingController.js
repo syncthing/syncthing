@@ -1640,7 +1640,6 @@ angular.module('syncthing.core')
                 };
 
                 $scope.deleteWebauthnCredential = function (cfg, cred) {
-                    // Array.filter is fine since WebAuthn only works in modern browsers
                     cfg._webauthnCredentials = cfg._webauthnCredentials.filter(function (cr) {
                         return cr.id !== cred.id;
                     });
