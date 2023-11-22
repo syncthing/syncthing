@@ -1278,6 +1278,12 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	if n := receiveOnlyChangedSize(t, s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes initially, not", n)
 	}
+	if n := receiveDeleteIgnoredSize(t, s).Files; n != 0 {
+		t.Fatal("expected 0 receive only remove ignored files initially, not", n)
+	}
+	if n := receiveDeleteIgnoredSize(t, s).Bytes; n != 0 {
+		t.Fatal("expected 0 receive only remove ignored bytes initially, not", n)
+	}
 
 	// Detected a local change in a receive only folder
 
@@ -1285,7 +1291,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	changed.Version = changed.Version.Update(local.Short())
 	changed.Size = 100
 	changed.ModifiedBy = local.Short()
-	changed.LocalFlags = protocol.FlagLocalReceiveOnly
+	changed.LocalFlags = protocol.FlagLocalReceiveOnly | protocol.FlagDeleteIgnored
 	s.Update(protocol.LocalDeviceID, []protocol.FileInfo{changed})
 
 	// Check that we see the files
@@ -1308,6 +1314,12 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	if n := receiveOnlyChangedSize(t, s).Bytes; n != 100 {
 		t.Fatal("expected 100 receive only changed bytes after local change, not", n)
 	}
+	if n := receiveDeleteIgnoredSize(t, s).Files; n != 1 {
+		t.Fatal("expected 1 receive only remove ignored file after local change, not", n)
+	}
+	if n := receiveDeleteIgnoredSize(t, s).Bytes; n != 100 {
+		t.Fatal("expected 100 receive only remove ignored bytes after local change, not", n)
+	}
 
 	// Fake a revert. That's a two step process, first converting our
 	// changed file into a less preferred variant, then pulling down the old
@@ -1315,6 +1327,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 	changed.Version = protocol.Vector{}
 	changed.LocalFlags &^= protocol.FlagLocalReceiveOnly
+	changed.LocalFlags &^= protocol.FlagDeleteIgnored
 	s.Update(protocol.LocalDeviceID, []protocol.FileInfo{changed})
 
 	s.Update(protocol.LocalDeviceID, []protocol.FileInfo{files[0]})
@@ -1339,6 +1352,12 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	if n := receiveOnlyChangedSize(t, s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes after revert, not", n)
 	}
+	if n := receiveDeleteIgnoredSize(t, s).Files; n != 0 {
+		t.Fatal("expected 0 receive only remove ignored files after revert, not", n)
+	}
+	if n := receiveDeleteIgnoredSize(t, s).Bytes; n != 0 {
+		t.Fatal("expected 0 receive only remove ignored bytes after revert, not", n)
+	}
 }
 
 func TestNeedAfterUnignore(t *testing.T) {
@@ -1353,7 +1372,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 
 	// Initial state: Devices in sync, locally ignored
 	local := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
-	local.SetIgnored()
+	local.SetIgnored(false)
 	remote := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
 	s.Update(protocol.LocalDeviceID, fileList{local})
 	s.Update(remoteDevice0, fileList{remote})
@@ -1844,6 +1863,12 @@ func receiveOnlyChangedSize(t testing.TB, fs *db.FileSet) db.Counts {
 	snap := snapshot(t, fs)
 	defer snap.Release()
 	return snap.ReceiveOnlyChangedSize()
+}
+
+func receiveDeleteIgnoredSize(t testing.TB, fs *db.FileSet) db.Counts {
+	snap := snapshot(t, fs)
+	defer snap.Release()
+	return snap.ReceiveDeleteIgnoredSize()
 }
 
 func filesToCounts(files []protocol.FileInfo) db.Counts {

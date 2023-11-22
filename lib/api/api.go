@@ -253,6 +253,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/need", s.getDBNeed)                         // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/remoteneed", s.getDBRemoteNeed)             // device folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/localchanged", s.getDBLocalChanged)         // folder [perpage] [page]
+	restMux.HandlerFunc(http.MethodGet, "/rest/db/localignored", s.getDBLocalIgnored)         // folder [perpage] [page]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/status", s.getDBStatus)                     // folder
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/browse", s.getDBBrowse)                     // folder [prefix] [dirsonly] [levels]
 	restMux.HandlerFunc(http.MethodGet, "/rest/folder/versions", s.getFolderVersions)         // folder
@@ -913,6 +914,26 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 	page, perpage := getPagingParams(qs)
 
 	files, err := s.model.LocalChangedFolderFiles(folder, page, perpage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	sendJSON(w, map[string]interface{}{
+		"files":   toJsonFileInfoSlice(files),
+		"page":    page,
+		"perpage": perpage,
+	})
+}
+
+func (s *service) getDBLocalIgnored(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+
+	page, perpage := getPagingParams(qs)
+
+	files, err := s.model.LocalIgnoredFolderFiles(folder, page, perpage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

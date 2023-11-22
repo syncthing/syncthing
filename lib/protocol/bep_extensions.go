@@ -30,6 +30,7 @@ type FileIntf interface {
 	IsDeleted() bool
 	IsInvalid() bool
 	IsIgnored() bool
+	IsDeleteIgnored() bool
 	IsUnsupported() bool
 	MustRescan() bool
 	IsReceiveOnlyChanged() bool
@@ -83,6 +84,10 @@ func (f FileInfo) IsUnsupported() bool {
 
 func (f FileInfo) IsIgnored() bool {
 	return f.LocalFlags&FlagLocalIgnored != 0
+}
+
+func (f FileInfo) IsDeleteIgnored() bool {
+	return f.LocalFlags&FlagDeleteIgnored != 0
 }
 
 func (f FileInfo) MustRescan() bool {
@@ -259,7 +264,7 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	f.LocalFlags &^= comp.IgnoreFlags
 	other.LocalFlags &^= comp.IgnoreFlags
 
-	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
+	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() || f.IsDeleteIgnored() != other.IsDeleteIgnored() {
 		return false
 	}
 
@@ -426,8 +431,20 @@ func (f *FileInfo) SetMustRescan() {
 	f.setLocalFlags(FlagLocalMustRescan)
 }
 
-func (f *FileInfo) SetIgnored() {
-	f.setLocalFlags(FlagLocalIgnored)
+func (f *FileInfo) SetIgnored(exists bool) {
+	if exists {
+		f.setLocalFlags(FlagLocalIgnored | FlagDeleteIgnored)
+	} else {
+		f.setLocalFlags(FlagLocalIgnored)
+	}
+}
+
+func (f *FileInfo) SetDeleteIgnored(existsing bool) {
+	if existsing {
+		f.setLocalFlags(f.LocalFlags | FlagDeleteIgnored)
+	} else {
+		f.setLocalFlags(f.LocalFlags &^ FlagDeleteIgnored)
+	}
 }
 
 func (f *FileInfo) SetUnsupported() {

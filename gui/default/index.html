@@ -510,6 +510,12 @@
                           <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
+                      <tr ng-if="hasLocalIgnored(folder)">
+                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Ignored items</span></th>
+                        <td class="text-right">
+                          <a href="" ng-click="showLocalIgnored(folder.id, folder.type)">{{model[folder.id].localIgnoredTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].localIgnoredBytes | binary}}B</a>
+                        </td>
+                      </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                         <td class="text-right">
@@ -1040,6 +1046,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/localIgnoredFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>

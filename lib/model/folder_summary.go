@@ -112,6 +112,13 @@ type FolderSummary struct {
 	ReceiveOnlyChangedBytes       int64 `json:"receiveOnlyChangedBytes"`
 	ReceiveOnlyTotalItems         int   `json:"receiveOnlyTotalItems"`
 
+	LocalIgnoredFiles       int   `json:"localIgnoredFiles"`
+	LocalIgnoredDirectories int   `json:"localIgnoredDirectories"`
+	LocalIgnoredSymlinks    int   `json:"localIgnoredSymlinks"`
+	LocalIgnoredDeletes     int   `json:"localIgnoredDeletes"`
+	LocalIgnoredBytes       int64 `json:"localIgnoredBytes"`
+	LocalIgnoredTotalItems  int   `json:"localIgnoredTotalItems"`
+
 	InSyncFiles int   `json:"inSyncFiles"`
 	InSyncBytes int64 `json:"inSyncBytes"`
 
@@ -129,7 +136,7 @@ type FolderSummary struct {
 func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	res := new(FolderSummary)
 
-	var local, global, need, ro db.Counts
+	var local, global, need, ro, ign db.Counts
 	var ourSeq, remoteSeq int64
 	errors, err := c.model.FolderErrors(folder)
 	if err == nil {
@@ -139,6 +146,7 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 			local = snap.LocalSize()
 			need = snap.NeedSize(protocol.LocalDeviceID)
 			ro = snap.ReceiveOnlyChangedSize()
+			ign = snap.ReceiveDeleteIgnoredSize()
 			ourSeq = snap.Sequence(protocol.LocalDeviceID)
 			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
 			snap.Release()
@@ -183,6 +191,15 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		res.ReceiveOnlyChangedDeletes = ro.Deleted
 		res.ReceiveOnlyChangedBytes = ro.Bytes
 		res.ReceiveOnlyTotalItems = ro.TotalItems()
+	}
+
+	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type == config.FolderTypeSendOnly || fcfg.Type == config.FolderTypeSendReceive) {
+		res.LocalIgnoredFiles = ign.Files
+		res.LocalIgnoredDirectories = ign.Directories
+		res.LocalIgnoredSymlinks = ign.Symlinks
+		res.LocalIgnoredDeletes = ign.Deleted
+		res.LocalIgnoredBytes = ign.Bytes
+		res.LocalIgnoredTotalItems = ign.TotalItems()
 	}
 
 	res.InSyncFiles, res.InSyncBytes = global.Files-need.Files, global.Bytes-need.Bytes

@@ -97,6 +97,7 @@ type Model interface {
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
 	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error)
 	LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalIgnoredFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	FolderProgressBytesCompleted(folder string) int64
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
@@ -1117,6 +1118,44 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
+		if p.skip() {
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		return !p.done()
+	})
+
+	return files, nil
+}
+
+func (m *model) LocalIgnoredFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, ErrFolderMissing
+	}
+
+	snap, err := rf.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	defer snap.Release()
+
+	if snap.ReceiveDeleteIgnoredSize().TotalItems() == 0 {
+		return nil, nil
+	}
+
+	p := newPager(page, perpage)
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+		if !f.IsDeleteIgnored() {
+			return true
+		}
+
 		if p.skip() {
 			return true
 		}

@@ -360,6 +360,10 @@ func (s *Snapshot) ReceiveOnlyChangedSize() Counts {
 	return s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
 }
 
+func (s *Snapshot) ReceiveDeleteIgnoredSize() Counts {
+	return s.meta.Counts(protocol.LocalDeviceID, protocol.FlagDeleteIgnored)
+}
+
 func (s *Snapshot) GlobalSize() Counts {
 	return s.meta.Counts(protocol.GlobalDeviceID, 0)
 }

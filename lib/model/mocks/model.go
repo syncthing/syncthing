@@ -346,6 +346,21 @@ type Model struct {
 		result1 []db.FileInfoTruncated
 		result2 error
 	}
+	LocalIgnoredFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, error)
+	localIgnoredFolderFilesMutex       sync.RWMutex
+	localIgnoredFolderFilesArgsForCall []struct {
+		arg1 string
+		arg2 int
+		arg3 int
+	}
+	localIgnoredFolderFilesReturns struct {
+		result1 []db.FileInfoTruncated
+		result2 error
+	}
+	localIgnoredFolderFilesReturnsOnCall map[int]struct {
+		result1 []db.FileInfoTruncated
+		result2 error
+	}
 	NeedFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
 	needFolderFilesMutex       sync.RWMutex
 	needFolderFilesArgsForCall []struct {
@@ -2167,6 +2182,72 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []db.File
 		})
 	}
 	fake.localChangedFolderFilesReturnsOnCall[i] = struct {
+		result1 []db.FileInfoTruncated
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) LocalIgnoredFolderFiles(arg1 string, arg2 int, arg3 int) ([]db.FileInfoTruncated, error) {
+	fake.localIgnoredFolderFilesMutex.Lock()
+	ret, specificReturn := fake.localIgnoredFolderFilesReturnsOnCall[len(fake.localIgnoredFolderFilesArgsForCall)]
+	fake.localIgnoredFolderFilesArgsForCall = append(fake.localIgnoredFolderFilesArgsForCall, struct {
+		arg1 string
+		arg2 int
+		arg3 int
+	}{arg1, arg2, arg3})
+	stub := fake.LocalIgnoredFolderFilesStub
+	fakeReturns := fake.localIgnoredFolderFilesReturns
+	fake.recordInvocation("LocalIgnoredFolderFiles", []interface{}{arg1, arg2, arg3})
+	fake.localIgnoredFolderFilesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) LocalIgnoredFolderFilesCallCount() int {
+	fake.localIgnoredFolderFilesMutex.RLock()
+	defer fake.localIgnoredFolderFilesMutex.RUnlock()
+	return len(fake.localIgnoredFolderFilesArgsForCall)
+}
+
+func (fake *Model) LocalIgnoredFolderFilesCalls(stub func(string, int, int) ([]db.FileInfoTruncated, error)) {
+	fake.localIgnoredFolderFilesMutex.Lock()
+	defer fake.localIgnoredFolderFilesMutex.Unlock()
+	fake.LocalIgnoredFolderFilesStub = stub
+}
+
+func (fake *Model) LocalIgnoredFolderFilesArgsForCall(i int) (string, int, int) {
+	fake.localIgnoredFolderFilesMutex.RLock()
+	defer fake.localIgnoredFolderFilesMutex.RUnlock()
+	argsForCall := fake.localIgnoredFolderFilesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Model) LocalIgnoredFolderFilesReturns(result1 []db.FileInfoTruncated, result2 error) {
+	fake.localIgnoredFolderFilesMutex.Lock()
+	defer fake.localIgnoredFolderFilesMutex.Unlock()
+	fake.LocalIgnoredFolderFilesStub = nil
+	fake.localIgnoredFolderFilesReturns = struct {
+		result1 []db.FileInfoTruncated
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) LocalIgnoredFolderFilesReturnsOnCall(i int, result1 []db.FileInfoTruncated, result2 error) {
+	fake.localIgnoredFolderFilesMutex.Lock()
+	defer fake.localIgnoredFolderFilesMutex.Unlock()
+	fake.LocalIgnoredFolderFilesStub = nil
+	if fake.localIgnoredFolderFilesReturnsOnCall == nil {
+		fake.localIgnoredFolderFilesReturnsOnCall = make(map[int]struct {
+			result1 []db.FileInfoTruncated
+			result2 error
+		})
+	}
+	fake.localIgnoredFolderFilesReturnsOnCall[i] = struct {
 		result1 []db.FileInfoTruncated
 		result2 error
 	}{result1, result2}

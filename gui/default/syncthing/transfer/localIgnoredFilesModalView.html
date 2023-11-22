@@ -1,0 +1,31 @@
+<modal id="localIgnored" status="info" icon="fas fa-exclamation-circle" heading="{{localIgnoredHeading(localIgnoredType)}}" large="yes" closeable="yes">
+  <div class="modal-body" ng-switch="localIgnoredType">
+    <p translate>
+      The following items were ignored locally.
+    </p>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th translate>Path</th>
+          <th translate>Size</th>
+        </tr>
+      </thead>
+      <tr dir-paginate="file in localIgnored.files | itemsPerPage: localIgnored.perpage" current-page="localIgnored.page" total-items="model[localIgnoredFolder].localIgnoredTotalItems" pagination-id="localIgnored">
+        <td class="word-break-all">{{file.name}}</td>
+        <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
+      </tr>
+    </table>
+    <dir-pagination-controls on-page-change="refreshLocalIgnored(newPageNumber, localIgnored.perpage)" pagination-id="localIgnored"></dir-pagination-controls>
+    <ul class="pagination pull-right">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: localIgnored.perpage == option }">
+        <a href="#" ng-click="refreshLocalIgnored(localIgnored.page, option)">{{option}}</a>
+      </li>
+    </ul>
+    <div class="clearfix"></div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>
