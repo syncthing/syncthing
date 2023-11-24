@@ -22,4 +22,19 @@ var (
 		Subsystem: "crashreceiver",
 		Name:      "failure_reports_total",
 	}, []string{"result"})
+	metricDiskstoreFilesTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "diskstore_files_total",
+	})
+	metricDiskstoreBytesTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "diskstore_bytes_total",
+	})
+	metricDiskstoreOldestAgeSeconds = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "diskstore_oldest_age_seconds",
+	})
 )

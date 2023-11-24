@@ -12,6 +12,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -147,6 +148,11 @@ func (d *diskStore) clean() {
 	if len(d.currentFiles) > 0 {
 		oldest = time.Since(time.Unix(d.currentFiles[0].mtime, 0)).Truncate(time.Minute)
 	}
+
+	metricDiskstoreFilesTotal.Set(float64(len(d.currentFiles)))
+	metricDiskstoreBytesTotal.Set(float64(d.currentSize))
+	metricDiskstoreOldestAgeSeconds.Set(math.Round(oldest.Seconds()))
+
 	log.Printf("Clean complete: %d files, %d MB, oldest is %v ago", len(d.currentFiles), d.currentSize>>20, oldest)
 }
 
@@ -178,6 +184,11 @@ func (d *diskStore) inventory() error {
 	if len(d.currentFiles) > 0 {
 		oldest = time.Since(time.Unix(d.currentFiles[0].mtime, 0)).Truncate(time.Minute)
 	}
+
+	metricDiskstoreFilesTotal.Set(float64(len(d.currentFiles)))
+	metricDiskstoreBytesTotal.Set(float64(d.currentSize))
+	metricDiskstoreOldestAgeSeconds.Set(math.Round(oldest.Seconds()))
+
 	log.Printf("Inventory complete: %d files, %d MB, oldest is %v ago", len(d.currentFiles), d.currentSize>>20, oldest)
 	return err
 }
