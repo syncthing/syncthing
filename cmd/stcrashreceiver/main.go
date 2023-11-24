@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -34,14 +33,13 @@ import (
 const maxRequestSize = 1 << 20 // 1 MiB
 
 type cli struct {
-	Dir           string        `help:"Parent directory to store crash and failure reports in" env:"REPORTS_DIR" default:"."`
-	DSN           string        `help:"Sentry DSN" env:"SENTRY_DSN"`
-	Listen        string        `help:"HTTP listen address" default:":8080" env:"LISTEN_ADDRESS"`
-	MaxDiskFiles  int           `help:"Maximum number of reports on disk" default:"100000" env:"MAX_DISK_FILES"`
-	MaxDiskSizeMB int64         `help:"Maximum disk space to use for reports" default:"1024" env:"MAX_DISK_SIZE_MB"`
-	CleanInterval time.Duration `help:"Interval between cleaning up old reports" default:"12h" env:"CLEAN_INTERVAL"`
-	SentryQueue   int           `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
-	DiskQueue     int           `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
+	Dir           string `help:"Parent directory to store crash and failure reports in" env:"REPORTS_DIR" default:"."`
+	DSN           string `help:"Sentry DSN" env:"SENTRY_DSN"`
+	Listen        string `help:"HTTP listen address" default:":8080" env:"LISTEN_ADDRESS"`
+	MaxDiskFiles  int    `help:"Maximum number of reports on disk" default:"100000" env:"MAX_DISK_FILES"`
+	MaxDiskSizeMB int64  `help:"Maximum disk space to use for reports" default:"1024" env:"MAX_DISK_SIZE_MB"`
+	SentryQueue   int    `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
+	DiskQueue     int    `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
 }
 
 func main() {
