@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/ur"
 
@@ -72,6 +73,7 @@ func main() {
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte("OK"))
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 
 	if params.DSN != "" {
 		mux.HandleFunc("/newcrash/failure", handleFailureFn(params.DSN, filepath.Join(params.Dir, "failure_reports")))
@@ -85,6 +87,11 @@ func main() {
 
 func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
+		result := "failure"
+		defer func() {
+			metricFailureReportsTotal.WithLabelValues(result).Inc()
+		}()
+
 		lr := io.LimitReader(req.Body, maxRequestSize)
 		bs, err := io.ReadAll(lr)
 		req.Body.Close()
@@ -135,6 +142,7 @@ func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *ht
 				log.Println("Failed to send failure report:", err)
 			} else {
 				log.Println("Sent failure report:", r.Description)
+				result = "success"
 			}
 		}
 	}
