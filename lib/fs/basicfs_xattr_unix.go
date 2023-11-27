@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sync"
 	"syscall"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -31,14 +32,13 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]prot
 	}
 
 	res := make([]protocol.Xattr, 0, len(attrs))
-	var val, buf []byte
 	var totSize int
 	for _, attr := range attrs {
 		if !xattrFilter.Permit(attr) {
 			l.Debugf("get xattr %s: skipping attribute %q denied by filter", path, attr)
 			continue
 		}
-		val, buf, err = getXattr(path, attr, buf)
+		val, err := getXattr(path, attr)
 		var errNo syscall.Errno
 		if errors.As(err, &errNo) && errNo == 0x5d {
 			// ENOATTR, returned on BSD when asking for an attribute that
@@ -64,27 +64,52 @@ func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]prot
 	return res, nil
 }
 
-func getXattr(path, name string, buf []byte) (val []byte, rest []byte, err error) {
-	if len(buf) == 0 {
-		buf = make([]byte, 1024)
-	}
+var xattrBufPool = sync.Pool{
+	New: func() any { return make([]byte, 1024) },
+}
+
+func getXattr(path, name string) ([]byte, error) {
+	buf := xattrBufPool.Get().([]byte)
+	defer func() {
+		// Put the buffer back in the pool, or not if we're not supposed to
+		// (we returned it to the caller).
+		if buf != nil {
+			xattrBufPool.Put(buf)
+		}
+	}()
+
 	size, err := unix.Lgetxattr(path, name, buf)
 	if errors.Is(err, unix.ERANGE) {
 		// Buffer was too small. Figure out how large it needs to be, and
 		// allocate.
 		size, err = unix.Lgetxattr(path, name, nil)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
+			return nil, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
 		}
 		if size > len(buf) {
+			xattrBufPool.Put(buf)
 			buf = make([]byte, size)
 		}
 		size, err = unix.Lgetxattr(path, name, buf)
 	}
 	if err != nil {
-		return nil, buf, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
+		return nil, fmt.Errorf("Lgetxattr %s %q: %w", path, name, err)
 	}
-	return buf[:size], buf[size:], nil
+
+	if size >= len(buf)/4*3 {
+		// The buffer is adequately sized (at least three quarters of it is
+		// used), return it as-is.
+		val := buf
+		buf = nil // Don't put it back in the pool.
+		return val, nil
+	}
+
+	// The buffer is larger than required, copy the data to a new buffer of
+	// the correct size. This avoids having lots of 1024-sized allocations
+	// sticking around when 24 bytes or whatever would be enough.
+	val := make([]byte, size)
+	copy(val, buf)
+	return val, nil
 }
 
 func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error {
