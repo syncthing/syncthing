@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate, percentFilter, binaryFilter) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
