@@ -736,7 +736,7 @@
                 <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                  <span class="pull-right text-{{deviceClass(deviceCfg)}}">
+                  <div class="panel-status pull-right text-{{deviceClass(deviceCfg)}}">
                     <span class="remote-devices-panel">
                       <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
                       <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
@@ -744,7 +744,7 @@
                     <span class="remote-devices-panel">
                       <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
                     </span>
-                  </span>
+                  </div>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>
