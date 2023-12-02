@@ -736,11 +736,11 @@
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                   <div class="panel-status pull-right text-{{deviceClass(deviceCfg)}}">
+                    <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
                     <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel">
-                      <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
                       <span ng-switch-when="syncing">({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)</span>
-                      <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
                     </span>
+                    <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
                     <span class="remote-devices-panel">
                       <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
                     </span>
