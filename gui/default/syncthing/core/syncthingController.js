@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate, percentFilter, binaryFilter) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -1117,7 +1117,6 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceStatusText = function(device) {
-            var text = '';
             switch ($scope.deviceStatus(device)) {
                 case 'disconnected':
                     return $translate.instant('Disconnected');
@@ -1128,10 +1127,7 @@ angular.module('syncthing.core')
                 case 'paused':
                     return $translate.instant('Paused');
                 case 'syncing':
-                    text = $translate.instant('Syncing') +
-                    ' (' + percentFilter($scope.completion[device.deviceID]._total) + ', ' +
-                    binaryFilter($scope.completion[device.deviceID]._needBytes) + 'B)';
-                    return text;
+                    return $translate.instant('Syncing');
                 case 'unused-disconnected':
                     return $translate.instant('Disconnected (Unused)');
                 case 'unused-insync':
@@ -1173,7 +1169,6 @@ angular.module('syncthing.core')
         };
 
         $scope.folderStatusText = function(folder) {
-            var text = '';
             switch ($scope.folderStatus(folder)) {
                 case 'clean-waiting':
                     return $translate.instant('Waiting to Clean');
@@ -1194,11 +1189,7 @@ angular.module('syncthing.core')
                 case 'scan-waiting':
                     return $translate.instant('Waiting to Scan');
                 case 'scanning':
-                    text = $translate.instant('Scanning');
-                    if ($scope.scanPercentage(folder.id) !== undefined) {
-                        text += ' (' + percentFilter($scope.scanPercentage(folder.id)) +')';
-                    }
-                    return text;
+                    return $translate.instant('Scanning');
                 case 'stopped':
                     return $translate.instant('Stopped');
                 case 'sync-preparing':
@@ -1206,7 +1197,7 @@ angular.module('syncthing.core')
                 case 'sync-waiting':
                     return $translate.instant('Waiting to Sync');
                 case 'syncing':
-                    return $translate.instant('Syncing')
+                    return $translate.instant('Syncing');
                 case 'unknown':
                     return $translate.instant('Unknown');
                 case 'unshared':

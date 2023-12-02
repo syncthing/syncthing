@@ -358,12 +358,13 @@
                     <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
                     <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
                   </div>
-                  <div class="panel-status pull-right text-{{folderClass(folder)}}">
+                  <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                     <span class="hidden-xs">{{folderStatusText(folder)}}</span>
-                    <span ng-switch="folderStatus(folder)">
-                      <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
-                      <span ng-switch-default class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
-                    </span>
+                    <span ng-switch-when="scanning" ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
+                    <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
+		    <span class="inline-icon">
+                      <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
+		    </span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -736,15 +737,16 @@
                 <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                  <span class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span class="remote-devices-panel">
-                      <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
+                  <div class="panel-status pull-right text-{{deviceClass(deviceCfg)}}" ng-switch="deviceStatus(deviceCfg)">
+                    <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
+                    <span ng-switch-when="syncing">({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)</span>
+                    <span class="inline-icon">
                       <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
                     </span>
-                    <span class="remote-devices-panel">
+                    <span class="inline-icon">
                       <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
                     </span>
-                  </span>
+                  </div>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>
