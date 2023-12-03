@@ -1535,7 +1535,6 @@ angular.module('syncthing.core')
                 });
             },
             
-            /* logging */
             filter: function(event) {
                 let query = !$scope.logging.isCaseSensitive ? event.target.value.toLowerCase() : event.target.value;
                 
@@ -1544,10 +1543,11 @@ angular.module('syncthing.core')
                     $scope.logging.filtered.length = 0;
                     return;
                 }
-                
-                $scope.logging.isFiltering = true;
+
+                // needed to avoid "double writing" to the log
                 $scope.logging.filtered.length = 0;
-                
+                $scope.logging.isFiltering = true;
+
                 $.each($scope.logging.entries, function (idx, entry) {
                     let msg = !$scope.logging.isCaseSensitive ? entry.message.toLowerCase() : entry.message;
                     if (msg.includes(query)) {
