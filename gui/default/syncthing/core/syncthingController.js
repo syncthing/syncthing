@@ -1112,7 +1112,6 @@ angular.module('syncthing.core')
                 case 'unused-insync':
                 case 'unused-paused':
                     return 'fa-unlink';
-
             }
         };
 
