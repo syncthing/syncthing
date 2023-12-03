@@ -29,7 +29,13 @@
     </div>
   </div>
   <div class="modal-footer">
-    <input type="text" id="logSearchInput" class="form-control" style="margin-bottom: 10px;" ng-keyup="$scope.logging.filter($event)">
+    <div>
+      <input type="text" id="logSearchInput" class="form-control" style="margin-bottom: 10px;" ng-keyup="logging.filter($event)">
+      <div>
+          <input type="checkbox" ng-click="logging.isCaseSensitive = !logging.isCaseSensitive"><span>Case Sensitive</span>
+      </div>
+    </div>
+    
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>

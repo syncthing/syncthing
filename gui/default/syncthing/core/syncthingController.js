@@ -1495,6 +1495,10 @@ angular.module('syncthing.core')
             timer: null,
             entries: [],
             paused: false,
+            filtered: [],
+            isFiltering: false,
+            isCaseSensitive: false,
+            
             content: function () {
                 var target_array = $scope.logging.isFiltering ? $scope.logging.filtered : $scope.logging.entries;
                 var content = "";
@@ -1532,10 +1536,8 @@ angular.module('syncthing.core')
             },
             
             /* logging */
-            filtered: [],
-            isFiltering: false,
             filter: function(event) {
-                let query = event.target.value;
+                let query = !$scope.logging.isCaseSensitive ? event.target.value.toLowerCase() : event.target.value;
                 
                 if (query.length < 3) {
                     $scope.logging.isFiltering = false;
@@ -1543,13 +1545,15 @@ angular.module('syncthing.core')
                     return;
                 }
                 
+                $scope.logging.isFiltering = true;
+                $scope.logging.filtered.length = 0;
+                
                 $.each($scope.logging.entries, function (idx, entry) {
-                    if (entry.message.includes(query)) {
-                        filtered.push(entry);
+                    let msg = !$scope.logging.isCaseSensitive ? entry.message.toLowerCase() : entry.message;
+                    if (msg.includes(query)) {
+                        $scope.logging.filtered.push(entry);
                     }
                 });
-                
-                $scope.logging.isFiltering = true;
             }
         };
 
