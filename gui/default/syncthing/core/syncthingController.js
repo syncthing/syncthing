@@ -1378,7 +1378,7 @@ angular.module('syncthing.core')
         $scope.thisDeviceName = function () {
             var device = $scope.thisDevice();
             if (typeof device === 'undefined') {
-                return "(unknown device)";
+                return '(' + $translate.instant("unknown device") + ')';
             }
             if (device.name) {
                 return device.name;
@@ -1496,8 +1496,9 @@ angular.module('syncthing.core')
             entries: [],
             paused: false,
             content: function () {
+                var target_array = $scope.logging.isFiltering ? $scope.logging.filtered : $scope.logging.entries;
                 var content = "";
-                $.each($scope.logging.entries, function (idx, entry) {
+                $.each(target_array, function (idx, entry) {
                     content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
                 });
                 return content;
@@ -1528,6 +1529,27 @@ angular.module('syncthing.core')
                         }
                     }
                 });
+            },
+            
+            /* logging */
+            filtered: [],
+            isFiltering: false,
+            filter: function(event) {
+                let query = event.target.value;
+                
+                if (query.length < 3) {
+                    $scope.logging.isFiltering = false;
+                    $scope.logging.filtered.length = 0;
+                    return;
+                }
+                
+                $.each($scope.logging.entries, function (idx, entry) {
+                    if (entry.message.includes(query)) {
+                        filtered.push(entry);
+                    }
+                });
+                
+                $scope.logging.isFiltering = true;
             }
         };
 
@@ -3215,8 +3237,8 @@ angular.module('syncthing.core')
         };
 
         $scope.themeName = function (theme) {
-            var translation = $translate.instant("theme-name-" + theme);
-            if (translation.indexOf("theme-name-") == 0) {
+            var translation = $translate.instant("theme.name." + theme);
+            if (translation.indexOf("theme.name.") == 0) {
                 // Fall back to simple Title Casing on missing translation
                 translation = theme.toLowerCase().replace(/(?:^|\s)\S/g, function (a) {
                     return a.toUpperCase();

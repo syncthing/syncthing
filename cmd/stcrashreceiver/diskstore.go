@@ -12,6 +12,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -40,7 +41,7 @@ type currentFile struct {
 }
 
 func (d *diskStore) Serve(ctx context.Context) {
-	if err := os.MkdirAll(d.dir, 0750); err != nil {
+	if err := os.MkdirAll(d.dir, 0o700); err != nil {
 		log.Println("Creating directory:", err)
 		return
 	}
@@ -60,7 +61,7 @@ func (d *diskStore) Serve(ctx context.Context) {
 		case entry := <-d.inbox:
 			path := d.fullPath(entry.path)
 
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 				log.Println("Creating directory:", err)
 				continue
 			}
@@ -75,7 +76,7 @@ func (d *diskStore) Serve(ctx context.Context) {
 				log.Println("Failed to compress crash report:", err)
 				continue
 			}
-			if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+			if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
 				log.Printf("Failed to write %s: %v", entry.path, err)
 				_ = os.Remove(path)
 				continue
@@ -147,6 +148,11 @@ func (d *diskStore) clean() {
 	if len(d.currentFiles) > 0 {
 		oldest = time.Since(time.Unix(d.currentFiles[0].mtime, 0)).Truncate(time.Minute)
 	}
+
+	metricDiskstoreFilesTotal.Set(float64(len(d.currentFiles)))
+	metricDiskstoreBytesTotal.Set(float64(d.currentSize))
+	metricDiskstoreOldestAgeSeconds.Set(math.Round(oldest.Seconds()))
+
 	log.Printf("Clean complete: %d files, %d MB, oldest is %v ago", len(d.currentFiles), d.currentSize>>20, oldest)
 }
 
@@ -178,6 +184,11 @@ func (d *diskStore) inventory() error {
 	if len(d.currentFiles) > 0 {
 		oldest = time.Since(time.Unix(d.currentFiles[0].mtime, 0)).Truncate(time.Minute)
 	}
+
+	metricDiskstoreFilesTotal.Set(float64(len(d.currentFiles)))
+	metricDiskstoreBytesTotal.Set(float64(d.currentSize))
+	metricDiskstoreOldestAgeSeconds.Set(math.Round(oldest.Seconds()))
+
 	log.Printf("Inventory complete: %d files, %d MB, oldest is %v ago", len(d.currentFiles), d.currentSize>>20, oldest)
 	return err
 }

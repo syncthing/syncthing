@@ -34,6 +34,7 @@
     "Are you sure you want to restore {%count%} files?": "{{count}} ファイルを復元してもよろしいですか？",
     "Are you sure you want to revert all local changes?": "ローカルでの変更をすべて取り消してもよろしいですか？",
     "Are you sure you want to upgrade?": "アップグレードしてよろしいですか？",
+    "Authentication Required": "認証が必要です",
     "Authors": "作者",
     "Auto Accept": "自動承諾",
     "Automatic Crash Reporting": "自動クラッシュレポート",
@@ -71,6 +72,7 @@
     "Default Configuration": "デフォルトの設定",
     "Default Device": "デフォルトのデバイス",
     "Default Folder": "デフォルトのフォルダー",
+    "Default Ignore Patterns": "デフォルトの無視パターン",
     "Defaults": "デフォルト",
     "Delete": "削除",
     "Delete Unexpected Items": "予期しないアイテムを削除",
@@ -128,6 +130,8 @@
     "External": "外部",
     "External File Versioning": "外部バージョン管理",
     "Failed Items": "失敗した項目",
+    "Failed to load file versions.": "ファイルバージョンの読み込みに失敗しました。",
+    "Failed to load ignore patterns.": "無視パターンの読み込みに失敗しました。",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "お使いのネットワークがIPv6を利用していない場合、IPv6のサーバーへの接続に失敗しても異常ではありません。",
     "File Pull Order": "ファイルを取得する順序",
     "File Versioning": "ファイルのバージョン管理",
@@ -369,6 +373,8 @@
     "The remote device has paused this folder.": "接続先デバイスはこのフォルダーを一時停止中です。",
     "The rescan interval must be a non-negative number of seconds.": "再スキャン間隔は0秒以上で指定してください。",
     "There are no devices to share this folder with.": "どのデバイスともフォルダーを共有していません。",
+    "There are no file versions to restore.": "復元するファイルバージョンはありません。",
+    "There are no folders to share with this device.": "このデバイスと共有するフォルダはありません。",
     "They are retried automatically and will be synced when the error is resolved.": "エラーが解決すると、自動的に再試行され同期されます。",
     "This Device": "このデバイス",
     "This Month": "今月",
@@ -432,6 +438,7 @@
     "You must keep at least one version.": "少なくとも一つのバージョンを保持する必要があります。",
     "days": "日",
     "deleted": "削除",
+    "deny": "拒否",
     "directories": "個のディレクトリ",
     "file": "個のファイル",
     "files": "個のファイル",
@@ -439,11 +446,17 @@
     "full documentation": "詳細なマニュアル",
     "items": "項目",
     "modified": "更新",
+    "permit": "許可",
     "seconds": "秒",
-    "theme-name-black": "ブラック",
-    "theme-name-dark": "ダーク",
-    "theme-name-default": "デフォルト",
-    "theme-name-light": "ライト",
+    "theme": {
+        "name": {
+            "black": "ブラック",
+            "dark": "ダーク",
+            "default": "デフォルト",
+            "light": "ライト"
+        }
+    },
+    "unknown device": "不明なデバイス",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} がフォルダー \"{{folder}}\" を共有するよう求めています。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} がフォルダー「{{folderlabel}}」 ({{folder}}) を共有するよう求めています。"
 }

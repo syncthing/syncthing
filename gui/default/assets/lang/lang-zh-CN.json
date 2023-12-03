@@ -304,7 +304,6 @@
     "QR code": "二维码",
     "QUIC LAN": "QUIC 局域网",
     "QUIC WAN": "QUIC 广域网",
-    "QUIC connections are in most cases considered suboptimal": "QUIC 连接在多数情况下是次优的选择",
     "Quick guide to supported patterns": "支持的通配符的简单教程",
     "Random": "随机顺序",
     "Receive Encrypted": "加密接收",
@@ -538,10 +537,15 @@
     "modified": "已修改",
     "permit": "允许",
     "seconds": "秒",
-    "theme-name-black": "黑色",
-    "theme-name-dark": "深色",
-    "theme-name-default": "默认",
-    "theme-name-light": "浅色",
+    "theme": {
+        "name": {
+            "black": "黑色",
+            "dark": "深色",
+            "default": "默认",
+            "light": "浅色"
+        }
+    },
+    "unknown device": "未知设备",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您。",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享 \"{{folderlabel}}\" ({{folder}}) 文件夹给您。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}}可能会重新引入此设备。"

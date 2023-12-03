@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "En enhet med detta ID har redan lagts tillagt.",
+    "A device with that ID is already added.": "En enhet med detta ID har redan lagts till.",
     "A negative number of days doesn't make sense.": "Ett negativt antal dagar är inte rimligt.",
     "A new major version may not be compatible with previous versions.": "En ny huvudversion kan eventuellt vara inkompatibel med tidigare versioner.",
     "API Key": "API-nyckel",
@@ -304,7 +304,6 @@
     "QR code": "QR-kod",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "Quic-anslutningar anses i de flesta fall suboptimala",
     "Quick guide to supported patterns": "Snabb handledning till mönster som stöds",
     "Random": "Slumpmässig",
     "Receive Encrypted": "Ta emot krypterade",
@@ -538,10 +537,15 @@
     "modified": "ändrad",
     "permit": "tillåt",
     "seconds": "sekunder",
-    "theme-name-black": "Svart",
-    "theme-name-dark": "Mörkt",
-    "theme-name-default": "Standard",
-    "theme-name-light": "Ljust",
+    "theme": {
+        "name": {
+            "black": "Svart",
+            "dark": "Mörkt",
+            "default": "Standard",
+            "light": "Ljust"
+        }
+    },
+    "unknown device": "okänd enhet",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vill dela mapp \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vill dela mapp \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kan återinföra denna enhet."

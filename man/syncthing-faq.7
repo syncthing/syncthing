@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Oct 05, 2023" "v1.25.0" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Nov 22, 2023" "v1.26.0" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -354,8 +354,8 @@ crashes and other bugs.
 The web GUI contains a \fBRecent Changes\fP button under the device list which
 displays changes since the last (re)start of Syncthing. With the \fB\-\-audit\fP
 option you can enable a persistent, detailed log of changes and most
-activities, which contains a \fBJSON\fP formatted  sequence of events in the
-\fB~/.config/syncthing/audit\-_date_\-_time_.log\fP file.
+activities, which contains a JSON\-formatted sequence of events in the
+\fB~/.local/state/syncthing/audit\-_date_\-_time_.log\fP file.
 .SS Does the audit log contain every change?
 .sp
 The audit log (and the \fBRecent Changes\fP window) sees the changes that your

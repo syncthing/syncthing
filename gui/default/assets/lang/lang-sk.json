@@ -304,7 +304,6 @@
     "QR code": "QR kód",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "Pripojenia QUIC sa vo väčšine prípadov považujú za suboptimálne",
     "Quick guide to supported patterns": "Rýchly sprievodca podporovanými vzormi",
     "Random": "Náhodne",
     "Receive Encrypted": "Prijať šifrované",
@@ -538,10 +537,14 @@
     "modified": "zmenené",
     "permit": "povolenie",
     "seconds": "sekúnd",
-    "theme-name-black": "Čierna",
-    "theme-name-dark": "Tmavé",
-    "theme-name-default": "Predvolené",
-    "theme-name-light": "Svetlá",
+    "theme": {
+        "name": {
+            "black": "Čierna",
+            "dark": "Tmavé",
+            "default": "Predvolené",
+            "light": "Svetlá"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce zdieľať adresár \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce zdieľať adresár \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} môže znova uviesť toto zariadenie."

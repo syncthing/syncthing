@@ -502,10 +502,14 @@
     "modified": "සංශෝධිතයි",
     "permit": "අවසරය",
     "seconds": "තත්පර",
-    "theme-name-black": "කළු",
-    "theme-name-dark": "අඳුරු",
-    "theme-name-default": "පෙරනිමි",
-    "theme-name-light": "දීප්ත",
+    "theme": {
+        "name": {
+            "black": "කළු",
+            "dark": "අඳුරු",
+            "default": "පෙරනිමි",
+            "light": "දීප්ත"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ට \"{{folder}}\" ෆෝල්ඩරය බෙදා ගැනීමට අවශ්‍යයි.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ට \"{{folderlabel}}\" ({{folder}}) ෆෝල්ඩරය බෙදා ගැනීමට අවශ්‍යයි.",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} මෙම උපාංගය නැවත හඳුන්වා දිය හැක."

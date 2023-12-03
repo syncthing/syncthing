@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -26,6 +27,7 @@ import (
 
 	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -53,26 +55,26 @@ var (
 		// Maps well known builders to the official distribution method that
 		// they represent
 
-		{regexp.MustCompile(`teamcity@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`jenkins@build\.syncthing\.net`), "GitHub"},
-		{regexp.MustCompile(`builder@github\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\steamcity@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sjenkins@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sbuilder@github\.syncthing\.net`), "GitHub"},
 
-		{regexp.MustCompile(`deb@build\.syncthing\.net`), "APT"},
-		{regexp.MustCompile(`debian@github\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`\sdeb@build\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`\sdebian@github\.syncthing\.net`), "APT"},
 
-		{regexp.MustCompile(`docker@syncthing\.net`), "Docker Hub"},
-		{regexp.MustCompile(`docker@build.syncthing\.net`), "Docker Hub"},
-		{regexp.MustCompile(`docker@github.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@build.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@github.syncthing\.net`), "Docker Hub"},
 
-		{regexp.MustCompile(`android-builder@github\.syncthing\.net`), "Google Play"},
-		{regexp.MustCompile(`android-.*teamcity@build\.syncthing\.net`), "Google Play"},
-		{regexp.MustCompile(`android-.*vagrant@basebox-stretch64`), "F-Droid"},
-		{regexp.MustCompile(`vagrant@bullseye`), "F-Droid"},
-		{regexp.MustCompile(`builduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
+		{regexp.MustCompile(`\sandroid-builder@github\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*teamcity@build\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
+		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
-		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
-		{regexp.MustCompile(`root@buildkitsandbox`), "LinuxServer.io (3rd party)"},
+		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
+		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )
@@ -196,6 +198,7 @@ func (cli *CLI) Run() error {
 	http.HandleFunc("/performance.json", srv.performanceHandler)
 	http.HandleFunc("/blockstats.json", srv.blockStatsHandler)
 	http.HandleFunc("/locations.json", srv.locationsHandler)
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/static/", http.FileServer(http.FS(statics)))
 
 	go srv.cacheRefresher()
@@ -289,6 +292,12 @@ func (s *server) locationsHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
+	version := "fail"
+	defer func() {
+		// Version is "fail", "duplicate", "v2", "v3", ...
+		metricReportsTotal.WithLabelValues(version).Inc()
+	}()
+
 	defer r.Body.Close()
 
 	addr := r.Header.Get("X-Forwarded-For")
@@ -334,6 +343,7 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidjsonindex"` {
 			// We already have a report today for the same unique ID; drop
 			// this one without complaining.
+			version = "duplicate"
 			return
 		}
 		log.Println("insert:", err)
@@ -343,6 +353,8 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database Error", http.StatusInternalServerError)
 		return
 	}
+
+	version = fmt.Sprintf("v%d", rep.URVersion)
 }
 
 func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
@@ -720,6 +732,10 @@ func getReport(db *sql.DB, geoIPPath string) map[string]interface{} {
 
 			for key, value := range rep.FolderUsesV3.PullOrder {
 				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
+			}
+
+			for key, value := range rep.FolderUsesV3.CopyRangeMethod {
+				add(featureGroups["Folder"]["v3"], "Copy Range Method", prettyCase(key), value)
 			}
 
 			inc(features["Device"]["v3"], "Untrusted", rep.DeviceUsesV3.Untrusted)

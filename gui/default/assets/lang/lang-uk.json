@@ -284,7 +284,6 @@
     "QR code": "QR-код",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "QUIC-з'єднання вважаються неоптимальними у більшості випадків",
     "Quick guide to supported patterns": "Короткий посібник по шаблонам, що підтримуються",
     "Random": "Випадково",
     "Receive Encrypted": "Отримувати зашифровано",
@@ -507,10 +506,14 @@
     "items": "елементи",
     "modified": "змінено",
     "seconds": "секунд",
-    "theme-name-black": "Чорна",
-    "theme-name-dark": "Темна",
-    "theme-name-default": "Стандартна",
-    "theme-name-light": "Світла",
+    "theme": {
+        "name": {
+            "black": "Чорна",
+            "dark": "Темна",
+            "default": "Стандартна",
+            "light": "Світла"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися папкою \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися папкою \"{{folderLabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} може повторно порекомендувати цей пристрій."

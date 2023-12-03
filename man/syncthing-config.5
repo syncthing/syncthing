@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Oct 05, 2023" "v1.25.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 22, 2023" "v1.26.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -36,7 +36,8 @@ syncthing-config \- Syncthing Configuration
 .sp
 .nf
 .ft C
-$HOME/.config/syncthing
+$XDG_STATE_HOME/syncthing
+$HOME/.local/state/syncthing
 $HOME/Library/Application Support/Syncthing
 %LOCALAPPDATA%\eSyncthing
 .ft P
@@ -45,17 +46,30 @@ $HOME/Library/Application Support/Syncthing
 .UNINDENT
 .SH DESCRIPTION
 .sp
+Changed in version 1.27.0: The default location of the configuration and database directory on
+Unix\-like systems was changed to \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP\&. Previously the default config location
+was \fB$XDG_CONFIG_HOME/syncthing\fP or \fB$HOME/.config/syncthing\fP\&. The
+database directory was previously \fB$HOME/.config/syncthing\fP or, if the
+environment variable was set, \fB$XDG_DATA_HOME/syncthing\fP\&. Existing
+installations may still use these directories instead of the newer
+defaults.
+
+.sp
 New in version 1.5.0: Database and config can now be set separately. Previously the database was
 always located in the same directory as the config.
 
 .sp
 Syncthing uses a single directory to store configuration and crypto keys.
-Syncthing also has a database, which is often stored in this directory too.
-The config location defaults to \fB$HOME/.config/syncthing\fP
-(Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
-or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can be changed at runtime
-using the \fB\-\-config\fP flag. In this directory the following files are
-located:
+Syncthing also keeps an index database with file metadata which is by
+default stored in the same directory, though this can be overridden.
+.sp
+The location defaults to \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP (Unix\-like), \fB$HOME/Library/Application
+Support/Syncthing\fP (Mac), or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can
+be changed at runtime using the \fB\-\-config\fP or \fB\-\-home\fP flags or the
+corresponding environment varibles (\fB$STCONFDIR\fP or \fBSTHOMEDIR\fP). The
+following files are located in this directory:
 .INDENT 0.0
 .TP
 .B \fBconfig.xml\fP
@@ -68,35 +82,27 @@ device ID. The key must be kept private.
 .B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
 The certificate and key for HTTPS GUI connections. These may be replaced
 with a custom certificate for HTTPS as desired.
-.TP
-.B \fBcsrftokens.txt\fP
-A list of recently issued CSRF tokens (for protection against browser cross
-site request forgery).
 .UNINDENT
 .sp
-The database is stored either in the same directory as the config (usually the
-default), but may also be located in one of the following directories (Unix\-like
-platforms only):
-.INDENT 0.0
-.IP \(bu 2
-If a database exists in the old default location, that location is
-still used.
-.IP \(bu 2
-If \fB$XDG_DATA_HOME\fP is set, use \fB$XDG_DATA_HOME/syncthing\fP\&.
-.IP \(bu 2
-If \fB~/.local/share/syncthing\fP exists, use that location.
-.IP \(bu 2
-Use the old default location (same as config).
-.UNINDENT
+The database is by default stored in the same directory as the config, but
+the location may be overridden by the \fB\-\-data\fP or \fB\-\-home\fP flags or the
+corresponding environment varibles (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 .sp
-The location of the database can be changed using the \fB\-\-data\fP flag. The
-\fB\-\-home\fP flag sets both config and database locations at the same time.
-The database contains the following files:
+The database directory contains the following files, among others:
 .INDENT 0.0
 .TP
 .B \fBindex\-\fP\fI*\fP\fB\&.db\fP
 A directory holding the database with metadata and hashes of the files
 currently on disk and available from peers.
+.TP
+.B \fBsyncthing.log\fP
+Log output, on some systems.
+.TP
+.B \fBaudit\-\fP\fI*\fP\fB\&.log\fP
+Audit log data, when enabled.
+.TP
+.B \fBpanic\-\fP\fI*\fP\fB\&.log\fP
+Crash log data, when required.
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
@@ -1050,6 +1056,27 @@ Authentication using user and password.
 .B \fBldap\fP
 LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sendBasicAuthPrompt
+New in version 1.26.0.
+
+.sp
+Prior to version 1.26.0 the GUI used HTTP Basic Authorization for login, but
+starting in version 1.26.0 it uses an HTML form by default. Basic
+Authorization is still supported when the \fBAuthorization\fP request header
+is present in a request, but some browsers don’t send the header unless
+prompted by a 401 response.
+.sp
+When this setting is enabled, the GUI will respond to unauthenticated
+requests with a 401 response prompting for Basic Authorization, so that
+\fBhttps://user:pass@localhost\fP style URLs continue to work in standard
+browsers. Other clients that always send the \fBAuthorization\fP request
+header do not need this setting.
+.sp
+When this setting is disabled, the GUI will not send 401 responses so users
+won’t see browser popups prompting for username and password.
 .UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0

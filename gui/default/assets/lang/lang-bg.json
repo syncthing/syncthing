@@ -304,7 +304,6 @@
     "QR code": "Код за QR",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "В повечето случаи връзките през протокола QUIC се считат за неоптимални",
     "Quick guide to supported patterns": "Кратък наръчник на поддържаните шаблони",
     "Random": "Произволен",
     "Receive Encrypted": "Приема шифровани данни",
@@ -538,10 +537,14 @@
     "modified": "променено",
     "permit": "разрешаване",
     "seconds": "секунди",
-    "theme-name-black": "Черна",
-    "theme-name-dark": "Тъмна",
-    "theme-name-default": "По подразбиране",
-    "theme-name-light": "Светла",
+    "theme": {
+        "name": {
+            "black": "Черна",
+            "dark": "Тъмна",
+            "default": "По подразбиране",
+            "light": "Светла"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} споделя папката „{{folder}}“.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} споделя папката „{{folderlabel}}“ ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Поръчителят {{reintroducer}} може отново да предложи това устройство."

@@ -175,6 +175,11 @@ jobs:
           cache: false
           check-latest: true
 
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+
       - uses: actions/cache@v3
         with:
           path: |
@@ -223,6 +228,11 @@ jobs:
           cache: false
           check-latest: true
 
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+
       - uses: actions/cache@v3
         with:
           path: |
@@ -264,6 +274,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -386,6 +401,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -561,6 +581,11 @@ jobs:
           cache: false
           check-latest: true
 
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.0'
@@ -699,7 +724,7 @@ jobs:
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/heads/release-'))
     environment: docker
     strategy:
       matrix:
@@ -727,6 +752,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
+
+      - name: Get actual Go version
+        run: |
+          go version
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v3
         with:
@@ -778,6 +808,7 @@ jobs:
             tags=${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
+          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -787,6 +818,9 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
   #
   # Check for known vulnerabilities in Go dependencies

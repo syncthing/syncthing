@@ -225,7 +225,7 @@
     "Limit": "Limite",
     "Listener Failures": "Échecs de l'écouteur",
     "Listener Status": "État de l'écouteur",
-    "Listeners": "Systèmes en écoute",
+    "Listeners": "Écoute",
     "Loading data...": "Chargement des données...",
     "Loading...": "Chargement...",
     "Local Additions": "Ajouts locaux",
@@ -304,7 +304,6 @@
     "QR code": "Code QR",
     "QUIC LAN": "LAN QUIC",
     "QUIC WAN": "WAN QUIC",
-    "QUIC connections are in most cases considered suboptimal": "Les connexions QUIC sont généralement peu performantes",
     "Quick guide to supported patterns": "Guide rapide des masques compatibles ci-dessous",
     "Random": "Aléatoire",
     "Receive Encrypted": "Réception chiffrée",
@@ -538,10 +537,14 @@
     "modified": "modifié",
     "permit": "partager tous les attributs",
     "seconds": "secondes",
-    "theme-name-black": "Noir",
-    "theme-name-dark": "Sombre",
-    "theme-name-default": "Par défaut (système)",
-    "theme-name-light": "Clair",
+    "theme": {
+        "name": {
+            "black": "Noir",
+            "dark": "Sombre",
+            "default": "Par défaut (système)",
+            "light": "Clair"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vous invite au partage \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vous invite au partage \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} pourrait ré-enrôler cet appareil."

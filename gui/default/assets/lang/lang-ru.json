@@ -282,7 +282,6 @@
     "Preview": "Предварительный просмотр",
     "Preview Usage Report": "Посмотреть отчёт об использовании",
     "QR code": "QR-код",
-    "QUIC connections are in most cases considered suboptimal": "Соединения QUIC в большинстве случаев считаются неоптимальными",
     "Quick guide to supported patterns": "Краткое руководство по поддерживаемым шаблонам",
     "Random": "Случайно",
     "Receive Encrypted": "Принять шифрованный",
@@ -497,10 +496,14 @@
     "items": "элементы",
     "modified": "изменено",
     "seconds": "сек.",
-    "theme-name-black": "Чёрная",
-    "theme-name-dark": "Тёмная",
-    "theme-name-default": "По умолчанию",
-    "theme-name-light": "Светлая",
+    "theme": {
+        "name": {
+            "black": "Чёрная",
+            "dark": "Тёмная",
+            "default": "По умолчанию",
+            "light": "Светлая"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хочет поделиться папкой «{{folder}}».",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хочет поделиться папкой «{{folderlabel}}» ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} может повторно рекомендовать это устройство."
