@@ -817,6 +817,11 @@ func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics
 		if err != nil {
 			return nil, err
 		}
+		if len(m.deviceConnIDs[id]) > 0 {
+			// If a device is currently connected, we can see them right
+			// now.
+			stats.LastSeen = time.Now().Truncate(time.Second)
+		}
 		res[id] = stats
 	}
 	return res, nil
@@ -2483,6 +2488,7 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 func (m *model) deviceDidCloseFRLocked(deviceID protocol.DeviceID, duration time.Duration) {
 	if sr, ok := m.deviceStatRefs[deviceID]; ok {
 		_ = sr.LastConnectionDuration(duration)
+		_ = sr.WasSeen()
 	}
 }
 
