@@ -1498,6 +1498,7 @@ angular.module('syncthing.core')
             filtered: [],
             isFiltering: false,
             isCaseSensitive: false,
+            lastFilterQuery: "",
             
             content: function () {
                 var target_array = $scope.logging.isFiltering ? $scope.logging.filtered : $scope.logging.entries;
@@ -1507,6 +1508,32 @@ angular.module('syncthing.core')
                 });
                 return content;
             },
+
+            filter: function(search_query, array) {
+                if (search_query.length < 3) {
+                    $scope.logging.isFiltering = false;
+                    $scope.logging.filtered.length = 0;
+                    $scope.logging.lastFilterQuery = "";
+                    return;
+                }
+
+                $.each(array, function (idx, entry) {
+                    let msg = !$scope.logging.isCaseSensitive ? entry.message.toLowerCase() : entry.message;
+                    if (msg.includes(search_query)) {
+                        $scope.logging.filtered.push(entry);
+                    }
+                });
+            },
+            
+            filter_input: function(event) {
+                let query = !$scope.logging.isCaseSensitive ? event.target.value.toLowerCase() : event.target.value;
+                $scope.logging.filtered.length = 0; // clears prevents "double writing" in the console
+                $scope.logging.filter(query, $scope.logging.entries);
+
+                $scope.logging.isFiltering = true;
+                $scope.logging.lastFilterQuery = query;
+            },
+
             fetch: function () {
                 var textArea = $('#logViewerText');
                 if ($scope.logging.paused) {
@@ -1526,6 +1553,10 @@ angular.module('syncthing.core')
                     if (!$scope.logging.paused) {
                         if (data.messages) {
                             $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
+                            if ($scope.logging.isFiltering) {
+                                $scope.logging.filter($scope.logging.lastFilterQuery, data.messages);
+                            }
+
                             // Wait for the text area to be redrawn, adding new lines, and then scroll to bottom.
                             $timeout(function () {
                                 textArea.scrollTop(textArea[0].scrollHeight);
@@ -1534,27 +1565,6 @@ angular.module('syncthing.core')
                     }
                 });
             },
-            
-            filter: function(event) {
-                let query = !$scope.logging.isCaseSensitive ? event.target.value.toLowerCase() : event.target.value;
-                
-                if (query.length < 3) {
-                    $scope.logging.isFiltering = false;
-                    $scope.logging.filtered.length = 0;
-                    return;
-                }
-
-                // needed to avoid "double writing" to the log
-                $scope.logging.filtered.length = 0;
-                $scope.logging.isFiltering = true;
-
-                $.each($scope.logging.entries, function (idx, entry) {
-                    let msg = !$scope.logging.isCaseSensitive ? entry.message.toLowerCase() : entry.message;
-                    if (msg.includes(query)) {
-                        $scope.logging.filtered.push(entry);
-                    }
-                });
-            }
         };
 
         $scope.about = {
