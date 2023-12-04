@@ -41,7 +41,7 @@ require (
 	github.com/quic-go/quic-go v0.40.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/sasha-s/go-deadlock v0.3.1
-	github.com/shirou/gopsutil/v3 v3.23.10
+	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/syncthing/notify v0.0.0-20210616190510-c6b7342338d2
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.2
@@ -51,7 +51,7 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.18.0
-	golang.org/x/sys v0.14.0
+	golang.org/x/sys v0.15.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.4.0
 	golang.org/x/tools v0.15.0
