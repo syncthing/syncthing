@@ -99,7 +99,7 @@ func getXattr(path, name string) ([]byte, error) {
 	if size >= len(buf)/4*3 {
 		// The buffer is adequately sized (at least three quarters of it is
 		// used), return it as-is.
-		val := buf
+		val := buf[:size]
 		buf = nil // Don't put it back in the pool.
 		return val, nil
 	}
