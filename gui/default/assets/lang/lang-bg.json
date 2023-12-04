@@ -545,6 +545,7 @@
             "light": "Светла"
         }
     },
+    "unknown device": "непознато устройство",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} споделя папката „{{folder}}“.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} споделя папката „{{folderlabel}}“ ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "Поръчителят {{reintroducer}} може отново да предложи това устройство."

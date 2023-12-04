@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Nov 22, 2023" "v1.26.0" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Dec 01, 2023" "v1.26.0" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -44,12 +44,12 @@ syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH DESCRIPTION
 .sp
 If some files should not be synchronized to (or from) other devices, a file called
-\fB\&.stignore\fP can be created containing file patterns to ignore. The
-\fB\&.stignore\fP file must be placed in the root of the synced folder. The
-\fB\&.stignore\fP file itself will never be synced to other devices, although it can
-\fB#include\fP files that \fIare\fP synchronized between devices. All patterns are
-relative to the synced folder root.
-The contents of the \fB\&.stignore\fP file must be UTF\-8 encoded.
+\fB\&.stignore\fP can be created containing file patterns to ignore.  The \fB\&.stignore\fP
+file must be placed in the root of the synced folder (files in other locations are
+not applied).  The \fB\&.stignore\fP file itself will never be synced to other devices,
+although it can \fB#include\fP files that \fIare\fP synchronized between devices.  All
+patterns are relative to the synced folder root.  The contents of the \fB\&.stignore\fP
+file must be UTF\-8 encoded.
 .sp
 \fBNOTE:\fP
 .INDENT 0.0
@@ -115,8 +115,9 @@ patterns from a file in a subdirectory, the patterns themselves are
 still relative to the synced folder \fIroot\fP\&. Example:
 \fB#include more\-patterns.txt\fP\&.
 .sp
-Any \fB#include\fP directives inside a file loaded by \fB#include\fP require paths specified relative
-to the directory containing the loaded file, rather than the synchronised root directory.
+Any \fB#include\fP directives inside a file loaded by \fB#include\fP require paths
+specified relative to the directory containing the loaded file, rather than the
+synchronised root directory.
 .IP \(bu 2
 A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
