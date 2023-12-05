@@ -120,6 +120,7 @@ func (f *mtimeFS) mapped(name string, info FileInfo) (FileInfo, error) {
 			mtime.Nanosecond() == 0 && // modtime has second precision or worse
 			mtime.Second()%2 == 0 && // modtime is even
 			mtime.Sub(mtimeMapping.Real).Abs() == time.Hour { // time is off by precisely one hour
+		l.Debugln("mtimefs: detected and mitigated DST change for", name)
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,
