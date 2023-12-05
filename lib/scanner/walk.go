@@ -688,6 +688,13 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
 		}
 	}
+
+	if ct := fi.InodeChangeTime(); !ct.IsZero() {
+		f.InodeChangeNs = ct.UnixNano()
+	} else {
+		f.InodeChangeNs = 0
+	}
+
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)
@@ -698,19 +705,18 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
+
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = fi.ModTime().Nanosecond()
+
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil
 	}
+
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
-	if ct := fi.InodeChangeTime(); !ct.IsZero() {
-		f.InodeChangeNs = ct.UnixNano()
-	} else {
-		f.InodeChangeNs = 0
-	}
+
 	return f, nil
 }

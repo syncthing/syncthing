@@ -304,7 +304,6 @@
     "QR code": "QR code",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "QUIC connections are in most cases considered suboptimal",
     "Quick guide to supported patterns": "Quick guide to supported patterns",
     "Random": "Random",
     "Receive Encrypted": "Receive Encrypted",
@@ -546,6 +545,7 @@
             "light": "Light"
         }
     },
+    "unknown device": "unknown device",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."

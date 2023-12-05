@@ -227,7 +227,7 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if mtimeMapping.Real == info.ModTime() {
+	if mtimeMapping.Real.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,
