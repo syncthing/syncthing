@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -87,8 +88,19 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 		cmd.Wait()
 	})
 
-	inst.address = <-lr.addrCh
-	inst.deviceID = <-lr.idCh
+	// Wait up to 15 seconds to get the device ID, which comes first.
+	select {
+	case inst.deviceID = <-lr.idCh:
+	case <-time.After(15 * time.Second):
+		t.Fatal("timeout waiting for device ID")
+	}
+	// Once we have that, the API should be up and running quickly. Give it
+	// another few seconds.
+	select {
+	case inst.address = <-lr.addrCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for listen address")
+	}
 	return inst, nil
 }
 
