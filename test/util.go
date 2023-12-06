@@ -9,6 +9,7 @@ package integration
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -17,8 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 type instance struct {
@@ -163,4 +167,79 @@ func newListenAddressReader(r io.Reader) *listenAddressReader {
 		}
 	}()
 	return lr
+}
+
+func compareTrees(t *testing.T, a, b string) {
+	t.Helper()
+
+	// These will not match, so we ignore them.
+	ignore := []string{".", ".stfolder"}
+
+	if err := filepath.Walk(a, func(path string, aInfo os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(a, path)
+		if err != nil {
+			return err
+		}
+
+		if slices.Contains(ignore, rel) {
+			return nil
+		}
+
+		bPath := filepath.Join(b, rel)
+		bInfo, err := os.Stat(bPath)
+		if err != nil {
+			return err
+		}
+
+		if aInfo.IsDir() != bInfo.IsDir() {
+			t.Errorf("mismatched directory/file: %q", rel)
+		}
+
+		if aInfo.Mode() != bInfo.Mode() {
+			t.Errorf("mismatched mode: %q", rel)
+		}
+
+		if !aInfo.ModTime().Equal(bInfo.ModTime()) {
+			t.Errorf("mismatched mod time: %q", rel)
+		}
+
+		if aInfo.Size() != bInfo.Size() {
+			t.Errorf("mismatched size: %q", rel)
+		}
+
+		aHash, err := sha256file(path)
+		if err != nil {
+			return err
+		}
+		bHash, err := sha256file(bPath)
+		if err != nil {
+			return err
+		}
+		if aHash != bHash {
+			t.Errorf("mismatched hash: %q", rel)
+		}
+
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func sha256file(fname string) (string, error) {
+	f, err := os.Open(fname)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	hb := h.Sum(nil)
+	return fmt.Sprintf("%x", hb), nil
 }

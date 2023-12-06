@@ -1,3 +1,9 @@
+// Copyright (C) 2023 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package integration
 
 import (
@@ -97,4 +103,5 @@ loop:
 	}
 
 	// Check that the destination folder now contains the same files as the source folder.
+	compareTrees(t, srcDir, dstDir)
 }
