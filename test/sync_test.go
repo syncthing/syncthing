@@ -21,7 +21,7 @@ func TestSyncOneSideToOther(t *testing.T) {
 
 	// Create a source folder with some data in it.
 	srcDir := generateTree(t, 100)
-	// Create a destination folder to hold the synced data.
+	// Create an empty destination folder to hold the synced data.
 	dstDir := t.TempDir()
 
 	// Spin up two instances to sync the data.
@@ -42,7 +42,8 @@ func TestSyncMergeTwoDevices(t *testing.T) {
 	// Spin up two instances to sync the data.
 	testSyncTwoDevicesFolders(t, srcDir, dstDir)
 
-	// Check that the destination folder now contains the same files as the source folder.
+	// Check that both folders are the same, and the file count should be
+	// the sum of the two.
 	if total := compareTrees(t, srcDir, dstDir); total != 100 {
 		t.Fatalf("expected 100 files, got %d", total)
 	}
