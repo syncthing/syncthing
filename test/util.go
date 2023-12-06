@@ -15,10 +15,12 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
 type instance struct {
+	deviceID     protocol.DeviceID
 	syncthingDir string
 	userHomeDir  string
 	address      string
@@ -86,24 +88,35 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 	})
 
 	inst.address = <-lr.addrCh
+	inst.deviceID = <-lr.idCh
 	return inst, nil
 }
 
 type listenAddressReader struct {
 	addrCh chan string
+	idCh   chan protocol.DeviceID
 }
 
 func newListenAddressReader(r io.Reader) *listenAddressReader {
 	sc := bufio.NewScanner(r)
 	lr := &listenAddressReader{
 		addrCh: make(chan string, 1),
+		idCh:   make(chan protocol.DeviceID, 1),
 	}
-	exp := regexp.MustCompile(`GUI and API listening on ([^\s]+)`)
+	addrExp := regexp.MustCompile(`GUI and API listening on ([^\s]+)`)
+	myIDExp := regexp.MustCompile(`My ID: ([^\s]+)`)
 	go func() {
 		for sc.Scan() {
 			line := sc.Text()
-			if m := exp.FindStringSubmatch(line); len(m) == 2 {
+			if m := addrExp.FindStringSubmatch(line); len(m) == 2 {
 				lr.addrCh <- m[1]
+			}
+			if m := myIDExp.FindStringSubmatch(line); len(m) == 2 {
+				id, err := protocol.DeviceIDFromString(m[1])
+				if err != nil {
+					panic(err)
+				}
+				lr.idCh <- id
 			}
 		}
 	}()

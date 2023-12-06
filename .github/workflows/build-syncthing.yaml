@@ -62,6 +62,8 @@ jobs:
           git config --global core.eol lf
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v4
         with:
