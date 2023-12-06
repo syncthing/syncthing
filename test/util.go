@@ -25,6 +25,9 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 
+const syncthingBinary = "../bin/syncthing"
+
+// instance represents a running instance of Syncthing.
 type instance struct {
 	deviceID     protocol.DeviceID
 	syncthingDir string
@@ -35,6 +38,9 @@ type instance struct {
 	apiKey       string
 }
 
+// startAuthenticatedInstance starts a Syncthing instance with
+// authentication. The username, password and API key are in the returned
+// instance.
 func startAuthenticatedInstance(t *testing.T) *instance {
 	t.Helper()
 	syncthingDir := t.TempDir()
@@ -42,7 +48,7 @@ func startAuthenticatedInstance(t *testing.T) *instance {
 	user := rand.String(8)
 	password := rand.String(16)
 
-	cmd := exec.Command("../bin/syncthing", "generate", "--home", syncthingDir, "--no-default-folder", "--skip-port-probing", "--gui-user", user, "--gui-password", password)
+	cmd := exec.Command(syncthingBinary, "generate", "--home", syncthingDir, "--no-default-folder", "--skip-port-probing", "--gui-user", user, "--gui-password", password)
 	cmd.Env = basicEnv(userHomeDir)
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
@@ -58,11 +64,14 @@ func startAuthenticatedInstance(t *testing.T) *instance {
 	return inst
 }
 
+// startUnauthenticatedInstance starts a Syncthing instance without
+// authentication.
 func startUnauthenticatedInstance(t *testing.T) *instance {
 	t.Helper()
 	return startInstanceInDir(t, t.TempDir(), t.TempDir())
 }
 
+// startInstanceInDir starts a Syncthing instance in the given directory.
 func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) *instance {
 	t.Helper()
 
@@ -73,12 +82,12 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) *instanc
 	}
 	env := append(basicEnv(userHomeDir), "STGUIAPIKEY="+inst.apiKey)
 
-	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", syncthingDir)
+	cmd := exec.Command(syncthingBinary, "--no-browser", "--home", syncthingDir)
 	cmd.Env = env
 	rd, wr := io.Pipe()
 	cmd.Stdout = wr
 	cmd.Stderr = wr
-	lr := newListenAddressReader(rd)
+	lr := newSyncthingMetadataReader(rd)
 
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -135,15 +144,18 @@ func generateFiles(t *testing.T, n int) string {
 	return dir
 }
 
-type listenAddressReader struct {
+// syncthingMetadataReader reads the output of a Syncthing process and
+// extracts the listen address and device ID. The results are in the channel
+// fields, which can be read once.
+type syncthingMetadataReader struct {
 	log    *bytes.Buffer
 	addrCh chan string
 	idCh   chan protocol.DeviceID
 }
 
-func newListenAddressReader(r io.Reader) *listenAddressReader {
+func newSyncthingMetadataReader(r io.Reader) *syncthingMetadataReader {
 	sc := bufio.NewScanner(r)
-	lr := &listenAddressReader{
+	lr := &syncthingMetadataReader{
 		log:    new(bytes.Buffer),
 		addrCh: make(chan string, 1),
 		idCh:   make(chan protocol.DeviceID, 1),
@@ -169,6 +181,8 @@ func newListenAddressReader(r io.Reader) *listenAddressReader {
 	return lr
 }
 
+// compareTrees compares the contents of two directories recursively. It
+// reports any differences as test failures.
 func compareTrees(t *testing.T, a, b string) {
 	t.Helper()
 
