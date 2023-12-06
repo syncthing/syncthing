@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build integration
-// +build integration
+//go:build !integration
+// +build !integration
 
 package integration
 
@@ -17,66 +17,23 @@ import (
 	"time"
 )
 
-func TestCLIReset(t *testing.T) {
-	dirs := []string{"h1/index-v0.14.0.db"}
-
-	// Create directories that reset will remove
-
-	for _, dir := range dirs {
-		err := os.Mkdir(dir, 0755)
-		if err != nil && !os.IsExist(err) {
-			t.Fatal(err)
-		}
-	}
-
-	// Run reset to clean up
-
-	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", "h1", "--reset-database")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
-	err := cmd.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Verify that they're gone
-
-	for _, dir := range dirs {
-		_, err := os.Stat(dir)
-		if err == nil {
-			t.Errorf("%s still exists", dir)
-		}
-	}
-
-	// Clean up
-
-	dirs, err = filepath.Glob("*.syncthing-reset-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	removeAll(dirs...)
-}
-
 func TestCLIGenerate(t *testing.T) {
-	err := os.RemoveAll("home.out")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	dir := t.TempDir()
 
 	// --generate should create a bunch of stuff
 
-	cmd := exec.Command("../bin/syncthing", "--no-browser", "--generate", "home.out")
+	cmd := exec.Command("../bin/syncthing", "--no-browser", "--generate", dir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
-	err = cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify that the files that should have been created have been
 
-	for _, f := range []string{"home.out/config.xml", "home.out/cert.pem", "home.out/key.pem"} {
-		_, err := os.Stat(f)
+	for _, f := range []string{"config.xml", "cert.pem", "key.pem"} {
+		_, err := os.Stat(filepath.Join(dir, f))
 		if err != nil {
 			t.Errorf("%s is not correctly generated", f)
 		}
@@ -84,19 +41,16 @@ func TestCLIGenerate(t *testing.T) {
 }
 
 func TestCLIFirstStartup(t *testing.T) {
-	err := os.RemoveAll("home.out")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	dir := t.TempDir()
 
 	// First startup should create config, BEP certificate, and HTTP certificate.
 
-	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", "home.out")
+	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", dir)
 	cmd.Env = append(os.Environ(), "STNORESTART=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
-	err = cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -118,8 +72,8 @@ func TestCLIFirstStartup(t *testing.T) {
 				return
 			default:
 				// Verify that the files that should have been created have been
-				for _, f := range []string{"home.out/config.xml", "home.out/cert.pem", "home.out/key.pem", "home.out/https-cert.pem", "home.out/https-key.pem"} {
-					_, err := os.Stat(f)
+				for _, f := range []string{"config.xml", "cert.pem", "key.pem", "https-cert.pem", "https-key.pem"} {
+					_, err := os.Stat(filepath.Join(dir, f))
 					if err != nil {
 						time.Sleep(500 * time.Millisecond)
 						continue again
