@@ -89,7 +89,6 @@ loop:
 			case "StateChanged":
 				folder := ev.Data.(map[string]any)["folder"].(string)
 				to := ev.Data.(map[string]any)["to"].(string)
-				t.Log(folder, to)
 				if folder == folderID && to == "syncing" {
 					didStartSyncing = true
 				}
