@@ -7,7 +7,7 @@
 package integration
 
 import (
-	"io"
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,9 +22,11 @@ func TestCLIGenerate(t *testing.T) {
 	// --generate should create a bunch of stuff
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--generate", dir)
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
+		t.Log(buf.String())
 		t.Fatal(err)
 	}
 
@@ -46,9 +48,11 @@ func TestCLIFirstStartup(t *testing.T) {
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", dir)
 	cmd.Env = append(os.Environ(), "STNORESTART=1")
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	cmd.Stderr = buf
 	if err := cmd.Start(); err != nil {
+		t.Log(buf.String())
 		t.Fatal(err)
 	}
 
