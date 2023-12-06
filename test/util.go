@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"testing"
@@ -38,7 +37,7 @@ func startAuthenticatedInstance(t *testing.T) (*instance, error) {
 	password := rand.String(16)
 
 	cmd := exec.Command("../bin/syncthing", "generate", "--home", syncthingDir, "--no-default-folder", "--skip-port-probing", "--gui-user", user, "--gui-password", password)
-	cmd.Env = []string{"HOME=" + userHomeDir, "userprofile=" + userHomeDir, "STNOUPGRADE=1"}
+	cmd.Env = basicEnv(userHomeDir)
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
@@ -70,7 +69,7 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 		userHomeDir:  userHomeDir,
 		apiKey:       rand.String(32),
 	}
-	env := []string{"HOME=" + inst.userHomeDir, "userprofile=" + userHomeDir, "STNOUPGRADE=1", "STNORESTART=1", "STGUIADDRESS=127.0.0.1:0", "STGUIAPIKEY=" + inst.apiKey}
+	env := append(basicEnv(userHomeDir), "STGUIAPIKEY="+inst.apiKey)
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", syncthingDir)
 	cmd.Env = env
@@ -84,7 +83,7 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 	}
 
 	t.Cleanup(func() {
-		cmd.Process.Signal(os.Interrupt)
+		cmd.Process.Kill()
 		cmd.Wait()
 	})
 
@@ -104,6 +103,10 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 		t.Fatal("timeout waiting for listen address")
 	}
 	return inst, nil
+}
+
+func basicEnv(userHomeDir string) []string {
+	return []string{"HOME=" + userHomeDir, "userprofile=" + userHomeDir, "STNOUPGRADE=1", "STNORESTART=1", "STMONITORED=1", "STGUIADDRESS=127.0.0.1:0"}
 }
 
 type listenAddressReader struct {

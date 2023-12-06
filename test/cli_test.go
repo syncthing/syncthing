@@ -22,6 +22,7 @@ func TestCLIGenerate(t *testing.T) {
 	// --generate should create a bunch of stuff
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--generate", dir)
+	cmd.Env = basicEnv(t.TempDir())
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
@@ -47,7 +48,7 @@ func TestCLIFirstStartup(t *testing.T) {
 	// First startup should create config, BEP certificate, and HTTP certificate.
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", dir)
-	cmd.Env = append(os.Environ(), "STNORESTART=1")
+	cmd.Env = basicEnv(t.TempDir())
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
