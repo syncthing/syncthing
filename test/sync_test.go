@@ -35,18 +35,16 @@ func TestSyncTwoDevices(t *testing.T) {
 	dst := startInstance(t)
 	dstAPI := rc.NewAPI(dst.apiAddress, dst.apiKey)
 
-	// Add the other device to each device. Hard code the sync addresses to
+	// Add the peer device to each device. Hard code the sync addresses to
 	// speed things up.
 	if err := srcAPI.Post("/rest/config/devices", &config.DeviceConfiguration{
 		DeviceID:  dst.deviceID,
-		Name:      "dst",
 		Addresses: []string{fmt.Sprintf("tcp://127.0.0.1:%d", dst.tcpPort)},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := dstAPI.Post("/rest/config/devices", &config.DeviceConfiguration{
 		DeviceID:  src.deviceID,
-		Name:      "src",
 		Addresses: []string{fmt.Sprintf("tcp://127.0.0.1:%d", src.tcpPort)},
 	}, nil); err != nil {
 		t.Fatal(err)
