@@ -76,7 +76,6 @@ func TestSyncTwoDevices(t *testing.T) {
 
 	// Listen to events on the destination side. Watch for the folder
 	// starting to sync and then becoming idle.
-
 	lastEventID := 0
 	didStartSyncing := false
 loop:
