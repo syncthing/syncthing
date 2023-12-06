@@ -4,12 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !integration
-// +build !integration
-
 package integration
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,8 +22,8 @@ func TestCLIGenerate(t *testing.T) {
 	// --generate should create a bunch of stuff
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--generate", dir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -48,8 +46,8 @@ func TestCLIFirstStartup(t *testing.T) {
 
 	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", dir)
 	cmd.Env = append(os.Environ(), "STNORESTART=1")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

@@ -4,33 +4,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !integration
-// +build !integration
-
 package integration
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"os/exec"
-	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestHTTP(t *testing.T) {
+func TestHTTPNoAuth(t *testing.T) {
 	t.Parallel()
 
-	addr, err := startInstance(t)
+	inst, err := startUnauthenticatedInstance(t)
 	if err != nil {
 		t.Fatal(err)
 	}
+	addr := inst.address
 
 	t.Run("index", func(t *testing.T) {
 		t.Parallel()
@@ -171,43 +165,91 @@ func TestHTTP(t *testing.T) {
 	})
 }
 
-func startInstance(t *testing.T) (string, error) {
-	cmd := exec.Command("../bin/syncthing", "--no-browser", "--home", t.TempDir())
-	cmd.Env = append(os.Environ(), "STNORESTART=1", "STGUIADDRESS=127.0.0.1:0")
-	rd, wr := io.Pipe()
-	cmd.Stdout = wr
-	cmd.Stderr = wr
-	lr := newListenAddressReader(rd)
+func TestHTTPWithAuth(t *testing.T) {
+	t.Parallel()
 
-	if err := cmd.Start(); err != nil {
-		return "", err
+	inst, err := startAuthenticatedInstance(t)
+	if err != nil {
+		t.Fatal(err)
 	}
+	addr := inst.address
 
-	t.Cleanup(func() {
-		cmd.Process.Signal(os.Interrupt)
-		cmd.Wait()
+	t.Run("index", func(t *testing.T) {
+		t.Parallel()
+
+		// Index should load without authentication (login screen)
+
+		res, err := http.Get(fmt.Sprintf("http://%s/", addr))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("Status %d != 200", res.StatusCode)
+		}
+		bs, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) < 1024 {
+			t.Errorf("Length %d < 1024", len(bs))
+		}
+		if !bytes.Contains(bs, []byte("</html>")) {
+			t.Error("Incorrect response")
+		}
+		if res.Header.Get("Set-Cookie") == "" {
+			t.Error("No set-cookie header")
+		}
+		res.Body.Close()
 	})
 
-	return <-lr.addrCh, nil
-}
+	t.Run("restWithoutAuth", func(t *testing.T) {
+		t.Parallel()
 
-type listenAddressReader struct {
-	addrCh chan string
-}
+		// REST interface should require authentication
 
-func newListenAddressReader(r io.Reader) *listenAddressReader {
-	sc := bufio.NewScanner(r)
-	lr := &listenAddressReader{
-		addrCh: make(chan string, 1),
-	}
-	exp := regexp.MustCompile(`GUI and API listening on ([^\s]+)`)
-	go func() {
-		for sc.Scan() {
-			line := sc.Text()
-			if m := exp.FindStringSubmatch(line); len(m) == 2 {
-				lr.addrCh <- m[1]
-			}
+		res, err := http.Get(fmt.Sprintf("http://%s/rest/system/status", addr))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
-	return lr
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("Status %d != 403", res.StatusCode)
+		}
+	})
+
+	t.Run("restWithAPIKey", func(t *testing.T) {
+		t.Parallel()
+
+		// REST interface should accept API key as bearer token
+
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/rest/system/status", addr), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Add("Authorization", "Bearer "+inst.apiKey)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("Status %d != 200", res.StatusCode)
+		}
+
+		// REST interface should accept API key as old style API key header
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/rest/system/status", addr), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Add("X-API-Key", inst.apiKey)
+		res, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("Status %d != 200", res.StatusCode)
+		}
+	})
 }
