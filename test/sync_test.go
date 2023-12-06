@@ -7,6 +7,7 @@
 package integration
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -19,7 +20,7 @@ func TestSyncTwoDevices(t *testing.T) {
 	t.Parallel()
 
 	// Create a source folder with some data in it.
-	srcDir := generateFiles(t, 100)
+	srcDir := generateTree(t, 100)
 	// Create a destination folder to hold the synced data.
 	dstDir := t.TempDir()
 
@@ -27,23 +28,26 @@ func TestSyncTwoDevices(t *testing.T) {
 	folderID := rand.String(8)
 
 	// Start the source device.
-	src := startUnauthenticatedInstance(t)
-	srcAPI := rc.NewAPI(src.address, src.apiKey)
+	src := startInstance(t)
+	srcAPI := rc.NewAPI(src.apiAddress, src.apiKey)
 
 	// Start the destination device.
-	dst := startUnauthenticatedInstance(t)
-	dstAPI := rc.NewAPI(dst.address, dst.apiKey)
+	dst := startInstance(t)
+	dstAPI := rc.NewAPI(dst.apiAddress, dst.apiKey)
 
-	// Add the other device to each device.
+	// Add the other device to each device. Hard code the sync addresses to
+	// speed things up.
 	if err := srcAPI.Post("/rest/config/devices", &config.DeviceConfiguration{
-		DeviceID: dst.deviceID,
-		Name:     "dst",
+		DeviceID:  dst.deviceID,
+		Name:      "dst",
+		Addresses: []string{fmt.Sprintf("tcp://127.0.0.1:%d", dst.tcpPort)},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := dstAPI.Post("/rest/config/devices", &config.DeviceConfiguration{
-		DeviceID: src.deviceID,
-		Name:     "src",
+		DeviceID:  src.deviceID,
+		Name:      "src",
+		Addresses: []string{fmt.Sprintf("tcp://127.0.0.1:%d", src.tcpPort)},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
