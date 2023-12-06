@@ -92,6 +92,7 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 	select {
 	case inst.deviceID = <-lr.idCh:
 	case <-time.After(15 * time.Second):
+		t.Log(lr.log)
 		t.Fatal("timeout waiting for device ID")
 	}
 	// Once we have that, the API should be up and running quickly. Give it
@@ -99,12 +100,14 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 	select {
 	case inst.address = <-lr.addrCh:
 	case <-time.After(5 * time.Second):
+		t.Log(lr.log)
 		t.Fatal("timeout waiting for listen address")
 	}
 	return inst, nil
 }
 
 type listenAddressReader struct {
+	log    *bytes.Buffer
 	addrCh chan string
 	idCh   chan protocol.DeviceID
 }
@@ -112,6 +115,7 @@ type listenAddressReader struct {
 func newListenAddressReader(r io.Reader) *listenAddressReader {
 	sc := bufio.NewScanner(r)
 	lr := &listenAddressReader{
+		log:    new(bytes.Buffer),
 		addrCh: make(chan string, 1),
 		idCh:   make(chan protocol.DeviceID, 1),
 	}
@@ -120,6 +124,7 @@ func newListenAddressReader(r io.Reader) *listenAddressReader {
 	go func() {
 		for sc.Scan() {
 			line := sc.Text()
+			lr.log.WriteString(line + "\n")
 			if m := addrExp.FindStringSubmatch(line); len(m) == 2 {
 				lr.addrCh <- m[1]
 			}
