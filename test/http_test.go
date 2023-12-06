@@ -20,10 +20,7 @@ import (
 func TestHTTPNoAuth(t *testing.T) {
 	t.Parallel()
 
-	inst, err := startUnauthenticatedInstance(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	inst := startUnauthenticatedInstance(t)
 	addr := inst.address
 
 	t.Run("index", func(t *testing.T) {
@@ -168,10 +165,7 @@ func TestHTTPNoAuth(t *testing.T) {
 func TestHTTPWithAuth(t *testing.T) {
 	t.Parallel()
 
-	inst, err := startAuthenticatedInstance(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	inst := startAuthenticatedInstance(t)
 	addr := inst.address
 
 	t.Run("index", func(t *testing.T) {

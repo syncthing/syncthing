@@ -31,7 +31,7 @@ type instance struct {
 	apiKey       string
 }
 
-func startAuthenticatedInstance(t *testing.T) (*instance, error) {
+func startAuthenticatedInstance(t *testing.T) *instance {
 	t.Helper()
 	syncthingDir := t.TempDir()
 	userHomeDir := t.TempDir()
@@ -45,25 +45,21 @@ func startAuthenticatedInstance(t *testing.T) (*instance, error) {
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
 		t.Log(buf.String())
-		return nil, err
+		t.Fatal(err)
 	}
 
-	inst, err := startInstanceInDir(t, syncthingDir, userHomeDir)
-	if err != nil {
-		return nil, err
-	}
-
+	inst := startInstanceInDir(t, syncthingDir, userHomeDir)
 	inst.apiUser = user
 	inst.apiPassword = password
-	return inst, nil
+	return inst
 }
 
-func startUnauthenticatedInstance(t *testing.T) (*instance, error) {
+func startUnauthenticatedInstance(t *testing.T) *instance {
 	t.Helper()
 	return startInstanceInDir(t, t.TempDir(), t.TempDir())
 }
 
-func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instance, error) {
+func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) *instance {
 	t.Helper()
 
 	inst := &instance{
@@ -81,7 +77,7 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 	lr := newListenAddressReader(rd)
 
 	if err := cmd.Start(); err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 
 	t.Cleanup(func() {
@@ -104,7 +100,7 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 		t.Log(lr.log)
 		t.Fatal("timeout waiting for listen address")
 	}
-	return inst, nil
+	return inst
 }
 
 func basicEnv(userHomeDir string) []string {
