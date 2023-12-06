@@ -77,10 +77,21 @@ jobs:
         run: |
           go install calmh.dev/go-test-json-to-loki@latest
 
-      - name: Test
+      - name: Test (unit)
         run: |
           go version
           go run build.go test | go-test-json-to-loki
+        env:
+          GOFLAGS: "-json"
+          LOKI_URL: ${{ vars.LOKI_URL }}
+          LOKI_USER: ${{ vars.LOKI_USER }}
+          LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
+          LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
+
+      - name: Test (integration)
+        run: |
+          cd test
+          go test | go-test-json-to-loki
         env:
           GOFLAGS: "-json"
           LOKI_URL: ${{ vars.LOKI_URL }}
