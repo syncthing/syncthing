@@ -10,7 +10,9 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
@@ -107,6 +109,30 @@ func startInstanceInDir(t *testing.T, syncthingDir, userHomeDir string) (*instan
 
 func basicEnv(userHomeDir string) []string {
 	return []string{"HOME=" + userHomeDir, "userprofile=" + userHomeDir, "STNOUPGRADE=1", "STNORESTART=1", "STMONITORED=1", "STGUIADDRESS=127.0.0.1:0"}
+}
+
+// Generates n files with random data in a temporary directory and returns
+// the path to the directory.
+func generateFiles(t *testing.T, n int) string {
+	t.Helper()
+	dir := t.TempDir()
+	for i := 0; i < n; i++ {
+		f := filepath.Join(dir, rand.String(8))
+		size := 512<<10 + rand.Intn(1024)<<10 // between 512 KiB and 1.5 MiB
+		lr := io.LimitReader(rand.Reader, int64(size))
+		fd, err := os.Create(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = io.Copy(fd, lr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := fd.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }
 
 type listenAddressReader struct {
