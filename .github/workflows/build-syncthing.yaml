@@ -12,7 +12,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.21.1"
+  GO_VERSION: "~1.21.5"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -48,20 +48,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.20", "1.21"]
-
-        # Don't run the Windows tests with Go 1.21.4 or 1.20.11; this can be
-        # removed when 1.21.5 and 1.20.12 is released.
-        exclude:
-          - runner: windows-latest
-            go: "1.20"
-          - runner: windows-latest
-            go: "1.21"
-        include:
-          - runner: windows-latest
-            go: "~1.20.12 || ~1.20.0 <1.20.11"
-          - runner: windows-latest
-            go: "~1.21.5 || ~1.21.1 <1.21.4"
+        go: ["~1.20.12", "~1.21.5"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -169,9 +156,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          # Temporary version constraint to avoid 1.21.4 which has a bug in
-          # path handling. This can be removed when 1.21.5 is released.
-          go-version: "~1.21.5 || ~1.21.1 <1.21.4"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
 
