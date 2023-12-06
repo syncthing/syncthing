@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,7 +158,7 @@ func generateTree(t *testing.T, n int) string {
 	for i := 0; i < n; i++ {
 		// Generate a random string. The first character is the directory
 		// name, the rest is the file name.
-		rnd := rand.String(16)
+		rnd := strings.ToLower(rand.String(16))
 		sub := rnd[:1]
 		file := rnd[1:]
 		size := 512<<10 + rand.Intn(1024)<<10 // between 512 KiB and 1.5 MiB
@@ -181,13 +182,15 @@ func generateTree(t *testing.T, n int) string {
 }
 
 // compareTrees compares the contents of two directories recursively. It
-// reports any differences as test failures.
-func compareTrees(t *testing.T, a, b string) {
+// reports any differences as test failures. Returns the number of files
+// that were checked.
+func compareTrees(t *testing.T, a, b string) int {
 	t.Helper()
 
 	// These will not match, so we ignore them.
 	ignore := []string{".", ".stfolder"}
 
+	nfiles := 0
 	if err := filepath.Walk(a, func(path string, aInfo os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -236,12 +239,15 @@ func compareTrees(t *testing.T, a, b string) {
 			if aHash != bHash {
 				t.Errorf("mismatched hash: %q", rel)
 			}
+
+			nfiles++
 		}
 
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
+	return nfiles
 }
 
 func sha256file(fname string) (string, error) {

@@ -16,13 +16,40 @@ import (
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
-func TestSyncTwoDevices(t *testing.T) {
+func TestSyncOneSideToOther(t *testing.T) {
 	t.Parallel()
 
 	// Create a source folder with some data in it.
 	srcDir := generateTree(t, 100)
 	// Create a destination folder to hold the synced data.
 	dstDir := t.TempDir()
+
+	// Spin up two instances to sync the data.
+	testSyncTwoDevicesFolders(t, srcDir, dstDir)
+
+	// Check that the destination folder now contains the same files as the source folder.
+	compareTrees(t, srcDir, dstDir)
+}
+
+func TestSyncMergeTwoDevices(t *testing.T) {
+	t.Parallel()
+
+	// Create a source folder with some data in it.
+	srcDir := generateTree(t, 50)
+	// Create a destination folder that also has some data in it.
+	dstDir := generateTree(t, 50)
+
+	// Spin up two instances to sync the data.
+	testSyncTwoDevicesFolders(t, srcDir, dstDir)
+
+	// Check that the destination folder now contains the same files as the source folder.
+	if total := compareTrees(t, srcDir, dstDir); total != 100 {
+		t.Fatalf("expected 100 files, got %d", total)
+	}
+}
+
+func testSyncTwoDevicesFolders(t *testing.T, srcDir, dstDir string) {
+	t.Helper()
 
 	// The folder needs an ID.
 	folderID := rand.String(8)
@@ -76,33 +103,56 @@ func TestSyncTwoDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Listen to events on the destination side. Watch for the folder
-	// starting to sync and then becoming idle. At that point we should be
-	// done.
-	lastEventID := 0
-	didStartSyncing := false
-loop:
-	for {
-		events, err := dstAPI.Events(lastEventID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, ev := range events {
-			switch ev.Type {
-			case "StateChanged":
-				folder := ev.Data.(map[string]any)["folder"].(string)
-				to := ev.Data.(map[string]any)["to"].(string)
-				if folder == folderID && to == "syncing" {
-					didStartSyncing = true
+	// Listen to events; we want to know when the folder is fully synced. We
+	// consider the other side in sync when we've received an index update
+	// from them and subsequently a completion event with percentage equal
+	// to 100. At that point they should be done. Wait for both sides to do
+	// their thing.
+
+	waitForSync := func(api *rc.API, done chan struct{}) {
+		defer close(done)
+		lastEventID := 0
+		remoteCompletion := 0.0
+		remoteIndexUpdated := false
+	loop:
+		for {
+			events, err := api.Events(lastEventID)
+			if err != nil {
+				t.Log(err)
+				break loop
+			}
+
+			for _, ev := range events {
+				lastEventID = ev.ID
+				switch ev.Type {
+				case "RemoteIndexUpdated":
+					data := ev.Data.(map[string]any)
+					folder := data["folder"].(string)
+					if folder != folderID {
+						continue
+					}
+					remoteIndexUpdated = true
+					remoteCompletion = 0.0
+				case "FolderCompletion":
+					data := ev.Data.(map[string]any)
+					folder := data["folder"].(string)
+					if folder != folderID {
+						continue
+					}
+					remoteCompletion = data["completion"].(float64)
 				}
-				if folder == folderID && to == "idle" && didStartSyncing {
+				if remoteIndexUpdated && remoteCompletion == 100.0 {
 					break loop
 				}
 			}
-			lastEventID = ev.ID
 		}
 	}
 
-	// Check that the destination folder now contains the same files as the source folder.
-	compareTrees(t, srcDir, dstDir)
+	srcDone := make(chan struct{})
+	go waitForSync(srcAPI, srcDone)
+	dstDone := make(chan struct{})
+	go waitForSync(dstAPI, dstDone)
+
+	<-srcDone
+	<-dstDone
 }
