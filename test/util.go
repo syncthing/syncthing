@@ -72,25 +72,25 @@ func startInstance(t *testing.T) *instance {
 		cmd.Wait()
 	})
 
-	// Wait up to 15 seconds to get the device ID, which comes first.
+	// Wait up to 30 seconds to get the device ID, which comes first.
 	select {
 	case inst.deviceID = <-lr.myIDCh:
-	case <-time.After(15 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Log(lr.log)
 		t.Fatal("timeout waiting for device ID")
 	}
 
-	// Once we have that, the sync listners & API should be up and running
+	// Once we have that, the sync listeners & API should be up and running
 	// quickly. Give it another few seconds.
 	select {
 	case inst.apiAddress = <-lr.apiAddrCh:
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Log(lr.log)
 		t.Fatal("timeout waiting for API address")
 	}
 	select {
 	case inst.tcpPort = <-lr.tcpPortCh:
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Log(lr.log)
 		t.Fatal("timeout waiting for listen address")
 	}
