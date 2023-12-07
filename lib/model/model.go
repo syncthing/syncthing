@@ -464,9 +464,9 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	m.fmut.RLock()
+	m.fmut.Lock()
 	wait := m.folderRunners.RemoveAndWaitChan(cfg.ID, 0)
-	m.fmut.RUnlock()
+	m.fmut.Unlock()
 	<-wait
 
 	// We need to hold both fmut and pmut and must acquire locks in the same
@@ -535,9 +535,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	restartMut.Lock()
 	defer restartMut.Unlock()
 
-	m.fmut.RLock()
+	m.fmut.Lock()
 	wait := m.folderRunners.RemoveAndWaitChan(from.ID, 0)
-	m.fmut.RUnlock()
+	m.fmut.Unlock()
 	<-wait
 
 	m.fmut.Lock()
