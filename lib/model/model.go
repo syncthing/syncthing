@@ -464,15 +464,17 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	m.fmut.Lock()
-	wait := m.folderRunners.RemoveAndWaitChan(cfg.ID, 0)
-	m.fmut.Unlock()
+	m.fmut.RLock()
+	wait, deleteRunner := m.folderRunners.RemoveAndWaitChan(cfg.ID, 0)
+	m.fmut.RUnlock()
 	<-wait
 
 	// We need to hold both fmut and pmut and must acquire locks in the same
 	// order always. (The locks can be *released* in any order.)
 	m.fmut.Lock()
 	m.pmut.RLock()
+
+	deleteRunner() // must happen under fmut
 
 	isPathUnique := true
 	for folderID, folderCfg := range m.folderCfgs {
@@ -535,13 +537,15 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	restartMut.Lock()
 	defer restartMut.Unlock()
 
-	m.fmut.Lock()
-	wait := m.folderRunners.RemoveAndWaitChan(from.ID, 0)
-	m.fmut.Unlock()
+	m.fmut.RLock()
+	wait, deleteRunner := m.folderRunners.RemoveAndWaitChan(from.ID, 0)
+	m.fmut.RUnlock()
 	<-wait
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
+
+	deleteRunner() // must happen under fmut
 
 	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
 	fset := m.folderFiles[folder]
@@ -1907,7 +1911,9 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	if removedIsPrimary {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 		if idxh, ok := m.indexHandlers.Get(deviceID); ok && idxh.conn.ConnectionID() == connID {
-			wait = m.indexHandlers.RemoveAndWaitChan(deviceID, 0)
+			var deleteIndexHandler func()
+			wait, deleteIndexHandler = m.indexHandlers.RemoveAndWaitChan(deviceID, 0)
+			deleteIndexHandler()
 		}
 		m.scheduleConnectionPromotion()
 	}

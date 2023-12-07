@@ -76,14 +76,22 @@ func (s *serviceMap[K, S]) Remove(k K) (found bool) {
 // supervisor. Returns errSvcNotFound if there is no service at the given
 // key, otherwise the return value from the supervisor's RemoveAndWait.
 func (s *serviceMap[K, S]) RemoveAndWait(k K, timeout time.Duration) error {
-	return <-s.RemoveAndWaitChan(k, timeout)
+	res, del := s.RemoveAndWaitChan(k, timeout)
+	del()
+	return <-res
 }
 
 // RemoveAndWaitChan removes the service at the given key, stopping it on
 // the supervisor. The returned channel will produce precisely one error
 // value: either the return value from RemoveAndWait (possibly nil), or
-// errSvcNotFound if the service was not found.
-func (s *serviceMap[K, S]) RemoveAndWaitChan(k K, timeout time.Duration) <-chan error {
+// errSvcNotFound if the service was not found. The returned function
+// performs the actual delete.
+//
+// N.b. this is an advanced function for specific locking situations that is
+// hard to use correctly. RemoveAndWaitChan can be called under a read lock,
+// but the delete function must be called under a write lock. Prefer
+// RemoveAndWait.
+func (s *serviceMap[K, S]) RemoveAndWaitChan(k K, timeout time.Duration) (<-chan error, func()) {
 	ret := make(chan error, 1)
 	if tok, ok := s.tokens[k]; ok {
 		go func() {
@@ -92,9 +100,11 @@ func (s *serviceMap[K, S]) RemoveAndWaitChan(k K, timeout time.Duration) <-chan 
 	} else {
 		ret <- errSvcNotFound
 	}
-	delete(s.services, k)
-	delete(s.tokens, k)
-	return ret
+	del := func() {
+		delete(s.services, k)
+		delete(s.tokens, k)
+	}
+	return ret, del
 }
 
 // Each calls the given function for each service in the map. An error from
