@@ -411,7 +411,7 @@
     "TCP WAN": "TCP WAN",
     "Take me back": "Powrót",
     "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "Adres GUI jest nadpisywany przez opcje uruchamiania. Zmiany dokonane tutaj nie będą obowiązywać, dopóki nadpisywanie jest w użyciu.",
-    "The Syncthing Authors": "The Syncthing Authors",
+    "The Syncthing Authors": "Twórcy Syncthing",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Ustawienia interfejsu administracyjnego aplikacji Syncthing zezwalają na zdalny dostęp bez hasła.",
     "The aggregated statistics are publicly available at the URL below.": "Zebrane statystyki są publicznie dostępne pod poniższym adresem.",
     "The cleanup interval cannot be blank.": "Przedział czasowy czyszczenia nie może być pusty.",

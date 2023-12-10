@@ -546,7 +546,7 @@
         }
     },
     "unknown device": "непознато устройство",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} споделя папката „{{folder}}“.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} споделя папката „{{folderlabel}}“ ({{folder}}).",
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} иска папката „{{folder}}“ да бъде споделена.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} иска папката „{{folderlabel}}“ ({{folder}}) да бъде споделена.",
     "{%reintroducer%} might reintroduce this device.": "Поръчителят {{reintroducer}} може отново да предложи това устройство."
 }
