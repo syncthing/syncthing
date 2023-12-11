@@ -902,13 +902,13 @@ func TestIssue5063(t *testing.T) {
 	defer cleanupModel(m)
 	defer cancel()
 
-	m.pmut.Lock()
+	m.fmut.Lock()
 	for _, c := range m.connections {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
 		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
 	}
-	m.pmut.Unlock()
+	m.fmut.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -2973,7 +2973,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	ci := &protocolmocks.ConnectionInfo{}
 	ci.ConnectionIDReturns(srand.String(16))
 	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
-	m.pmut.RLock()
+	m.fmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))
 	}
@@ -2981,7 +2981,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	for _, c := range m.closed {
 		closed = c
 	}
-	m.pmut.RUnlock()
+	m.fmut.RUnlock()
 
 	waiter, err := w.RemoveDevice(device1)
 	if err != nil {
@@ -3074,12 +3074,12 @@ func TestDevicePause(t *testing.T) {
 	sub := m.evLogger.Subscribe(events.DevicePaused)
 	defer sub.Unsubscribe()
 
-	m.pmut.RLock()
+	m.fmut.RLock()
 	var closed chan struct{}
 	for _, c := range m.closed {
 		closed = c
 	}
-	m.pmut.RUnlock()
+	m.fmut.RUnlock()
 
 	pauseDevice(t, m.cfg, device1, true)
 
