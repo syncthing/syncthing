@@ -28,7 +28,7 @@ type configCommand struct {
 	Args []string `arg:"" default:"-h"`
 }
 
-func (c *configCommand) Run(ctx Context, kongCtx *kong.Context) error {
+func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
 	app := cli.NewApp()
 	app.Name = "syncthing"
 	app.Author = "The Syncthing Authors"

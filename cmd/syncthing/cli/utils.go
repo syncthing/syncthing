@@ -84,13 +84,17 @@ func saveToFile(url string, apiClientFactory *apiClientFactory) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	_, err = f.Write(bs)
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	err = f.Close()
 	if err != nil {
 		return err
 	}
 	fmt.Println("Wrote results to", filename)
-	return err
+	return nil
 }
 
 func getConfig(c APIClient) (config.Configuration, error) {

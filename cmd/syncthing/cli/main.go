@@ -82,9 +82,8 @@ func (*stdinCommand) Run() error {
 			if _, ok := err.(*exec.ExitError); ok {
 				// we will continue loop no matter the command succeeds or not
 				continue
-			} else {
-				return err
 			}
+			return err
 		}
 	}
 	return scanner.Err()
