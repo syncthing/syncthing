@@ -194,7 +194,15 @@ func main() {
 		cfg.Options.NATTimeoutS = natTimeout
 	})
 	natSvc := nat.NewService(id, wrapper)
-	mapping := mapping{natSvc.NewMapping(nat.TCP, addr.IP, addr.Port)}
+	var ipVersion nat.IPVersion
+	if strings.HasSuffix(proto, "4") {
+		ipVersion = nat.IPv4Only
+	} else if strings.HasSuffix(proto, "6") {
+		ipVersion = nat.IPv6Only
+	} else {
+		ipVersion = nat.IPvAny
+	}
+	mapping := mapping{natSvc.NewMapping(nat.TCP, ipVersion, addr.IP, addr.Port)}
 
 	if natEnabled {
 		ctx, cancel := context.WithCancel(context.Background())

@@ -19,9 +19,19 @@ const (
 	UDP Protocol = "UDP"
 )
 
+type IPVersion int8
+
+const (
+	IPvAny = iota
+	IPv4Only
+	IPv6Only
+)
+
 type Device interface {
 	ID() string
-	GetLocalIPAddress() net.IP
+	GetLocalIPv4Address() net.IP
 	AddPortMapping(ctx context.Context, protocol Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error)
-	GetExternalIPAddress(ctx context.Context) (net.IP, error)
+	AddPinhole(ctx context.Context, protocol Protocol, addr Address, duration time.Duration) ([]net.IP, error)
+	GetExternalIPv4Address(ctx context.Context) (net.IP, error)
+	SupportsIPVersion(version IPVersion) bool
 }
