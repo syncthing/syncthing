@@ -88,7 +88,7 @@ func (f *mtimeFS) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if mtimeMapping.Real == info.ModTime() {
+	if mtimeMapping.Real.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,
@@ -108,7 +108,7 @@ func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if mtimeMapping.Real == info.ModTime() {
+	if mtimeMapping.Real.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,
@@ -215,7 +215,7 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if mtimeMapping.Real == info.ModTime() {
+	if mtimeMapping.Real.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
 			mtime:    mtimeMapping.Virtual,

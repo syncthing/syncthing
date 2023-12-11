@@ -143,7 +143,8 @@ table.table-auto td {
     max-width: 0px;
 }
 
-td input[type="checkbox"] {
+/* Tag name is needed for selector to be specific enough to override Bootstrap style */
+input[type="checkbox"].extended-attributes-filter-rule-checkbox {
     margin-top: 13px;
 }
 
@@ -179,7 +180,7 @@ td input[type="checkbox"] {
     margin-right: .14285715em;
 }
 
-.remote-devices-panel {
+.inline-icon {
     display: inline-block;
 }
 
@@ -459,15 +460,17 @@ ul.three-columns li, ul.two-columns li {
 }
 
 @media (max-width: 419px) {
-    /* the selectors are build to target only the content of folder and device
-       panels as it would "destroy" e.g. out of sync or recent changes listings */
+    /* The selectors are build to target only the content of folder and device
+       panels as it would "destroy" e.g. out of sync or recent changes listings.
+       The !important is needed to override .visible-xs that sets display to a
+       specific table element instead of block. */
     div[id^='device-'].panel-collapse table,
     div[id^='folder-'].panel-collapse table,
     div[id^='device-'].panel-collapse tbody,
     div[id^='folder-'].panel-collapse tbody,
     div[id^='device-'].panel-collapse tr,
     div[id^='folder-'].panel-collapse tr {
-        display: block;
+        display: block !important;
     }
     div[id^='device-'].panel-collapse th,
     div[id^='folder-'].panel-collapse th,

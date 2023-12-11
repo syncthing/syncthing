@@ -6,27 +6,32 @@ on:
       - infrastructure
 
 env:
-    GO_VERSION: "~1.21.1"
-    CGO_ENABLED: "0"
-    BUILD_USER: docker
-    BUILD_HOST: github.syncthing.net
+  GO_VERSION: "~1.21.5"
+  CGO_ENABLED: "0"
+  BUILD_USER: docker
+  BUILD_HOST: github.syncthing.net
 
 jobs:
-
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
     environment: docker
     strategy:
-        matrix:
-            pkg:
-                - stcrashreceiver
-                - strelaypoolsrv
-                - stupgrades
+      matrix:
+        pkg:
+          - stcrashreceiver
+          - strelaypoolsrv
+          - stupgrades
+          - ursrv
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -52,3 +57,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: syncthing/${{ matrix.pkg }}:latest,syncthing/${{ matrix.pkg }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}

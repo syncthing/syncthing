@@ -452,10 +452,14 @@
     "full documentation": "dokumentasi penuh",
     "items": "berkas",
     "seconds": "detik",
-    "theme-name-black": "Hitam",
-    "theme-name-dark": "Gelap",
-    "theme-name-default": "Bawaan",
-    "theme-name-light": "Terang",
+    "theme": {
+        "name": {
+            "black": "Hitam",
+            "dark": "Gelap",
+            "default": "Bawaan",
+            "light": "Terang"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ingin berbagi folder \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ingin berbagi folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} mungkin memperkenalkan ulang perangkat ini."

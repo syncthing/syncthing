@@ -292,7 +292,6 @@
     "QR code": "Codi QR",
     "QUIC LAN": "Xarxa QUIC LAN",
     "QUIC WAN": "Xarxa QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "En la majoria dels casos, les connexions QUIC es consideren subòptimes",
     "Quick guide to supported patterns": "Guía ràpida de patrons suportats",
     "Random": "Aleatori",
     "Receive Encrypted": "Rebre xifrat",
@@ -518,10 +517,14 @@
     "modified": "modificat",
     "permit": "permís",
     "seconds": "segons",
-    "theme-name-black": "Negre",
-    "theme-name-dark": "Fosc",
-    "theme-name-default": "Per defecte",
-    "theme-name-light": "Clar",
+    "theme": {
+        "name": {
+            "black": "Negre",
+            "dark": "Fosc",
+            "default": "Per defecte",
+            "light": "Clar"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vol compartit la carpeta \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vol compartir la carpeta \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} podria tornar a introduir aquest dispositiu."

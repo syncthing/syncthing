@@ -47,7 +47,6 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -365,15 +364,15 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
+	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		sessionCookieName := "sessionid-" + s.id.String()[:5]
-		handler = basicAuthAndSessionMiddleware(sessionCookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		sessionCookieName := "sessionid-" + s.id.Short().String()
+		handler = basicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
 
@@ -719,6 +718,7 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 	meta, _ := json.Marshal(map[string]interface{}{
 		"deviceID":      s.id.String(),
+		"deviceIDShort": s.id.Short().String(),
 		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
@@ -1348,11 +1348,6 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	lines, patterns, err := s.model.LoadIgnores(folder)
-	if err != nil && !ignore.IsParseError(err) {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	sendJSON(w, map[string]interface{}{
 		"ignore":   lines,
 		"expanded": patterns,

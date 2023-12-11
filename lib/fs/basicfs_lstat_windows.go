@@ -18,15 +18,17 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func isDirectoryJunction(path string) (bool, error) {
+const IO_REPARSE_TAG_DEDUP = 0x80000013
+
+func readReparseTag(path string) (uint32, error) {
 	namep, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return false, fmt.Errorf("syscall.UTF16PtrFromString failed with: %s", err)
+		return 0, fmt.Errorf("syscall.UTF16PtrFromString failed with: %s", err)
 	}
 	attrs := uint32(syscall.FILE_FLAG_BACKUP_SEMANTICS | syscall.FILE_FLAG_OPEN_REPARSE_POINT)
 	h, err := syscall.CreateFile(namep, 0, 0, nil, syscall.OPEN_EXISTING, attrs, 0)
 	if err != nil {
-		return false, fmt.Errorf("syscall.CreateFile failed with: %s", err)
+		return 0, fmt.Errorf("syscall.CreateFile failed with: %s", err)
 	}
 	defer syscall.CloseHandle(h)
 
@@ -47,10 +49,19 @@ func isDirectoryJunction(path string) (bool, error) {
 			// instance to indicate no symlinks are possible.
 			ti.ReparseTag = 0
 		} else {
-			return false, fmt.Errorf("windows.GetFileInformationByHandleEx failed with: %s", err)
+			return 0, fmt.Errorf("windows.GetFileInformationByHandleEx failed with: %s", err)
 		}
 	}
-	return ti.ReparseTag == windows.IO_REPARSE_TAG_MOUNT_POINT, nil
+
+	return ti.ReparseTag, nil
+}
+
+func isDirectoryJunction(reparseTag uint32) bool {
+	return reparseTag == windows.IO_REPARSE_TAG_MOUNT_POINT
+}
+
+func isDeduplicatedFile(reparseTag uint32) bool {
+	return reparseTag == IO_REPARSE_TAG_DEDUP
 }
 
 type dirJunctFileInfo struct {
@@ -67,17 +78,38 @@ func (fi *dirJunctFileInfo) IsDir() bool {
 	return true
 }
 
+type dedupFileInfo struct {
+	os.FileInfo
+}
+
+func (fi *dedupFileInfo) Mode() os.FileMode {
+	// A deduplicated file should be treated as a regular file and not an
+	// irregular file.
+	return fi.FileInfo.Mode() &^ os.ModeIrregular
+}
+
 func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
 	var fi, err = os.Lstat(name)
 
-	// NTFS directory junctions can be treated as ordinary directories,
-	// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
-	if err == nil && f.junctionsAsDirs && fi.Mode()&os.ModeSymlink != 0 {
-		var isJunct bool
-		isJunct, err = isDirectoryJunction(name)
-		if err == nil && isJunct {
-			return &dirJunctFileInfo{fi}, nil
+	// There are cases where files are tagged as symlink, but they end up being
+	// something else. Make sure we properly handle those types.
+	if err == nil {
+		// NTFS directory junctions can be treated as ordinary directories,
+		// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
+		if fi.Mode()&os.ModeSymlink != 0 && f.junctionsAsDirs {
+			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDirectoryJunction(reparseTag) {
+				return &dirJunctFileInfo{fi}, nil
+			}
+		}
+
+		// Workaround for #9120 till golang properly handles deduplicated files by
+		// considering them regular files.
+		if fi.Mode()&os.ModeIrregular != 0 {
+			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDeduplicatedFile(reparseTag) {
+				return &dedupFileInfo{fi}, nil
+			}
 		}
 	}
+
 	return fi, err
 }

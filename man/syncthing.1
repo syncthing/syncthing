@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Sep 30, 2023" "v1.24.0" "Syncthing"
+.TH "SYNCTHING" "1" "Dec 04, 2023" "v1.27.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -121,7 +121,11 @@ Generate key and config in specified dir, then exit.
 .TP
 .B \-\-gui\-address=<address>
 Override GUI listen address. Set this to an address (\fB0.0.0.0:8384\fP)
-or file path (\fB/var/run/st.sock\fP, for UNIX sockets).
+or a URL (\fBhttp://0.0.0.0:8384\fP). Supported schemes are \fBhttp\fP for
+plain HTTP, \fBhttps\fP for HTTP over TLS, \fBunix\fP for plain Unix sockets
+or \fBunixs\fP for TLS over Unix sockets. A Unix socket could look like this:
+\fBunix:///run/syncthing/syncthing.socket\fP (notice the three slashes: two
+as part of the URL structure, one to specify an absolute path).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -132,9 +136,10 @@ Override the API key needed to access the GUI / REST API.
 .TP
 .B \-\-gui\-password=<password|\->
 Specify new GUI authentication password, to update the config file.  Read
-from the standard input stream if only a single dash (\fB\-\fP) is given.  The
-password is hashed before writing to the config file.  As a special case,
-giving the existing password hash as password will leave it untouched.
+from the standard input stream if only a single dash (\fB\-\fP) is given.  A
+plaintext password is hashed before writing to the config file, but an
+already bcrypt\-hashed input is stored verbatim.  As a special case, giving
+the existing password hash as password will leave it untouched.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -151,7 +156,8 @@ given subcommand.
 .TP
 .B \-\-home=<dir>
 Set common configuration and data directory. The default configuration
-directory is \fB$HOME/.config/syncthing\fP (Unix\-like),
+directory is \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP (Unix\-like),
 \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
 \fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
 .UNINDENT

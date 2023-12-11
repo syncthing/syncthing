@@ -465,7 +465,7 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	m.fmut.RLock()
-	wait := m.folderRunners.RemoveAndWaitChan(cfg.ID, 0)
+	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
 	m.fmut.RUnlock()
 	<-wait
 
@@ -507,6 +507,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 // Need to hold lock on m.fmut when calling this.
 func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// clear up our config maps
+	m.folderRunners.Remove(cfg.ID)
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
@@ -536,7 +537,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	defer restartMut.Unlock()
 
 	m.fmut.RLock()
-	wait := m.folderRunners.RemoveAndWaitChan(from.ID, 0)
+	wait := m.folderRunners.StopAndWaitChan(from.ID, 0)
 	m.fmut.RUnlock()
 	<-wait
 
@@ -811,11 +812,18 @@ func (m *model) ConnectionStats() map[string]interface{} {
 func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
 	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
 		if err != nil {
 			return nil, err
+		}
+		if len(m.deviceConnIDs[id]) > 0 {
+			// If a device is currently connected, we can see them right
+			// now.
+			stats.LastSeen = time.Now().Truncate(time.Second)
 		}
 		res[id] = stats
 	}
@@ -1346,6 +1354,9 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 	deviceID := conn.DeviceID()
 	connID := conn.ConnectionID()
 
+	// We must acquire fmut first when acquiring both locks.
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	m.pmut.Lock()
 	defer m.pmut.Unlock()
 
@@ -2480,6 +2491,7 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 func (m *model) deviceDidCloseFRLocked(deviceID protocol.DeviceID, duration time.Duration) {
 	if sr, ok := m.deviceStatRefs[deviceID]; ok {
 		_ = sr.LastConnectionDuration(duration)
+		_ = sr.WasSeen()
 	}
 }
 
