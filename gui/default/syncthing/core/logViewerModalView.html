@@ -29,11 +29,9 @@
     </div>
   </div>
   <div class="modal-footer">
-    <div>
+    <div class="form-group text-left">
+      <label for="logSearchInput">Filter</label>
       <input type="text" id="logSearchInput" class="form-control" style="margin-bottom: 10px;" ng-keyup="logging.filter_input($event)">
-      <div>
-          <input type="checkbox" ng-click="logging.isCaseSensitive = !logging.isCaseSensitive"><span>Case Sensitive</span>
-      </div>
     </div>
     
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">

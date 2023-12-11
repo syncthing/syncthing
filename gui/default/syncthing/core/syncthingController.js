@@ -1518,7 +1518,7 @@ angular.module('syncthing.core')
                 }
 
                 $.each(array, function (idx, entry) {
-                    let msg = !$scope.logging.isCaseSensitive ? entry.message.toLowerCase() : entry.message;
+                    let msg = entry.message;
                     if (msg.includes(search_query)) {
                         $scope.logging.filtered.push(entry);
                     }
@@ -1526,12 +1526,12 @@ angular.module('syncthing.core')
             },
             
             filter_input: function(event) {
-                let query = !$scope.logging.isCaseSensitive ? event.target.value.toLowerCase() : event.target.value;
+                let query = event.target.value;
                 $scope.logging.filtered.length = 0; // clears prevents "double writing" in the console
-                $scope.logging.filter(query, $scope.logging.entries);
-
                 $scope.logging.isFiltering = true;
                 $scope.logging.lastFilterQuery = query;
+
+                $scope.logging.filter(query, $scope.logging.entries);
             },
 
             fetch: function () {
