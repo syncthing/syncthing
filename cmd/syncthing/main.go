@@ -32,6 +32,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/thejerf/suture/v4"
+	"github.com/willabides/kongplete"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -247,6 +248,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	kongplete.Complete(parser)
 	ctx, err := parser.Parse(args)
 	parser.FatalIfErrorf(err)
 	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
