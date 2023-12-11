@@ -46,7 +46,6 @@ func (s *serviceMap[K, S]) Add(k K, v S) {
 	if tok, ok := s.tokens[k]; ok {
 		// There is already a service at this key, remove it first.
 		s.supervisor.Remove(tok)
-		s.eventLogger.Log(events.Failure, fmt.Sprintf("%s replaced service at key %v", s, k))
 	}
 	s.services[k] = v
 	s.tokens[k] = s.supervisor.Add(v)
