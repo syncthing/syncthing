@@ -8,165 +8,83 @@ package cli
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"os"
-	"strings"
+	"os/exec"
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
-	"github.com/urfave/cli"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 )
 
-type preCli struct {
+type CLI struct {
+	cmdutil.CommonOptions
+	DataDir    string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 	GUIAddress string `name:"gui-address"`
 	GUIAPIKey  string `name:"gui-apikey"`
-	HomeDir    string `name:"home"`
-	ConfDir    string `name:"config"`
-	DataDir    string `name:"data"`
+
+	Show       showCommand      `cmd:"" help:"Show command group"`
+	Debug      debugCommand     `cmd:"" help:"Debug command group"`
+	Operations operationCommand `cmd:"" help:"Operation command group"`
+	Errors     errorsCommand    `cmd:"" help:"Error command group"`
+	Config     configCommand    `cmd:"" help:"Configuration modification command group" passthrough:""`
+	Stdin      stdinCommand     `cmd:"" name:"-" help:"Read commands from stdin"`
 }
 
-func Run() error {
-	// This is somewhat a hack around a chicken and egg problem. We need to set
-	// the home directory and potentially other flags to know where the
-	// syncthing instance is running in order to get it's config ... which we
-	// then use to construct the actual CLI ... at which point it's too late to
-	// add flags there...
-	c := preCli{}
-	parseFlags(&c)
-	return runInternal(c, os.Args)
+type Context struct {
+	clientFactory *apiClientFactory
 }
 
-func RunWithArgs(cliArgs []string) error {
-	c := preCli{}
-	parseFlagsWithArgs(cliArgs, &c)
-	return runInternal(c, cliArgs)
-}
-
-func runInternal(c preCli, cliArgs []string) error {
-	// Not set as default above because the strings can be really long.
-	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
+func (cli CLI) AfterApply(kongCtx *kong.Context) error {
+	err := cmdutil.SetConfigDataLocationsFromFlags(cli.HomeDir, cli.ConfDir, cli.DataDir)
 	if err != nil {
-		return fmt.Errorf("Command line options: %w", err)
+		return fmt.Errorf("command line options: %w", err)
 	}
+
 	clientFactory := &apiClientFactory{
 		cfg: config.GUIConfiguration{
-			RawAddress: c.GUIAddress,
-			APIKey:     c.GUIAPIKey,
+			RawAddress: cli.GUIAddress,
+			APIKey:     cli.GUIAPIKey,
 		},
 	}
 
-	configCommand, err := getConfigCommand(clientFactory)
-	if err != nil {
-		return err
+	context := Context{
+		clientFactory: clientFactory,
 	}
 
-	// Implement the same flags at the upper CLI, but do nothing with them.
-	// This is so that the usage text is the same
-	fakeFlags := []cli.Flag{
-		cli.StringFlag{
-			Name:  "gui-address",
-			Usage: "Override GUI address to `URL` (e.g. \"192.0.2.42:8443\")",
-		},
-		cli.StringFlag{
-			Name:  "gui-apikey",
-			Usage: "Override GUI API key to `API-KEY`",
-		},
-		cli.StringFlag{
-			Name:  "home",
-			Usage: "Set configuration and data directory to `PATH`",
-		},
-		cli.StringFlag{
-			Name:  "config",
-			Usage: "Set configuration directory (config and keys) to `PATH`",
-		},
-		cli.StringFlag{
-			Name:  "data",
-			Usage: "Set data directory (database and logs) to `PATH`",
-		},
-	}
-
-	// Construct the actual CLI
-	app := cli.NewApp()
-	app.Author = "The Syncthing Authors"
-	app.Metadata = map[string]interface{}{
-		"clientFactory": clientFactory,
-	}
-	app.Commands = []cli.Command{{
-		Name:  "cli",
-		Usage: "Syncthing command line interface",
-		Flags: fakeFlags,
-		Subcommands: []cli.Command{
-			configCommand,
-			showCommand,
-			operationCommand,
-			errorsCommand,
-			debugCommand,
-			{
-				Name:     "-",
-				HideHelp: true,
-				Usage:    "Read commands from stdin",
-				Action: func(ctx *cli.Context) error {
-					if ctx.NArg() > 0 {
-						return errors.New("command does not expect any arguments")
-					}
-
-					// Drop the `-` not to recurse into self.
-					args := make([]string, len(cliArgs)-1)
-					copy(args, cliArgs)
-
-					fmt.Println("Reading commands from stdin...", args)
-					scanner := bufio.NewScanner(os.Stdin)
-					for scanner.Scan() {
-						input, err := shlex.Split(scanner.Text())
-						if err != nil {
-							return fmt.Errorf("parsing input: %w", err)
-						}
-						if len(input) == 0 {
-							continue
-						}
-						err = app.Run(append(args, input...))
-						if err != nil {
-							return err
-						}
-					}
-					return scanner.Err()
-				},
-			},
-		},
-	}}
-
-	return app.Run(cliArgs)
+	kongCtx.Bind(context)
+	return nil
 }
 
-func parseFlags(c *preCli) error {
-	// kong only needs to parse the global arguments after "cli" and before the
-	// subcommand (if any).
-	if len(os.Args) <= 2 {
-		return nil
-	}
-	return parseFlagsWithArgs(os.Args[2:], c)
-}
+type stdinCommand struct{}
 
-func parseFlagsWithArgs(args []string, c *preCli) error {
-	for i := 0; i < len(args); i++ {
-		if !strings.HasPrefix(args[i], "--") {
-			args = args[:i]
-			break
+func (*stdinCommand) Run() error {
+	// Drop the `-` not to recurse into self.
+	args := make([]string, len(os.Args)-1)
+	copy(args, os.Args)
+
+	fmt.Println("Reading commands from stdin...", args)
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		input, err := shlex.Split(scanner.Text())
+		if err != nil {
+			return fmt.Errorf("parsing input: %w", err)
 		}
-		if !strings.Contains(args[i], "=") {
-			i++
+		if len(input) == 0 {
+			continue
+		}
+		cmd := exec.Command(os.Args[0], append(args[1:], input...)...)
+		out, err := cmd.CombinedOutput()
+		fmt.Print(string(out))
+		if err != nil {
+			if _, ok := err.(*exec.ExitError); ok {
+				// we will continue loop no matter the command succeeds or not
+				continue
+			}
+			return err
 		}
 	}
-	// We don't want kong to print anything nor os.Exit (e.g. on -h)
-	parser, err := kong.New(c, kong.Writers(io.Discard, io.Discard), kong.Exit(func(int) {}))
-	if err != nil {
-		return err
-	}
-	_, err = parser.Parse(args)
-	return err
+	return scanner.Err()
 }

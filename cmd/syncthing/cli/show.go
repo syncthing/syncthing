@@ -7,44 +7,36 @@
 package cli
 
 import (
-	"github.com/urfave/cli"
+	"github.com/alecthomas/kong"
 )
 
-var showCommand = cli.Command{
-	Name:     "show",
-	HideHelp: true,
-	Usage:    "Show command group",
-	Subcommands: []cli.Command{
-		{
-			Name:   "version",
-			Usage:  "Show syncthing client version",
-			Action: expects(0, indexDumpOutput("system/version")),
-		},
-		{
-			Name:   "config-status",
-			Usage:  "Show configuration status, whether or not a restart is required for changes to take effect",
-			Action: expects(0, indexDumpOutput("config/restart-required")),
-		},
-		{
-			Name:   "system",
-			Usage:  "Show system status",
-			Action: expects(0, indexDumpOutput("system/status")),
-		},
-		{
-			Name:   "connections",
-			Usage:  "Report about connections to other devices",
-			Action: expects(0, indexDumpOutput("system/connections")),
-		},
-		{
-			Name:   "discovery",
-			Usage:  "Show the discovered addresses of remote devices (from cache of the running syncthing instance)",
-			Action: expects(0, indexDumpOutput("system/discovery")),
-		},
-		pendingCommand,
-		{
-			Name:   "usage",
-			Usage:  "Show usage report",
-			Action: expects(0, indexDumpOutput("svc/report")),
-		},
-	},
+type showCommand struct {
+	Version      struct{}       `cmd:"" help:"Show syncthing client version"`
+	ConfigStatus struct{}       `cmd:"" help:"Show configuration status, whether or not a restart is required for changes to take effect"`
+	System       struct{}       `cmd:"" help:"Show system status"`
+	Connections  struct{}       `cmd:"" help:"Report about connections to other devices"`
+	Discovery    struct{}       `cmd:"" help:"Show the discovered addresses of remote devices (from cache of the running syncthing instance)"`
+	Usage        struct{}       `cmd:"" help:"Show usage report"`
+	Pending      pendingCommand `cmd:"" help:"Pending subcommand group"`
+}
+
+func (*showCommand) Run(ctx Context, kongCtx *kong.Context) error {
+	indexDumpOutput := indexDumpOutputWrapper(ctx.clientFactory)
+
+	switch kongCtx.Selected().Name {
+	case "version":
+		return indexDumpOutput("system/version")
+	case "config-status":
+		return indexDumpOutput("config/restart-required")
+	case "system":
+		return indexDumpOutput("system/status")
+	case "connections":
+		return indexDumpOutput("system/connections")
+	case "discovery":
+		return indexDumpOutput("system/discovery")
+	case "usage":
+		return indexDumpOutput("svc/report")
+	}
+
+	return nil
 }
