@@ -531,11 +531,6 @@ type Model struct {
 	setIgnoresReturnsOnCall map[int]struct {
 		result1 error
 	}
-	StartDeadlockDetectorStub        func(time.Duration)
-	startDeadlockDetectorMutex       sync.RWMutex
-	startDeadlockDetectorArgsForCall []struct {
-		arg1 time.Duration
-	}
 	StateStub        func(string) (string, time.Time, error)
 	stateMutex       sync.RWMutex
 	stateArgsForCall []struct {
@@ -3070,38 +3065,6 @@ func (fake *Model) SetIgnoresReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) StartDeadlockDetector(arg1 time.Duration) {
-	fake.startDeadlockDetectorMutex.Lock()
-	fake.startDeadlockDetectorArgsForCall = append(fake.startDeadlockDetectorArgsForCall, struct {
-		arg1 time.Duration
-	}{arg1})
-	stub := fake.StartDeadlockDetectorStub
-	fake.recordInvocation("StartDeadlockDetector", []interface{}{arg1})
-	fake.startDeadlockDetectorMutex.Unlock()
-	if stub != nil {
-		fake.StartDeadlockDetectorStub(arg1)
-	}
-}
-
-func (fake *Model) StartDeadlockDetectorCallCount() int {
-	fake.startDeadlockDetectorMutex.RLock()
-	defer fake.startDeadlockDetectorMutex.RUnlock()
-	return len(fake.startDeadlockDetectorArgsForCall)
-}
-
-func (fake *Model) StartDeadlockDetectorCalls(stub func(time.Duration)) {
-	fake.startDeadlockDetectorMutex.Lock()
-	defer fake.startDeadlockDetectorMutex.Unlock()
-	fake.StartDeadlockDetectorStub = stub
-}
-
-func (fake *Model) StartDeadlockDetectorArgsForCall(i int) time.Duration {
-	fake.startDeadlockDetectorMutex.RLock()
-	defer fake.startDeadlockDetectorMutex.RUnlock()
-	argsForCall := fake.startDeadlockDetectorArgsForCall[i]
-	return argsForCall.arg1
-}
-
 func (fake *Model) State(arg1 string) (string, time.Time, error) {
 	fake.stateMutex.Lock()
 	ret, specificReturn := fake.stateReturnsOnCall[len(fake.stateArgsForCall)]
@@ -3351,8 +3314,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.serveMutex.RUnlock()
 	fake.setIgnoresMutex.RLock()
 	defer fake.setIgnoresMutex.RUnlock()
-	fake.startDeadlockDetectorMutex.RLock()
-	defer fake.startDeadlockDetectorMutex.RUnlock()
 	fake.stateMutex.RLock()
 	defer fake.stateMutex.RUnlock()
 	fake.usageReportingStatsMutex.RLock()
