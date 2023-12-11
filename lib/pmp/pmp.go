@@ -92,7 +92,7 @@ func (w *wrapper) ID() string {
 	return fmt.Sprintf("NAT-PMP@%s", w.gatewayIP.String())
 }
 
-func (w *wrapper) GetLocalIPAddress() net.IP {
+func (w *wrapper) GetLocalIPv4Address() net.IP {
 	return w.localIP
 }
 
@@ -116,7 +116,18 @@ func (w *wrapper) AddPortMapping(ctx context.Context, protocol nat.Protocol, int
 	return port, err
 }
 
-func (w *wrapper) GetExternalIPAddress(ctx context.Context) (net.IP, error) {
+func (*wrapper) AddPinhole(_ context.Context, _ nat.Protocol, _ nat.Address, _ time.Duration) ([]net.IP, error) {
+	// NAT-PMP doesn't support pinholes.
+	return nil, errors.New("adding IPv6 pinholes is unsupported on NAT-PMP")
+}
+
+func (*wrapper) SupportsIPVersion(version nat.IPVersion) bool {
+	// NAT-PMP gateways should always try to create port mappings and not pinholes
+	// since NAT-PMP doesn't support IPv6.
+	return version == nat.IPvAny || version == nat.IPv4Only
+}
+
+func (w *wrapper) GetExternalIPv4Address(ctx context.Context) (net.IP, error) {
 	var result *natpmp.GetExternalAddressResult
 	err := svcutil.CallWithContext(ctx, func() error {
 		var err error

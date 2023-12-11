@@ -15,8 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/sasha-s/go-deadlock"
 )
 
 var timeNow = time.Now
@@ -39,9 +37,6 @@ type WaitGroup interface {
 }
 
 func NewMutex() Mutex {
-	if useDeadlock {
-		return &deadlock.Mutex{}
-	}
 	if debug {
 		mutex := &loggedMutex{}
 		mutex.holder.Store(holder{})
@@ -51,9 +46,6 @@ func NewMutex() Mutex {
 }
 
 func NewRWMutex() RWMutex {
-	if useDeadlock {
-		return &deadlock.RWMutex{}
-	}
 	if debug {
 		mutex := &loggedRWMutex{
 			readHolders: make(map[int][]holder),

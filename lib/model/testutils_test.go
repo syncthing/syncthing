@@ -295,9 +295,9 @@ func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderCon
 	m.removeFolder(fcfg)
 	fset := newFileSet(t, fcfg.ID, m.db)
 	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Lock()
+	m.mut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
-	m.fmut.Unlock()
+	m.mut.Unlock()
 }
 
 func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) protocol.ClusterConfig {
@@ -319,9 +319,9 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) prot
 }
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
-	m.fmut.RLock()
+	m.mut.RLock()
 	fset := m.folderFiles[folder]
-	m.fmut.RUnlock()
+	m.mut.RUnlock()
 
 	fset.Update(protocol.LocalDeviceID, fs)
 	seq := fset.Sequence(protocol.LocalDeviceID)

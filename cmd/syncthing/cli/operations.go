@@ -12,48 +12,43 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/urfave/cli"
 )
 
-var operationCommand = cli.Command{
-	Name:     "operations",
-	HideHelp: true,
-	Usage:    "Operation command group",
-	Subcommands: []cli.Command{
-		{
-			Name:   "restart",
-			Usage:  "Restart syncthing",
-			Action: expects(0, emptyPost("system/restart")),
-		},
-		{
-			Name:   "shutdown",
-			Usage:  "Shutdown syncthing",
-			Action: expects(0, emptyPost("system/shutdown")),
-		},
-		{
-			Name:   "upgrade",
-			Usage:  "Upgrade syncthing (if a newer version is available)",
-			Action: expects(0, emptyPost("system/upgrade")),
-		},
-		{
-			Name:      "folder-override",
-			Usage:     "Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data.",
-			ArgsUsage: "FOLDER-ID",
-			Action:    expects(1, foldersOverride),
-		},
-		{
-			Name:      "default-ignores",
-			Usage:     "Set the default ignores (config) from a file",
-			ArgsUsage: "PATH",
-			Action:    expects(1, setDefaultIgnores),
-		},
-	},
+type folderOverrideCommand struct {
+	FolderID string `arg:""`
 }
 
-func foldersOverride(c *cli.Context) error {
-	client, err := getClientFactory(c).getClient()
+type defaultIgnoresCommand struct {
+	Path string `arg:""`
+}
+
+type operationCommand struct {
+	Restart        struct{}              `cmd:"" help:"Restart syncthing"`
+	Shutdown       struct{}              `cmd:"" help:"Shutdown syncthing"`
+	Upgrade        struct{}              `cmd:"" help:"Upgrade syncthing (if a newer version is available)"`
+	FolderOverride folderOverrideCommand `cmd:"" help:"Override changes on folder (remote for sendonly, local for receiveonly). WARNING: Destructive - deletes/changes your data"`
+	DefaultIgnores defaultIgnoresCommand `cmd:"" help:"Set the default ignores (config) from a file"`
+}
+
+func (*operationCommand) Run(ctx Context, kongCtx *kong.Context) error {
+	f := ctx.clientFactory
+
+	switch kongCtx.Selected().Name {
+	case "restart":
+		return emptyPost("system/restart", f)
+	case "shutdown":
+		return emptyPost("system/shutdown", f)
+	case "upgrade":
+		return emptyPost("system/upgrade", f)
+	}
+	return nil
+}
+
+func (f *folderOverrideCommand) Run(ctx Context) error {
+	client, err := ctx.clientFactory.getClient()
 	if err != nil {
 		return err
 	}
@@ -61,7 +56,7 @@ func foldersOverride(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	rid := c.Args()[0]
+	rid := f.FolderID
 	for _, folder := range cfg.Folders {
 		if folder.ID == rid {
 			response, err := client.Post("db/override", "")
@@ -86,12 +81,12 @@ func foldersOverride(c *cli.Context) error {
 	return fmt.Errorf("Folder %q not found", rid)
 }
 
-func setDefaultIgnores(c *cli.Context) error {
-	client, err := getClientFactory(c).getClient()
+func (d *defaultIgnoresCommand) Run(ctx Context) error {
+	client, err := ctx.clientFactory.getClient()
 	if err != nil {
 		return err
 	}
-	dir, file := filepath.Split(c.Args()[0])
+	dir, file := filepath.Split(d.Path)
 	filesystem := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
 	fd, err := filesystem.Open(file)

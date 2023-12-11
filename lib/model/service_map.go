@@ -46,7 +46,6 @@ func (s *serviceMap[K, S]) Add(k K, v S) {
 	if tok, ok := s.tokens[k]; ok {
 		// There is already a service at this key, remove it first.
 		s.supervisor.Remove(tok)
-		s.eventLogger.Log(events.Failure, fmt.Sprintf("%s replaced service at key %v", s, k))
 	}
 	s.services[k] = v
 	s.tokens[k] = s.supervisor.Add(v)
@@ -59,6 +58,34 @@ func (s *serviceMap[K, S]) Get(k K) (v S, ok bool) {
 	return
 }
 
+// Stop removes the service at the given key from the supervisor, stopping it.
+// The service itself is still retained, i.e. a call to Get with the same key
+// will still return a result.
+func (s *serviceMap[K, S]) Stop(k K) {
+	if tok, ok := s.tokens[k]; ok {
+		s.supervisor.Remove(tok)
+	}
+	return
+}
+
+// StopAndWaitChan removes the service at the given key from the supervisor,
+// stopping it. The service itself is still retained, i.e. a call to Get with
+// the same key will still return a result.
+// The returned channel will produce precisely one error value: either the
+// return value from RemoveAndWait (possibly nil), or errSvcNotFound if the
+// service was not found.
+func (s *serviceMap[K, S]) StopAndWaitChan(k K, timeout time.Duration) <-chan error {
+	ret := make(chan error, 1)
+	if tok, ok := s.tokens[k]; ok {
+		go func() {
+			ret <- s.supervisor.RemoveAndWait(tok, timeout)
+		}()
+	} else {
+		ret <- errSvcNotFound
+	}
+	return ret
+}
+
 // Remove removes the service at the given key, stopping it on the supervisor.
 // If there is no service at the given key, nothing happens. The return value
 // indicates whether a service was removed.
@@ -66,6 +93,8 @@ func (s *serviceMap[K, S]) Remove(k K) (found bool) {
 	if tok, ok := s.tokens[k]; ok {
 		found = true
 		s.supervisor.Remove(tok)
+	} else {
+		_, found = s.services[k]
 	}
 	delete(s.services, k)
 	delete(s.tokens, k)
@@ -84,16 +113,8 @@ func (s *serviceMap[K, S]) RemoveAndWait(k K, timeout time.Duration) error {
 // value: either the return value from RemoveAndWait (possibly nil), or
 // errSvcNotFound if the service was not found.
 func (s *serviceMap[K, S]) RemoveAndWaitChan(k K, timeout time.Duration) <-chan error {
-	ret := make(chan error, 1)
-	if tok, ok := s.tokens[k]; ok {
-		go func() {
-			ret <- s.supervisor.RemoveAndWait(tok, timeout)
-		}()
-	} else {
-		ret <- errSvcNotFound
-	}
+	ret := s.StopAndWaitChan(k, timeout)
 	delete(s.services, k)
-	delete(s.tokens, k)
 	return ret
 }
 

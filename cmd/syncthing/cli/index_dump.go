@@ -11,13 +11,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func indexDump(*cli.Context) error {
+func indexDump() error {
 	ldb, err := getDB()
 	if err != nil {
 		return err

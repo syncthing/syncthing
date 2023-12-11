@@ -10,12 +10,10 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
-
-	"github.com/urfave/cli"
 )
 
 // indexAccount prints key and data size statistics per class
-func indexAccount(*cli.Context) error {
+func indexAccount() error {
 	ldb, err := getDB()
 	if err != nil {
 		return err
