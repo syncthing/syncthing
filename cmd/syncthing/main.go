@@ -88,9 +88,6 @@ above.
  STTRACE           A comma separated string of facilities to trace. The valid
                    facility strings are listed below.
 
- STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
-                   sensitivity. Use only under direction of a developer.
-
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
@@ -173,7 +170,6 @@ type serveOptions struct {
 	// Debug options below
 	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
 	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
-	DebugDeadlockTimeout      int           `placeholder:"SECONDS" env:"STDEADLOCKTIMEOUT" help:"Used for debugging internal deadlocks"`
 	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
 	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
 	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
@@ -623,7 +619,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
 		ProfilerAddr:         options.DebugProfilerListen,
 		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
@@ -633,10 +628,6 @@ func syncthingMain(options serveOptions) {
 	}
 	if options.Audit {
 		appOpts.AuditWriter = auditWriter(options.AuditFile)
-	}
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
-		secs, _ := strconv.Atoi(t)
-		appOpts.DeadlockTimeoutS = secs
 	}
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
 		appOpts.DBRecheckInterval = dur

@@ -902,13 +902,13 @@ func TestIssue5063(t *testing.T) {
 	defer cleanupModel(m)
 	defer cancel()
 
-	m.fmut.Lock()
+	m.mut.Lock()
 	for _, c := range m.connections {
 		conn := c.(*fakeConnection)
 		conn.CloseCalls(func(_ error) {})
 		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
 	}
-	m.fmut.Unlock()
+	m.mut.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -1524,10 +1524,10 @@ func TestIgnores(t *testing.T) {
 		FilesystemType: fs.FilesystemTypeFake,
 	}
 	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
-	m.fmut.Lock()
+	m.mut.Lock()
 	m.folderCfgs[fcfg.ID] = fcfg
 	m.folderIgnores[fcfg.ID] = ignores
-	m.fmut.Unlock()
+	m.mut.Unlock()
 
 	_, _, err = m.LoadIgnores("fresh")
 	if err != nil {
@@ -2973,7 +2973,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	ci := &protocolmocks.ConnectionInfo{}
 	ci.ConnectionIDReturns(srand.String(16))
 	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
-	m.fmut.RLock()
+	m.mut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))
 	}
@@ -2981,7 +2981,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	for _, c := range m.closed {
 		closed = c
 	}
-	m.fmut.RUnlock()
+	m.mut.RUnlock()
 
 	waiter, err := w.RemoveDevice(device1)
 	if err != nil {
@@ -3074,12 +3074,12 @@ func TestDevicePause(t *testing.T) {
 	sub := m.evLogger.Subscribe(events.DevicePaused)
 	defer sub.Unsubscribe()
 
-	m.fmut.RLock()
+	m.mut.RLock()
 	var closed chan struct{}
 	for _, c := range m.closed {
 		closed = c
 	}
-	m.fmut.RUnlock()
+	m.mut.RUnlock()
 
 	pauseDevice(t, m.cfg, device1, true)
 
@@ -3754,9 +3754,9 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
-	m.fmut.Lock()
+	m.mut.Lock()
 	m.folderFiles[fcfg.ID].Update(protocol.LocalDeviceID, files)
-	m.fmut.Unlock()
+	m.mut.Unlock()
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
 	must(t, m.IndexUpdate(conn, fcfg.ID, files))

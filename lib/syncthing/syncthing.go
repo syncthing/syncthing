@@ -54,12 +54,11 @@ const (
 )
 
 type Options struct {
-	AuditWriter      io.Writer
-	DeadlockTimeoutS int
-	NoUpgrade        bool
-	ProfilerAddr     string
-	ResetDeltaIdxs   bool
-	Verbose          bool
+	AuditWriter    io.Writer
+	NoUpgrade      bool
+	ProfilerAddr   string
+	ResetDeltaIdxs bool
+	Verbose        bool
 	// null duration means use default value
 	DBRecheckInterval    time.Duration
 	DBIndirectGCInterval time.Duration
@@ -250,12 +249,6 @@ func (a *App) startup() error {
 
 	keyGen := protocol.NewKeyGenerator()
 	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
-
-	if a.opts.DeadlockTimeoutS > 0 {
-		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
-	} else if !build.IsRelease || build.IsBeta {
-		m.StartDeadlockDetector(20 * time.Minute)
-	}
 
 	a.mainService.Add(m)
 
