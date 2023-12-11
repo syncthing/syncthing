@@ -324,7 +324,7 @@ func (m *model) fatal(err error) {
 	}
 }
 
-// Need to hold lock on m.fmut when calling this.
+// Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
@@ -483,7 +483,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	db.DropFolder(m.db, cfg.ID)
 }
 
-// Need to hold lock on m.fmut when calling this.
+// Need to hold lock on m.mut when calling this.
 func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// clear up our config maps
 	m.folderRunners.Remove(cfg.ID)
@@ -921,7 +921,7 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 
 func (m *model) folderCompletion(device protocol.DeviceID, folder string) (FolderCompletion, error) {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	rf := m.folderFiles[folder]
 	m.mut.RUnlock()
 	if err != nil {
@@ -955,7 +955,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 // DBSnapshot returns a snapshot of the database content relevant to the given folder.
 func (m *model) DBSnapshot(folder string) (*db.Snapshot, error) {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	rf := m.folderFiles[folder]
 	m.mut.RUnlock()
 	if err != nil {
@@ -1239,7 +1239,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfi
 		break
 	}
 
-	// Needs to happen outside of the fmut, as can cause CommitConfiguration
+	// Needs to happen outside of the mut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
 		w, _ := m.cfg.Modify(func(cfg *config.Configuration) {
 			changedFcfg := make(map[string]config.FolderConfiguration)
@@ -2530,7 +2530,7 @@ func (m *model) ScanFolder(folder string) error {
 
 func (m *model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	runner, _ := m.folderRunners.Get(folder)
 	m.mut.RUnlock()
 
@@ -2677,7 +2677,7 @@ func (m *model) State(folder string) (string, time.Time, error) {
 
 func (m *model) FolderErrors(folder string) ([]FileError, error) {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	runner, _ := m.folderRunners.Get(folder)
 	m.mut.RUnlock()
 	if err != nil {
@@ -2688,7 +2688,7 @@ func (m *model) FolderErrors(folder string) ([]FileError, error) {
 
 func (m *model) WatchError(folder string) error {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	runner, _ := m.folderRunners.Get(folder)
 	m.mut.RUnlock()
 	if err != nil {
@@ -2818,7 +2818,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	ver := m.folderVersioners[folder]
 	m.mut.RUnlock()
 	if err != nil {
@@ -2833,7 +2833,7 @@ func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 
 func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error) {
 	m.mut.RLock()
-	err := m.checkFolderRunningLocked(folder)
+	err := m.checkFolderRunningRLocked(folder)
 	fcfg := m.folderCfgs[folder]
 	ver := m.folderVersioners[folder]
 	m.mut.RUnlock()
@@ -3231,10 +3231,10 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	}
 }
 
-// checkFolderRunningLocked returns nil if the folder is up and running and a
+// checkFolderRunningRLocked returns nil if the folder is up and running and a
 // descriptive error if not.
-// Need to hold (read) lock on m.fmut when calling this.
-func (m *model) checkFolderRunningLocked(folder string) error {
+// Need to hold (read) lock on m.mut when calling this.
+func (m *model) checkFolderRunningRLocked(folder string) error {
 	_, ok := m.folderRunners.Get(folder)
 	if ok {
 		return nil
