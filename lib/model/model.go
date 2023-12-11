@@ -812,6 +812,8 @@ func (m *model) ConnectionStats() map[string]interface{} {
 func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
 	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
