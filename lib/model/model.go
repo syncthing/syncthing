@@ -237,7 +237,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		folderEncryptionPasswordTokens: make(map[string][]byte),
 		folderEncryptionFailures:       make(map[string]map[protocol.DeviceID]error),
 
-		// fields protected by pmut
+		// ditto
 		connections:         make(map[string]protocol.Connection),
 		deviceConnIDs:       make(map[protocol.DeviceID][]string),
 		promotedConnID:      make(map[protocol.DeviceID]string),
