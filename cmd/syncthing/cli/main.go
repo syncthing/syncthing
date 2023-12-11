@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/alecthomas/kong"
 	"github.com/flynn-archive/go-shlex"
@@ -75,15 +74,21 @@ func (*stdinCommand) Run() error {
 		if len(input) == 0 {
 			continue
 		}
-		cmd := exec.Command(os.Args[0], append(args[1:], input...)...)
-		out, err := cmd.CombinedOutput()
-		fmt.Print(string(out))
+
+		var cli CLI
+		p, err := kong.New(&cli)
 		if err != nil {
-			if _, ok := err.(*exec.ExitError); ok {
-				// we will continue loop no matter the command succeeds or not
-				continue
-			}
-			return err
+			// can't happen, really
+			return fmt.Errorf("creating parser: %w", err)
+		}
+		ctx, err := p.Parse(input)
+		if err != nil {
+			fmt.Println("Error:", err)
+			continue
+		}
+		if err := ctx.Run(); err != nil {
+			fmt.Println("Error:", err)
+			continue
 		}
 	}
 	return scanner.Err()
