@@ -441,7 +441,7 @@
     "The number of old versions to keep, per file.": "Nombre maximal d'anciennes versions à conserver indéfiniment, par fichier.",
     "The number of versions must be a number and cannot be blank.": "Le nombre de versions doit être numérique, et ne peut pas être vide.",
     "The path cannot be blank.": "Le chemin ne peut pas être vide.",
-    "The rate limit is applied to the accumulated traffic of all connections to this device.": "La limite de taux s'applique au trafic cumulé des connexions à notre appareil.",
+    "The rate limit is applied to the accumulated traffic of all connections to this device.": "Les limites s'appliquent au trafic cumulé des connexions à notre appareil (0 = pas de limite).",
     "The rate limit must be a non-negative number (0: no limit)": "La limite de débit ne doit pas être négative (0 = pas de limite)",
     "The remote device has not accepted sharing this folder.": "L'appareil distant n'a pas (encore ?) accepté de partager ce répertoire.",
     "The remote device has paused this folder.": "L'appareil distant a mis ce partage en pause.",
