@@ -17,10 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-type Holdable interface {
-	Holders() string
-}
-
 // inWritableDir calls fn(path), while making sure that the directory
 // containing `path` is writable for the duration of the call.
 func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, ignorePerms bool) error {
