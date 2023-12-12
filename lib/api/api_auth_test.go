@@ -120,7 +120,7 @@ type mockClock struct {
 }
 
 func (c *mockClock) Now() time.Time {
-	c.now = c.now.Add(1) // time always ticks by at leas 1 ns
+	c.now = c.now.Add(1) // time always ticks by at least 1 ns
 	return c.now
 }
 
