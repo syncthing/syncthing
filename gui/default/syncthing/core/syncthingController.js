@@ -103,6 +103,7 @@ angular.module('syncthing.core')
             $http.post(authUrlbase + '/password', {
               username: $scope.login.username,
               password: $scope.login.password,
+              stayLoggedIn: $scope.login.stayLoggedIn,
             }).then(function () {
                 location.reload();
             }).catch(function (response) {
@@ -3591,7 +3592,7 @@ angular.module('syncthing.core')
                 return n.match !== "";
             });
         };
-        
+
         // The showModal and hideModal functions are a bandaid for a Bootstrap
         // bug (see https://github.com/twbs/bootstrap/issues/3902) that causes
         // multiple consecutively shown or hidden modals to overlap which leads

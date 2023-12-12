@@ -123,7 +123,7 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 
 	// Fall back to Basic auth if provided
 	if username, ok := attemptBasicAuth(r, m.guiCfg, m.ldapCfg, m.evLogger); ok {
-		m.createSession(username, w, r)
+		m.createSession(username, false, w, r)
 		m.next.ServeHTTP(w, r)
 		return
 	}
@@ -146,8 +146,9 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 
 func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Username string
-		Password string
+		Username     string
+		Password     string
+		StayLoggedIn bool
 	}
 	if err := unmarshalTo(r.Body, &req); err != nil {
 		l.Debugln("Failed to parse username and password:", err)
@@ -156,7 +157,7 @@ func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWrite
 	}
 
 	if auth(req.Username, req.Password, m.guiCfg, m.ldapCfg) {
-		m.createSession(req.Username, w, r)
+		m.createSession(req.Username, req.StayLoggedIn, w, r)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -189,7 +190,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	return "", false
 }
 
-func (m *basicAuthAndSessionMiddleware) createSession(username string, w http.ResponseWriter, r *http.Request) {
+func (m *basicAuthAndSessionMiddleware) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
 	sessionid := m.tokens.New()
 
 	// Best effort detection of whether the connection is HTTPS --
@@ -202,12 +203,16 @@ func (m *basicAuthAndSessionMiddleware) createSession(username string, w http.Re
 	// bit in cookies.
 	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
 
+	maxAge := 0
+	if persistent {
+		maxAge = int(maxSessionLifetime.Seconds())
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:  m.cookieName,
 		Value: sessionid,
 		// In HTTP spec Max-Age <= 0 means delete immediately,
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
-		MaxAge: 0,
+		MaxAge: maxAge,
 		Secure: useSecureCookie,
 		Path:   "/",
 	})
