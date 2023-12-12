@@ -372,7 +372,7 @@ type tokenManager struct {
 
 	timeNow func() time.Time // can be overridden for testing
 
-	mut       sync.RWMutex
+	mut       sync.Mutex
 	tokens    *TokenSet
 	saveTimer *time.Timer
 }
@@ -390,7 +390,7 @@ func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration
 		lifetime: lifetime,
 		maxItems: maxItems,
 		timeNow:  time.Now,
-		mut:      sync.NewRWMutex(),
+		mut:      sync.NewMutex(),
 		tokens:   tokens,
 	}
 }
@@ -398,8 +398,9 @@ func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration
 // Check returns true if the token is valid, and updates the token's expiry
 // time. The token is removed if it is expired.
 func (m *tokenManager) Check(token string) bool {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
 	expires, ok := m.tokens.Tokens[token]
 	if ok {
 		if expires < m.timeNow().UnixNano() {
