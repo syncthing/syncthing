@@ -16,15 +16,17 @@ import (
 
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/exp/slices"
 )
 
-var (
-	sessions    = make(map[string]bool)
-	sessionsMut = sync.NewMutex()
+const (
+	maxSessionLifetime = 7 * 24 * time.Hour
+	maxActiveSessions  = 25
+	randomTokenLength  = 64
 )
 
 func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
@@ -78,75 +80,90 @@ func isNoAuthPath(path string) bool {
 		})
 }
 
-func basicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if hasValidAPIKeyHeader(r, guiCfg) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		for _, cookie := range r.Cookies() {
-			// We iterate here since there may, historically, be multiple
-			// cookies with the same name but different path. Any "old" ones
-			// won't match an existing session and will be ignored, then
-			// later removed on logout or when timing out.
-			if cookie.Name == cookieName {
-				sessionsMut.Lock()
-				_, ok := sessions[cookie.Value]
-				sessionsMut.Unlock()
-				if ok {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-		}
-
-		// Fall back to Basic auth if provided
-		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
-			createSession(cookieName, username, guiCfg, evLogger, w, r)
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Exception for static assets and REST calls that don't require authentication.
-		if isNoAuthPath(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Some browsers don't send the Authorization request header unless prompted by a 401 response.
-		// This enables https://user:pass@localhost style URLs to keep working.
-		if guiCfg.SendBasicAuthPrompt {
-			unauthorized(w, shortID)
-			return
-		}
-
-		forbidden(w)
-	})
+type basicAuthAndSessionMiddleware struct {
+	cookieName string
+	shortID    string
+	guiCfg     config.GUIConfiguration
+	ldapCfg    config.LDAPConfiguration
+	next       http.Handler
+	evLogger   events.Logger
+	tokens     *tokenManager
 }
 
-func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Username string
-			Password string
-		}
-		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Debugln("Failed to parse username and password:", err)
-			http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
-			return
-		}
+func newBasicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger, miscDB *db.NamespacedKV) *basicAuthAndSessionMiddleware {
+	return &basicAuthAndSessionMiddleware{
+		cookieName: cookieName,
+		shortID:    shortID,
+		guiCfg:     guiCfg,
+		ldapCfg:    ldapCfg,
+		next:       next,
+		evLogger:   evLogger,
+		tokens:     newTokenManager("sessions", miscDB, maxSessionLifetime, maxActiveSessions),
+	}
+}
 
-		if auth(req.Username, req.Password, guiCfg, ldapCfg) {
-			createSession(cookieName, req.Username, guiCfg, evLogger, w, r)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if hasValidAPIKeyHeader(r, m.guiCfg) {
+		m.next.ServeHTTP(w, r)
+		return
+	}
 
-		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
-		antiBruteForceSleep()
-		forbidden(w)
-	})
+	for _, cookie := range r.Cookies() {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. Any "old" ones
+		// won't match an existing session and will be ignored, then
+		// later removed on logout or when timing out.
+		if cookie.Name == m.cookieName {
+			if m.tokens.Check(cookie.Value) {
+				m.next.ServeHTTP(w, r)
+				return
+			}
+		}
+	}
+
+	// Fall back to Basic auth if provided
+	if username, ok := attemptBasicAuth(r, m.guiCfg, m.ldapCfg, m.evLogger); ok {
+		m.createSession(username, w, r)
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	// Exception for static assets and REST calls that don't require authentication.
+	if isNoAuthPath(r.URL.Path) {
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	// Some browsers don't send the Authorization request header unless prompted by a 401 response.
+	// This enables https://user:pass@localhost style URLs to keep working.
+	if m.guiCfg.SendBasicAuthPrompt {
+		unauthorized(w, m.shortID)
+		return
+	}
+
+	forbidden(w)
+}
+
+func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string
+		Password string
+	}
+	if err := unmarshalTo(r.Body, &req); err != nil {
+		l.Debugln("Failed to parse username and password:", err)
+		http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
+		return
+	}
+
+	if auth(req.Username, req.Password, m.guiCfg, m.ldapCfg) {
+		m.createSession(req.Username, w, r)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	emitLoginAttempt(false, req.Username, r.RemoteAddr, m.evLogger)
+	antiBruteForceSleep()
+	forbidden(w)
 }
 
 func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
@@ -172,11 +189,8 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	return "", false
 }
 
-func createSession(cookieName string, username string, guiCfg config.GUIConfiguration, evLogger events.Logger, w http.ResponseWriter, r *http.Request) {
-	sessionid := rand.String(32)
-	sessionsMut.Lock()
-	sessions[sessionid] = true
-	sessionsMut.Unlock()
+func (m *basicAuthAndSessionMiddleware) createSession(username string, w http.ResponseWriter, r *http.Request) {
+	sessionid := m.tokens.New()
 
 	// Best effort detection of whether the connection is HTTPS --
 	// either directly to us, or as used by the client towards a reverse
@@ -186,10 +200,10 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
 	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
 	// bit in cookies.
-	useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
+	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
 
 	http.SetCookie(w, &http.Cookie{
-		Name:  cookieName,
+		Name:  m.cookieName,
 		Value: sessionid,
 		// In HTTP spec Max-Age <= 0 means delete immediately,
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
@@ -198,33 +212,29 @@ func createSession(cookieName string, username string, guiCfg config.GUIConfigur
 		Path:   "/",
 	})
 
-	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
+	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
 }
 
-func handleLogout(cookieName string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, cookie := range r.Cookies() {
-			// We iterate here since there may, historically, be multiple
-			// cookies with the same name but different path. We drop them
-			// all.
-			if cookie.Name == cookieName {
-				sessionsMut.Lock()
-				delete(sessions, cookie.Value)
-				sessionsMut.Unlock()
+func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *http.Request) {
+	for _, cookie := range r.Cookies() {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. We drop them
+		// all.
+		if cookie.Name == m.cookieName {
+			m.tokens.Delete(cookie.Value)
 
-				// Delete the cookie
-				http.SetCookie(w, &http.Cookie{
-					Name:   cookieName,
-					Value:  "",
-					MaxAge: -1,
-					Secure: cookie.Secure,
-					Path:   cookie.Path,
-				})
-			}
+			// Delete the cookie
+			http.SetCookie(w, &http.Cookie{
+				Name:   m.cookieName,
+				Value:  "",
+				MaxAge: -1,
+				Secure: cookie.Secure,
+				Path:   cookie.Path,
+			})
 		}
+	}
 
-		w.WriteHeader(http.StatusNoContent)
-	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
@@ -352,4 +362,124 @@ func iso88591ToUTF8(s []byte) []byte {
 		runes[i] = rune(s[i])
 	}
 	return []byte(string(runes))
+}
+
+type tokenManager struct {
+	key      string
+	miscDB   *db.NamespacedKV
+	lifetime time.Duration
+	maxItems int
+
+	timeNow func() time.Time // can be overridden for testing
+
+	mut       sync.RWMutex
+	tokens    *TokenSet
+	saveTimer *time.Timer
+}
+
+func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration, maxItems int) *tokenManager {
+	tokens := &TokenSet{
+		Tokens: make(map[string]int64),
+	}
+	if bs, ok, _ := miscDB.Bytes(key); ok {
+		_ = tokens.Unmarshal(bs) // best effort
+	}
+	return &tokenManager{
+		key:      key,
+		miscDB:   miscDB,
+		lifetime: lifetime,
+		maxItems: maxItems,
+		timeNow:  time.Now,
+		mut:      sync.NewRWMutex(),
+		tokens:   tokens,
+	}
+}
+
+// Check returns true if the token is valid, and updates the token's expiry
+// time. The token is removed if it is expired.
+func (m *tokenManager) Check(token string) bool {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+	expires, ok := m.tokens.Tokens[token]
+	if ok {
+		if expires < m.timeNow().UnixNano() {
+			// The token is expired.
+			m.saveLocked() // removes expired tokens
+			return false
+		}
+
+		// Give the token further life.
+		m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
+		m.saveLocked()
+	}
+	return ok
+}
+
+// New creates a new token and returns it.
+func (m *tokenManager) New() string {
+	token := rand.String(randomTokenLength)
+
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
+	m.saveLocked()
+
+	return token
+}
+
+// Delete removes a token.
+func (m *tokenManager) Delete(token string) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	delete(m.tokens.Tokens, token)
+	m.saveLocked()
+}
+
+func (m *tokenManager) saveLocked() {
+	// Remove expired tokens.
+	now := m.timeNow().UnixNano()
+	for token, expiry := range m.tokens.Tokens {
+		if expiry < now {
+			delete(m.tokens.Tokens, token)
+		}
+	}
+
+	// If we have a limit on the number of tokens, remove the oldest ones.
+	if m.maxItems > 0 && len(m.tokens.Tokens) > m.maxItems {
+		// Sort the tokens by expiry time, oldest first.
+		type tokenExpiry struct {
+			token  string
+			expiry int64
+		}
+		var tokens []tokenExpiry
+		for token, expiry := range m.tokens.Tokens {
+			tokens = append(tokens, tokenExpiry{token, expiry})
+		}
+		slices.SortFunc(tokens, func(i, j tokenExpiry) int {
+			return int(i.expiry - j.expiry)
+		})
+		// Remove the oldest tokens.
+		for _, token := range tokens[:len(tokens)-m.maxItems] {
+			delete(m.tokens.Tokens, token.token)
+		}
+	}
+
+	// Postpone saving until one second of inactivity.
+	if m.saveTimer == nil {
+		m.saveTimer = time.AfterFunc(time.Second, m.scheduledSave)
+	} else {
+		m.saveTimer.Reset(time.Second)
+	}
+}
+
+func (m *tokenManager) scheduledSave() {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.saveTimer = nil
+
+	bs, _ := m.tokens.Marshal()      // can't fail
+	_ = m.miscDB.PutBytes(m.key, bs) // can fail, but what are we going to do?
 }

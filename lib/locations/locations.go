@@ -29,7 +29,6 @@ const (
 	HTTPSKeyFile  LocationEnum = "httpsKeyFile"
 	Database      LocationEnum = "database"
 	LogFile       LocationEnum = "logFile"
-	CsrfTokens    LocationEnum = "csrfTokens"
 	PanicLog      LocationEnum = "panicLog"
 	AuditLog      LocationEnum = "auditLog"
 	GUIAssets     LocationEnum = "guiAssets"
@@ -121,7 +120,6 @@ var locationTemplates = map[LocationEnum]string{
 	HTTPSKeyFile:  "${config}/https-key.pem",
 	Database:      "${data}/" + LevelDBDir,
 	LogFile:       "${data}/syncthing.log", // --logfile on Windows
-	CsrfTokens:    "${data}/csrftokens.txt",
 	PanicLog:      "${data}/panic-%{timestamp}.log",
 	AuditLog:      "${data}/audit-%{timestamp}.log",
 	GUIAssets:     "${config}/gui",
@@ -170,7 +168,6 @@ func PrettyPaths() string {
 	fmt.Fprintf(&b, "Database location:\n\t%s\n\n", Get(Database))
 	fmt.Fprintf(&b, "Log file:\n\t%s\n\n", Get(LogFile))
 	fmt.Fprintf(&b, "GUI override directory:\n\t%s\n\n", Get(GUIAssets))
-	fmt.Fprintf(&b, "CSRF tokens file:\n\t%s\n\n", Get(CsrfTokens))
 	fmt.Fprintf(&b, "Default sync folder directory:\n\t%s\n\n", Get(DefFolder))
 	return b.String()
 }

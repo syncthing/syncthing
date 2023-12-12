@@ -862,6 +862,7 @@ func cleanConfigDirectory() {
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
+		"csrftokens.txt":     0,                   // deprecated, remove immediately
 	}
 
 	for pat, dur := range patterns {
