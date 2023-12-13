@@ -1065,7 +1065,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 		case ev := <-summaryChan:
 			if data, ok := ev.Data.(FolderSummaryEventData); !ok {
 				f.evLogger.Log(events.Failure, "Unexpected type of folder-summary event in folder.monitorWatch")
-			} else if data.Summary.LocalTotalItems-data.Summary.LocalDeleted > kqueueItemCountThreshold {
+			} else if data.Folder == f.folderID && data.Summary.LocalTotalItems-data.Summary.LocalDeleted > kqueueItemCountThreshold {
 				f.warnedKqueue = true
 				summarySub.Unsubscribe()
 				summaryChan = nil
