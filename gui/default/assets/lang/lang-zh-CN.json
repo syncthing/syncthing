@@ -298,7 +298,7 @@
     "Please consult the release notes before performing a major upgrade.": "请在进行重大更新前查看发布说明。",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "请在设置对话框中设置 GUI 验证用户及其密码。",
     "Please wait": "请稍候",
-    "Prefix indicating that the file can be deleted if preventing directory removal": "可以删除文件的前缀来防止目录删除",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "此前缀表示，如果文件阻止删除目录则文件可被删除",
     "Prefix indicating that the pattern should be matched without case sensitivity": "此前缀表示，后面的模式在匹配时不区分大小写",
     "Preparing to Sync": "准备同步",
     "Preview": "预览",
