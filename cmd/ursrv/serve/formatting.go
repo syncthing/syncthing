@@ -10,23 +10,17 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+
+	"github.com/syncthing/syncthing/cmd/ursrv/report"
 )
 
-type NumberType int
-
-const (
-	NumberMetric NumberType = iota
-	NumberBinary
-	NumberDuration
-)
-
-func number(ntype NumberType, v float64) string {
+func number(ntype report.NumberType, v float64) string {
 	switch ntype {
-	case NumberMetric:
+	case report.NumberMetric:
 		return metric(v)
-	case NumberDuration:
+	case report.NumberDuration:
 		return duration(v)
-	case NumberBinary:
+	case report.NumberBinary:
 		return binary(v)
 	default:
 		return metric(v)
@@ -128,4 +122,22 @@ func proportion(m map[string]int, count int) float64 {
 		pct -= 0.01
 	}
 	return pct
+}
+
+// Used in the templates
+type counter struct {
+	n int
+}
+
+func (c *counter) Current() int {
+	return c.n
+}
+
+func (c *counter) Increment() string {
+	c.n++
+	return ""
+}
+
+func (c *counter) DrawTwoDivider() bool {
+	return c.n != 0 && c.n%2 == 0
 }

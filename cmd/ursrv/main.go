@@ -12,12 +12,18 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/cmd/ursrv/aggregate"
+	"github.com/syncthing/syncthing/cmd/ursrv/blob"
 	"github.com/syncthing/syncthing/cmd/ursrv/serve"
 )
 
 type CLI struct {
-	Serve     serve.CLI     `cmd:"" default:""`
-	Aggregate aggregate.CLI `cmd:""`
+	Serve       serve.CLI     `cmd:"" default:""`
+	Aggregate   aggregate.CLI `cmd:""`
+	S3Bucket    string        `env:"UR_S3_BUCKET"`
+	S3Endpoint  string        `env:"UR_S3_ENDPOINT"`
+	S3Region    string        `env:"UR_S3_REGION" default:"eu-north-1"`
+	S3AccessKey string        `env:"UR_S3_ACCESS_KEY"`
+	S3SecretKey string        `env:"UR_S3_SECRET_KEY"`
 }
 
 func main() {
@@ -26,7 +32,16 @@ func main() {
 
 	var cli CLI
 	ctx := kong.Parse(&cli)
-	if err := ctx.Run(); err != nil {
+
+	s3Config := blob.S3Config{
+		Bucket:    cli.S3Bucket,
+		Endpoint:  cli.S3Endpoint,
+		Region:    cli.S3Region,
+		AccessKey: cli.S3AccessKey,
+		SecretKey: cli.S3SecretKey,
+	}
+
+	if err := ctx.Run(s3Config); err != nil {
 		log.Fatalf("%s: %v", ctx.Command(), err)
 	}
 }

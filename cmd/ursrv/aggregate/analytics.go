@@ -1,28 +1,17 @@
-// Copyright (C) 2018 The Syncthing Authors.
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at https://mozilla.org/MPL/2.0/.
-
-package serve
+package aggregate
 
 import (
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/cmd/ursrv/report"
 )
 
-type analytic struct {
-	Key        string
-	Count      int
-	Percentage float64
-	Items      []analytic `json:",omitempty"`
-}
+type AnalyticList []report.Analytic
 
-type analyticList []analytic
-
-func (l analyticList) Less(a, b int) bool {
+func (l AnalyticList) Less(a, b int) bool {
 	if l[a].Key == "Others" {
 		return false
 	}
@@ -32,16 +21,16 @@ func (l analyticList) Less(a, b int) bool {
 	return l[b].Count < l[a].Count // inverse
 }
 
-func (l analyticList) Swap(a, b int) {
+func (l AnalyticList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
 
-func (l analyticList) Len() int {
+func (l AnalyticList) Len() int {
 	return len(l)
 }
 
-// Returns a list of frequency analytics for a given list of strings.
-func analyticsFor(ss []string, cutoff int) []analytic {
+// Returns a list of frequency Analytics for a given list of strings.
+func analyticsFor(ss []string, cutoff int) []report.Analytic {
 	m := make(map[string]int)
 	t := 0
 	for _, s := range ss {
@@ -49,23 +38,23 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 		t++
 	}
 
-	l := make([]analytic, 0, len(m))
+	l := make([]report.Analytic, 0, len(m))
 	for k, c := range m {
-		l = append(l, analytic{
+		l = append(l, report.Analytic{
 			Key:        k,
 			Count:      c,
 			Percentage: 100 * float64(c) / float64(t),
 		})
 	}
 
-	sort.Sort(analyticList(l))
+	sort.Sort(AnalyticList(l))
 
 	if cutoff > 0 && len(l) > cutoff {
 		c := 0
 		for _, i := range l[cutoff:] {
 			c += i.Count
 		}
-		l = append(l[:cutoff], analytic{
+		l = append(l[:cutoff], report.Analytic{
 			Key:        "Others",
 			Count:      c,
 			Percentage: 100 * float64(c) / float64(t),
@@ -76,12 +65,12 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 }
 
 // Find the points at which certain penetration levels are met
-func penetrationLevels(as []analytic, points []float64) []analytic {
+func penetrationLevels(as []report.Analytic, points []float64) []report.Analytic {
 	sort.Slice(as, func(a, b int) bool {
 		return versionLess(as[b].Key, as[a].Key)
 	})
 
-	var res []analytic
+	var res []report.Analytic
 
 	idx := 0
 	sum := 0.0
@@ -145,8 +134,8 @@ func statsForFloats(data []float64) [4]float64 {
 	return res
 }
 
-func group(by func(string) string, as []analytic, perGroup int, otherPct float64) []analytic {
-	var res []analytic
+func group(by func(string) string, as []report.Analytic, perGroup int, otherPct float64) []report.Analytic {
+	var res []report.Analytic
 
 next:
 	for _, a := range as {
@@ -161,19 +150,19 @@ next:
 				continue next
 			}
 		}
-		res = append(res, analytic{
+		res = append(res, report.Analytic{
 			Key:        group,
 			Count:      a.Count,
 			Percentage: a.Percentage,
-			Items:      []analytic{a},
+			Items:      []report.Analytic{a},
 		})
 	}
 
-	sort.Sort(analyticList(res))
+	sort.Sort(AnalyticList(res))
 
 	if otherPct > 0 {
 		// Groups with less than otherPCt go into "Other"
-		other := analytic{
+		other := report.Analytic{
 			Key: "Other",
 		}
 		for i := 0; i < len(res); i++ {
