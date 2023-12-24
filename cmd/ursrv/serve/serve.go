@@ -101,6 +101,12 @@ type server struct {
 	cacheTime          time.Time
 }
 
+func (s *server) resetCachedStats() {
+	s.cachedSummary = newSummary()
+	s.cachedBlockstats = newBlockStats()
+	s.cachedPerformance = newPerformance()
+}
+
 func (s *server) cacheRefresher() {
 	ticker := time.NewTicker(maxCacheTime - time.Minute)
 	defer ticker.Stop()
@@ -120,17 +126,33 @@ func (s *server) refreshCacheLocked() error {
 	}
 
 	var reportsToCache []report.AggregatedReport
+	loadAllReports := false
 	if s.cachedLatestReport.Date.IsZero() {
+		loadAllReports = true
+	} else if rep.Date.After(s.cachedLatestReport.Date) {
+		// The latest report fromt he store is more recent than the cached
+		// report, parse the stats separately.
+		reportsToCache = append(reportsToCache, rep)
+	}
+
+	totalReports, err := s.store.CountAggregatedReports()
+	if err != nil {
+		return err
+	}
+	if loadAllReports || len(reportsToCache)+s.cachedSummary.recordsCount() < totalReports {
+		// Either no report was cached prior or there is a discrepancy in the
+		// amount of records which should be or have been cached. Reset the
+		// cache and load all the available reports.
+
+		s.resetCachedStats()
 		reportsToCache, err = s.store.ListAggregatedReports()
 		if err != nil {
 			return err
 		}
-	} else if rep.Date.After(s.cachedLatestReport.Date) {
-		reportsToCache = append(reportsToCache, rep)
 	}
 
 	if len(reportsToCache) > 0 {
-		s.cacheGraphData(reportsToCache)
+		s.cachePresentationData(reportsToCache)
 	}
 
 	s.cachedLatestReport = rep
@@ -303,7 +325,7 @@ func (s *server) blockStatsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write(blockstats)
 }
 
-func (s *server) cacheGraphData(reports []report.AggregatedReport) {
+func (s *server) cachePresentationData(reports []report.AggregatedReport) {
 	for _, rep := range reports {
 		date := rep.Date.UTC().Format(time.DateOnly)
 

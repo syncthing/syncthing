@@ -151,3 +151,31 @@ func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) e
 		return nil
 	}
 }
+
+func (s *S3) Count(prefix string) (int, error) {
+	var total = 0
+
+	// ListObjectsV2 only supports up to 1000 keys per response. A response
+	// indicates whether the result was truncated and if so returns a
+	// continuation token which can be used to collect the remaining items.
+	var nextContinuationToken *string
+	for {
+		// Obtain a list of objects based on a prefix.
+		resp, err := s.client.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: &s.bucket, Prefix: aws.String(prefix), ContinuationToken: nextContinuationToken})
+		if err != nil {
+			return 0, err
+		}
+		total += len(resp.Contents)
+		if resp.IsTruncated != nil && *resp.IsTruncated {
+			if resp.NextContinuationToken == nil || *resp.NextContinuationToken == "" {
+				return 0, errors.New("response was truncated but no continuation token was supplied")
+			}
+
+			nextContinuationToken = resp.NextContinuationToken
+			continue
+		}
+		break
+	}
+
+	return total, nil
+}

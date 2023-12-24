@@ -14,26 +14,26 @@ func NewDisk(path string) *Disk {
 	return &Disk{path: path}
 }
 
-func (a *Disk) Put(key string, data []byte) error {
-	path := filepath.Join(a.path, key)
+func (d *Disk) Put(key string, data []byte) error {
+	path := filepath.Join(d.path, key)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
 }
 
-func (a *Disk) Get(key string) ([]byte, error) {
-	path := filepath.Join(a.path, key)
+func (d *Disk) Get(key string) ([]byte, error) {
+	path := filepath.Join(d.path, key)
 	return os.ReadFile(path)
 }
 
-func (a *Disk) Delete(key string) error {
-	path := filepath.Join(a.path, key)
+func (d *Disk) Delete(key string) error {
+	path := filepath.Join(d.path, key)
 	return os.Remove(path)
 }
 
-func (a *Disk) Iterate(_ context.Context, key string, fn func([]byte) bool) error {
-	matches, err := filepath.Glob(filepath.Join(a.path, key+"*"))
+func (d *Disk) Iterate(_ context.Context, key string, fn func([]byte) bool) error {
+	matches, err := filepath.Glob(filepath.Join(d.path, key+"*"))
 	if err != nil {
 		return err
 	}
@@ -57,4 +57,12 @@ loop:
 	}
 
 	return err
+}
+
+func (d *Disk) Count(prefix string) (int, error) {
+	matches, err := filepath.Glob(filepath.Join(d.path, prefix+"*"))
+	if err != nil {
+		return 0, err
+	}
+	return len(matches), nil
 }
