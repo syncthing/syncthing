@@ -146,7 +146,6 @@ func (s *UrsrvStore) LastAggregatedReport() (report.AggregatedReport, error) {
 	}
 
 	err = json.Unmarshal(data, &rep)
-
 	return rep, err
 }
 

@@ -143,7 +143,6 @@ func (s *server) refreshCacheLocked() error {
 		// Either no report was cached prior or there is a discrepancy in the
 		// amount of records which should be or have been cached. Reset the
 		// cache and load all the available reports.
-
 		s.resetCachedStats()
 		reportsToCache, err = s.store.ListAggregatedReports()
 		if err != nil {

@@ -73,7 +73,7 @@ func (s *S3) Get(key string) ([]byte, error) {
 }
 
 func (s *S3) Delete(key string) error {
-	// Delete the item.
+	// Delete the object.
 	_, err := s.client.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
 	if err != nil {
 		return err
