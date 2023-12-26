@@ -98,7 +98,7 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 	}
 
 	for {
-		runAggregation(db, store, cli.GeoIPPath, time.Now().UTC().AddDate(0, 0, -1))
+		runAggregation(store, cli.GeoIPPath, time.Now().UTC().AddDate(0, 0, -1))
 
 		// Sleep until one minute past next midnight
 		sleepUntilNext(24*time.Hour, 1*time.Minute)
@@ -113,7 +113,7 @@ func sleepUntilNext(intv, margin time.Duration) {
 	time.Sleep(next.Sub(now))
 }
 
-func runAggregation(db *sql.DB, store *blob.UrsrvStore, geoIPPath string, aggregateDate time.Time) {
+func runAggregation(store *blob.UrsrvStore, geoIPPath string, aggregateDate time.Time) {
 	// Prepare the geo location database.
 	geoip, err := geoip2.Open(geoIPPath)
 	if err != nil {
