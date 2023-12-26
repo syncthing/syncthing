@@ -84,10 +84,6 @@ func newSummary() summary {
 	}
 }
 
-func (s *summary) recordsCount() int {
-	return len(s.rows)
-}
-
 func (s *summary) setCount(date string, versions map[string]int) {
 	for version, count := range versions {
 		idx, ok := s.versions[version]

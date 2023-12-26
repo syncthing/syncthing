@@ -120,29 +120,32 @@ func (s *server) cacheRefresher() {
 }
 
 func (s *server) refreshCacheLocked() error {
-	rep, err := s.store.LastAggregatedReport()
+	rep, err := s.store.LatestAggregatedReport()
 	if err != nil {
 		return err
+	}
+	storedReportsCount, err := s.store.CountAggregatedReports()
+	if err != nil {
+		return err
+	}
+
+	if rep.Date.Equal(s.cachedLatestReport.Date) && s.cachedReportCount() == storedReportsCount {
+		// The latest report is already cached and the presentation data
+		// contains data from all the existing reports. Update not required.
+		return nil
 	}
 
 	var reportsToCache []report.AggregatedReport
-	loadAllReports := false
-	if s.cachedLatestReport.Date.IsZero() {
-		loadAllReports = true
-	} else if rep.Date.After(s.cachedLatestReport.Date) {
-		// The latest report fromt he store is more recent than the cached
-		// report, parse the stats separately.
-		reportsToCache = append(reportsToCache, rep)
+	if rep.Date.After(s.cachedLatestReport.Date) {
+		// The latest report from the store is more recent than the cached
+		// report.
+		reportsToCache = []report.AggregatedReport{rep}
 	}
 
-	totalReports, err := s.store.CountAggregatedReports()
-	if err != nil {
-		return err
-	}
-	if loadAllReports || len(reportsToCache)+s.cachedSummary.recordsCount() < totalReports {
-		// Either no report was cached prior or there is a discrepancy in the
-		// amount of records which should be or have been cached. Reset the
-		// cache and load all the available reports.
+	if s.cachedReportCount()+len(reportsToCache) != storedReportsCount {
+		// There's a discrepancy in the amount of data (to be) cached and the
+		// amount available via the stored daily aggregated reports. (Re)load
+		// all the reports.
 		s.resetCachedStats()
 		reportsToCache, err = s.store.ListAggregatedReports()
 		if err != nil {
@@ -336,4 +339,8 @@ func (s *server) cachePresentationData(reports []report.AggregatedReport) {
 			date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
 		})
 	}
+}
+
+func (s *server) cachedReportCount() int {
+	return len(s.cachedBlockstats) - 1
 }

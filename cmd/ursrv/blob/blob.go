@@ -126,7 +126,7 @@ func (s *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) 
 	return res, err
 }
 
-func (s *UrsrvStore) LastAggregatedReport() (report.AggregatedReport, error) {
+func (s *UrsrvStore) LatestAggregatedReport() (report.AggregatedReport, error) {
 	var rep report.AggregatedReport
 
 	// Requires an aggregated report of the day before, which in practise should
