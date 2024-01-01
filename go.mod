@@ -35,7 +35,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/quic-go/quic-go v0.40.1
