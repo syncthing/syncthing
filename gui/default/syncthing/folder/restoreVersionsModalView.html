@@ -1,5 +1,11 @@
 <modal id="restoreVersions" status="default" icon="fas fa-undo" heading="{{'Restore Versions' | translate}} ({{folderLabel(restoreVersions.folder)}})" large="yes" closeable="yes">
   <div class="modal-body">
+    <!--
+    Inform the user about loading data even before the tree is initialised
+    to avoid confusion where nothing is displayed on the screen for a while.
+    Ref: https://forum.syncthing.net/t/reversed-date-in-search-filter/21369/3
+    -->
+    <div ng-if="!restoreVersions.versions" translate>Loading data...</div>
     <div ng-if="restoreVersions.versions && !restoreVersions.errors">
       <div id="restoreTree-container">
         <table id="restoreTree">
