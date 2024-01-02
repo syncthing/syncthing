@@ -1460,7 +1460,7 @@ angular.module('syncthing.core')
 
         $scope.friendlyNameFromShort = function (shortID) {
             var matches = Object.keys($scope.devices).filter(function (id) {
-                return id.substr(0, 7) === shortID;
+                return id.substr(0, shortIDStringLength) === shortID;
             });
             if (matches.length !== 1) {
                 return shortID;
@@ -1473,7 +1473,7 @@ angular.module('syncthing.core')
             if (match) {
                 return $scope.deviceName(match);
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.deviceName = function (deviceCfg) {
@@ -1490,7 +1490,7 @@ angular.module('syncthing.core')
             if (typeof deviceID === 'undefined') {
                 return "";
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.thisDeviceName = function () {
@@ -1501,7 +1501,7 @@ angular.module('syncthing.core')
             if (device.name) {
                 return device.name;
             }
-            return device.deviceID.substr(0, 6);
+            return device.deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.showDeviceIdentification = function (deviceCfg) {

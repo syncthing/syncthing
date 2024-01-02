@@ -84,6 +84,7 @@ func TestShortIDString(t *testing.T) {
 	id, _ := DeviceIDFromString(formatted)
 
 	sid := id.Short().String()
+	// keep consistent with ShortIDStringLength in lib/protocol/deviceid.go
 	if len(sid) != 7 {
 		t.Errorf("Wrong length for short ID: got %d, want 7", len(sid))
 	}
