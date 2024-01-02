@@ -26,6 +26,9 @@ angular.module('syncthing.core')
 
         // public/scope definitions
 
+        // keep consistent with ShortIDStringLength in lib/protocol/deviceid.go
+        $scope.shortIDStringLength = shortIDStringLength;
+
         // window.metadata is set in /meta.js which requires authentication
         $scope.authenticated = window.metadata && window.metadata.authenticated;
 

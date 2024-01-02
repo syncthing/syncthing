@@ -910,7 +910,7 @@
                       </tr>
                       <tr ng-if="deviceCfg.introducedBy">
                         <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) }}</td>
+                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, shortIDStringLength) }}</td>
                       </tr>
                       <tr ng-if="deviceCfg.autoAcceptFolders">
                         <th><span class="fa fa-fw fa-level-down"></span>&nbsp;<span translate>Auto Accept</span></th>
