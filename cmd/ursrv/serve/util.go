@@ -40,7 +40,7 @@ var funcs = map[string]interface{}{
 	},
 }
 
-func newBlockStats() [][]interface{} {
+func newBlockStats() [][]any {
 	return [][]interface{}{
 		{"Day", "Number of Reports", "Transferred (GiB)", "Saved by renaming files (GiB)", "Saved by resuming transfer (GiB)", "Saved by reusing data from old file (GiB)", "Saved by reusing shifted data from old file (GiB)", "Saved by reusing data from other files (GiB)"},
 	}

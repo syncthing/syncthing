@@ -96,8 +96,8 @@ type server struct {
 	cacheMut           sync.Mutex
 	cachedLatestReport report.AggregatedReport
 	cachedSummary      summary
-	cachedBlockstats   [][]interface{}
-	cachedPerformance  [][]interface{}
+	cachedBlockstats   [][]any
+	cachedPerformance  [][]any
 	cacheTime          time.Time
 }
 
@@ -335,7 +335,7 @@ func (s *server) cachePresentationData(reports []report.AggregatedReport) {
 		if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
 			s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
 		}
-		s.cachedPerformance = append(s.cachedPerformance, []interface{}{
+		s.cachedPerformance = append(s.cachedPerformance, []any{
 			date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
 		})
 	}
