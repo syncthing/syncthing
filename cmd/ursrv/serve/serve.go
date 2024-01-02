@@ -16,6 +16,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,7 +33,7 @@ import (
 
 type CLI struct {
 	Debug  bool   `env:"UR_DEBUG"`
-	Listen string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
+	Listen string `env:"UR_LISTEN_V2" default:"0.0.0.0:8080"`
 }
 
 const maxCacheTime = 15 * time.Minute
@@ -271,6 +274,16 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	version = fmt.Sprintf("v%d", rep.URVersion)
+
+	// Pass the incoming report through to the old report handler, while the
+	// migration process is in place.
+	url, err := url.Parse(os.Getenv("UR_LISTEN"))
+	if err != nil {
+		return
+	}
+	proxy := httputil.NewSingleHostReverseProxy(url)
+	_ = r.Body.Close()
+	proxy.ServeHTTP(w, r)
 }
 
 func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
