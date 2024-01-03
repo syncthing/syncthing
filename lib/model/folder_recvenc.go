@@ -9,6 +9,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -88,15 +89,26 @@ func (f *receiveEncryptedFolder) revert() error {
 
 		return true
 	})
+	_ = batch.Flush()
 
+	// Revert the respective dirs.
 	f.revertHandleDirs(dirs, snap)
+	now := time.Now()
+	for _, dir := range dirs {
+		batch.Append(protocol.FileInfo{
+			Name:       dir,
+			Type:       protocol.FileInfoTypeDirectory,
+			ModifiedS:  now.Unix(),
+			ModifiedBy: f.shortID,
+			Deleted:    true,
+			Version:    protocol.Vector{},
+		})
+	}
 
 	if iterErr != nil {
 		return iterErr
 	}
-	if err := batch.Flush(); err != nil {
-		return err
-	}
+	_ = batch.Flush()
 
 	// We might need to pull items if the local changes were on valid, global files.
 	f.SchedulePull()
