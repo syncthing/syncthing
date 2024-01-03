@@ -615,7 +615,7 @@
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="folder.type == 'receiveonly' && hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc',folder.id)" ng-if="folder.type == 'receiveencrypted' && hasReceiveOnlyChanged(folder)">
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="folder.type == 'receiveencrypted' && hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
                   </button>
                   <span class="pull-right">
