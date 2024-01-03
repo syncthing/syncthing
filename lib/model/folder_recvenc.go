@@ -102,6 +102,7 @@ func (f *receiveEncryptedFolder) revert() error {
 			ModifiedBy: f.shortID,
 			Deleted:    true,
 			Version:    protocol.Vector{},
+			LocalFlags: protocol.FlagLocalReceiveOnly,
 		})
 	}
 
