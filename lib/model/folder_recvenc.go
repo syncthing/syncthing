@@ -55,12 +55,10 @@ func (f *receiveEncryptedFolder) revert() error {
 		return err
 	}
 	defer snap.Release()
-	var iterErr error
+
 	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		if iterErr = batch.FlushIfFull(); iterErr != nil {
-			return false
-		}
+		_ = batch.FlushIfFull()
 
 		fit := intf.(db.FileInfoTruncated)
 		if !fit.IsReceiveOnlyChanged() || intf.IsDeleted() {
@@ -92,8 +90,27 @@ func (f *receiveEncryptedFolder) revert() error {
 	_ = batch.Flush()
 
 	// Revert the respective dirs.
-	f.revertHandleDirs(dirs, snap)
+	f.revertHandleDirs(dirs, snap, batch)
+
+	_ = batch.Flush()
+
+	// We might need to pull items if the local changes were on valid, global files.
+	f.SchedulePull()
+
+	return nil
+}
+
+func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot, batch *db.FileInfoBatch) {
+	if len(dirs) == 0 {
+		return
+	}
+
+	scanChan := make(chan string)
+	go f.pullScannerRoutine(scanChan)
+	defer close(scanChan)
+
 	now := time.Now()
+	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	for _, dir := range dirs {
 		batch.Append(protocol.FileInfo{
 			Name:       dir,
@@ -104,30 +121,6 @@ func (f *receiveEncryptedFolder) revert() error {
 			Version:    protocol.Vector{},
 			LocalFlags: protocol.FlagLocalReceiveOnly,
 		})
-	}
-
-	if iterErr != nil {
-		return iterErr
-	}
-	_ = batch.Flush()
-
-	// We might need to pull items if the local changes were on valid, global files.
-	f.SchedulePull()
-
-	return nil
-}
-
-func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
-	if len(dirs) == 0 {
-		return
-	}
-
-	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
-	defer close(scanChan)
-
-	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
-	for _, dir := range dirs {
 		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
