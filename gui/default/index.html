@@ -612,10 +612,10 @@
                   <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
                     <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="hasReceiveOnlyChanged(folder)">
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="folder.type == 'receiveonly' && hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder)">
+                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc',folder.id)" ng-if="folder.type == 'receiveencrypted' && hasReceiveOnlyChanged(folder)">
                     <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
                   </button>
                   <span class="pull-right">

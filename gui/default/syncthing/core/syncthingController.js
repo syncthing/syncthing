@@ -3081,7 +3081,13 @@ angular.module('syncthing.core')
                 return false;
             }
             var counts = $scope.model[folderCfg.id];
-            return counts && counts.receiveOnlyTotalItems > 0;
+            if (!counts) return false;
+            if (folderCfg.type == 'receiveencrypted') {
+                // Deleting unexpected items won't trigger an index update.
+                // Subtract the deleted items from the total changed items.
+                return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes > 0;
+            }
+            return counts.receiveOnlyTotalItems > 0;
         };
 
         $scope.revertOverride = function () {
