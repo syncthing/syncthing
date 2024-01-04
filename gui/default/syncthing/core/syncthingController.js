@@ -1040,17 +1040,28 @@ angular.module('syncthing.core')
                 // Do the same thing in case we only have zero byte files to sync.
                 return 95;
             }
-            var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
-            return Math.floor(pct);
+            return progressIntegerPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
         };
 
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;
             }
-            var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
-            return Math.floor(pct);
+            return progressIntegerPercentage($scope.scanProgress[folder].current, $scope.scanProgress[folder].total);
         };
+
+        function progressIntegerPercentage(current, total) {
+            // Even after whatever is being tracked (e.g. hashed or synced
+            // bytes) is completed, there's likely some more work to be done to
+            // fully finish the process (db updates, ...). Users apparently
+            // don't like seeing 100%, so give them 99% to indicate "about to be
+            // finished".
+            if (current === total) {
+                return 99;
+            }
+            var pct = 100 * current / total;
+            return Math.floor(pct);
+        }
 
         $scope.scanRate = function (folder) {
             if (!$scope.scanProgress[folder]) {
@@ -1450,7 +1461,7 @@ angular.module('syncthing.core')
 
         $scope.friendlyNameFromShort = function (shortID) {
             var matches = Object.keys($scope.devices).filter(function (id) {
-                return id.substr(0, 7) === shortID;
+                return id.substr(0, shortIDStringLength) === shortID;
             });
             if (matches.length !== 1) {
                 return shortID;
@@ -1463,7 +1474,7 @@ angular.module('syncthing.core')
             if (match) {
                 return $scope.deviceName(match);
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.deviceName = function (deviceCfg) {
@@ -1480,7 +1491,7 @@ angular.module('syncthing.core')
             if (typeof deviceID === 'undefined') {
                 return "";
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.thisDeviceName = function () {
@@ -1491,7 +1502,7 @@ angular.module('syncthing.core')
             if (device.name) {
                 return device.name;
             }
-            return device.deviceID.substr(0, 6);
+            return device.deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.showDeviceIdentification = function (deviceCfg) {

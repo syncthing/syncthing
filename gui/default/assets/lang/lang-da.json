@@ -99,6 +99,7 @@
     "Device ID": "Enheds-ID",
     "Device Identification": "Enhedsidentifikation",
     "Device Name": "Enhedsnavn",
+    "Device Status": "Enhedsstatus",
     "Device is untrusted, enter encryption password": "Enhed er ikke-troværdig, indtast krypteringsadgangskode",
     "Device rate limits": "Enhedens hastighedsbegrænsning",
     "Device that last modified the item": "Enhed, som sidst ændrede filen",
@@ -168,6 +169,7 @@
     "Folder ID": "Mappe-ID",
     "Folder Label": "Mappeetiket",
     "Folder Path": "Mappesti",
+    "Folder Status": "Mappestatus",
     "Folder Type": "Mappetype",
     "Folder type \"{%receiveEncrypted%}\" can only be set when adding a new folder.": "Mappe type \"{{receiveEncrypted}}\" kan kun indstilles når en ny mappe tilføjes.",
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Mappetype \"{{receiveEncrypted}}\" kan ikke ændres, efter at mappen er tilføjet. Du skal fjerne mappen, slette eller dekryptere dataene på disken og tilføje mappen igen.",
@@ -545,6 +547,7 @@
             "light": "Lys"
         }
     },
+    "unknown device": "ukendt enhed",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker at dele mappen “{{folder}}”.",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker at dele mappen “{{folderlabel}}” ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} vil muligvis genindføre denne enhed."
