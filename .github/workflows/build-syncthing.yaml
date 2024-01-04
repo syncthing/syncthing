@@ -190,7 +190,7 @@ jobs:
           CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-windows
           path: syncthing-windows-*.zip
@@ -235,7 +235,7 @@ jobs:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-linux
           path: syncthing-linux-*.tar.gz
@@ -334,7 +334,7 @@ jobs:
           zip -r "../$universal.zip" "$universal"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-macos
           path: syncthing-*.zip
@@ -349,7 +349,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-macos
 
@@ -431,7 +431,7 @@ jobs:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-other
           path: syncthing-*.tar.gz
@@ -471,7 +471,7 @@ jobs:
           mv "syncthing-source-$version.tar.gz" syncthing
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-source
           path: syncthing-source-*.tar.gz
@@ -504,7 +504,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Install signing tool
         run: |
@@ -543,7 +543,7 @@ jobs:
           GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-signed
           path: packages/*
@@ -595,7 +595,7 @@ jobs:
           BUILD_USER: debian
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: debian-packages
           path: "*.deb"
@@ -620,7 +620,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-signed
           path: packages
@@ -662,13 +662,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download signed packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-signed
           path: packages
 
       - name: Download debian packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: debian-packages
           path: packages
