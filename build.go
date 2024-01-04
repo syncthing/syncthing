@@ -272,7 +272,7 @@ func main() {
 
 	initTargets()
 
-	if !buildpkg.AllowedVersionExp.MatchString(version) {
+	if version != "unknown-dev" && !buildpkg.AllowedVersionExp.MatchString(version) {
 		// app with unallowed versions shouldn't be built because it won't run
 		log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", version, buildpkg.AllowedVersionExp)
 	}
