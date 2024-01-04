@@ -480,6 +480,72 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	}
 }
 
+func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
+	// Get us a model up and running
+
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
+	ffs := f.Filesystem(nil)
+	defer cleanupModel(m)
+	conn := addFakeConn(m, device1, f.ID)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
+	oldData := []byte("hello\n")
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	// Send an index update for the known stuff
+
+	must(t, m.Index(conn, "ro", knownFiles))
+	f.updateLocalsFromScanning(knownFiles)
+
+	// Scan the folder.
+
+	must(t, m.ScanFolder("ro"))
+
+	// Everything should be in sync.
+
+	size := globalSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
+	}
+	size = localSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
+	}
+	size = needSizeLocal(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
+	}
+
+	// Modify the file
+
+	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("change1\n"), 0o644)
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files != 1 {
+		t.Fatalf("Receive only: expected 1 file: %+v", size)
+	}
+
+	// Perform another modification. This should not trigger the creation of a conflict file.
+
+	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("change2\n"), 0o644)
+
+	must(t, m.ScanFolder("ro"))
+
+	size = needSizeLocal(t, m, "ro")
+	if size.Files != 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+}
+
 func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.FileInfo {
 	t.Helper()
 
