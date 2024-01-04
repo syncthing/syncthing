@@ -134,10 +134,11 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
-	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
-	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli      cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
+	Serve              serveOptions                 `cmd:"" help:"Run Syncthing"`
+	Generate           generate.CLI                 `cmd:"" help:"Generate key and config, then exit"`
+	Decrypt            decrypt.CLI                  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli                cli.CLI                      `cmd:"" help:"Command line interface for Syncthing"`
+	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
