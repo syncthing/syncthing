@@ -272,6 +272,17 @@ func main() {
 
 	initTargets()
 
+	// we assume that getVersion should return valid version,
+	// so only validate version override
+	if version != "" {
+		if !buildpkg.AllowedVersionExp.MatchString(version) {
+			// app with unallowed versions shouldn't be built because it won't run
+			log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", version, buildpkg.AllowedVersionExp)
+		}
+	} else {
+		version = getVersion()
+	}
+
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
@@ -386,7 +397,7 @@ func parseFlags() {
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.StringVar(&goCmd, "gocmd", "go", "Specify `go` command")
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
-	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.StringVar(&version, "version", "", "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")

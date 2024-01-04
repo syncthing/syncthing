@@ -36,7 +36,7 @@ var (
 	LongVersion string
 	Extra       string
 
-	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+|\+[0-9a-z]+)?(-[^\s]+)?$`)
+	AllowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+|\+[0-9a-z]+)?(-[^\s]+)?$`)
 
 	envTags = []string{
 		"STGUIASSETS",
@@ -51,8 +51,8 @@ const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST
 func init() {
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
-		if !allowedVersionExp.MatchString(Version) {
-			log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
+		if !AllowedVersionExp.MatchString(Version) {
+			log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, AllowedVersionExp)
 		}
 	}
 	setBuildData()
