@@ -18,7 +18,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -29,6 +28,8 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
 	"github.com/syncthing/syncthing/lib/events"
 	eventmocks "github.com/syncthing/syncthing/lib/events/mocks"
@@ -72,71 +73,6 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func TestCSRFToken(t *testing.T) {
-	t.Parallel()
-
-	max := 10 * maxCsrfTokens
-	int := 5
-	if testing.Short() {
-		max = 1 + maxCsrfTokens
-		int = 2
-	}
-
-	m := newCsrfManager("unique", "prefix", config.GUIConfiguration{}, nil, "")
-
-	t1 := m.newToken()
-	t2 := m.newToken()
-
-	t3 := m.newToken()
-	if !m.validToken(t3) {
-		t.Fatal("t3 should be valid")
-	}
-
-	valid := make(map[string]struct{}, maxCsrfTokens)
-	for _, token := range m.tokens {
-		valid[token] = struct{}{}
-	}
-
-	for i := 0; i < max; i++ {
-		if i%int == 0 {
-			// t1 and t2 should remain valid by virtue of us checking them now
-			// and then.
-			if !m.validToken(t1) {
-				t.Fatal("t1 should be valid at iteration", i)
-			}
-			if !m.validToken(t2) {
-				t.Fatal("t2 should be valid at iteration", i)
-			}
-		}
-
-		if len(m.tokens) == maxCsrfTokens {
-			// We're about to add a token, which will remove the last token
-			// from m.tokens.
-			delete(valid, m.tokens[len(m.tokens)-1])
-		}
-
-		// The newly generated token is always valid
-		t4 := m.newToken()
-		if !m.validToken(t4) {
-			t.Fatal("t4 should be valid at iteration", i)
-		}
-		valid[t4] = struct{}{}
-
-		v := make(map[string]struct{}, maxCsrfTokens)
-		for _, token := range m.tokens {
-			v[token] = struct{}{}
-		}
-
-		if !reflect.DeepEqual(v, valid) {
-			t.Fatalf("want valid tokens %v, got %v", valid, v)
-		}
-	}
-
-	if m.validToken(t3) {
-		t.Fatal("t3 should have expired by now")
-	}
-}
-
 func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Parallel()
 
@@ -148,7 +84,9 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 	defer os.Remove(token)
 
 	srv.started = make(chan string)
@@ -926,7 +864,9 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false).(*service)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	defer os.Remove(token)
 	svc.started = addrChan
 
@@ -1467,7 +1407,9 @@ func TestEventMasks(t *testing.T) {
 	cfg := newMockedConfig()
 	defSub := new(eventmocks.BufferedSubscription)
 	diskSub := new(eventmocks.BufferedSubscription)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
