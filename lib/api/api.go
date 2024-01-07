@@ -373,8 +373,8 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		sessionCookieName := "sessionid-" + s.id.Short().String()
-		authMW := newBasicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger, s.miscDB)
+		sessionStore := newSessionStore(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+		authMW := newBasicAuthAndSessionMiddleware(sessionStore, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
