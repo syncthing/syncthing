@@ -386,6 +386,7 @@
     "Staggered File Versioning": "阶段版本控制",
     "Start Browser": "启动浏览器",
     "Statistics": "统计",
+    "Stay logged in": "保持登录",
     "Stopped": "已停止",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "仅存储和同步加密的数据。所有连接的设备上的文件夹也需要使用相同的密码设置，或者也必须设置为“ {{receiveEncrypted}}”类型。",
     "Subject:": "主题：",
