@@ -426,12 +426,14 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -471,12 +473,14 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -524,12 +528,14 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
