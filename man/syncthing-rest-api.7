@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Dec 21, 2023" "v1.27.0" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jan 04, 2024" "v1.27.2" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -1825,9 +1825,10 @@ long some events might be missed. This can be detected by noting a discontinuity
 in the event IDs.
 .sp
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
-waits for new events to happen before returning. By default it times out after
-60 seconds returning an empty array. The time out duration can be customized
-with the optional parameter \fBtimeout=<seconds>\fP\&.
+waits for new events to happen before returning. If \fB<lastSeenID>\fP is a
+future ID, the HTTP call blocks until such ID is reached or timeouts. By
+default it times out after 60 seconds returning an empty array. The time out
+duration can be customized with the optional parameter \fBtimeout=<seconds>\fP\&.
 .sp
 To receive only a limited number of events, add the \fBlimit=<n>\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
