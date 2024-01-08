@@ -534,9 +534,9 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 		t.Fatalf("Receive only: expected 1 file: %+v", size)
 	}
 
-	  // Perform another modification. This should not cause the file to be needed.
-	  // This is a regression test: Previously on scan the file version was changed to conflict with the global
-	  // version, thus being needed and creating a conflict copy on next pull.
+	// Perform another modification. This should not cause the file to be needed.
+	// This is a regression test: Previously on scan the file version was changed to conflict with the global
+	// version, thus being needed and creating a conflict copy on next pull.
 
 	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("change2\n"), 0o644)
 
