@@ -386,6 +386,7 @@
     "Staggered File Versioning": "Versionado escalonado de fichero",
     "Start Browser": "Iniciar el navegador",
     "Statistics": "Estadísticas",
+    "Stay logged in": "Permanecer conectado",
     "Stopped": "Detenido",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Almacena y sincroniza sólo los datos cifrados. Las carpetas de todos los dispositivos conectados deben estar configuradas con la misma contraseña o ser también del tipo \"{{receiveEncrypted}}\".",
     "Subject:": "Asunto:",
