@@ -386,6 +386,7 @@
     "Staggered File Versioning": "تقسمات إصدارات الملف مهترئة",
     "Start Browser": "تشغيل المتصفح",
     "Statistics": "إحصائيات",
+    "Stay logged in": "ابقِ مُسجل الدخول",
     "Stopped": "متوقف",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "يُزامن ويخزن البيانات المشفرة فقط. يجب أن تكون المجلدات على جميع الأجهزة مُجهزَّة بكلمة المرور نفسها، أو أن تكون من نوع \"{{receiveEncrypted}}\".",
     "Subject:": "الموضوع:",
