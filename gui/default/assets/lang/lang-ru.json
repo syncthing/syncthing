@@ -386,6 +386,7 @@
     "Staggered File Versioning": "Ступенчатое управление версиями файлов",
     "Start Browser": "Запускать браузер",
     "Statistics": "Статистика",
+    "Stay logged in": "Оставаться в системе",
     "Stopped": "Остановлено",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Хранит и синхронизирует только зашифрованные данные. Папки на всех подключённых устройствах должны быть настроены под один и тот же пароль или иметь тип «{{receiveEncrypted}}».",
     "Subject:": "Субьект:",
