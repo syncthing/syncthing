@@ -33,7 +33,8 @@ import (
 
 type CLI struct {
 	Debug  bool   `env:"UR_DEBUG"`
-	Listen string `env:"UR_LISTEN_V2" default:"0.0.0.0:8080"`
+	Listen string `env:"UR_LISTEN_V2" default:"0.0.0.0:8081"`
+	_      string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
 }
 
 const maxCacheTime = 15 * time.Minute
@@ -275,9 +276,10 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	version = fmt.Sprintf("v%d", rep.URVersion)
 
-	// Pass the incoming report through to the old report handler, while the
-	// migration process is in place.
-	url, err := url.Parse(os.Getenv("UR_LISTEN"))
+	// Pass the incoming report through to the old report handler, this is
+	// solely used while migrating from the old version to the updated one to
+	// make sure that the incoming reports are available in both versions.
+	url, err := url.Parse(os.Getenv("UR_REPORTS_PROXY"))
 	if err != nil {
 		return
 	}
