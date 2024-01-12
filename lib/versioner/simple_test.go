@@ -101,8 +101,12 @@ func TestPathTildes(t *testing.T) {
 	// to the user's home directory. (issue #9241)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("HomePath", home)
-	os.Mkdir(filepath.Join(home, "folder"), 0755)
+	if vn := filepath.VolumeName(home); vn != "" {
+		// Legacy Windows home stuff
+		t.Setenv("HomeDrive", vn)
+		t.Setenv("HomePath", strings.TrimPrefix(home, vn))
+	}
+	os.Mkdir(filepath.Join(home, "folder"), 0o755)
 
 	cfg := config.FolderConfiguration{
 		FilesystemType: fs.FilesystemTypeBasic,
