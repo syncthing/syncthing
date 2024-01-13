@@ -23,6 +23,7 @@ import (
 
 	"github.com/syncthing/notify"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 )
 
 func TestMain(m *testing.M) {
@@ -99,7 +100,7 @@ func TestWatchInclude(t *testing.T) {
 
 	file := "file"
 	ignored := "ignored"
-	testFs.MkdirAll(filepath.Join(name, ignored), 0777)
+	testFs.MkdirAll(filepath.Join(name, ignored), 0o777)
 	included := filepath.Join(ignored, "included")
 
 	testCase := func() {
@@ -317,12 +318,12 @@ func TestWatchErrorLinuxInterpretation(t *testing.T) {
 		t.Skip("testing of linux specific error codes")
 	}
 
-	var errTooManyFiles = &os.PathError{
+	errTooManyFiles := &os.PathError{
 		Op:   "error while traversing",
 		Path: "foo",
 		Err:  syscall.Errno(24),
 	}
-	var errNoSpace = &os.PathError{
+	errNoSpace := &os.PathError{
 		Op:   "error while traversing",
 		Path: "bar",
 		Err:  syscall.Errno(28),
@@ -346,13 +347,13 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 	}
 
 	name := "symlinkedRoot"
-	if err := testFs.MkdirAll(name, 0755); err != nil {
+	if err := testFs.MkdirAll(name, 0o755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
 	defer testFs.RemoveAll(name)
 
 	root := filepath.Join(name, "root")
-	if err := testFs.MkdirAll(root, 0777); err != nil {
+	if err := testFs.MkdirAll(root, 0o777); err != nil {
 		panic(err)
 	}
 	link := filepath.Join(name, "link")
@@ -369,7 +370,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 		panic(err)
 	}
 
-	if err := linkedFs.MkdirAll("foo", 0777); err != nil {
+	if err := linkedFs.MkdirAll("foo", 0o777); err != nil {
 		panic(err)
 	}
 
@@ -507,7 +508,7 @@ func TestTruncateFileOnly(t *testing.T) {
 // path relative to folder root, also creates parent dirs if necessary
 func createTestFile(name string, file string) string {
 	joined := filepath.Join(name, file)
-	if err := testFs.MkdirAll(filepath.Dir(joined), 0755); err != nil {
+	if err := testFs.MkdirAll(filepath.Dir(joined), 0o755); err != nil {
 		panic(fmt.Sprintf("Failed to create parent directory for %s: %s", joined, err))
 	}
 	handle, err := testFs.Create(joined)
@@ -529,7 +530,7 @@ func renameTestFile(name string, old string, new string) {
 func modifyTestFile(name string, file string, content string) {
 	joined := filepath.Join(testDirAbs, name, file)
 
-	err := os.WriteFile(joined, []byte(content), 0755)
+	err := os.WriteFile(joined, []byte(content), 0o755)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to modify test file %s: %s", joined, err))
 	}
@@ -540,7 +541,7 @@ func sleepMs(ms int) {
 }
 
 func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, fm fakeMatcher, ignorePerms bool) {
-	if err := testFs.MkdirAll(name, 0755); err != nil {
+	if err := testFs.MkdirAll(name, 0o755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
 	defer testFs.RemoveAll(name)
@@ -567,7 +568,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 }
 
 func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents, allowedEvents []Event, ctx context.Context, cancel context.CancelFunc) {
-	var expected = make(map[Event]struct{})
+	expected := make(map[Event]struct{})
 	for _, ev := range expectedEvents {
 		ev.Name = filepath.Join(name, ev.Name)
 		expected[ev] = struct{}{}
@@ -613,8 +614,11 @@ type fakeMatcher struct {
 	skipIgnoredDirs bool
 }
 
-func (fm fakeMatcher) ShouldIgnore(name string) bool {
-	return name != fm.include && name == fm.ignore
+func (fm fakeMatcher) Match(name string) ignoreresult.R {
+	if name != fm.include && name == fm.ignore {
+		return ignoreresult.Ignored
+	}
+	return ignoreresult.NotIgnored
 }
 
 func (fm fakeMatcher) SkipIgnoredDirs() bool {
