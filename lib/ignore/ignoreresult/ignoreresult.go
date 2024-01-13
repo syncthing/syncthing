@@ -8,57 +8,65 @@
 // separate package in order to break import cycles.
 package ignoreresult
 
-import "github.com/syncthing/syncthing/lib/build"
-
 const (
-	NotMatched R = 0
-
-	// The bit flags are used by the ignore package to construct Results.
-	// Don't use them for comparison; use the convenience methods.
-	IgnoreBit R = 1 << iota
-	DeletableBit
-	FoldCaseBit
+	NotIgnored R = 0
+	// `Ignored` is defined in platform specific files
+	IgnoredDeletable = Ignored | deletableBit
 )
 
-var Ignored = IgnoreBit
-
-func init() {
-	if build.IsDarwin || build.IsWindows {
-		Ignored |= FoldCaseBit
-	}
-}
+const (
+	// Private definitions of the bits that make up the result value
+	ignoreBit R = 1 << iota
+	deletableBit
+	foldCaseBit
+)
 
 type R uint8
 
 // IsIgnored returns true if the result is ignored.
 func (r R) IsIgnored() bool {
-	return r&IgnoreBit != 0
+	return r&ignoreBit != 0
 }
 
 // IsDeletable returns true if the result is ignored and deletable.
 func (r R) IsDeletable() bool {
-	return r.IsIgnored() && r&DeletableBit != 0
+	return r.IsIgnored() && r&deletableBit != 0
 }
 
 // IsCaseFolded returns true if the result was a case-insensitive match.
 func (r R) IsCaseFolded() bool {
-	return r&FoldCaseBit != 0
+	return r&foldCaseBit != 0
+}
+
+// ToggleIgnored returns a copy of the result with the ignored bit toggled.
+func (r R) ToggleIgnored() R {
+	return r ^ ignoreBit
+}
+
+// WithDeletable returns a copy of the result with the deletable bit set.
+func (r R) WithDeletable() R {
+	return r | deletableBit
+}
+
+// WithFoldCase returns a copy of the result with the fold case bit set.
+func (r R) WithFoldCase() R {
+	return r | foldCaseBit
 }
 
 // String returns a human readable representation of the result flags.
 func (r R) String() string {
 	var s string
-	if r&IgnoreBit != 0 {
+	if r&ignoreBit != 0 {
 		s += "i"
 	} else {
 		s += "-"
 	}
-	if r&DeletableBit != 0 {
+	if r&deletableBit != 0 {
 		s += "d"
 	} else {
 		s += "-"
 	}
-	if r&FoldCaseBit != 0 {
+	if r&foldCaseBit != 0 {
 		s += "f"
 	} else {
 		s += "-"

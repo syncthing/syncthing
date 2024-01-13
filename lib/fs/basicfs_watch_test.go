@@ -618,7 +618,7 @@ func (fm fakeMatcher) Match(name string) ignoreresult.R {
 	if name != fm.include && name == fm.ignore {
 		return ignoreresult.Ignored
 	}
-	return ignoreresult.NotMatched
+	return ignoreresult.NotIgnored
 }
 
 func (fm fakeMatcher) SkipIgnoredDirs() bool {

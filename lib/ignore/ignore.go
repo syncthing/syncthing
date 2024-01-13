@@ -60,13 +60,13 @@ type Pattern struct {
 
 func (p Pattern) String() string {
 	ret := p.pattern
-	if p.result&ignoreresult.IgnoreBit == 0 {
+	if !p.result.IsIgnored() {
 		ret = "!" + ret
 	}
-	if p.result&ignoreresult.FoldCaseBit != 0 {
+	if p.result.IsCaseFolded() {
 		ret = "(?i)" + ret
 	}
-	if p.result&ignoreresult.DeletableBit != 0 {
+	if p.result.IsDeletable() {
 		ret = "(?d)" + ret
 	}
 	return ret
@@ -234,14 +234,14 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		return ignoreresult.Ignored
 
 	case file == ".":
-		return ignoreresult.NotMatched
+		return ignoreresult.NotIgnored
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return ignoreresult.NotMatched
+		return ignoreresult.NotIgnored
 	}
 
 	if m.matches != nil {
@@ -274,7 +274,7 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	}
 
 	// Default to not matching.
-	return ignoreresult.NotMatched
+	return ignoreresult.NotIgnored
 }
 
 // Lines return a list of the unprocessed lines in .stignore at last load
@@ -404,14 +404,14 @@ func parseLine(line string) ([]Pattern, error) {
 		if strings.HasPrefix(line, "!") && !seenPrefix[0] {
 			seenPrefix[0] = true
 			line = line[1:]
-			pattern.result ^= ignoreresult.IgnoreBit
+			pattern.result = pattern.result.ToggleIgnored()
 		} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
 			seenPrefix[1] = true
-			pattern.result |= ignoreresult.FoldCaseBit
+			pattern.result = pattern.result.WithFoldCase()
 			line = line[4:]
 		} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 			seenPrefix[2] = true
-			pattern.result |= ignoreresult.DeletableBit
+			pattern.result = pattern.result.WithDeletable()
 			line = line[4:]
 		} else {
 			break

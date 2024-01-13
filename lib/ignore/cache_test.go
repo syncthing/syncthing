@@ -30,7 +30,7 @@ func TestCache(t *testing.T) {
 
 	// Set and check some items
 
-	c.set("true", ignoreresult.IgnoreBit|ignoreresult.DeletableBit)
+	c.set("true", ignoreresult.IgnoredDeletable)
 	c.set("false", 0)
 
 	res, ok = c.get("true")
