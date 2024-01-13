@@ -21,10 +21,10 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/protocol"
 
-	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
@@ -100,11 +100,11 @@ var (
 	debug             bool
 	permRelaysFile    string
 	ipHeader          string
-	geoipPath         string
 	proto             string
 	statsRefresh      = time.Minute
 	requestQueueLen   = 64
 	requestProcessors = 8
+	geoipLicenseKey   string
 
 	requests chan request
 
@@ -130,34 +130,35 @@ func main() {
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
 	flag.StringVar(&knownRelaysFile, "known-relays", knownRelaysFile, "Path to list of current relays")
 	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
-	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
 	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
 	flag.DurationVar(&statsRefresh, "stats-refresh", statsRefresh, "Interval at which to refresh relay stats")
 	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
 	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
+	flag.StringVar(&geoipLicenseKey, "geoip-license-key", "", "License key for GeoIP database")
 
 	flag.Parse()
 
 	requests = make(chan request, requestQueueLen)
+	geoip := geoip.NewGeoLite2CityProvider(geoipLicenseKey, os.TempDir())
 
 	var listener net.Listener
 	var err error
 
 	if permRelaysFile != "" {
-		permanentRelays = loadRelays(permRelaysFile)
+		permanentRelays = loadRelays(permRelaysFile, geoip)
 	}
 
 	testCert = createTestCertificate()
 
 	for i := 0; i < requestProcessors; i++ {
-		go requestProcessor()
+		go requestProcessor(geoip)
 	}
 
 	// Load relays from cache in the background.
 	// Load them in a serial fashion to make sure any genuine requests
 	// are not dropped.
 	go func() {
-		for _, relay := range loadRelays(knownRelaysFile) {
+		for _, relay := range loadRelays(knownRelaysFile, geoip) {
 			resultChan := make(chan result)
 			requests <- request{relay, resultChan, nil}
 			result := <-resultChan
@@ -425,19 +426,19 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestProcessor() {
+func requestProcessor(geoip *geoip.Provider) {
 	for request := range requests {
 		if request.queueTimer != nil {
 			request.queueTimer.ObserveDuration()
 		}
 
 		timer := prometheus.NewTimer(relayTestActionsSeconds.WithLabelValues("test"))
-		handleRelayTest(request)
+		handleRelayTest(request, geoip)
 		timer.ObserveDuration()
 	}
 }
 
-func handleRelayTest(request request) {
+func handleRelayTest(request request, geoip *geoip.Provider) {
 	if debug {
 		log.Println("Request for", request.relay)
 	}
@@ -450,7 +451,7 @@ func handleRelayTest(request request) {
 	}
 
 	stats := fetchStats(request.relay)
-	location := getLocation(request.relay.uri.Host)
+	location := getLocation(request.relay.uri.Host, geoip)
 
 	mut.Lock()
 	if stats != nil {
@@ -523,7 +524,7 @@ func evict(relay *relay) func() {
 	}
 }
 
-func loadRelays(file string) []*relay {
+func loadRelays(file string, geoip *geoip.Provider) []*relay {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		log.Println("Failed to load relays: " + err.Error())
@@ -547,7 +548,7 @@ func loadRelays(file string) []*relay {
 
 		relays = append(relays, &relay{
 			URL:      line,
-			Location: getLocation(uri.Host),
+			Location: getLocation(uri.Host, geoip),
 			uri:      uri,
 		})
 		if debug {
@@ -580,21 +581,16 @@ func createTestCertificate() tls.Certificate {
 	return cert
 }
 
-func getLocation(host string) location {
+func getLocation(host string, geoip *geoip.Provider) location {
 	timer := prometheus.NewTimer(locationLookupSeconds)
 	defer timer.ObserveDuration()
-	db, err := geoip2.Open(geoipPath)
-	if err != nil {
-		return location{}
-	}
-	defer db.Close()
 
 	addr, err := net.ResolveTCPAddr("tcp", host)
 	if err != nil {
 		return location{}
 	}
 
-	city, err := db.City(addr.IP)
+	city, err := geoip.City(addr.IP)
 	if err != nil {
 		return location{}
 	}

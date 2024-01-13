@@ -17,6 +17,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -26,20 +27,20 @@ import (
 	"unicode"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
-	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 type CLI struct {
-	Debug     bool   `env:"UR_DEBUG"`
-	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
-	Listen    string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
-	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
+	Debug           bool   `env:"UR_DEBUG"`
+	DBConn          string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
+	Listen          string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
+	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE"`
 }
 
 //go:embed static
@@ -188,9 +189,9 @@ func (cli *CLI) Run() error {
 	}
 
 	srv := &server{
-		db:        db,
-		debug:     cli.Debug,
-		geoIPPath: cli.GeoIPPath,
+		db:    db,
+		debug: cli.Debug,
+		geoip: geoip.NewGeoLite2CityProvider(cli.GeoIPLicenseKey, os.TempDir()),
 	}
 	http.HandleFunc("/", srv.rootHandler)
 	http.HandleFunc("/newdata", srv.newDataHandler)
@@ -211,9 +212,9 @@ func (cli *CLI) Run() error {
 }
 
 type server struct {
-	debug     bool
-	db        *sql.DB
-	geoIPPath string
+	debug bool
+	db    *sql.DB
+	geoip *geoip.Provider
 
 	cacheMut        sync.Mutex
 	cachedIndex     []byte
@@ -236,7 +237,7 @@ func (s *server) cacheRefresher() {
 }
 
 func (s *server) refreshCacheLocked() error {
-	rep := getReport(s.db, s.geoIPPath)
+	rep := getReport(s.db, s.geoip)
 	buf := new(bytes.Buffer)
 	err := tpl.Execute(buf, rep)
 	if err != nil {
@@ -490,15 +491,7 @@ type weightedLocation struct {
 	Weight int `json:"weight"`
 }
 
-func getReport(db *sql.DB, geoIPPath string) map[string]interface{} {
-	geoip, err := geoip2.Open(geoIPPath)
-	if err != nil {
-		log.Println("opening geoip db", err)
-		geoip = nil
-	} else {
-		defer geoip.Close()
-	}
-
+func getReport(db *sql.DB, geoip *geoip.Provider) map[string]interface{} {
 	nodes := 0
 	countriesTotal := 0
 	var versions []string
