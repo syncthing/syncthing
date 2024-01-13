@@ -177,6 +177,7 @@
     "Ignore": "忽略",
     "Ignore Patterns": "忽略樣式",
     "Ignore Permissions": "忽略權限",
+    "Ignore patterns can only be added after the folder is created. If checked, an input field to enter ignore patterns will be presented after saving.": "忽略模式只能在建立資料夾之後新增。如果選取這個項目，會在儲存後顯示一個設定忽略模式的欄位。",
     "Ignored Devices": "已忽略的裝置",
     "Ignored Folders": "已忽略的資料夾",
     "Ignored at": "忽略時間",
