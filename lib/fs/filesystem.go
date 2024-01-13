@@ -129,7 +129,6 @@ type Usage struct {
 
 type Matcher interface {
 	Match(name string) ignoreresult.R
-	SkipIgnoredDirs() bool
 }
 
 type Event struct {
