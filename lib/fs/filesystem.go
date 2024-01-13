@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -127,12 +128,8 @@ type Usage struct {
 }
 
 type Matcher interface {
-	ShouldIgnore(name string) bool
+	Match(name string) ignoreresult.R
 	SkipIgnoredDirs() bool
-}
-
-type MatchResult interface {
-	IsIgnored() bool
 }
 
 type Event struct {

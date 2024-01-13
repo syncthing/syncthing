@@ -343,7 +343,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 		file := intf.(protocol.FileInfo)
 
 		switch {
-		case f.ignores.ShouldIgnore(file.Name):
+		case f.ignores.Match(file.Name).IsIgnored():
 			file.SetIgnored()
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}

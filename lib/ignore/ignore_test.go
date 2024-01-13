@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -415,7 +416,7 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
-var result Result
+var result ignoreresult.R
 
 func BenchmarkMatch(b *testing.B) {
 	testFs := newTestFS()
