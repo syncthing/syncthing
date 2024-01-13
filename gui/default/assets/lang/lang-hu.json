@@ -193,7 +193,7 @@
     "Ignore patterns can only be added after the folder is created. If checked, an input field to enter ignore patterns will be presented after saving.": "Mellőzési minták csak a mappa létrehozása után adhatók hozzá. Bejelölve egy beviteli mező fog megjelenni mentés után a mellőzési minták számára.",
     "Ignored Devices": "Mellőzött eszközök",
     "Ignored Folders": "Mellőzött mappák",
-    "Ignored at": "Mellőzve:",
+    "Ignored at": "Mellőzve",
     "Included Software": "Felhasznált szoftver",
     "Incoming Rate Limit (KiB/s)": "Bejövő sebességkorlát (KiB/s)",
     "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "Helytelen konfiguráció esetén károsodhat a mappák tartalma és működésképtelenné válhat a Syncthing.",
