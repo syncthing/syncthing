@@ -173,11 +173,13 @@ func waitForSync(ctx context.Context, folderID string, api *rc.API) (map[string]
 	var completedWhen time.Time
 	stateTimes := make(map[string]time.Duration)
 	for {
+		// Get events, with a five second timeout.
 		ectx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		evs, err := api.Events(ectx, lastEventID)
 		if errors.Is(err, context.DeadlineExceeded) {
-			// Check if the main context is done, or if it was just us.
+			// Check if the main context is done, or if it was just our
+			// shorter timeout.
 			select {
 			case <-ctx.Done():
 				return stateTimes, ctx.Err()
@@ -187,6 +189,8 @@ func waitForSync(ctx context.Context, folderID string, api *rc.API) (map[string]
 			return stateTimes, err
 		}
 
+		// If we're completed and it's been a while without hearing
+		// otherwise, we're done.
 		if indexUpdated && completed && time.Since(completedWhen) > 4*time.Second {
 			return stateTimes, nil
 		}
