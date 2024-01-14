@@ -359,6 +359,12 @@
             <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
           </div>
 
+          <div class="form-group">
+            <label>
+              <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
+            </label>
+          </div>
+
           <div class="row">
             <div class="col-md-9 login-form-messages">
               <p ng-if="login.errors.badLogin" class="text-danger" translate>
@@ -910,7 +916,7 @@
                       </tr>
                       <tr ng-if="deviceCfg.introducedBy">
                         <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceShortID(deviceCfg.introducedBy) }}</td>
                       </tr>
                       <tr ng-if="deviceCfg.autoAcceptFolders">
                         <th><span class="fa fa-fw fa-level-down"></span>&nbsp;<span translate>Auto Accept</span></th>

@@ -9,6 +9,8 @@ package ignore
 import (
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 )
 
 func TestCache(t *testing.T) {
@@ -28,7 +30,7 @@ func TestCache(t *testing.T) {
 
 	// Set and check some items
 
-	c.set("true", resultInclude|resultDeletable)
+	c.set("true", ignoreresult.IgnoredDeletable)
 	c.set("false", 0)
 
 	res, ok = c.get("true")

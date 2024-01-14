@@ -43,7 +43,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 			if err != nil {
 				return true
 			}
-			return ignore.ShouldIgnore(rel)
+			return ignore.Match(rel).IsIgnored()
 		}
 		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	} else {
@@ -94,7 +94,7 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 				return
 			}
 
-			if ignore.ShouldIgnore(relPath) {
+			if ignore.Match(relPath).IsIgnored() {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
 			}

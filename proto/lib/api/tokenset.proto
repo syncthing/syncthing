@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package api;
+
+message TokenSet {
+    // token -> expiry time (epoch nanoseconds)
+    map<string, int64> tokens = 1;
+}

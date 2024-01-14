@@ -99,6 +99,7 @@
     "Device ID": "ID Dispositivo",
     "Device Identification": "Identificazione Dispositivo",
     "Device Name": "Nome Dispositivo",
+    "Device Status": "Stato Dispositivo",
     "Device is untrusted, enter encryption password": "Il dispositivo non è attendibile, inserisci la password di crittografia",
     "Device rate limits": "Limiti di velocità del dispositivo",
     "Device that last modified the item": "Dispositivo che ha modificato l'elemento per ultimo",
@@ -168,6 +169,7 @@
     "Folder ID": "ID Cartella",
     "Folder Label": "Etichetta per la Cartella",
     "Folder Path": "Percorso Cartella",
+    "Folder Status": "Stato Cartella",
     "Folder Type": "Tipo di Cartella",
     "Folder type \"{%receiveEncrypted%}\" can only be set when adding a new folder.": "Il tipo di cartella \"{{receiveEncrypted}}\" può essere impostata solo quando si aggiunge una nuova cartella.",
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Il tipo di cartella \"{{receiveEncrypted}}\" non può essere modificato dopo aver aggiunto la cartella. È necessario rimuovere la cartella, eliminare o decrittografare i dati sul disco e aggiungere nuovamente la cartella.",
@@ -236,6 +238,7 @@
     "Log": "Log",
     "Log File": "File Log",
     "Log In": "Login",
+    "Log Out": "Disconnetti",
     "Log in to see paths information.": "Accedere per visualizzare le informazioni sui percorsi.",
     "Log in to see version information.": "Accedere per visualizzare le informazioni sulla versione.",
     "Log tailing paused. Scroll to the bottom to continue.": "Visualizzazione log in pausa. Scorri fino in fondo per continuare.",
@@ -544,6 +547,7 @@
             "light": "Chiaro"
         }
     },
+    "unknown device": "dispositivo sconosciuto",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vuole condividere la cartella \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vuole condividere la cartella \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} potrebbe reintrodurre questo dispositivo."
