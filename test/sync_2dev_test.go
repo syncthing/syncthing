@@ -7,16 +7,23 @@
 package integration
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
+// TestSyncOneSideToOther verifies that files on one side get synced to the
+// other. The test creates actual files on disk in a temp directory, so that
+// the data can be compared after syncing.
 func TestSyncOneSideToOther(t *testing.T) {
 	t.Parallel()
 
@@ -25,13 +32,24 @@ func TestSyncOneSideToOther(t *testing.T) {
 	// Create an empty destination folder to hold the synced data.
 	dstDir := t.TempDir()
 
+	ctx := context.Background()
+	if dl, ok := t.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, dl)
+		defer cancel()
+	}
+
 	// Spin up two instances to sync the data.
-	testSyncTwoDevicesFolders(t, srcDir, dstDir)
+	testSyncTwoDevicesFolders(ctx, t, srcDir, dstDir)
 
 	// Check that the destination folder now contains the same files as the source folder.
 	compareTrees(t, srcDir, dstDir)
 }
 
+// TestSyncMergeTwoDevices verifies that two sets of files, one from each
+// device, get merged into a coherent total. The test creates actual files
+// on disk in a temp directory, so that the data can be compared after
+// syncing.
 func TestSyncMergeTwoDevices(t *testing.T) {
 	t.Parallel()
 
@@ -40,8 +58,15 @@ func TestSyncMergeTwoDevices(t *testing.T) {
 	// Create a destination folder that also has some data in it.
 	dstDir := generateTree(t, 50)
 
+	ctx := context.Background()
+	if dl, ok := t.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, dl)
+		defer cancel()
+	}
+
 	// Spin up two instances to sync the data.
-	testSyncTwoDevicesFolders(t, srcDir, dstDir)
+	testSyncTwoDevicesFolders(ctx, t, srcDir, dstDir)
 
 	// Check that both folders are the same, and the file count should be
 	// the sum of the two.
@@ -50,7 +75,7 @@ func TestSyncMergeTwoDevices(t *testing.T) {
 	}
 }
 
-func testSyncTwoDevicesFolders(t *testing.T, srcDir, dstDir string) {
+func testSyncTwoDevicesFolders(ctx context.Context, t *testing.T, srcDir, dstDir string) {
 	t.Helper()
 
 	// The folder needs an ID.
@@ -111,54 +136,95 @@ func testSyncTwoDevicesFolders(t *testing.T, srcDir, dstDir string) {
 	// to 100. At that point they should be done. Wait for both sides to do
 	// their thing.
 
-	waitForSync := func(name string, api *rc.API) {
-		lastEventID := 0
-		indexUpdated := false
-		completion := 0.0
-		for {
-			events, err := api.Events(lastEventID)
-			if err != nil {
-				t.Log(err)
-				return
-			}
-
-			for _, ev := range events {
-				lastEventID = ev.ID
-				switch ev.Type {
-				case "RemoteIndexUpdated", "LocalIndexUpdated":
-					t.Log(name, ev.Type)
-					data := ev.Data.(map[string]any)
-					folder := data["folder"].(string)
-					if folder != folderID {
-						continue
-					}
-					completion = 0.0
-					indexUpdated = true
-				case "FolderCompletion":
-					data := ev.Data.(map[string]any)
-					folder := data["folder"].(string)
-					if folder != folderID {
-						continue
-					}
-					completion = data["completion"].(float64)
-					t.Log(name, ev.Type, completion)
-				}
-				if indexUpdated && completion == 100.0 {
-					return
-				}
-			}
-		}
-	}
+	var srcDur, dstDur map[string]time.Duration
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		waitForSync("src", srcAPI)
+		var err error
+		srcDur, err = waitForSync(ctx, folderID, srcAPI)
+		if err != nil {
+			t.Error("src:", err)
+		}
 	}()
 	go func() {
 		defer wg.Done()
-		waitForSync("dst", dstAPI)
+		var err error
+		dstDur, err = waitForSync(ctx, folderID, dstAPI)
+		if err != nil {
+			t.Error("dst:", err)
+		}
 	}()
 	wg.Wait()
+
+	t.Log("src durations:", srcDur)
+	t.Log("dst durations:", dstDur)
+}
+
+// waitForSync waits for the folder with the given ID to be fully synced.
+// There is a race condition; if the folder is already in sync when we
+// start, the events leading up to that have been forgotten, and nothing
+// happens thereafter, we may wait forever.
+func waitForSync(ctx context.Context, folderID string, api *rc.API) (map[string]time.Duration, error) {
+	lastEventID := 0
+	indexUpdated := false
+	completed := false
+	var completedWhen time.Time
+	stateTimes := make(map[string]time.Duration)
+	for {
+		ectx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		evs, err := api.Events(ectx, lastEventID)
+		if errors.Is(err, context.DeadlineExceeded) {
+			// Check if the main context is done, or if it was just us.
+			select {
+			case <-ctx.Done():
+				return stateTimes, ctx.Err()
+			default:
+			}
+		} else if err != nil {
+			return stateTimes, err
+		}
+
+		if indexUpdated && completed && time.Since(completedWhen) > 4*time.Second {
+			return stateTimes, nil
+		}
+
+		for _, ev := range evs {
+			lastEventID = ev.ID
+			switch ev.Type {
+			case events.StateChanged.String():
+				data := ev.Data.(map[string]any)
+				folder := data["folder"].(string)
+				if folder != folderID {
+					continue
+				}
+				from := data["from"].(string)
+				if duration, dok := data["duration"].(float64); dok {
+					stateTimes[from] += time.Duration(duration * float64(time.Second))
+				}
+
+			case events.RemoteIndexUpdated.String():
+				data := ev.Data.(map[string]any)
+				folder := data["folder"].(string)
+				if folder != folderID {
+					continue
+				}
+				completed = false
+				indexUpdated = true
+
+			case events.FolderCompletion.String():
+				data := ev.Data.(map[string]any)
+				folder := data["folder"].(string)
+				if folder != folderID {
+					continue
+				}
+				completed = data["completion"].(float64) == 100.0
+				if completed {
+					completedWhen = ev.Time
+				}
+			}
+		}
+	}
 }

@@ -9,6 +9,7 @@ package rc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,7 +33,7 @@ func NewAPI(addr, apiKey string) *API {
 	return p
 }
 
-func (p *API) Get(path string, dst any) error {
+func (p *API) Get(ctx context.Context, path string, dst any) error {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
@@ -43,7 +44,7 @@ func (p *API) Get(path string, dst any) error {
 	}
 
 	url := fmt.Sprintf("http://%s%s", p.addr, path)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
@@ -97,9 +98,9 @@ type Event struct {
 	Data any
 }
 
-func (p *API) Events(since int) ([]Event, error) {
+func (p *API) Events(ctx context.Context, since int) ([]Event, error) {
 	var evs []Event
-	if err := p.Get(fmt.Sprintf("/rest/events?since=%d&timeout=10", since), &evs); err != nil {
+	if err := p.Get(ctx, fmt.Sprintf("/rest/events?since=%d&timeout=10", since), &evs); err != nil {
 		return nil, err
 	}
 	return evs, nil
