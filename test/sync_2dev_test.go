@@ -8,6 +8,7 @@ package integration
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -110,50 +111,54 @@ func testSyncTwoDevicesFolders(t *testing.T, srcDir, dstDir string) {
 	// to 100. At that point they should be done. Wait for both sides to do
 	// their thing.
 
-	waitForSync := func(api *rc.API, done chan struct{}) {
-		defer close(done)
+	waitForSync := func(name string, api *rc.API) {
 		lastEventID := 0
-		remoteCompletion := 0.0
-		remoteIndexUpdated := false
-	loop:
+		indexUpdated := false
+		completion := 0.0
 		for {
 			events, err := api.Events(lastEventID)
 			if err != nil {
 				t.Log(err)
-				break loop
+				return
 			}
 
 			for _, ev := range events {
 				lastEventID = ev.ID
 				switch ev.Type {
-				case "RemoteIndexUpdated":
+				case "RemoteIndexUpdated", "LocalIndexUpdated":
+					t.Log(name, ev.Type)
 					data := ev.Data.(map[string]any)
 					folder := data["folder"].(string)
 					if folder != folderID {
 						continue
 					}
-					remoteIndexUpdated = true
-					remoteCompletion = 0.0
+					completion = 0.0
+					indexUpdated = true
 				case "FolderCompletion":
 					data := ev.Data.(map[string]any)
 					folder := data["folder"].(string)
 					if folder != folderID {
 						continue
 					}
-					remoteCompletion = data["completion"].(float64)
+					completion = data["completion"].(float64)
+					t.Log(name, ev.Type, completion)
 				}
-				if remoteIndexUpdated && remoteCompletion == 100.0 {
-					break loop
+				if indexUpdated && completion == 100.0 {
+					return
 				}
 			}
 		}
 	}
 
-	srcDone := make(chan struct{})
-	go waitForSync(srcAPI, srcDone)
-	dstDone := make(chan struct{})
-	go waitForSync(dstAPI, dstDone)
-
-	<-srcDone
-	<-dstDone
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		waitForSync("src", srcAPI)
+	}()
+	go func() {
+		defer wg.Done()
+		waitForSync("dst", dstAPI)
+	}()
+	wg.Wait()
 }
