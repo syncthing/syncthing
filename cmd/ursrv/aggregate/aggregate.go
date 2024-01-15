@@ -424,7 +424,7 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 				}
 			}
 
-			if shouldIncludeBlockstats(rep.Version, rep.URVersion) {
+			if shouldIncludeBlockstats(rep.Version) {
 				blockstatNodes++
 
 				// Blockstats
@@ -656,11 +656,7 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 	return reports, nil
 }
 
-func shouldIncludeBlockstats(version string, urVersion int) bool {
-	if urVersion < 3 {
-		return false
-	}
-
+func shouldIncludeBlockstats(version string) bool {
 	for _, iv := range invalidBlockstatsVersions {
 		if strings.HasPrefix(version, iv) {
 			return false
