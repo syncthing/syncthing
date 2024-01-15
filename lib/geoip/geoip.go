@@ -153,12 +153,12 @@ func (p *Provider) download(ctx context.Context) error {
 		n, copyErr := io.CopyN(f, tr, maxDatabaseSize)
 		cloErr := f.Close()
 		if copyErr != nil && !errors.Is(copyErr, io.EOF) {
-			return fmt.Errorf("download: %w", err)
+			return fmt.Errorf("download: %w", copyErr)
 		} else if n == maxDatabaseSize {
 			return fmt.Errorf("download: exceeds maximum database size %d", maxDatabaseSize)
 		}
 		if cloErr != nil {
-			return fmt.Errorf("download: %w", err)
+			return fmt.Errorf("download: %w", cloErr)
 		}
 		return os.Rename(path+".new", path)
 	}
