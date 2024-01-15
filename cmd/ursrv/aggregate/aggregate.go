@@ -598,6 +598,8 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath, from, to string
 	// Aggregate the reports of all the days prior to today, as all the usage
 	// reports for those days should be put in the db already.
 	for fromDate.Before(toDate) {
+		log.Println("migrating", fromDate)
+
 		// Obtain the reports for the given date from the db.
 		reports, err := reportsFromDB(db, fromDate)
 		if err != nil {
