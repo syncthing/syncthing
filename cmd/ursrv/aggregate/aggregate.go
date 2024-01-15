@@ -598,7 +598,7 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath, from, to string
 	// Aggregate the reports of all the days prior to today, as all the usage
 	// reports for those days should be put in the db already.
 	for fromDate.Before(toDate) {
-		log.Println("migrating", fromDate)
+		log.Println("migrating", fromDate.Format(time.DateOnly))
 
 		// Obtain the reports for the given date from the db.
 		reports, err := reportsFromDB(db, fromDate)
@@ -607,9 +607,11 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath, from, to string
 		}
 		if len(reports) == 0 {
 			// No valid reports were obtained for this date.
+			log.Println("no reports for", fromDate.Format(time.DateOnly))
 			fromDate = fromDate.AddDate(0, 0, 1)
 			continue
 		}
+		log.Println("got", len(reports), "reports for", fromDate.Format(time.DateOnly))
 
 		// Aggregate the reports.
 		aggregated, err := aggregateUserReports(geoip, fromDate, reports)
@@ -635,8 +637,10 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 	var reports []contract.Report
 
 	// Select all the rows where the received day is equal to the given timestamp's day.
+	date = date.UTC()
+	nextDay := date.AddDate(0, 0, 1)
 	rows, err := db.Query(`
-	SELECT Received, Report FROM ReportsJson WHERE DATE_TRUNC('day', Received) = DATE_TRUNC('day', $1::timestamp)`, date)
+	SELECT Received, Report FROM ReportsJson WHERE Received >= $1 AND Received < $2`, date, nextDay)
 	if err != nil {
 		return reports, err
 	}
@@ -653,6 +657,9 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 			continue
 		}
 		reports = append(reports, rep)
+	}
+	if rows.Err() != nil {
+		return reports, rows.Err()
 	}
 
 	return reports, nil
