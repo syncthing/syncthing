@@ -27,6 +27,8 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
+const maxDatabaseSize = 1 << 30 // 1 GiB, at the time of writing the database is about 95 MiB
+
 type Provider struct {
 	edition         string
 	licenseKey      string
@@ -149,9 +151,11 @@ func (p *Provider) download(ctx context.Context) error {
 			return fmt.Errorf("download: %w", err)
 		}
 		defer f.Close()
-		_, err = io.Copy(f, tr)
-		if err != nil {
+		n, err := io.CopyN(f, tr, maxDatabaseSize)
+		if err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("download: %w", err)
+		} else if n == maxDatabaseSize {
+			return fmt.Errorf("download: exceeds maximum database size %d", maxDatabaseSize)
 		}
 		err = f.Close()
 		if err != nil {
