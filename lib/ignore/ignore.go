@@ -244,7 +244,7 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		}()
 	}
 
-	// Check all the patterns for a match. Track wether the patterns so far
+	// Check all the patterns for a match. Track whether the patterns so far
 	// allow skipping matched directories or not. As soon as we hit an
 	// exclude pattern (with some exceptions), we can't skip directories
 	// anymore.
