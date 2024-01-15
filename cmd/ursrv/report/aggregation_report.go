@@ -13,8 +13,8 @@ import (
 
 type AggregatedReport struct {
 	Date                time.Time                 `json:"date"`
-	Features            map[string][]Feature      `json:"Features"`
-	FeatureGroups       map[string][]FeatureGroup `json:"FeatureGroups"`
+	Features            map[string][]Feature      `json:"features"`
+	FeatureGroups       map[string][]FeatureGroup `json:"featureGroups"`
 	Nodes               int                       `json:"nodes"`
 	VersionNodes        map[string]int            `json:"versionNodes"`
 	Categories          []Category                `json:"categories"`
@@ -35,9 +35,8 @@ type AggregatedReport struct {
 
 type Category struct {
 	Values [4]float64 `json:"values"`
-	Key    string     `json:"key"`
 	Descr  string     `json:"descr"`
-	Unit   string     `json:"unit"`
+	Unit   string     `json:"unit,omitempty"`
 	Type   NumberType `json:"type"`
 }
 
@@ -68,7 +67,7 @@ type Analytic struct {
 	Key        string     `json:"key"`
 	Count      int        `json:"count"`
 	Percentage float64    `json:"percentage"`
-	Items      []Analytic `json:"items"`
+	Children   []Analytic `json:"children,omitempty"`
 }
 
 type Performance struct {
@@ -117,7 +116,6 @@ func (lm *LocationMap) Add(lat, lon float64) {
 		loc.Inc()
 	} else {
 		loc = Location{Latitude: lat, Longitude: lon, Count: 1}
-
 	}
 	lm.mapped[id] = loc
 }

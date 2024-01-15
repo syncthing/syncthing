@@ -150,8 +150,8 @@ next:
 			if res[i].Key == group {
 				res[i].Count += a.Count
 				res[i].Percentage += a.Percentage
-				if len(res[i].Items) < perGroup {
-					res[i].Items = append(res[i].Items, a)
+				if len(res[i].Children) < perGroup {
+					res[i].Children = append(res[i].Children, a)
 				}
 				continue next
 			}
@@ -160,7 +160,7 @@ next:
 			Key:        group,
 			Count:      a.Count,
 			Percentage: a.Percentage,
-			Items:      []report.Analytic{a},
+			Children:   []report.Analytic{a},
 		})
 	}
 
