@@ -69,7 +69,7 @@ type CLI struct {
 	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
 	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
 	Migrate   bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
-	From      string `env:"UR_MIGRATE_FROM" default:"2019-01-01"`
+	From      string `env:"UR_MIGRATE_FROM" default:"2014-06-11"`
 	To        string `env:"UR_MIGRATE_TO"`
 }
 
