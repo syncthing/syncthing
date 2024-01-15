@@ -356,7 +356,7 @@ found in the LICENSE file.
                   <td class="text-right">{{.Count}}</td>
                   <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
                 </tr>
-                {{range .Items}}
+                {{range .Children}}
                   {{if gt .Percentage 0.1}}
                     <tr class="child">
                       <td class="first">{{.Key}}</td>
@@ -405,7 +405,7 @@ found in the LICENSE file.
                 <td class="text-right">{{.Count}}</td>
                 <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
               </tr>
-              {{range .Items}}
+              {{range .Children}}
                 <tr class="child">
                   <td class="first">{{.Key}}</td>
                   <td class="text-right">{{.Count}}</td>
@@ -436,7 +436,7 @@ found in the LICENSE file.
                 <td class="text-right">{{.Count}}</td>
                 <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
               </tr>
-              {{range .Items}}
+              {{range .Children}}
                 {{if or (gt .Percentage 0.1) (eq .Key "Others")}}
                   <tr class="child">
                     <td class="first">{{.Key}}</td>
