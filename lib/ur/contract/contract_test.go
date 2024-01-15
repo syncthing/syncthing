@@ -152,3 +152,41 @@ func TestMarshallingBehaviour(t *testing.T) {
 		t.Errorf("%d != 0", r.FolderUses.SendOnly)
 	}
 }
+
+func TestVersionRegex(t *testing.T) {
+	// var validVersionRegex = regexp.MustCompile(`^v[0-9]\..*`)
+	var cases = []struct {
+		version string
+		valid   bool
+	}{
+		{
+			version: "0.14",
+			valid:   false,
+		},
+		{
+			version: "v0.14.x",
+			valid:   true,
+		},
+		{
+			version: "v.14.01",
+			valid:   false,
+		},
+		{
+			version: "vq.14.38",
+			valid:   false,
+		},
+		{
+			version: "v1.27",
+			valid:   true,
+		},
+		{
+			version: "v1.27.3-rc.1",
+			valid:   true,
+		},
+	}
+	for _, tc := range cases {
+		if validVersionRegex.MatchString(tc.version) != tc.valid {
+			t.Errorf("regex didn't match for %v", tc)
+		}
+	}
+}

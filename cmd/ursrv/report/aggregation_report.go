@@ -80,6 +80,7 @@ type Performance struct {
 }
 
 type BlockStats struct {
+	NodeCount         int     `json:"nodeCount"`
 	Total             float64 `json:"total"`
 	Renamed           float64 `json:"renamed"`
 	Reused            float64 `json:"reused"`

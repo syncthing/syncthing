@@ -28,10 +28,11 @@ import (
 )
 
 var (
-	compilerRe         = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	featureOrder       = []string{"Various", "Folder", "Device", "Connection", "GUI"}
-	knownVersions      = []string{"v2", "v3"}
-	knownDistributions = []distributionMatch{
+	compilerRe                = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
+	featureOrder              = []string{"Various", "Folder", "Device", "Connection", "GUI"}
+	knownVersions             = []string{"v2", "v3"}
+	invalidBlockstatsVersions = []string{"v0.14.40", "v0.14.39", "v0.14.38"}
+	knownDistributions        = []distributionMatch{
 		// Maps well known builders to the official distribution method that
 		// they represent
 
@@ -68,6 +69,8 @@ type CLI struct {
 	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
 	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
 	Migrate   bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
+	From      string `env:"UR_MIGRATE_FROM" default:"2019-01-01"`
+	To        string `env:"UR_MIGRATE_TO"`
 }
 
 func (cli *CLI) Run(s3Config blob.S3Config) error {
@@ -87,7 +90,7 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 	// Migration support (to be removed post-migration).
 	if cli.Migrate {
 		log.Println("Starting migration")
-		if err := runMigration(db, store, cli.GeoIPPath); err != nil {
+		if err := runMigration(db, store, cli.GeoIPPath, cli.From, cli.To); err != nil {
 			log.Println("Migration failed:", err)
 			return err
 		}
@@ -160,6 +163,7 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 
 	// Initialize variables which are used as a mediator.
 	nodes := 0
+	blockstatNodes := 0
 	countriesTotal := 0
 	var versions []string
 	var platforms []string
@@ -250,29 +254,35 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 		if rep.NumDevices > 0 {
 			numDevices = append(numDevices, rep.NumDevices)
 		}
-		if rep.TotFiles > 0 {
-			totFiles = append(totFiles, rep.TotFiles)
-		}
 		if rep.FolderMaxFiles > 0 {
 			maxFiles = append(maxFiles, rep.FolderMaxFiles)
-		}
-		if rep.TotMiB > 0 {
-			totMiB = append(totMiB, int64(rep.TotMiB)*(1<<20))
 		}
 		if rep.FolderMaxMiB > 0 {
 			maxMiB = append(maxMiB, int64(rep.FolderMaxMiB)*(1<<20))
 		}
-		if rep.MemoryUsageMiB > 0 {
-			memoryUsage = append(memoryUsage, int64(rep.MemoryUsageMiB)*(1<<20))
-		}
-		if rep.SHA256Perf > 0 {
-			sha256Perf = append(sha256Perf, rep.SHA256Perf*(1<<20))
-		}
-		if rep.MemorySize > 0 {
-			memorySize = append(memorySize, int64(rep.MemorySize)*(1<<20))
-		}
 		if rep.Uptime > 0 {
 			uptime = append(uptime, rep.Uptime)
+		}
+
+		// Performance
+		// Some custom implementation reported bytes when we expect megabytes,
+		// cap at petabyte
+		if rep.MemorySize < 1073741824 {
+			if rep.TotFiles > 0 {
+				totFiles = append(totFiles, rep.TotFiles)
+			}
+			if rep.TotMiB > 0 {
+				totMiB = append(totMiB, int64(rep.TotMiB)*(1<<20))
+			}
+			if rep.SHA256Perf > 0 {
+				sha256Perf = append(sha256Perf, rep.SHA256Perf*(1<<20))
+			}
+			if rep.MemorySize > 0 {
+				memorySize = append(memorySize, int64(rep.MemorySize)*(1<<20))
+			}
+			if rep.MemoryUsageMiB > 0 {
+				memoryUsage = append(memoryUsage, int64(rep.MemoryUsageMiB)*(1<<20))
+			}
 		}
 
 		totals["Device"] += rep.NumDevices
@@ -414,14 +424,18 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 				}
 			}
 
-			// Blockstats
-			ar.BlockStats.Total += float64(rep.BlockStats.Total)
-			ar.BlockStats.Renamed += float64(rep.BlockStats.Renamed)
-			ar.BlockStats.Reused += float64(rep.BlockStats.Reused)
-			ar.BlockStats.Pulled += float64(rep.BlockStats.Pulled)
-			ar.BlockStats.CopyOrigin += float64(rep.BlockStats.CopyOrigin)
-			ar.BlockStats.CopyOriginShifted += float64(rep.BlockStats.CopyOriginShifted)
-			ar.BlockStats.CopyElsewhere += float64(rep.BlockStats.CopyElsewhere)
+			if shouldIncludeBlockstats(rep.Version, rep.URVersion) {
+				blockstatNodes++
+
+				// Blockstats
+				ar.BlockStats.Total += float64(rep.BlockStats.Total)
+				ar.BlockStats.Renamed += float64(rep.BlockStats.Renamed)
+				ar.BlockStats.Reused += float64(rep.BlockStats.Reused)
+				ar.BlockStats.Pulled += float64(rep.BlockStats.Pulled)
+				ar.BlockStats.CopyOrigin += float64(rep.BlockStats.CopyOrigin)
+				ar.BlockStats.CopyOriginShifted += float64(rep.BlockStats.CopyOriginShifted)
+				ar.BlockStats.CopyElsewhere += float64(rep.BlockStats.CopyElsewhere)
+			}
 		}
 	}
 
@@ -548,11 +562,14 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 	ar.Performance.MemorySize = sliceutil.Average(memorySize)
 	ar.Performance.MemoryUsageMib = sliceutil.Average(memoryUsage)
 
+	// Blockstats
+	ar.BlockStats.NodeCount = blockstatNodes
+
 	return ar, nil
 }
 
 // Migration support (to be removed post-migration).
-func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
+func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath, from, to string) error {
 	geoip, err := geoip2.Open(geoIPPath)
 	if err != nil {
 		log.Println("opening geoip db", err)
@@ -561,59 +578,51 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 		defer geoip.Close()
 	}
 
-	var t time.Time
+	var toDate, fromDate time.Time
 
-	// Select the oldest date.
-	row := db.QueryRow("SELECT MIN(Received) FROM ReportsJson")
-	err = row.Scan(&t)
+	// Default is v1.0.0 release date.
+	fromDate, err = time.Parse(time.DateOnly, from)
 	if err != nil {
 		return err
 	}
 
-	// Obtain todays timestamp with the time specific values being unset.
-	today, _ := time.Parse(time.DateOnly, time.Now().UTC().Format(time.DateOnly))
+	if to == "" {
+		// No end-date was set, default is yesterday.
+		to = time.Now().UTC().AddDate(0, 0, -1).Format(time.DateOnly)
+	}
+	toDate, err = time.Parse(time.DateOnly, to)
+	if err != nil {
+		return err
+	}
 
 	// Aggregate the reports of all the days prior to today, as all the usage
 	// reports for those days should be put in the db already.
-	for t.Before(today) {
+	for fromDate.Before(toDate) {
 		// Obtain the reports for the given date from the db.
-		reports, err := reportsFromDB(db, t)
+		reports, err := reportsFromDB(db, fromDate)
 		if err != nil {
-			log.Println(err)
-			t = t.AddDate(0, 0, 1)
+			return fmt.Errorf("error while retrieving reports for date %v: %w", fromDate, err)
+		}
+		if len(reports) == 0 {
+			// No valid reports were obtained for this date.
+			fromDate = fromDate.AddDate(0, 0, 1)
 			continue
 		}
 
 		// Aggregate the reports.
-		aggregated, err := aggregateUserReports(geoip, t, reports)
+		aggregated, err := aggregateUserReports(geoip, fromDate, reports)
 		if err != nil {
-			log.Println("migrate aggregation failed", t, err)
+			log.Println("migrate aggregation failed", fromDate, err)
 		}
 
 		// Store the aggregated report in the new storage location.
 		err = store.PutAggregatedReport(aggregated)
 		if err != nil {
-			log.Println("migrate aggregated report failed", t, err)
+			log.Println("migrate aggregated report failed", fromDate, err)
 		}
 
 		// Continue to the next day.
-		t = t.AddDate(0, 0, 1)
-	}
-
-	// Store the usage reports of today in the new store.
-	reports, err := reportsFromDB(db, today)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	for _, rep := range reports {
-		if err := store.PutUsageReport(rep, today); err != nil {
-			if err.Error() == "already exists" {
-				continue
-			}
-			// This isn't supposed to happen.
-			return err
-		}
+		fromDate = fromDate.AddDate(0, 0, 1)
 	}
 
 	return nil
@@ -645,4 +654,17 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 	}
 
 	return reports, nil
+}
+
+func shouldIncludeBlockstats(version string, urVersion int) bool {
+	if urVersion < 3 {
+		return false
+	}
+
+	for _, iv := range invalidBlockstatsVersions {
+		if strings.HasPrefix(version, iv) {
+			return false
+		}
+	}
+	return true
 }

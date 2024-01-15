@@ -303,8 +303,8 @@ func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	s.cachedSummary.filter(min)
 	summary, _ := s.cachedSummary.MarshalJSON()
+	s.cachedSummary.filter(min)
 	w.Write(summary)
 }
 
@@ -346,7 +346,7 @@ func (s *server) cachePresentationData(reports []report.AggregatedReport) {
 	for _, rep := range reports {
 		date := rep.Date.UTC().Format(time.DateOnly)
 
-		s.cachedSummary.setCount(date, rep.VersionCount)
+		s.cachedSummary.setCounts(date, rep.VersionCount)
 		if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
 			s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
 		}

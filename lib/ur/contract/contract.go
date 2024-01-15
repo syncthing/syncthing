@@ -11,12 +11,14 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/structutil"
 )
+
+var validVersionRegex = regexp.MustCompile(`^v[0-9]\..*`)
 
 type Report struct {
 	// Generated
@@ -191,22 +193,14 @@ func (r *Report) Validate() error {
 	if len(r.Date) != 8 {
 		return errors.New("date not initialized")
 	}
-
-	// Early versions are no longer relevant to handle.
-	if strings.HasPrefix(r.Version, "v0.") {
-		return errors.New("unsupported Syncthing version")
+	// Rough validation of the version.
+	if !validVersionRegex.MatchString(r.Version) {
+		return errors.New("invalid version")
 	}
-
 	// Only allow valid URVersions.
 	if r.URVersion < 1 || r.URVersion > 3 {
 		return errors.New("unsupported URVersion")
 	}
-
-	// Reports with known unrealistic values are skipped.
-	if r.MemorySize >= 1073741824 {
-		return errors.New("unrealistic value")
-	}
-
 	// Some fields may not be null.
 	if r.RescanIntvs == nil {
 		r.RescanIntvs = []int{}

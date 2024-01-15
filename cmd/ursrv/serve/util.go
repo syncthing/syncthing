@@ -9,6 +9,7 @@ package serve
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -90,28 +91,43 @@ func newSummary() summary {
 	}
 }
 
-func (s *summary) setCount(date string, versions map[string]int) {
+func (s *summary) setCounts(date string, versions map[string]int) {
 	for version, count := range versions {
-		idx, ok := s.versions[version]
-		if !ok {
-			idx = len(s.versions)
-			s.versions[version] = idx
+		if version == "v0.0" {
+			// ?
+			continue
 		}
 
-		if s.max[version] < count {
-			s.max[version] = count
+		// SUPER UGLY HACK to avoid having to do sorting properly
+		if len(version) == 4 && strings.HasPrefix(version, "v0.") { // v0.x
+			version = version[:3] + "0" + version[3:] // now v0.0x
 		}
 
-		row := s.rows[date]
-		if len(row) <= idx {
-			old := row
-			row = make([]int, idx+1)
-			copy(row, old)
-			s.rows[date] = row
-		}
-
-		row[idx] = count
+		s.setCount(date, version, count)
 	}
+}
+
+func (s *summary) setCount(date, version string, count int) {
+	idx, ok := s.versions[version]
+	if !ok {
+		idx = len(s.versions)
+		s.versions[version] = idx
+	}
+
+	if s.max[version] < count {
+		s.max[version] = count
+	}
+
+	row := s.rows[date]
+	if len(row) <= idx {
+		old := row
+		row = make([]int, idx+1)
+		copy(row, old)
+		s.rows[date] = row
+	}
+
+	row[idx] = count
+
 }
 
 func (s *summary) MarshalJSON() ([]byte, error) {
