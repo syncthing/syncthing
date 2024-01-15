@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -415,7 +416,7 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
-var result Result
+var result ignoreresult.R
 
 func BenchmarkMatch(b *testing.B) {
 	testFs := newTestFS()
@@ -1121,8 +1122,8 @@ func TestIssue5009(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if !pats.skipIgnoredDirs {
-		t.Error("skipIgnoredDirs should be true without includes")
+	if m := pats.Match("ign2"); !m.CanSkipDir() {
+		t.Error("CanSkipDir should be true without excludes")
 	}
 
 	stignore = `
@@ -1137,8 +1138,8 @@ func TestIssue5009(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if pats.skipIgnoredDirs {
-		t.Error("skipIgnoredDirs should not be true with includes")
+	if m := pats.Match("ign2"); m.CanSkipDir() {
+		t.Error("CanSkipDir should not be true with excludes")
 	}
 }
 
@@ -1271,8 +1272,8 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if !pats.SkipIgnoredDirs() {
-		t.Error("SkipIgnoredDirs should be true")
+	if m := pats.Match("whatever"); !m.CanSkipDir() {
+		t.Error("CanSkipDir should be true")
 	}
 
 	stignore = `
@@ -1282,8 +1283,8 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if pats.SkipIgnoredDirs() {
-		t.Error("SkipIgnoredDirs should be false")
+	if m := pats.Match("whatever"); m.CanSkipDir() {
+		t.Error("CanSkipDir should be false")
 	}
 }
 

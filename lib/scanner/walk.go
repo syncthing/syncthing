@@ -160,6 +160,11 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			total += file.Size
 		}
 
+		if len(filesToHash) == 0 {
+			close(finishedChan)
+			return
+		}
+
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
@@ -171,22 +176,27 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		go func() {
 			defer progress.Close()
 
+			emitProgressEvent := func() {
+				current := progress.Total()
+				rate := progress.Rate()
+				l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+				w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
+					"folder":  w.Folder,
+					"current": current,
+					"total":   total,
+					"rate":    rate, // bytes per second
+				})
+			}
+
 			for {
 				select {
 				case <-done:
+					emitProgressEvent()
 					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					current := progress.Total()
-					rate := progress.Rate()
-					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
-						"folder":  w.Folder,
-						"current": current,
-						"total":   total,
-						"rate":    rate, // bytes per second
-					})
+					emitProgressEvent()
 				case <-ctx.Done():
 					ticker.Stop()
 					return
@@ -285,10 +295,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
+		if m := w.Matcher.Match(path); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+			if err != nil || m.CanSkipDir() || info.IsSymlink() {
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
@@ -416,12 +426,14 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -461,12 +473,14 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -514,12 +528,14 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)

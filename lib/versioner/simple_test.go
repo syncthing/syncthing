@@ -8,7 +8,9 @@ package versioner
 
 import (
 	"math"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,5 +93,69 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 		}
 
 		time.Sleep(time.Second)
+	}
+}
+
+func TestPathTildes(t *testing.T) {
+	// Test that folder and version paths with leading tildes are expanded
+	// to the user's home directory. (issue #9241)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if vn := filepath.VolumeName(home); vn != "" {
+		// Legacy Windows home stuff
+		t.Setenv("HomeDrive", vn)
+		t.Setenv("HomePath", strings.TrimPrefix(home, vn))
+	}
+	os.Mkdir(filepath.Join(home, "folder"), 0o755)
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           "~/folder",
+		Versioning: config.VersioningConfiguration{
+			FSPath: "~/versions",
+			FSType: fs.FilesystemTypeBasic,
+			Params: map[string]string{
+				"keep": "2",
+			},
+		},
+	}
+	fs := cfg.Filesystem(nil)
+	v := newSimple(cfg)
+
+	const testPath = "test"
+
+	f, err := fs.Create(testPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if err := v.Archive(testPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check that there are no entries in the folder directory; this is
+	// specifically to check that there is no directory named "~" there.
+	names, err := fs.DirNames(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 0 {
+		t.Fatalf("found %d files in folder dir, want 0", len(names))
+	}
+
+	// Check that the versions directory contains one file that begins with
+	// our test path.
+	des, err := os.ReadDir(filepath.Join(home, "versions"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, de := range des {
+		names = append(names, de.Name())
+	}
+	if len(names) != 1 {
+		t.Fatalf("found %d files in versions dir, want 1", len(names))
+	}
+	if got := names[0]; !strings.HasPrefix(got, testPath) {
+		t.Fatalf("found versioned file %q, want one that begins with %q", got, testPath)
 	}
 }

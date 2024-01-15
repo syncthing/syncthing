@@ -27,6 +27,11 @@ func TestAllowedVersions(t *testing.T) {
 		{"v0.13.0-some-weird-but-allowed-tag", true},
 		{"v0.13.0-allowed.to.do.this", true},
 		{"v0.13.0+not.allowed.to.do.this", false},
+		{"v1.27.0+xyz", true},
+		{"v1.27.0-abc.1+xyz", true},
+		{"v1.0.0+45", true},
+		{"v1.0.0-noupgrade", true},
+		{"v1.0.0+noupgrade", true},
 	}
 
 	for i, c := range testcases {

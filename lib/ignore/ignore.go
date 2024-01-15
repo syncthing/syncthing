@@ -18,27 +18,12 @@ import (
 
 	"github.com/gobwas/glob"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
-
-const (
-	resultNotMatched Result = 0
-	resultInclude    Result = 1 << iota
-	resultDeletable         = 1 << iota
-	resultFoldCase          = 1 << iota
-)
-
-var defaultResult Result = resultInclude
-
-func init() {
-	if build.IsDarwin || build.IsWindows {
-		defaultResult |= resultFoldCase
-	}
-}
 
 // A ParseError signifies an error with contents of an ignore file,
 // including I/O errors on included files. An I/O error on the root level
@@ -70,18 +55,18 @@ func parseError(err error) error {
 type Pattern struct {
 	pattern string
 	match   glob.Glob
-	result  Result
+	result  ignoreresult.R
 }
 
 func (p Pattern) String() string {
 	ret := p.pattern
-	if p.result&resultInclude != resultInclude {
+	if !p.result.IsIgnored() {
 		ret = "!" + ret
 	}
-	if p.result&resultFoldCase == resultFoldCase {
+	if p.result.IsCaseFolded() {
 		ret = "(?i)" + ret
 	}
-	if p.result&resultDeletable == resultDeletable {
+	if p.result.IsDeletable() {
 		ret = "(?d)" + ret
 	}
 	return ret
@@ -94,25 +79,17 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.pattern[0] != '/' {
 		return false
 	}
-	if strings.Contains(p.pattern[1:], "/") {
+	// A "/**" at the end is allowed and doesn't have any bearing on the
+	// below checks; remove it before checking.
+	pattern := strings.TrimSuffix(p.pattern, "/**")
+	if len(pattern) == 0 {
+		return true
+	}
+	if strings.Contains(pattern[1:], "/") {
 		return false
 	}
 	// Double asterisk everywhere in the path except at the end is bad
-	return !strings.Contains(strings.TrimSuffix(p.pattern, "**"), "**")
-}
-
-type Result uint8
-
-func (r Result) IsIgnored() bool {
-	return r&resultInclude == resultInclude
-}
-
-func (r Result) IsDeletable() bool {
-	return r.IsIgnored() && r&resultDeletable == resultDeletable
-}
-
-func (r Result) IsCaseFolded() bool {
-	return r&resultFoldCase == resultFoldCase
+	return !strings.Contains(strings.TrimSuffix(pattern, "**"), "**")
 }
 
 // The ChangeDetector is responsible for determining if files have changed
@@ -128,16 +105,15 @@ type ChangeDetector interface {
 }
 
 type Matcher struct {
-	fs              fs.Filesystem
-	lines           []string  // exact lines read from .stignore
-	patterns        []Pattern // patterns including those from included files
-	withCache       bool
-	matches         *cache
-	curHash         string
-	stop            chan struct{}
-	changeDetector  ChangeDetector
-	skipIgnoredDirs bool
-	mut             sync.Mutex
+	fs             fs.Filesystem
+	lines          []string  // exact lines read from .stignore
+	patterns       []Pattern // patterns including those from included files
+	withCache      bool
+	matches        *cache
+	curHash        string
+	stop           chan struct{}
+	changeDetector ChangeDetector
+	mut            sync.Mutex
 }
 
 // An Option can be passed to New()
@@ -160,10 +136,9 @@ func WithChangeDetector(cd ChangeDetector) Option {
 
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:              fs,
-		stop:            make(chan struct{}),
-		mut:             sync.NewMutex(),
-		skipIgnoredDirs: true,
+		fs:   fs,
+		stop: make(chan struct{}),
+		mut:  sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -227,23 +202,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 		return err
 	}
 
-	m.skipIgnoredDirs = true
-	var previous string
-	for _, p := range patterns {
-		// We automatically add patterns with a /** suffix, which normally
-		// means that we cannot skip directories. However if the same
-		// pattern without the /** already exists (which is true for
-		// automatically added patterns) we can skip.
-		if l := len(p.pattern); l > 3 && p.pattern[:len(p.pattern)-3] == previous {
-			continue
-		}
-		if !p.allowsSkippingIgnoredDirs() {
-			m.skipIgnoredDirs = false
-			break
-		}
-		previous = p.pattern
-	}
-
 	m.curHash = newHash
 	m.patterns = patterns
 	if m.withCache {
@@ -253,16 +211,24 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	return err
 }
 
-func (m *Matcher) Match(file string) (result Result) {
-	if file == "." {
-		return resultNotMatched
+// Match matches the patterns plus temporary and internal files.
+func (m *Matcher) Match(file string) (result ignoreresult.R) {
+	switch {
+	case fs.IsTemporary(file):
+		return ignoreresult.IgnoreAndSkip
+
+	case fs.IsInternal(file):
+		return ignoreresult.IgnoreAndSkip
+
+	case file == ".":
+		return ignoreresult.NotIgnored
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return resultNotMatched
+		return ignoreresult.NotIgnored
 	}
 
 	if m.matches != nil {
@@ -278,24 +244,36 @@ func (m *Matcher) Match(file string) (result Result) {
 		}()
 	}
 
-	// Check all the patterns for a match.
+	// Check all the patterns for a match. Track whether the patterns so far
+	// allow skipping matched directories or not. As soon as we hit an
+	// exclude pattern (with some exceptions), we can't skip directories
+	// anymore.
 	file = filepath.ToSlash(file)
 	var lowercaseFile string
+	canSkipDir := true
 	for _, pattern := range m.patterns {
+		if canSkipDir && !pattern.allowsSkippingIgnoredDirs() {
+			canSkipDir = false
+		}
+
+		res := pattern.result
+		if canSkipDir {
+			res = res.WithSkipDir()
+		}
 		if pattern.result.IsCaseFolded() {
 			if lowercaseFile == "" {
 				lowercaseFile = strings.ToLower(file)
 			}
 			if pattern.match.Match(lowercaseFile) {
-				return pattern.result
+				return res
 			}
 		} else if pattern.match.Match(file) {
-			return pattern.result
+			return res
 		}
 	}
 
 	// Default to not matching.
-	return resultNotMatched
+	return ignoreresult.NotIgnored
 }
 
 // Lines return a list of the unprocessed lines in .stignore at last load
@@ -348,28 +326,6 @@ func (m *Matcher) clean(d time.Duration) {
 	}
 }
 
-// ShouldIgnore returns true when a file is temporary, internal or ignored
-func (m *Matcher) ShouldIgnore(filename string) bool {
-	switch {
-	case fs.IsTemporary(filename):
-		return true
-
-	case fs.IsInternal(filename):
-		return true
-
-	case m.Match(filename).IsIgnored():
-		return true
-	}
-
-	return false
-}
-
-func (m *Matcher) SkipIgnoredDirs() bool {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-	return m.skipIgnoredDirs
-}
-
 func hashPatterns(patterns []Pattern) string {
 	h := sha256.New()
 	for _, pat := range patterns {
@@ -414,7 +370,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 		// isNotExist is considered "ok" in a sense of that a folder doesn't have to act
 		// upon it. This is because it is allowed for .stignore to not exist. However,
 		// included ignore files are not allowed to be missing and these errors should be
-		// acted upon on. So we don't perserve the error chain here and manually set an
+		// acted upon on. So we don't preserve the error chain here and manually set an
 		// error instead, if the file is missing.
 		if fs.IsNotExist(err) {
 			err = errors.New("file not found")
@@ -431,7 +387,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 
 func parseLine(line string) ([]Pattern, error) {
 	pattern := Pattern{
-		result: defaultResult,
+		result: ignoreresult.Ignored,
 	}
 
 	// Allow prefixes to be specified in any order, but only once.
@@ -441,14 +397,14 @@ func parseLine(line string) ([]Pattern, error) {
 		if strings.HasPrefix(line, "!") && !seenPrefix[0] {
 			seenPrefix[0] = true
 			line = line[1:]
-			pattern.result ^= resultInclude
+			pattern.result = pattern.result.ToggleIgnored()
 		} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
 			seenPrefix[1] = true
-			pattern.result |= resultFoldCase
+			pattern.result = pattern.result.WithFoldCase()
 			line = line[4:]
 		} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 			seenPrefix[2] = true
-			pattern.result |= resultDeletable
+			pattern.result = pattern.result.WithDeletable()
 			line = line[4:]
 		} else {
 			break

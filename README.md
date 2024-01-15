@@ -89,7 +89,7 @@ build process.
 ## Signed Releases
 
 As of v0.10.15 and onwards, release binaries are GPG signed with the key
-D26E6ED000654A3E, available from https://syncthing.net/security.html and
+D26E6ED000654A3E, available from https://syncthing.net/security/ and
 most key servers.
 
 There is also a built-in automatic upgrade mechanism (disabled in some

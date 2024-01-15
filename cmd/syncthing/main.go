@@ -32,6 +32,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/thejerf/suture/v4"
+	"github.com/willabides/kongplete"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -133,10 +134,11 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
-	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
-	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli      cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
+	Serve              serveOptions                 `cmd:"" help:"Run Syncthing"`
+	Generate           generate.CLI                 `cmd:"" help:"Generate key and config, then exit"`
+	Decrypt            decrypt.CLI                  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli                cli.CLI                      `cmd:"" help:"Command line interface for Syncthing"`
+	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -247,6 +249,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	kongplete.Complete(parser)
 	ctx, err := parser.Parse(args)
 	parser.FatalIfErrorf(err)
 	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
@@ -862,6 +865,7 @@ func cleanConfigDirectory() {
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
+		"csrftokens.txt":     0,                   // deprecated, remove immediately
 	}
 
 	for pat, dur := range patterns {
