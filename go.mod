@@ -27,7 +27,7 @@ require (
 	github.com/minio/sha256-simd v1.0.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.9.0
-	github.com/pierrec/lz4/v4 v4.1.19
+	github.com/pierrec/lz4/v4 v4.1.21
 	github.com/prometheus/client_golang v1.18.0
 	github.com/quic-go/quic-go v0.40.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
