@@ -37,18 +37,14 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		eventMask |= permEventMask
 	}
 
-	if ignore.SkipIgnoredDirs() {
-		absShouldIgnore := func(absPath string) bool {
-			rel, err := f.unrootedChecked(absPath, roots)
-			if err != nil {
-				return true
-			}
-			return ignore.Match(rel).IsIgnored()
+	absShouldIgnore := func(absPath string) bool {
+		rel, err := f.unrootedChecked(absPath, roots)
+		if err != nil {
+			return true
 		}
-		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
-	} else {
-		err = notify.Watch(watchPath, backendChan, eventMask)
+		return ignore.Match(rel).CanSkipDir()
 	}
+	err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {

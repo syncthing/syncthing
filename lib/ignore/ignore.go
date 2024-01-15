@@ -79,11 +79,17 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.pattern[0] != '/' {
 		return false
 	}
-	if strings.Contains(p.pattern[1:], "/") {
+	// A "/**" at the end is allowed and doesn't have any bearing on the
+	// below checks; remove it before checking.
+	pattern := strings.TrimSuffix(p.pattern, "/**")
+	if len(pattern) == 0 {
+		return true
+	}
+	if strings.Contains(pattern[1:], "/") {
 		return false
 	}
 	// Double asterisk everywhere in the path except at the end is bad
-	return !strings.Contains(strings.TrimSuffix(p.pattern, "**"), "**")
+	return !strings.Contains(strings.TrimSuffix(pattern, "**"), "**")
 }
 
 // The ChangeDetector is responsible for determining if files have changed
@@ -99,16 +105,15 @@ type ChangeDetector interface {
 }
 
 type Matcher struct {
-	fs              fs.Filesystem
-	lines           []string  // exact lines read from .stignore
-	patterns        []Pattern // patterns including those from included files
-	withCache       bool
-	matches         *cache
-	curHash         string
-	stop            chan struct{}
-	changeDetector  ChangeDetector
-	skipIgnoredDirs bool
-	mut             sync.Mutex
+	fs             fs.Filesystem
+	lines          []string  // exact lines read from .stignore
+	patterns       []Pattern // patterns including those from included files
+	withCache      bool
+	matches        *cache
+	curHash        string
+	stop           chan struct{}
+	changeDetector ChangeDetector
+	mut            sync.Mutex
 }
 
 // An Option can be passed to New()
@@ -131,10 +136,9 @@ func WithChangeDetector(cd ChangeDetector) Option {
 
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:              fs,
-		stop:            make(chan struct{}),
-		mut:             sync.NewMutex(),
-		skipIgnoredDirs: true,
+		fs:   fs,
+		stop: make(chan struct{}),
+		mut:  sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -198,23 +202,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 		return err
 	}
 
-	m.skipIgnoredDirs = true
-	var previous string
-	for _, p := range patterns {
-		// We automatically add patterns with a /** suffix, which normally
-		// means that we cannot skip directories. However if the same
-		// pattern without the /** already exists (which is true for
-		// automatically added patterns) we can skip.
-		if l := len(p.pattern); l > 3 && p.pattern[:len(p.pattern)-3] == previous {
-			continue
-		}
-		if !p.allowsSkippingIgnoredDirs() {
-			m.skipIgnoredDirs = false
-			break
-		}
-		previous = p.pattern
-	}
-
 	m.curHash = newHash
 	m.patterns = patterns
 	if m.withCache {
@@ -228,10 +215,10 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	switch {
 	case fs.IsTemporary(file):
-		return ignoreresult.Ignored
+		return ignoreresult.IgnoreAndSkip
 
 	case fs.IsInternal(file):
-		return ignoreresult.Ignored
+		return ignoreresult.IgnoreAndSkip
 
 	case file == ".":
 		return ignoreresult.NotIgnored
@@ -257,19 +244,31 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		}()
 	}
 
-	// Check all the patterns for a match.
+	// Check all the patterns for a match. Track whether the patterns so far
+	// allow skipping matched directories or not. As soon as we hit an
+	// exclude pattern (with some exceptions), we can't skip directories
+	// anymore.
 	file = filepath.ToSlash(file)
 	var lowercaseFile string
+	canSkipDir := true
 	for _, pattern := range m.patterns {
+		if canSkipDir && !pattern.allowsSkippingIgnoredDirs() {
+			canSkipDir = false
+		}
+
+		res := pattern.result
+		if canSkipDir {
+			res = res.WithSkipDir()
+		}
 		if pattern.result.IsCaseFolded() {
 			if lowercaseFile == "" {
 				lowercaseFile = strings.ToLower(file)
 			}
 			if pattern.match.Match(lowercaseFile) {
-				return pattern.result
+				return res
 			}
 		} else if pattern.match.Match(file) {
-			return pattern.result
+			return res
 		}
 	}
 
@@ -325,12 +324,6 @@ func (m *Matcher) clean(d time.Duration) {
 			m.mut.Unlock()
 		}
 	}
-}
-
-func (m *Matcher) SkipIgnoredDirs() bool {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-	return m.skipIgnoredDirs
 }
 
 func hashPatterns(patterns []Pattern) string {

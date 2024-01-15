@@ -12,6 +12,7 @@ const (
 	NotIgnored R = 0
 	// `Ignored` is defined in platform specific files
 	IgnoredDeletable = Ignored | deletableBit
+	IgnoreAndSkip    = Ignored | canSkipDirBit
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 	ignoreBit R = 1 << iota
 	deletableBit
 	foldCaseBit
+	canSkipDirBit
 )
 
 type R uint8
@@ -38,6 +40,15 @@ func (r R) IsCaseFolded() bool {
 	return r&foldCaseBit != 0
 }
 
+// CanSkipDir returns true if the result is ignored and the directory can be
+// skipped (no need to recurse deeper). Note that ignore matches are textual
+// and based on the name only -- this being true does not mean that the
+// matched item is a directory, merely that *if* it is a directory, it can
+// be skipped.
+func (r R) CanSkipDir() bool {
+	return r.IsIgnored() && r&canSkipDirBit != 0
+}
+
 // ToggleIgnored returns a copy of the result with the ignored bit toggled.
 func (r R) ToggleIgnored() R {
 	return r ^ ignoreBit
@@ -51,6 +62,11 @@ func (r R) WithDeletable() R {
 // WithFoldCase returns a copy of the result with the fold case bit set.
 func (r R) WithFoldCase() R {
 	return r | foldCaseBit
+}
+
+// WithSkipDir returns a copy of the result with the skip dir bit set.
+func (r R) WithSkipDir() R {
+	return r | canSkipDirBit
 }
 
 // String returns a human readable representation of the result flags.
@@ -68,6 +84,11 @@ func (r R) String() string {
 	}
 	if r&foldCaseBit != 0 {
 		s += "f"
+	} else {
+		s += "-"
+	}
+	if r&canSkipDirBit != 0 {
+		s += "s"
 	} else {
 		s += "-"
 	}

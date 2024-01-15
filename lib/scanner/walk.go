@@ -295,10 +295,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
+		if m := w.Matcher.Match(path); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+			if err != nil || m.CanSkipDir() || info.IsSymlink() {
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
