@@ -76,6 +76,7 @@ var (
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
+		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )
