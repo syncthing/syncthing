@@ -39,6 +39,7 @@
     "Are you sure you want to restore {%count%} files?": "Вы сапраўды жадаеце аднавіць {{count}} файл(ы)?",
     "Are you sure you want to revert all local changes?": "Вы сапраўды жадаеце адмяніць усе лакальныя змены?",
     "Are you sure you want to upgrade?": "Вы сапраўды жадаеце абнавіць?",
+    "Authentication Required": "Патрабуецца Аутэнтыфікацыя",
     "Authors": "Аўтары",
     "Auto Accept": "Прынімаць Аўтаматычна",
     "Automatic Crash Reporting": "Аўтаматычныя Спрадвыздачы Пра Памылкі",
