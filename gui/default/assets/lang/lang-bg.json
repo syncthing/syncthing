@@ -386,6 +386,7 @@
     "Staggered File Versioning": "Разпределени версии",
     "Start Browser": "Отваряне в мрежов четец",
     "Statistics": "Статистика",
+    "Stay logged in": "Оставане в системата",
     "Stopped": "Спряна",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Съхранява и синхронизира само шифровани данни. Папките на всички свързани устройства трябва да бъдат настроени със същата парола или също да са от вида „{{receiveEncrypted}}“.",
     "Subject:": "Относно:",
