@@ -17,7 +17,13 @@ import (
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	i := firstCaseChange(s)
+	i, isASCII := firstCaseChange(s)
+	if isASCII {
+		if i == -1 {
+			return s
+		}
+		return strings.ToLower(s)
+	}
 	if i == -1 {
 		return norm.NFC.String(s)
 	}
@@ -36,14 +42,21 @@ func UnicodeLowercaseNormalized(s string) string {
 }
 
 // Byte index of the first rune r s.t. lower(upper(r)) != r.
-func firstCaseChange(s string) int {
+// Boolean indicating if the whole string consists of ASCII characters.
+func firstCaseChange(s string) (int, bool) {
+	index := -1
+	isASCII := true
 	for i, r := range s {
-		if r <= unicode.MaxASCII && (r < 'A' || r > 'Z') {
-			continue
-		}
-		if unicode.ToLower(unicode.ToUpper(r)) != r {
-			return i
+		if r <= unicode.MaxASCII {
+			if index == -1 && 'A' <= r && r <= 'Z' {
+				index = i
+			}
+		} else {
+			if index == -1 && unicode.ToLower(unicode.ToUpper(r)) != r {
+				index = i
+			}
+			isASCII = false
 		}
 	}
-	return -1
+	return index, isASCII
 }
