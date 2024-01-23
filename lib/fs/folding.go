@@ -9,7 +9,6 @@ package fs
 import (
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -17,51 +16,22 @@ import (
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	i, isASCII := firstCaseChange(s)
-	if isASCII {
-		if i == -1 {
-			return s
-		}
+	if isASCII(s) {
 		return strings.ToLower(s)
 	}
-	if i == -1 {
-		return norm.NFC.String(s)
-	}
 
-	var rs strings.Builder
-	// WriteRune always reserves utf8.UTFMax bytes for non-ASCII runes,
-	// even if it doesn't need all that space. Overallocate now to prevent
-	// it from ever triggering a reallocation.
-	rs.Grow(utf8.UTFMax - 1 + len(s))
-	rs.WriteString(s[:i])
-
-	for _, r := range s[i:] {
-		r = unicode.ToLower(unicode.ToUpper(r))
-		if r < utf8.RuneSelf {
-			rs.WriteByte(byte(r))
-		} else {
-			rs.WriteRune(r)
-		}
-	}
-	return norm.NFC.String(rs.String())
+	return norm.NFC.String(strings.Map(toLower, s))
 }
 
-// Byte index of the first rune r s.t. lower(upper(r)) != r.
-// Boolean indicating if the whole string consists of ASCII characters.
-func firstCaseChange(s string) (int, bool) {
-	index := -1
-	isASCII := true
-	for i, r := range s {
-		if r <= unicode.MaxASCII {
-			if index == -1 && 'A' <= r && r <= 'Z' {
-				index = i
-			}
-		} else {
-			if index == -1 && unicode.ToLower(unicode.ToUpper(r)) != r {
-				index = i
-			}
-			isASCII = false
+func toLower(r rune) rune {
+	return unicode.ToLower(unicode.ToUpper(r))
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] > unicode.MaxASCII {
+			return false
 		}
 	}
-	return index, isASCII
+	return true
 }
