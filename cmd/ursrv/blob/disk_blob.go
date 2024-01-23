@@ -8,8 +8,10 @@ package blob
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Disk struct {
@@ -36,6 +38,36 @@ func (d *Disk) Get(key string) ([]byte, error) {
 func (d *Disk) Delete(key string) error {
 	path := filepath.Join(d.path, key)
 	return os.Remove(path)
+}
+
+func (d *Disk) IterateFromDate(_ context.Context, reportType string, from time.Time, fn func([]byte) bool) error {
+	prefix := fmt.Sprintf("%s/%s", reportType, commonTimestampPrefix(from, time.Now()))
+	matches, err := filepath.Glob(filepath.Join(d.path, prefix+"*"))
+	if err != nil {
+		return err
+	}
+
+	for _, file := range matches {
+		if !hasValidDate(filepath.Base(file), from) {
+			continue
+		}
+		stat, err := os.Lstat(file)
+		if err != nil {
+			continue
+		}
+		if stat.IsDir() {
+			continue
+		}
+		content, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		if !fn(content) {
+			break
+		}
+	}
+	return err
 }
 
 func (d *Disk) Iterate(_ context.Context, key string, fn func([]byte) bool) error {
@@ -65,10 +97,18 @@ loop:
 	return err
 }
 
-func (d *Disk) Count(prefix string) (int, error) {
+func (d *Disk) CountFromDate(reportType string, from time.Time) (int, error) {
+	prefix := fmt.Sprintf("%s/%s", reportType, commonTimestampPrefix(from, time.Now()))
 	matches, err := filepath.Glob(filepath.Join(d.path, prefix+"*"))
 	if err != nil {
 		return 0, err
 	}
-	return len(matches), nil
+	var count = 0
+	for _, match := range matches {
+		if !hasValidDate(match, from) {
+			continue
+		}
+		count++
+	}
+	return count, nil
 }

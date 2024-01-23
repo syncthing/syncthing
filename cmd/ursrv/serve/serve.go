@@ -128,7 +128,9 @@ func (s *server) refreshCacheLocked() error {
 	if err != nil {
 		return err
 	}
-	storedReportsCount, err := s.store.CountAggregatedReports()
+
+	fromDate := time.Now().UTC().AddDate(-3, 0, 0)
+	storedReportsCount, err := s.store.CountAggregatedReports(fromDate)
 	if err != nil {
 		return err
 	}
@@ -151,7 +153,7 @@ func (s *server) refreshCacheLocked() error {
 		// amount available via the stored daily aggregated reports. (Re)load
 		// all the reports.
 		s.resetCachedStats()
-		reportsToCache, err = s.store.ListAggregatedReports()
+		reportsToCache, err = s.store.ListAggregatedReports(fromDate)
 		if err != nil {
 			return err
 		}

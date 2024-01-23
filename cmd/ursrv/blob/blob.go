@@ -52,7 +52,8 @@ type Store interface {
 	Get(_ string) ([]byte, error)
 	Delete(_ string) error
 	Iterate(_ context.Context, _ string, _ func([]byte) bool) error
-	Count(_ string) (int, error)
+	IterateFromDate(_ context.Context, _ string, _ time.Time, _ func([]byte) bool) error
+	CountFromDate(_ string, _ time.Time) (int, error)
 }
 
 type UrsrvStore struct {
@@ -71,6 +72,8 @@ func aggregatedReportKey(when time.Time) string {
 	return fmt.Sprintf("%s/%s.json", AGGREGATED_PREFIX, when.UTC().Format("20060102"))
 }
 
+// Usage Reports.
+
 func (s *UrsrvStore) PutUsageReport(rep contract.Report, received time.Time) error {
 	key := usageReportKey(received, rep.UniqueID)
 
@@ -79,15 +82,6 @@ func (s *UrsrvStore) PutUsageReport(rep contract.Report, received time.Time) err
 		return errors.New("already exists")
 	}
 
-	bs, err := json.Marshal(rep)
-	if err != nil {
-		return err
-	}
-	return s.Store.Put(key, bs)
-}
-
-func (s *UrsrvStore) PutAggregatedReport(rep *report.AggregatedReport) error {
-	key := aggregatedReportKey(rep.Date)
 	bs, err := json.Marshal(rep)
 	if err != nil {
 		return err
@@ -114,13 +108,23 @@ func (s *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report,
 	return res, err
 }
 
-func (s *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) {
+// Aggregated reports.
+
+func (s *UrsrvStore) PutAggregatedReport(rep *report.AggregatedReport) error {
+	key := aggregatedReportKey(rep.Date)
+	bs, err := json.Marshal(rep)
+	if err != nil {
+		return err
+	}
+	return s.Store.Put(key, bs)
+}
+
+func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]report.AggregatedReport, error) {
 	ctx := context.Background()
-	prefix := AGGREGATED_PREFIX + "/"
 
 	var res []report.AggregatedReport
 	var rep report.AggregatedReport
-	err := s.Store.Iterate(ctx, prefix, func(b []byte) bool {
+	err := s.Store.IterateFromDate(ctx, AGGREGATED_PREFIX, from, func(b []byte) bool {
 		err := json.Unmarshal(b, &rep)
 		if err != nil {
 			return true
@@ -155,11 +159,41 @@ func (s *UrsrvStore) LatestAggregatedReport() (report.AggregatedReport, error) {
 	return rep, err
 }
 
-func (s *UrsrvStore) CountAggregatedReports() (int, error) {
+func (s *UrsrvStore) CountAggregatedReports(from time.Time) (int, error) {
 	prefix := AGGREGATED_PREFIX + "/"
-	return s.Count(prefix)
+	return s.Count(prefix, from)
 }
 
-func (s *UrsrvStore) Count(prefix string) (int, error) {
-	return s.Store.Count(prefix)
+// Common.
+
+func (s *UrsrvStore) Count(prefix string, from time.Time) (int, error) {
+	return s.Store.CountFromDate(prefix, from)
+}
+
+func hasValidDate(key string, from time.Time) bool {
+	key, found := strings.CutSuffix(key, ".json")
+	if !found {
+		return false
+	}
+	keyDate, err := time.Parse(time.DateOnly, key)
+	if err != nil {
+		return false
+	}
+	if keyDate.Before(from) {
+		return false
+	}
+	return true
+}
+
+func commonTimestampPrefix(a, b time.Time) string {
+	aFormatted := a.UTC().Format("20060102")
+	bFormatted := b.UTC().Format("20060102")
+	prefixLen := 0
+	for i := range aFormatted {
+		if aFormatted[i] != bFormatted[i] {
+			break
+		}
+		prefixLen = i + 1
+	}
+	return aFormatted[:prefixLen]
 }

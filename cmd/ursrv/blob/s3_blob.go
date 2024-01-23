@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -94,12 +95,119 @@ func (s *S3) Delete(key string) error {
 	return err
 }
 
-func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) error {
+func (s *S3) IterateFromDate(ctx context.Context, reportType string, from time.Time, fn func([]byte) bool) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, timeOut)
+	defer cancel()
+
+	prefix := fmt.Sprintf("%s/%s", reportType, commonTimestampPrefix(from, time.Now()))
+	downloadManager := s3manager.NewDownloaderWithClient(s.client)
+
+	err = s.IterateMetadata(ctx, prefix, func(metas []*s3.Object) bool {
+		// Convert the objects to a BatchDownloadObject.
+		batch := make([]s3manager.BatchDownloadObject, len(metas))
+
+		var count = 0
+		for _, item := range metas {
+			if item.Key == nil || !hasValidDate(*item.Key, from) {
+				continue
+			}
+			batch[count] = s3manager.BatchDownloadObject{
+				Object: &s3.GetObjectInput{
+					Bucket: aws.String(s.bucket),
+					Key:    aws.String(*item.Key),
+				},
+				Writer: aws.NewWriteAtBuffer([]byte{}),
+			}
+		}
+
+		if len(batch) > count {
+			batch = batch[:count]
+		}
+
+		// Download the requested items in a batch.
+		err = downloadManager.DownloadWithIterator(ctx, &s3manager.DownloadObjectsIterator{Objects: batch})
+		if err != nil {
+			return false
+		}
+
+		for _, item := range batch {
+			// Read the item's buffer.
+			b, ok := item.Writer.(*aws.WriteAtBuffer)
+			if !ok {
+				continue
+			}
+
+			if !fn(b.Bytes()) {
+				return false
+			}
+		}
+		return true
+	})
+	return err
+}
+
+func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, timeOut)
 	defer cancel()
 
 	downloadManager := s3manager.NewDownloaderWithClient(s.client)
 
+	err = s.IterateMetadata(ctx, prefix, func(objects []*s3.Object) bool {
+		// Convert the objects to a BatchDownloadObject.
+		batch := make([]s3manager.BatchDownloadObject, len(objects))
+		for i, item := range objects {
+			batch[i] = s3manager.BatchDownloadObject{
+				Object: &s3.GetObjectInput{
+					Bucket: aws.String(s.bucket),
+					Key:    aws.String(*item.Key),
+				},
+				Writer: aws.NewWriteAtBuffer([]byte{}),
+			}
+		}
+
+		// Download the requested items in a batch.
+		err = downloadManager.DownloadWithIterator(ctx, &s3manager.DownloadObjectsIterator{Objects: batch})
+		if err != nil {
+			return false
+		}
+
+		for _, item := range batch {
+			// Read the item's buffer.
+			b, ok := item.Writer.(*aws.WriteAtBuffer)
+			if !ok {
+				continue
+			}
+
+			if !fn(b.Bytes()) {
+				return false
+			}
+		}
+		return true
+	})
+	return err
+}
+
+func (s *S3) CountFromDate(reportType string, from time.Time) (int, error) {
+	prefix := fmt.Sprintf("%s/%s", reportType, commonTimestampPrefix(from, time.Now()))
+
+	var total = 0
+	err := s.IterateMetadata(context.Background(), prefix, func(objects []*s3.Object) bool {
+		for _, object := range objects {
+			if object.Key == nil {
+				return false
+			}
+			if !hasValidDate(*object.Key, from) {
+				continue
+			}
+			total++
+		}
+		return true
+	})
+
+	return total, err
+}
+
+func (s *S3) IterateMetadata(ctx context.Context, prefix string, fn func([]*s3.Object) bool) error {
 	// ListObjectsV2 only supports up to 1000 keys per response. A response
 	// indicates whether the result was truncated and if so returns a
 	// continuation token which can be used to collect the remaining items.
@@ -116,34 +224,8 @@ func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) e
 			return nil
 		}
 
-		// Convert the objects to a BatchDownloadObject.
-		batch := make([]s3manager.BatchDownloadObject, *resp.KeyCount)
-		for i, item := range resp.Contents {
-			batch[i] = s3manager.BatchDownloadObject{
-				Object: &s3.GetObjectInput{
-					Bucket: aws.String(s.bucket),
-					Key:    aws.String(*item.Key),
-				},
-				Writer: aws.NewWriteAtBuffer([]byte{}),
-			}
-		}
-
-		// Download the requested items in a batch.
-		err = downloadManager.DownloadWithIterator(ctx, &s3manager.DownloadObjectsIterator{Objects: batch})
-		if err != nil {
-			return err
-		}
-
-		for _, item := range batch {
-			// Read the item's buffer.
-			b, ok := item.Writer.(*aws.WriteAtBuffer)
-			if !ok {
-				continue
-			}
-
-			if !fn(b.Bytes()) {
-				break
-			}
+		if !fn(resp.Contents) {
+			return errors.New("unexpected output from parameter-function")
 		}
 
 		if resp.IsTruncated != nil && *resp.IsTruncated {
@@ -156,32 +238,4 @@ func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) e
 		}
 		return nil
 	}
-}
-
-func (s *S3) Count(prefix string) (int, error) {
-	var total = 0
-
-	// ListObjectsV2 only supports up to 1000 keys per response. A response
-	// indicates whether the result was truncated and if so returns a
-	// continuation token which can be used to collect the remaining items.
-	var nextContinuationToken *string
-	for {
-		// Obtain a list of objects based on a prefix.
-		resp, err := s.client.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: &s.bucket, Prefix: aws.String(prefix), ContinuationToken: nextContinuationToken})
-		if err != nil {
-			return 0, err
-		}
-		total += len(resp.Contents)
-		if resp.IsTruncated != nil && *resp.IsTruncated {
-			if resp.NextContinuationToken == nil || *resp.NextContinuationToken == "" {
-				return 0, errors.New("response was truncated but no continuation token was supplied")
-			}
-
-			nextContinuationToken = resp.NextContinuationToken
-			continue
-		}
-		break
-	}
-
-	return total, nil
 }
