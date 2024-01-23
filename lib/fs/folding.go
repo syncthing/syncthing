@@ -36,7 +36,12 @@ func UnicodeLowercaseNormalized(s string) string {
 	rs.WriteString(s[:i])
 
 	for _, r := range s[i:] {
-		rs.WriteRune(unicode.ToLower(unicode.ToUpper(r)))
+		r = unicode.ToLower(unicode.ToUpper(r))
+		if r < utf8.RuneSelf {
+			rs.WriteByte(byte(r))
+		} else {
+			rs.WriteRune(r)
+		}
 	}
 	return norm.NFC.String(rs.String())
 }
