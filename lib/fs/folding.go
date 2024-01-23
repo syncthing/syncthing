@@ -13,25 +13,41 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+type caseType int
+
+const (
+	asciiLower caseType = iota
+	asciiMixed
+	nonAscii
+)
+
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	if isASCII(s) {
+	switch checkCase(s) {
+	case asciiLower:
+		return s
+	case asciiMixed:
 		return strings.ToLower(s)
+	default:
+		return norm.NFC.String(strings.Map(toLower, s))
 	}
-
-	return norm.NFC.String(strings.Map(toLower, s))
 }
 
 func toLower(r rune) rune {
 	return unicode.ToLower(unicode.ToUpper(r))
 }
 
-func isASCII(s string) bool {
+func checkCase(s string) caseType {
+	c := asciiLower
 	for i := 0; i < len(s); i++ {
-		if s[i] > unicode.MaxASCII {
-			return false
+		b := s[i]
+		if b > unicode.MaxASCII {
+			return nonAscii
+		}
+		if 'A' <= b && b <= 'Z' {
+			c = asciiMixed
 		}
 	}
-	return true
+	return c
 }
