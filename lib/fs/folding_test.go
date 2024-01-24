@@ -49,10 +49,22 @@ var caseCases = [][2]string{
 	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
+var asciiCases = []struct {
+	name       string
+	result     caseType
+	resultName string
+}{
+	{"img_202401241010.jpg", asciiLower, "lowercase ASCII"},
+	{"IMG_202401241010.jpg", asciiMixed, "mixedcase ASCII"},
+	{"收购要约_2024.xlsx", nonAscii, "unicode"},
+}
+
 func TestCheckCase(t *testing.T) {
-	if checkCase("lower") != asciiLower {
-		t.Errorf("Expected asciiLower")
-	}
+	for _, ac := range asciiCases {
+		res := checkCase(ac.name)
+		if res != ac.result {
+			t.Errorf("checkCase(%q) => %d, expected %d (%s)", ac.name, res, ac.result, ac.resultName)
+		}
 	if checkCase("MiXeD") != asciiMixed {
 		t.Errorf("Expected asciiMixed")
 	}
