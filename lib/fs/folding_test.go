@@ -49,6 +49,18 @@ var caseCases = [][2]string{
 	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
+func TestCheckCase(t *testing.T) {
+	if checkCase("lower") != asciiLower {
+		t.Errorf("Expected asciiLower")
+	}
+	if checkCase("MiXeD") != asciiMixed {
+		t.Errorf("Expected asciiMixed")
+	}
+	if checkCase("文字化け") != nonAscii {
+		t.Errorf("Expected nonAscii")
+	}
+}
+
 func TestUnicodeLowercaseNormalized(t *testing.T) {
 	for _, tc := range caseCases {
 		res := UnicodeLowercaseNormalized(tc[0])
