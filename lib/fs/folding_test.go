@@ -56,7 +56,9 @@ var asciiCases = []struct {
 }{
 	{"img_202401241010.jpg", asciiLower, "lowercase ASCII"},
 	{"IMG_202401241010.jpg", asciiMixed, "mixedcase ASCII"},
-	{"收购要约_2024.xlsx", nonAscii, "unicode"},
+	{"übernahme angebot.xlsx", nonAscii, "lowercase unicode"},
+	{"Übernahme Angebot.xlsx", nonAscii, "mixedcase unicode"},
+	{"ウェブの国際化.html", nonAscii, "multibyte unicode"},
 }
 
 func TestCheckCase(t *testing.T) {
@@ -65,11 +67,6 @@ func TestCheckCase(t *testing.T) {
 		if res != ac.result {
 			t.Errorf("checkCase(%q) => %d, expected %d (%s)", ac.name, res, ac.result, ac.resultName)
 		}
-	if checkCase("MiXeD") != asciiMixed {
-		t.Errorf("Expected asciiMixed")
-	}
-	if checkCase("文字化け") != nonAscii {
-		t.Errorf("Expected nonAscii")
 	}
 }
 
@@ -82,22 +79,13 @@ func TestUnicodeLowercaseNormalized(t *testing.T) {
 	}
 }
 
-func BenchmarkUnicodeLowercaseMaybeChange(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for _, s := range caseCases {
-			UnicodeLowercaseNormalized(s[0])
-		}
-	}
-}
-
-func BenchmarkUnicodeLowercaseNoChange(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for _, s := range caseCases {
-			UnicodeLowercaseNormalized(s[1])
-		}
+func BenchmarkUnicodeLowercase(b *testing.B) {
+	for _, c := range asciiCases {
+		b.Run(c.resultName, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				UnicodeLowercaseNormalized(c.name)
+			}
+		})
 	}
 }
