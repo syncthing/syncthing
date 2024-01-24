@@ -35,8 +35,11 @@ func UnicodeLowercaseNormalized(s string) string {
 }
 
 func toLower(r rune) rune {
-	if r <= unicode.MaxASCII && (r < 'A' || 'Z' < r) {
-		return r
+	if r <= unicode.MaxASCII {
+		if r < 'A' || 'Z' < r {
+			return r
+		}
+		return r + 'a' - 'A'
 	}
 	return unicode.ToLower(unicode.ToUpper(r))
 }
