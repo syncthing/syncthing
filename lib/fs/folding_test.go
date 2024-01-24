@@ -54,11 +54,11 @@ var asciiCases = []struct {
 	result     caseType
 	resultName string
 }{
-	{"img_202401241010.jpg", asciiLower, "lowercase ASCII"},
-	{"IMG_202401241010.jpg", asciiMixed, "mixedcase ASCII"},
-	{"übernahme angebot.xlsx", nonAscii, "lowercase unicode"},
-	{"Übernahme Angebot.xlsx", nonAscii, "mixedcase unicode"},
-	{"ウェブの国際化.html", nonAscii, "multibyte unicode"},
+	{"img_202401241010.jpg", asciiLower, "ASCII lowercase"},
+	{"IMG_202401241010.jpg", asciiMixed, "ASCII mixedcase"},
+	{"übernahme angebot.xlsx", nonAscii, "Unicode lowercase"},
+	{"Übernahme Angebot.xlsx", nonAscii, "Unicode mixedcase"},
+	{"ウェブの国際化.html", nonAscii, "Unicode multibyte"},
 }
 
 func TestCheckCase(t *testing.T) {
