@@ -9,29 +9,66 @@ package fs
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
-)
-
-type caseType int
-
-const (
-	asciiLower caseType = iota
-	asciiMixed
-	nonAscii
 )
 
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	switch checkCase(s) {
-	case asciiLower:
-		return s
-	case asciiMixed:
-		return strings.ToLower(s)
-	default:
-		return norm.NFC.String(strings.Map(toLower, s))
+	var b strings.Builder
+	var pos int
+	isASCII, isLower := true, true
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= utf8.RuneSelf {
+			isASCII = false
+			break
+		}
+		if 'A' <= c && c <= 'Z' {
+			if isLower {
+				b.Grow(len(s))
+				isLower = false
+			}
+			if pos != i {
+				b.WriteString(s[pos:i])
+			}
+			pos = i + 1
+			c += 'a' - 'A'
+			b.WriteByte(c)
+		}
 	}
+
+	if isASCII {
+		if isLower {
+			return s
+		}
+		if pos != len(s) {
+			b.WriteString(s[pos:])
+		}
+		return b.String()
+	}
+
+	for i, r := range s {
+		mapped := toLower(r)
+		if r == mapped && isLower {
+			continue
+		}
+		if isLower {
+			b.Reset()
+			b.Grow(len(s) + utf8.UTFMax + 1)
+			b.WriteString(s[:i])
+			isLower = false
+		}
+		b.WriteRune(mapped)
+	}
+
+	if isLower {
+		return norm.NFC.String(s)
+	}
+
+	return norm.NFC.String(b.String())
 }
 
 func toLower(r rune) rune {
@@ -42,18 +79,4 @@ func toLower(r rune) rune {
 		return r + 'a' - 'A'
 	}
 	return unicode.ToLower(unicode.ToUpper(r))
-}
-
-func checkCase(s string) caseType {
-	c := asciiLower
-	for i := 0; i < len(s); i++ {
-		b := s[i]
-		if b > unicode.MaxASCII {
-			return nonAscii
-		}
-		if 'A' <= b && b <= 'Z' {
-			c = asciiMixed
-		}
-	}
-	return c
 }
