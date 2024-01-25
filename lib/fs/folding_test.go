@@ -49,25 +49,12 @@ var caseCases = [][2]string{
 	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
-var asciiCases = []struct {
-	name       string
-	result     caseType
-	resultName string
-}{
-	{"img_202401241010.jpg", asciiLower, "ASCII lowercase"},
-	{"IMG_202401241010.jpg", asciiMixed, "ASCII mixedcase"},
-	{"übernahme angebot.xlsx", nonAscii, "Unicode lowercase"},
-	{"Übernahme Angebot.xlsx", nonAscii, "Unicode mixedcase"},
-	{"ウェブの国際化.html", nonAscii, "Unicode multibyte"},
-}
-
-func TestCheckCase(t *testing.T) {
-	for _, ac := range asciiCases {
-		res := checkCase(ac.name)
-		if res != ac.result {
-			t.Errorf("checkCase(%q) => %d, expected %d (%s)", ac.name, res, ac.result, ac.resultName)
-		}
-	}
+var benchmarkCases = [][2]string{
+	{"img_202401241010.jpg", "ASCII lowercase"},
+	{"IMG_202401241010.jpg", "ASCII mixedcase"},
+	{"übernahme angebot.xlsx", "Unicode lowercase"},
+	{"Übernahme Angebot.xlsx", "Unicode mixedcase"},
+	{"ウェブの国際化.html", "Unicode multibyte"},
 }
 
 func TestUnicodeLowercaseNormalized(t *testing.T) {
@@ -80,11 +67,11 @@ func TestUnicodeLowercaseNormalized(t *testing.T) {
 }
 
 func BenchmarkUnicodeLowercase(b *testing.B) {
-	for _, c := range asciiCases {
-		b.Run(c.resultName, func(b *testing.B) {
+	for _, c := range benchmarkCases {
+		b.Run(c[1], func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				UnicodeLowercaseNormalized(c.name)
+				UnicodeLowercaseNormalized(c[0])
 			}
 		})
 	}
