@@ -17,20 +17,39 @@ import (
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	var b strings.Builder
-	var pos int
-	isASCII, isLower := true, true
+	if isASCII, isLower := isASCII(s); isASCII {
+		if isLower {
+			return s
+		}
+		return toLowerASCII(s)
+	}
+
+	return toLowerUnicode(s)
+}
+
+func isASCII(s string) (bool, bool) {
+	isLower := true
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c >= utf8.RuneSelf {
-			isASCII = false
-			break
+			return false, isLower
 		}
 		if 'A' <= c && c <= 'Z' {
-			if isLower {
-				b.Grow(len(s))
-				isLower = false
-			}
+			isLower = false
+		}
+	}
+	return true, isLower
+}
+
+func toLowerASCII(s string) string {
+	var (
+		b   strings.Builder
+		pos int
+	)
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' {
 			if pos != i {
 				b.WriteString(s[pos:i])
 			}
@@ -39,36 +58,15 @@ func UnicodeLowercaseNormalized(s string) string {
 			b.WriteByte(c)
 		}
 	}
-
-	if isASCII {
-		if isLower {
-			return s
-		}
-		if pos != len(s) {
-			b.WriteString(s[pos:])
-		}
-		return b.String()
+	if pos != len(s) {
+		b.WriteString(s[pos:])
 	}
+	return b.String()
+}
 
-	for i, r := range s {
-		mapped := toLower(r)
-		if r == mapped && isLower {
-			continue
-		}
-		if isLower {
-			b.Reset()
-			b.Grow(len(s) + utf8.UTFMax + 1)
-			b.WriteString(s[:i])
-			isLower = false
-		}
-		b.WriteRune(mapped)
-	}
-
-	if isLower {
-		return norm.NFC.String(s)
-	}
-
-	return norm.NFC.String(b.String())
+func toLowerUnicode(s string) string {
+	s = strings.Map(toLower, s)
+	return norm.NFC.String(s)
 }
 
 func toLower(r rune) rune {
