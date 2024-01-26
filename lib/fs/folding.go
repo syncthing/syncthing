@@ -49,15 +49,16 @@ func toLowerASCII(s string) string {
 	b.Grow(len(s))
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if 'A' <= c && c <= 'Z' {
-			if pos != i {
-				b.WriteString(s[pos:i])
-			}
-			pos = i + 1
-			c += 'a' - 'A'
-			b.WriteByte(c)
+		if c < 'A' || 'Z' < c {
+			continue
 		}
-	}
+		if pos < i {
+			b.WriteString(s[pos:i])
+		}
+		pos = i + 1
+		c += 'a' - 'A'
+		b.WriteByte(c)
+		}
 	if pos != len(s) {
 		b.WriteString(s[pos:])
 	}
