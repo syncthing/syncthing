@@ -9,7 +9,6 @@ package fs
 import (
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -31,7 +30,7 @@ func isASCII(s string) (bool, bool) {
 	isLower := true
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if c >= utf8.RuneSelf {
+		if c > unicode.MaxASCII {
 			return false, isLower
 		}
 		if 'A' <= c && c <= 'Z' {
