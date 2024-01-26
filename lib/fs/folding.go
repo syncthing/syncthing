@@ -58,7 +58,7 @@ func toLowerASCII(s string) string {
 		pos = i + 1
 		c += 'a' - 'A'
 		b.WriteByte(c)
-		}
+	}
 	if pos != len(s) {
 		b.WriteString(s[pos:])
 	}
@@ -77,5 +77,5 @@ func toLower(r rune) rune {
 		}
 		return r + 'a' - 'A'
 	}
-	return unicode.ToLower(unicode.ToUpper(r))
+	return unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r))
 }
