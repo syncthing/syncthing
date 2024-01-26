@@ -77,5 +77,8 @@ func toLower(r rune) rune {
 		}
 		return r + 'a' - 'A'
 	}
+	if r <= unicode.MaxLatin1 && r != 'µ' {
+		return unicode.To(unicode.LowerCase, r)
+	}
 	return unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r))
 }
