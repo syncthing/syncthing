@@ -355,12 +355,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
-		// fetching metrics counts as an event, for the purpose of whether
-		// we should prepare folder summaries etc.
-		s.fss.OnEventRequest()
-		promHttpHandler.ServeHTTP(w, req)
-	})
+	mux.Handle("/metrics", promHttpHandler)
 
 	guiCfg := s.cfg.GUI()
 
@@ -1396,10 +1391,6 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
-	if eventSub.Mask()&(events.FolderSummary|events.FolderCompletion) != 0 {
-		s.fss.OnEventRequest()
-	}
-
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")

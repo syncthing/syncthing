@@ -25,12 +25,9 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-const maxDurationSinceLastEventReq = time.Minute
-
 type FolderSummaryService interface {
 	suture.Service
 	Summary(folder string) (*FolderSummary, error)
-	OnEventRequest()
 }
 
 // The folderSummaryService adds summary information events (FolderSummary and
@@ -47,23 +44,18 @@ type folderSummaryService struct {
 	// For keeping track of folders to recalculate for
 	foldersMut sync.Mutex
 	folders    map[string]struct{}
-
-	// For keeping track of when the last event request on the API was
-	lastEventReq    time.Time
-	lastEventReqMut sync.Mutex
 }
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor:      suture.New("folderSummaryService", svcutil.SpecWithDebugLogger(l)),
-		cfg:             cfg,
-		model:           m,
-		id:              id,
-		evLogger:        evLogger,
-		immediate:       make(chan string),
-		folders:         make(map[string]struct{}),
-		foldersMut:      sync.NewMutex(),
-		lastEventReqMut: sync.NewMutex(),
+		Supervisor: suture.New("folderSummaryService", svcutil.SpecWithDebugLogger(l)),
+		cfg:        cfg,
+		model:      m,
+		id:         id,
+		evLogger:   evLogger,
+		immediate:  make(chan string),
+		folders:    make(map[string]struct{}),
+		foldersMut: sync.NewMutex(),
 	}
 
 	service.Add(svcutil.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
@@ -79,10 +71,7 @@ func (c *folderSummaryService) String() string {
 // FolderSummary replaces the previously used map[string]interface{}, and needs
 // to keep the structure/naming for api backwards compatibility
 type FolderSummary struct {
-	Errors     int `json:"errors"`
-	PullErrors int `json:"pullErrors"` // deprecated
-
-	Invalid string `json:"invalid"` // deprecated
+	Errors int `json:"errors"`
 
 	GlobalFiles       int   `json:"globalFiles"`
 	GlobalDirectories int   `json:"globalDirectories"`
@@ -119,8 +108,8 @@ type FolderSummary struct {
 	StateChanged time.Time `json:"stateChanged"`
 	Error        string    `json:"error"`
 
-	Version  int64 `json:"version"` // deprecated
-	Sequence int64 `json:"sequence"`
+	Sequence       int64                       `json:"sequence"`
+	RemoteSequence map[protocol.DeviceID]int64 `json:"remoteSequence"`
 
 	IgnorePatterns bool   `json:"ignorePatterns"`
 	WatchError     string `json:"watchError"`
@@ -130,7 +119,8 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	res := new(FolderSummary)
 
 	var local, global, need, ro db.Counts
-	var ourSeq, remoteSeq int64
+	var ourSeq int64
+	var remoteSeq map[protocol.DeviceID]int64
 	errors, err := c.model.FolderErrors(folder)
 	if err == nil {
 		var snap *db.Snapshot
@@ -140,7 +130,7 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 			need = snap.NeedSize(protocol.LocalDeviceID)
 			ro = snap.ReceiveOnlyChangedSize()
 			ourSeq = snap.Sequence(protocol.LocalDeviceID)
-			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
+			remoteSeq = snap.RemoteSequences()
 			snap.Release()
 		}
 	}
@@ -152,9 +142,6 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	}
 
 	res.Errors = len(errors)
-	res.PullErrors = len(errors) // deprecated
-
-	res.Invalid = "" // Deprecated, retains external API for now
 
 	res.GlobalFiles, res.GlobalDirectories, res.GlobalSymlinks, res.GlobalDeleted, res.GlobalBytes, res.GlobalTotalItems = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
@@ -192,8 +179,8 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		res.Error = err.Error()
 	}
 
-	res.Version = ourSeq + remoteSeq  // legacy
-	res.Sequence = ourSeq + remoteSeq // new name
+	res.Sequence = ourSeq
+	res.RemoteSequence = remoteSeq
 
 	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)
 	res.IgnorePatterns = false
@@ -210,12 +197,6 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	}
 
 	return res, nil
-}
-
-func (c *folderSummaryService) OnEventRequest() {
-	c.lastEventReqMut.Lock()
-	c.lastEventReq = time.Now()
-	c.lastEventReqMut.Unlock()
 }
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
@@ -357,17 +338,6 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 // foldersToHandle returns the list of folders needing a summary update, and
 // clears the list.
 func (c *folderSummaryService) foldersToHandle() []string {
-	// We only recalculate summaries if someone is listening to events
-	// (a request to /rest/events has been made within the last
-	// pingEventInterval).
-
-	c.lastEventReqMut.Lock()
-	last := c.lastEventReq
-	c.lastEventReqMut.Unlock()
-	if time.Since(last) > maxDurationSinceLastEventReq {
-		return nil
-	}
-
 	c.foldersMut.Lock()
 	res := make([]string, 0, len(c.folders))
 	for folder := range c.folders {

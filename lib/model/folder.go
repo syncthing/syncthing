@@ -1246,7 +1246,6 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		"items":     len(fs),
 		"filenames": filenames,
 		"sequence":  seq,
-		"version":   seq, // legacy for sequence
 	})
 }
 
