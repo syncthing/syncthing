@@ -44,11 +44,9 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		}
 
 		rel, err := f.unrootedChecked(absPath, roots)
-
 		if err != nil {
 			return true
 		}
-
 		return ignore.Match(rel).CanSkipDir()
 	}
 	err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
