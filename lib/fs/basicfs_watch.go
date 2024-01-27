@@ -14,6 +14,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
 
 	"github.com/syncthing/notify"
 )
@@ -38,10 +39,16 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	absShouldIgnore := func(absPath string) bool {
+		if !utf8.ValidString(absPath) {
+			return true
+		}
+
 		rel, err := f.unrootedChecked(absPath, roots)
+
 		if err != nil {
 			return true
 		}
+
 		return ignore.Match(rel).CanSkipDir()
 	}
 	err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
