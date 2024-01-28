@@ -11,12 +11,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gobwas/glob"
 	"io"
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode/utf8"
+
+	"github.com/gobwas/glob"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
@@ -214,9 +214,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 // Match matches the patterns plus temporary and internal files.
 func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	switch {
-	case !utf8.ValidString(file):
-		return ignoreresult.IgnoreAndSkip
-
 	case fs.IsTemporary(file):
 		return ignoreresult.IgnoreAndSkip
 
