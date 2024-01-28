@@ -14,6 +14,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
 
 	"github.com/syncthing/notify"
 )
@@ -38,6 +39,10 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	absShouldIgnore := func(absPath string) bool {
+		if !utf8.ValidString(absPath) {
+			return true
+		}
+
 		rel, err := f.unrootedChecked(absPath, roots)
 		if err != nil {
 			return true
@@ -78,7 +83,14 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 
 		select {
 		case ev := <-backendChan:
-			relPath, err := f.unrootedChecked(ev.Path(), roots)
+			evPath := ev.Path()
+
+			if !utf8.ValidString(evPath) {
+				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring invalid UTF-8")
+				continue
+			}
+
+			relPath, err := f.unrootedChecked(evPath, roots)
 			if err != nil {
 				select {
 				case errChan <- err:
