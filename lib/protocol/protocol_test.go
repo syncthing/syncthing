@@ -924,7 +924,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	m := newTestModel()
 	rw := testutil.NewBlockingRW()
 	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
-	m.ccFn = func(ClusterConfig) {
+	m.ccFn = func(*ClusterConfig) {
 		c.Close(errManual)
 	}
 	c.Start()

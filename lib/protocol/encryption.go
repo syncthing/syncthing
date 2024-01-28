@@ -56,43 +56,43 @@ func newEncryptedModel(model rawModel, folderKeys *folderKeyRegistry, keyGen *Ke
 	}
 }
 
-func (e encryptedModel) Index(folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys.get(folder); ok {
+func (e encryptedModel) Index(idx *Index) error {
+	if folderKey, ok := e.folderKeys.get(idx.Folder); ok {
 		// incoming index data to be decrypted
-		if err := decryptFileInfos(e.keyGen, files, folderKey); err != nil {
+		if err := decryptFileInfos(e.keyGen, idx.Files, folderKey); err != nil {
 			return err
 		}
 	}
-	return e.model.Index(folder, files)
+	return e.model.Index(idx)
 }
 
-func (e encryptedModel) IndexUpdate(folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys.get(folder); ok {
+func (e encryptedModel) IndexUpdate(idxUp *IndexUpdate) error {
+	if folderKey, ok := e.folderKeys.get(idxUp.Folder); ok {
 		// incoming index data to be decrypted
-		if err := decryptFileInfos(e.keyGen, files, folderKey); err != nil {
+		if err := decryptFileInfos(e.keyGen, idxUp.Files, folderKey); err != nil {
 			return err
 		}
 	}
-	return e.model.IndexUpdate(folder, files)
+	return e.model.IndexUpdate(idxUp)
 }
 
-func (e encryptedModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	folderKey, ok := e.folderKeys.get(folder)
+func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
+	folderKey, ok := e.folderKeys.get(req.Folder)
 	if !ok {
-		return e.model.Request(folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+		return e.model.Request(req)
 	}
 
 	// Figure out the real file name, offset and size from the encrypted /
 	// tweaked values.
 
-	realName, err := decryptName(name, folderKey)
+	realName, err := decryptName(req.Name, folderKey)
 	if err != nil {
 		return nil, fmt.Errorf("decrypting name: %w", err)
 	}
-	realSize := size - blockOverhead
-	realOffset := offset - int64(blockNo*blockOverhead)
+	realSize := req.Size - blockOverhead
+	realOffset := req.Offset - int64(req.BlockNo*blockOverhead)
 
-	if size < minPaddedSize {
+	if req.Size < minPaddedSize {
 		return nil, errors.New("short request")
 	}
 
@@ -105,13 +105,13 @@ func (e encryptedModel) Request(folder, name string, blockNo, size int32, offset
 
 	var realHash []byte
 	fileKey := e.keyGen.FileKey(realName, folderKey)
-	if len(hash) > 0 {
+	if len(req.Hash) > 0 {
 		var additional [8]byte
 		binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
-		realHash, err = decryptDeterministic(hash, fileKey, additional[:])
+		realHash, err = decryptDeterministic(req.Hash, fileKey, additional[:])
 		if err != nil {
 			// "Legacy", no offset additional data?
-			realHash, err = decryptDeterministic(hash, fileKey, nil)
+			realHash, err = decryptDeterministic(req.Hash, fileKey, nil)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("decrypting block hash: %w", err)
@@ -120,7 +120,15 @@ func (e encryptedModel) Request(folder, name string, blockNo, size int32, offset
 
 	// Perform that request and grab the data.
 
-	resp, err := e.model.Request(folder, realName, blockNo, realSize, realOffset, realHash, 0, false)
+	decReq := &Request{
+		Folder:  req.Folder,
+		Name:    realName,
+		BlockNo: req.BlockNo,
+		Size:    realSize,
+		Offset:  realOffset,
+		Hash:    realHash,
+	}
+	resp, err := e.model.Request(decReq)
 	if err != nil {
 		return nil, err
 	}
@@ -142,16 +150,16 @@ func (e encryptedModel) Request(folder, name string, blockNo, size int32, offset
 	return rawResponse{enc}, nil
 }
 
-func (e encryptedModel) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error {
-	if _, ok := e.folderKeys.get(folder); !ok {
-		return e.model.DownloadProgress(folder, updates)
+func (e encryptedModel) DownloadProgress(p *DownloadProgress) error {
+	if _, ok := e.folderKeys.get(p.Folder); !ok {
+		return e.model.DownloadProgress(p)
 	}
 
 	// Encrypted devices shouldn't send these - ignore them.
 	return nil
 }
 
-func (e encryptedModel) ClusterConfig(config ClusterConfig) error {
+func (e encryptedModel) ClusterConfig(config *ClusterConfig) error {
 	return e.model.ClusterConfig(config)
 }
 

@@ -15,21 +15,21 @@ type nativeModel struct {
 	rawModel
 }
 
-func (m nativeModel) Index(folder string, files []FileInfo) error {
-	for i := range files {
-		files[i].Name = norm.NFD.String(files[i].Name)
+func (m nativeModel) Index(idx *Index) error {
+	for i := range idx.Files {
+		idx.Files[i].Name = norm.NFD.String(idx.Files[i].Name)
 	}
-	return m.rawModel.Index(folder, files)
+	return m.rawModel.Index(idx)
 }
 
-func (m nativeModel) IndexUpdate(folder string, files []FileInfo) error {
-	for i := range files {
-		files[i].Name = norm.NFD.String(files[i].Name)
+func (m nativeModel) IndexUpdate(idxUp *IndexUpdate) error {
+	for i := range idxUp.Files {
+		idxUp.Files[i].Name = norm.NFD.String(idxUp.Files[i].Name)
 	}
-	return m.rawModel.IndexUpdate(folder, files)
+	return m.rawModel.IndexUpdate(idxUp)
 }
 
-func (m nativeModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	name = norm.NFD.String(name)
-	return m.rawModel.Request(folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+func (m nativeModel) Request(req *Request) (RequestResponse, error) {
+	req.Name = norm.NFD.String(req.Name)
+	return m.rawModel.Request(req)
 }

@@ -123,28 +123,28 @@ var (
 
 type Model interface {
 	// An index was received from the peer device
-	Index(conn Connection, folder string, files []FileInfo) error
+	Index(conn Connection, idx *Index) error
 	// An index update was received from the peer device
-	IndexUpdate(conn Connection, folder string, files []FileInfo) error
+	IndexUpdate(conn Connection, idxUp *IndexUpdate) error
 	// A request was made by the peer device
-	Request(conn Connection, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	Request(conn Connection, req *Request) (RequestResponse, error)
 	// A cluster configuration message was received
-	ClusterConfig(conn Connection, config ClusterConfig) error
+	ClusterConfig(conn Connection, config *ClusterConfig) error
 	// The peer device closed the connection or an error occurred
 	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
-	DownloadProgress(conn Connection, folder string, updates []FileDownloadProgressUpdate) error
+	DownloadProgress(conn Connection, p *DownloadProgress) error
 }
 
 // rawModel is the Model interface, but without the initial Connection
 // parameter. Internal use only.
 type rawModel interface {
-	Index(folder string, files []FileInfo) error
-	IndexUpdate(folder string, files []FileInfo) error
-	Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
-	ClusterConfig(config ClusterConfig) error
+	Index(*Index) error
+	IndexUpdate(*IndexUpdate) error
+	Request(*Request) (RequestResponse, error)
+	ClusterConfig(*ClusterConfig) error
 	Closed(err error)
-	DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error
+	DownloadProgress(*DownloadProgress) error
 }
 
 type RequestResponse interface {
@@ -493,22 +493,22 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 
 		switch msg := msg.(type) {
 		case *ClusterConfig:
-			err = c.model.ClusterConfig(*msg)
+			err = c.model.ClusterConfig(msg)
 
 		case *Index:
-			err = c.handleIndex(*msg)
+			err = c.handleIndex(msg)
 
 		case *IndexUpdate:
-			err = c.handleIndexUpdate(*msg)
+			err = c.handleIndexUpdate(msg)
 
 		case *Request:
-			go c.handleRequest(*msg)
+			go c.handleRequest(msg)
 
 		case *Response:
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
-			err = c.model.DownloadProgress(msg.Folder, msg.Updates)
+			err = c.model.DownloadProgress(msg)
 		}
 		if err != nil {
 			return newHandleError(err, msgContext)
@@ -613,14 +613,14 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	return hdr, nil
 }
 
-func (c *rawConnection) handleIndex(im Index) error {
+func (c *rawConnection) handleIndex(im *Index) error {
 	l.Debugf("Index(%v, %v, %d file)", c.deviceID, im.Folder, len(im.Files))
-	return c.model.Index(im.Folder, im.Files)
+	return c.model.Index(im)
 }
 
-func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
+func (c *rawConnection) handleIndexUpdate(im *IndexUpdate) error {
 	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.deviceID, im.Folder, len(im.Files))
-	return c.model.IndexUpdate(im.Folder, im.Files)
+	return c.model.IndexUpdate(im)
 }
 
 // checkIndexConsistency verifies a number of invariants on FileInfos received in
@@ -685,8 +685,8 @@ func checkFilename(name string) error {
 	return nil
 }
 
-func (c *rawConnection) handleRequest(req Request) {
-	res, err := c.model.Request(req.Folder, req.Name, int32(req.BlockNo), int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+func (c *rawConnection) handleRequest(req *Request) {
+	res, err := c.model.Request(req)
 	if err != nil {
 		c.send(context.Background(), &Response{
 			ID:   req.ID,
@@ -1127,19 +1127,19 @@ type connectionWrappingModel struct {
 	model Model
 }
 
-func (c *connectionWrappingModel) Index(folder string, files []FileInfo) error {
-	return c.model.Index(c.conn, folder, files)
+func (c *connectionWrappingModel) Index(m *Index) error {
+	return c.model.Index(c.conn, m)
 }
 
-func (c *connectionWrappingModel) IndexUpdate(folder string, files []FileInfo) error {
-	return c.model.IndexUpdate(c.conn, folder, files)
+func (c *connectionWrappingModel) IndexUpdate(idxUp *IndexUpdate) error {
+	return c.model.IndexUpdate(c.conn, idxUp)
 }
 
-func (c *connectionWrappingModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	return c.model.Request(c.conn, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+func (c *connectionWrappingModel) Request(req *Request) (RequestResponse, error) {
+	return c.model.Request(c.conn, req)
 }
 
-func (c *connectionWrappingModel) ClusterConfig(config ClusterConfig) error {
+func (c *connectionWrappingModel) ClusterConfig(config *ClusterConfig) error {
 	return c.model.ClusterConfig(c.conn, config)
 }
 
@@ -1147,6 +1147,6 @@ func (c *connectionWrappingModel) Closed(err error) {
 	c.model.Closed(c.conn, err)
 }
 
-func (c *connectionWrappingModel) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) error {
-	return c.model.DownloadProgress(c.conn, folder, updates)
+func (c *connectionWrappingModel) DownloadProgress(p *DownloadProgress) error {
+	return c.model.DownloadProgress(c.conn, p)
 }
