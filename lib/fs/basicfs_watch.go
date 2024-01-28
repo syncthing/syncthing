@@ -87,7 +87,7 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 
 			if !utf8.ValidString(evPath) {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring invalid UTF-8")
-				return
+				continue
 			}
 
 			relPath, err := f.unrootedChecked(evPath, roots)
