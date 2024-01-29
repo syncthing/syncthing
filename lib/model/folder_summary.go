@@ -186,8 +186,8 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		res.Error = err.Error()
 	}
 
-	res.Sequence = ourSeq // legacy
-	res.Version = ourSeq
+	res.Version = ourSeq // legacy
+	res.Sequence = ourSeq
 	res.RemoteSequence = remoteSeq
 
 	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)
