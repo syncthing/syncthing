@@ -1952,46 +1952,46 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	}
 
 	deviceID := conn.DeviceID()
-	folder := req.Folder
-	name := req.Name
 
 	m.mut.RLock()
-	folderCfg, ok := m.folderCfgs[folder]
-	folderIgnores := m.folderIgnores[folder]
+	folderCfg, ok := m.folderCfgs[req.Folder]
+	folderIgnores := m.folderIgnores[req.Folder]
 	m.mut.RUnlock()
 	if !ok {
 		// The folder might be already unpaused in the config, but not yet
 		// in the model.
-		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), name, folder)
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	if !folderCfg.SharedWith(deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), name, folder)
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 	if folderCfg.Paused {
-		l.Debugf("Request from %s for file %s in paused folder %q", deviceID.Short(), name, folder)
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	// Make sure the path is valid and in canonical form
-	if name, err = fs.Canonicalize(name); err != nil {
-		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID.Short(), folder, name)
+	if name, err := fs.Canonicalize(req.Name); err != nil {
+		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID.Short(), req.Folder, req.Name)
 		return nil, protocol.ErrGeneric
+	} else {
+		req.Name = name
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID.Short(), folder, name, req.Offset, req.Size, req.FromTemporary)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size, req.FromTemporary)
 	}
 
-	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, req.Offset, req.Size)
+	if fs.IsInternal(req.Name) {
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrInvalid
 	}
 
-	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, req.Offset, req.Size)
+	if folderIgnores.Match(req.Name).IsIgnored() {
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrInvalid
 	}
 
@@ -2017,20 +2017,20 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 
 	folderFs := folderCfg.Filesystem(nil)
 
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, req.Offset, req.Size)
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if req.FromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := fs.TempName(name)
+		tempFn := fs.TempName(req.Name)
 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, req.Offset, req.Size)
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 			return nil, protocol.ErrNoSuchFile
 		}
 		_, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, res.data)
@@ -2041,16 +2041,16 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		// file has finished downloading.
 	}
 
-	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
+	if info, err := folderFs.Lstat(req.Name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, req.Offset, req.Size)
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	n, err := readOffsetIntoBuf(folderFs, name, req.Offset, res.data)
+	n, err := readOffsetIntoBuf(folderFs, req.Name, req.Offset, res.data)
 	if fs.IsNotExist(err) {
-		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, req.Offset, req.Size)
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	} else if err == io.EOF {
 		// Read beyond end of file. This might indicate a problem, or it
@@ -2059,13 +2059,13 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		// next step take care of it, by only hashing the part we actually
 		// managed to read.
 	} else if err != nil {
-		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, req.Offset, req.Size)
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrGeneric
 	}
 
 	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {
-		m.recheckFile(deviceID, folder, name, req.Offset, req.Hash, req.WeakHash)
-		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, req.Offset, req.Size)
+		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash)
+		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 

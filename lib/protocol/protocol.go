@@ -505,7 +505,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			go c.handleRequest(msg)
 
 		case *Response:
-			c.handleResponse(*msg)
+			c.handleResponse(msg)
 
 		case *DownloadProgress:
 			err = c.model.DownloadProgress(msg)
@@ -704,7 +704,7 @@ func (c *rawConnection) handleRequest(req *Request) {
 	res.Close()
 }
 
-func (c *rawConnection) handleResponse(resp Response) {
+func (c *rawConnection) handleResponse(resp *Response) {
 	c.awaitingMut.Lock()
 	if rc := c.awaiting[resp.ID]; rc != nil {
 		delete(c.awaiting, resp.ID)
