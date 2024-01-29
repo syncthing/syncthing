@@ -120,15 +120,11 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 
 	// Perform that request and grab the data.
 
-	decReq := &Request{
-		Folder:  req.Folder,
-		Name:    realName,
-		BlockNo: req.BlockNo,
-		Size:    realSize,
-		Offset:  realOffset,
-		Hash:    realHash,
-	}
-	resp, err := e.model.Request(decReq)
+	req.Name = realName
+	req.Size = realSize
+	req.Offset = realOffset
+	req.Hash = realHash
+	resp, err := e.model.Request(req)
 	if err != nil {
 		return nil, err
 	}
