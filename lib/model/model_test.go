@@ -94,7 +94,7 @@ func TestRequest(t *testing.T) {
 	m.ScanFolder("default")
 
 	// Existing, shared file
-	res, err := m.Request(device1Conn, "default", "foo", 0, 6, 0, nil, 0, false)
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,35 +104,35 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	_, err = m.Request(device2Conn, "default", "foo", 0, 6, 0, nil, 0, false)
+	_, err = m.Request(device2Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	_, err = m.Request(device1Conn, "default", "nonexistent", 0, 6, 0, nil, 0, false)
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "nonexistent", Size: 6})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	_, err = m.Request(device1Conn, "default", "../walk.go", 0, 6, 0, nil, 0, false)
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "../walk.go", Size: 6})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
-	// Negative offset
-	_, err = m.Request(device1Conn, "default", "foo", 0, -4, 0, nil, 0, false)
+	// Negative size
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: -4})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Larger block than available
-	_, err = m.Request(device1Conn, "default", "foo", 0, 42, 0, []byte("hash necessary but not checked"), 0, false)
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42, Hash: []byte("hash necessary but not checked")})
 	if err == nil {
 		t.Error("Unexpected nil error on read past end of file")
 	}
-	_, err = m.Request(device1Conn, "default", "foo", 0, 42, 0, nil, 0, false)
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42})
 	if err != nil {
 		t.Error("Unexpected error when large read should be permitted")
 	}
@@ -168,11 +168,11 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
 
 	files := genFiles(nfiles)
-	must(b, m.Index(device1Conn, fcfg.ID, files))
+	must(b, m.Index(device1Conn, &protocol.Index{Folder: fcfg.ID, Files: files}))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		must(b, m.Index(device1Conn, fcfg.ID, files))
+		must(b, m.Index(device1Conn, &protocol.Index{Folder: fcfg.ID, Files: files}))
 	}
 	b.ReportAllocs()
 }
@@ -197,11 +197,11 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
 
-	must(b, m.Index(device1Conn, fcfg.ID, files))
+	must(b, m.Index(device1Conn, &protocol.Index{Folder: fcfg.ID, Files: files}))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		must(b, m.IndexUpdate(device1Conn, fcfg.ID, ufiles))
+		must(b, m.IndexUpdate(device1Conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: ufiles}))
 	}
 	b.ReportAllocs()
 }
@@ -218,7 +218,7 @@ func BenchmarkRequestOut(b *testing.B) {
 		fc.addFile(f.Name, 0o644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.Hello{})
-	must(b, m.Index(device1Conn, "default", files))
+	must(b, m.Index(device1Conn, &protocol.Index{Folder: "default", Files: files}))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -247,7 +247,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := m.Request(device1Conn, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, 128<<10, 0, nil, 0, false); err != nil {
+		if _, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "request/for/a/file/in/a/couple/of/dirs/128k", Size: 128 << 10}); err != nil {
 			b.Error(err)
 		}
 	}
@@ -1808,7 +1808,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	must(t, m.Index(conn, "default", testdata))
+	must(t, m.Index(conn, &protocol.Index{Folder: "default", Files: testdata}))
 
 	result, _ := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -2015,7 +2015,7 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	m.ScanFolder(fcfg.ID)
 	files := genDeepFiles(n1, n2)
 
-	must(b, m.Index(device1Conn, fcfg.ID, files))
+	must(b, m.Index(device1Conn, &protocol.Index{Folder: fcfg.ID, Files: files}))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -2161,7 +2161,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	conn2 := newFakeConnection(device2, m)
 	m.AddConnection(conn2, protocol.Hello{})
 
-	m.ClusterConfig(conn1, protocol.ClusterConfig{
+	m.ClusterConfig(conn1, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2173,7 +2173,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(conn2, protocol.ClusterConfig{
+	m.ClusterConfig(conn2, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2426,7 +2426,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 	file.Deleted = true
 	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
 
-	must(t, m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{dir, file}))
+	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{dir, file}}))
 
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
@@ -2925,14 +2925,14 @@ func TestRequestLimit(t *testing.T) {
 	m.ScanFolder("default")
 
 	befReq := time.Now()
-	first, err := m.Request(conn, "default", file, 0, 2000, 0, nil, 0, false)
+	first, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
 	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		second, err := m.Request(conn, "default", file, 0, 2000, 0, nil, 0, false)
+		second, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
 		if err != nil {
 			t.Errorf("Second request failed: %v", err)
 		}
@@ -3594,7 +3594,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 	// A remote must have the file, otherwise the deletion below is
 	// automatically resolved as not a ro-changed item.
-	must(t, m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{file}))
+	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{file}}))
 
 	must(t, ffs.Remove(name))
 	m.ScanFolders()
@@ -3708,9 +3708,9 @@ func TestIssue6961(t *testing.T) {
 	version := protocol.Vector{}.Update(device1.Short())
 
 	// Remote, valid and existing file
-	must(t, m.Index(conn1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}))
+	must(t, m.Index(conn1, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}}))
 	// Remote, invalid (receive-only) and existing file
-	must(t, m.Index(conn2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}))
+	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}}))
 	// Create a local file
 	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0o666); err != nil {
 		t.Fatal(err)
@@ -3736,7 +3736,7 @@ func TestIssue6961(t *testing.T) {
 	m.ScanFolders()
 
 	// Drop the remote index, add some other file.
-	must(t, m.Index(conn2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}))
+	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}}))
 
 	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
 	pauseFolder(t, wcfg, fcfg.ID, true)
@@ -3759,7 +3759,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	m.mut.Unlock()
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	must(t, m.IndexUpdate(conn, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
@@ -3780,26 +3780,26 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 
 	// Start with two remotes having one file, then both deleting it, then
 	// only one adding it again.
-	must(t, m.Index(conn1, fcfg.ID, files))
-	must(t, m.Index(conn2, fcfg.ID, files))
+	must(t, m.Index(conn1, &protocol.Index{Folder: fcfg.ID, Files: files}))
+	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: files}))
 	seq++
 	files[0].SetDeleted(device2.Short())
 	files[0].Sequence = seq
-	must(t, m.IndexUpdate(conn1, fcfg.ID, files))
-	must(t, m.IndexUpdate(conn2, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn1, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
+	must(t, m.IndexUpdate(conn2, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
 	seq++
 	files[0].Deleted = false
 	files[0].Size = 20
 	files[0].Version = files[0].Version.Update(device1.Short())
 	files[0].Sequence = seq
-	must(t, m.IndexUpdate(conn1, fcfg.ID, files))
+	must(t, m.IndexUpdate(conn1, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
 
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 
 	// Pretend we had an index reset on device 1
-	must(t, m.Index(conn1, fcfg.ID, files))
+	must(t, m.Index(conn1, &protocol.Index{Folder: fcfg.ID, Files: files}))
 	if comp := m.testCompletion(device2, fcfg.ID); comp.NeedItems != 1 {
 		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
