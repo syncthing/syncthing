@@ -71,7 +71,10 @@ func (c *folderSummaryService) String() string {
 // FolderSummary replaces the previously used map[string]interface{}, and needs
 // to keep the structure/naming for api backwards compatibility
 type FolderSummary struct {
-	Errors int `json:"errors"`
+	Errors     int `json:"errors"`
+	PullErrors int `json:"pullErrors"` // deprecated
+
+	Invalid string `json:"invalid"` // deprecated
 
 	GlobalFiles       int   `json:"globalFiles"`
 	GlobalDirectories int   `json:"globalDirectories"`
@@ -108,6 +111,7 @@ type FolderSummary struct {
 	StateChanged time.Time `json:"stateChanged"`
 	Error        string    `json:"error"`
 
+	Version        int64                       `json:"version"` // deprecated
 	Sequence       int64                       `json:"sequence"`
 	RemoteSequence map[protocol.DeviceID]int64 `json:"remoteSequence"`
 
@@ -142,6 +146,9 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	}
 
 	res.Errors = len(errors)
+	res.PullErrors = len(errors) // deprecated
+
+	res.Invalid = "" // Deprecated, retains external API for now
 
 	res.GlobalFiles, res.GlobalDirectories, res.GlobalSymlinks, res.GlobalDeleted, res.GlobalBytes, res.GlobalTotalItems = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
@@ -179,7 +186,8 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		res.Error = err.Error()
 	}
 
-	res.Sequence = ourSeq
+	res.Sequence = ourSeq // legacy
+	res.Version = ourSeq
 	res.RemoteSequence = remoteSeq
 
 	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)

@@ -339,6 +339,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) e
 		"folder":   s.folder,
 		"items":    len(fs),
 		"sequence": seq,
+		"version":  seq, // legacy for sequence
 	})
 
 	return nil
