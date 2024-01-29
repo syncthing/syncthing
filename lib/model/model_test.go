@@ -52,8 +52,8 @@ func newState(t testing.TB, cfg config.Configuration) (*testModel, context.Cance
 	return m, cancel
 }
 
-func createClusterConfig(remote protocol.DeviceID, ids ...string) protocol.ClusterConfig {
-	cc := protocol.ClusterConfig{
+func createClusterConfig(remote protocol.DeviceID, ids ...string) *protocol.ClusterConfig {
+	cc := &protocol.ClusterConfig{
 		Folders: make([]protocol.Folder, len(ids)),
 	}
 	for i, id := range ids {
@@ -65,7 +65,7 @@ func createClusterConfig(remote protocol.DeviceID, ids ...string) protocol.Clust
 	return addFolderDevicesToClusterConfig(cc, remote)
 }
 
-func addFolderDevicesToClusterConfig(cc protocol.ClusterConfig, remote protocol.DeviceID) protocol.ClusterConfig {
+func addFolderDevicesToClusterConfig(cc *protocol.ClusterConfig, remote protocol.DeviceID) *protocol.ClusterConfig {
 	for i := range cc.Folders {
 		cc.Folders[i].Devices = []protocol.Device{
 			{ID: myID},
@@ -634,7 +634,7 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{})
+	m.ClusterConfig(device1Conn, &protocol.ClusterConfig{})
 
 	if _, ok := m.cfg.Device(device2); ok {
 		t.Error("device 2 should have been removed")
@@ -686,7 +686,7 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{})
+	m.ClusterConfig(device1Conn, &protocol.ClusterConfig{})
 
 	if _, ok := m.cfg.Device(device2); !ok {
 		t.Error("device 2 should not have been removed")
@@ -794,7 +794,7 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{})
+	m.ClusterConfig(device1Conn, &protocol.ClusterConfig{})
 
 	if _, ok := m.cfg.Device(device2); !ok {
 		t.Error("device 2 should not have been removed")
@@ -847,7 +847,7 @@ func TestIntroducer(t *testing.T) {
 	})
 	defer cleanupModel(m)
 	defer cancel()
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{})
+	m.ClusterConfig(device1Conn, &protocol.ClusterConfig{})
 
 	if _, ok := m.cfg.Device(device2); !ok {
 		t.Error("device 2 should not have been removed")
@@ -1035,10 +1035,10 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 						cfg.Folders = append(cfg.Folders, fcfg)
 					}
 					m, cancel := newState(t, cfg)
-					m.ClusterConfig(device1Conn, protocol.ClusterConfig{
+					m.ClusterConfig(device1Conn, &protocol.ClusterConfig{
 						Folders: []protocol.Folder{dev1folder},
 					})
-					m.ClusterConfig(device2Conn, protocol.ClusterConfig{
+					m.ClusterConfig(device2Conn, &protocol.ClusterConfig{
 						Folders: []protocol.Folder{dev2folder},
 					})
 					cleanupModel(m)
@@ -1159,7 +1159,7 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 	m, cancel := newState(t, defaultAutoAcceptCfg)
 	defer cleanupModel(m)
 	defer cancel()
-	m.ClusterConfig(device1Conn, protocol.ClusterConfig{
+	m.ClusterConfig(device1Conn, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID:    id,
@@ -1179,7 +1179,7 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 	label := srand.String(8)
 	defer cleanupModel(m)
 	defer cancel()
-	m.ClusterConfig(device1Conn, addFolderDevicesToClusterConfig(protocol.ClusterConfig{
+	m.ClusterConfig(device1Conn, addFolderDevicesToClusterConfig(&protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID:    id,
@@ -1203,7 +1203,7 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	}
 	defer cleanupModel(m)
 	defer cancel()
-	m.ClusterConfig(device1Conn, addFolderDevicesToClusterConfig(protocol.ClusterConfig{
+	m.ClusterConfig(device1Conn, addFolderDevicesToClusterConfig(&protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID:    id,
@@ -1325,8 +1325,8 @@ func TestAutoAcceptEnc(t *testing.T) {
 	defer os.RemoveAll(id)
 
 	token := []byte("token")
-	basicCC := func() protocol.ClusterConfig {
-		return protocol.ClusterConfig{
+	basicCC := func() *protocol.ClusterConfig {
+		return &protocol.ClusterConfig{
 			Folders: []protocol.Folder{{
 				ID:    id,
 				Label: id,
@@ -1336,7 +1336,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 
 	// Earlier tests might cause the connection to get closed, thus ClusterConfig
 	// would panic.
-	clusterConfig := func(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
+	clusterConfig := func(deviceID protocol.DeviceID, cm *protocol.ClusterConfig) {
 		conn := newFakeConnection(deviceID, m)
 		m.AddConnection(conn, protocol.Hello{})
 		m.ClusterConfig(conn, cm)
