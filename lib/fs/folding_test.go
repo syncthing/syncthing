@@ -53,12 +53,12 @@ var benchmarkCases = [][2]string{
 	{"img_202401241010.jpg", "ASCII lowercase"},
 	{"IMG_202401241010.jpg", "ASCII mixedcase start"},
 	{"img_202401241010.JPG", "ASCII mixedcase end"},
-	{"wir_kinder_aus_bullerbü.epub", "Unicode lowercase"},
-	{"Wir_Kinder_aus_Bullerbü.epub", "Unicode mixedcase start"},
-	{"wir_kinder_aus_bullerbü.EPUB", "Unicode mixedcase end"},
-	{"translated_ウェブの国際化.html", "Multibyte Unicode lowercase"},
-	{"Translated_ウェブの国際化.html", "Multibyte Unicode mixedcase start"},
-	{"translated_ウェブの国際化.HTML", "Multibyte Unicode mixedcase end"},
+	{"wir_kinder_aus_bullerbü.epub", "Latin1 lowercase"},
+	{"Wir_Kinder_aus_Bullerbü.epub", "Latin1 mixedcase start"},
+	{"wir_kinder_aus_bullerbü.EPUB", "Latin1 mixedcase end"},
+	{"translated_ウェブの国際化.html", "Unicode lowercase"},
+	{"Translated_ウェブの国際化.html", "Unicode mixedcase start"},
+	{"translated_ウェブの国際化.HTML", "Unicode mixedcase end"},
 }
 
 func TestUnicodeLowercaseNormalized(t *testing.T) {
