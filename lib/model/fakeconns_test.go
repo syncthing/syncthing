@@ -160,7 +160,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	for i := range f.files {
 		toSend[i] = prepareFileInfoForIndex(f.files[i])
 	}
-	f.model.IndexUpdate(f, f.folder, toSend)
+	f.model.IndexUpdate(f, &protocol.IndexUpdate{Folder: f.folder, Files: toSend})
 }
 
 func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConnection {
@@ -168,7 +168,7 @@ func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConn
 	fc.folder = folderID
 	m.AddConnection(fc, protocol.Hello{})
 
-	m.ClusterConfig(fc, protocol.ClusterConfig{
+	m.ClusterConfig(fc, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: folderID,
