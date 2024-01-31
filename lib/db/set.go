@@ -338,17 +338,22 @@ func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
 	return s.meta.Counts(device, 0).Sequence
 }
 
-// RemoteSequence returns the change version for the given folder, as
-// sent by remote peers. This is guaranteed to increment if the contents of
-// the remote or global folder has changed.
-func (s *Snapshot) RemoteSequence() int64 {
-	var ver int64
-
+// RemoteSequences returns a map of the sequence numbers seen for each
+// remote device sharing this folder.
+func (s *Snapshot) RemoteSequences() map[protocol.DeviceID]int64 {
+	res := make(map[protocol.DeviceID]int64)
 	for _, device := range s.meta.devices() {
-		ver += s.Sequence(device)
+		switch device {
+		case protocol.EmptyDeviceID, protocol.LocalDeviceID, protocol.GlobalDeviceID:
+			continue
+		default:
+			if seq := s.Sequence(device); seq > 0 {
+				res[device] = seq
+			}
+		}
 	}
 
-	return ver
+	return res
 }
 
 func (s *Snapshot) LocalSize() Counts {
