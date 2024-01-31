@@ -1390,7 +1390,7 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 	s.getEvents(w, r, sub)
 }
 
-func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
+func (*service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
