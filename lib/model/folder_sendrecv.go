@@ -88,7 +88,7 @@ func (d dbUpdateType) String() string {
 	case dbUpdateDeleteFile:
 		return "dbUpdateDeleteFile"
 	case dbUpdateShortcutFile:
-		return "dbUpdateShourtcutFile"
+		return "dbUpdateShortcutFile"
 	case dbUpdateHandleSymlink:
 		return "dbUpdateHandleSymlink"
 	case dbUpdateInvalidate:
