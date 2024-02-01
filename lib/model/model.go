@@ -839,7 +839,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFol
 		Sequence:    sequence,
 		RemoteState: state,
 	}
-	comp.setComplectionPct()
+	comp.setCompletionPct()
 	return comp
 }
 
@@ -849,10 +849,10 @@ func (comp *FolderCompletion) add(other FolderCompletion) {
 	comp.GlobalItems += other.GlobalItems
 	comp.NeedItems += other.NeedItems
 	comp.NeedDeletes += other.NeedDeletes
-	comp.setComplectionPct()
+	comp.setCompletionPct()
 }
 
-func (comp *FolderCompletion) setComplectionPct() {
+func (comp *FolderCompletion) setCompletionPct() {
 	if comp.GlobalBytes == 0 {
 		comp.CompletionPct = 100
 	} else {
