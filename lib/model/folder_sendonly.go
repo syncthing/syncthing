@@ -53,7 +53,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 
 		file := intf.(protocol.FileInfo)
 
-		if f.ignores.ShouldIgnore(intf.FileName()) {
+		if f.ignores.Match(intf.FileName()).IsIgnored() {
 			file.SetIgnored()
 			batch.Append(file)
 			l.Debugln(f, "Handling ignored file", file)

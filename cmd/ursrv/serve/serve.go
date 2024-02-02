@@ -72,10 +72,12 @@ var (
 		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
+		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
+		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )

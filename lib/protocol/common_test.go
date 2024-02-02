@@ -14,7 +14,7 @@ type TestModel struct {
 	weakHash      uint32
 	fromTemporary bool
 	indexFn       func(string, []FileInfo)
-	ccFn          func(ClusterConfig)
+	ccFn          func(*ClusterConfig)
 	closedCh      chan struct{}
 	closedErr     error
 }
@@ -25,25 +25,25 @@ func newTestModel() *TestModel {
 	}
 }
 
-func (t *TestModel) Index(_ Connection, folder string, files []FileInfo) error {
+func (t *TestModel) Index(_ Connection, idx *Index) error {
 	if t.indexFn != nil {
-		t.indexFn(folder, files)
+		t.indexFn(idx.Folder, idx.Files)
 	}
 	return nil
 }
 
-func (*TestModel) IndexUpdate(Connection, string, []FileInfo) error {
+func (*TestModel) IndexUpdate(Connection, *IndexUpdate) error {
 	return nil
 }
 
-func (t *TestModel) Request(_ Connection, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	t.folder = folder
-	t.name = name
-	t.offset = offset
-	t.size = size
-	t.hash = hash
-	t.weakHash = weakHash
-	t.fromTemporary = fromTemporary
+func (t *TestModel) Request(_ Connection, req *Request) (RequestResponse, error) {
+	t.folder = req.Folder
+	t.name = req.Name
+	t.offset = req.Offset
+	t.size = int32(req.Size)
+	t.hash = req.Hash
+	t.weakHash = req.WeakHash
+	t.fromTemporary = req.FromTemporary
 	buf := make([]byte, len(t.data))
 	copy(buf, t.data)
 	return &fakeRequestResponse{buf}, nil
@@ -54,14 +54,14 @@ func (t *TestModel) Closed(_ Connection, err error) {
 	close(t.closedCh)
 }
 
-func (t *TestModel) ClusterConfig(_ Connection, config ClusterConfig) error {
+func (t *TestModel) ClusterConfig(_ Connection, config *ClusterConfig) error {
 	if t.ccFn != nil {
 		t.ccFn(config)
 	}
 	return nil
 }
 
-func (*TestModel) DownloadProgress(Connection, string, []FileDownloadProgressUpdate) error {
+func (*TestModel) DownloadProgress(Connection, *DownloadProgress) error {
 	return nil
 }
 

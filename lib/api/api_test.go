@@ -51,7 +51,6 @@ import (
 
 var (
 	confDir    = filepath.Join("testdata", "config")
-	token      = filepath.Join(confDir, "csrftokens.txt")
 	dev1       protocol.DeviceID
 	apiCfg     = newMockedConfig()
 	testAPIKey = "foobarbaz"
@@ -87,7 +86,6 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
-	defer os.Remove(token)
 
 	srv.started = make(chan string)
 
@@ -867,7 +865,6 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
-	defer os.Remove(token)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -1410,7 +1407,6 @@ func TestEventMasks(t *testing.T) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
-	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))

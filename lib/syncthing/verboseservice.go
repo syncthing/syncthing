@@ -52,7 +52,7 @@ var folderSummaryRemoveDeprecatedRe = regexp.MustCompile(`(Invalid|IgnorePattern
 
 func (*verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
-	case events.DownloadProgress, events.LocalIndexUpdated:
+	case events.DownloadProgress:
 		// Skip
 		return ""
 
@@ -86,9 +86,13 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
 
+	case events.LocalIndexUpdated:
+		data := ev.Data.(map[string]interface{})
+		return fmt.Sprintf("Local index update for %q with %d items (seq: %d)", data["folder"], data["items"], data["sequence"])
+
 	case events.RemoteIndexUpdated:
 		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data["device"], data["folder"], data["items"])
+		return fmt.Sprintf("Device %v sent an index update for %q with %d items (seq: %d)", data["device"], data["folder"], data["items"], data["sequence"])
 
 	case events.DeviceRejected:
 		data := ev.Data.(map[string]string)
@@ -117,7 +121,7 @@ func (*verboseService) formatEvent(ev events.Event) string {
 
 	case events.FolderCompletion:
 		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s)", data["folder"], data["device"], data["completion"], data["remoteState"])
+		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s, seq: %d)", data["folder"], data["device"], data["completion"], data["remoteState"], data["sequence"])
 
 	case events.FolderSummary:
 		data := ev.Data.(model.FolderSummaryEventData)
