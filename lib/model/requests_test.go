@@ -143,11 +143,11 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		}
 		return nil
 	})
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-		if name != "symlink" && strings.HasPrefix(name, "symlink") {
-			badReq <- name
+	fc.RequestCalls(func(ctx context.Context, req *protocol.Request) ([]byte, error) {
+		if req.Name != "symlink" && strings.HasPrefix(req.Name, "symlink") {
+			badReq <- req.Name
 		}
-		return fc.fileData[name], nil
+		return fc.fileData[req.Name], nil
 	})
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
@@ -338,7 +338,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	})
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, _ *protocol.Request) ([]byte, error) {
 		return nil, nil
 	})
 
@@ -926,7 +926,7 @@ func TestNeedFolderFiles(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	errPreventSync := errors.New("you aren't getting any of this")
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, _ *protocol.Request) ([]byte, error) {
 		return nil, errPreventSync
 	})
 
@@ -1065,9 +1065,9 @@ func TestRequestLastFileProgress(t *testing.T) {
 
 	done := make(chan struct{})
 
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, req *protocol.Request) ([]byte, error) {
 		defer close(done)
-		progress, queued, rest, err := m.NeedFolderFiles(folder, 1, 10)
+		progress, queued, rest, err := m.NeedFolderFiles(req.Folder, 1, 10)
 		must(t, err)
 		if len(queued)+len(rest) != 0 {
 			t.Error(`There should not be any queued or "rest" items`)
@@ -1075,7 +1075,7 @@ func TestRequestLastFileProgress(t *testing.T) {
 		if len(progress) != 1 {
 			t.Error("Expected exactly one item in progress.")
 		}
-		return fc.fileData[name], nil
+		return fc.fileData[req.Name], nil
 	})
 
 	contents := []byte("test file contents\n")
@@ -1232,7 +1232,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done) // Must be the last thing to be deferred, thus first to run.
 	indexChan := make(chan []protocol.FileInfo, 1)
-	ccChan := make(chan protocol.ClusterConfig, 1)
+	ccChan := make(chan *protocol.ClusterConfig, 1)
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
 		select {
 		case indexChan <- fs:
@@ -1240,7 +1240,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 		}
 		return nil
 	})
-	fc.ClusterConfigCalls(func(cc protocol.ClusterConfig) {
+	fc.ClusterConfigCalls(func(cc *protocol.ClusterConfig) {
 		select {
 		case ccChan <- cc:
 		case <-done:

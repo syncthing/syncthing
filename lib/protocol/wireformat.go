@@ -6,6 +6,7 @@ import (
 	"context"
 	"path/filepath"
 
+	"github.com/gogo/protobuf/proto"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -13,29 +14,26 @@ type wireFormatConnection struct {
 	Connection
 }
 
-func (c wireFormatConnection) Index(ctx context.Context, folder string, fs []FileInfo) error {
-	var myFs = make([]FileInfo, len(fs))
-	copy(myFs, fs)
-
-	for i := range fs {
-		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
+func (c wireFormatConnection) Index(ctx context.Context, idx *Index) error {
+	idxCopy := proto.Clone(idx).(*Index)
+	for i := range idxCopy.Files {
+		idxCopy.Files[i].Name = norm.NFC.String(filepath.ToSlash(idxCopy.Files[i].Name))
 	}
 
-	return c.Connection.Index(ctx, folder, myFs)
+	return c.Connection.Index(ctx, idxCopy)
 }
 
-func (c wireFormatConnection) IndexUpdate(ctx context.Context, folder string, fs []FileInfo) error {
-	var myFs = make([]FileInfo, len(fs))
-	copy(myFs, fs)
-
-	for i := range fs {
-		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
+func (c wireFormatConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error {
+	idxUpCopy := proto.Clone(idxUp).(*IndexUpdate)
+	for i := range idxUpCopy.Files {
+		idxUpCopy.Files[i].Name = norm.NFC.String(filepath.ToSlash(idxUpCopy.Files[i].Name))
 	}
 
-	return c.Connection.IndexUpdate(ctx, folder, myFs)
+	return c.Connection.IndexUpdate(ctx, idxUpCopy)
 }
 
-func (c wireFormatConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	name = norm.NFC.String(filepath.ToSlash(name))
-	return c.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+func (c wireFormatConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
+	reqCopy := proto.Clone(req).(*Request)
+	reqCopy.Name = norm.NFC.String(filepath.ToSlash(reqCopy.Name))
+	return c.Connection.Request(ctx, reqCopy)
 }
