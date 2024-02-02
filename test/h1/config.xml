@@ -75,8 +75,8 @@
     </gui>
     <ldap></ldap>
     <options>
-        <listenAddress>tcp://:22001</listenAddress>
-        <listenAddress>quic://:22001</listenAddress>
+        <listenAddress>tcp://127.0.0.1:22001</listenAddress>
+        <listenAddress>quic://127.0.0.1:22001</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
