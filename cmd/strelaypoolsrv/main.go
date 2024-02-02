@@ -104,7 +104,7 @@ var (
 	statsRefresh      = time.Minute
 	requestQueueLen   = 64
 	requestProcessors = 8
-	geoipLicenseKey   string
+	geoipLicenseKey   = os.Getenv("GEOIP_LICENSE_KEY")
 
 	requests chan request
 
@@ -134,7 +134,7 @@ func main() {
 	flag.DurationVar(&statsRefresh, "stats-refresh", statsRefresh, "Interval at which to refresh relay stats")
 	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
 	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
-	flag.StringVar(&geoipLicenseKey, "geoip-license-key", "", "License key for GeoIP database")
+	flag.StringVar(&geoipLicenseKey, "geoip-license-key", geoipLicenseKey, "License key for GeoIP database")
 
 	flag.Parse()
 
