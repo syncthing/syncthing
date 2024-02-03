@@ -154,17 +154,38 @@ type RequestResponse interface {
 }
 
 type Connection interface {
+	// Send an Index message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	Index(ctx context.Context, idx *Index) error
+
+	// Send an Index Update message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error
+
+	// Send a Request message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	Request(ctx context.Context, req *Request) ([]byte, error)
+
+	// Send a Cluster Configuration message to the peer device. The message
+	// in the parameter may be altered by the connection and should not be
+	// used further by the caller.
+	ClusterConfig(config *ClusterConfig)
+
+	// Send a Download Progress message to the peer device. The message in
+	// the parameter may be altered by the connection and should not be used
+	// further by the caller.
+	DownloadProgress(ctx context.Context, dp *DownloadProgress)
+
 	Start()
 	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	DeviceID() DeviceID
-	Index(ctx context.Context, idx *Index) error
-	IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error
-	Request(ctx context.Context, req *Request) ([]byte, error)
-	ClusterConfig(config *ClusterConfig)
-	DownloadProgress(ctx context.Context, dp *DownloadProgress)
 	Statistics() Statistics
 	Closed() <-chan struct{}
+
 	ConnectionInfo
 }
 
