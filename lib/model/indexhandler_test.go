@@ -20,6 +20,8 @@ import (
 )
 
 func TestIndexhandlerConcurrency(t *testing.T) {
+	// Verify that sending a lot of index update messages using the
+	// FileInfoBatch works and doesn't trigger the race detector.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -30,10 +32,12 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	m1 := &mocks.Model{}
 	c1 := protocol.NewConnection(protocol.EmptyDeviceID, ar, bw, testutil.NoopCloser{}, m1, ci, protocol.CompressionNever, nil, nil)
 	c1.Start()
+	defer c1.Close(io.EOF)
 
 	m2 := &mocks.Model{}
 	c2 := protocol.NewConnection(protocol.EmptyDeviceID, br, aw, testutil.NoopCloser{}, m2, ci, protocol.CompressionNever, nil, nil)
 	c2.Start()
+	defer c2.Close(io.EOF)
 
 	c1.ClusterConfig(&protocol.ClusterConfig{})
 	c2.ClusterConfig(&protocol.ClusterConfig{})
@@ -43,14 +47,14 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	const msgs = 5e2
 	const files = 1e3
 
-	ri := 0
+	recvd := 0
 	m2.IndexUpdateCalls(func(_ protocol.Connection, idxUp *protocol.IndexUpdate) error {
 		for j := 0; j < files; j++ {
-			if n := idxUp.Files[j].Name; n != fmt.Sprintf("f%d-%d", ri, j) {
+			if n := idxUp.Files[j].Name; n != fmt.Sprintf("f%d-%d", recvd, j) {
 				t.Error("wrong filename", n)
 			}
 		}
-		ri++
+		recvd++
 		return nil
 	})
 
@@ -68,8 +72,13 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// c1.Close(nil)
-	// c2.Close(nil)
-	// <-c1.Closed()
-	// <-c2.Closed()
+
+	c1.Close(io.EOF)
+	c2.Close(io.EOF)
+	<-c1.Closed()
+	<-c2.Closed()
+
+	if recvd != msgs-1 {
+		t.Error("didn't receive all expected messages")
+	}
 }
