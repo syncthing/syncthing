@@ -14,6 +14,9 @@ type wireFormatConnection struct {
 }
 
 func (c wireFormatConnection) Index(ctx context.Context, idx *Index) error {
+	filesCopy := make([]FileInfo, len(idx.Files))
+	copy(filesCopy, idx.Files)
+	idx.Files = filesCopy
 	for i := range idx.Files {
 		idx.Files[i].Name = norm.NFC.String(filepath.ToSlash(idx.Files[i].Name))
 	}
@@ -22,6 +25,9 @@ func (c wireFormatConnection) Index(ctx context.Context, idx *Index) error {
 }
 
 func (c wireFormatConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error {
+	filesCopy := make([]FileInfo, len(idxUp.Files))
+	copy(filesCopy, idxUp.Files)
+	idxUp.Files = filesCopy
 	for i := range idxUp.Files {
 		idxUp.Files[i].Name = norm.NFC.String(filepath.ToSlash(idxUp.Files[i].Name))
 	}
