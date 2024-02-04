@@ -17,30 +17,30 @@ const (
 // FileInfoBatch is a utility to do file operations on the database in suitably
 // sized batches.
 type FileInfoBatch struct {
-	infos        []protocol.FileInfo
-	size         int
-	flushFn      func([]protocol.FileInfo) error
-	copyForFlush bool
+	infos      []protocol.FileInfo
+	size       int
+	flushFn    func([]protocol.FileInfo) error
+	reuseSlice bool
 }
 
-// NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
-// to flush. The given slice of FileInfos is a view into the internal buffer
-// and must not be read after returning from the flush function.
-func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
+// NewReusingFileInfoBatch returns a new FileInfoBatch that calls fn when
+// it's time to flush. The given slice of FileInfos is a view into the
+// internal buffer which will be reused, so it must not be read after
+// returning from the flush function.
+func NewReusingFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
 	return &FileInfoBatch{
-		infos:   make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
-		flushFn: fn,
+		infos:      make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
+		flushFn:    fn,
+		reuseSlice: true,
 	}
 }
 
 // NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
-// to flush. The given slice of FileInfos is a copy that the flush function
-// can retain as needed.
-func NewCopyingFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
+// to flush.
+func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
 	return &FileInfoBatch{
-		infos:        make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
-		flushFn:      fn,
-		copyForFlush: true,
+		infos:   make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
+		flushFn: fn,
 	}
 }
 
@@ -69,13 +69,7 @@ func (b *FileInfoBatch) Flush() error {
 		return nil
 	}
 
-	infos := b.infos
-	if b.copyForFlush {
-		infos = make([]protocol.FileInfo, len(b.infos))
-		copy(infos, b.infos)
-	}
-
-	if err := b.flushFn(infos); err != nil {
+	if err := b.flushFn(b.infos); err != nil {
 		return err
 	}
 	b.Reset()
@@ -83,7 +77,11 @@ func (b *FileInfoBatch) Flush() error {
 }
 
 func (b *FileInfoBatch) Reset() {
-	b.infos = b.infos[:0]
+	if b.reuseSlice {
+		b.infos = b.infos[:0]
+	} else {
+		b.infos = make([]protocol.FileInfo, 0, len(b.infos))
+	}
 	b.size = 0
 }
 

@@ -555,7 +555,7 @@ func (f *folder) newScanBatch() *scanBatch {
 		f:        f,
 		toRemove: make([]string, 0, maxToRemove),
 	}
-	b.updateBatch = db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	b.updateBatch = db.NewReusingFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", b.f.Description(), err)
 			return err
@@ -1294,7 +1294,7 @@ func (f *folder) handleForcedRescans() error {
 		return nil
 	}
 
-	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewReusingFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.fset.Update(protocol.LocalDeviceID, fs)
 		return nil
 	})

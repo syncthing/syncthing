@@ -803,7 +803,7 @@ func (db *schemaUpdater) migration17(prev int) error {
 		if err != nil {
 			return err
 		}
-		batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+		batch := NewReusingFileInfoBatch(func(fs []protocol.FileInfo) error {
 			return db.updateLocalFiles(folder, fs, meta)
 		})
 		var innerErr error

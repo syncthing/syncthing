@@ -58,7 +58,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 		return nil
 	})
 
-	b1 := db.NewCopyingFileInfoBatch(func(fs []protocol.FileInfo) error {
+	b1 := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		return c1.IndexUpdate(ctx, "foo", fs)
 	})
 	for i := 0; i < msgs; i++ {

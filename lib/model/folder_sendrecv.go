@@ -1727,7 +1727,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 	var lastFile protocol.FileInfo
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
-	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := db.NewReusingFileInfoBatch(func(files []protocol.FileInfo) error {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)

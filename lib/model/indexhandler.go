@@ -223,7 +223,7 @@ func (s *indexHandler) pause() {
 // returns the highest sent sequence number.
 func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error {
 	initial := s.prevSequence == 0
-	batch := db.NewCopyingFileInfoBatch(nil)
+	batch := db.NewFileInfoBatch(nil)
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
 		if initial {
