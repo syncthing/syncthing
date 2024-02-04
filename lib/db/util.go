@@ -17,15 +17,30 @@ const (
 // FileInfoBatch is a utility to do file operations on the database in suitably
 // sized batches.
 type FileInfoBatch struct {
-	infos   []protocol.FileInfo
-	size    int
-	flushFn func([]protocol.FileInfo) error
+	infos        []protocol.FileInfo
+	size         int
+	flushFn      func([]protocol.FileInfo) error
+	copyForFlush bool
 }
 
+// NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
+// to flush. The given slice of FileInfos is a view into the internal buffer
+// and must not be read after returning from the flush function.
 func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
 	return &FileInfoBatch{
 		infos:   make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
 		flushFn: fn,
+	}
+}
+
+// NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
+// to flush. The given slice of FileInfos is a copy that the flush function
+// can retain as needed.
+func NewCopyingFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
+	return &FileInfoBatch{
+		infos:        make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
+		flushFn:      fn,
+		copyForFlush: true,
 	}
 }
 
@@ -53,7 +68,14 @@ func (b *FileInfoBatch) Flush() error {
 	if len(b.infos) == 0 {
 		return nil
 	}
-	if err := b.flushFn(b.infos); err != nil {
+
+	infos := b.infos
+	if b.copyForFlush {
+		infos = make([]protocol.FileInfo, len(b.infos))
+		copy(infos, b.infos)
+	}
+
+	if err := b.flushFn(infos); err != nil {
 		return err
 	}
 	b.Reset()
