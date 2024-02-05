@@ -68,7 +68,6 @@ func (b *FileInfoBatch) Flush() error {
 	if len(b.infos) == 0 {
 		return nil
 	}
-
 	if err := b.flushFn(b.infos); err != nil {
 		return err
 	}
