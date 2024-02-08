@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/exp/slices"
 )
 
 // This package uses stdlib sync as it may be used to debug syncthing/lib/sync
@@ -63,7 +65,7 @@ type logger struct {
 	handlers   [NumLevels][]MessageHandler
 	facilities map[string]string   // facility name => description
 	debug      map[string]struct{} // only facility names with debugging enabled
-	traces     string
+	traces     []string
 	mut        sync.Mutex
 }
 
@@ -80,9 +82,21 @@ func New() Logger {
 }
 
 func newLogger(w io.Writer) Logger {
+	traces := strings.FieldsFunc(os.Getenv("STTRACE"), func(r rune) bool {
+		return strings.ContainsRune(",; ", r)
+	})
+
+	if len(traces) > 0 {
+		if slices.Contains(traces, "all") {
+			traces = []string{"all"}
+		} else {
+			slices.Sort(traces)
+		}
+	}
+
 	return &logger{
 		logger:     log.New(w, "", DefaultFlags),
-		traces:     os.Getenv("STTRACE"),
+		traces:     traces,
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
@@ -217,7 +231,16 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 
 // IsTraced returns whether the facility name is contained in STTRACE.
 func (l *logger) IsTraced(facility string) bool {
-	return strings.Contains(l.traces, facility) || l.traces == "all"
+	if len(l.traces) > 0 {
+		if l.traces[0] == "all" {
+			return true
+		}
+
+		_, found := slices.BinarySearch(l.traces, facility)
+		return found
+	}
+
+	return false
 }
 
 // FacilityDebugging returns the set of facilities that have debugging
