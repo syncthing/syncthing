@@ -105,6 +105,7 @@ var (
 	requestQueueLen   = 64
 	requestProcessors = 8
 	geoipLicenseKey   = os.Getenv("GEOIP_LICENSE_KEY")
+	geoipAccountID, _ = strconv.Atoi(os.Getenv("GEOIP_ACCOUNT_ID"))
 
 	requests chan request
 
@@ -139,7 +140,7 @@ func main() {
 	flag.Parse()
 
 	requests = make(chan request, requestQueueLen)
-	geoip := geoip.NewGeoLite2CityProvider(geoipLicenseKey, os.TempDir())
+	geoip := geoip.NewGeoLite2CityProvider(geoipAccountID, geoipLicenseKey, os.TempDir())
 
 	var listener net.Listener
 	var err error

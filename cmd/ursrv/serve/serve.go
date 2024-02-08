@@ -40,7 +40,8 @@ type CLI struct {
 	Debug           bool   `env:"UR_DEBUG"`
 	DBConn          string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
 	Listen          string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
-	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE"`
+	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE_KEY"`
+	GeoIPAccountID  int    `env:"UR_GEOIP_ACCOUNT_ID"`
 }
 
 //go:embed static
@@ -193,7 +194,7 @@ func (cli *CLI) Run() error {
 	srv := &server{
 		db:    db,
 		debug: cli.Debug,
-		geoip: geoip.NewGeoLite2CityProvider(cli.GeoIPLicenseKey, os.TempDir()),
+		geoip: geoip.NewGeoLite2CityProvider(cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir()),
 	}
 	http.HandleFunc("/", srv.rootHandler)
 	http.HandleFunc("/newdata", srv.newDataHandler)

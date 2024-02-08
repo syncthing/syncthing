@@ -9,16 +9,21 @@ package geoip
 import (
 	"net"
 	"os"
+	"strconv"
 	"testing"
 )
 
 func TestDownloadAndOpen(t *testing.T) {
-	license := os.Getenv("UR_GEOIP_LICENSE")
+	acctID, _ := strconv.Atoi(os.Getenv("GEOIP_ACCOUNT_ID"))
+	if acctID == 0 {
+		t.Skip("No account ID set")
+	}
+	license := os.Getenv("GEOIP_LICENSE_KEY")
 	if license == "" {
 		t.Skip("No license key set")
 	}
 
-	p := NewGeoLite2CityProvider(license, t.TempDir())
+	p := NewGeoLite2CityProvider(acctID, license, t.TempDir())
 	_, err := p.City(net.ParseIP("8.8.8.8"))
 	if err != nil {
 		t.Fatal(err)

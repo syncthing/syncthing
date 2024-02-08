@@ -9,21 +9,16 @@
 package geoip
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/maxmind/geoipupdate/v6/pkg/geoipupdate"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -31,6 +26,7 @@ const maxDatabaseSize = 1 << 30 // 1 GiB, at the time of writing the database is
 
 type Provider struct {
 	edition         string
+	accountID       int
 	licenseKey      string
 	refreshInterval time.Duration
 	directory       string
@@ -43,9 +39,10 @@ type Provider struct {
 // NewGeoLite2CityProvider returns a new GeoIP2 database provider for the
 // GeoLite2-City database. The database will be stored in the given
 // directory (which should exist) and refreshed every 7 days.
-func NewGeoLite2CityProvider(licenseKey string, directory string) *Provider {
+func NewGeoLite2CityProvider(accountID int, licenseKey string, directory string) *Provider {
 	return &Provider{
 		edition:         "GeoLite2-City",
+		accountID:       accountID,
 		licenseKey:      licenseKey,
 		refreshInterval: 7 * 24 * time.Hour,
 		directory:       directory,
@@ -106,62 +103,19 @@ func (p *Provider) open(ctx context.Context) (*geoip2.Reader, error) {
 }
 
 func (p *Provider) download(ctx context.Context) error {
-	q := url.Values{}
-	q.Add("edition_id", p.edition)
-	q.Add("license_key", p.licenseKey)
-	q.Add("suffix", "tar.gz")
+	cfg := &geoipupdate.Config{
+		URL:               "https://updates.maxmind.com",
+		DatabaseDirectory: p.directory,
+		LockFile:          filepath.Join(p.directory, "geoipupdate.lock"),
+		RetryFor:          5 * time.Minute,
+		Parallelism:       1,
+		AccountID:         p.accountID,
+		LicenseKey:        p.licenseKey,
+		EditionIDs:        []string{p.edition},
+	}
 
-	url := "https://download.maxmind.com/app/geoip_download?" + q.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
+	if err := geoipupdate.NewClient(cfg).Run(ctx); err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download: %s", resp.Status)
-	}
-
-	gr, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-
-	defer gr.Close()
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return fmt.Errorf("download: %w", err)
-		}
-		if path.Ext(hdr.Name) != ".mmdb" {
-			continue
-		}
-
-		// Found the mmdb file, write it to disk
-		path := filepath.Join(p.directory, p.edition+".mmdb")
-		f, err := os.Create(path + ".new")
-		if err != nil {
-			return fmt.Errorf("download: %w", err)
-		}
-		n, copyErr := io.CopyN(f, tr, maxDatabaseSize)
-		cloErr := f.Close()
-		if copyErr != nil && !errors.Is(copyErr, io.EOF) {
-			return fmt.Errorf("download: %w", copyErr)
-		} else if n == maxDatabaseSize {
-			return fmt.Errorf("download: exceeds maximum database size %d", maxDatabaseSize)
-		}
-		if cloErr != nil {
-			return fmt.Errorf("download: %w", cloErr)
-		}
-		return os.Rename(path+".new", path)
-	}
-
 	return nil
 }
