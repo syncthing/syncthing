@@ -83,7 +83,7 @@ func (f *receiveOnlyFolder) revert() error {
 		scanChan: scanChan,
 	}
 
-	batch := db.NewReusingFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(files)
 		return nil
 	})

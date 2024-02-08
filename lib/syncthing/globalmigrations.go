@@ -66,7 +66,7 @@ func encryptionTrailerSizeMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 		if err != nil {
 			return err
 		}
-		batch := db.NewReusingFileInfoBatch(func(files []protocol.FileInfo) error {
+		batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
 			// As we can't touch the version, we need to first invalidate the
 			// files, and then re-add the modified valid files
 			invalidFiles := make([]protocol.FileInfo, len(files))

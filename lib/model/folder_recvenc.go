@@ -44,7 +44,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := db.NewReusingFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
 		return nil
 	})

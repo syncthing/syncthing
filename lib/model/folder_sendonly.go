@@ -38,7 +38,7 @@ func (*sendOnlyFolder) PullErrors() []FileError {
 
 // pull checks need for files that only differ by metadata (no changes on disk)
 func (f *sendOnlyFolder) pull() (bool, error) {
-	batch := db.NewReusingFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromPulling(files)
 		return nil
 	})
@@ -102,7 +102,7 @@ func (f *sendOnlyFolder) override() error {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := db.NewReusingFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(files)
 		return nil
 	})
