@@ -22,13 +22,11 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
-
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -1467,21 +1465,4 @@ func newConnectionID(t0, t1 int64) string {
 	// character in the middle that is a mix of bits from the timestamp and
 	// from the random. We want the timestamp part deterministic.
 	return enc.EncodeToString(buf[:8]) + enc.EncodeToString(buf[8:])
-}
-
-// temporary implementations of min and max, to be removed once we can use
-// Go 1.21 builtins. :)
-
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max[T constraints.Ordered](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
 }
