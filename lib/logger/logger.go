@@ -54,7 +54,6 @@ type Logger interface {
 	Warnf(format string, vals ...interface{})
 	ShouldDebug(facility string) bool
 	SetDebug(facility string, enabled bool)
-	IsTraced(facility string) bool
 	Facilities() map[string]string
 	FacilityDebugging() []string
 	NewFacility(facility, description string) Logger
@@ -132,6 +131,7 @@ func (l *logger) callHandlers(level LogLevel, s string) {
 func (l *logger) Debugln(vals ...interface{}) {
 	l.debugln(3, vals...)
 }
+
 func (l *logger) debugln(level int, vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
@@ -144,6 +144,7 @@ func (l *logger) debugln(level int, vals ...interface{}) {
 func (l *logger) Debugf(format string, vals ...interface{}) {
 	l.debugf(3, format, vals...)
 }
+
 func (l *logger) debugf(level int, format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
@@ -229,8 +230,8 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	}
 }
 
-// IsTraced returns whether the facility name is contained in STTRACE.
-func (l *logger) IsTraced(facility string) bool {
+// isTraced returns whether the facility name is contained in STTRACE.
+func (l *logger) isTraced(facility string) bool {
 	if len(l.traces) > 0 {
 		if l.traces[0] == "all" {
 			return true
@@ -269,7 +270,7 @@ func (l *logger) Facilities() map[string]string {
 
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
-	l.SetDebug(facility, l.IsTraced(facility))
+	l.SetDebug(facility, l.isTraced(facility))
 
 	l.mut.Lock()
 	l.facilities[facility] = description
