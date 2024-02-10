@@ -154,15 +154,35 @@ type RequestResponse interface {
 }
 
 type Connection interface {
+	// Send an index message. The connection will read and marshal the
+	// parameters asynchronously, so they should not be modified after
+	// calling Index().
+	Index(ctx context.Context, folder string, files []FileInfo) error
+
+	// Send an index update message. The connection will read and marshal
+	// the parameters asynchronously, so they should not be modified after
+	// calling IndexUpdate().
+	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
+
+	// Send a request message. The connection will read and marshal the
+	// parameters asynchronously, so they should not be modified after
+	// calling Request().
+	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+
+	// Send a cluster configuration message. The connection will read and
+	// marshal the message asynchronously, so it should not be modified
+	// after calling ClusterConfig().
+	ClusterConfig(config ClusterConfig)
+
+	// Send a download progress message. The connection will read and
+	// marshal the parameters asynchronously, so they should not be modified
+	// after calling DownloadProgress().
+	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
+
 	Start()
 	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	DeviceID() DeviceID
-	Index(ctx context.Context, folder string, files []FileInfo) error
-	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
-	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
-	ClusterConfig(config ClusterConfig)
-	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
 	Closed() <-chan struct{}
 	ConnectionInfo
