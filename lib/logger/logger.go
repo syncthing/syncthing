@@ -12,11 +12,10 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
 // This package uses stdlib sync as it may be used to debug syncthing/lib/sync

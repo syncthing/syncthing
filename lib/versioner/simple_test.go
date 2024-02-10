@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,7 +87,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			t.Error(err)
 		}
 
-		if float64(len(n)) != math.Min(float64(i), 2) {
+		if len(n) != min(i, 2) {
 			t.Error("Wrong count")
 		}
 
