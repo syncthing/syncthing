@@ -225,10 +225,11 @@ func TestAPIServiceRequests(t *testing.T) {
 	cases := []httpTestCase{
 		// /rest/db
 		{
-			URL:    "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
-			Code:   200,
-			Type:   "application/json",
-			Prefix: "{",
+			URL:     "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 15 * time.Second,
 		},
 		{
 			URL:  "/rest/db/file?folder=default&file=something",
@@ -433,7 +434,7 @@ func TestAPIServiceRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		t.Run(cases[0].URL, func(t *testing.T) {
+		t.Run(tc.URL, func(t *testing.T) {
 			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
@@ -443,8 +444,6 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
-
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
