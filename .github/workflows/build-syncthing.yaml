@@ -506,6 +506,12 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
       - name: Install signing tool
         run: |
           go install ./cmd/stsigtool
@@ -625,6 +631,12 @@ jobs:
           name: packages-signed
           path: packages
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
       - name: Create release json
         run: |
           cd packages
@@ -672,6 +684,12 @@ jobs:
         with:
           name: debian-packages
           path: packages
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
 
       - name: Set version
         run: |
