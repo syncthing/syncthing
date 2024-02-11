@@ -57,9 +57,9 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 				t.Error("wrong filename", n)
 			}
 			recvdEntries++
-			wg.Done()
 		}
 		recvdBatches++
+		wg.Done()
 		return nil
 	})
 
@@ -74,8 +74,8 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 				Blocks: []protocol.BlockInfo{{Hash: make([]byte, 32)}},
 			})
 			sentEntries++
-			wg.Add(1)
 		}
+		wg.Add(1)
 		if err := b1.Flush(); err != nil {
 			t.Fatal(err)
 		}
