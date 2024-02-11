@@ -66,14 +66,14 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	b1 := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		return c1.IndexUpdate(ctx, "foo", fs)
 	})
-	sentBatches := 0
+	sentEntries := 0
 	for i := 0; i < msgs; i++ {
 		for j := 0; j < files; j++ {
 			b1.Append(protocol.FileInfo{
 				Name:   fmt.Sprintf("f%d-%d", i, j),
 				Blocks: []protocol.BlockInfo{{Hash: make([]byte, 32)}},
 			})
-			sentBatches++
+			sentEntries++
 			wg.Add(1)
 		}
 		if err := b1.Flush(); err != nil {
@@ -93,7 +93,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	<-c1.Closed()
 	<-c2.Closed()
 
-	if recvdEntries != sentBatches {
-		t.Error("didn't receive all expected messages", recvdEntries, sentBatches)
+	if recvdEntries != sentEntries {
+		t.Error("didn't receive all expected messages", recvdEntries, sentEntries)
 	}
 }
