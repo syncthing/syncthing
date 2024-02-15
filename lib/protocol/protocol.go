@@ -1023,7 +1023,7 @@ func (c *rawConnection) internalClose(err error) {
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
 	ticker := time.NewTicker(PingSendInterval / 2)
-	defer timeutil.StopTicker(ticker)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -1048,7 +1048,7 @@ func (c *rawConnection) pingSender() {
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
 	ticker := time.NewTicker(ReceiveTimeout / 2)
-	defer timeutil.StopTicker(ticker)
+	defer ticker.Stop()
 
 	for {
 		select {

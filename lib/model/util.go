@@ -15,7 +15,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 // inWritableDir calls fn(path), while making sure that the directory
@@ -77,7 +76,7 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 	}()
 
 	ticker := time.NewTicker(time.Second)
-	defer timeutil.StopTicker(ticker)
+	defer ticker.Stop()
 
 	for {
 		select {

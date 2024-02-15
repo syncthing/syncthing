@@ -8,27 +8,22 @@ package timeutil
 
 import "time"
 
-// StopTimer stops the timer and ensures the channel is drained.
+// StopTimer stops the timer and ensures the channel is drained. Must not be
+// called concurrently with receiving from the timer channel.
 func StopTimer(t *time.Timer) {
 	if !t.Stop() {
-		select {
-		case <-t.C:
-		default:
-		}
+		<-t.C
 	}
 }
 
 // ResetTimer is timer.Stop()+timer.Reset() to properly reset the timer
-// according to the mandated pattern in https://pkg.go.dev/time#Timer.Reset:
+// according to the pattern mandated by https://pkg.go.dev/time#Timer.Reset:
 // timers must only be reset if they are stopped and drained. If you're in a
 // branch that just received from the timer channel you can use
 // timer.Reset() directly, otherwise this pattern must be used.
 func ResetTimer(t *time.Timer, dur time.Duration) {
 	if !t.Stop() {
-		select {
-		case <-t.C:
-		default:
-		}
+		<-t.C
 	}
 	t.Reset(dur)
 }

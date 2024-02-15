@@ -160,7 +160,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)
-	defer timeutil.StopTicker(ticker)
+	defer ticker.Stop()
 
 	for err == nil {
 		fset, err = s.waitForFileset(ctx)

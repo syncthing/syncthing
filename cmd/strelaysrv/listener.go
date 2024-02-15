@@ -111,7 +111,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	go messageReader(conn, messages, errors)
 
 	pingTicker := time.NewTicker(pingInterval)
-	defer timeutil.StopTicker(pingTicker)
+	defer pingTicker.Stop()
 	timeoutTimer := time.NewTimer(networkTimeout)
 	defer timeutil.StopTimer(timeoutTimer)
 	joined := false
