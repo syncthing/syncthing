@@ -28,9 +28,8 @@ type ProgressEmitter struct {
 	foldersByConns     map[protocol.DeviceID][]string
 	disabled           bool
 	evLogger           events.Logger
+	resetTimer         chan struct{}
 	mut                sync.Mutex
-
-	timer *time.Timer
 }
 
 type progressUpdate struct {
@@ -49,11 +48,11 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 	t := &ProgressEmitter{
 		cfg:                cfg,
 		registry:           make(map[string]map[string]*sharedPullerState),
-		timer:              time.NewTimer(time.Millisecond),
 		sentDownloadStates: make(map[protocol.DeviceID]*sentDownloadState),
 		connections:        make(map[protocol.DeviceID]protocol.Connection),
 		foldersByConns:     make(map[protocol.DeviceID][]string),
 		evLogger:           evLogger,
+		resetTimer:         make(chan struct{}, 1),
 		mut:                sync.NewMutex(),
 	}
 
@@ -68,15 +67,20 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	t.cfg.Subscribe(t)
 	defer t.cfg.Unsubscribe(t)
 
+	timer := time.NewTimer(0)
+	defer timeutil.StopTimer(timer)
+
 	var lastUpdate time.Time
 	var lastCount, newCount int
-	defer timeutil.StopTimer(t.timer)
 	for {
 		select {
 		case <-ctx.Done():
 			l.Debugln("progress emitter: stopping")
 			return nil
-		case <-t.timer.C:
+		case <-t.resetTimer:
+			timeutil.ResetTimer(timer, t.interval)
+
+		case <-timer.C:
 			t.mut.Lock()
 			l.Debugln("progress emitter: timer - looking after", len(t.registry))
 
@@ -101,7 +105,7 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 			}
 
 			if newCount != 0 {
-				t.timer.Reset(t.interval)
+				timer.Reset(t.interval)
 			}
 			t.mut.Unlock()
 
@@ -254,7 +258,10 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	}
 	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
 	if t.emptyLocked() {
-		timeutil.ResetTimer(t.timer, t.interval)
+		select {
+		case t.resetTimer <- struct{}{}:
+		default:
+		}
 	}
 	if _, ok := t.registry[s.folder]; !ok {
 		t.registry[s.folder] = make(map[string]*sharedPullerState)
