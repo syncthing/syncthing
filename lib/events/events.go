@@ -21,6 +21,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type EventType int64
@@ -284,9 +285,7 @@ func NewLogger() Logger {
 	}
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
-	if !l.timeout.Stop() {
-		<-l.timeout.C
-	}
+	timeutil.StopTimer(l.timeout)
 	return l
 }
 
@@ -341,23 +340,15 @@ func (l *logger) sendEvent(e Event) {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
-			l.timeout.Reset(eventLogTimeout)
-			timedOut := false
+			timeutil.ResetTimer(l.timeout, eventLogTimeout)
 
 			select {
 			case s.events <- e:
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDelivered).Inc()
+				timeutil.StopTimer(l.timeout)
 			case <-l.timeout.C:
 				// if s.events is not ready, drop the event
-				timedOut = true
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDropped).Inc()
-			}
-
-			// If stop returns false it already sent something to the
-			// channel. If we didn't already read it above we must do so now
-			// or we get a spurious timeout on the next loop.
-			if !l.timeout.Stop() && !timedOut {
-				<-l.timeout.C
 			}
 		}
 	}
@@ -386,9 +377,7 @@ func (l *logger) Subscribe(mask EventType) Subscription {
 			// next if.
 			runtime.Gosched()
 		}
-		if !s.timeout.Stop() {
-			<-s.timeout.C
-		}
+		timeutil.StopTimer(s.timeout)
 
 		l.subs = append(l.subs, s)
 		l.nextSubscriptionIDs = append(l.nextSubscriptionIDs, 1)
@@ -427,7 +416,7 @@ func (l *logger) String() string {
 func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 	dl.Debugln("poll", timeout)
 
-	s.timeout.Reset(timeout)
+	timeutil.ResetTimer(s.timeout, timeout)
 
 	select {
 	case e, ok := <-s.events:
@@ -439,14 +428,10 @@ func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 			// varying test coverage. This ensures, in practice if not in
 			// theory, that the timer fires and we take the true branch of
 			// the next if.
-			s.timeout.Reset(0)
+			timeutil.ResetTimer(s.timeout, 0)
 			runtime.Gosched()
 		}
-		if !s.timeout.Stop() {
-			// The timeout must be stopped and possibly drained to be ready
-			// for reuse in the next call.
-			<-s.timeout.C
-		}
+		timeutil.StopTimer(s.timeout)
 		return e, nil
 	case <-s.timeout.C:
 		return Event{}, ErrTimeout

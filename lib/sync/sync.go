@@ -15,6 +15,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 var timeNow = time.Now
@@ -286,5 +288,5 @@ func (w *TimeoutCondWaiter) Wait() bool {
 }
 
 func (w *TimeoutCondWaiter) Stop() {
-	w.timer.Stop()
+	timeutil.StopTimer(w.timer)
 }

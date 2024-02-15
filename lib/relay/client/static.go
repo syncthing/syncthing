@@ -15,6 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type staticClient struct {
@@ -73,11 +74,12 @@ func (c *staticClient) serve(ctx context.Context) error {
 	go messageReader(ctx, c.conn, messages, errorsc)
 
 	timeout := time.NewTimer(c.messageTimeout)
+	defer timeutil.StopTimer(timeout)
 
 	for {
 		select {
 		case message := <-messages:
-			timeout.Reset(c.messageTimeout)
+			timeutil.ResetTimer(timeout, c.messageTimeout)
 			l.Debugf("%s received message %T", c, message)
 
 			switch msg := message.(type) {

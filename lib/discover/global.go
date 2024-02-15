@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"golang.org/x/net/http2"
 )
 
@@ -218,7 +219,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 	}
 
 	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
+	defer timeutil.StopTimer(timer)
 
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
 	defer eventSub.Unsubscribe()
@@ -231,7 +232,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 			if timerResetCount < maxAddressChangesBetweenAnnouncements {
 				// Defer announcement by 2 seconds, essentially debouncing
 				// if we have a stream of events incoming in quick succession.
-				timer.Reset(2 * time.Second)
+				timeutil.ResetTimer(timer, 2*time.Second)
 			} else if timerResetCount == maxAddressChangesBetweenAnnouncements {
 				// Yet only do it if we haven't had to reset maxAddressChangesBetweenAnnouncements times in a row,
 				// so if something is flip-flopping within 2 seconds, we don't end up in a permanent reset loop.
@@ -239,7 +240,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 				c.setError(errors.New("flip flopping listener"))
 				// Incrementing the count above 10 will prevent us from warning or setting the error again
 				// It will also suppress event based resets until we've had a proper round after announceErrorRetryInterval
-				timer.Reset(announceErrorRetryInterval)
+				timeutil.ResetTimer(timer, announceErrorRetryInterval)
 			}
 			timerResetCount++
 		case <-timer.C:
@@ -263,7 +264,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// yet still using global discovery for lookups. Do not error out
 		// here.
 		c.setError(nil)
-		timer.Reset(announceErrorRetryInterval)
+		timeutil.ResetTimer(timer, announceErrorRetryInterval)
 		return
 	}
 
@@ -276,7 +277,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	if err != nil {
 		l.Debugln(c, "announce POST:", err)
 		c.setError(err)
-		timer.Reset(announceErrorRetryInterval)
+		timeutil.ResetTimer(timer, announceErrorRetryInterval)
 		return
 	}
 	l.Debugln(c, "announce POST:", resp.Status)
@@ -291,12 +292,12 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
 				l.Debugln(c, "announce Retry-After:", secs, err)
-				timer.Reset(time.Duration(secs) * time.Second)
+				timeutil.ResetTimer(timer, time.Duration(secs)*time.Second)
 				return
 			}
 		}
 
-		timer.Reset(announceErrorRetryInterval)
+		timeutil.ResetTimer(timer, announceErrorRetryInterval)
 		return
 	}
 
@@ -307,12 +308,12 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// reannounce. Follow it.
 		if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
 			l.Debugln(c, "announce Reannounce-After:", secs, err)
-			timer.Reset(time.Duration(secs) * time.Second)
+			timeutil.ResetTimer(timer, time.Duration(secs)*time.Second)
 			return
 		}
 	}
 
-	timer.Reset(defaultReannounceInterval)
+	timeutil.ResetTimer(timer, defaultReannounceInterval)
 }
 
 func (*globalClient) Cache() map[protocol.DeviceID]CacheEntry {

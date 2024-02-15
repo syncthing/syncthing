@@ -12,6 +12,7 @@ import (
 	"time"
 
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -110,15 +111,15 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	go messageReader(conn, messages, errors)
 
 	pingTicker := time.NewTicker(pingInterval)
-	defer pingTicker.Stop()
-	timeoutTicker := time.NewTimer(networkTimeout)
-	defer timeoutTicker.Stop()
+	defer timeutil.StopTicker(pingTicker)
+	timeoutTimer := time.NewTimer(networkTimeout)
+	defer timeutil.StopTimer(timeoutTimer)
 	joined := false
 
 	for {
 		select {
 		case message := <-messages:
-			timeoutTicker.Reset(networkTimeout)
+			timeutil.ResetTimer(timeoutTimer, networkTimeout)
 			if debug {
 				log.Printf("Message %T from %s", message, id)
 			}
@@ -140,7 +141,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 						log.Println("Refusing join request from", id, "due to being over limits")
 					}
 					conn.Close()
-					limitCheckTimer.Reset(time.Second)
+					timeutil.ResetTimer(limitCheckTimer, time.Second)
 					continue
 				}
 
@@ -280,10 +281,10 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 				protocol.WriteMessage(conn, protocol.RelayFull{})
 				conn.Close()
 
-				limitCheckTimer.Reset(time.Second)
+				timeutil.ResetTimer(limitCheckTimer, time.Second)
 			}
 
-		case <-timeoutTicker.C:
+		case <-timeoutTimer.C:
 			// We should receive a error from the reader loop, which will cause
 			// us to quit this loop.
 			if debug {

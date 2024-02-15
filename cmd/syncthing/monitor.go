@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 var (
@@ -489,7 +490,7 @@ func (f *autoclosedFile) Write(bs []byte) (int, error) {
 	// If we haven't run into the maxOpenTime, postpone close for another
 	// closeDelay
 	if time.Since(f.opened) < f.maxOpenTime {
-		f.closeTimer.Reset(f.closeDelay)
+		timeutil.ResetTimer(f.closeTimer, f.closeDelay)
 	}
 
 	return f.fd.Write(bs)
@@ -500,7 +501,7 @@ func (f *autoclosedFile) Close() error {
 	defer f.mut.Unlock()
 
 	// Stop the timer and closerLoop() routine
-	f.closeTimer.Stop()
+	timeutil.StopTimer(f.closeTimer)
 	close(f.closed)
 
 	// Close the file, if it's open

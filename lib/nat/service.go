@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
@@ -72,14 +73,9 @@ func (s *Service) Serve(ctx context.Context) error {
 		select {
 		case <-timer.C:
 		case <-s.processScheduled:
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
+			timeutil.StopTimer(timer)
 		case <-ctx.Done():
-			timer.Stop()
+			timeutil.StopTimer(timer)
 			s.mut.RLock()
 			for _, mapping := range s.mappings {
 				mapping.clearAddresses()
@@ -94,7 +90,7 @@ func (s *Service) Serve(ctx context.Context) error {
 			continue
 		}
 		found, renewIn := s.process(ctx)
-		timer.Reset(renewIn)
+		timeutil.ResetTimer(timer, renewIn)
 		if found != -1 {
 			announce.Do(func() {
 				suffix := "s"

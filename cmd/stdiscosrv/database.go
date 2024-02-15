@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sliceutil"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -172,7 +173,7 @@ func (s *levelDBStore) get(key string) (DatabaseRecord, error) {
 
 func (s *levelDBStore) Serve(ctx context.Context) error {
 	t := time.NewTimer(0)
-	defer t.Stop()
+	defer timeutil.StopTimer(t)
 	defer s.db.Close()
 
 	// Start the statistics serve routine. It will exit with us when
@@ -196,7 +197,7 @@ loop:
 		case <-statisticsDone:
 			// The statistics routine is done with one iteratation, schedule
 			// the next.
-			t.Reset(databaseStatisticsInterval)
+			timeutil.ResetTimer(t, databaseStatisticsInterval)
 
 		case <-ctx.Done():
 			// We're done.

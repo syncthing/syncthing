@@ -51,6 +51,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/syncthing"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
@@ -791,7 +792,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 
 		opts := cfg.Options()
 		if !opts.AutoUpgradeEnabled() {
-			timer.Reset(upgradeCheckInterval)
+			timeutil.ResetTimer(timer, upgradeCheckInterval)
 			continue
 		}
 
@@ -805,13 +806,13 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
 			l.Infoln("Automatic upgrade:", err)
-			timer.Reset(checkInterval)
+			timeutil.ResetTimer(timer, checkInterval)
 			continue
 		}
 
 		if upgrade.CompareVersions(rel.Tag, build.Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
-			timer.Reset(checkInterval)
+			timeutil.ResetTimer(timer, checkInterval)
 			continue
 		}
 
@@ -819,7 +820,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
-			timer.Reset(checkInterval)
+			timeutil.ResetTimer(timer, checkInterval)
 			continue
 		}
 		sub.Unsubscribe()

@@ -15,6 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type ProgressEmitter struct {
@@ -69,6 +70,7 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 
 	var lastUpdate time.Time
 	var lastCount, newCount int
+	defer timeutil.StopTimer(t.timer)
 	for {
 		select {
 		case <-ctx.Done():
@@ -252,7 +254,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	}
 	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
 	if t.emptyLocked() {
-		t.timer.Reset(t.interval)
+		timeutil.ResetTimer(t.timer, t.interval)
 	}
 	if _, ok := t.registry[s.folder]; !ok {
 		t.registry[s.folder] = make(map[string]*sharedPullerState)

@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
@@ -373,12 +374,13 @@ func (s *Service) Serve(ctx context.Context) error {
 	defer s.cfg.Unsubscribe(s)
 
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
+	defer timeutil.StopTimer(t)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-s.forceRun:
-			t.Reset(0)
+			timeutil.ResetTimer(t, 0)
 		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
 				err := s.sendUsageReport(ctx)

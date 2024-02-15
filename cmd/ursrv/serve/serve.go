@@ -31,6 +31,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
@@ -227,7 +228,7 @@ const maxCacheTime = 15 * time.Minute
 
 func (s *server) cacheRefresher() {
 	ticker := time.NewTicker(maxCacheTime - time.Minute)
-	defer ticker.Stop()
+	defer timeutil.StopTicker(ticker)
 	for ; true; <-ticker.C {
 		s.cacheMut.Lock()
 		if err := s.refreshCacheLocked(); err != nil {

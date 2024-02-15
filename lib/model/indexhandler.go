@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type indexHandler struct {
@@ -159,7 +160,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
+	defer timeutil.StopTicker(ticker)
 
 	for err == nil {
 		fset, err = s.waitForFileset(ctx)
@@ -186,10 +187,12 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
 		// time to batch them up a little.
+		t := time.NewTimer(250 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timeutil.StopTimer(t)
 			return ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+		case <-t.C:
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type tokenManager struct {
@@ -122,7 +123,7 @@ func (m *tokenManager) saveLocked() {
 	if m.saveTimer == nil {
 		m.saveTimer = time.AfterFunc(time.Second, m.scheduledSave)
 	} else {
-		m.saveTimer.Reset(time.Second)
+		timeutil.ResetTimer(m.saveTimer, time.Second)
 	}
 }
 

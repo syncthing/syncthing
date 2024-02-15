@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/timeutil"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -92,6 +93,7 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 
 	var err error
 	timer := time.NewTimer(minDelay)
+	defer timeutil.StopTimer(timer)
 	resetTimer := make(chan struct{})
 	for err == nil {
 		select {
@@ -139,7 +141,7 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 				timer.Reset(minDelay)
 			}
 		case <-resetTimer:
-			timer.Reset(minDelay)
+			timeutil.ResetTimer(timer, minDelay)
 		case <-ctx.Done():
 			err = ctx.Err()
 		}

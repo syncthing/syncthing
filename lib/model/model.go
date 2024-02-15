@@ -43,6 +43,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -268,6 +269,7 @@ func (m *model) serve(ctx context.Context) error {
 
 	close(m.started)
 
+	defer timeutil.StopTimer(m.promotionTimer)
 	for {
 		select {
 		case <-ctx.Done():
@@ -2374,7 +2376,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 func (m *model) scheduleConnectionPromotion() {
 	// Keeps deferring to prevent multiple executions in quick succession,
 	// e.g. if multiple connections to a single device are closed.
-	m.promotionTimer.Reset(time.Second)
+	timeutil.ResetTimer(m.promotionTimer, time.Second)
 }
 
 // promoteConnections checks for devices that have connections, but where

@@ -41,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
@@ -518,9 +519,10 @@ func (s *service) connect(ctx context.Context) error {
 			}
 			s.dialNowDevices = make(map[protocol.DeviceID]struct{})
 			s.dialNowDevicesMut.Unlock()
-			timeout.Stop()
+			timeutil.StopTimer(timeout)
 		case <-timeout.C:
 		case <-ctx.Done():
+			timeutil.StopTimer(timeout)
 			return ctx.Err()
 		}
 	}

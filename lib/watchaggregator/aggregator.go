@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 // Not meant to be changed, but must be changeable for tests
@@ -148,7 +149,7 @@ func Aggregate(ctx context.Context, in <-chan fs.Event, out chan<- []string, fol
 
 func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg config.Wrapper, evLogger events.Logger) {
 	a.notifyTimer = time.NewTimer(a.notifyDelay)
-	defer a.notifyTimer.Stop()
+	defer timeutil.StopTimer(a.notifyTimer)
 
 	inProgressItemSubscription := evLogger.Subscribe(events.ItemStarted | events.ItemFinished)
 	defer inProgressItemSubscription.Unsubscribe()
@@ -314,7 +315,7 @@ func (a *aggregator) resetNotifyTimerIfNeeded() {
 func (a *aggregator) resetNotifyTimer(duration time.Duration) {
 	l.Debugln(a, "Resetting notifyTimer to", duration.String())
 	a.notifyTimerNeedsReset = false
-	a.notifyTimer.Reset(duration)
+	timeutil.ResetTimer(a.notifyTimer, duration)
 }
 
 func (a *aggregator) actOnTimer(out chan<- []string) {

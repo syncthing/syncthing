@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 const (
@@ -91,7 +92,7 @@ func (s *replicationSender) Serve(ctx context.Context) error {
 	}
 
 	heartBeatTicker := time.NewTicker(replicationHeartbeatInterval)
-	defer heartBeatTicker.Stop()
+	defer timeutil.StopTicker(heartBeatTicker)
 
 	// Send records.
 	buf := make([]byte, 1024)

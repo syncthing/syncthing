@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -193,12 +194,12 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 				case <-done:
 					emitProgressEvent()
 					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
-					ticker.Stop()
+					timeutil.StopTicker(ticker)
 					return
 				case <-ticker.C:
 					emitProgressEvent()
 				case <-ctx.Done():
-					ticker.Stop()
+					timeutil.StopTicker(ticker)
 					return
 				}
 			}
@@ -665,12 +666,12 @@ func (c *byteCounter) ticker() {
 	// The metrics.EWMA expects clock ticks every five seconds in order to
 	// decay the average properly.
 	t := time.NewTicker(5 * time.Second)
+	defer timeutil.StopTicker(t)
 	for {
 		select {
 		case <-t.C:
 			c.Tick()
 		case <-c.stop:
-			t.Stop()
 			return
 		}
 	}

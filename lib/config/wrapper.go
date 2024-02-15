@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -240,6 +241,7 @@ func (w *wrapper) Serve(ctx context.Context) error {
 
 	var e modifyEntry
 	saveTimer := time.NewTimer(0)
+	defer timeutil.StopTimer(saveTimer)
 	<-saveTimer.C
 	saveTimerRunning := false
 	for {
@@ -265,7 +267,7 @@ func (w *wrapper) Serve(ctx context.Context) error {
 		if !reflect.DeepEqual(w.cfg, to) {
 			waiter, err = w.replaceLocked(to)
 			if !saveTimerRunning {
-				saveTimer.Reset(minSaveInterval)
+				timeutil.ResetTimer(saveTimer, minSaveInterval)
 				saveTimerRunning = true
 			}
 		}

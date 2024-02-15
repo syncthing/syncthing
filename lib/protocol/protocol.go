@@ -25,6 +25,7 @@ import (
 	"time"
 
 	lz4 "github.com/pierrec/lz4/v4"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 const (
@@ -965,6 +966,7 @@ func (c *rawConnection) Close(err error) {
 	c.sendCloseOnce.Do(func() {
 		done := make(chan struct{})
 		timeout := time.NewTimer(CloseTimeout)
+		defer timeutil.StopTimer(timeout)
 		select {
 		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
 			select {
@@ -1021,7 +1023,7 @@ func (c *rawConnection) internalClose(err error) {
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
 	ticker := time.NewTicker(PingSendInterval / 2)
-	defer ticker.Stop()
+	defer timeutil.StopTicker(ticker)
 
 	for {
 		select {
@@ -1046,7 +1048,7 @@ func (c *rawConnection) pingSender() {
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
 	ticker := time.NewTicker(ReceiveTimeout / 2)
-	defer ticker.Stop()
+	defer timeutil.StopTicker(ticker)
 
 	for {
 		select {
