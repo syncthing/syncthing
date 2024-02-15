@@ -17,7 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type indexHandler struct {
@@ -190,7 +189,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		t := time.NewTimer(250 * time.Millisecond)
 		select {
 		case <-ctx.Done():
-			timeutil.StopAndDrain(t)
+			t.Stop()
 			return ctx.Err()
 		case <-t.C:
 		}

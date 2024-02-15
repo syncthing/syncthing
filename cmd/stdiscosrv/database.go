@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sliceutil"
-	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -196,8 +195,8 @@ loop:
 
 		case <-statisticsDone:
 			// The statistics routine is done with one iteratation, schedule
-			// the next.
-			timeutil.ResetTimer(t, databaseStatisticsInterval)
+			// the next. Guaranteed to happen after a read from t.C above.
+			t.Reset(databaseStatisticsInterval)
 
 		case <-ctx.Done():
 			// We're done.

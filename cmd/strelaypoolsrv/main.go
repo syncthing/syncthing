@@ -23,7 +23,6 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/timeutil"
 
 	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
@@ -466,7 +465,7 @@ func handleRelayTest(request request) {
 		if debug {
 			log.Println("Stopping existing timer for", request.relay)
 		}
-		timeutil.StopAndDrain(timer)
+		timer.Stop()
 	}
 
 	for i, current := range knownRelays {

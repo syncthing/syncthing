@@ -12,7 +12,10 @@ import "time"
 // called concurrently with receiving from the timer channel.
 func StopAndDrain(t *time.Timer) {
 	if !t.Stop() {
-		<-t.C
+		select {
+		case <-t.C:
+		default:
+		}
 	}
 }
 
