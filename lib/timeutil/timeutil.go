@@ -20,8 +20,8 @@ func StopTimer(t *time.Timer) {
 
 // ResetTimer is timer.Stop()+timer.Reset() to properly reset the timer
 // according to the mandated pattern in https://pkg.go.dev/time#Timer.Reset:
-// timers must only be reset if they are stopped and drained. If you'rea
-// lready in a branch that just received from the timer channel you can use
+// timers must only be reset if they are stopped and drained. If you're in a
+// branch that just received from the timer channel you can use
 // timer.Reset() directly, otherwise this pattern must be used.
 func ResetTimer(t *time.Timer, dur time.Duration) {
 	if !t.Stop() {
