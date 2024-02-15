@@ -455,7 +455,7 @@ type autoclosedFile struct {
 	fd         io.WriteCloser // underlying WriteCloser
 	opened     time.Time      // timestamp when the file was last opened
 	closed     chan struct{}  // closed on Close(), stops the closerLoop
-	closeTimer *time.Timer    // fires closeDelay after a write
+	delayClose chan struct{}  // delays the close for another interval
 
 	mut sync.Mutex
 }
@@ -467,7 +467,7 @@ func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) (*aut
 		maxOpenTime: maxOpenTime,
 		mut:         sync.NewMutex(),
 		closed:      make(chan struct{}),
-		closeTimer:  time.NewTimer(time.Minute),
+		delayClose:  make(chan struct{}),
 	}
 	f.mut.Lock()
 	defer f.mut.Unlock()
@@ -490,7 +490,10 @@ func (f *autoclosedFile) Write(bs []byte) (int, error) {
 	// If we haven't run into the maxOpenTime, postpone close for another
 	// closeDelay
 	if time.Since(f.opened) < f.maxOpenTime {
-		timeutil.ResetTimer(f.closeTimer, f.closeDelay)
+		select {
+		case f.delayClose <- struct{}{}:
+		default:
+		}
 	}
 
 	return f.fd.Write(bs)
@@ -500,8 +503,6 @@ func (f *autoclosedFile) Close() error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	// Stop the timer and closerLoop() routine
-	timeutil.StopTimer(f.closeTimer)
 	close(f.closed)
 
 	// Close the file, if it's open
@@ -533,9 +534,15 @@ func (f *autoclosedFile) ensureOpenLocked() error {
 }
 
 func (f *autoclosedFile) closerLoop() {
+	closeTimer := time.NewTimer(f.closeDelay)
+	defer timeutil.StopTimer(closeTimer)
+
 	for {
 		select {
-		case <-f.closeTimer.C:
+		case <-f.delayClose:
+			timeutil.ResetTimer(closeTimer, f.closeDelay)
+
+		case <-closeTimer.C:
 			// Close the file when the timer expires.
 			f.mut.Lock()
 			if f.fd != nil {

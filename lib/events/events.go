@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -240,7 +239,6 @@ type logger struct {
 	subs                []*subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
-	timeout             *time.Timer
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
@@ -267,7 +265,6 @@ type subscription struct {
 	mask          EventType
 	events        chan Event
 	toUnsubscribe chan *subscription
-	timeout       *time.Timer
 	ctx           context.Context
 }
 
@@ -278,14 +275,10 @@ var (
 
 func NewLogger() Logger {
 	l := &logger{
-		timeout:       time.NewTimer(time.Second),
 		events:        make(chan Event, BufferSize),
 		funcs:         make(chan func(context.Context)),
 		toUnsubscribe: make(chan *subscription),
 	}
-	// Make sure the timer is in the stopped state and hasn't fired anything
-	// into the channel.
-	timeutil.StopTimer(l.timeout)
 	return l
 }
 
@@ -335,18 +328,19 @@ func (l *logger) sendEvent(e Event) {
 
 	e.GlobalID = l.nextGlobalID
 
+	timer := time.NewTimer(eventLogTimeout)
+	defer timeutil.StopTimer(timer)
+
 	for i, s := range l.subs {
 		if s.mask&e.Type != 0 {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
-			timeutil.ResetTimer(l.timeout, eventLogTimeout)
-
+			timeutil.ResetTimer(timer, eventLogTimeout)
 			select {
 			case s.events <- e:
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDelivered).Inc()
-				timeutil.StopTimer(l.timeout)
-			case <-l.timeout.C:
+			case <-timer.C:
 				// if s.events is not ready, drop the event
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDropped).Inc()
 			}
@@ -363,21 +357,8 @@ func (l *logger) Subscribe(mask EventType) Subscription {
 			mask:          mask,
 			events:        make(chan Event, BufferSize),
 			toUnsubscribe: l.toUnsubscribe,
-			timeout:       time.NewTimer(0),
 			ctx:           ctx,
 		}
-
-		// We need to create the timeout timer in the stopped, non-fired state so
-		// that Subscription.Poll() can safely reset it and select on the timeout
-		// channel. This ensures the timer is stopped and the channel drained.
-		if runningTests {
-			// Make the behavior stable when running tests to avoid randomly
-			// varying test coverage. This ensures, in practice if not in
-			// theory, that the timer fires and we take the true branch of the
-			// next if.
-			runtime.Gosched()
-		}
-		timeutil.StopTimer(s.timeout)
 
 		l.subs = append(l.subs, s)
 		l.nextSubscriptionIDs = append(l.nextSubscriptionIDs, 1)
@@ -416,24 +397,16 @@ func (l *logger) String() string {
 func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 	dl.Debugln("poll", timeout)
 
-	timeutil.ResetTimer(s.timeout, timeout)
+	timer := time.NewTimer(timeout)
+	defer timeutil.StopTimer(timer)
 
 	select {
 	case e, ok := <-s.events:
 		if !ok {
 			return e, ErrClosed
 		}
-		if runningTests {
-			// Make the behavior stable when running tests to avoid randomly
-			// varying test coverage. This ensures, in practice if not in
-			// theory, that the timer fires and we take the true branch of
-			// the next if.
-			timeutil.ResetTimer(s.timeout, 0)
-			runtime.Gosched()
-		}
-		timeutil.StopTimer(s.timeout)
 		return e, nil
-	case <-s.timeout.C:
+	case <-timer.C:
 		return Event{}, ErrTimeout
 	}
 }
