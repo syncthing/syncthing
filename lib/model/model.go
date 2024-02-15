@@ -139,11 +139,11 @@ type model struct {
 	globalRequestLimiter *semaphore.Semaphore
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
-	folderIOLimiter *semaphore.Semaphore
-	fatalChan       chan error
-	started         chan struct{}
-	keyGen          *protocol.KeyGenerator
-	promotionTimer  *time.Timer
+	folderIOLimiter   *semaphore.Semaphore
+	fatalChan         chan error
+	started           chan struct{}
+	keyGen            *protocol.KeyGenerator
+	schedulePromotion chan struct{}
 
 	// fields protected by mut
 	mut                            sync.RWMutex
@@ -222,7 +222,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		fatalChan:            make(chan error),
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
-		promotionTimer:       time.NewTimer(0),
+		schedulePromotion:    make(chan struct{}, 1),
 
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
@@ -269,7 +269,8 @@ func (m *model) serve(ctx context.Context) error {
 
 	close(m.started)
 
-	defer m.promotionTimer.Stop()
+	promotionTimer := time.NewTimer(0)
+	defer promotionTimer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -278,9 +279,11 @@ func (m *model) serve(ctx context.Context) error {
 		case err := <-m.fatalChan:
 			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
-		case <-m.promotionTimer.C:
+		case <-promotionTimer.C:
 			l.Debugln("promotion timer fired")
 			m.promoteConnections()
+		case <-m.schedulePromotion:
+			timeutil.ResetTimer(promotionTimer, time.Second)
 		}
 	}
 }
@@ -2374,9 +2377,10 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 }
 
 func (m *model) scheduleConnectionPromotion() {
-	// Keeps deferring to prevent multiple executions in quick succession,
-	// e.g. if multiple connections to a single device are closed.
-	timeutil.ResetTimer(m.promotionTimer, time.Second)
+	select {
+	case m.schedulePromotion <- struct{}{}:
+	default:
+	}
 }
 
 // promoteConnections checks for devices that have connections, but where
