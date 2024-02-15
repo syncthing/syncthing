@@ -93,7 +93,7 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 
 	var err error
 	timer := time.NewTimer(minDelay)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 	resetTimer := make(chan struct{})
 	for err == nil {
 		select {

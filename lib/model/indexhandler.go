@@ -190,7 +190,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		t := time.NewTimer(250 * time.Millisecond)
 		select {
 		case <-ctx.Done():
-			timeutil.StopTimer(t)
+			timeutil.StopAndDrain(t)
 			return ctx.Err()
 		case <-t.C:
 		}

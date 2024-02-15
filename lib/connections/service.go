@@ -508,6 +508,8 @@ func (s *service) connect(ctx context.Context) error {
 		l.Debugln("Next connection loop in", sleep)
 
 		timeout := time.NewTimer(sleep)
+		defer timeout.Stop()
+
 		select {
 		case <-s.dialNow:
 			// Remove affected devices from nextDialAt to dial immediately,
@@ -519,10 +521,9 @@ func (s *service) connect(ctx context.Context) error {
 			}
 			s.dialNowDevices = make(map[protocol.DeviceID]struct{})
 			s.dialNowDevicesMut.Unlock()
-			timeutil.StopTimer(timeout)
+			timeutil.StopAndDrain(timeout)
 		case <-timeout.C:
 		case <-ctx.Done():
-			timeutil.StopTimer(timeout)
 			return ctx.Err()
 		}
 	}

@@ -535,7 +535,7 @@ func (f *autoclosedFile) ensureOpenLocked() error {
 
 func (f *autoclosedFile) closerLoop() {
 	closeTimer := time.NewTimer(f.closeDelay)
-	defer timeutil.StopTimer(closeTimer)
+	defer closeTimer.Stop()
 
 	for {
 		select {

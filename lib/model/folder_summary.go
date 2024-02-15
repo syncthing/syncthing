@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type FolderSummaryService interface {
@@ -315,7 +314,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
-	defer timeutil.StopTimer(pump)
+	defer pump.Stop()
 
 	for {
 		select {

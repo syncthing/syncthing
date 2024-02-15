@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 // A ParseError signifies an error with contents of an ignore file,
@@ -312,7 +311,7 @@ func (m *Matcher) Stop() {
 
 func (m *Matcher) clean(d time.Duration) {
 	t := time.NewTimer(d / 2)
-	defer timeutil.StopTimer(t)
+	defer t.Stop()
 	for {
 		select {
 		case <-m.stop:

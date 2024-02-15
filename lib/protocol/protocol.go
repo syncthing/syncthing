@@ -25,7 +25,6 @@ import (
 	"time"
 
 	lz4 "github.com/pierrec/lz4/v4"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 const (
@@ -966,7 +965,7 @@ func (c *rawConnection) Close(err error) {
 	c.sendCloseOnce.Do(func() {
 		done := make(chan struct{})
 		timeout := time.NewTimer(CloseTimeout)
-		defer timeutil.StopTimer(timeout)
+		defer timeout.Stop()
 		select {
 		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
 			select {

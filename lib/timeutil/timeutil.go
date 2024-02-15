@@ -8,9 +8,9 @@ package timeutil
 
 import "time"
 
-// StopTimer stops the timer and ensures the channel is drained. Must not be
+// StopAndDrain stops the timer and ensures the channel is drained. Must not be
 // called concurrently with receiving from the timer channel.
-func StopTimer(t *time.Timer) {
+func StopAndDrain(t *time.Timer) {
 	if !t.Stop() {
 		<-t.C
 	}
@@ -22,18 +22,6 @@ func StopTimer(t *time.Timer) {
 // branch that just received from the timer channel you can use
 // timer.Reset() directly, otherwise this pattern must be used.
 func ResetTimer(t *time.Timer, dur time.Duration) {
-	if !t.Stop() {
-		<-t.C
-	}
+	StopAndDrain(t)
 	t.Reset(dur)
-}
-
-// StopTicker stops the ticker and drains the channel to ensure the ticker
-// can be deallocated.
-func StopTicker(t *time.Ticker) {
-	t.Stop()
-	select {
-	case <-t.C:
-	default:
-	}
 }

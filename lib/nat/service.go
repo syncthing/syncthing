@@ -73,9 +73,9 @@ func (s *Service) Serve(ctx context.Context) error {
 		select {
 		case <-timer.C:
 		case <-s.processScheduled:
-			timeutil.StopTimer(timer)
+			timeutil.StopAndDrain(timer)
 		case <-ctx.Done():
-			timeutil.StopTimer(timer)
+			timeutil.StopAndDrain(timer)
 			s.mut.RLock()
 			for _, mapping := range s.mappings {
 				mapping.clearAddresses()

@@ -148,7 +148,7 @@ func Aggregate(ctx context.Context, in <-chan fs.Event, out chan<- []string, fol
 
 func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg config.Wrapper, evLogger events.Logger) {
 	notifyTimer := time.NewTimer(a.notifyDelay)
-	defer timeutil.StopTimer(notifyTimer)
+	defer notifyTimer.Stop()
 
 	inProgressItemSubscription := evLogger.Subscribe(events.ItemStarted | events.ItemFinished)
 	defer inProgressItemSubscription.Unsubscribe()

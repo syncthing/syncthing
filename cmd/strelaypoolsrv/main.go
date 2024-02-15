@@ -466,7 +466,7 @@ func handleRelayTest(request request) {
 		if debug {
 			log.Println("Stopping existing timer for", request.relay)
 		}
-		timeutil.StopTimer(timer)
+		timeutil.StopAndDrain(timer)
 	}
 
 	for i, current := range knownRelays {

@@ -74,7 +74,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 	go messageReader(ctx, c.conn, messages, errorsc)
 
 	timeout := time.NewTimer(c.messageTimeout)
-	defer timeutil.StopTimer(timeout)
+	defer timeout.Stop()
 
 	for {
 		select {

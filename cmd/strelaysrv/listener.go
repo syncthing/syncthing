@@ -113,7 +113,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	pingTicker := time.NewTicker(pingInterval)
 	defer pingTicker.Stop()
 	timeoutTimer := time.NewTimer(networkTimeout)
-	defer timeutil.StopTimer(timeoutTimer)
+	defer timeoutTimer.Stop()
 	joined := false
 
 	for {

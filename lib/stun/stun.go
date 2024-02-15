@@ -15,7 +15,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 const stunRetryInterval = 5 * time.Minute
@@ -94,7 +93,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	}()
 
 	timer := time.NewTimer(time.Millisecond)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 
 	for {
 	disabled:

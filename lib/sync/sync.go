@@ -288,5 +288,5 @@ func (w *TimeoutCondWaiter) Wait() bool {
 }
 
 func (w *TimeoutCondWaiter) Stop() {
-	timeutil.StopTimer(w.timer)
+	timeutil.StopAndDrain(w.timer)
 }

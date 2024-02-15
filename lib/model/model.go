@@ -269,7 +269,7 @@ func (m *model) serve(ctx context.Context) error {
 
 	close(m.started)
 
-	defer timeutil.StopTimer(m.promotionTimer)
+	defer m.promotionTimer.Stop()
 	for {
 		select {
 		case <-ctx.Done():

@@ -173,7 +173,7 @@ func (s *levelDBStore) get(key string) (DatabaseRecord, error) {
 
 func (s *levelDBStore) Serve(ctx context.Context) error {
 	t := time.NewTimer(0)
-	defer timeutil.StopTimer(t)
+	defer t.Stop()
 	defer s.db.Close()
 
 	// Start the statistics serve routine. It will exit with us when

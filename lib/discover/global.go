@@ -219,7 +219,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 	}
 
 	timer := time.NewTimer(5 * time.Second)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
 	defer eventSub.Unsubscribe()

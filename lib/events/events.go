@@ -329,7 +329,7 @@ func (l *logger) sendEvent(e Event) {
 	e.GlobalID = l.nextGlobalID
 
 	timer := time.NewTimer(eventLogTimeout)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 
 	for i, s := range l.subs {
 		if s.mask&e.Type != 0 {
@@ -398,7 +398,7 @@ func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 	dl.Debugln("poll", timeout)
 
 	timer := time.NewTimer(timeout)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 
 	select {
 	case e, ok := <-s.events:

@@ -68,7 +68,7 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	defer t.cfg.Unsubscribe(t)
 
 	timer := time.NewTimer(0)
-	defer timeutil.StopTimer(timer)
+	defer timer.Stop()
 
 	var lastUpdate time.Time
 	var lastCount, newCount int

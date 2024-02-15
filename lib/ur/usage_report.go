@@ -374,7 +374,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	defer s.cfg.Unsubscribe(s)
 
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
-	defer timeutil.StopTimer(t)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():

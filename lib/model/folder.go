@@ -151,9 +151,9 @@ func (f *folder) Serve(ctx context.Context) error {
 	versionCleanupTimer := time.NewTimer(time.Duration(f.Versioning.CleanupIntervalS) * time.Second)
 
 	defer func() {
-		timeutil.StopTimer(scanTimer)
-		timeutil.StopTimer(pullFailTimer)
-		timeutil.StopTimer(versionCleanupTimer)
+		scanTimer.Stop()
+		pullFailTimer.Stop()
+		versionCleanupTimer.Stop()
 		f.setState(FolderIdle)
 	}()
 
@@ -164,7 +164,7 @@ func (f *folder) Serve(ctx context.Context) error {
 	// If we're configured to not do version cleanup, or we don't have a
 	// versioner, cancel and drain that timer now.
 	if f.versionCleanupInterval == 0 || f.versioner == nil {
-		timeutil.StopTimer(versionCleanupTimer)
+		timeutil.StopAndDrain(versionCleanupTimer)
 	}
 
 	initialCompleted := f.initialScanFinished
@@ -178,7 +178,7 @@ func (f *folder) Serve(ctx context.Context) error {
 			return nil
 
 		case <-f.pullScheduled:
-			timeutil.StopTimer(pullFailTimer)
+			timeutil.StopAndDrain(pullFailTimer)
 			var success bool
 			t0 := time.Now()
 			success, err = f.pull()

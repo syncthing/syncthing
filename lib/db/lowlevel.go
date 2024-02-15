@@ -26,7 +26,6 @@ import (
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -706,7 +705,7 @@ func (db *Lowlevel) gcRunner(ctx context.Context) error {
 	}
 
 	t := time.NewTimer(next)
-	defer timeutil.StopTimer(t)
+	defer t.Stop()
 
 	for {
 		select {
