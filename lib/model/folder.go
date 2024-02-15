@@ -147,7 +147,7 @@ func (f *folder) Serve(ctx context.Context) error {
 
 	scanTimer := time.NewTimer(0) // The first scan should be done immediately.
 	pullFailTimer := time.NewTimer(0)
-	<-pullFailTimer.C
+	timeutil.StopAndDrain(pullFailTimer)
 	versionCleanupTimer := time.NewTimer(time.Duration(f.Versioning.CleanupIntervalS) * time.Second)
 
 	defer func() {

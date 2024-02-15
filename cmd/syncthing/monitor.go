@@ -467,7 +467,7 @@ func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) (*aut
 		maxOpenTime: maxOpenTime,
 		mut:         sync.NewMutex(),
 		closed:      make(chan struct{}),
-		delayClose:  make(chan struct{}),
+		delayClose:  make(chan struct{}, 1),
 	}
 	f.mut.Lock()
 	defer f.mut.Unlock()
@@ -534,7 +534,7 @@ func (f *autoclosedFile) ensureOpenLocked() error {
 }
 
 func (f *autoclosedFile) closerLoop() {
-	closeTimer := time.NewTimer(f.closeDelay)
+	closeTimer := time.NewTimer(time.Minute)
 	defer closeTimer.Stop()
 
 	for {

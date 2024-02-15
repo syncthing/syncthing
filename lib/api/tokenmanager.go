@@ -123,6 +123,14 @@ func (m *tokenManager) saveLocked() {
 	if m.saveTimer == nil {
 		m.saveTimer = time.AfterFunc(time.Second, m.scheduledSave)
 	} else {
+		// Since we are under a lock and the scheduled function takes the
+		// same lock to nil out the timer, we know the function hasn't run
+		// yet. Hence it's safe to reset the timer with one of two possible
+		// outcomes: either we were safely in the waiting period and the
+		// call gets postponed as it should be, or the timer has triggered
+		// but not yet run the function in which case it will run now (when
+		// we release the lock) and then again in a second after the reset,
+		// which is not a problem.
 		timeutil.ResetTimer(m.saveTimer, time.Second)
 	}
 }
