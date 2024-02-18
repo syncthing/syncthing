@@ -530,7 +530,7 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 	return resp
 }
 
-func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
+func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *testing.T) *http.Response {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		t.Fatal(err)
@@ -539,6 +539,10 @@ func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
 	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -711,7 +715,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performLogin := func(username string, password string) *http.Response {
-		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, nil, t)
 	}
 
 	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
@@ -778,7 +782,7 @@ func TestHtmlFormLogin(t *testing.T) {
 
 	t.Run("form login is not applicable to other URLs", func(t *testing.T) {
 		t.Parallel()
-		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, t)
+		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, nil, t)
 		if resp.StatusCode != http.StatusForbidden {
 			t.Errorf("Unexpected non-403 return code %d for incorrect form login URL", resp.StatusCode)
 		}
