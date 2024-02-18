@@ -282,7 +282,7 @@
     "Pending changes": "Čekající změny",
     "Periodic scanning at given interval and disabled watching for changes": "Periodické skenování podle zadaného intervalu; sledování změn vypnuto",
     "Periodic scanning at given interval and enabled watching for changes": "Periodické skenování podle zadaného intervalu; sledování změn zapnuto",
-    "Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:": "Periodické skenování podle zadaného intervalu; nastavení sledování změn se nezdařilo, opětovný pokus každou 1 min: ",
+    "Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:": "Periodické skenování podle zadaného intervalu; nastavení sledování změn se nezdařilo, opětovný pokus každou 1 min:",
     "Permanently add it to the ignore list, suppressing further notifications.": "Natrvalo ignorovat, takže oznámení již nebudou přicházet.",
     "Please consult the release notes before performing a major upgrade.": "Před přechodem na novější hlavní verzi si nejdříve přečtěte poznámky k vydání nové verze.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "V dialogu Nastavení zadejte uživatelské jméno a heslo pro ověření se v GUI.",

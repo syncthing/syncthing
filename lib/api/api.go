@@ -366,12 +366,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
-		// fetching metrics counts as an event, for the purpose of whether
-		// we should prepare folder summaries etc.
-		s.fss.OnEventRequest()
-		promHttpHandler.ServeHTTP(w, req)
-	})
+	mux.Handle("/metrics", promHttpHandler)
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -1405,11 +1400,7 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 	s.getEvents(w, r, sub)
 }
 
-func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
-	if eventSub.Mask()&(events.FolderSummary|events.FolderCompletion) != 0 {
-		s.fss.OnEventRequest()
-	}
-
+func (*service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")

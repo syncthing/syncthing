@@ -873,8 +873,8 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if !pats.SkipIgnoredDirs() {
-		t.Error("SkipIgnoredDirs should be true")
+	if m := pats.Match("whatever"); !m.CanSkipDir() {
+		t.Error("CanSkipDir should be true", m)
 	}
 
 	w.Matcher = pats

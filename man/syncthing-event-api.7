@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Dec 21, 2023" "v1.27.0" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Feb 08, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -597,27 +597,50 @@ state.
 .ft C
 {
     \(dqid\(dq: 16,
-    \(dqglobalID\(dq: 16,
     \(dqtype\(dq: \(dqFolderSummary\(dq,
-    \(dqtime\(dq: \(dq2015\-04\-17T14:12:20.460121585+09:00\(dq,
+    \(dqtime\(dq: \(dq2024\-01\-31T08:27:30.777875+01:00\(dq,
     \(dqdata\(dq: {
         \(dqfolder\(dq: \(dqdefault\(dq,
         \(dqsummary\(dq: {
-            \(dqglobalBytes\(dq: 0,
-            \(dqglobalDeleted\(dq: 0,
-            \(dqglobalFiles\(dq: 0,
+            \(dqerror\(dq: \(dq\(dq,
+            \(dqerrors\(dq: 0,
+            \(dqglobalBytes\(dq: 4,
+            \(dqglobalDeleted\(dq: 18664,
+            \(dqglobalDirectories\(dq: 0,
+            \(dqglobalFiles\(dq: 1,
+            \(dqglobalSymlinks\(dq: 0,
+            \(dqglobalTotalItems\(dq: 18665,
             \(dqignorePatterns\(dq: false,
-            \(dqinSyncBytes\(dq: 0,
-            \(dqinSyncFiles\(dq: 0,
+            \(dqinSyncBytes\(dq: 4,
+            \(dqinSyncFiles\(dq: 1,
             \(dqinvalid\(dq: \(dq\(dq,
-            \(dqlocalBytes\(dq: 0,
-            \(dqlocalDeleted\(dq: 0,
-            \(dqlocalFiles\(dq: 0,
+            \(dqlocalBytes\(dq: 4,
+            \(dqlocalDeleted\(dq: 18664,
+            \(dqlocalDirectories\(dq: 0,
+            \(dqlocalFiles\(dq: 1,
+            \(dqlocalSymlinks\(dq: 0,
+            \(dqlocalTotalItems\(dq: 18665,
             \(dqneedBytes\(dq: 0,
+            \(dqneedDeletes\(dq: 0,
+            \(dqneedDirectories\(dq: 0,
             \(dqneedFiles\(dq: 0,
+            \(dqneedSymlinks\(dq: 0,
+            \(dqneedTotalItems\(dq: 0,
+            \(dqpullErrors\(dq: 0,
+            \(dqreceiveOnlyChangedBytes\(dq: 0,
+            \(dqreceiveOnlyChangedDeletes\(dq: 0,
+            \(dqreceiveOnlyChangedDirectories\(dq: 0,
+            \(dqreceiveOnlyChangedFiles\(dq: 0,
+            \(dqreceiveOnlyChangedSymlinks\(dq: 0,
+            \(dqreceiveOnlyTotalItems\(dq: 0,
+            \(dqremoteSequence\(dq: {
+                \(dqMRIW7OK\-NETT3M4\-N6SBWME\-N25O76W\-YJKVXPH\-FUMQJ3S\-P57B74J\-GBITBAC\(dq: 37329
+            },
+            \(dqsequence\(dq: 37329,
             \(dqstate\(dq: \(dqidle\(dq,
-            \(dqstateChanged\(dq: \(dq2015\-04\-17T14:12:12.455224687+09:00\(dq,
-            \(dqversion\(dq: 0
+            \(dqstateChanged\(dq: \(dq2024\-01\-31T08:27:24+01:00\(dq,
+            \(dqversion\(dq: 37329,
+            \(dqwatchError\(dq: \(dq\(dq
         }
     }
 }

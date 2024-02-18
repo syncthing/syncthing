@@ -167,30 +167,30 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (*fakeModel) Index(Connection, string, []FileInfo) error {
+func (*fakeModel) Index(Connection, *Index) error {
 	return nil
 }
 
-func (*fakeModel) IndexUpdate(Connection, string, []FileInfo) error {
+func (*fakeModel) IndexUpdate(Connection, *IndexUpdate) error {
 	return nil
 }
 
-func (*fakeModel) Request(_ Connection, _, _ string, _, size int32, offset int64, _ []byte, _ uint32, _ bool) (RequestResponse, error) {
+func (*fakeModel) Request(_ Connection, req *Request) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
-	buf := make([]byte, size)
-	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(offset))
+	buf := make([]byte, req.Size)
+	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(req.Offset))
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (*fakeModel) ClusterConfig(Connection, ClusterConfig) error {
+func (*fakeModel) ClusterConfig(Connection, *ClusterConfig) error {
 	return nil
 }
 
 func (*fakeModel) Closed(Connection, error) {
 }
 
-func (*fakeModel) DownloadProgress(Connection, string, []FileDownloadProgressUpdate) error {
+func (*fakeModel) DownloadProgress(Connection, *DownloadProgress) error {
 	return nil
 }

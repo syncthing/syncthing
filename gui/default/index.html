@@ -623,7 +623,7 @@
                             <span ng-switch-when="trashcan" translate>Trash Can</span>
                             <span ng-switch-when="simple" translate>Simple</span>
                             <span ng-switch-when="staggered" translate>Staggered</span>
-                            <span ng-switch-when="external" tooltip data-original-title="<span class='text-monospace'>{{folder.versioning.params.command}}</span>" translate>External</span>
+                            <span ng-switch-when="external" tooltip data-original-title="{{folder.versioning.params.command}}" translate>External</span>
                           </span>
                           <span ng-if="folder.versioning.type != 'external'">
                             <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">

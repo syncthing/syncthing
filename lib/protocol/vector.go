@@ -43,13 +43,6 @@ func (v Vector) updateWithNow(id ShortID, now uint64) Vector {
 	})}
 }
 
-func max(a, b uint64) uint64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // Merge returns the vector containing the maximum indexes from v and b. If it
 // is possible, the vector v is updated and returned. If it is not, a copy
 // will be created, updated and returned.

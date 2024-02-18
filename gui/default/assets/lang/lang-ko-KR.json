@@ -386,6 +386,7 @@
     "Staggered File Versioning": "시차제 파일 버전 관리",
     "Start Browser": "브라우저 열기",
     "Statistics": "통계",
+    "Stay logged in": "로그인 상태 유지",
     "Stopped": "중지됨",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "암호화된 데이터만이 보관되어 동기화됩니다. 모든 공유된 기기의 폴더가 동일한 비밀번호를 설정하거나 동일한 \"{{receiveEncrypted}}\" 유형이어야 합니다.",
     "Subject:": "제목:",

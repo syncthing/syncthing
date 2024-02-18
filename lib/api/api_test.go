@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -46,12 +47,10 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture/v4"
-	"golang.org/x/exp/slices"
 )
 
 var (
 	confDir    = filepath.Join("testdata", "config")
-	token      = filepath.Join(confDir, "csrftokens.txt")
 	dev1       protocol.DeviceID
 	apiCfg     = newMockedConfig()
 	testAPIKey = "foobarbaz"
@@ -87,7 +86,6 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
-	defer os.Remove(token)
 
 	srv.started = make(chan string)
 
@@ -227,10 +225,11 @@ func TestAPIServiceRequests(t *testing.T) {
 	cases := []httpTestCase{
 		// /rest/db
 		{
-			URL:    "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
-			Code:   200,
-			Type:   "application/json",
-			Prefix: "{",
+			URL:     "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 15 * time.Second,
 		},
 		{
 			URL:  "/rest/db/file?folder=default&file=something",
@@ -435,7 +434,7 @@ func TestAPIServiceRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		t.Run(cases[0].URL, func(t *testing.T) {
+		t.Run(tc.URL, func(t *testing.T) {
 			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
@@ -445,8 +444,6 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
-
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -867,7 +864,6 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
-	defer os.Remove(token)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -1410,7 +1406,6 @@ func TestEventMasks(t *testing.T) {
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
-	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))

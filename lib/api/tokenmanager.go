@@ -7,12 +7,12 @@
 package api
 
 import (
+	"slices"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/exp/slices"
 )
 
 type tokenManager struct {

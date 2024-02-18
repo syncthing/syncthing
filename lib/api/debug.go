@@ -10,18 +10,8 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("api", "REST API")
-)
+var l = logger.DefaultLogger.NewFacility("api", "REST API")
 
 func shouldDebugHTTP() bool {
 	return l.ShouldDebug("api")
-}
-
-func init() {
-	// The debug facility was originally named "http", changed in:
-	// https://github.com/syncthing/syncthing/pull/5548
-	if l.IsTraced("http") {
-		l.SetDebug("api", true)
-	}
 }
