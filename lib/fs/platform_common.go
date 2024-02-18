@@ -46,15 +46,17 @@ func unixPlatformData(fs Filesystem, name string, userCache *userCache, groupCac
 		} else if ud.GID == 0 {
 			ud.GroupName = "root"
 		}
-
+		l.Debugf("unixPlatformData: %s ownership: UID=%d (%s), GID=%d (%s)", name, ud.UID, ud.OwnerName, ud.GID, ud.GroupName)
 		pd.Unix = &ud
 	}
 
 	if scanXattrs {
 		xattrs, err := fs.GetXattr(name, xattrFilter)
 		if err != nil {
+			l.Warnf("unixPlatformData: Failed to get xattrs for %s: %v", name, err)
 			return protocol.PlatformData{}, err
 		}
+		l.Debugf("unixPlatformData: %s xattrs: %v", name, xattrs)
 		pd.SetXattrs(xattrs)
 	}
 

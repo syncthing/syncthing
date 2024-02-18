@@ -2087,17 +2087,20 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 		return fmt.Errorf("comparing item on disk to db: %w", err)
 	}
 
-	if !statItem.IsEquivalentOptional(item, protocol.FileInfoComparison{
+	comparisonResult := statItem.IsEquivalentOptional(item, protocol.FileInfoComparison{
 		ModTimeWindow:   f.modTimeWindow,
 		IgnorePerms:     f.IgnorePerms,
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.LocalAllFlags,
 		IgnoreOwnership: !f.SyncOwnership,
 		IgnoreXattrs:    !f.SyncXattrs,
-	}) {
+	})
+	if !comparisonResult {
+		l.Debugf("scanIfItemChanged: %s not equivalent to db version. ModTimeWindow: %v, IgnorePerms: %v, IgnoreBlocks: true, IgnoreFlags: %v, IgnoreOwnership: %v, IgnoreXattrs: %v", name, f.modTimeWindow, f.IgnorePerms, protocol.LocalAllFlags, !f.SyncOwnership, !f.SyncXattrs)
 		return errModified
 	}
 
+	l.Debugf("scanIfItemChanged: %s matches db version", name)
 	return nil
 }
 

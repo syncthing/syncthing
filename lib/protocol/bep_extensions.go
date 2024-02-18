@@ -252,7 +252,14 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	// If we care about either ownership or xattrs, are recording inode change
 	// times and it changed, they are not equal.
 	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
-		return false
+		// macOS 14.3 and above broke something related to directory inode change times
+		// so, if the platform is Darwin, and the f.Type is a Directory, we skip this check
+		// see: https://github.com/syncthing/syncthing/issues/9371
+		if build.IsDarwin && f.Type == FileInfoTypeDirectory {
+			l.Debugf("isEquivalent: skipping modtime check due to platform bug")
+		} else {
+			return false
+		}
 	}
 
 	// Mask out the ignored local flags before checking IsInvalid() below
@@ -548,13 +555,16 @@ func xattrsEqual(a, b *XattrData) bool {
 		return false
 	}
 	if len(a.Xattrs) != len(b.Xattrs) {
+		l.Debugf("xattrsEqual: Lengths differ, len(a.Xattrs)=%d, len(b.Xattrs)=%d", len(a.Xattrs), len(b.Xattrs))
 		return false
 	}
 	for i := range a.Xattrs {
 		if a.Xattrs[i].Name != b.Xattrs[i].Name {
+			l.Debugf("xattrsEqual: Names differ at index %d, a.Xattrs[i].Name=%s, b.Xattrs[i].Name=%s", i, a.Xattrs[i].Name, b.Xattrs[i].Name)
 			return false
 		}
 		if !bytes.Equal(a.Xattrs[i].Value, b.Xattrs[i].Value) {
+			l.Debugf("xattrsEqual: Values differ at index %d, Name=%s", i, a.Xattrs[i].Name)
 			return false
 		}
 	}
