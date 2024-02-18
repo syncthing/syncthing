@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/ur"
 
@@ -33,14 +33,13 @@ import (
 const maxRequestSize = 1 << 20 // 1 MiB
 
 type cli struct {
-	Dir           string        `help:"Parent directory to store crash and failure reports in" env:"REPORTS_DIR" default:"."`
-	DSN           string        `help:"Sentry DSN" env:"SENTRY_DSN"`
-	Listen        string        `help:"HTTP listen address" default:":8080" env:"LISTEN_ADDRESS"`
-	MaxDiskFiles  int           `help:"Maximum number of reports on disk" default:"100000" env:"MAX_DISK_FILES"`
-	MaxDiskSizeMB int64         `help:"Maximum disk space to use for reports" default:"1024" env:"MAX_DISK_SIZE_MB"`
-	CleanInterval time.Duration `help:"Interval between cleaning up old reports" default:"12h" env:"CLEAN_INTERVAL"`
-	SentryQueue   int           `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
-	DiskQueue     int           `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
+	Dir           string `help:"Parent directory to store crash and failure reports in" env:"REPORTS_DIR" default:"."`
+	DSN           string `help:"Sentry DSN" env:"SENTRY_DSN"`
+	Listen        string `help:"HTTP listen address" default:":8080" env:"LISTEN_ADDRESS"`
+	MaxDiskFiles  int    `help:"Maximum number of reports on disk" default:"100000" env:"MAX_DISK_FILES"`
+	MaxDiskSizeMB int64  `help:"Maximum disk space to use for reports" default:"1024" env:"MAX_DISK_SIZE_MB"`
+	SentryQueue   int    `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
+	DiskQueue     int    `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
 }
 
 func main() {
@@ -72,6 +71,7 @@ func main() {
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte("OK"))
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 
 	if params.DSN != "" {
 		mux.HandleFunc("/newcrash/failure", handleFailureFn(params.DSN, filepath.Join(params.Dir, "failure_reports")))
@@ -85,6 +85,11 @@ func main() {
 
 func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
+		result := "failure"
+		defer func() {
+			metricFailureReportsTotal.WithLabelValues(result).Inc()
+		}()
+
 		lr := io.LimitReader(req.Body, maxRequestSize)
 		bs, err := io.ReadAll(lr)
 		req.Body.Close()
@@ -135,6 +140,7 @@ func handleFailureFn(dsn, failureDir string) func(w http.ResponseWriter, req *ht
 				log.Println("Failed to send failure report:", err)
 			} else {
 				log.Println("Sent failure report:", r.Description)
+				result = "success"
 			}
 		}
 	}

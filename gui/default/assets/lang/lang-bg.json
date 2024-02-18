@@ -99,6 +99,7 @@
     "Device ID": "Идентификатор на устройство",
     "Device Identification": "Идентификация на устройство",
     "Device Name": "Име на устройството",
+    "Device Status": "Състояние на устройството",
     "Device is untrusted, enter encryption password": "Устройството е недоверено, въведете парола за шифроване",
     "Device rate limits": "Ограничаване на скоростта",
     "Device that last modified the item": "Устройство, което последно промени обекта",
@@ -168,6 +169,7 @@
     "Folder ID": "Идентификатор на папката",
     "Folder Label": "Име на папката",
     "Folder Path": "Път до папката",
+    "Folder Status": "Състояние на папката",
     "Folder Type": "Вид на папката",
     "Folder type \"{%receiveEncrypted%}\" can only be set when adding a new folder.": "Вида „{{receiveEncrypted}}“ може да бъде избран само при добавяне на папка.",
     "Folder type \"{%receiveEncrypted%}\" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.": "Видът папката „{{receiveEncrypted}}“ не може да бъде променян след нейното създаване. Трябва да я премахнете, изтриете или разшифровате съдържанието и да добавите папката отново.",
@@ -545,7 +547,8 @@
             "light": "Светла"
         }
     },
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} споделя папката „{{folder}}“.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} споделя папката „{{folderlabel}}“ ({{folder}}).",
+    "unknown device": "непознато устройство",
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} иска папката „{{folder}}“ да бъде споделена.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} иска папката „{{folderlabel}}“ ({{folder}}) да бъде споделена.",
     "{%reintroducer%} might reintroduce this device.": "Поръчителят {{reintroducer}} може отново да предложи това устройство."
 }

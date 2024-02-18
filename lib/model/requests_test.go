@@ -1287,9 +1287,9 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 
 	files := genFiles(2)
 	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
-	m.fmut.RLock()
+	m.mut.RLock()
 	fset := m.folderFiles[fcfg.ID]
-	m.fmut.RUnlock()
+	m.mut.RUnlock()
 	fset.Update(protocol.LocalDeviceID, files)
 
 	indexChan := make(chan []protocol.FileInfo, 10)

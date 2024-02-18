@@ -32,6 +32,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/thejerf/suture/v4"
+	"github.com/willabides/kongplete"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
@@ -88,9 +89,6 @@ above.
  STTRACE           A comma separated string of facilities to trace. The valid
                    facility strings are listed below.
 
- STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
-                   sensitivity. Use only under direction of a developer.
-
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
@@ -136,10 +134,11 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve    serveOptions `cmd:"" help:"Run Syncthing"`
-	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
-	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli      struct{}     `cmd:"" help:"Command line interface for Syncthing"`
+	Serve              serveOptions                 `cmd:"" help:"Run Syncthing"`
+	Generate           generate.CLI                 `cmd:"" help:"Generate key and config, then exit"`
+	Decrypt            decrypt.CLI                  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Cli                cli.CLI                      `cmd:"" help:"Command line interface for Syncthing"`
+	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
@@ -173,7 +172,6 @@ type serveOptions struct {
 	// Debug options below
 	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
 	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
-	DebugDeadlockTimeout      int           `placeholder:"SECONDS" env:"STDEADLOCKTIMEOUT" help:"Used for debugging internal deadlocks"`
 	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
 	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
 	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
@@ -213,17 +211,6 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
-	// The "cli" subcommand uses a different command line parser, and e.g. help
-	// gets mangled when integrating it as a subcommand -> detect it here at the
-	// beginning.
-	if len(os.Args) > 1 && os.Args[1] == "cli" {
-		if err := cli.Run(); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		return
-	}
-
 	// First some massaging of the raw command line to fit the new model.
 	// Basically this means adding the default command at the front, and
 	// converting -options to --options.
@@ -249,11 +236,20 @@ func main() {
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.
-	parser, err := kong.New(&entrypoint, kong.Help(helpHandler), defaultVars())
+	parser, err := kong.New(
+		&entrypoint,
+		kong.ConfigureHelp(kong.HelpOptions{
+			NoExpandSubcommands: true,
+			Compact:             true,
+		}),
+		kong.Help(helpHandler),
+		defaultVars(),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	kongplete.Complete(parser)
 	ctx, err := parser.Parse(args)
 	parser.FatalIfErrorf(err)
 	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
@@ -626,7 +622,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
 		ProfilerAddr:         options.DebugProfilerListen,
 		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
@@ -636,10 +631,6 @@ func syncthingMain(options serveOptions) {
 	}
 	if options.Audit {
 		appOpts.AuditWriter = auditWriter(options.AuditFile)
-	}
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
-		secs, _ := strconv.Atoi(t)
-		appOpts.DeadlockTimeoutS = secs
 	}
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
 		appOpts.DBRecheckInterval = dur
@@ -874,6 +865,7 @@ func cleanConfigDirectory() {
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
+		"csrftokens.txt":     0,                   // deprecated, remove immediately
 	}
 
 	for pat, dur := range patterns {

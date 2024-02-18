@@ -16,15 +16,16 @@ import (
 
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/exp/slices"
 )
 
-var (
-	sessions    = make(map[string]bool)
-	sessionsMut = sync.NewMutex()
+const (
+	maxSessionLifetime = 7 * 24 * time.Hour
+	maxActiveSessions  = 25
+	randomTokenLength  = 64
 )
 
 func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
@@ -86,75 +87,165 @@ func isNoAuthPath(path string) bool {
 		})
 }
 
-func basicAuthAndSessionMiddleware(cookieName, shortID string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if hasValidAPIKeyHeader(r, guiCfg) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		for _, cookie := range r.Cookies() {
-			// We iterate here since there may, historically, be multiple
-			// cookies with the same name but different path. Any "old" ones
-			// won't match an existing session and will be ignored, then
-			// later removed on logout or when timing out.
-			if cookie.Name == cookieName {
-				sessionsMut.Lock()
-				_, ok := sessions[cookie.Value]
-				sessionsMut.Unlock()
-				if ok {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-		}
-
-		// Fall back to Basic auth if provided
-		if username, ok := attemptBasicAuth(r, guiCfg, ldapCfg, evLogger); ok {
-			createSession(cookieName, username, guiCfg, evLogger, w, r)
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Exception for static assets and REST calls that don't require authentication.
-		if isNoAuthPath(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Some browsers don't send the Authorization request header unless prompted by a 401 response.
-		// This enables https://user:pass@localhost style URLs to keep working.
-		if guiCfg.SendBasicAuthPrompt {
-			unauthorized(w, shortID)
-			return
-		}
-
-		forbidden(w)
-	})
+type sessionStore struct {
+	cookieName string
+	shortID    string
+	guiCfg     config.GUIConfiguration
+	evLogger   events.Logger
+	tokens     *tokenManager
 }
 
-func passwordAuthHandler(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Username string
-			Password string
-		}
-		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Debugln("Failed to parse username and password:", err)
-			http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
-			return
-		}
+func newSessionStore(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *sessionStore {
+	return &sessionStore{
+		cookieName: "sessionid-" + shortID,
+		shortID:    shortID,
+		guiCfg:     guiCfg,
+		evLogger:   evLogger,
+		tokens:     newTokenManager("sessions", miscDB, maxSessionLifetime, maxActiveSessions),
+	}
+}
 
-		if auth(req.Username, req.Password, guiCfg, ldapCfg) {
-			createSession(cookieName, req.Username, guiCfg, evLogger, w, r)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+func (m *sessionStore) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
+	sessionid := m.tokens.New()
 
-		emitLoginAttempt(false, req.Username, r.RemoteAddr, evLogger)
-		antiBruteForceSleep()
-		forbidden(w)
+	// Best effort detection of whether the connection is HTTPS --
+	// either directly to us, or as used by the client towards a reverse
+	// proxy who sends us headers.
+	connectionIsHTTPS := r.TLS != nil ||
+		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+	// bit in cookies.
+	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
+
+	maxAge := 0
+	if persistent {
+		maxAge = int(maxSessionLifetime.Seconds())
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:  m.cookieName,
+		Value: sessionid,
+		// In HTTP spec Max-Age <= 0 means delete immediately,
+		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
+		MaxAge: maxAge,
+		Secure: useSecureCookie,
+		Path:   "/",
 	})
+
+	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
+}
+
+func (m *sessionStore) hasValidSession(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. Any "old" ones
+		// won't match an existing session and will be ignored, then
+		// later removed on logout or when timing out.
+		if cookie.Name == m.cookieName {
+			if m.tokens.Check(cookie.Value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (m *sessionStore) destroySession(cookies []*http.Cookie) []http.Cookie {
+	resultCookies := make([]http.Cookie, 0)
+	for _, cookie := range cookies {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. We drop them
+		// all.
+		if cookie.Name == m.cookieName {
+			m.tokens.Delete(cookie.Value)
+
+			// Create a cookie deletion command
+			resultCookies = append(resultCookies, http.Cookie{
+				Name:   m.cookieName,
+				Value:  "",
+				MaxAge: -1,
+				Secure: cookie.Secure,
+				Path:   cookie.Path,
+			})
+		}
+	}
+
+	return resultCookies
+}
+
+type basicAuthAndSessionMiddleware struct {
+	sessionStore *sessionStore
+	guiCfg       config.GUIConfiguration
+	ldapCfg      config.LDAPConfiguration
+	next         http.Handler
+	evLogger     events.Logger
+}
+
+func newBasicAuthAndSessionMiddleware(sessionStore *sessionStore, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) *basicAuthAndSessionMiddleware {
+	return &basicAuthAndSessionMiddleware{
+		sessionStore: sessionStore,
+		guiCfg:       guiCfg,
+		ldapCfg:      ldapCfg,
+		next:         next,
+		evLogger:     evLogger,
+	}
+}
+
+func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if hasValidAPIKeyHeader(r, m.guiCfg) {
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	if m.sessionStore.hasValidSession(r.Cookies()) {
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	// Fall back to Basic auth if provided
+	if username, ok := attemptBasicAuth(r, m.guiCfg, m.ldapCfg, m.evLogger); ok {
+		m.sessionStore.createSession(username, false, w, r)
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	// Exception for static assets and REST calls that don't require authentication.
+	if isNoAuthPath(r.URL.Path) {
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
+	// Some browsers don't send the Authorization request header unless prompted by a 401 response.
+	// This enables https://user:pass@localhost style URLs to keep working.
+	if m.guiCfg.SendBasicAuthPrompt {
+		unauthorized(w, m.sessionStore.shortID)
+		return
+	}
+
+	forbidden(w)
+}
+
+func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username     string
+		Password     string
+		StayLoggedIn bool
+	}
+	if err := unmarshalTo(r.Body, &req); err != nil {
+		l.Debugln("Failed to parse username and password:", err)
+		http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
+		return
+	}
+
+	if auth(req.Username, req.Password, m.guiCfg, m.ldapCfg) {
+		m.sessionStore.createSession(req.Username, req.StayLoggedIn, w, r)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	emitLoginAttempt(false, req.Username, r.RemoteAddr, m.evLogger)
+	antiBruteForceSleep()
+	forbidden(w)
 }
 
 func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, evLogger events.Logger) (string, bool) {
@@ -180,59 +271,13 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	return "", false
 }
 
-func createSession(cookieName string, username string, guiCfg config.GUIConfiguration, evLogger events.Logger, w http.ResponseWriter, r *http.Request) {
-	sessionid := rand.String(32)
-	sessionsMut.Lock()
-	sessions[sessionid] = true
-	sessionsMut.Unlock()
+func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *http.Request) {
+	for _, cookie := range m.sessionStore.destroySession(r.Cookies()) {
+		// Add the cookie deletion command to the Set-Cookie header
+		http.SetCookie(w, &cookie)
+	}
 
-	// Best effort detection of whether the connection is HTTPS --
-	// either directly to us, or as used by the client towards a reverse
-	// proxy who sends us headers.
-	connectionIsHTTPS := r.TLS != nil ||
-		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
-		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
-	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
-	// bit in cookies.
-	useSecureCookie := connectionIsHTTPS || guiCfg.UseTLS()
-
-	http.SetCookie(w, &http.Cookie{
-		Name:  cookieName,
-		Value: sessionid,
-		// In HTTP spec Max-Age <= 0 means delete immediately,
-		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
-		MaxAge: 0,
-		Secure: useSecureCookie,
-		Path:   "/",
-	})
-
-	emitLoginAttempt(true, username, r.RemoteAddr, evLogger)
-}
-
-func handleLogout(cookieName string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, cookie := range r.Cookies() {
-			// We iterate here since there may, historically, be multiple
-			// cookies with the same name but different path. We drop them
-			// all.
-			if cookie.Name == cookieName {
-				sessionsMut.Lock()
-				delete(sessions, cookie.Value)
-				sessionsMut.Unlock()
-
-				// Delete the cookie
-				http.SetCookie(w, &http.Cookie{
-					Name:   cookieName,
-					Value:  "",
-					MaxAge: -1,
-					Secure: cookie.Secure,
-					Path:   cookie.Path,
-				})
-			}
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {

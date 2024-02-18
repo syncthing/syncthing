@@ -35,9 +35,9 @@ func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 }
 
 type webauthnService struct {
+	sessionStore                   *sessionStore
 	engine                         *webauthnLib.WebAuthn
 	cfg                            config.Wrapper
-	cookieName                     string
 	evLogger                       events.Logger
 	userHandle                     []byte
 	registrationState              webauthnLib.SessionData
@@ -45,7 +45,7 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 }
 
-func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.Logger) (webauthnService, error) {
+func newWebauthnService(sessionStore *sessionStore, cfg config.Wrapper, evLogger events.Logger) (webauthnService, error) {
 	engine, err := newWebauthnEngine(cfg)
 	if err != nil {
 		return webauthnService{}, err
@@ -57,11 +57,11 @@ func newWebauthnService(cfg config.Wrapper, cookieName string, evLogger events.L
 	}
 
 	return webauthnService{
-		engine:     engine,
-		cfg:        cfg,
-		cookieName: cookieName,
-		evLogger:   evLogger,
-		userHandle: userHandle,
+		sessionStore: sessionStore,
+		engine:       engine,
+		cfg:          cfg,
+		evLogger:     evLogger,
+		userHandle:   userHandle,
 	}, nil
 }
 
@@ -194,7 +194,18 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	state := s.authenticationState
 	s.authenticationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-	parsedResponse, err := webauthnProtocol.ParseCredentialRequestResponse(r)
+	var req struct {
+		StayLoggedIn bool
+		Credential webauthnProtocol.CredentialAssertionResponse
+	}
+
+	if err := unmarshalTo(r.Body, &req); err != nil {
+		l.Debugln("Failed to parse response:", err)
+		http.Error(w, "Failed to parse response.", http.StatusBadRequest)
+		return
+	}
+
+	parsedResponse, err := req.Credential.Parse()
 	if err != nil {
 		l.Debugln("Failed to parse WebAuthn authentication response", err)
 		badRequest(w)
@@ -248,6 +259,6 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	}
 
 	guiCfg := s.cfg.GUI()
-	createSession(s.cookieName, guiCfg.User, guiCfg, s.evLogger, w, r)
+	s.sessionStore.createSession(guiCfg.User, req.StayLoggedIn, w, r)
 	w.WriteHeader(http.StatusNoContent)
 }

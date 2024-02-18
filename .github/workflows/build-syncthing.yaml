@@ -12,7 +12,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.21.1"
+  GO_VERSION: "~1.21.5"
 
   # Optimize compatibility on the slow archictures.
   GO386: softfloat
@@ -48,20 +48,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["1.20", "1.21"]
-
-        # Don't run the Windows tests with Go 1.21.4 or 1.20.11; this can be
-        # removed when 1.21.5 and 1.20.12 is released.
-        exclude:
-          - runner: windows-latest
-            go: "1.20"
-          - runner: windows-latest
-            go: "1.21"
-        include:
-          - runner: windows-latest
-            go: "~1.20.12 || ~1.20.0 <1.20.11"
-          - runner: windows-latest
-            go: "~1.21.5 || ~1.21.1 <1.21.4"
+        go: ["~1.20.12", "~1.21.5"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -76,7 +63,7 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -111,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -167,11 +154,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          # Temporary version constraint to avoid 1.21.4 which has a bug in
-          # path handling. This can be removed when 1.21.5 is released.
-          go-version: "~1.21.5 || ~1.21.1 <1.21.4"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
 
@@ -205,7 +190,7 @@ jobs:
           CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-windows
           path: syncthing-windows-*.zip
@@ -222,7 +207,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -250,7 +235,7 @@ jobs:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-linux
           path: syncthing-linux-*.tar.gz
@@ -269,7 +254,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -349,7 +334,7 @@ jobs:
           zip -r "../$universal.zip" "$universal"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-macos
           path: syncthing-*.zip
@@ -364,7 +349,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-macos
 
@@ -396,7 +381,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -446,7 +431,7 @@ jobs:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-other
           path: syncthing-*.tar.gz
@@ -463,7 +448,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -486,7 +471,7 @@ jobs:
           mv "syncthing-source-$version.tar.gz" syncthing
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-source
           path: syncthing-source-*.tar.gz
@@ -519,7 +504,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Install signing tool
         run: |
@@ -558,7 +543,7 @@ jobs:
           GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-signed
           path: packages/*
@@ -575,7 +560,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -610,7 +595,7 @@ jobs:
           BUILD_USER: debian
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: debian-packages
           path: "*.deb"
@@ -635,7 +620,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-signed
           path: packages
@@ -677,13 +662,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download signed packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages-signed
           path: packages
 
       - name: Download debian packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: debian-packages
           path: packages
@@ -747,7 +732,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -832,7 +817,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false

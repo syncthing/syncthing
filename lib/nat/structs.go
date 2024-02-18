@@ -17,24 +17,25 @@ import (
 type MappingChangeSubscriber func()
 
 type Mapping struct {
-	protocol Protocol
-	address  Address
+	protocol  Protocol
+	ipVersion IPVersion
+	address   Address
 
-	extAddresses map[string]Address // NAT ID -> Address
+	extAddresses map[string][]Address // NAT ID -> Address
 	expires      time.Time
 	subscribers  []MappingChangeSubscriber
 	mut          sync.RWMutex
 }
 
-func (m *Mapping) setAddressLocked(id string, address Address) {
-	l.Infof("New NAT port mapping: external %s address %s to local address %s.", m.protocol, address, m.address)
-	m.extAddresses[id] = address
+func (m *Mapping) setAddressLocked(id string, addresses []Address) {
+	l.Infof("New external port opened: external %s address(es) %v to local address %s.", m.protocol, addresses, m.address)
+	m.extAddresses[id] = addresses
 }
 
 func (m *Mapping) removeAddressLocked(id string) {
-	addr, ok := m.extAddresses[id]
+	addresses, ok := m.extAddresses[id]
 	if ok {
-		l.Infof("Removing NAT port mapping: external %s address %s, NAT %s is no longer available.", m.protocol, addr, id)
+		l.Infof("Removing external open port: %s address(es) %v for gateway %s.", m.protocol, addresses, id)
 		delete(m.extAddresses, id)
 	}
 }
@@ -73,7 +74,7 @@ func (m *Mapping) ExternalAddresses() []Address {
 	m.mut.RLock()
 	addrs := make([]Address, 0, len(m.extAddresses))
 	for _, addr := range m.extAddresses {
-		addrs = append(addrs, addr)
+		addrs = append(addrs, addr...)
 	}
 	m.mut.RUnlock()
 	return addrs
@@ -86,7 +87,7 @@ func (m *Mapping) OnChanged(subscribed MappingChangeSubscriber) {
 }
 
 func (m *Mapping) String() string {
-	return fmt.Sprintf("%s %s", m.protocol, m.address)
+	return fmt.Sprintf("%s/%s", m.address, m.protocol)
 }
 
 func (m *Mapping) GoString() string {

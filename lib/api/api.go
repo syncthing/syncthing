@@ -48,7 +48,6 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -93,6 +92,7 @@ type service struct {
 	startupErr           error
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
+	miscDB               *db.NamespacedKV
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -106,7 +106,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.NamespacedKV) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -129,6 +129,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 		exitChan:             make(chan *svcutil.FatalErr, 1),
+		miscDB:               miscDB,
 	}
 }
 
@@ -303,8 +304,10 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
-	sessionCookieName := "sessionid-" + s.id.Short().String()
-	webauthnService, err := newWebauthnService(s.cfg, sessionCookieName, s.evLogger)
+	guiCfg := s.cfg.GUI()
+
+	sessionStore := newSessionStore(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+	webauthnService, err := newWebauthnService(sessionStore, s.cfg, s.evLogger)
 	if err != nil {
 		return err
 	}
@@ -370,25 +373,24 @@ func (s *service) Serve(ctx context.Context) error {
 		promHttpHandler.ServeHTTP(w, req)
 	})
 
-	guiCfg := s.cfg.GUI()
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
+	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, s.miscDB)
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger)
-		handlePasswordAuth := passwordAuthHandler(sessionCookieName, guiCfg, s.cfg.LDAP(), s.evLogger)
-		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", handlePasswordAuth)
+		authMW := newBasicAuthAndSessionMiddleware(sessionStore, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		handler = authMW
+
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
 		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication)
 		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication)
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
-		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", handleLogout(sessionCookieName))
+		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -1359,11 +1361,6 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	lines, patterns, err := s.model.LoadIgnores(folder)
-	if err != nil && !ignore.IsParseError(err) {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	sendJSON(w, map[string]interface{}{
 		"ignore":   lines,
 		"expanded": patterns,

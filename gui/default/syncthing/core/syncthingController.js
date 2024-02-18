@@ -107,6 +107,7 @@ angular.module('syncthing.core')
             $http.post(authUrlbase + '/password', {
                 username: $scope.login.username,
                 password: $scope.login.password,
+                stayLoggedIn: $scope.login.stayLoggedIn,
             }).then(function () {
                 location.reload();
             }).catch(function (response) {
@@ -1061,17 +1062,28 @@ angular.module('syncthing.core')
                 // Do the same thing in case we only have zero byte files to sync.
                 return 95;
             }
-            var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
-            return Math.floor(pct);
+            return progressIntegerPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
         };
 
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;
             }
-            var pct = 100 * $scope.scanProgress[folder].current / $scope.scanProgress[folder].total;
-            return Math.floor(pct);
+            return progressIntegerPercentage($scope.scanProgress[folder].current, $scope.scanProgress[folder].total);
         };
+
+        function progressIntegerPercentage(current, total) {
+            // Even after whatever is being tracked (e.g. hashed or synced
+            // bytes) is completed, there's likely some more work to be done to
+            // fully finish the process (db updates, ...). Users apparently
+            // don't like seeing 100%, so give them 99% to indicate "about to be
+            // finished".
+            if (current === total) {
+                return 99;
+            }
+            var pct = 100 * current / total;
+            return Math.floor(pct);
+        }
 
         $scope.scanRate = function (folder) {
             if (!$scope.scanProgress[folder]) {
@@ -1170,6 +1182,113 @@ angular.module('syncthing.core')
                 return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
+            }
+        };
+
+        $scope.deviceStatusIcon = function(cfg) {
+            switch ($scope.deviceStatus(cfg)) {
+                case 'disconnected':
+                case 'disconnected-inactive':
+                    return 'fa-power-off';
+                case 'insync':
+                    return 'fa-check';
+                case 'paused':
+                    return 'fa-pause';
+                case 'syncing':
+                    return 'fa-sync';
+                case 'unused-disconnected':
+                case 'unused-insync':
+                case 'unused-paused':
+                    return 'fa-unlink';
+            }
+        };
+
+        $scope.deviceStatusText = function(device) {
+            switch ($scope.deviceStatus(device)) {
+                case 'disconnected':
+                    return $translate.instant('Disconnected');
+                case 'disconnected-inactive':
+                    return $translate.instant('Disconnected (Inactive)');
+                case 'insync':
+                    return $translate.instant('Up to Date');
+                case 'paused':
+                    return $translate.instant('Paused');
+                case 'syncing':
+                    return $translate.instant('Syncing');
+                case 'unused-disconnected':
+                    return $translate.instant('Disconnected (Unused)');
+                case 'unused-insync':
+                    return $translate.instant('Connected (Unused)');
+                case 'unused-paused':
+                    return $translate.instant('Paused (Unused)');
+            }
+        };
+
+        $scope.folderStatusIcon = function(cfg) {
+            switch ($scope.folderStatus(cfg)) {
+                case 'clean-waiting':
+                case 'scan-waiting':
+                case 'sync-preparing':
+                case 'sync-waiting':
+                    return 'fa-hourglass-half';
+                case 'cleaning':
+                    return 'fa-recycle';
+                case 'faileditems':
+                case 'localunencrypted':
+                case 'outofsync':
+                    return 'fa-exclamation-circle';
+                case 'idle':
+                case 'localadditions':
+                    return 'fa-check';
+                case 'paused':
+                    return 'fa-pause';
+                case 'scanning':
+                    return 'fa-search';
+                case 'stopped':
+                    return 'fa-stop';
+                case 'syncing':
+                    return 'fa-sync';
+                case 'unknown':
+                    return 'fa-question-circle';
+                case 'unshared':
+                    return 'fa-unlink';
+            }
+        };
+
+        $scope.folderStatusText = function(folder) {
+            switch ($scope.folderStatus(folder)) {
+                case 'clean-waiting':
+                    return $translate.instant('Waiting to Clean');
+                case 'cleaning':
+                    return $translate.instant('Cleaning Versions');
+                case 'faileditems':
+                    return $translate.instant('Failed Items');
+                case 'idle':
+                    return $translate.instant('Up to Date');
+                case 'localadditions':
+                    return $translate.instant('Local Additions');
+                case 'localunencrypted':
+                    return $translate.instant('Unexpected Items');
+                case 'outofsync':
+                    return $translate.instant('Out of Sync');
+                case 'paused':
+                    return $translate.instant('Paused');
+                case 'scan-waiting':
+                    return $translate.instant('Waiting to Scan');
+                case 'scanning':
+                    return $translate.instant('Scanning');
+                case 'stopped':
+                    return $translate.instant('Stopped');
+                case 'sync-preparing':
+                    return $translate.instant('Preparing to Sync');
+                case 'sync-waiting':
+                    return $translate.instant('Waiting to Sync');
+                case 'syncing':
+                    return $translate.instant('Syncing');
+                case 'unknown':
+                    return $translate.instant('Unknown');
+                case 'unshared':
+                    return $translate.instant('Unshared');
             }
         };
 
@@ -1364,7 +1483,7 @@ angular.module('syncthing.core')
 
         $scope.friendlyNameFromShort = function (shortID) {
             var matches = Object.keys($scope.devices).filter(function (id) {
-                return id.substr(0, 7) === shortID;
+                return id.substr(0, shortIDStringLength) === shortID;
             });
             if (matches.length !== 1) {
                 return shortID;
@@ -1377,7 +1496,7 @@ angular.module('syncthing.core')
             if (match) {
                 return $scope.deviceName(match);
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.deviceName = function (deviceCfg) {
@@ -1394,7 +1513,7 @@ angular.module('syncthing.core')
             if (typeof deviceID === 'undefined') {
                 return "";
             }
-            return deviceID.substr(0, 6);
+            return deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.thisDeviceName = function () {
@@ -1405,7 +1524,7 @@ angular.module('syncthing.core')
             if (device.name) {
                 return device.name;
             }
-            return device.deviceID.substr(0, 6);
+            return device.deviceID.substr(0, shortIDStringLength);
         };
 
         $scope.showDeviceIdentification = function (deviceCfg) {
@@ -1704,7 +1823,13 @@ angular.module('syncthing.core')
                     var finish = function (request) {
                         return webauthnJSON.get(request)
                             .then(function (pkc) {
-                                return $http.post(authUrlbase + '/webauthn-finish', pkc);
+                                return $http.post(
+                                    authUrlbase + '/webauthn-finish',
+                                    {
+                                        credential: pkc,
+                                        stayLoggedIn: $scope.login.stayLoggedIn,
+                                    },
+                                );
                             })
                             .then(function () {
                                 location.reload();
@@ -3689,7 +3814,7 @@ angular.module('syncthing.core')
                 return n.match !== "";
             });
         };
-        
+
         // The showModal and hideModal functions are a bandaid for a Bootstrap
         // bug (see https://github.com/twbs/bootstrap/issues/3902) that causes
         // multiple consecutively shown or hidden modals to overlap which leads

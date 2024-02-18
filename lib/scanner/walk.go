@@ -160,6 +160,11 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			total += file.Size
 		}
 
+		if len(filesToHash) == 0 {
+			close(finishedChan)
+			return
+		}
+
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
@@ -171,22 +176,27 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		go func() {
 			defer progress.Close()
 
+			emitProgressEvent := func() {
+				current := progress.Total()
+				rate := progress.Rate()
+				l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+				w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
+					"folder":  w.Folder,
+					"current": current,
+					"total":   total,
+					"rate":    rate, // bytes per second
+				})
+			}
+
 			for {
 				select {
 				case <-done:
+					emitProgressEvent()
 					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					current := progress.Total()
-					rate := progress.Rate()
-					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
-						"folder":  w.Folder,
-						"current": current,
-						"total":   total,
-						"rate":    rate, // bytes per second
-					})
+					emitProgressEvent()
 				case <-ctx.Done():
 					ticker.Stop()
 					return
@@ -688,6 +698,13 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
 		}
 	}
+
+	if ct := fi.InodeChangeTime(); !ct.IsZero() {
+		f.InodeChangeNs = ct.UnixNano()
+	} else {
+		f.InodeChangeNs = 0
+	}
+
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)
@@ -698,19 +715,18 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
+
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = fi.ModTime().Nanosecond()
+
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil
 	}
+
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
-	if ct := fi.InodeChangeTime(); !ct.IsZero() {
-		f.InodeChangeNs = ct.UnixNano()
-	} else {
-		f.InodeChangeNs = 0
-	}
+
 	return f, nil
 }
