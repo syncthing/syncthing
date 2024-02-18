@@ -653,6 +653,28 @@ func TestHTTPLogin(t *testing.T) {
 				}
 			})
 
+			t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+				t.Parallel()
+				loginResp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if loginResp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, loginResp.StatusCode)
+				}
+				if !hasSessionCookie(loginResp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+
+				resp := httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for cookie-authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+
+				httpPost(baseURL + "/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+				resp = httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Expected session to be invalid (status %d) after logout, got status: %d", expectedFailStatus, resp.StatusCode)
+				}
+			})
+
 			t.Run("ISO-8859-1 auth works", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetBasicAuth(url, "\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
@@ -814,6 +836,24 @@ func TestHtmlFormLogin(t *testing.T) {
 		logoutResp := httpPost(baseURL + "/rest/noauth/auth/logout", nil, resp.Cookies(), t)
 		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
 			t.Errorf("Expected session cookie to be deleted for logout request")
+		}
+	})
+
+	t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		loginResp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if loginResp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", loginResp.StatusCode)
+		}
+		resp := performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		httpPost(baseURL + "/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+		resp = performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected session to be invalid (status 403) after logout, got status: %d", resp.StatusCode)
 		}
 	})
 
