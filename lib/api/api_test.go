@@ -501,6 +501,15 @@ func hasSessionCookie(cookies []*http.Cookie) bool {
 	return false
 }
 
+func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge < 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return true
+		}
+	}
+	return false
+}
+
 func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
 	req, err := http.NewRequest("GET", url, nil)
 	for _, cookie := range cookies {
@@ -626,6 +635,21 @@ func TestHTTPLogin(t *testing.T) {
 				}
 				if !hasSessionCookie(resp.Cookies()) {
 					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+			})
+
+			t.Run("Logout removes the session cookie", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+				logoutResp := httpPost(baseURL + "/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+				if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+					t.Errorf("Expected session cookie to be deleted for logout request")
 				}
 			})
 
@@ -777,6 +801,19 @@ func TestHtmlFormLogin(t *testing.T) {
 		resp = performResourceRequest(resourceUrl, resp.Cookies())
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+	})
+
+	t.Run("Logout removes the session cookie", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		resp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		logoutResp := httpPost(baseURL + "/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+			t.Errorf("Expected session cookie to be deleted for logout request")
 		}
 	})
 
