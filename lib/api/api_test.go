@@ -647,7 +647,7 @@ func TestHTTPLogin(t *testing.T) {
 				if !hasSessionCookie(resp.Cookies()) {
 					t.Errorf("Expected session cookie for authed request (UTF-8)")
 				}
-				logoutResp := httpPost(baseURL + "/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+				logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
 				if !hasDeleteSessionCookie(logoutResp.Cookies()) {
 					t.Errorf("Expected session cookie to be deleted for logout request")
 				}
@@ -668,7 +668,7 @@ func TestHTTPLogin(t *testing.T) {
 					t.Errorf("Unexpected non-%d return code %d for cookie-authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
 				}
 
-				httpPost(baseURL + "/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+				httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
 				resp = httpGet(url, "", "", "", "", loginResp.Cookies(), t)
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Expected session to be invalid (status %d) after logout, got status: %d", expectedFailStatus, resp.StatusCode)
@@ -833,7 +833,7 @@ func TestHtmlFormLogin(t *testing.T) {
 		if resp.StatusCode != http.StatusNoContent {
 			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
 		}
-		logoutResp := httpPost(baseURL + "/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
 		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
 			t.Errorf("Expected session cookie to be deleted for logout request")
 		}
@@ -850,7 +850,7 @@ func TestHtmlFormLogin(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
 		}
-		httpPost(baseURL + "/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+		httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
 		resp = performResourceRequest(resourceUrl, loginResp.Cookies())
 		if resp.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected session to be invalid (status 403) after logout, got status: %d", resp.StatusCode)
