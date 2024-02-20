@@ -19,7 +19,7 @@ func (f *BasicFilesystem) PlatformData(name string, scanOwnership, _ bool, _ Xat
 		return protocol.PlatformData{}, nil
 	}
 
-	rootedName, err := f.rooted(name)
+	rootedName, err := f.rooted(name, "chown")
 	if err != nil {
 		return protocol.PlatformData{}, fmt.Errorf("rooted for %s: %w", name, err)
 	}

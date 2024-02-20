@@ -25,6 +25,10 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+	if f.encoder != nil {
+		name = f.encoder.encode(name)
+	}
+
 	watchPath, roots, err := f.watchPaths(name)
 	if err != nil {
 		return nil, nil, err

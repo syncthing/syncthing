@@ -24,7 +24,7 @@ import (
 func TestFakeFS(t *testing.T) {
 	// Test some basic aspects of the fakeFS
 
-	fs := newFakeFilesystem("/foo/bar/baz")
+	fs := newFakeFilesystem("/foo/bar/baz", testOpts...)
 
 	// MkdirAll
 	err := fs.MkdirAll("dira/dirb", 0755)
@@ -202,12 +202,12 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"FileName", testFakeFSFileName},
 	}
 	var filesystems = []testFS{
-		{"fakeFS", newFakeFilesystem("/foo")},
+		{"fakeFS", newFakeFilesystem("/foo", testOpts...)},
 	}
 
 	testDir, sensitive := createTestDir(t)
 	if sensitive {
-		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
+		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir, testOpts...)})
 	}
 
 	runTests(t, tests, filesystems)
@@ -237,12 +237,12 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	var filesystems = []testFS{
-		{"fakeFS", newFakeFilesystem("/foobar?insens=true")},
+		{"fakeFS", newFakeFilesystem("/foobar?insens=true", testOpts...)},
 	}
 
 	testDir, sensitive := createTestDir(t)
 	if !sensitive {
-		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
+		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir, testOpts...)})
 	}
 
 	runTests(t, tests, filesystems)
@@ -885,7 +885,7 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 }
 
 func TestReadWriteContent(t *testing.T) {
-	fs := newFakeFilesystem("foo?content=true")
+	fs := newFakeFilesystem("foo?content=true", testOpts...)
 	fd, err := fs.Create("file")
 	if err != nil {
 		t.Fatal(err)

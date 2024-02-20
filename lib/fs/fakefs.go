@@ -90,7 +90,7 @@ var (
 	fakeFSCache = make(map[string]*fakeFS)
 )
 
-func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
+func newFakeFilesystem(rootURI string, opts ...Option) *fakeFS {
 	fakeFSMut.Lock()
 	defer fakeFSMut.Unlock()
 
@@ -100,6 +100,9 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 		params = uri.Query()
 	}
 
+	for _, opt := range opts {
+		rootURI += "+" + opt.String()
+	}
 	if fs, ok := fakeFSCache[rootURI]; ok {
 		// Already have an fs at this path
 		return fs
@@ -706,7 +709,11 @@ func (fs *fakeFS) PlatformData(name string, scanOwnership, scanXattrs bool, xatt
 	return unixPlatformData(fs, name, fs.userCache, fs.groupCache, scanOwnership, scanXattrs, xattrFilter)
 }
 
-func (*fakeFS) underlying() (Filesystem, bool) {
+func (*fakeFS) ValidPath(path string) error {
+	return nil
+}
+
+func (fs *fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
