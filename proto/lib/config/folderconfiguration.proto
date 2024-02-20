@@ -10,6 +10,7 @@ import "lib/config/blockpullorder.proto";
 
 import "lib/fs/types.proto";
 import "lib/fs/copyrangemethod.proto";
+import "lib/fs/encoders.proto";
 
 import "ext.proto";
 
@@ -59,6 +60,7 @@ message FolderConfiguration {
     bool                               sync_xattrs                = 37;
     bool                               send_xattrs                = 38;
     XattrFilter                        xattr_filter               = 39;
+    fs.FilesystemEncoderType           encoder_type               = 40;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];

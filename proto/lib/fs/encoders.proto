@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package fs;
+
+import "repos/protobuf/gogoproto/gogo.proto";
+
+enum FilesystemEncoderType {
+    option (gogoproto.goproto_enum_stringer) = false;
+
+    // The Passthrough encoder type has a value of 0, as it will be the
+    // default when a new Filesystem or BasicFilesystem is instantiated.
+    FILESYSTEM_ENCODER_TYPE_PASSTHROUGH = 0;
+    FILESYSTEM_ENCODER_TYPE_STANDARD    = 1;
+    FILESYSTEM_ENCODER_TYPE_FAT         = 2;
+}

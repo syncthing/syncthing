@@ -87,7 +87,7 @@ func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 }
 
 func (f *BasicFilesystem) Unhide(name string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "unhide")
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (f *BasicFilesystem) Unhide(name string) error {
 }
 
 func (f *BasicFilesystem) Hide(name string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "hide")
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "lchown")
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 }
 
 func (f *BasicFilesystem) Remove(name string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "remove")
 	if err != nil {
 		return err
 	}

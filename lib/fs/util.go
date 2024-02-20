@@ -48,6 +48,11 @@ func getHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
+var windowsDisallowedNames = []string{"CON", "PRN", "AUX", "NUL", // "CONIN$", "CONOUT$",
+	"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+	"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+}
+
 const windowsDisallowedCharacters = (`<>:"|?*` +
 	"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f")

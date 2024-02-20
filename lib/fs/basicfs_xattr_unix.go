@@ -21,7 +21,7 @@ import (
 )
 
 func (f *BasicFilesystem) GetXattr(path string, xattrFilter XattrFilter) ([]protocol.Xattr, error) {
-	path, err := f.rooted(path)
+	path, err := f.rooted(path, "getxattr")
 	if err != nil {
 		return nil, fmt.Errorf("get xattr %s: %w", path, err)
 	}
@@ -129,7 +129,7 @@ func (f *BasicFilesystem) SetXattr(path string, xattrs []protocol.Xattr, xattrFi
 		currentIdx[xa.Name] = i
 	}
 
-	path, err = f.rooted(path)
+	path, err = f.rooted(path, "setxattr")
 	if err != nil {
 		return fmt.Errorf("set xattrs %s: %w", path, err)
 	}
