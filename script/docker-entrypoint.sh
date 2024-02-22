@@ -2,6 +2,8 @@
 
 set -eu
 
+[ -n "${UMASK:-}" ] && umask "$UMASK"
+
 if [ "$(id -u)" = '0' ]; then
   binary="$1"
   if [ -z "${PCAP:-}" ]; then
