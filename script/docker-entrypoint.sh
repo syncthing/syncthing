@@ -4,7 +4,7 @@ set -eu
 
 if [ "$(id -u)" = '0' ]; then
   binary="$1"
-  if [ "${PCAP:-}" == "" ] ; then
+  if [ -z "${PCAP:-}" ]; then
     # If Syncthing should have no extra capabilities, make sure to remove them
     # from the binary. This will fail with an error if there are no
     # capabilities to remove, hence the || true etc.
