@@ -7,19 +7,23 @@
 package config
 
 import (
+	"encoding/base64"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/syncthing/syncthing/lib/rand"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
 	// This function should match isAuthEnabled() in syncthingController.js
+	return c.IsPasswordAuthEnabled() || c.WebauthnReady()
+}
+
+func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
@@ -81,6 +85,21 @@ func (c GUIConfiguration) UseTLS() bool {
 	return c.RawUseTLS
 }
 
+func (c GUIConfiguration) WebauthnReady() bool {
+	return c.UseTLS() && len(c.EligibleWebAuthnCredentials()) > 0
+}
+
+func (c GUIConfiguration) EligibleWebAuthnCredentials() []WebauthnCredential {
+	var result []WebauthnCredential
+	rpId := c.WebauthnRpId
+	for _, cred := range c.WebauthnCredentials {
+		if cred.RpId == rpId {
+			result = append(result, cred)
+		}
+	}
+	return result
+}
+
 func (c GUIConfiguration) URL() string {
 	if c.Network() == "unix" {
 		if c.UseTLS() {
@@ -119,7 +138,13 @@ var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 // SetPassword takes a bcrypt hash or a plaintext password and stores it.
 // Plaintext passwords are hashed. Returns an error if the password is not
 // valid.
+// If the plaintext password is empty, the password is unset instead.
 func (c *GUIConfiguration) SetPassword(password string) error {
+	if password == "" {
+		c.Password = ""
+		return nil
+	}
+
 	if bcryptExpr.MatchString(password) {
 		// Already hashed
 		c.Password = password
@@ -155,12 +180,31 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
-func (c *GUIConfiguration) prepare() {
+func (c *GUIConfiguration) prepare() error {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
+
+	if len(c.WebauthnUserId) == 0 {
+		newUserId := make([]byte, 64)
+		_, err := rand.Read(newUserId)
+		if err != nil {
+			return err
+		}
+		c.WebauthnUserId = base64.URLEncoding.EncodeToString(newUserId)
+	}
+
+	return nil
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
+}
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	} else {
+		return c.ID
+	}
 }

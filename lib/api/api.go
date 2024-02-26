@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"github.com/calmh/incontainer"
+	"github.com/google/go-cmp/cmp"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
@@ -303,12 +304,21 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
+	guiCfg := s.cfg.GUI()
+
+	sessionStore := newSessionStore(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+	webauthnService, err := newWebauthnService(sessionStore, s.cfg, s.evLogger)
+	if err != nil {
+		return err
+	}
+
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
-		Router: restMux,
-		id:     s.id,
-		cfg:    s.cfg,
+		Router:          restMux,
+		id:              s.id,
+		cfg:             s.cfg,
+		webauthnService: &webauthnService,
 	}
 
 	configBuilder.registerConfig("/rest/config")
@@ -323,6 +333,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
@@ -357,8 +368,6 @@ func (s *service) Serve(ctx context.Context) error {
 	promHttpHandler := promhttp.Handler()
 	mux.Handle("/metrics", promHttpHandler)
 
-	guiCfg := s.cfg.GUI()
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
 	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, s.miscDB)
@@ -366,13 +375,14 @@ func (s *service) Serve(ctx context.Context) error {
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
-	// Wrap everything in basic auth, if user/password is set.
+	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		sessionCookieName := "sessionid-" + s.id.Short().String()
-		authMW := newBasicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger, s.miscDB)
+		authMW := newBasicAuthAndSessionMiddleware(sessionStore, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication)
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication)
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
@@ -484,7 +494,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if to.GUI == from.GUI {
+	if cmp.Equal(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
 		return true
 	}

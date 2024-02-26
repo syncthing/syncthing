@@ -102,8 +102,16 @@ ul+h5 {
     /*padding-left: 20px !important;*/
 }
 
+.table td.button-cell {
+  padding: 0;
+}
+
 .table td.small-data {
     white-space: nowrap;
+}
+
+.table td.stretch {
+    width: 100%;
 }
 
 /* Removing text decoration on anchor link hover pull request: #4135 */
@@ -552,4 +560,8 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
+}
+
+.webauthn-credentials table.table > tbody > tr > td {
+  vertical-align: middle;
 }
