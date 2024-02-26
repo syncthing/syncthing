@@ -13,9 +13,9 @@ import (
 	"os"
 	"path/filepath"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
-	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

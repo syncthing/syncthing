@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	_ "go.uber.org/automaxprocs"
 )
 
 type result struct {
@@ -158,7 +158,7 @@ func saveCert(priv interface{}, derBytes []byte) {
 		os.Exit(1)
 	}
 
-	keyOut, err := os.OpenFile("key.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile("key.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	_ "go.uber.org/automaxprocs"
 )
 
 type cli struct {

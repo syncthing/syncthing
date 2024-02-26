@@ -33,8 +33,8 @@ import (
 	"text/template"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	buildpkg "github.com/syncthing/syncthing/lib/build"
-	_ "go.uber.org/automaxprocs"
 )
 
 var (
