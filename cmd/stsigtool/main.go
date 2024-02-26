@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/signature"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

@@ -17,6 +17,7 @@ import (
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

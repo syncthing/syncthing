@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sha256"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

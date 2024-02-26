@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture/v4"
+	_ "go.uber.org/automaxprocs"
 )
 
 const (

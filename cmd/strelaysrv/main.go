@@ -20,18 +20,17 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
+	_ "github.com/syncthing/syncthing/lib/pmp"
+	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"golang.org/x/time/rate"
-
-	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/nat"
-	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
-
-	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	_ "go.uber.org/automaxprocs"
+	"golang.org/x/time/rate"
 )
 
 var (

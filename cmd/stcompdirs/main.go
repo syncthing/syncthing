@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/sha256"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

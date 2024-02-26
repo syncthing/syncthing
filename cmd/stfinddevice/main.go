@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	_ "go.uber.org/automaxprocs"
 )
 
 var timeout = 5 * time.Second
