@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	_ "go.uber.org/automaxprocs"
 )
 
 type event struct {

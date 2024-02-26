@@ -32,6 +32,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"

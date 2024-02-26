@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

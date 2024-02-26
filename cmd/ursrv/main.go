@@ -13,6 +13,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/cmd/ursrv/aggregate"
 	"github.com/syncthing/syncthing/cmd/ursrv/serve"
+	_ "go.uber.org/automaxprocs"
 )
 
 type CLI struct {

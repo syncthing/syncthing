@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/protocol"
+	_ "go.uber.org/automaxprocs"
 )
 
 var (

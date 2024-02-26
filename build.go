@@ -34,6 +34,7 @@ import (
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
+	_ "go.uber.org/automaxprocs"
 )
 
 var (

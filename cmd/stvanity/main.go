@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	_ "go.uber.org/automaxprocs"
 )
 
 type result struct {
