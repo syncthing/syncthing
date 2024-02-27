@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -29,7 +30,6 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	_ "github.com/syncthing/syncthing/lib/upnp"
-	_ "go.uber.org/automaxprocs"
 	"golang.org/x/time/rate"
 )
 

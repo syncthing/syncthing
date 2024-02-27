@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
-	_ "go.uber.org/automaxprocs"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"

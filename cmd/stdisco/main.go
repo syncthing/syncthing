@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/protocol"
-	_ "go.uber.org/automaxprocs"
 )
 
 var (

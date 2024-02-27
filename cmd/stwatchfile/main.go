@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/sha256"
-	_ "go.uber.org/automaxprocs"
 )
 
 func main() {
