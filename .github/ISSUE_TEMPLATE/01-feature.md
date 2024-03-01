@@ -1,13 +1,11 @@
 ---
 name: Feature request
-about: If you're just not sure how to do something, see "ask a question".
+about: If you're just not sure how to do something, see "I need help / I have a question".
 labels: enhancement, needs-triage
 ---
 
-### Include required information
+### What problem does your new feature solve?
 
-Please be sure to include at least:
+### How or why do you think it is generally useful (i.e., not just for you)?
 
- - what problem your new feature would solve
- - how or why you think it is generally useful (i.e., not just for you)
- - what alternatives or workarounds you considered
+### What alternatives or workarounds have you considered?
