@@ -89,7 +89,7 @@ func sendReport(dsn string, pkt *raven.Packet, userID string) error {
 	}
 
 	// The client sets release and such on the packet before sending, in the
-	// misguided idea that it knows this better than than the packet we give
+	// misguided idea that it knows this better than the packet we give
 	// it. So we copy the values from the packet to the client first...
 	cli.SetRelease(pkt.Release)
 	cli.SetEnvironment(pkt.Environment)

@@ -5070,7 +5070,7 @@ var uniqueId = $.fn.extend( {
 					});
 			}
 			// remainMap contains parent nodes, each with a list of relative sub-paths.
-			// We start loading all of them now, and pass the the list to each loader.
+			// We start loading all of them now, and pass the list to each loader.
 			for (nodeKey in remainMap) {
 				if (remainMap.hasOwnProperty(nodeKey)) {
 					remain = remainMap[nodeKey];
