@@ -7,9 +7,13 @@
 package api
 
 import (
+	"net/http"
+	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/exp/slices"
@@ -134,4 +138,90 @@ func (m *tokenManager) scheduledSave() {
 
 	bs, _ := m.tokens.Marshal()      // can't fail
 	_ = m.miscDB.PutBytes(m.key, bs) // can fail, but what are we going to do?
+}
+
+type sessionStore struct {
+	cookieName string
+	shortID    string
+	guiCfg     config.GUIConfiguration
+	evLogger   events.Logger
+	tokens     *tokenManager
+}
+
+func newSessionStore(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *sessionStore {
+	return &sessionStore{
+		cookieName: "sessionid-" + shortID,
+		shortID:    shortID,
+		guiCfg:     guiCfg,
+		evLogger:   evLogger,
+		tokens:     newTokenManager("sessions", miscDB, maxSessionLifetime, maxActiveSessions),
+	}
+}
+
+func (m *sessionStore) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
+	sessionid := m.tokens.New()
+
+	// Best effort detection of whether the connection is HTTPS --
+	// either directly to us, or as used by the client towards a reverse
+	// proxy who sends us headers.
+	connectionIsHTTPS := r.TLS != nil ||
+		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
+	// bit in cookies.
+	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
+
+	maxAge := 0
+	if persistent {
+		maxAge = int(maxSessionLifetime.Seconds())
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:  m.cookieName,
+		Value: sessionid,
+		// In HTTP spec Max-Age <= 0 means delete immediately,
+		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
+		MaxAge: maxAge,
+		Secure: useSecureCookie,
+		Path:   "/",
+	})
+
+	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
+}
+
+func (m *sessionStore) hasValidSession(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. Any "old" ones
+		// won't match an existing session and will be ignored, then
+		// later removed on logout or when timing out.
+		if cookie.Name == m.cookieName {
+			if m.tokens.Check(cookie.Value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (m *sessionStore) destroySession(cookies []*http.Cookie) []http.Cookie {
+	resultCookies := make([]http.Cookie, 0)
+	for _, cookie := range cookies {
+		// We iterate here since there may, historically, be multiple
+		// cookies with the same name but different path. We drop them
+		// all.
+		if cookie.Name == m.cookieName {
+			m.tokens.Delete(cookie.Value)
+
+			// Create a cookie deletion command
+			resultCookies = append(resultCookies, http.Cookie{
+				Name:   m.cookieName,
+				Value:  "",
+				MaxAge: -1,
+				Secure: cookie.Secure,
+				Path:   cookie.Path,
+			})
+		}
+	}
+
+	return resultCookies
 }
