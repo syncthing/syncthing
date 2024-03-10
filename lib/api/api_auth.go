@@ -79,16 +79,16 @@ func isNoAuthPath(path string) bool {
 }
 
 type basicAuthAndSessionMiddleware struct {
-	sessionStore *sessionStore
+	tokenCookieManager *tokenCookieManager
 	guiCfg       config.GUIConfiguration
 	ldapCfg      config.LDAPConfiguration
 	next         http.Handler
 	evLogger     events.Logger
 }
 
-func newBasicAuthAndSessionMiddleware(sessionStore *sessionStore, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) *basicAuthAndSessionMiddleware {
+func newBasicAuthAndSessionMiddleware(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) *basicAuthAndSessionMiddleware {
 	return &basicAuthAndSessionMiddleware{
-		sessionStore: sessionStore,
+		tokenCookieManager: tokenCookieManager,
 		guiCfg:       guiCfg,
 		ldapCfg:      ldapCfg,
 		next:         next,
@@ -102,14 +102,14 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 		return
 	}
 
-	if m.sessionStore.hasValidSession(r) {
+	if m.tokenCookieManager.hasValidSession(r) {
 		m.next.ServeHTTP(w, r)
 		return
 	}
 
 	// Fall back to Basic auth if provided
 	if username, ok := attemptBasicAuth(r, m.guiCfg, m.ldapCfg, m.evLogger); ok {
-		m.sessionStore.createSession(username, false, w, r)
+		m.tokenCookieManager.createSession(username, false, w, r)
 		m.next.ServeHTTP(w, r)
 		return
 	}
@@ -123,7 +123,7 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 	// Some browsers don't send the Authorization request header unless prompted by a 401 response.
 	// This enables https://user:pass@localhost style URLs to keep working.
 	if m.guiCfg.SendBasicAuthPrompt {
-		unauthorized(w, m.sessionStore.shortID)
+		unauthorized(w, m.tokenCookieManager.shortID)
 		return
 	}
 
@@ -143,7 +143,7 @@ func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWrite
 	}
 
 	if auth(req.Username, req.Password, m.guiCfg, m.ldapCfg) {
-		m.sessionStore.createSession(req.Username, req.StayLoggedIn, w, r)
+		m.tokenCookieManager.createSession(req.Username, req.StayLoggedIn, w, r)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -177,7 +177,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 }
 
 func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *http.Request) {
-	m.sessionStore.destroySession(w, r)
+	m.tokenCookieManager.destroySession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 

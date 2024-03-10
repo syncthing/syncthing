@@ -140,7 +140,7 @@ func (m *tokenManager) scheduledSave() {
 	_ = m.miscDB.PutBytes(m.key, bs) // can fail, but what are we going to do?
 }
 
-type sessionStore struct {
+type tokenCookieManager struct {
 	cookieName string
 	shortID    string
 	guiCfg     config.GUIConfiguration
@@ -148,8 +148,8 @@ type sessionStore struct {
 	tokens     *tokenManager
 }
 
-func newSessionStore(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *sessionStore {
-	return &sessionStore{
+func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *tokenCookieManager {
+	return &tokenCookieManager{
 		cookieName: "sessionid-" + shortID,
 		shortID:    shortID,
 		guiCfg:     guiCfg,
@@ -158,7 +158,7 @@ func newSessionStore(shortID string, guiCfg config.GUIConfiguration, evLogger ev
 	}
 }
 
-func (m *sessionStore) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
+func (m *tokenCookieManager) createSession(username string, persistent bool, w http.ResponseWriter, r *http.Request) {
 	sessionid := m.tokens.New()
 
 	// Best effort detection of whether the connection is HTTPS --
@@ -188,7 +188,7 @@ func (m *sessionStore) createSession(username string, persistent bool, w http.Re
 	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
 }
 
-func (m *sessionStore) hasValidSession(r *http.Request) bool {
+func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
 	for _, cookie := range r.Cookies() {
 		// We iterate here since there may, historically, be multiple
 		// cookies with the same name but different path. Any "old" ones
@@ -203,7 +203,7 @@ func (m *sessionStore) hasValidSession(r *http.Request) bool {
 	return false
 }
 
-func (m *sessionStore) destroySession(w http.ResponseWriter, r *http.Request) {
+func (m *tokenCookieManager) destroySession(w http.ResponseWriter, r *http.Request) {
 	for _, cookie := range r.Cookies() {
 		// We iterate here since there may, historically, be multiple
 		// cookies with the same name but different path. We drop them
