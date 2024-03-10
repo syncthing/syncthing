@@ -386,6 +386,7 @@
     "Staggered File Versioning": "Filversionshantering i intervall",
     "Start Browser": "Starta webbläsaren",
     "Statistics": "Statistik",
+    "Stay logged in": "Förbli inloggad",
     "Stopped": "Stoppad",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Lagrar och synkroniserar endast krypterade data. Mappar på alla anslutna enheter måste ställas in med samma lösenord eller också vara av typen \"{{receiveEncrypted}}\".",
     "Subject:": "Ämne:",

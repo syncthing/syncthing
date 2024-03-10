@@ -45,7 +45,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(conn, "ro", knownFiles))
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
 
 	size := globalSize(t, m, "ro")
@@ -122,7 +122,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Send and index update for the known stuff
 
-	must(t, m.Index(conn, "ro", knownFiles))
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -212,7 +212,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(conn, "ro", knownFiles))
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -282,7 +282,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(conn, "ro", knownFiles))
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -347,7 +347,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	// Send an index update for the known stuff
 
-	must(t, m.Index(conn, "ro", knownFiles))
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
 
 	// Scan the folder.
@@ -402,7 +402,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	must(t, m.IndexUpdate(conn, "ro", files))
+	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
 	must(t, f.doInSync(func() error {
@@ -470,13 +470,81 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	}()
 
 	// Receive an index update with an older version, but valid and then revert
-	must(t, m.Index(conn, f.ID, []protocol.FileInfo{fi}))
+	must(t, m.Index(conn, &protocol.Index{Folder: f.ID, Files: []protocol.FileInfo{fi}}))
 	f.Revert()
 
 	select {
 	case <-ctx.Done():
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
+	}
+}
+
+func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
+	// Get us a model up and running
+
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
+	ffs := f.Filesystem(nil)
+	defer cleanupModel(m)
+	conn := addFakeConn(m, device1, f.ID)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0o755))
+	oldData := []byte("hello\n")
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	// Send an index update for the known stuff
+
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
+	f.updateLocalsFromScanning(knownFiles)
+
+	// Scan the folder.
+
+	must(t, m.ScanFolder("ro"))
+
+	// Everything should be in sync.
+
+	size := globalSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
+	}
+	size = localSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
+	}
+	size = needSizeLocal(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
+	}
+
+	// Modify the file
+
+	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("change1\n"), 0o644)
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files != 1 {
+		t.Fatalf("Receive only: expected 1 file: %+v", size)
+	}
+
+	// Perform another modification. This should not cause the file to be needed.
+	// This is a regression test: Previously on scan the file version was changed to conflict with the global
+	// version, thus being needed and creating a conflict copy on next pull.
+
+	writeFilePerm(t, ffs, "knownDir/knownFile", []byte("change2\n"), 0o644)
+
+	must(t, m.ScanFolder("ro"))
+
+	size = needSizeLocal(t, m, "ro")
+	if size.Files != 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
 	}
 }
 

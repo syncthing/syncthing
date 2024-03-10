@@ -22,7 +22,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
 
@@ -650,10 +650,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	setupSignalHandling(app)
-
-	if os.Getenv("GOMAXPROCS") == "" {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
 
 	if options.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))

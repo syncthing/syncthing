@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Dec 21, 2023" "v1.27.0" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Feb 29, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -654,8 +654,8 @@ setup inotify handler. Please increase inotify limits, see \fI\%https://docs.syn
 .UNINDENT
 .UNINDENT
 .sp
-Linux typically restricts the amount of watches per user (usually 8192). When
-you have more directories you need to adjust that number.
+Linux typically restricts the number of watches per user (usually 8192). If
+you have many directories, you will need to adjust that number.
 .sp
 On many Linux distributions you can run the following to fix it:
 .INDENT 0.0

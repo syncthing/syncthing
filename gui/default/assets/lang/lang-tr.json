@@ -386,6 +386,7 @@
     "Staggered File Versioning": "Aşamalı Dosya Sürümlendirme",
     "Start Browser": "Tarayıcıyı başlat",
     "Statistics": "İstatistikler",
+    "Stay logged in": "Oturum açık kal",
     "Stopped": "Durduruldu",
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Yalnızca şifrelenmiş verileri depolar ve eşitler. Tüm bağlı cihazlardaki klasörlerin de aynı parola ile ayarlanması veya \"{{receiveEncrypted}}\" türünde olması gerekir.",
     "Subject:": "Konu:",
