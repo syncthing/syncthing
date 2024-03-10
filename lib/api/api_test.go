@@ -498,6 +498,15 @@ func hasSessionCookie(cookies []*http.Cookie) bool {
 	return false
 }
 
+func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge < 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return true
+		}
+	}
+	return false
+}
+
 func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
 	req, err := http.NewRequest("GET", url, nil)
 	for _, cookie := range cookies {
@@ -527,7 +536,7 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 	return resp
 }
 
-func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
+func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *testing.T) *http.Response {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		t.Fatal(err)
@@ -536,6 +545,10 @@ func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
 	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -619,6 +632,43 @@ func TestHTTPLogin(t *testing.T) {
 				}
 				if !hasSessionCookie(resp.Cookies()) {
 					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+			})
+
+			t.Run("Logout removes the session cookie", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+				logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+				if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+					t.Errorf("Expected session cookie to be deleted for logout request")
+				}
+			})
+
+			t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+				t.Parallel()
+				loginResp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if loginResp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, loginResp.StatusCode)
+				}
+				if !hasSessionCookie(loginResp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+
+				resp := httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for cookie-authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+
+				httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+				resp = httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Expected session to be invalid (status %d) after logout, got status: %d", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
@@ -708,7 +758,7 @@ func TestHtmlFormLogin(t *testing.T) {
 	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performLogin := func(username string, password string) *http.Response {
-		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, nil, t)
 	}
 
 	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
@@ -773,9 +823,40 @@ func TestHtmlFormLogin(t *testing.T) {
 		}
 	})
 
+	t.Run("Logout removes the session cookie", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		resp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+			t.Errorf("Expected session cookie to be deleted for logout request")
+		}
+	})
+
+	t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		loginResp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if loginResp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", loginResp.StatusCode)
+		}
+		resp := performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+		resp = performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected session to be invalid (status 403) after logout, got status: %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("form login is not applicable to other URLs", func(t *testing.T) {
 		t.Parallel()
-		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, t)
+		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, nil, t)
 		if resp.StatusCode != http.StatusForbidden {
 			t.Errorf("Unexpected non-403 return code %d for incorrect form login URL", resp.StatusCode)
 		}

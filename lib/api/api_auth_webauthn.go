@@ -35,7 +35,7 @@ func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 }
 
 type webauthnService struct {
-	sessionStore                   *sessionStore
+	tokenCookieManager             *tokenCookieManager
 	engine                         *webauthnLib.WebAuthn
 	cfg                            config.Wrapper
 	evLogger                       events.Logger
@@ -45,7 +45,7 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 }
 
-func newWebauthnService(sessionStore *sessionStore, cfg config.Wrapper, evLogger events.Logger) (webauthnService, error) {
+func newWebauthnService(tokenCookieManager *tokenCookieManager, cfg config.Wrapper, evLogger events.Logger) (webauthnService, error) {
 	engine, err := newWebauthnEngine(cfg)
 	if err != nil {
 		return webauthnService{}, err
@@ -57,11 +57,11 @@ func newWebauthnService(sessionStore *sessionStore, cfg config.Wrapper, evLogger
 	}
 
 	return webauthnService{
-		sessionStore: sessionStore,
-		engine:       engine,
-		cfg:          cfg,
-		evLogger:     evLogger,
-		userHandle:   userHandle,
+		tokenCookieManager: tokenCookieManager,
+		engine:             engine,
+		cfg:                cfg,
+		evLogger:           evLogger,
+		userHandle:         userHandle,
 	}, nil
 }
 
@@ -196,7 +196,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 
 	var req struct {
 		StayLoggedIn bool
-		Credential webauthnProtocol.CredentialAssertionResponse
+		Credential   webauthnProtocol.CredentialAssertionResponse
 	}
 
 	if err := unmarshalTo(r.Body, &req); err != nil {
@@ -259,6 +259,6 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	}
 
 	guiCfg := s.cfg.GUI()
-	s.sessionStore.createSession(guiCfg.User, req.StayLoggedIn, w, r)
+	s.tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -306,8 +306,8 @@ func (s *service) Serve(ctx context.Context) error {
 
 	guiCfg := s.cfg.GUI()
 
-	sessionStore := newSessionStore(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
-	webauthnService, err := newWebauthnService(sessionStore, s.cfg, s.evLogger)
+	tokenCookieManager := newTokenCookieManager(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+	webauthnService, err := newWebauthnService(tokenCookieManager, s.cfg, s.evLogger)
 	if err != nil {
 		return err
 	}
@@ -377,7 +377,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
 	if guiCfg.IsAuthEnabled() {
-		authMW := newBasicAuthAndSessionMiddleware(sessionStore, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		authMW := newBasicAuthAndSessionMiddleware(tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))

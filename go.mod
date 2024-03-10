@@ -61,6 +61,7 @@ require (
 	github.com/go-webauthn/webauthn v0.8.6
 	github.com/google/go-cmp v0.6.0
 	github.com/willabides/kongplete v0.4.0
+	go.uber.org/automaxprocs v1.5.3
 )
 
 require (
