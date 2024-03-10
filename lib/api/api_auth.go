@@ -102,7 +102,7 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 		return
 	}
 
-	if m.sessionStore.hasValidSession(r.Cookies()) {
+	if m.sessionStore.hasValidSession(r) {
 		m.next.ServeHTTP(w, r)
 		return
 	}
@@ -177,11 +177,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 }
 
 func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *http.Request) {
-	for _, cookie := range m.sessionStore.destroySession(r.Cookies()) {
-		// Add the cookie deletion command to the Set-Cookie header
-		http.SetCookie(w, &cookie)
-	}
-
+	m.sessionStore.destroySession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 

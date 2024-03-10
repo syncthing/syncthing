@@ -188,8 +188,8 @@ func (m *sessionStore) createSession(username string, persistent bool, w http.Re
 	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
 }
 
-func (m *sessionStore) hasValidSession(cookies []*http.Cookie) bool {
-	for _, cookie := range cookies {
+func (m *sessionStore) hasValidSession(r *http.Request) bool {
+	for _, cookie := range r.Cookies() {
 		// We iterate here since there may, historically, be multiple
 		// cookies with the same name but different path. Any "old" ones
 		// won't match an existing session and will be ignored, then
@@ -203,9 +203,8 @@ func (m *sessionStore) hasValidSession(cookies []*http.Cookie) bool {
 	return false
 }
 
-func (m *sessionStore) destroySession(cookies []*http.Cookie) []http.Cookie {
-	resultCookies := make([]http.Cookie, 0)
-	for _, cookie := range cookies {
+func (m *sessionStore) destroySession(w http.ResponseWriter, r *http.Request) {
+	for _, cookie := range r.Cookies() {
 		// We iterate here since there may, historically, be multiple
 		// cookies with the same name but different path. We drop them
 		// all.
@@ -213,7 +212,7 @@ func (m *sessionStore) destroySession(cookies []*http.Cookie) []http.Cookie {
 			m.tokens.Delete(cookie.Value)
 
 			// Create a cookie deletion command
-			resultCookies = append(resultCookies, http.Cookie{
+			http.SetCookie(w, &http.Cookie{
 				Name:   m.cookieName,
 				Value:  "",
 				MaxAge: -1,
@@ -222,6 +221,4 @@ func (m *sessionStore) destroySession(cookies []*http.Cookie) []http.Cookie {
 			})
 		}
 	}
-
-	return resultCookies
 }
