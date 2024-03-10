@@ -80,19 +80,19 @@ func isNoAuthPath(path string) bool {
 
 type basicAuthAndSessionMiddleware struct {
 	tokenCookieManager *tokenCookieManager
-	guiCfg       config.GUIConfiguration
-	ldapCfg      config.LDAPConfiguration
-	next         http.Handler
-	evLogger     events.Logger
+	guiCfg             config.GUIConfiguration
+	ldapCfg            config.LDAPConfiguration
+	next               http.Handler
+	evLogger           events.Logger
 }
 
 func newBasicAuthAndSessionMiddleware(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) *basicAuthAndSessionMiddleware {
 	return &basicAuthAndSessionMiddleware{
 		tokenCookieManager: tokenCookieManager,
-		guiCfg:       guiCfg,
-		ldapCfg:      ldapCfg,
-		next:         next,
-		evLogger:     evLogger,
+		guiCfg:             guiCfg,
+		ldapCfg:            ldapCfg,
+		next:               next,
+		evLogger:           evLogger,
 	}
 }
 
