@@ -17,7 +17,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/greatroar/blobloom v0.7.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/jackpal/gateway v1.0.13
+	github.com/jackpal/gateway v1.0.14
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
