@@ -2107,7 +2107,7 @@ angular.module('syncthing.core')
                 return id !== $scope.myID
             });
 
-            return $scope.deviceList().filter(function(n) {
+            return $scope.deviceList().filter(function (n) {
                 return ids.includes(n.deviceID)
             });
         };
