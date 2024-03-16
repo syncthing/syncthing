@@ -2096,7 +2096,7 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.otherDevices = function(devices) {
+        $scope.otherDevices = function (devices) {
             if (devices === undefined) {
                 devices = $scope.deviceList();
             }
