@@ -2096,15 +2096,21 @@ angular.module('syncthing.core')
             }
         };
 
-    	$scope.otherDevices = function(devices) {
-        	if (devices === undefined) {
-            	devices = $scope.deviceList();
-        	}
-        	const ids = devices.map((device) => device.deviceID).filter((id) => id !== $scope.myID)
-        	return $scope.deviceList().filter(function(n) {
-            	return ids.includes(n.deviceID)
-        	});
-    	};
+        $scope.otherDevices = function(devices) {
+            if (devices === undefined) {
+                devices = $scope.deviceList();
+            }
+
+            var ids = devices.map(function (device) {
+                return device.deviceID
+            }).filter(function (id) {
+                return id !== $scope.myID
+            });
+
+            return $scope.deviceList().filter(function(n) {
+                return ids.includes(n.deviceID)
+            });
+        };
 
         $scope.thisDevice = function () {
             return $scope.devices[$scope.myID];
