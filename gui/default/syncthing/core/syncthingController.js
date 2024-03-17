@@ -2101,14 +2101,8 @@ angular.module('syncthing.core')
                 devices = $scope.deviceList();
             }
 
-            var ids = devices.map(function (device) {
-                return device.deviceID
-            }).filter(function (id) {
-                return id !== $scope.myID
-            });
-
-            return $scope.deviceList().filter(function (n) {
-                return ids.includes(n.deviceID)
+            return devices.filter(function (n) {
+                return n.deviceID !== $scope.myID;
             });
         };
 
