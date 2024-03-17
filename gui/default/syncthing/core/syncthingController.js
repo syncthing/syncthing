@@ -2100,7 +2100,6 @@ angular.module('syncthing.core')
             if (devices === undefined) {
                 devices = $scope.deviceList();
             }
-
             return devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
