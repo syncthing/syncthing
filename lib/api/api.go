@@ -977,6 +977,7 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	av, err := s.model.Availability(folder, gf, protocol.BlockInfo{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
