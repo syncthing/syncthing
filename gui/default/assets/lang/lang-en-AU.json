@@ -292,7 +292,6 @@
     "QR code": "QR code",
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
-    "QUIC connections are in most cases considered suboptimal": "QUIC connections are in most cases considered suboptimal",
     "Quick guide to supported patterns": "Quick guide to supported patterns",
     "Random": "Random",
     "Receive Encrypted": "Receive Encrypted",
@@ -405,7 +404,7 @@
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.",
     "The device ID cannot be blank.": "The device ID cannot be blank.",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).",
-    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.": "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.",
+    "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.": "The encrypted usage report is sent daily. It is used to track common platforms, folder sizes, and app versions. If the reported data set is changed you will be prompted with this dialog again.",
     "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.": "The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.",
     "The folder ID cannot be blank.": "The folder ID cannot be blank.",
     "The folder ID must be unique.": "The folder ID must be unique.",
@@ -448,7 +447,6 @@
     "Today": "Today",
     "Trash Can": "Trash Can",
     "Trash Can File Versioning": "Bin File Versioning",
-    "Twitter": "Twitter",
     "Type": "Type",
     "UNIX Permissions": "UNIX Permissions",
     "Unavailable": "Unavailable",
@@ -519,10 +517,14 @@
     "modified": "modified",
     "permit": "permit",
     "seconds": "seconds",
-    "theme-name-black": "Black",
-    "theme-name-dark": "Dark",
-    "theme-name-default": "Default",
-    "theme-name-light": "Light",
+    "theme": {
+        "name": {
+            "black": "Black",
+            "dark": "Dark",
+            "default": "Default",
+            "light": "Light"
+        }
+    },
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."

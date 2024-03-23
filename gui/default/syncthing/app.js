@@ -16,13 +16,12 @@ var syncthing = angular.module('syncthing', [
 ]);
 
 var urlbase = 'rest';
+var authUrlbase = urlbase + '/noauth/auth';
+
+// keep consistent with ShortIDStringLength in lib/protocol/deviceid.go
+var shortIDStringLength = 7;
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
-    var deviceIDShort = metadata.deviceID.substr(0, 5);
-    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
-    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
-    $httpProvider.useApplyAsync(true);
-
     // language and localisation
 
     $translateProvider.useSanitizeValueStrategy('escape');
@@ -30,9 +29,21 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
         prefix: 'assets/lang/lang-',
         suffix: '.json'
     });
+    $translateProvider.fallbackLanguage('en');
 
     LocaleServiceProvider.setAvailableLocales(validLangs);
     LocaleServiceProvider.setDefaultLocale('en');
+
+    $httpProvider.useApplyAsync(true);
+
+    if (!window.metadata) {
+        // Most likely we're not authenticated yet, in which case we can't proceed with the rest of the setup.
+        // Do nothing and wait for the page reload on successful login.
+        return;
+    }
+
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + metadata.deviceIDShort;
+    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + metadata.deviceIDShort;
 });
 
 // @TODO: extract global level functions into separate service(s)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
 
@@ -32,14 +33,16 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 	f.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 		return f.fileData[name], nil
 	})
-	f.IDReturns(id)
+	f.DeviceIDReturns(id)
+	f.ConnectionIDReturns(rand.String(16))
 	f.CloseCalls(func(err error) {
 		f.closeOnce.Do(func() {
 			close(f.closed)
+			model.Closed(f, err)
 		})
-		model.Closed(id, err)
 		f.ClosedReturns(f.closed)
 	})
+	f.StringReturns(rand.String(8))
 	return f
 }
 
@@ -157,7 +160,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	for i := range f.files {
 		toSend[i] = prepareFileInfoForIndex(f.files[i])
 	}
-	f.model.IndexUpdate(f.id, f.folder, toSend)
+	f.model.IndexUpdate(f, &protocol.IndexUpdate{Folder: f.folder, Files: toSend})
 }
 
 func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConnection {
@@ -165,7 +168,7 @@ func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConn
 	fc.folder = folderID
 	m.AddConnection(fc, protocol.Hello{})
 
-	m.ClusterConfig(dev, protocol.ClusterConfig{
+	m.ClusterConfig(fc, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: folderID,

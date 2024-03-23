@@ -1,23 +1,16 @@
-ARG GOVERSION=latest
-FROM golang:$GOVERSION AS builder
-
-WORKDIR /src
-COPY . .
-
-ENV CGO_ENABLED=0
-ENV BUILD_HOST=syncthing.net
-ENV BUILD_USER=docker
-RUN rm -f stupgrades && go run build.go build stupgrades
-
 FROM alpine
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.authors="The Syncthing Project" \
+      org.opencontainers.image.url="https://syncthing.net" \
+      org.opencontainers.image.documentation="https://docs.syncthing.net" \
+      org.opencontainers.image.source="https://github.com/syncthing/syncthing" \
+      org.opencontainers.image.vendor="The Syncthing Project" \
+      org.opencontainers.image.licenses="MPL-2.0" \
+      org.opencontainers.image.title="Syncthing Upgrades"
 
 EXPOSE 8080
 
-COPY --from=builder /src/stupgrades /bin/stupgrades
+COPY stupgrades-linux-${TARGETARCH} /bin/stupgrades
 
-ENTRYPOINT [ \
-	"/bin/stupgrades", \
-	"-f", "/nightly.json->https://build.syncthing.net/guestAuth/repository/download/Release_Nightly/.lastSuccessful/nightly.json", \
-	"-f", "/syncthing-macos/appcast.xml->https://build.syncthing.net/guestAuth/repository/download/SyncthingMacOS_CreateAppcastXml/.lastSuccessful/appcast.xml" \
-	]
-
+ENTRYPOINT [ "/bin/stupgrades" ]

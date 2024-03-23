@@ -4,7 +4,7 @@
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}" class="active"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-general'}}"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-sharing'}}"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-versioning'}}"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
+        <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-versioning'}}"><span class="fa fa-files-o"></span> <span translate>File Versioning</span></a></li>
         <li ng-class="{'disabled': currentFolder._recvEnc}"><a data-toggle="tab" href="{{currentFolder._recvEnc ? '' : '#folder-ignores'}}"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
         <li ng-class="{'disabled': currentFolder._editing == 'new-ignores'}"><a data-toggle="tab" href="{{currentFolder._editing == 'new-ignores' ? '' : '#folder-advanced'}}"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
@@ -56,7 +56,7 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="form-group" ng-repeat="device in currentSharing.shared">
-              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceNameMarkRemoteState(device.deviceID, currentFolder.id)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" />
+              <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{device.deviceID}}" label="{{deviceName(device)}}" folder-type="{{currentFolder.type}}" untrusted="device.untrusted || pendingIsRemoteEncrypted(currentFolder.id, device.deviceID)" remote-state="{{completion[device.deviceID][currentFolder.id].remoteState}}" />
             </div>
             <p class="help-block" ng-if="folderHasUnacceptedDevices(currentFolder)">
               <sup>1</sup> <span translate>The remote device has not accepted sharing this folder.</span>
@@ -314,7 +314,7 @@
             </div>
           </div>
 
-          <div class="row" ng-if="currentFolder.syncXattrs">
+          <div class="row" ng-if="currentFolder.syncXattrs || currentFolder.sendXattrs">
             <div class="col-md-12">
               <p>
                 <label translate>Extended Attributes Filter</label>
@@ -334,7 +334,7 @@
                 </colgroup>
                 <tr ng-repeat="entry in currentFolder.xattrFilter.entries">
                   <td>
-                    <input type="checkbox" ng-model="entry.permit">
+                    <input type="checkbox" ng-model="entry.permit" class="extended-attributes-filter-rule-checkbox"/>
                   </td>
                   <td><input class="form-control text-left" aria-required="true" ng-model="entry.match"/></td>
                   <td>

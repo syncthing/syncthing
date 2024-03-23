@@ -90,7 +90,8 @@ func (v external) Archive(filePath string) error {
 	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
-	filteredEnv := []string{}
+	var filteredEnv []string
+
 	for _, x := range env {
 		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
 			filteredEnv = append(filteredEnv, x)

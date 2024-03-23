@@ -18,7 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -29,6 +29,8 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
 	"github.com/syncthing/syncthing/lib/events"
 	eventmocks "github.com/syncthing/syncthing/lib/events/mocks"
@@ -39,17 +41,16 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
 )
 
 var (
 	confDir    = filepath.Join("testdata", "config")
-	token      = filepath.Join(confDir, "csrftokens.txt")
 	dev1       protocol.DeviceID
 	apiCfg     = newMockedConfig()
 	testAPIKey = "foobarbaz"
@@ -57,7 +58,7 @@ var (
 
 func init() {
 	dev1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey})
+	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"})
 }
 
 func TestMain(m *testing.M) {
@@ -71,71 +72,6 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func TestCSRFToken(t *testing.T) {
-	t.Parallel()
-
-	max := 10 * maxCsrfTokens
-	int := 5
-	if testing.Short() {
-		max = 1 + maxCsrfTokens
-		int = 2
-	}
-
-	m := newCsrfManager("unique", "prefix", config.GUIConfiguration{}, nil, "")
-
-	t1 := m.newToken()
-	t2 := m.newToken()
-
-	t3 := m.newToken()
-	if !m.validToken(t3) {
-		t.Fatal("t3 should be valid")
-	}
-
-	valid := make(map[string]struct{}, maxCsrfTokens)
-	for _, token := range m.tokens {
-		valid[token] = struct{}{}
-	}
-
-	for i := 0; i < max; i++ {
-		if i%int == 0 {
-			// t1 and t2 should remain valid by virtue of us checking them now
-			// and then.
-			if !m.validToken(t1) {
-				t.Fatal("t1 should be valid at iteration", i)
-			}
-			if !m.validToken(t2) {
-				t.Fatal("t2 should be valid at iteration", i)
-			}
-		}
-
-		if len(m.tokens) == maxCsrfTokens {
-			// We're about to add a token, which will remove the last token
-			// from m.tokens.
-			delete(valid, m.tokens[len(m.tokens)-1])
-		}
-
-		// The newly generated token is always valid
-		t4 := m.newToken()
-		if !m.validToken(t4) {
-			t.Fatal("t4 should be valid at iteration", i)
-		}
-		valid[t4] = struct{}{}
-
-		v := make(map[string]struct{}, maxCsrfTokens)
-		for _, token := range m.tokens {
-			v[token] = struct{}{}
-		}
-
-		if !reflect.DeepEqual(v, valid) {
-			t.Fatalf("want valid tokens %v, got %v", valid, v)
-		}
-	}
-
-	if m.validToken(t3) {
-		t.Fatal("t3 should have expired by now")
-	}
-}
-
 func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Parallel()
 
@@ -147,8 +83,9 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
-	defer os.Remove(token)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	srv.started = make(chan string)
 
@@ -288,10 +225,11 @@ func TestAPIServiceRequests(t *testing.T) {
 	cases := []httpTestCase{
 		// /rest/db
 		{
-			URL:    "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
-			Code:   200,
-			Type:   "application/json",
-			Prefix: "{",
+			URL:     "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 15 * time.Second,
 		},
 		{
 			URL:  "/rest/db/file?folder=default&file=something",
@@ -495,7 +433,9 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(cases[0].URL, func(t *testing.T) {
+		tc := tc
+		t.Run(tc.URL, func(t *testing.T) {
+			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
 	}
@@ -504,8 +444,6 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
-
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -551,74 +489,353 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
+func hasSessionCookie(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return true
+		}
+	}
+	return false
+}
+
+func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	req, err := http.NewRequest("GET", url, nil)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if basicAuthUsername != "" || basicAuthPassword != "" {
+		req.SetBasicAuth(basicAuthUsername, basicAuthPassword)
+	}
+
+	if xapikeyHeader != "" {
+		req.Header.Set("X-API-Key", xapikeyHeader)
+	}
+
+	if authorizationBearer != "" {
+		req.Header.Set("Authorization", "Bearer "+authorizationBearer)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
+func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
 func TestHTTPLogin(t *testing.T) {
+	t.Parallel()
+
+	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
+		return httpGet(url, username, password, "", "", nil, t)
+	}
+
+	httpGetXapikey := func(url string, xapikeyHeader string) *http.Response {
+		return httpGet(url, "", "", xapikeyHeader, "", nil, t)
+	}
+
+	httpGetAuthorizationBearer := func(url string, bearer string) *http.Response {
+		return httpGet(url, "", "", "", bearer, nil, t)
+	}
+
+	testWith := func(sendBasicAuthPrompt bool, expectedOkStatus int, expectedFailStatus int, path string) {
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "üser",
+			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+			RawAddress:          "127.0.0.1:0",
+			APIKey:              testAPIKey,
+			SendBasicAuthPrompt: sendBasicAuthPrompt,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(cancel)
+		url := baseURL + path
+
+		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
+			t.Run("no auth is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "", "")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for unauthed request", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for unauthed request")
+				}
+			})
+
+			t.Run("incorrect password is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "rksmrgs")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect password", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for incorrect password")
+				}
+			})
+
+			t.Run("incorrect username is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "user", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for incorrect username", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for incorrect username")
+				}
+			})
+
+			t.Run("UTF-8 auth works", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+			})
+
+			t.Run("ISO-8859-1 auth works", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (ISO-8859-1)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (ISO-8859-1)")
+				}
+			})
+
+			t.Run("bad X-API-Key is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetXapikey(url, testAPIKey+"X")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad API key")
+				}
+			})
+
+			t.Run("good X-API-Key is accepted", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetXapikey(url, testAPIKey)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for API key")
+				}
+			})
+
+			t.Run("bad Bearer is rejected", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetAuthorizationBearer(url, testAPIKey+"X")
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Unexpected non-%d return code %d for bad Authorization: Bearer", expectedFailStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad Authorization: Bearer")
+				}
+			})
+
+			t.Run("good Bearer is accepted", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetAuthorizationBearer(url, testAPIKey)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for Authorization: Bearer", expectedOkStatus, resp.StatusCode)
+				}
+				if hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Unexpected session cookie for bad Authorization: Bearer")
+				}
+			})
+		})
+	}
+
+	testWith(true, http.StatusOK, http.StatusOK, "/")
+	testWith(true, http.StatusOK, http.StatusUnauthorized, "/meta.js")
+	testWith(true, http.StatusNotFound, http.StatusUnauthorized, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+
+	testWith(false, http.StatusOK, http.StatusOK, "/")
+	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
+	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+}
+
+func TestHtmlFormLogin(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(config.GUIConfiguration{
-		User:     "üser",
-		Password: "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		SendBasicAuthPrompt: false,
 	})
 	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
-	// Verify rejection when not using authorization
+	loginUrl := baseURL + "/rest/noauth/auth/password"
+	resourceUrl := baseURL + "/meta.js"
+	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
-	req, _ := http.NewRequest("GET", baseURL, nil)
-	resp, err := http.DefaultClient.Do(req)
+	performLogin := func(username string, password string) *http.Response {
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
+	}
+
+	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
+		return httpGet(url, "", "", "", "", cookies, t)
+	}
+
+	testNoAuthPath := func(noAuthPath string) {
+		t.Run("auth is not needed for "+noAuthPath, func(t *testing.T) {
+			t.Parallel()
+			resp := httpGet(baseURL+noAuthPath, "", "", "", "", nil, t)
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Unexpected non-200 return code %d at %s", resp.StatusCode, noAuthPath)
+			}
+			if hasSessionCookie(resp.Cookies()) {
+				t.Errorf("Unexpected session cookie at " + noAuthPath)
+			}
+		})
+	}
+	testNoAuthPath("/index.html")
+	testNoAuthPath("/rest/svc/lang")
+
+	t.Run("incorrect password is rejected with 403", func(t *testing.T) {
+		t.Parallel()
+		resp := performLogin("üser", "rksmrgs") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect password")
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect password", resp.StatusCode)
+		}
+	})
+
+	t.Run("incorrect username is rejected with 403", func(t *testing.T) {
+		t.Parallel()
+		resp := performLogin("user", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect username")
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect username", resp.StatusCode)
+		}
+	})
+
+	t.Run("UTF-8 auth works", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		resp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		resp = performResourceRequest(resourceUrl, resp.Cookies())
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+	})
+
+	t.Run("form login is not applicable to other URLs", func(t *testing.T) {
+		t.Parallel()
+		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, t)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for incorrect form login URL", resp.StatusCode)
+		}
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for incorrect form login URL")
+		}
+	})
+
+	t.Run("invalid URL returns 403 before auth and 404 after auth", func(t *testing.T) {
+		t.Parallel()
+		resp := performResourceRequest(resourceUrl404, nil)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Unexpected non-403 return code %d for unauthed request", resp.StatusCode)
+		}
+		resp = performLogin("üser", "räksmörgås")
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request", resp.StatusCode)
+		}
+		resp = performResourceRequest(resourceUrl404, resp.Cookies())
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Unexpected non-404 return code %d for authed request", resp.StatusCode)
+		}
+	})
+}
+
+func TestApiCache(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		RawAddress: "127.0.0.1:0",
+		APIKey:     testAPIKey,
+	})
+	baseURL, cancel, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	t.Cleanup(cancel)
+
+	httpGet := func(url string, bearer string) *http.Response {
+		return httpGet(url, "", "", "", bearer, nil, t)
 	}
 
-	// Verify that incorrect password is rejected
+	t.Run("meta.js has no-cache headers", func(t *testing.T) {
+		t.Parallel()
+		url := baseURL + "/meta.js"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
+		}
+	})
 
-	req.SetBasicAuth("üser", "rksmrgs")
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
-	}
-
-	// Verify that incorrect username is rejected
-
-	req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
-	}
-
-	// Verify that UTF-8 auth works
-
-	req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
-	}
-
-	// Verify that ISO-8859-1 auth
-
-	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
-	}
+	t.Run("/rest/ has no-cache headers", func(t *testing.T) {
+		t.Parallel()
+		url := baseURL + "/rest/system/version"
+		resp := httpGet(url, testAPIKey)
+		if resp.Header.Get("Cache-Control") != "max-age=0, no-cache, no-store" {
+			t.Errorf("Expected no-cache headers at %s", url)
+		}
+	})
 }
 
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
@@ -644,8 +861,9 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false).(*service)
-	defer os.Remove(token)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -680,7 +898,7 @@ func TestCSRFRequired(t *testing.T) {
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)
 	}
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cli := &http.Client{
 		Timeout: time.Minute,
@@ -708,42 +926,91 @@ func TestCSRFRequired(t *testing.T) {
 		}
 	}
 
-	// Calling on /rest without a token should fail
-
-	resp, err = cli.Get(baseURL + "/rest/system/config")
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatal("Getting /rest/system/config without CSRF token should fail, not", resp.Status)
+	if csrfTokenValue == "" {
+		t.Fatal("Failed to initialize CSRF test: no CSRF cookie returned from " + baseURL)
 	}
 
-	// Calling on /rest with a token should succeed
+	t.Run("/rest without a token should fail", func(t *testing.T) {
+		t.Parallel()
+		resp, err := cli.Get(baseURL + "/rest/system/config")
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config without CSRF token should fail, not", resp.Status)
+		}
+	})
 
-	req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
-	req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
-	resp, err = cli.Do(req)
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("Getting /rest/system/config with CSRF token should succeed, not", resp.Status)
-	}
+	t.Run("/rest with a token should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with CSRF token should succeed, not", resp.Status)
+		}
+	})
 
-	// Calling on /rest with the API key should succeed
+	t.Run("/rest with an incorrect API key should fail, X-API-Key version", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-API-Key", testAPIKey+"X")
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config with incorrect API token should fail, not", resp.Status)
+		}
+	})
 
-	req, _ = http.NewRequest("GET", baseURL+"/rest/system/config", nil)
-	req.Header.Set("X-API-Key", testAPIKey)
-	resp, err = cli.Do(req)
-	if err != nil {
-		t.Fatal("Unexpected error from getting /rest/system/config:", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
-	}
+	t.Run("/rest with an incorrect API key should fail, Bearer auth version", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey+"X")
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatal("Getting /rest/system/config with incorrect API token should fail, not", resp.Status)
+		}
+	})
+
+	t.Run("/rest with the API key should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+		}
+	})
+
+	t.Run("/rest with the API key as a bearer token should succeed", func(t *testing.T) {
+		t.Parallel()
+		req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+		req.Header.Set("Authorization", "Bearer "+testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal("Unexpected error from getting /rest/system/config:", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+		}
+	})
 }
 
 func TestRandomString(t *testing.T) {
@@ -942,30 +1209,31 @@ func TestHostCheck(t *testing.T) {
 		t.Error("Incorrect host header, check disabled: expected 200 OK, not", resp.Status)
 	}
 
-	// A server bound to a wildcard address also doesn't do the check
+	if !testing.Short() {
+		// A server bound to a wildcard address also doesn't do the check
 
-	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
-		RawAddress:            "0.0.0.0:0",
-		InsecureSkipHostCheck: true,
-	})
-	baseURL, cancel, err = startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+		cfg = newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			RawAddress: "0.0.0.0:0",
+		})
+		baseURL, cancel, err = startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer cancel()
 
-	// A request with a suspicious Host header should be allowed
+		// A request with a suspicious Host header should be allowed
 
-	req, _ = http.NewRequest("GET", baseURL, nil)
-	req.Host = "example.com"
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Error("Incorrect host header, wildcard bound: expected 200 OK, not", resp.Status)
+		req, _ = http.NewRequest("GET", baseURL, nil)
+		req.Host = "example.com"
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Error("Incorrect host header, wildcard bound: expected 200 OK, not", resp.Status)
+		}
 	}
 
 	// This should all work over IPv6 as well
@@ -1135,8 +1403,9 @@ func TestEventMasks(t *testing.T) {
 	cfg := newMockedConfig()
 	defSub := new(eventmocks.BufferedSubscription)
 	diskSub := new(eventmocks.BufferedSubscription)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
-	defer os.Remove(token)
+	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
+	kdb := db.NewMiscDataNamespace(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))
@@ -1168,46 +1437,40 @@ func TestBrowse(t *testing.T) {
 
 	pathSep := string(os.PathSeparator)
 
-	tmpDir := t.TempDir()
+	ffs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?nostfolder=true")
 
-	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
-		t.Fatal(err)
-	}
+	_ = ffs.Mkdir("dir", 0o755)
+	_ = fs.WriteFile(ffs, "file", []byte("hello"), 0o644)
+	_ = ffs.Mkdir("MiXEDCase", 0o755)
 
 	// We expect completion to return the full path to the completed
 	// directory, with an ending slash.
-	dirPath := filepath.Join(tmpDir, "dir") + pathSep
-	mixedCaseDirPath := filepath.Join(tmpDir, "MiXEDCase") + pathSep
+	dirPath := "dir" + pathSep
+	mixedCaseDirPath := "MiXEDCase" + pathSep
 
 	cases := []struct {
 		current string
 		returns []string
 	}{
 		// The directory without slash is completed to one with slash.
-		{tmpDir, []string{tmpDir + pathSep}},
+		{"dir", []string{"dir" + pathSep}},
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
 		// Files are not returned.
-		{tmpDir + pathSep, []string{mixedCaseDirPath, dirPath}},
+		{"", []string{mixedCaseDirPath, dirPath}},
 		// Globbing is automatic based on prefix.
-		{tmpDir + pathSep + "d", []string{dirPath}},
-		{tmpDir + pathSep + "di", []string{dirPath}},
-		{tmpDir + pathSep + "dir", []string{dirPath}},
-		{tmpDir + pathSep + "f", nil},
-		{tmpDir + pathSep + "q", nil},
+		{"d", []string{dirPath}},
+		{"di", []string{dirPath}},
+		{"dir", []string{dirPath}},
+		{"f", nil},
+		{"q", nil},
 		// Globbing is case-insensitive
-		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
+		{"mixed", []string{mixedCaseDirPath}},
 	}
 
 	for _, tc := range cases {
-		ret := browseFiles(tc.current, fs.FilesystemTypeBasic)
-		if !util.EqualStrings(ret, tc.returns) {
+		ret := browseFiles(ffs, tc.current)
+		if !slices.Equal(ret, tc.returns) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}
 	}

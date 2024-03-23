@@ -12,6 +12,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
+	"slices"
 	stdsync "sync"
 	"time"
 
@@ -162,15 +163,16 @@ func (s *Service) scheduleProcess() {
 	}
 }
 
-func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
+func (s *Service) NewMapping(protocol Protocol, ipVersion IPVersion, ip net.IP, port int) *Mapping {
 	mapping := &Mapping{
 		protocol: protocol,
 		address: Address{
 			IP:   ip,
 			Port: port,
 		},
-		extAddresses: make(map[string]Address),
+		extAddresses: make(map[string][]Address),
 		mut:          sync.NewRWMutex(),
+		ipVersion:    ipVersion,
 	}
 
 	s.mut.Lock()
@@ -224,7 +226,7 @@ func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[
 func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) (change bool) {
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
 
-	for id, address := range mapping.extAddresses {
+	for id, extAddrs := range mapping.extAddresses {
 		select {
 		case <-ctx.Done():
 			return false
@@ -239,28 +241,37 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			continue
 		} else if renew {
 			// Only perform renewals on the nat's that have the right local IP
-			// address
-			localIP := nat.GetLocalIPAddress()
-			if !mapping.validGateway(localIP) {
+			// address. For IPv6 the IP addresses are discovered by the service itself,
+			// so this check is skipped.
+			localIP := nat.GetLocalIPv4Address()
+			if !mapping.validGateway(localIP) && nat.SupportsIPVersion(IPv4Only) {
 				l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 				continue
 			}
 
-			l.Debugf("Renewing %s -> %s mapping on %s", mapping, address, id)
+			if !nat.SupportsIPVersion(mapping.ipVersion) {
+				l.Debugf("Skipping renew on gateway %s because it doesn't match the listener address family", nat.ID())
+				continue
+			}
 
-			addr, err := s.tryNATDevice(ctx, nat, mapping.address.Port, address.Port, leaseTime)
+			l.Debugf("Renewing %s -> %v open port on %s", mapping, extAddrs, id)
+			// extAddrs either contains one IPv4 address, or possibly several
+			// IPv6 addresses all using the same port.  Therefore the first
+			// entry always has the external port.
+			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address, extAddrs[0].Port, leaseTime)
 			if err != nil {
-				l.Debugf("Failed to renew %s -> mapping on %s", mapping, address, id)
+				l.Debugf("Failed to renew %s -> %v open port on %s", mapping, extAddrs, id)
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
 			}
 
-			l.Debugf("Renewed %s -> %s mapping on %s", mapping, address, id)
+			l.Debugf("Renewed %s -> %v open port on %s", mapping, extAddrs, id)
 
-			if !addr.Equal(address) {
-				mapping.removeAddressLocked(id)
-				mapping.setAddressLocked(id, addr)
+			// We shouldn't rely on the order in which the addresses are returned.
+			// Therefore, we test for set equality and report change if there is any difference.
+			if !addrSetsEqual(responseAddrs, extAddrs) {
+				mapping.setAddressLocked(id, responseAddrs)
 				change = true
 			}
 		}
@@ -286,23 +297,27 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		// Only perform mappings on the nat's that have the right local IP
 		// address
-		localIP := nat.GetLocalIPAddress()
-		if !mapping.validGateway(localIP) {
+		localIP := nat.GetLocalIPv4Address()
+		if !mapping.validGateway(localIP) && nat.SupportsIPVersion(IPv4Only) {
 			l.Debugf("Skipping %s for %s because of IP mismatch. %s != %s", id, mapping, mapping.address.IP, localIP)
 			continue
 		}
 
-		l.Debugf("Acquiring %s mapping on %s", mapping, id)
+		l.Debugf("Trying to open port %s on %s", mapping, id)
 
-		addr, err := s.tryNATDevice(ctx, nat, mapping.address.Port, 0, leaseTime)
-		if err != nil {
-			l.Debugf("Failed to acquire %s mapping on %s", mapping, id)
+		if !nat.SupportsIPVersion(mapping.ipVersion) {
+			l.Debugf("Skipping firewall traversal on gateway %s because it doesn't match the listener address family", nat.ID())
 			continue
 		}
 
-		l.Debugf("Acquired %s -> %s mapping on %s", mapping, addr, id)
+		addrs, err := s.tryNATDevice(ctx, nat, mapping.address, 0, leaseTime)
+		if err != nil {
+			l.Debugf("Failed to acquire %s open port on %s", mapping, id)
+			continue
+		}
 
-		mapping.setAddressLocked(id, addr)
+		l.Debugf("Opened port %s -> %v on %s", mapping, addrs, id)
+		mapping.setAddressLocked(id, addrs)
 		change = true
 	}
 
@@ -311,19 +326,36 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
 // the given external port. If external port is 0, picks a pseudo-random port.
-func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPort int, leaseTime time.Duration) (Address, error) {
+func (s *Service) tryNATDevice(ctx context.Context, natd Device, intAddr Address, extPort int, leaseTime time.Duration) ([]Address, error) {
 	var err error
 	var port int
+	// For IPv6, we just try to create the pinhole. If it fails, nothing can be done (probably no IGDv2 support).
+	// If it already exists, the relevant UPnP standard requires that the gateway recognizes this and updates the lease time.
+	// Since we usually have a global unicast IPv6 address so no conflicting mappings, we just request the port we're running on
+	if natd.SupportsIPVersion(IPv6Only) {
+		ipaddrs, err := natd.AddPinhole(ctx, TCP, intAddr, leaseTime)
+		var addrs []Address
+		for _, ipaddr := range ipaddrs {
+			addrs = append(addrs, Address{
+				ipaddr,
+				intAddr.Port,
+			})
+		}
 
+		if err != nil {
+			l.Debugln("Error extending lease on", natd.ID(), err)
+		}
+		return addrs, err
+	}
 	// Generate a predictable random which is based on device ID + local port + hash of the device ID
 	// number so that the ports we'd try to acquire for the mapping would always be the same for the
 	// same device trying to get the same internal port.
-	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intPort) + hash(natd.ID())))
+	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intAddr.Port) + hash(natd.ID())))
 
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intAddr.Port, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
@@ -334,32 +366,34 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	for i := 0; i < 10; i++ {
 		select {
 		case <-ctx.Done():
-			return Address{}, ctx.Err()
+			return []Address{}, ctx.Err()
 		default:
 		}
 
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intAddr.Port, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
 		}
-		l.Debugln("Error getting new lease on", natd.ID(), err)
+		l.Debugf("Error getting new lease on %s: %s", natd.ID(), err)
 	}
 
-	return Address{}, err
+	return nil, err
 
 findIP:
-	ip, err := natd.GetExternalIPAddress(ctx)
+	ip, err := natd.GetExternalIPv4Address(ctx)
 	if err != nil {
-		l.Debugln("Error getting external ip on", natd.ID(), err)
+		l.Debugf("Error getting external ip on %s: %s", natd.ID(), err)
 		ip = nil
 	}
-	return Address{
-		IP:   ip,
-		Port: extPort,
+	return []Address{
+		{
+			IP:   ip,
+			Port: extPort,
+		},
 	}, nil
 }
 
@@ -371,4 +405,18 @@ func hash(input string) int64 {
 	h := fnv.New64a()
 	h.Write([]byte(input))
 	return int64(h.Sum64())
+}
+
+func addrSetsEqual(a []Address, b []Address) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, v := range a {
+		if !slices.ContainsFunc(b, v.Equal) {
+			return false
+		}
+	}
+
+	return true
 }

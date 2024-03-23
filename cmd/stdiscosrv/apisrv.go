@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	io "io"
 	"log"
 	"math/rand"
 	"net"
@@ -27,6 +29,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stringutil"
 )
 
 // announcement is the format received from and sent to clients
@@ -78,18 +81,10 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		s.listener = listener
 	} else {
 		tlsCfg := &tls.Config{
-			Certificates:           []tls.Certificate{s.cert},
-			ClientAuth:             tls.RequestClientCert,
-			SessionTicketsDisabled: true,
-			MinVersion:             tls.VersionTLS12,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			},
+			Certificates: []tls.Certificate{s.cert},
+			ClientAuth:   tls.RequestClientCert,
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2", "http/1.1"},
 		}
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
@@ -107,6 +102,7 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		ReadTimeout:    httpReadTimeout,
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
+		ErrorLog:       log.New(io.Discard, "", 0),
 	}
 
 	err := srv.Serve(s.listener)
@@ -115,8 +111,6 @@ func (s *apiSrv) Serve(_ context.Context) error {
 	}
 	return err
 }
-
-var topCtx = context.Background()
 
 func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now()
@@ -130,10 +124,10 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	reqID := requestID(rand.Int63())
-	ctx := context.WithValue(topCtx, idKey, reqID)
+	req = req.WithContext(context.WithValue(req.Context(), idKey, reqID))
 
 	if debug {
-		log.Println(reqID, req.Method, req.URL)
+		log.Println(reqID, req.Method, req.URL, req.Proto)
 	}
 
 	remoteAddr := &net.TCPAddr{
@@ -142,7 +136,12 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.useHTTP {
-		remoteAddr.IP = net.ParseIP(req.Header.Get("X-Forwarded-For"))
+		// X-Forwarded-For can have multiple client IPs; split using the comma separator
+		forwardIP, _, _ := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
+
+		// net.ParseIP will return nil if leading/trailing whitespace exists; use strings.TrimSpace()
+		remoteAddr.IP = net.ParseIP(strings.TrimSpace(forwardIP))
+
 		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
 			remoteAddr.Port = int(parsedPort)
 		}
@@ -159,17 +158,17 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch req.Method {
-	case "GET":
-		s.handleGET(ctx, lw, req)
-	case "POST":
-		s.handlePOST(ctx, remoteAddr, lw, req)
+	case http.MethodGet:
+		s.handleGET(lw, req)
+	case http.MethodPost:
+		s.handlePOST(remoteAddr, lw, req)
 	default:
 		http.Error(lw, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	reqID := ctx.Value(idKey).(requestID)
+func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
+	reqID := req.Context().Value(idKey).(requestID)
 
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
@@ -213,23 +212,34 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 			s.db.put(key, rec)
 		}
 
-		w.Header().Set("Retry-After", notFoundRetryAfterString(int(misses)))
+		afterS := notFoundRetryAfterSeconds(int(misses))
+		retryAfterHistogram.Observe(float64(afterS))
+		w.Header().Set("Retry-After", strconv.Itoa(afterS))
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
 
 	lookupRequestsTotal.WithLabelValues("success").Inc()
 
-	bs, _ := json.Marshal(announcement{
-		Seen:      time.Unix(0, rec.Seen),
+	w.Header().Set("Content-Type", "application/json")
+	var bw io.Writer = w
+
+	// Use compression if the client asks for it
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		gw := gzip.NewWriter(bw)
+		defer gw.Close()
+		bw = gw
+	}
+
+	json.NewEncoder(bw).Encode(announcement{
+		Seen:      time.Unix(0, rec.Seen).Truncate(time.Second),
 		Addresses: addressStrs(rec.Addresses),
 	})
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
 }
 
-func (s *apiSrv) handlePOST(ctx context.Context, remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
-	reqID := ctx.Value(idKey).(requestID)
+func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
+	reqID := req.Context().Value(idKey).(requestID)
 
 	rawCert, err := certificateBytes(req)
 	if err != nil {
@@ -351,13 +361,16 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		bs = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: hdr})
 	} else if hdr := req.Header.Get("X-Forwarded-Tls-Client-Cert"); hdr != "" {
 		// Traefik 2 passtlsclientcert
-		// The certificate is in PEM format with url encoding but without newlines
-		// and start/end statements. We need to decode, reinstate the newlines every 64
+		//
+		// The certificate is in PEM format, maybe with URL encoding
+		// (depends on Traefik version) but without newlines and start/end
+		// statements. We need to decode, reinstate the newlines every 64
 		// character and add statements for the PEM decoder
-		hdr, err := url.QueryUnescape(hdr)
-		if err != nil {
-			// Decoding failed
-			return nil, err
+
+		if strings.Contains(hdr, "%") {
+			if unesc, err := url.QueryUnescape(hdr); err == nil {
+				hdr = unesc
+			}
 		}
 
 		for i := 64; i < len(hdr); i += 65 {
@@ -365,7 +378,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		}
 
 		hdr = "-----BEGIN CERTIFICATE-----\n" + hdr
-		hdr = hdr + "\n-----END CERTIFICATE-----\n"
+		hdr += "\n-----END CERTIFICATE-----\n"
 		bs = []byte(hdr)
 	}
 
@@ -404,13 +417,13 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 			continue
 		}
 
-		if remote != nil {
-			if host == "" || ip.IsUnspecified() {
+		if host == "" || ip.IsUnspecified() {
+			if remote != nil {
 				// Replace the unspecified IP with the request source.
 
 				// ... unless the request source is the loopback address or
 				// multicast/unspecified (can't happen, really).
-				if remote.IP.IsLoopback() || remote.IP.IsMulticast() || remote.IP.IsUnspecified() {
+				if remote.IP == nil || remote.IP.IsLoopback() || remote.IP.IsMulticast() || remote.IP.IsUnspecified() {
 					continue
 				}
 
@@ -426,17 +439,31 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 				}
 
 				host = remote.IP.String()
+
+			} else {
+				// remote is nil, unable to determine host IP
+				continue
 			}
 
-			// If zero port was specified, use remote port.
-			if port == "0" && remote.Port > 0 {
+		}
+
+		// If zero port was specified, use remote port.
+		if port == "0" {
+			if remote != nil && remote.Port > 0 {
+				// use remote port
 				port = strconv.Itoa(remote.Port)
+			} else {
+				// unable to determine remote port
+				continue
 			}
 		}
 
 		uri.Host = net.JoinHostPort(host, port)
 		fixed = append(fixed, uri.String())
 	}
+
+	// Remove duplicate addresses
+	fixed = stringutil.UniqueTrimmedStrings(fixed)
 
 	return fixed
 }
@@ -467,13 +494,13 @@ func errorRetryAfterString() string {
 	return strconv.Itoa(errorRetryAfterSeconds + rand.Intn(errorRetryFuzzSeconds))
 }
 
-func notFoundRetryAfterString(misses int) string {
+func notFoundRetryAfterSeconds(misses int) int {
 	retryAfterS := notFoundRetryMinSeconds + notFoundRetryIncSeconds*misses
 	if retryAfterS > notFoundRetryMaxSeconds {
 		retryAfterS = notFoundRetryMaxSeconds
 	}
 	retryAfterS += rand.Intn(notFoundRetryFuzzSeconds)
-	return strconv.Itoa(retryAfterS)
+	return retryAfterS
 }
 
 func reannounceAfterString() string {

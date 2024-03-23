@@ -27,11 +27,36 @@ func TestAllowedVersions(t *testing.T) {
 		{"v0.13.0-some-weird-but-allowed-tag", true},
 		{"v0.13.0-allowed.to.do.this", true},
 		{"v0.13.0+not.allowed.to.do.this", false},
+		{"v1.27.0+xyz", true},
+		{"v1.27.0-abc.1+xyz", true},
+		{"v1.0.0+45", true},
+		{"v1.0.0-noupgrade", true},
+		{"v1.0.0+noupgrade", true},
 	}
 
 	for i, c := range testcases {
 		if allowed := allowedVersionExp.MatchString(c.ver); allowed != c.allowed {
 			t.Errorf("%d: incorrect result %v != %v for %q", i, allowed, c.allowed, c.ver)
+		}
+	}
+}
+
+func TestFilterString(t *testing.T) {
+	cases := []struct {
+		input  string
+		filter string
+		output string
+	}{
+		{"abcba", "abc", "abcba"},
+		{"abcba", "ab", "abba"},
+		{"abcba", "c", "c"},
+		{"abcba", "!", ""},
+		{"Foo (v1.5)", versionExtraAllowedChars, "Foo v1.5"},
+	}
+
+	for i, c := range cases {
+		if out := filterString(c.input, c.filter); out != c.output {
+			t.Errorf("%d: %q != %q", i, out, c.output)
 		}
 	}
 }

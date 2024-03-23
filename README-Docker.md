@@ -15,6 +15,9 @@ To grant Syncthing additional capabilities without running as root, use the
 `PCAP` environment variable with the same syntax as that for `setcap(8)`.
 For example, `PCAP=cap_chown,cap_fowner+ep`.
 
+To set a different umask value, use the `UMASK` environment variable. For
+example `UMASK=002`.
+
 ## Example Usage
 
 **Docker cli**

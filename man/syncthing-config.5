@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Feb 22, 2023" "v1.23.1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Feb 25, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -36,7 +36,8 @@ syncthing-config \- Syncthing Configuration
 .sp
 .nf
 .ft C
-$HOME/.config/syncthing
+$XDG_STATE_HOME/syncthing
+$HOME/.local/state/syncthing
 $HOME/Library/Application Support/Syncthing
 %LOCALAPPDATA%\eSyncthing
 .ft P
@@ -45,17 +46,30 @@ $HOME/Library/Application Support/Syncthing
 .UNINDENT
 .SH DESCRIPTION
 .sp
+Changed in version 1.27.0: The default location of the configuration and database directory on
+Unix\-like systems was changed to \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP\&. Previously the default config location
+was \fB$XDG_CONFIG_HOME/syncthing\fP or \fB$HOME/.config/syncthing\fP\&. The
+database directory was previously \fB$HOME/.config/syncthing\fP or, if the
+environment variable was set, \fB$XDG_DATA_HOME/syncthing\fP\&. Existing
+installations may still use these directories instead of the newer
+defaults.
+
+.sp
 New in version 1.5.0: Database and config can now be set separately. Previously the database was
 always located in the same directory as the config.
 
 .sp
 Syncthing uses a single directory to store configuration and crypto keys.
-Syncthing also has a database, which is often stored in this directory too.
-The config location defaults to \fB$HOME/.config/syncthing\fP
-(Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
-or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can be changed at runtime
-using the \fB\-\-config\fP flag. In this directory the following files are
-located:
+Syncthing also keeps an index database with file metadata which is by
+default stored in the same directory, though this can be overridden.
+.sp
+The location defaults to \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP (Unix\-like), \fB$HOME/Library/Application
+Support/Syncthing\fP (Mac), or \fB%LOCALAPPDATA%\eSyncthing\fP (Windows). It can
+be changed at runtime using the \fB\-\-config\fP or \fB\-\-home\fP flags or the
+corresponding environment variables (\fB$STCONFDIR\fP or \fBSTHOMEDIR\fP). The
+following files are located in this directory:
 .INDENT 0.0
 .TP
 .B \fBconfig.xml\fP
@@ -68,35 +82,27 @@ device ID. The key must be kept private.
 .B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
 The certificate and key for HTTPS GUI connections. These may be replaced
 with a custom certificate for HTTPS as desired.
-.TP
-.B \fBcsrftokens.txt\fP
-A list of recently issued CSRF tokens (for protection against browser cross
-site request forgery).
 .UNINDENT
 .sp
-The database is stored either in the same directory as the config (usually the
-default), but may also be located in one of the following directories (Unix\-like
-platforms only):
-.INDENT 0.0
-.IP \(bu 2
-If a database exists in the old default location, that location is
-still used.
-.IP \(bu 2
-If \fB$XDG_DATA_HOME\fP is set, use \fB$XDG_DATA_HOME/syncthing\fP\&.
-.IP \(bu 2
-If \fB~/.local/share/syncthing\fP exists, use that location.
-.IP \(bu 2
-Use the old default location (same as config).
-.UNINDENT
+The database is by default stored in the same directory as the config, but
+the location may be overridden by the \fB\-\-data\fP or \fB\-\-home\fP flags or the
+corresponding environment varibles (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 .sp
-The location of the database can be changed using the \fB\-\-data\fP flag. The
-\fB\-\-home\fP flag sets both config and database locations at the same time.
-The database contains the following files:
+The database directory contains the following files, among others:
 .INDENT 0.0
 .TP
 .B \fBindex\-\fP\fI*\fP\fB\&.db\fP
 A directory holding the database with metadata and hashes of the files
 currently on disk and available from peers.
+.TP
+.B \fBsyncthing.log\fP
+Log output, on some systems.
+.TP
+.B \fBaudit\-\fP\fI*\fP\fB\&.log\fP
+Audit log data, when enabled.
+.TP
+.B \fBpanic\-\fP\fI*\fP\fB\&.log\fP
+Crash log data, when required.
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
@@ -115,13 +121,13 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="37">
-    <folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+<configuration version=\(dq37\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
-        <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+        <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
         </device>
-        <minDiskFree unit="%">1</minDiskFree>
+        <minDiskFree unit=\(dq%\(dq>1</minDiskFree>
         <versioning>
             <cleanupIntervalS>3600</cleanupIntervalS>
             <fsPath></fsPath>
@@ -153,18 +159,18 @@ may no longer correspond to the defaults.
         <syncXattrs>false</syncXattrs>
         <sendXattrs>false</sendXattrs>
     </folder>
-    <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
-        <ignoredFolder time="2022\-01\-09T19:09:52Z" id="br63e\-wyhb7" label="Foo"></ignoredFolder>
+        <ignoredFolder time=\(dq2022\-01\-09T19:09:52Z\(dq id=\(dqbr63e\-wyhb7\(dq label=\(dqFoo\(dq></ignoredFolder>
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
     </device>
-    <gui enabled="true" tls="false" debugging="false">
+    <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
         <address>127.0.0.1:8384</address>
         <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
         <theme>default</theme>
@@ -193,14 +199,13 @@ may no longer correspond to the defaults.
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
-        <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <limitBandwidthInLan>false</limitBandwidthInLan>
-        <minHomeDiskFree unit="%">1</minHomeDiskFree>
+        <minHomeDiskFree unit=\(dq%\(dq>1</minHomeDiskFree>
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
@@ -221,14 +226,14 @@ may no longer correspond to the defaults.
         <connectionLimitMax>0</connectionLimitMax>
         <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
     </options>
-    <remoteIgnoredDevice time="2022\-01\-09T20:02:01Z" id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="bugger" address="192.168.0.20:22000"></remoteIgnoredDevice>
+    <remoteIgnoredDevice time=\(dq2022\-01\-09T20:02:01Z\(dq id=\(dq5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU\(dq name=\(dqbugger\(dq address=\(dq192.168.0.20:22000\(dq></remoteIgnoredDevice>
     <defaults>
-        <folder id="" label="" path="~" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
             <filesystemType>basic</filesystemType>
-            <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+            <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
                 <encryptionPassword></encryptionPassword>
             </device>
-            <minDiskFree unit="%">1</minDiskFree>
+            <minDiskFree unit=\(dq%\(dq>1</minDiskFree>
             <versioning>
                 <cleanupIntervalS>3600</cleanupIntervalS>
                 <fsPath></fsPath>
@@ -260,7 +265,7 @@ may no longer correspond to the defaults.
             <syncXattrs>false</syncXattrs>
             <sendXattrs>false</sendXattrs>
         </folder>
-        <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+        <device id=\(dq\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
             <address>dynamic</address>
             <paused>false</paused>
             <autoAcceptFolders>false</autoAcceptFolders>
@@ -282,7 +287,7 @@ may no longer correspond to the defaults.
 .sp
 .nf
 .ft C
-<configuration version="37">
+<configuration version=\(dq37\(dq>
     <folder></folder>
     <device></device>
     <gui></gui>
@@ -319,12 +324,12 @@ GUI.
 .sp
 .nf
 .ft C
-<folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
-    <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
     </device>
-    <minDiskFree unit="%">1</minDiskFree>
+    <minDiskFree unit=\(dq%\(dq>1</minDiskFree>
     <versioning>
         <cleanupIntervalS>3600</cleanupIntervalS>
         <fsPath></fsPath>
@@ -380,7 +385,7 @@ labels. (optional)
 .TP
 .B filesystemType
 The internal file system implementation used to access this folder, detailed
-in a separate chapter\&.
+in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -411,7 +416,7 @@ changes to other devices.
 .TP
 .B \fBreceiveencrypted\fP
 Must be used on untrusted devices, where the data cannot be decrypted
-because no folder password was entered.  See untrusted\&.
+because no folder password was entered.  See \fI\%Untrusted (Encrypted) Devices\fP\&.
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -444,7 +449,7 @@ as FAT, or environments where changing permissions is impossible.
 .TP
 .B autoNormalize
 Automatically correct UTF\-8 normalization errors found in file names.  The
-mechanism and how to set it up is described in a separate chapter\&.
+mechanism and how to set it up is described in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .sp
 The following child elements may exist:
@@ -466,7 +471,7 @@ the configuration file.
 The \fBencryptionPassword\fP sub\-element contains the secret needed to decrypt
 this folder’s data on the remote device.  If left empty, the data is plainly
 accessible (but still protected by the transport encryption).  The mechanism
-and how to set it up is described in a separate chapter\&.
+and how to set it up is described in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -485,7 +490,7 @@ Specifies a versioning configuration.
 \fBSEE ALSO:\fP
 .INDENT 7.0
 .INDENT 3.5
-versioning
+\fI\%File Versioning\fP
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -546,7 +551,7 @@ Enabling this is highly discouraged \- use at your own risk. You have been warne
 .sp
 When set to \fBtrue\fP, this device will pretend not to see instructions to
 delete files from other devices.  The mechanism is described in a
-separate chapter\&.
+\fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -598,7 +603,7 @@ to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
-marker\-faq\&. Default is \fB\&.stfolder\fP\&.
+\fI\%How do I serve a folder from a read only filesystem?\fP\&. Default is \fB\&.stfolder\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -634,7 +639,7 @@ This is a known insecure option \- use at your own risk.
 .sp
 Disables committing file operations to disk before recording them in the
 database.  Disabling fsync can lead to data corruption.  The mechanism is
-described in a separate chapter\&.
+described in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -665,15 +670,15 @@ no improvements to data distribution.
 Provides a choice of method for copying data between files.  This can be
 used to optimise copies on network filesystems, improve speed of large
 copies or clone the data using copy\-on\-write functionality if the underlying
-filesystem supports it.  The mechanism is described in a separate
-chapter\&.
+filesystem supports it.  The mechanism is described in a \fI\%separate
+chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B caseSensitiveFS
 Affects performance by disabling the extra safety checks for case
 insensitive filesystems.  The mechanism and how to set it up is described in
-a separate chapter\&.
+a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -685,26 +690,26 @@ to \fBtrue\fP\&.
 .TP
 .B syncOwnership
 File and directory ownership is synced when this is set to \fBtrue\fP\&. See
-/advanced/folder\-sync\-ownership for more information.
+\fI\%syncOwnership\fP for more information.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B sendOwnership
 File and directory ownership information is scanned when this is set to
-\fBtrue\fP\&. See /advanced/folder\-send\-ownership for more information.
+\fBtrue\fP\&. See \fI\%sendOwnership\fP for more information.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B syncXattrs
 File and directory extended attributes are synced when this is set to
-\fBtrue\fP\&. See /advanced/folder\-sync\-xattrs for more information.
+\fBtrue\fP\&. See \fI\%syncXattrs\fP for more information.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B sendXattrs
 File and directory extended attributes are scanned and sent to other
 devices when this is set to \fBtrue\fP\&. See
-/advanced/folder\-send\-xattrs for more information.
+\fI\%sendXattrs\fP for more information.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -712,18 +717,19 @@ devices when this is set to \fBtrue\fP\&. See
 .sp
 .nf
 .ft C
-<device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
+<device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
     <address>dynamic</address>
     <paused>false</paused>
     <autoAcceptFolders>false</autoAcceptFolders>
     <maxSendKbps>0</maxSendKbps>
     <maxRecvKbps>0</maxRecvKbps>
-    <ignoredFolder time="2022\-01\-09T19:09:52Z" id="br63e\-wyhb7" label="Foo"></ignoredFolder>
+    <ignoredFolder time=\(dq2022\-01\-09T19:09:52Z\(dq id=\(dqbr63e\-wyhb7\(dq label=\(dqFoo\(dq></ignoredFolder>
     <maxRequestKiB>0</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>0</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
-<device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="true" skipIntroductionRemovals="false" introducedBy="">
+<device id=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq name=\(dqsyno local\(dq compression=\(dqmetadata\(dq introducer=\(dqtrue\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
     <address>tcp://192.0.2.1:22001</address>
     <paused>true</paused>
     <allowedNetwork>192.168.0.0/16</allowedNetwork>
@@ -733,6 +739,7 @@ devices when this is set to \fBtrue\fP\&. See
     <maxRequestKiB>65536</maxRequestKiB>
     <untrusted>false</untrusted>
     <remoteGUIPort>8384</remoteGUIPort>
+    <numConnections>0</numConnections>
 </device>
 .ft P
 .fi
@@ -747,7 +754,7 @@ element:
 .INDENT 0.0
 .TP
 .B id (mandatory)
-The device ID\&.
+The \fI\%device ID\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -783,7 +790,7 @@ should copy their list of devices per folder when connecting.
 \fBSEE ALSO:\fP
 .INDENT 7.0
 .INDENT 3.5
-introducer
+\fI\%Introducer Configuration\fP
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -850,7 +857,7 @@ for example:
 .sp
 .nf
 .ft C
-<device id="...">
+<device id=\(dq...\(dq>
     <address>tcp://192.0.2.1:22001</address>
     <address>quic://192.0.1.254:22000</address>
     <address>dynamic</address>
@@ -869,7 +876,7 @@ True if synchronization with this devices is (temporarily) suspended.
 .TP
 .B allowedNetwork
 If given, this restricts connections to this device to only this network.
-The mechanism is described in detail in a separate chapter).
+The mechanism is described in detail in a \fI\%separate chapter\fP).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -923,7 +930,13 @@ This boolean value marks a particular device as untrusted, which disallows
 ever sharing any unencrypted data with it.  Every folder shared with that
 device then needs an encryption password set, or must already be of the
 “receive encrypted” type locally.  Refer to the detailed explanation under
-untrusted\&.
+\fI\%Untrusted (Encrypted) Devices\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numConnections
+The number of connections to this device. See
+\fI\%numConnections\fP for more information.
 .UNINDENT
 .SH GUI ELEMENT
 .INDENT 0.0
@@ -931,7 +944,7 @@ untrusted\&.
 .sp
 .nf
 .ft C
-<gui enabled="true" tls="false" debugging="false">
+<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
     <address>127.0.0.1:8384</address>
     <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
@@ -942,7 +955,7 @@ untrusted\&.
 .UNINDENT
 .sp
 There must be exactly one \fBgui\fP element. The GUI configuration is also used by
-the /dev/rest and the /dev/events\&. The following attributes may be
+the \fI\%REST API\fP and the \fI\%Event API\fP\&. The following attributes may be
 set on the \fBgui\fP element:
 .INDENT 0.0
 .TP
@@ -959,8 +972,8 @@ still possible but not required.
 .INDENT 0.0
 .TP
 .B debugging
-This enables /users/profiling and additional endpoints in the REST
-API, see /rest/debug\&.
+This enables \fI\%Profiling\fP and additional endpoints in the REST
+API, see \fI\%Debug Endpoints\fP\&.
 .UNINDENT
 .sp
 The following child elements may be present:
@@ -1044,6 +1057,27 @@ Authentication using user and password.
 LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
 .UNINDENT
+.INDENT 0.0
+.TP
+.B sendBasicAuthPrompt
+New in version 1.26.0.
+
+.sp
+Prior to version 1.26.0 the GUI used HTTP Basic Authorization for login, but
+starting in version 1.26.0 it uses an HTML form by default. Basic
+Authorization is still supported when the \fBAuthorization\fP request header
+is present in a request, but some browsers don’t send the header unless
+prompted by a 401 response.
+.sp
+When this setting is enabled, the GUI will respond to unauthenticated
+requests with a 401 response prompting for Basic Authorization, so that
+\fBhttps://user:pass@localhost\fP style URLs continue to work in standard
+browsers. Other clients that always send the \fBAuthorization\fP request
+header do not need this setting.
+.sp
+When this setting is disabled, the GUI will not send 401 responses so users
+won’t see browser popups prompting for username and password.
+.UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0
 .INDENT 3.5
@@ -1062,7 +1096,7 @@ LDAP authentication. Requires ldap top level config section to be present.
 .UNINDENT
 .sp
 The \fBldap\fP element contains LDAP configuration options.  The mechanism is
-described in detail under ldap\&.
+described in detail under \fI\%LDAP Authentication\fP\&.
 .INDENT 0.0
 .TP
 .B address (mandatory)
@@ -1141,14 +1175,13 @@ Search filter for user searches.
     <urURL>https://data.syncthing.net/newdata</urURL>
     <urPostInsecurely>false</urPostInsecurely>
     <urInitialDelayS>1800</urInitialDelayS>
-    <restartOnWakeup>true</restartOnWakeup>
     <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
     <upgradeToPreReleases>false</upgradeToPreReleases>
     <keepTemporariesH>24</keepTemporariesH>
     <cacheIgnoredFiles>false</cacheIgnoredFiles>
     <progressUpdateIntervalS>5</progressUpdateIntervalS>
     <limitBandwidthInLan>false</limitBandwidthInLan>
-    <minHomeDiskFree unit="%">1</minHomeDiskFree>
+    <minHomeDiskFree unit=\(dq%\(dq>1</minHomeDiskFree>
     <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
     <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
     <tempIndexMinBlocks>10</tempIndexMinBlocks>
@@ -1304,12 +1337,6 @@ the system to stabilize before reporting statistics.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B restartOnWakeup
-Whether to perform a restart of Syncthing when it is detected that we are
-waking from sleep mode (i.e. an unfolding laptop).
-.UNINDENT
-.INDENT 0.0
-.TP
 .B autoUpgradeIntervalH
 Check for a newer version after this many hours. Set to \fB0\fP to disable
 automatic upgrades.
@@ -1318,7 +1345,7 @@ automatic upgrades.
 .TP
 .B upgradeToPreReleases
 If \fBtrue\fP, automatic upgrades include release candidates (see
-releases).
+\fI\%Versions & Releases\fP).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1337,7 +1364,9 @@ ignores is usually not significant.
 .TP
 .B progressUpdateIntervalS
 How often in seconds the progress of ongoing downloads is made available to
-the GUI.
+the GUI. Set to \fB\-1\fP to disable. Note that when disabled, the detailed
+sync progress for Out of Sync Items which shows how much of each file has
+been reused, copied, and downloaded will not work.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1430,18 +1459,18 @@ as part of launching Syncthing, set this option to \fBfalse\fP\&.
 .B maxFolderConcurrency
 This option controls how many folders may concurrently be in I/O\-intensive
 operations such as syncing or scanning.  The mechanism is described in
-detail in a separate chapter\&.
+detail in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B crashReportingURL
-Server URL where automatic crash reports will be sent if
+Server URL where \fI\%automatic crash reports\fP will be sent if
 enabled.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B crashReportingEnabled
-Switch to opt out from the automatic crash reporting
+Switch to opt out from the \fI\%automatic crash reporting\fP
 feature. Set \fBfalse\fP to keep Syncthing from sending panic logs on serious
 troubles.  Defaults to \fBtrue\fP, to help the developers troubleshoot.
 .UNINDENT
@@ -1450,7 +1479,7 @@ troubles.  Defaults to \fBtrue\fP, to help the developers troubleshoot.
 .B databaseTuning
 Controls how Syncthing uses the backend key\-value database that stores the
 index data and other persistent data it needs.  The available options and
-implications are explained in a separate chapter\&.
+implications are explained in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1468,7 +1497,7 @@ addresses to global discovery.
 .TP
 .B sendFullIndexOnUpgrade
 Controls whether all index data is resent when an upgrade has happened,
-equivalent to starting Syncthing with \fB\-\-reset\-deltas\fP\&.  This used
+equivalent to starting Syncthing with \fI\%\-\-reset\-deltas\fP\&.  This used
 to be the default behavior in older versions, but is mainly useful as a
 troubleshooting step and causes high database churn. The default is now
 \fBfalse\fP\&.
@@ -1486,21 +1515,21 @@ so that regular users do not enable it by accident.
 .B connectionLimitEnough
 The number of connections at which we stop trying to connect to more
 devices, zero meaning no limit.  Does not affect incoming connections.  The
-mechanism is described in detail in a separate chapter\&.
+mechanism is described in detail in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B connectionLimitMax
 The maximum number of connections which we will allow in total, zero meaning
 no limit.  Affects incoming connections and prevents attempting outgoing
-connections.  The mechanism is described in detail in a separate
-chapter\&.
+connections.  The mechanism is described in detail in a \fI\%separate
+chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B insecureAllowOldTLSVersions
 Only for compatibility with old versions of Syncthing on remote devices, as
-detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
+detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .UNINDENT
 .SH DEFAULTS ELEMENT
 .INDENT 0.0
@@ -1509,12 +1538,12 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
 .nf
 .ft C
 <defaults>
-    <folder id="" label="" path="~" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
-        <device id="S7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW" introducedBy="">
+        <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
         </device>
-        <minDiskFree unit="%">1</minDiskFree>
+        <minDiskFree unit=\(dq%\(dq>1</minDiskFree>
         <versioning>
             <cleanupIntervalS>3600</cleanupIntervalS>
             <fsPath></fsPath>
@@ -1542,7 +1571,7 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>false</junctionsAsDirs>
     </folder>
-    <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+    <device id=\(dq\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
@@ -1551,6 +1580,7 @@ detailed in /advanced/option\-insecure\-allow\-old\-tls\-versions\&.
         <maxRequestKiB>0</maxRequestKiB>
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
+        <numConnections>0</numConnections>
     </device>
     <ignores>
         <line>!foo2</line>
@@ -1596,7 +1626,7 @@ including the appropriate \fI\%folder.device\fP element underneath.
 New in version 1.19.0.
 
 .sp
-Template for the ignore patterns applied to new
+Template for the \fI\%ignore patterns\fP applied to new
 folders.  These are copied to the \fB\&.stignore\fP file when a folder is
 automatically accepted from a remote device.  The GUI uses them to pre\-fill
 the respective field when adding a new folder as well.  In XML, each pattern
@@ -1668,12 +1698,12 @@ accidentally if you sync your home folder between devices. A common symptom
 of syncing configuration files is two devices ending up with the same Device ID.
 .sp
 If you want to use Syncthing to backup your configuration files, it is recommended
-that the files you are backing up are in a folder\-sendonly to prevent other
+that the files you are backing up are in a \fI\%Send Only Folder\fP to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
 If you’d like to sync your home folder in non\-send only mode, you may add the
-folder that stores the configuration files to the ignore list\&.
+folder that stores the configuration files to the \fI\%ignore list\fP\&.
 If you’d also like to backup your configuration files, add another folder in
 send only mode for just the configuration folder.
 .SH AUTHOR

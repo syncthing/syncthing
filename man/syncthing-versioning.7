@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Feb 22, 2023" "v1.23.1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Feb 25, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -47,6 +47,13 @@ Bob. If Alice changes a file locally on her own computer Syncthing will
 not and can not archive the old version.
 .UNINDENT
 .UNINDENT
+.sp
+The applicable configuration options for each versioning strategy are described
+below.  For most of them it’s possible to specify where the versions are stored,
+with the default being the \fB\&.stversions\fP folder inside the shared folder path.
+If you set a custom version path, please ensure that it’s on the same partition
+or filesystem as the regular folder path, as moving files there may otherwise
+fail.
 .SH TRASH CAN FILE VERSIONING
 .sp
 This versioning strategy emulates the common “trash can” approach. When a file
@@ -54,34 +61,27 @@ is deleted or replaced due to a change on a remote device, it is moved to
 the trash can in the \fB\&.stversions\fP folder. If a file with the same name was
 already in the trash can it is replaced.
 .sp
-A configuration option is available to clean the trash can from files older
-than a specified number of days. If this is set to a positive number of days,
-files will be removed when they have been in the trash can that long. Setting
-this to zero prevents any files from being removed from the trash can
-automatically.
+A \fI\%configuration option\fP is
+available to clean the trash can from files older than a specified number of
+days.  If this is set to a positive number of days, files will be removed when
+they have been in the trash can that long.  Setting this to zero prevents any
+files from being removed from the trash can automatically.
 .SH SIMPLE FILE VERSIONING
 .sp
-With “Simple File Versioning” files are moved to the \fB\&.stversions\fP folder
-(inside your shared folder) when replaced or deleted on a remote device. This
-option also takes a value in an input titled “Keep Versions” which tells
-Syncthing how many old versions of the file it should keep. For example, if
-you set this value to 5, if a file is replaced 5 times on a remote device, you
-will see 5 time\-stamped versions on that file in the “.stversions” folder on
-the other devices sharing the same folder.
+With “Simple File Versioning” files are moved to the \fB\&.stversions\fP folder when
+replaced or deleted on a remote device.  In addition to the
+\fI\%cleanoutDays\fP option, this strategy also takes a
+value in an input titled “Keep Versions” which tells Syncthing how many old
+versions of the file it should \fI\%keep\fP\&.  For
+example, if you set this value to 5, if a file is replaced 5 times on a remote
+device, you will see 5 time\-stamped versions on that file in the \fB\&.stversions\fP
+folder on the other devices sharing the same folder.
 .SH STAGGERED FILE VERSIONING
 .sp
-With “Staggered File Versioning” files are also moved to a different folder
-when replaced or deleted on a remote device (just like “Simple File
-Versioning”), however, versions are automatically deleted if they are older
-than the maximum age or exceed the number of files allowed in an interval.
-.sp
-With this versioning method it’s possible to specify where the versions are
-stored, with the default being the \fB\&.stversions\fP folder inside the normal
-folder path. If you set a custom version path, please ensure that it’s on the
-same partition or filesystem as the regular folder path, as moving files there
-may otherwise fail. You can use an absolute path (this is recommended) or a
-relative path. Relative paths are interpreted relative to Syncthing’s current
-or startup directory.
+With “Staggered File Versioning” files are also moved to the \fB\&.stversions\fP
+folder when replaced or deleted on a remote device (just like “Simple File
+Versioning”), however, versions are automatically deleted if they are older than
+the maximum age or exceed the number of files allowed in an interval.
 .sp
 The following intervals are used and they each have a maximum number of files
 that will be kept for each.
@@ -102,8 +102,9 @@ Until maximum age, the oldest version in every week is kept.
 .TP
 .B Maximum Age
 The maximum time to keep a version in days. For example, to keep replaced or
-deleted files in the “.stversions” folder for an entire year, use 365. If
-only for 10 days, use 10.
+deleted files in the \fB\&.stversions\fP folder for an entire year, use 365. If
+only for 10 days, use 10.  Corresponds to the
+\fI\%maxAge\fP option.
 \fBNote: Set to 0 to keep versions forever.\fP
 .UNINDENT
 .sp
@@ -116,12 +117,12 @@ For more info, check the \fI\%unit test file\fP <\fBhttps://github.com/syncthing
 that shows which versions are deleted for a specific run.
 .SH EXTERNAL FILE VERSIONING
 .sp
-This versioning method delegates the decision on what to do to an
-external command (e.g. a program or a command line script). Just prior
-to a file being replaced, the command will be executed. The file needs
-to be removed from the folder in the process, or otherwise Syncthing
-will report an error. The command can use the following templated
-arguments:
+This versioning strategy delegates the decision on what to do to an
+\fI\%external command\fP (e.g. a program or a
+command line script).  Just prior to a file being replaced, the command will be
+executed.  The file needs to be removed from the folder in the process, or
+otherwise Syncthing will report an error.  The command can use the following
+templated arguments:
 .INDENT 0.0
 .TP
 .B %FOLDER_PATH%
@@ -155,14 +156,14 @@ set \-eu
 versionspath=~/.trashcan
 
 # The parameters we get from Syncthing
-folderpath="$1"
-filepath="$2"
+folderpath=\(dq$1\(dq
+filepath=\(dq$2\(dq
 
 # First ensure the dir where we need to store the file exists
-outpath=$(dirname "$versionspath/$filepath")
-mkdir \-p "$outpath"
+outpath=$(dirname \(dq$versionspath/$filepath\(dq)
+mkdir \-p \(dq$outpath\(dq
 # Then move the file there
-mv \-f "$folderpath/$filepath" "$versionspath/$filepath"
+mv \-f \(dq$folderpath/$filepath\(dq \(dq$versionspath/$filepath\(dq
 .ft P
 .fi
 .UNINDENT
@@ -208,25 +209,25 @@ rem We need command extensions for md to create intermediate folders in one go
 setlocal enableextensions
 
 rem Where I want my versions stored
-set "versions_path=%USERPROFILE%\e.trashcan"
+set \(dqversions_path=%USERPROFILE%\e.trashcan\(dq
 
 rem The parameters we get from Syncthing, \(aq~\(aq removes quotes if any
-set "folder_path=%~1"
-set "file_path=%~2"
+set \(dqfolder_path=%~1\(dq
+set \(dqfile_path=%~2\(dq
 
 rem First ensure the dir where we need to store the file exists
-for %%f in ("%versions_path%\e%file_path%") do set "output_path=%%~dpf"
-if not exist "%output_path%" md "%output_path%" || exit /b
+for %%f in (\(dq%versions_path%\e%file_path%\(dq) do set \(dqoutput_path=%%~dpf\(dq
+if not exist \(dq%output_path%\(dq md \(dq%output_path%\(dq || exit /b
 
 rem Finally move the file, overwrite existing file if any
-move /y "%folder_path%\e%file_path%" "%versions_path%\e%file_path%"
+move /y \(dq%folder_path%\e%file_path%\(dq \(dq%versions_path%\e%file_path%\(dq
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-Finally, I set \fB"C:\eUsers\emfrnd\eScripts\eonlylatest.bat" "%FOLDER_PATH%"
-"%FILE_PATH%"\fP as the command name in Syncthing.
+Finally, I set \fB\(dqC:\eUsers\emfrnd\eScripts\eonlylatest.bat\(dq \(dq%FOLDER_PATH%\(dq
+\(dq%FILE_PATH%\(dq\fP as the command name in Syncthing.
 .SS Move to the Recycle Bin using PowerShell
 .sp
 We can use PowerShell to send files directly to the Recycle Bin, which
@@ -244,7 +245,7 @@ location, e.g. \fBC:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1\fP\&.
 Add\-Type \-AssemblyName Microsoft.VisualBasic
 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqSendToRecycleBin\(aq)
 if ($?) {
-  Write\-Output ("Recycled " + $args + ".")
+  Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
 }
 .ft P
 .fi
@@ -267,15 +268,15 @@ Add\-Type \-AssemblyName Microsoft.VisualBasic
 # a modification and delete the existing file. If if does not, we assume
 # a deletion and recycle the current file. If succeeded, we also include
 # the deleted/recycled file in the Syncthing\(aqs DEBUG output.
-if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + "\e~syncthing~" + (Split\-Path \-Path $args \-Leaf) + ".tmp")) {
+if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + \(dq\e~syncthing~\(dq + (Split\-Path \-Path $args \-Leaf) + \(dq.tmp\(dq)) {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqDeletePermanently\(aq)
   if ($?) {
-    Write\-Output ("Deleted " + $args + ".")
+    Write\-Output (\(dqDeleted \(dq + $args + \(dq.\(dq)
   }
 } else {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($args,\(aqOnlyErrorDialogs\(aq,\(aqSendToRecycleBin\(aq)
   if ($?) {
-    Write\-Output ("Recycled " + $args + ".")
+    Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
   }
 }
 .ft P
@@ -284,13 +285,105 @@ if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + "\e~syncthing~" + (Sp
 .UNINDENT
 .sp
 Finally, we set the command name in Syncthing to \fBpowershell.exe
-\-ExecutionPolicy Bypass \-File "C:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1"
-"%FOLDER_PATH%\e%FILE_PATH%"\fP\&.
+\-ExecutionPolicy Bypass \-File \(dqC:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1\(dq
+\(dq%FOLDER_PATH%\e%FILE_PATH%\(dq\fP\&.
 .sp
 The only caveat that you should be aware of is that if your Syncthing
 folder is located on a portable storage, such as a USB stick, or if you
 have the Recycle Bin disabled, then the script will end up deleting all
 files permanently.
+.SH CONFIGURATION PARAMETER REFERENCE
+.sp
+The versioning settings are grouped into their own section of each folder in the
+\fI\%configuration file\fP\&.  The following shows an
+example of such a section in the XML:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<folder id=\(dq...\(dq>
+    <versioning type=\(dqsimple\(dq>
+        <cleanupIntervalS>3600</cleanupIntervalS>
+        <fsPath></fsPath>
+        <fsType>basic</fsType>
+        <param key=\(dqcleanoutDays\(dq val=\(dq0\(dq></param>
+        <param key=\(dqkeep\(dq val=\(dq5\(dq></param>
+    </versioning>
+</folder>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.type
+Selects one of the versioning strategies: \fBtrashcan\fP, \fBsimple\fP,
+\fBstaggered\fP, \fBexternal\fP or leave empty to disable versioning completely.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.fsPath
+Overrides the path where old versions of files are stored and defaults to
+\fB\&.stversions\fP if left empty.  An absolute or relative path can be
+specified.  The latter is interpreted relative to the shared folder path, if
+the \fI\%fsType\fP is configured as \fBbasic\fP\&.  Ignored
+for the \fBexternal\fP versioning strategy.
+.sp
+This option used to be stored under the keys \fBfsPath\fP or \fBversionsPath\fP
+in the \fI\%params\fP element.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.fsType
+The internal file system implementation used to access this versions folder.
+Only applies if \fI\%fsPath\fP is also set non\-empty,
+otherwise the \fI\%filesystemType\fP from the folder element is used
+instead.  Refer to that option description for possible values.  Ignored for
+the \fBexternal\fP versioning strategy.
+.sp
+This option used to be stored under the key \fBfsType\fP in the
+\fI\%params\fP element.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.cleanupIntervalS
+The interval, in seconds, for running cleanup in the versions folder.  Zero
+to disable periodic cleaning.  Limited to one year (31536000 seconds).
+Ignored for the \fBexternal\fP versioning strategy.
+.sp
+This option used to be stored under the key \fBcleanInterval\fP in the
+\fI\%params\fP element.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.params
+Each versioning strategy can have configuration parameters specific to its
+implementation under this element.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.params.cleanoutDays
+The number of days to keep files in the versions folder.  Zero means to keep
+forever.  Older elements encountered during cleanup are removed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.params.keep
+The number of old versions to keep, per file.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.params.maxAge
+The maximum time to keep a version, in seconds.  Zero means to keep forever.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B versioning.params.command
+External command to execute for storing a file version about to be replaced
+or deleted.  If the path to the application contains spaces, it should be
+quoted.
+.UNINDENT
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

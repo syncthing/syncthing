@@ -19,8 +19,8 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 	copyURI := *uri
 
 	host, port, err := net.SplitHostPort(uri.Host)
-	if err != nil && strings.Contains(err.Error(), "missing port") {
-		// addr is on the form "1.2.3.4" or "[fe80::1]"
+	if e, ok := err.(*net.AddrError); ok && strings.Contains(e.Err, "missing port") {
+		// addr is of the form "1.2.3.4" or "[fe80::1]"
 		host = uri.Host
 		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
 			// net.JoinHostPort will add the brackets again
@@ -71,12 +71,9 @@ func getHostPortsForAllAdapters(port int) []string {
 	portStr := strconv.Itoa(port)
 
 	for _, network := range nets {
-		// Only IPv4 addresses, as v6 link local require an interface identifiers to work correctly
-		// And non link local in theory are globally routable anyway.
-		if network.IP.To4() == nil {
-			continue
-		}
-		if network.IP.IsLinkLocalUnicast() || (isV4Local(network.IP) && network.IP.IsGlobalUnicast()) {
+		// Only accept IPv4 link-local unicast and the private ranges defined in RFC 1918 and RFC 4193
+		// IPv6 link-local addresses require an interface identifier to work correctly
+		if (network.IP.To4() != nil && network.IP.IsLinkLocalUnicast()) || network.IP.IsPrivate() {
 			hostPorts = append(hostPorts, net.JoinHostPort(network.IP.String(), portStr))
 		}
 	}
@@ -105,17 +102,6 @@ func resolve(network, hostPort string) (net.IP, int, error) {
 		}
 	}
 	return net.IPv4zero, 0, net.UnknownNetworkError(network)
-}
-
-func isV4Local(ip net.IP) bool {
-	// See https://go-review.googlesource.com/c/go/+/162998/
-	// We only take the V4 part of that.
-	if ip4 := ip.To4(); ip4 != nil {
-		return ip4[0] == 10 ||
-			(ip4[0] == 172 && ip4[1]&0xf0 == 16) ||
-			(ip4[0] == 192 && ip4[1] == 168)
-	}
-	return false
 }
 
 func maybeReplacePort(uri *url.URL, laddr net.Addr) *url.URL {

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "Feb 22, 2023" "v1.23.1" "Syncthing"
+.TH "STRELAYSRV" "1" "Feb 25, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
@@ -37,10 +37,10 @@ strelaysrv \- Syncthing Relay Server
 .nf
 .ft C
 strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-keys=<dir>] [\-listen=<listen addr>]
-           [\-message\-timeout=<duration>] [\-nat] [\-nat\-lease=<duration> [\-nat\-renewal=<duration>]
+           [\-message\-timeout=<duration>] [\-nat] [\-nat\-lease=<duration>] [\-nat\-renewal=<duration>]
            [\-nat\-timeout=<duration>] [\-network\-timeout=<duration>] [\-per\-session\-rate=<bytes/s>]
-           [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-protocol=<string>] [\-provided\-by=<string>]
-           [\-status\-srv=<listen addr>]
+           [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-pprof] [\-protocol=<string>]
+           [\-provided\-by=<string>] [\-status\-srv=<listen addr>] [\-token=<string>] [\-version]
 .ft P
 .fi
 .UNINDENT
@@ -132,6 +132,11 @@ a pool, thereby remaining a private relay.
 .UNINDENT
 .INDENT 0.0
 .TP
+.B \-pprof
+Enable the built in profiling on the status server
+.UNINDENT
+.INDENT 0.0
+.TP
 .B \-protocol=<string>
 Protocol used for listening. ‘tcp’ for IPv4 and IPv6, ‘tcp4’ for IPv4, ‘tcp6’ for IPv6 (default “tcp”).
 .UNINDENT
@@ -145,6 +150,16 @@ An optional description about who provides the relay.
 .B \-status\-srv=<listen addr>
 Listen address for status service (blank to disable) (default “:22070”).
 Status service is used by the relay pool server UI for displaying stats (data transferred, number of clients, etc.)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-token=<string>
+Token to restrict access to the relay (optional). Disables joining any pools.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-version
+Show version
 .UNINDENT
 .SS Installing
 .sp
@@ -187,7 +202,7 @@ $ sudo \-u strelaysrv /usr/local/bin/strelaysrv \-keys /etc/strelaysrv
 .sp
 This creates a user \fBstrelaysrv\fP and a directory \fB/etc/strelaysrv\fP to store
 the keys. The keys are generated on first startup. The relay will join the
-global relay pool, unless a \fB\-pools=""\fP argument is given.
+global relay pool, unless a \fB\-pools=\(dq\(dq\fP argument is given.
 .sp
 To make the relay server start automatically at boot, use the recommended
 procedure for your operating system.
@@ -257,7 +272,7 @@ COMMIT
 .UNINDENT
 .UNINDENT
 .sp
-You will need to start \fBstrelaysrv\fP with \fB\-ext\-address ":443"\fP\&. This tells
+You will need to start \fBstrelaysrv\fP with \fB\-ext\-address \(dq:443\(dq\fP\&. This tells
 \fBstrelaysrv\fP that it can be contacted on port 443, even though it is listening
 on port 22067. You will also need to let both port 443 and 22067 through your
 firewall.
@@ -290,6 +305,27 @@ iptables \-I INPUT \-p tcp \-\-dport 22070 \-j ACCEPT
 .UNINDENT
 .sp
 Please consult Linux distribution documentation to persist firewall rules.
+.SH ACCESS CONTROL FOR PRIVATE RELAYS
+.sp
+New in version 1.22.1.
+
+.sp
+Private relays can be configured to only accept connections from peers in possession of a shared secret.
+To configure this use the \fB\-token\fP option:
+.sp
+$ strelaysrv \-token=mySecretToken
+.sp
+Then configure your Syncthing devices to send the token when joining the relay:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+relay://<host name|IP>[:port]/?id=<relay device ID>&token=mySecretToken
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH SEE ALSO
 .sp
 \fBsyncthing\-relay(7)\fP, \fBsyncthing\-faq(7)\fP,

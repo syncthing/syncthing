@@ -152,11 +152,11 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	// permissions will be set to the final value later, but in the meantime
 	// we don't want to have a temporary file with looser permissions than
 	// the final outcome.
-	mode := fs.FileMode(s.file.Permissions) | 0600
+	mode := fs.FileMode(s.file.Permissions) | 0o600
 	if s.ignorePerms {
 		// When ignorePerms is set we use a very permissive mode and let the
 		// system umask filter it.
-		mode = 0666
+		mode = 0o666
 	}
 
 	// Attempt to create the temp file
@@ -261,19 +261,34 @@ func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Unlock()
 }
 
-func (s *sharedPullerState) copiedFromOrigin() {
+func (s *sharedPullerState) copiedFromOrigin(bytes int) {
 	s.mut.Lock()
 	s.copyOrigin++
 	s.updated = time.Now()
 	s.mut.Unlock()
+	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceLocalOrigin).Add(float64(bytes))
 }
 
-func (s *sharedPullerState) copiedFromOriginShifted() {
+func (s *sharedPullerState) copiedFromElsewhere(bytes int) {
+	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceLocalOther).Add(float64(bytes))
+}
+
+func (s *sharedPullerState) skippedSparseBlock(bytes int) {
+	// pretend we copied it, historical
+	s.mut.Lock()
+	s.copyOrigin++
+	s.updated = time.Now()
+	s.mut.Unlock()
+	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceSkipped).Add(float64(bytes))
+}
+
+func (s *sharedPullerState) copiedFromOriginShifted(bytes int) {
 	s.mut.Lock()
 	s.copyOrigin++
 	s.copyOriginShifted++
 	s.updated = time.Now()
 	s.mut.Unlock()
+	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceLocalShifted).Add(float64(bytes))
 }
 
 func (s *sharedPullerState) pullStarted() {
@@ -295,6 +310,7 @@ func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
 	s.mut.Unlock()
+	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceNetwork).Add(float64(block.Size))
 }
 
 // finalClose atomically closes and returns closed status of a file. A true
@@ -352,8 +368,13 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 			return err
 		}
 	}
-	_, err := writeEncryptionTrailer(s.file, s.writer)
-	return err
+	trailerSize, err := writeEncryptionTrailer(s.file, s.writer)
+	if err != nil {
+		return err
+	}
+	s.file.Size += trailerSize
+	s.file.EncryptionTrailerSize = int(trailerSize)
+	return nil
 }
 
 // Returns the size of the written trailer.

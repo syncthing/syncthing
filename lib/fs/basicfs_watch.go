@@ -15,6 +15,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
 
 	"github.com/syncthing/notify"
 )
@@ -38,18 +39,18 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		eventMask |= permEventMask
 	}
 
-	if ignore.SkipIgnoredDirs() {
-		absShouldIgnore := func(absPath string) bool {
-			rel, err := f.unrootedChecked(absPath, roots)
-			if err != nil {
-				return true
-			}
-			return ignore.ShouldIgnore(rel)
+	absShouldIgnore := func(absPath string) bool {
+		if !utf8.ValidString(absPath) {
+			return true
 		}
-		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
-	} else {
-		err = notify.Watch(watchPath, backendChan, eventMask)
+
+		rel, err := f.unrootedChecked(absPath, roots)
+		if err != nil {
+			return true
+		}
+		return ignore.Match(rel).CanSkipDir()
 	}
+	err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {
@@ -83,7 +84,14 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 
 		select {
 		case ev := <-backendChan:
-			relPath, err := f.unrootedChecked(ev.Path(), roots)
+			evPath := ev.Path()
+
+			if !utf8.ValidString(evPath) {
+				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring invalid UTF-8")
+				continue
+			}
+
+			relPath, err := f.unrootedChecked(evPath, roots)
 			if err != nil {
 				select {
 				case errChan <- err:
@@ -95,7 +103,7 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 				return
 			}
 
-			if ignore.ShouldIgnore(relPath) {
+			if ignore.Match(relPath).IsIgnored() {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
 			}

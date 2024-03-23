@@ -9,47 +9,37 @@ package cli
 import (
 	"fmt"
 	"net/url"
-
-	"github.com/urfave/cli"
 )
 
-var debugCommand = cli.Command{
-	Name:     "debug",
-	HideHelp: true,
-	Usage:    "Debug command group",
-	Subcommands: []cli.Command{
-		{
-			Name:      "file",
-			Usage:     "Show information about a file (or directory/symlink)",
-			ArgsUsage: "FOLDER-ID PATH",
-			Action:    expects(2, debugFile()),
-		},
-		indexCommand,
-		{
-			Name:      "profile",
-			Usage:     "Save a profile to help figuring out what Syncthing does.",
-			ArgsUsage: "cpu | heap",
-			Action:    expects(1, profile()),
-		},
-	},
+type fileCommand struct {
+	FolderID string `arg:""`
+	Path     string `arg:""`
 }
 
-func debugFile() cli.ActionFunc {
-	return func(c *cli.Context) error {
-		query := make(url.Values)
-		query.Set("folder", c.Args()[0])
-		query.Set("file", normalizePath(c.Args()[1]))
-		return indexDumpOutput("debug/file?" + query.Encode())(c)
+func (f *fileCommand) Run(ctx Context) error {
+	indexDumpOutput := indexDumpOutputWrapper(ctx.clientFactory)
+
+	query := make(url.Values)
+	query.Set("folder", f.FolderID)
+	query.Set("file", normalizePath(f.Path))
+	return indexDumpOutput("debug/file?" + query.Encode())
+}
+
+type profileCommand struct {
+	Type string `arg:"" help:"cpu | heap"`
+}
+
+func (p *profileCommand) Run(ctx Context) error {
+	switch t := p.Type; t {
+	case "cpu", "heap":
+		return saveToFile(fmt.Sprintf("debug/%vprof", p.Type), ctx.clientFactory)
+	default:
+		return fmt.Errorf("expected cpu or heap as argument, got %v", t)
 	}
 }
 
-func profile() cli.ActionFunc {
-	return func(c *cli.Context) error {
-		switch t := c.Args()[0]; t {
-		case "cpu", "heap":
-			return saveToFile(fmt.Sprintf("debug/%vprof", c.Args()[0]))(c)
-		default:
-			return fmt.Errorf("expected cpu or heap as argument, got %v", t)
-		}
-	}
+type debugCommand struct {
+	File    fileCommand    `cmd:"" help:"Show information about a file (or directory/symlink)"`
+	Profile profileCommand `cmd:"" help:"Save a profile to help figuring out what Syncthing does"`
+	Index   indexCommand   `cmd:"" help:"Show information about the index (database)"`
 }

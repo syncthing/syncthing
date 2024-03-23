@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/urfave/cli"
-
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -35,7 +33,7 @@ type sequenceKey struct {
 	sequence uint64
 }
 
-func indexCheck(*cli.Context) (err error) {
+func indexCheck() (err error) {
 	ldb, err := getDB()
 	if err != nil {
 		return err

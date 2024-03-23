@@ -25,10 +25,11 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -40,7 +41,7 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
-	ioLimiter *util.Semaphore
+	ioLimiter *semaphore.Semaphore
 
 	localFlags uint32
 
@@ -101,7 +102,7 @@ var (
 	ExternallyDisabled = os.Getenv("STEXTDISABLED") != ""
 )
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *util.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -143,6 +144,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	f.pullPause = f.pullBasePause()
 	f.pullFailTimer = time.NewTimer(0)
 	<-f.pullFailTimer.C
+
+	registerFolderMetrics(f.ID)
+
 	return f
 }
 
@@ -335,10 +339,12 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 		return err
 	}
 
-	dbPath := locations.Get(locations.Database)
-	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
-		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
-			return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
+	if minFree := f.model.cfg.Options().MinHomeDiskFree; minFree.Value > 0 {
+		dbPath := locations.Get(locations.Database)
+		if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
+			if err = config.CheckFreeSpace(minFree, usage); err != nil {
+				return fmt.Errorf("insufficient space on disk for database (%v): %w", dbPath, err)
+			}
 		}
 	}
 
@@ -440,7 +446,7 @@ func (f *folder) pull() (success bool, err error) {
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), util.NiceDurationString(delay))
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), stringutil.NiceDurationString(delay))
 	f.pullFailTimer.Reset(delay)
 
 	return false, err
@@ -475,6 +481,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 	defer f.ioLimiter.Give(1)
+
+	metricFolderScans.WithLabelValues(f.ID).Inc()
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+	go addTimeUntilCancelled(ctx, metricFolderScanSeconds.WithLabelValues(f.ID))
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
@@ -780,7 +791,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				fallthrough
 			case !file.IsIgnored() && !file.IsDeleted() && !file.IsUnsupported():
 				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it wont do as there are
+				// it's still here. Simply stat:ing it won't do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
 				if !osutil.IsDeleted(f.mtimefs, file.Name) {
@@ -1073,7 +1084,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 		case ev := <-summaryChan:
 			if data, ok := ev.Data.(FolderSummaryEventData); !ok {
 				f.evLogger.Log(events.Failure, "Unexpected type of folder-summary event in folder.monitorWatch")
-			} else if data.Summary.LocalTotalItems-data.Summary.LocalDeleted > kqueueItemCountThreshold {
+			} else if data.Folder == f.folderID && data.Summary.LocalTotalItems-data.Summary.LocalDeleted > kqueueItemCountThreshold {
 				f.warnedKqueue = true
 				summarySub.Unsubscribe()
 				summaryChan = nil

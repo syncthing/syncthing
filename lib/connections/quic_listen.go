@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build go1.15 && !noquic
-// +build go1.15,!noquic
+//go:build !noquic
+// +build !noquic
 
 package connections
 
@@ -40,12 +40,13 @@ type quicListener struct {
 
 	onAddressesChangedNotifier
 
-	uri      *url.URL
-	cfg      config.Wrapper
-	tlsCfg   *tls.Config
-	conns    chan internalConn
-	factory  listenerFactory
-	registry *registry.Registry
+	uri        *url.URL
+	cfg        config.Wrapper
+	tlsCfg     *tls.Config
+	conns      chan internalConn
+	factory    listenerFactory
+	registry   *registry.Registry
+	lanChecker *lanChecker
 
 	address *url.URL
 	laddr   net.Addr
@@ -94,17 +95,24 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
-	defer func() { _ = udpConn.Close() }()
+	defer udpConn.Close()
 
-	svc, conn := stun.New(t.cfg, t, udpConn)
-	defer conn.Close()
+	tracer := &writeTrackingTracer{}
+	quicTransport := &quic.Transport{
+		Conn:   udpConn,
+		Tracer: tracer.loggingTracer(),
+	}
+	defer quicTransport.Close()
 
-	go svc.Serve(ctx)
+	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport}, tracer)
+	stunCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go svc.Serve(stunCtx)
 
-	t.registry.Register(t.uri.Scheme, conn)
-	defer t.registry.Unregister(t.uri.Scheme, conn)
+	t.registry.Register(t.uri.Scheme, quicTransport)
+	defer t.registry.Unregister(t.uri.Scheme, quicTransport)
 
-	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
+	listener, err := quicTransport.Listen(t.tlsCfg, quicConfig)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
@@ -168,7 +176,12 @@ func (t *quicListener) serve(ctx context.Context) error {
 			continue
 		}
 
-		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority)
+		priority := t.cfg.Options().ConnectionPriorityQUICWAN
+		isLocal := t.lanChecker.isLAN(session.RemoteAddr())
+		if isLocal {
+			priority = t.cfg.Options().ConnectionPriorityQUICLAN
+		}
+		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, isLocal, priority)
 	}
 }
 
@@ -218,14 +231,15 @@ func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry, lanChecker *lanChecker) genericListener {
 	l := &quicListener{
-		uri:      fixupPort(uri, config.DefaultQUICPort),
-		cfg:      cfg,
-		tlsCfg:   tlsCfg,
-		conns:    conns,
-		factory:  f,
-		registry: registry,
+		uri:        fixupPort(uri, config.DefaultQUICPort),
+		cfg:        cfg,
+		tlsCfg:     tlsCfg,
+		conns:      conns,
+		factory:    f,
+		registry:   registry,
+		lanChecker: lanChecker,
 	}
 	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	l.nat.Store(uint64(stun.NATUnknown))

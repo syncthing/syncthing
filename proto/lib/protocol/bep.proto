@@ -8,9 +8,11 @@ import "repos/protobuf/gogoproto/gogo.proto";
 // --- Pre-auth ---
 
 message Hello {
-    string device_name    = 1;
-    string client_name    = 2;
-    string client_version = 3;
+    string device_name     = 1;
+    string client_name     = 2;
+    string client_version  = 3;
+    int32  num_connections = 4;
+    int64  timestamp       = 5;
 }
 
 // --- Header ---
@@ -41,7 +43,8 @@ enum MessageCompression {
 // Cluster Config
 
 message ClusterConfig {
-    repeated Folder folders = 1;
+    repeated Folder folders   = 1;
+    bool            secondary = 2;
 }
 
 message Folder {
@@ -122,6 +125,10 @@ message FileInfo {
     // The time when the inode was last changed (i.e., permissions, xattrs
     // etc changed). This is host-local, not sent over the wire.
     int64 inode_change_ns = 1002;
+
+    // The size of the data appended to the encrypted file on disk. This is
+    // host-local, not sent over the wire.
+    int32 encryption_trailer_size = 1003;
 
     bool deleted        = 6;
     bool invalid        = 7 [(ext.goname) = "RawInvalid"];

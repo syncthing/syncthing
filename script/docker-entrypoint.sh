@@ -2,9 +2,11 @@
 
 set -eu
 
+[ -n "${UMASK:-}" ] && umask "$UMASK"
+
 if [ "$(id -u)" = '0' ]; then
   binary="$1"
-  if [ "${PCAP:-}" == "" ] ; then
+  if [ -z "${PCAP:-}" ]; then
     # If Syncthing should have no extra capabilities, make sure to remove them
     # from the binary. This will fail with an error if there are no
     # capabilities to remove, hence the || true etc.
@@ -14,8 +16,10 @@ if [ "$(id -u)" = '0' ]; then
     setcap "$PCAP" "$binary"
   fi
 
-  chown "${PUID}:${PGID}" "${HOME}" \
-    && exec su-exec "${PUID}:${PGID}" \
+  # Chown may fail, which may cause us to be unable to start; but maybe
+  # it'll work anyway, so we let the error slide.
+  chown "${PUID}:${PGID}" "${HOME}" || true
+  exec su-exec "${PUID}:${PGID}" \
        env HOME="$HOME" "$@"
 else
   exec "$@"

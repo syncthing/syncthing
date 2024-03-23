@@ -54,12 +54,11 @@ const (
 )
 
 type Options struct {
-	AuditWriter      io.Writer
-	DeadlockTimeoutS int
-	NoUpgrade        bool
-	ProfilerAddr     string
-	ResetDeltaIdxs   bool
-	Verbose          bool
+	AuditWriter    io.Writer
+	NoUpgrade      bool
+	ProfilerAddr   string
+	ResetDeltaIdxs bool
+	Verbose        bool
 	// null duration means use default value
 	DBRecheckInterval    time.Duration
 	DBIndirectGCInterval time.Duration
@@ -249,14 +248,14 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
-	a.M = m;
-
-	if a.opts.DeadlockTimeoutS > 0 {
-		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
-	} else if !build.IsRelease || build.IsBeta {
-		m.StartDeadlockDetector(20 * time.Minute)
+	if err := globalMigration(a.ll, a.cfg); err != nil {
+		l.Warnln("Global migration:", err)
+		return err
 	}
+
+	keyGen := protocol.NewKeyGenerator()
+	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
+	a.M = m;
 
 	a.mainService.Add(m)
 
@@ -285,7 +284,7 @@ func (a *App) startup() error {
 
 	connRegistry := registry.New()
 	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister, connRegistry)
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger, connRegistry)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger, connRegistry, keyGen)
 
 	addrLister.AddressLister = connectionsService
 
@@ -313,7 +312,7 @@ func (a *App) startup() error {
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog, miscDB); err != nil {
 		l.Warnln("Failed starting API:", err)
 		return err
 	}
@@ -415,7 +414,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *db.NamespacedKV) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -429,7 +428,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, locations.Get(locations.GUIAssets), tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, locations.Get(locations.GUIAssets), tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade, miscDB)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {

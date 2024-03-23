@@ -15,7 +15,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 type configMuxBuilder struct {
@@ -212,7 +212,7 @@ func (c *configMuxBuilder) registerDefaultFolder(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		var cfg config.FolderConfiguration
-		util.SetDefaults(&cfg)
+		structutil.SetDefaults(&cfg)
 		c.adjustFolder(w, r, cfg, true)
 	})
 
@@ -228,7 +228,7 @@ func (c *configMuxBuilder) registerDefaultDevice(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		var cfg config.DeviceConfiguration
-		util.SetDefaults(&cfg)
+		structutil.SetDefaults(&cfg)
 		c.adjustDevice(w, r, cfg, true)
 	})
 
@@ -266,7 +266,7 @@ func (c *configMuxBuilder) registerOptions(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		var cfg config.OptionsConfiguration
-		util.SetDefaults(&cfg)
+		structutil.SetDefaults(&cfg)
 		c.adjustOptions(w, r, cfg)
 	})
 
@@ -282,7 +282,7 @@ func (c *configMuxBuilder) registerLDAP(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		var cfg config.LDAPConfiguration
-		util.SetDefaults(&cfg)
+		structutil.SetDefaults(&cfg)
 		c.adjustLDAP(w, r, cfg)
 	})
 
@@ -298,7 +298,7 @@ func (c *configMuxBuilder) registerGUI(path string) {
 
 	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
 		var cfg config.GUIConfiguration
-		util.SetDefaults(&cfg)
+		structutil.SetDefaults(&cfg)
 		c.adjustGUI(w, r, cfg)
 	})
 
@@ -319,7 +319,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if to.GUI.Password != cfg.GUI.Password {
-			if err := to.GUI.HashAndSetPassword(to.GUI.Password); err != nil {
+			if err := to.GUI.SetPassword(to.GUI.Password); err != nil {
 				l.Warnln("hashing password:", err)
 				errMsg = err.Error()
 				status = http.StatusInternalServerError
@@ -401,7 +401,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if gui.Password != oldPassword {
-			if err := gui.HashAndSetPassword(gui.Password); err != nil {
+			if err := gui.SetPassword(gui.Password); err != nil {
 				l.Warnln("hashing password:", err)
 				errMsg = err.Error()
 				status = http.StatusInternalServerError

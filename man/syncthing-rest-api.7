@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Feb 22, 2023" "v1.23.1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Feb 25, 2024" "v1.27.3" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -40,9 +40,12 @@ interface is subject to change.
 To use the REST API an API key must be set and used. The API key can be
 generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
 the configuration file. To use an API key, set the request header
-\fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
-"X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
-with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
+\fBX\-API\-Key\fP to the API key value, or set it as a \fBBearer\fP token in the
+\fBAuthorization\fP header. For example, \fBcurl \-X POST \-H \(dqX\-API\-Key: abc123\(dq
+http://localhost:8384/rest/...\fP or \fBcurl \-X POST \-H \(dqAuthorization: Bearer
+abc123\(dq http://localhost:8384/rest/...\fP can be used to invoke with \fBcurl\fP
+(add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed
+certificate).
 .sp
 One exception to this requirement is \fB/rest/noauth\fP, you do not need an API
 key to use those endpoints. This way third\-party devices and services can do
@@ -67,33 +70,33 @@ to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the opti
 .sp
 .nf
 .ft C
-$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse | json_pp
+$ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse | json_pp
 [
-    "/"
+    \(dq/\(dq
 ]
 
-$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var/ | json_pp
+$ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse?current=/var/ | json_pp
 [
-    "/var/backups/",
-    "/var/cache/",
-    "/var/lib/",
-    "/var/local/",
-    "/var/lock/",
-    "/var/log/",
-    "/var/mail/",
-    "/var/opt/",
-    "/var/run/",
-    "/var/spool/",
-    "/var/tmp/"
+    \(dq/var/backups/\(dq,
+    \(dq/var/cache/\(dq,
+    \(dq/var/lib/\(dq,
+    \(dq/var/local/\(dq,
+    \(dq/var/lock/\(dq,
+    \(dq/var/log/\(dq,
+    \(dq/var/mail/\(dq,
+    \(dq/var/opt/\(dq,
+    \(dq/var/run/\(dq,
+    \(dq/var/spool/\(dq,
+    \(dq/var/tmp/\(dq
 ]
 
-$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var/*o | json_pp
+$ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse?current=/var/*o | json_pp
 [
-    "/var/local/",
-    "/var/lock/",
-    "/var/log/",
-    "/var/opt/",
-    "/var/spool/"
+    \(dq/var/local/\(dq,
+    \(dq/var/lock/\(dq,
+    \(dq/var/log/\(dq,
+    \(dq/var/opt/\(dq,
+    \(dq/var/spool/\(dq
 ]
 .ft P
 .fi
@@ -101,7 +104,7 @@ $ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var
 .UNINDENT
 .SS GET /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use rest\-config
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use \fI\%/rest/config\fP
 instead.
 
 .sp
@@ -112,257 +115,256 @@ Returns the current configuration.
 .nf
 .ft C
 {
-  "version": 35,
-  "folders": [
+  \(dqversion\(dq: 35,
+  \(dqfolders\(dq: [
     {
-      "id": "default",
-      "label": "Default Folder",
-      "filesystemType": "basic",
-      "path": "...",
-      "type": "sendreceive",
-      "devices": [
+      \(dqid\(dq: \(dqdefault\(dq,
+      \(dqlabel\(dq: \(dqDefault Folder\(dq,
+      \(dqfilesystemType\(dq: \(dqbasic\(dq,
+      \(dqpath\(dq: \(dq...\(dq,
+      \(dqtype\(dq: \(dqsendreceive\(dq,
+      \(dqdevices\(dq: [
         {
-          "deviceID": "...",
-          "introducedBy": "",
-          "encryptionPassword": ""
+          \(dqdeviceID\(dq: \(dq...\(dq,
+          \(dqintroducedBy\(dq: \(dq\(dq,
+          \(dqencryptionPassword\(dq: \(dq\(dq
         }
       ],
-      "rescanIntervalS": 3600,
-      "fsWatcherEnabled": true,
-      "fsWatcherDelayS": 10,
-      "ignorePerms": false,
-      "autoNormalize": true,
-      "minDiskFree": {
-        "value": 1,
-        "unit": "%"
+      \(dqrescanIntervalS\(dq: 3600,
+      \(dqfsWatcherEnabled\(dq: true,
+      \(dqfsWatcherDelayS\(dq: 10,
+      \(dqignorePerms\(dq: false,
+      \(dqautoNormalize\(dq: true,
+      \(dqminDiskFree\(dq: {
+        \(dqvalue\(dq: 1,
+        \(dqunit\(dq: \(dq%\(dq
       },
-      "versioning": {
-        "type": "",
-        "params": {},
-        "cleanupIntervalS": 3600,
-        "fsPath": "",
-        "fsType": "basic"
+      \(dqversioning\(dq: {
+        \(dqtype\(dq: \(dq\(dq,
+        \(dqparams\(dq: {},
+        \(dqcleanupIntervalS\(dq: 3600,
+        \(dqfsPath\(dq: \(dq\(dq,
+        \(dqfsType\(dq: \(dqbasic\(dq
       },
-      "copiers": 0,
-      "pullerMaxPendingKiB": 0,
-      "hashers": 0,
-      "order": "random",
-      "ignoreDelete": false,
-      "scanProgressIntervalS": 0,
-      "pullerPauseS": 0,
-      "maxConflicts": \-1,
-      "disableSparseFiles": false,
-      "disableTempIndexes": false,
-      "paused": false,
-      "weakHashThresholdPct": 25,
-      "markerName": ".stfolder",
-      "copyOwnershipFromParent": false,
-      "modTimeWindowS": 0,
-      "maxConcurrentWrites": 2,
-      "disableFsync": false,
-      "blockPullOrder": "standard",
-      "copyRangeMethod": "standard",
-      "caseSensitiveFS": false,
-      "junctionsAsDirs": true
+      \(dqcopiers\(dq: 0,
+      \(dqpullerMaxPendingKiB\(dq: 0,
+      \(dqhashers\(dq: 0,
+      \(dqorder\(dq: \(dqrandom\(dq,
+      \(dqignoreDelete\(dq: false,
+      \(dqscanProgressIntervalS\(dq: 0,
+      \(dqpullerPauseS\(dq: 0,
+      \(dqmaxConflicts\(dq: \-1,
+      \(dqdisableSparseFiles\(dq: false,
+      \(dqdisableTempIndexes\(dq: false,
+      \(dqpaused\(dq: false,
+      \(dqweakHashThresholdPct\(dq: 25,
+      \(dqmarkerName\(dq: \(dq.stfolder\(dq,
+      \(dqcopyOwnershipFromParent\(dq: false,
+      \(dqmodTimeWindowS\(dq: 0,
+      \(dqmaxConcurrentWrites\(dq: 2,
+      \(dqdisableFsync\(dq: false,
+      \(dqblockPullOrder\(dq: \(dqstandard\(dq,
+      \(dqcopyRangeMethod\(dq: \(dqstandard\(dq,
+      \(dqcaseSensitiveFS\(dq: false,
+      \(dqjunctionsAsDirs\(dq: true
     }
   ],
-  "devices": [
+  \(dqdevices\(dq: [
     {
-      "deviceID": "...",
-      "name": "Laptop",
-      "addresses": [
-        "dynamic",
-        "tcp://192.168.1.2:22000"
+      \(dqdeviceID\(dq: \(dq...\(dq,
+      \(dqname\(dq: \(dqLaptop\(dq,
+      \(dqaddresses\(dq: [
+        \(dqdynamic\(dq,
+        \(dqtcp://192.168.1.2:22000\(dq
       ],
-      "compression": "metadata",
-      "certName": "",
-      "introducer": false,
-      "skipIntroductionRemovals": false,
-      "introducedBy": "",
-      "paused": false,
-      "allowedNetworks": [],
-      "autoAcceptFolders": false,
-      "maxSendKbps": 0,
-      "maxRecvKbps": 0,
-      "ignoredFolders": [
+      \(dqcompression\(dq: \(dqmetadata\(dq,
+      \(dqcertName\(dq: \(dq\(dq,
+      \(dqintroducer\(dq: false,
+      \(dqskipIntroductionRemovals\(dq: false,
+      \(dqintroducedBy\(dq: \(dq\(dq,
+      \(dqpaused\(dq: false,
+      \(dqallowedNetworks\(dq: [],
+      \(dqautoAcceptFolders\(dq: false,
+      \(dqmaxSendKbps\(dq: 0,
+      \(dqmaxRecvKbps\(dq: 0,
+      \(dqignoredFolders\(dq: [
         {
-          "time": "2022\-01\-09T19:09:52Z",
-          "id": "br63e\-wyhb7",
-          "label": "Foo"
+          \(dqtime\(dq: \(dq2022\-01\-09T19:09:52Z\(dq,
+          \(dqid\(dq: \(dqbr63e\-wyhb7\(dq,
+          \(dqlabel\(dq: \(dqFoo\(dq
         }
       ],
-      "maxRequestKiB": 0,
-      "untrusted": false,
-      "remoteGUIPort": 0
+      \(dqmaxRequestKiB\(dq: 0,
+      \(dquntrusted\(dq: false,
+      \(dqremoteGUIPort\(dq: 0
     }
   ],
-  "gui": {
-    "enabled": true,
-    "address": "127.0.0.1:8384",
-    "unixSocketPermissions": "",
-    "user": "Username",
-    "password": "$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6",
-    "authMode": "static",
-    "useTLS": false,
-    "apiKey": "k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1",
-    "insecureAdminAccess": false,
-    "theme": "default",
-    "debugging": false,
-    "insecureSkipHostcheck": false,
-    "insecureAllowFrameLoading": false
+  \(dqgui\(dq: {
+    \(dqenabled\(dq: true,
+    \(dqaddress\(dq: \(dq127.0.0.1:8384\(dq,
+    \(dqunixSocketPermissions\(dq: \(dq\(dq,
+    \(dquser\(dq: \(dqUsername\(dq,
+    \(dqpassword\(dq: \(dq$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6\(dq,
+    \(dqauthMode\(dq: \(dqstatic\(dq,
+    \(dquseTLS\(dq: false,
+    \(dqapiKey\(dq: \(dqk1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1\(dq,
+    \(dqinsecureAdminAccess\(dq: false,
+    \(dqtheme\(dq: \(dqdefault\(dq,
+    \(dqdebugging\(dq: false,
+    \(dqinsecureSkipHostcheck\(dq: false,
+    \(dqinsecureAllowFrameLoading\(dq: false
   },
-  "ldap": {
-    "address": "",
-    "bindDN": "",
-    "transport": "plain",
-    "insecureSkipVerify": false,
-    "searchBaseDN": "",
-    "searchFilter": ""
+  \(dqldap\(dq: {
+    \(dqaddress\(dq: \(dq\(dq,
+    \(dqbindDN\(dq: \(dq\(dq,
+    \(dqtransport\(dq: \(dqplain\(dq,
+    \(dqinsecureSkipVerify\(dq: false,
+    \(dqsearchBaseDN\(dq: \(dq\(dq,
+    \(dqsearchFilter\(dq: \(dq\(dq
   },
-  "options": {
-    "listenAddresses": [
-      "default"
+  \(dqoptions\(dq: {
+    \(dqlistenAddresses\(dq: [
+      \(dqdefault\(dq
     ],
-    "globalAnnounceServers": [
-      "default"
+    \(dqglobalAnnounceServers\(dq: [
+      \(dqdefault\(dq
     ],
-    "globalAnnounceEnabled": true,
-    "localAnnounceEnabled": true,
-    "localAnnouncePort": 21027,
-    "localAnnounceMCAddr": "[ff12::8384]:21027",
-    "maxSendKbps": 0,
-    "maxRecvKbps": 0,
-    "reconnectionIntervalS": 60,
-    "relaysEnabled": true,
-    "relayReconnectIntervalM": 10,
-    "startBrowser": true,
-    "natEnabled": true,
-    "natLeaseMinutes": 60,
-    "natRenewalMinutes": 30,
-    "natTimeoutSeconds": 10,
-    "urAccepted": 0,
-    "urSeen": 0,
-    "urUniqueId": "...",
-    "urURL": "https://data.syncthing.net/newdata",
-    "urPostInsecurely": false,
-    "urInitialDelayS": 1800,
-    "restartOnWakeup": true,
-    "autoUpgradeIntervalH": 12,
-    "upgradeToPreReleases": false,
-    "keepTemporariesH": 24,
-    "cacheIgnoredFiles": false,
-    "progressUpdateIntervalS": 5,
-    "limitBandwidthInLan": false,
-    "minHomeDiskFree": {
-      "value": 1,
-      "unit": "%"
+    \(dqglobalAnnounceEnabled\(dq: true,
+    \(dqlocalAnnounceEnabled\(dq: true,
+    \(dqlocalAnnouncePort\(dq: 21027,
+    \(dqlocalAnnounceMCAddr\(dq: \(dq[ff12::8384]:21027\(dq,
+    \(dqmaxSendKbps\(dq: 0,
+    \(dqmaxRecvKbps\(dq: 0,
+    \(dqreconnectionIntervalS\(dq: 60,
+    \(dqrelaysEnabled\(dq: true,
+    \(dqrelayReconnectIntervalM\(dq: 10,
+    \(dqstartBrowser\(dq: true,
+    \(dqnatEnabled\(dq: true,
+    \(dqnatLeaseMinutes\(dq: 60,
+    \(dqnatRenewalMinutes\(dq: 30,
+    \(dqnatTimeoutSeconds\(dq: 10,
+    \(dqurAccepted\(dq: 0,
+    \(dqurSeen\(dq: 0,
+    \(dqurUniqueId\(dq: \(dq...\(dq,
+    \(dqurURL\(dq: \(dqhttps://data.syncthing.net/newdata\(dq,
+    \(dqurPostInsecurely\(dq: false,
+    \(dqurInitialDelayS\(dq: 1800,
+    \(dqautoUpgradeIntervalH\(dq: 12,
+    \(dqupgradeToPreReleases\(dq: false,
+    \(dqkeepTemporariesH\(dq: 24,
+    \(dqcacheIgnoredFiles\(dq: false,
+    \(dqprogressUpdateIntervalS\(dq: 5,
+    \(dqlimitBandwidthInLan\(dq: false,
+    \(dqminHomeDiskFree\(dq: {
+      \(dqvalue\(dq: 1,
+      \(dqunit\(dq: \(dq%\(dq
     },
-    "releasesURL": "https://upgrades.syncthing.net/meta.json",
-    "alwaysLocalNets": [],
-    "overwriteRemoteDeviceNamesOnConnect": false,
-    "tempIndexMinBlocks": 10,
-    "unackedNotificationIDs": [
-      "authenticationUserAndPassword"
+    \(dqreleasesURL\(dq: \(dqhttps://upgrades.syncthing.net/meta.json\(dq,
+    \(dqalwaysLocalNets\(dq: [],
+    \(dqoverwriteRemoteDeviceNamesOnConnect\(dq: false,
+    \(dqtempIndexMinBlocks\(dq: 10,
+    \(dqunackedNotificationIDs\(dq: [
+      \(dqauthenticationUserAndPassword\(dq
     ],
-    "trafficClass": 0,
-    "setLowPriority": true,
-    "maxFolderConcurrency": 0,
-    "crURL": "https://crash.syncthing.net/newcrash",
-    "crashReportingEnabled": true,
-    "stunKeepaliveStartS": 180,
-    "stunKeepaliveMinS": 20,
-    "stunServers": [
-      "default"
+    \(dqtrafficClass\(dq: 0,
+    \(dqsetLowPriority\(dq: true,
+    \(dqmaxFolderConcurrency\(dq: 0,
+    \(dqcrURL\(dq: \(dqhttps://crash.syncthing.net/newcrash\(dq,
+    \(dqcrashReportingEnabled\(dq: true,
+    \(dqstunKeepaliveStartS\(dq: 180,
+    \(dqstunKeepaliveMinS\(dq: 20,
+    \(dqstunServers\(dq: [
+      \(dqdefault\(dq
     ],
-    "databaseTuning": "auto",
-    "maxConcurrentIncomingRequestKiB": 0,
-    "announceLANAddresses": true,
-    "sendFullIndexOnUpgrade": false,
-    "featureFlags": [],
-    "connectionLimitEnough": 0,
-    "connectionLimitMax": 0,
-    "insecureAllowOldTLSVersions": false
+    \(dqdatabaseTuning\(dq: \(dqauto\(dq,
+    \(dqmaxConcurrentIncomingRequestKiB\(dq: 0,
+    \(dqannounceLANAddresses\(dq: true,
+    \(dqsendFullIndexOnUpgrade\(dq: false,
+    \(dqfeatureFlags\(dq: [],
+    \(dqconnectionLimitEnough\(dq: 0,
+    \(dqconnectionLimitMax\(dq: 0,
+    \(dqinsecureAllowOldTLSVersions\(dq: false
   },
-  "remoteIgnoredDevices": [
+  \(dqremoteIgnoredDevices\(dq: [
     {
-      "time": "2022\-01\-09T20:02:01Z",
-      "deviceID": "...",
-      "name": "...",
-      "address": "192.168.0.20:22000"
+      \(dqtime\(dq: \(dq2022\-01\-09T20:02:01Z\(dq,
+      \(dqdeviceID\(dq: \(dq...\(dq,
+      \(dqname\(dq: \(dq...\(dq,
+      \(dqaddress\(dq: \(dq192.168.0.20:22000\(dq
     }
   ],
-  "defaults": {
-    "folder": {
-      "id": "",
-      "label": "",
-      "filesystemType": "basic",
-      "path": "~",
-      "type": "sendreceive",
-      "devices": [
+  \(dqdefaults\(dq: {
+    \(dqfolder\(dq: {
+      \(dqid\(dq: \(dq\(dq,
+      \(dqlabel\(dq: \(dq\(dq,
+      \(dqfilesystemType\(dq: \(dqbasic\(dq,
+      \(dqpath\(dq: \(dq~\(dq,
+      \(dqtype\(dq: \(dqsendreceive\(dq,
+      \(dqdevices\(dq: [
         {
-          "deviceID": "...",
-          "introducedBy": "",
-          "encryptionPassword": ""
+          \(dqdeviceID\(dq: \(dq...\(dq,
+          \(dqintroducedBy\(dq: \(dq\(dq,
+          \(dqencryptionPassword\(dq: \(dq\(dq
         }
       ],
-      "rescanIntervalS": 3600,
-      "fsWatcherEnabled": true,
-      "fsWatcherDelayS": 10,
-      "ignorePerms": false,
-      "autoNormalize": true,
-      "minDiskFree": {
-        "value": 1,
-        "unit": "%"
+      \(dqrescanIntervalS\(dq: 3600,
+      \(dqfsWatcherEnabled\(dq: true,
+      \(dqfsWatcherDelayS\(dq: 10,
+      \(dqignorePerms\(dq: false,
+      \(dqautoNormalize\(dq: true,
+      \(dqminDiskFree\(dq: {
+        \(dqvalue\(dq: 1,
+        \(dqunit\(dq: \(dq%\(dq
       },
-      "versioning": {
-        "type": "",
-        "params": {},
-        "cleanupIntervalS": 3600,
-        "fsPath": "",
-        "fsType": "basic"
+      \(dqversioning\(dq: {
+        \(dqtype\(dq: \(dq\(dq,
+        \(dqparams\(dq: {},
+        \(dqcleanupIntervalS\(dq: 3600,
+        \(dqfsPath\(dq: \(dq\(dq,
+        \(dqfsType\(dq: \(dqbasic\(dq
       },
-      "copiers": 0,
-      "pullerMaxPendingKiB": 0,
-      "hashers": 0,
-      "order": "random",
-      "ignoreDelete": false,
-      "scanProgressIntervalS": 0,
-      "pullerPauseS": 0,
-      "maxConflicts": 10,
-      "disableSparseFiles": false,
-      "disableTempIndexes": false,
-      "paused": false,
-      "weakHashThresholdPct": 25,
-      "markerName": ".stfolder",
-      "copyOwnershipFromParent": false,
-      "modTimeWindowS": 0,
-      "maxConcurrentWrites": 2,
-      "disableFsync": false,
-      "blockPullOrder": "standard",
-      "copyRangeMethod": "standard",
-      "caseSensitiveFS": false,
-      "junctionsAsDirs": false
+      \(dqcopiers\(dq: 0,
+      \(dqpullerMaxPendingKiB\(dq: 0,
+      \(dqhashers\(dq: 0,
+      \(dqorder\(dq: \(dqrandom\(dq,
+      \(dqignoreDelete\(dq: false,
+      \(dqscanProgressIntervalS\(dq: 0,
+      \(dqpullerPauseS\(dq: 0,
+      \(dqmaxConflicts\(dq: 10,
+      \(dqdisableSparseFiles\(dq: false,
+      \(dqdisableTempIndexes\(dq: false,
+      \(dqpaused\(dq: false,
+      \(dqweakHashThresholdPct\(dq: 25,
+      \(dqmarkerName\(dq: \(dq.stfolder\(dq,
+      \(dqcopyOwnershipFromParent\(dq: false,
+      \(dqmodTimeWindowS\(dq: 0,
+      \(dqmaxConcurrentWrites\(dq: 2,
+      \(dqdisableFsync\(dq: false,
+      \(dqblockPullOrder\(dq: \(dqstandard\(dq,
+      \(dqcopyRangeMethod\(dq: \(dqstandard\(dq,
+      \(dqcaseSensitiveFS\(dq: false,
+      \(dqjunctionsAsDirs\(dq: false
     },
-    "device": {
-      "deviceID": "",
-      "name": "",
-      "addresses": [
-        "dynamic"
+    \(dqdevice\(dq: {
+      \(dqdeviceID\(dq: \(dq\(dq,
+      \(dqname\(dq: \(dq\(dq,
+      \(dqaddresses\(dq: [
+        \(dqdynamic\(dq
       ],
-      "compression": "metadata",
-      "certName": "",
-      "introducer": false,
-      "skipIntroductionRemovals": false,
-      "introducedBy": "",
-      "paused": false,
-      "allowedNetworks": [],
-      "autoAcceptFolders": false,
-      "maxSendKbps": 0,
-      "maxRecvKbps": 0,
-      "ignoredFolders": [],
-      "maxRequestKiB": 0,
-      "untrusted": false,
-      "remoteGUIPort": 0
+      \(dqcompression\(dq: \(dqmetadata\(dq,
+      \(dqcertName\(dq: \(dq\(dq,
+      \(dqintroducer\(dq: false,
+      \(dqskipIntroductionRemovals\(dq: false,
+      \(dqintroducedBy\(dq: \(dq\(dq,
+      \(dqpaused\(dq: false,
+      \(dqallowedNetworks\(dq: [],
+      \(dqautoAcceptFolders\(dq: false,
+      \(dqmaxSendKbps\(dq: 0,
+      \(dqmaxRecvKbps\(dq: 0,
+      \(dqignoredFolders\(dq: [],
+      \(dqmaxRequestKiB\(dq: 0,
+      \(dquntrusted\(dq: false,
+      \(dqremoteGUIPort\(dq: 0
     }
   }
 }
@@ -373,7 +375,7 @@ Returns the current configuration.
 .SS GET /rest/system/config/insync (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use
-rest\-config\-insync instead.
+\fI\%/rest/config/restart\-required\fP instead.
 
 .sp
 Returns whether the config is in sync, i.e. whether the running
@@ -384,7 +386,7 @@ configuration is the same as that on disk.
 .nf
 .ft C
 {
-  "configInSync": true
+  \(dqconfigInSync\(dq: true
 }
 .ft P
 .fi
@@ -392,14 +394,14 @@ configuration is the same as that on disk.
 .UNINDENT
 .SS POST /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated.  Use config
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated.  Use \fI\%Config Endpoints\fP
 instead.
 
 .sp
 Post the full contents of the configuration, in the same format as returned by
 the corresponding GET request. When posting the configuration succeeds,
 the posted configuration is immediately applied, except for changes that require a restart. Query
-rest\-config\-insync to check if a restart is required.
+\fI\%/rest/config/restart\-required\fP to check if a restart is required.
 .sp
 This endpoint is the main point to control Syncthing, even if the change only
 concerns a very small part of the config: The usual workflow is to get the
@@ -423,48 +425,48 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .nf
 .ft C
 {
-  "connections": {
-    "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA": {
-      "address": "",
-      "at": "0001\-01\-01T00:00:00Z",
-      "clientVersion": "",
-      "connected": false,
-      "inBytesTotal": 0,
-      "isLocal": false,
-      "outBytesTotal": 0,
-      "paused": false,
-      "startedAt": "0001\-01\-01T00:00:00Z",
-      "type": ""
+  \(dqconnections\(dq: {
+    \(dqDOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA\(dq: {
+      \(dqaddress\(dq: \(dq\(dq,
+      \(dqat\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
+      \(dqclientVersion\(dq: \(dq\(dq,
+      \(dqconnected\(dq: false,
+      \(dqinBytesTotal\(dq: 0,
+      \(dqisLocal\(dq: false,
+      \(dqoutBytesTotal\(dq: 0,
+      \(dqpaused\(dq: false,
+      \(dqstartedAt\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
+      \(dqtype\(dq: \(dq\(dq
     },
-    "UYGDMA4\-TPHOFO5\-2VQYDCC\-7CWX7XW\-INZINQT\-LE4B42N\-4JUZTSM\-IWCSXA4": {
-      "address": "",
-      "at": "0001\-01\-01T00:00:00Z",
-      "clientVersion": "",
-      "connected": false,
-      "inBytesTotal": 0,
-      "isLocal": false,
-      "outBytesTotal": 0,
-      "paused": false,
-      "startedAt": "0001\-01\-01T00:00:00Z",
-      "type": ""
+    \(dqUYGDMA4\-TPHOFO5\-2VQYDCC\-7CWX7XW\-INZINQT\-LE4B42N\-4JUZTSM\-IWCSXA4\(dq: {
+      \(dqaddress\(dq: \(dq\(dq,
+      \(dqat\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
+      \(dqclientVersion\(dq: \(dq\(dq,
+      \(dqconnected\(dq: false,
+      \(dqinBytesTotal\(dq: 0,
+      \(dqisLocal\(dq: false,
+      \(dqoutBytesTotal\(dq: 0,
+      \(dqpaused\(dq: false,
+      \(dqstartedAt\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
+      \(dqtype\(dq: \(dq\(dq
     },
-    "YZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC": {
-      "address": "127.0.0.1:22002",
-      "at": "2015\-11\-07T17:29:47.691548971+01:00",
-      "clientVersion": "v0.12.1",
-      "connected": true,
-      "inBytesTotal": 556,
-      "isLocal": true,
-      "outBytesTotal": 550,
-      "paused": false,
-      "startedAt": "2015\-11\-07T00:09:47Z",
-      "type": "TCP (Client)"
+    \(dqYZJBJFX\-RDBL7WY\-6ZGKJ2D\-4MJB4E7\-ZATSDUY\-LD6Y3L3\-MLFUYWE\-AEMXJAC\(dq: {
+      \(dqaddress\(dq: \(dq127.0.0.1:22002\(dq,
+      \(dqat\(dq: \(dq2015\-11\-07T17:29:47.691548971+01:00\(dq,
+      \(dqclientVersion\(dq: \(dqv0.12.1\(dq,
+      \(dqconnected\(dq: true,
+      \(dqinBytesTotal\(dq: 556,
+      \(dqisLocal\(dq: true,
+      \(dqoutBytesTotal\(dq: 550,
+      \(dqpaused\(dq: false,
+      \(dqstartedAt\(dq: \(dq2015\-11\-07T00:09:47Z\(dq,
+      \(dqtype\(dq: \(dqTCP (Client)\(dq
     }
   },
-  "total": {
-    "at": "2015\-11\-07T17:29:47.691637262+01:00",
-    "inBytesTotal": 1479,
-    "outBytesTotal": 1318
+  \(dqtotal\(dq: {
+    \(dqat\(dq: \(dq2015\-11\-07T17:29:47.691637262+01:00\(dq,
+    \(dqinBytesTotal\(dq: 1479,
+    \(dqoutBytesTotal\(dq: 1318
   }
 }
 .ft P
@@ -483,28 +485,28 @@ Returns the set of debug facilities and which of them are currently enabled.
 .nf
 .ft C
 {
-  "enabled": [
-    "beacon"
+  \(dqenabled\(dq: [
+    \(dqbeacon\(dq
   ],
-  "facilities": {
-    "beacon": "Multicast and broadcast discovery",
-    "config": "Configuration loading and saving",
-    "connections": "Connection handling",
-    "db": "The database layer",
-    "dialer": "Dialing connections",
-    "discover": "Remote device discovery",
-    "events": "Event generation and logging",
-    "http": "REST API",
-    "main": "Main package",
-    "model": "The root hub",
-    "protocol": "The BEP protocol",
-    "relay": "Relay connection handling",
-    "scanner": "File change detection and hashing",
-    "stats": "Persistent device and folder statistics",
-    "sync": "Mutexes",
-    "upgrade": "Binary upgrades",
-    "upnp": "UPnP discovery and port mapping",
-    "versioner": "File versioning"
+  \(dqfacilities\(dq: {
+    \(dqbeacon\(dq: \(dqMulticast and broadcast discovery\(dq,
+    \(dqconfig\(dq: \(dqConfiguration loading and saving\(dq,
+    \(dqconnections\(dq: \(dqConnection handling\(dq,
+    \(dqdb\(dq: \(dqThe database layer\(dq,
+    \(dqdialer\(dq: \(dqDialing connections\(dq,
+    \(dqdiscover\(dq: \(dqRemote device discovery\(dq,
+    \(dqevents\(dq: \(dqEvent generation and logging\(dq,
+    \(dqhttp\(dq: \(dqREST API\(dq,
+    \(dqmain\(dq: \(dqMain package\(dq,
+    \(dqmodel\(dq: \(dqThe root hub\(dq,
+    \(dqprotocol\(dq: \(dqThe BEP protocol\(dq,
+    \(dqrelay\(dq: \(dqRelay connection handling\(dq,
+    \(dqscanner\(dq: \(dqFile change detection and hashing\(dq,
+    \(dqstats\(dq: \(dqPersistent device and folder statistics\(dq,
+    \(dqsync\(dq: \(dqMutexes\(dq,
+    \(dqupgrade\(dq: \(dqBinary upgrades\(dq,
+    \(dqupnp\(dq: \(dqUPnP discovery and port mapping\(dq,
+    \(dqversioner\(dq: \(dqFile versioning\(dq
   }
 }
 .ft P
@@ -539,8 +541,8 @@ Returns the contents of the local discovery cache.
 .nf
 .ft C
 {
-  "LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q": [
-    "192.162.129.11:22000"
+  \(dqLGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\(dq: [
+    \(dq192.162.129.11:22000\(dq
   ]
 }
 .ft P
@@ -565,7 +567,7 @@ the discovery cache.
 .ft C
 curl \-X POST http://127.0.0.1:8384/rest/system/discovery?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
 # Or with the X\-API\-Key header:
-curl \-X POST \-\-header "X\-API\-Key: TcE28kVPdtJ8COws1JdM0b2nodj77WeQ" http://127.0.0.1:8384/rest/system/discovery?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
+curl \-X POST \-\-header \(dqX\-API\-Key: TcE28kVPdtJ8COws1JdM0b2nodj77WeQ\(dq http://127.0.0.1:8384/rest/system/discovery?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
 .ft P
 .fi
 .UNINDENT
@@ -589,10 +591,10 @@ Returns the list of recent errors.
 .nf
 .ft C
 {
-  "errors": [
+  \(dqerrors\(dq: [
     {
-      "when": "2014\-09\-18T12:59:26.549953186+02:00",
-      "message": "This is an error string"
+      \(dqwhen\(dq: \(dq2014\-09\-18T12:59:26.549953186+02:00\(dq,
+      \(dqmessage\(dq: \(dqThis is an error string\(dq
     }
   ]
 }
@@ -617,10 +619,10 @@ the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBht
 .nf
 .ft C
 {
-  "messages": [
+  \(dqmessages\(dq: [
     {
-      "when": "2014\-09\-18T12:59:26.549953186+02:00",
-      "message": "This is a log entry"
+      \(dqwhen\(dq: \(dq2014\-09\-18T12:59:26.549953186+02:00\(dq,
+      \(dqmessage\(dq: \(dqThis is a log entry\(dq
     }
   ]
 }
@@ -644,21 +646,21 @@ and others.
 .nf
 .ft C
 {
-  "auditLog": "/home/user/.local/share/syncthing/audit\-${timestamp}.log",
-  "baseDir\-config": "/home/user/.config/syncthing",
-  "baseDir\-data": "/home/user/.local/share/syncthing",
-  "baseDir\-userHome": "/home/user",
-  "certFile": "/home/user/.config/syncthing/cert.pem",
-  "config": "/home/user/.config/syncthing/config.xml",
-  "csrfTokens": "/home/user/.config/syncthing/csrftokens.txt",
-  "database": "/home/user/.local/share/syncthing/index\-v0.14.0.db",
-  "defFolder": "/home/user/Sync",
-  "guiAssets": "/home/user/src/syncthing/gui",
-  "httpsCertFile": "/home/user/.config/syncthing/https\-cert.pem",
-  "httpsKeyFile": "/home/user/.config/syncthing/https\-key.pem",
-  "keyFile": "/home/user/.config/syncthing/key.pem",
-  "logFile": "\-",
-  "panicLog": "/home/user/.local/share/syncthing/panic\-${timestamp}.log"
+  \(dqauditLog\(dq: \(dq/home/user/.local/share/syncthing/audit\-${timestamp}.log\(dq,
+  \(dqbaseDir\-config\(dq: \(dq/home/user/.config/syncthing\(dq,
+  \(dqbaseDir\-data\(dq: \(dq/home/user/.local/share/syncthing\(dq,
+  \(dqbaseDir\-userHome\(dq: \(dq/home/user\(dq,
+  \(dqcertFile\(dq: \(dq/home/user/.config/syncthing/cert.pem\(dq,
+  \(dqconfig\(dq: \(dq/home/user/.config/syncthing/config.xml\(dq,
+  \(dqcsrfTokens\(dq: \(dq/home/user/.config/syncthing/csrftokens.txt\(dq,
+  \(dqdatabase\(dq: \(dq/home/user/.local/share/syncthing/index\-v0.14.0.db\(dq,
+  \(dqdefFolder\(dq: \(dq/home/user/Sync\(dq,
+  \(dqguiAssets\(dq: \(dq/home/user/src/syncthing/gui\(dq,
+  \(dqhttpsCertFile\(dq: \(dq/home/user/.config/syncthing/https\-cert.pem\(dq,
+  \(dqhttpsKeyFile\(dq: \(dq/home/user/.config/syncthing/https\-key.pem\(dq,
+  \(dqkeyFile\(dq: \(dq/home/user/.config/syncthing/key.pem\(dq,
+  \(dqlogFile\(dq: \(dq\-\(dq,
+  \(dqpanicLog\(dq: \(dq/home/user/.local/share/syncthing/panic\-${timestamp}.log\(dq
 }
 .ft P
 .fi
@@ -673,14 +675,14 @@ pauses all devices.  Returns status 200 and no content upon success, or status
 500 and a plain text error on failure.
 .SS GET /rest/system/ping
 .sp
-Returns a \fB{"ping": "pong"}\fP object.
+Returns a \fB{\(dqping\(dq: \(dqpong\(dq}\fP object.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "ping": "pong"
+  \(dqping\(dq: \(dqpong\(dq
 }
 .ft P
 .fi
@@ -688,7 +690,7 @@ Returns a \fB{"ping": "pong"}\fP object.
 .UNINDENT
 .SS POST /rest/system/ping
 .sp
-Returns a \fB{"ping": "pong"}\fP object.
+Returns a \fB{\(dqping\(dq: \(dqpong\(dq}\fP object.
 .SS POST /rest/system/reset
 .sp
 Post with empty body to erase the current index database and restart
@@ -700,13 +702,13 @@ information for that folder will be erased:
 .sp
 .nf
 .ft C
-curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
+curl \-X POST \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fB\-\-reset\-database\fP for \fB\&.stfolder\fP creation
+\fBCaution\fP: See \fI\%\-\-reset\-database\fP for \fB\&.stfolder\fP creation
 side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
@@ -730,89 +732,89 @@ Returns information about current system status and resource usage. The CPU perc
 .nf
 .ft C
 {
-  "alloc": 30618136,
-  "connectionServiceStatus": {
-    "dynamic+https://relays.syncthing.net/endpoint": {
-      "error": null,
-      "lanAddresses": [
-        "relay://23.92.71.120:443/?id=53STGR7\-YBM6FCX\-PAZ2RHM\-YPY6OEJ\-WYHVZO7\-PCKQRCK\-PZLTP7T\-434XCAD&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=canton7"
+  \(dqalloc\(dq: 30618136,
+  \(dqconnectionServiceStatus\(dq: {
+    \(dqdynamic+https://relays.syncthing.net/endpoint\(dq: {
+      \(dqerror\(dq: null,
+      \(dqlanAddresses\(dq: [
+        \(dqrelay://23.92.71.120:443/?id=53STGR7\-YBM6FCX\-PAZ2RHM\-YPY6OEJ\-WYHVZO7\-PCKQRCK\-PZLTP7T\-434XCAD&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=canton7\(dq
       ],
-      "wanAddresses": [
-        "relay://23.92.71.120:443/?id=53STGR7\-YBM6FCX\-PAZ2RHM\-YPY6OEJ\-WYHVZO7\-PCKQRCK\-PZLTP7T\-434XCAD&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=canton7"
+      \(dqwanAddresses\(dq: [
+        \(dqrelay://23.92.71.120:443/?id=53STGR7\-YBM6FCX\-PAZ2RHM\-YPY6OEJ\-WYHVZO7\-PCKQRCK\-PZLTP7T\-434XCAD&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=canton7\(dq
       ]
     },
-    "tcp://0.0.0.0:22000": {
-      "error": null,
-      "lanAddresses": [
-        "tcp://0.0.0.0:22000"
+    \(dqtcp://0.0.0.0:22000\(dq: {
+      \(dqerror\(dq: null,
+      \(dqlanAddresses\(dq: [
+        \(dqtcp://0.0.0.0:22000\(dq
       ],
-      "wanAddresses": [
-        "tcp://0.0.0.0:22000"
+      \(dqwanAddresses\(dq: [
+        \(dqtcp://0.0.0.0:22000\(dq
       ]
     }
   },
-  "cpuPercent": 0,
-  "discoveryEnabled": true,
-  "discoveryErrors": {
-    "global@https://discovery\-v4\-1.syncthing.net/v2/": "500 Internal Server Error",
-    "global@https://discovery\-v4\-2.syncthing.net/v2/": "Post https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
-    "global@https://discovery\-v4\-3.syncthing.net/v2/": "Post https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
-    "global@https://discovery\-v6\-1.syncthing.net/v2/": "Post https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host",
-    "global@https://discovery\-v6\-2.syncthing.net/v2/": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host",
-    "global@https://discovery\-v6\-3.syncthing.net/v2/": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
+  \(dqcpuPercent\(dq: 0,
+  \(dqdiscoveryEnabled\(dq: true,
+  \(dqdiscoveryErrors\(dq: {
+    \(dqglobal@https://discovery\-v4\-1.syncthing.net/v2/\(dq: \(dq500 Internal Server Error\(dq,
+    \(dqglobal@https://discovery\-v4\-2.syncthing.net/v2/\(dq: \(dqPost https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\(dq,
+    \(dqglobal@https://discovery\-v4\-3.syncthing.net/v2/\(dq: \(dqPost https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\(dq,
+    \(dqglobal@https://discovery\-v6\-1.syncthing.net/v2/\(dq: \(dqPost https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host\(dq,
+    \(dqglobal@https://discovery\-v6\-2.syncthing.net/v2/\(dq: \(dqPost https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host\(dq,
+    \(dqglobal@https://discovery\-v6\-3.syncthing.net/v2/\(dq: \(dqPost https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host\(dq
   },
-  "discoveryStatus": {
-    "IPv4 local": {
-      "error": null
+  \(dqdiscoveryStatus\(dq: {
+    \(dqIPv4 local\(dq: {
+      \(dqerror\(dq: null
     },
-    "IPv6 local": {
-      "error": null
+    \(dqIPv6 local\(dq: {
+      \(dqerror\(dq: null
     },
-    "global@https://discovery\-v4\-1.syncthing.net/v2/": {
-      "error": "500 Internal Server Error"
+    \(dqglobal@https://discovery\-v4\-1.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dq500 Internal Server Error\(dq
     },
-    "global@https://discovery\-v4\-2.syncthing.net/v2/": {
-      "error": "Post https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    \(dqglobal@https://discovery\-v4\-2.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dqPost https://discovery\-v4\-2.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\(dq
     },
-    "global@https://discovery\-v4\-3.syncthing.net/v2/": {
-      "error": "Post https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)"
+    \(dqglobal@https://discovery\-v4\-3.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dqPost https://discovery\-v4\-3.syncthing.net/v2/: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\(dq
     },
-    "global@https://discovery\-v6\-1.syncthing.net/v2/": {
-      "error": "Post https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host"
+    \(dqglobal@https://discovery\-v6\-1.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dqPost https://discovery\-v6\-1.syncthing.net/v2/: dial tcp [2001:470:28:4d6::5]:443: connect: no route to host\(dq
     },
-    "global@https://discovery\-v6\-2.syncthing.net/v2/": {
-      "error": "Post https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host"
+    \(dqglobal@https://discovery\-v6\-2.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dqPost https://discovery\-v6\-2.syncthing.net/v2/: dial tcp [2604:a880:800:10::182:a001]:443: connect: no route to host\(dq
     },
-    "global@https://discovery\-v6\-3.syncthing.net/v2/": {
-      "error": "Post https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host"
+    \(dqglobal@https://discovery\-v6\-3.syncthing.net/v2/\(dq: {
+      \(dqerror\(dq: \(dqPost https://discovery\-v6\-3.syncthing.net/v2/: dial tcp [2400:6180:0:d0::d9:d001]:443: connect: no route to host\(dq
     }
   },
-  "discoveryMethods": 8,
-  "goroutines": 49,
-  "lastDialStatus": {
-      "tcp://10.20.30.40": {
-        "when": "2019\-05\-16T07:41:23Z",
-        "error": "dial tcp 10.20.30.40:22000: i/o timeout"
+  \(dqdiscoveryMethods\(dq: 8,
+  \(dqgoroutines\(dq: 49,
+  \(dqlastDialStatus\(dq: {
+      \(dqtcp://10.20.30.40\(dq: {
+        \(dqwhen\(dq: \(dq2019\-05\-16T07:41:23Z\(dq,
+        \(dqerror\(dq: \(dqdial tcp 10.20.30.40:22000: i/o timeout\(dq
       },
-      "tcp://172.16.33.3:22000": {
-        "when": "2019\-05\-16T07:40:43Z",
-        "ok": true
+      \(dqtcp://172.16.33.3:22000\(dq: {
+        \(dqwhen\(dq: \(dq2019\-05\-16T07:40:43Z\(dq,
+        \(dqok\(dq: true
       },
-      "tcp://83.233.120.221:22000": {
-        "when": "2019\-05\-16T07:41:13Z",
-        "error": "dial tcp 83.233.120.221:22000: connect: connection refused"
+      \(dqtcp://83.233.120.221:22000\(dq: {
+        \(dqwhen\(dq: \(dq2019\-05\-16T07:41:13Z\(dq,
+        \(dqerror\(dq: \(dqdial tcp 83.233.120.221:22000: connect: connection refused\(dq
       }
   },
-  "myID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
-  "pathSeparator": "/",
-  "startTime": "2016\-06\-06T19:41:43.039284753+02:00",
-  "sys": 42092792,
-  "themes": [
-    "default",
-    "dark"
+  \(dqmyID\(dq: \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq,
+  \(dqpathSeparator\(dq: \(dq/\(dq,
+  \(dqstartTime\(dq: \(dq2016\-06\-06T19:41:43.039284753+02:00\(dq,
+  \(dqsys\(dq: 42092792,
+  \(dqthemes\(dq: [
+    \(dqdefault\(dq,
+    \(dqdark\(dq
   ],
-  "tilde": "/Users/jb",
-  "uptime": 2635
+  \(dqtilde\(dq: \(dq/Users/jb\(dq,
+  \(dquptime\(dq: 2635
 }
 .ft P
 .fi
@@ -821,7 +823,7 @@ Returns information about current system status and resource usage. The CPU perc
 .sp
 New in version 1.2.0: The \fBlastDialStatus\fP dictionary contains the last error (or \fBnull\fP for
 success) for each peer address that Syncthing has attempted to contact.
-The \fBconnectionServiceStatus\fP entries gained \fB"error": null\fP
+The \fBconnectionServiceStatus\fP entries gained \fB\(dqerror\(dq: null\fP
 attributes where previously there would be no \fBerror\fP attribute at all
 in the success case.
 
@@ -843,10 +845,10 @@ newest version and upgrade possibility.
 .nf
 .ft C
 {
-  "latest": "v0.14.47",
-  "majorNewer": false,
-  "newer": true,
-  "running": "v0.14.46"
+  \(dqlatest\(dq: \(dqv0.14.47\(dq,
+  \(dqmajorNewer\(dq: false,
+  \(dqnewer\(dq: true,
+  \(dqrunning\(dq: \(dqv0.14.46\(dq
 }
 .ft P
 .fi
@@ -865,10 +867,10 @@ Returns the current Syncthing version information.
 .nf
 .ft C
 {
-  "arch": "amd64",
-  "longVersion": "syncthing v0.10.27+3\-gea8c3de (go1.4 darwin\-amd64 default) jb@syno 2015\-03\-16 11:01:29 UTC",
-  "os": "darwin",
-  "version": "v0.10.27+3\-gea8c3de"
+  \(dqarch\(dq: \(dqamd64\(dq,
+  \(dqlongVersion\(dq: \(dqsyncthing v0.10.27+3\-gea8c3de (go1.4 darwin\-amd64 default) jb@syno 2015\-03\-16 11:01:29 UTC\(dq,
+  \(dqos\(dq: \(dqdarwin\(dq,
+  \(dqversion\(dq: \(dqv0.10.27+3\-gea8c3de\(dq
 }
 .ft P
 .fi
@@ -880,7 +882,7 @@ Returns the current Syncthing version information.
 New in version 1.12.0.
 
 .sp
-These endpoints facilitate access and modification of the configuration in a granular way. Config sent to the endpoints must be in the
+These endpoints facilitate access and modification of the \fI\%configuration\fP in a granular way. Config sent to the endpoints must be in the
 same format as returned by the corresponding GET request. When posting the
 configuration succeeds, the posted configuration is immediately applied, except
 for changes that require a restart. Query \fI\%/rest/config/restart\-required\fP to check if
@@ -890,7 +892,7 @@ For all endpoints supporting \fBPATCH\fP, it takes the existing config and
 unmarshals the given JSON object on top of it. This means all child objects will
 replace the existing objects, not extend them. For example for
 \fBRawListenAddresses\fP in options, which is an array of strings, sending
-\fB{RawListenAddresses: ["tcp://10.0.0.2"]}\fP will replace all existing listen
+\fB{RawListenAddresses: [\(dqtcp://10.0.0.2\(dq]}\fP will replace all existing listen
 addresses.
 .SS /rest/config
 .sp
@@ -928,6 +930,15 @@ patterns to be used by default on folders, as an array of single\-line strings.
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and
 \fBPATCH\fP replaces only the given child objects.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+The \fI\%gui.password\fP configuration option has special handling to
+accept already hashed passwords.  Any valid bcrypt hash is stored verbatim,
+while a plaintext password is first hashed.
+.UNINDENT
+.UNINDENT
 .SH CLUSTER ENDPOINTS
 .sp
 Concerns the mesh network structure.
@@ -938,24 +949,24 @@ New in version 1.18.0.
 .sp
 Remove records about a pending remote device which tried to connect.  Valid
 values for the \fBdevice\fP parameter are those from the corresponding
-cluster\-pending\-devices\-get endpoint.
+\fI\%GET /rest/cluster/pending/devices\fP endpoint.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/devices?device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+$ curl \-X DELETE \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/cluster/pending/devices?device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
 Returns status 200 and no content upon success, or status 500 and a
-plain text error on failure.  A /events/pendingdeviceschanged
+plain text error on failure.  A \fI\%PendingDevicesChanged\fP
 event will be generated in response.
 .sp
 For a more permanent effect, also for future connections from the same
-device ID, the device should be ignored in the configuration instead.
+device ID, the device should be ignored in the \fI\%configuration\fP instead.
 .SS GET /rest/cluster/pending/devices
 .sp
 New in version 1.13.0.
@@ -969,10 +980,10 @@ configured in our instance.
 .nf
 .ft C
 {
-  "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
-    "time": "2020\-03\-18T11:43:07Z",
-    "name": "Friend Joe",
-    "address": "192.168.1.2:22000"
+  \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
+    \(dqtime\(dq: \(dq2020\-03\-18T11:43:07Z\(dq,
+    \(dqname\(dq: \(dqFriend Joe\(dq,
+    \(dqaddress\(dq: \(dq192.168.1.2:22000\(dq
   }
 }
 .ft P
@@ -986,7 +997,7 @@ New in version 1.18.0.
 .sp
 Remove records about a pending folder announced from a remote device.  Valid
 values for the \fBfolder\fP and \fBdevice\fP parameters are those from the
-corresponding cluster\-pending\-folders\-get endpoint.  The \fBdevice\fP
+corresponding \fI\%GET /rest/cluster/pending/folders\fP endpoint.  The \fBdevice\fP
 parameter is optional and affects announcements of this folder from the given
 device, or from \fIany\fP device if omitted.
 .INDENT 0.0
@@ -994,18 +1005,18 @@ device, or from \fIany\fP device if omitted.
 .sp
 .nf
 .ft C
-$ curl \-X DELETE \-H "X\-API\-Key: abc123" http://localhost:8384/rest/cluster/pending/folders?folder=cpkn4\-57ysy&device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
+$ curl \-X DELETE \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/cluster/pending/folders?folder=cpkn4\-57ysy&device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
 Returns status 200 and no content upon success, or status 500 and a plain text
-error on failure.  A /events/pendingfolderschanged event will be
+error on failure.  A \fI\%PendingFoldersChanged\fP event will be
 generated in response.
 .sp
 For a more permanent effect, also for future announcements of the same folder
-ID, the folder should be ignored in the configuration
+ID, the folder should be ignored in the \fI\%configuration\fP
 instead.
 .SS GET /rest/cluster/pending/folders
 .sp
@@ -1022,29 +1033,29 @@ Other offering devices are also omitted from the result.
 .nf
 .ft C
 {
-  "cpkn4\-57ysy": {
-    "offeredBy": {
-      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
-        "time": "2020\-03\-18T11:43:07Z",
-        "label": "Joe\(aqs folder",
-        "receiveEncrypted": true,
-        "remoteEncrypted": false
+  \(dqcpkn4\-57ysy\(dq: {
+    \(dqofferedBy\(dq: {
+      \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
+        \(dqtime\(dq: \(dq2020\-03\-18T11:43:07Z\(dq,
+        \(dqlabel\(dq: \(dqJoe\(aqs folder\(dq,
+        \(dqreceiveEncrypted\(dq: true,
+        \(dqremoteEncrypted\(dq: false
       },
-      "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA": {
-        "time": "2020\-03\-01T10:12:13Z",
-        "label": "Jane\(aqs and Joe\(aqs folder",
-        "receiveEncrypted": false,
-        "remoteEncrypted": false
+      \(dqDOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA\(dq: {
+        \(dqtime\(dq: \(dq2020\-03\-01T10:12:13Z\(dq,
+        \(dqlabel\(dq: \(dqJane\(aqs and Joe\(aqs folder\(dq,
+        \(dqreceiveEncrypted\(dq: false,
+        \(dqremoteEncrypted\(dq: false
       }
     }
   },
-  "abcde\-fghij": {
-    "offeredBy": {
-      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
-        "time": "2020\-03\-18T11:43:07Z",
-        "label": "MyPics",
-        "receiveEncrypted": false,
-        "remoteEncrypted": false
+  \(dqabcde\-fghij\(dq: {
+    \(dqofferedBy\(dq: {
+      \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
+        \(dqtime\(dq: \(dq2020\-03\-18T11:43:07Z\(dq,
+        \(dqlabel\(dq: \(dqMyPics\(dq,
+        \(dqreceiveEncrypted\(dq: false,
+        \(dqremoteEncrypted\(dq: false
       }
     }
   }
@@ -1064,22 +1075,22 @@ New in version 0.14.53.
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of errors
 encountered during scanning or pulling.
 .sp
-The results can be paginated using the common pagination parameters\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "folder": "nnhic\-sxuae",
-  "errors": [
+  \(dqfolder\(dq: \(dqnnhic\-sxuae\(dq,
+  \(dqerrors\(dq: [
     {
-      "path": "noperm.txt",
-      "error": "hashing: open /path/to/folder/noperm.txt: permission denied"
+      \(dqpath\(dq: \(dqnoperm.txt\(dq,
+      \(dqerror\(dq: \(dqhashing: open /path/to/folder/noperm.txt: permission denied\(dq
     }
   ],
-  "page": 1,
-  "perpage": 100
+  \(dqpage\(dq: 1,
+  \(dqperpage\(dq: 100
 }
 .ft P
 .fi
@@ -1088,9 +1099,9 @@ The results can be paginated using the common pagination parameters\&.
 .SS GET /rest/folder/pullerrors (DEPRECATED)
 .sp
 Deprecated since version v0.14.53: This endpoint still works as before but is deprecated.  Use
-folder\-errors\-get instead, which returns the same information.
+\fI\%GET /rest/folder/errors\fP instead, which returns the same information.
 .sp
-See \fI\%d510e3cca3d5caae42121fa206b3decc981ae59e\fP <\fBhttps://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP>
+See \fI\%https://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP
 
 .SS GET /rest/folder/versions
 .sp
@@ -1099,7 +1110,7 @@ New in version 0.14.44.
 .sp
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of archived
 files that could be recovered.  How many versions are available depends on the
-/users/versioning configuration.  Each entry specifies when the file
+\fI\%File Versioning\fP configuration.  Each entry specifies when the file
 version was archived as the \fBversionTime\fP, the \fBmodTime\fP when it was last
 modified before being archived, and the size in bytes.
 .INDENT 0.0
@@ -1108,30 +1119,30 @@ modified before being archived, and the size in bytes.
 .nf
 .ft C
 {
-  "dir1/dir2/bar": [
+  \(dqdir1/dir2/bar\(dq: [
     {
-      "versionTime": "2022\-02\-06T20:44:12+01:00",
-      "modTime": "2021\-01\-14T13:21:22+01:00",
-      "size": 4
+      \(dqversionTime\(dq: \(dq2022\-02\-06T20:44:12+01:00\(dq,
+      \(dqmodTime\(dq: \(dq2021\-01\-14T13:21:22+01:00\(dq,
+      \(dqsize\(dq: 4
     }
   ],
-  "baz": [
+  \(dqbaz\(dq: [
     {
-      "versionTime": "2022\-02\-06T20:44:20+01:00",
-      "modTime": "2021\-01\-14T13:23:49+01:00",
-      "size": 4
+      \(dqversionTime\(dq: \(dq2022\-02\-06T20:44:20+01:00\(dq,
+      \(dqmodTime\(dq: \(dq2021\-01\-14T13:23:49+01:00\(dq,
+      \(dqsize\(dq: 4
     }
   ],
-  "foo": [
+  \(dqfoo\(dq: [
     {
-      "versionTime": "2022\-02\-06T20:55:31+01:00",
-      "modTime": "2022\-02\-06T20:44:13+01:00",
-      "size": 4
+      \(dqversionTime\(dq: \(dq2022\-02\-06T20:55:31+01:00\(dq,
+      \(dqmodTime\(dq: \(dq2022\-02\-06T20:44:13+01:00\(dq,
+      \(dqsize\(dq: 4
     },
     {
-      "versionTime": "2022\-02\-06T20:44:20+01:00",
-      "modTime": "2021\-01\-14T13:21:16+01:00",
-      "size": 4
+      \(dqversionTime\(dq: \(dq2022\-02\-06T20:44:20+01:00\(dq,
+      \(dqmodTime\(dq: \(dq2021\-01\-14T13:21:16+01:00\(dq,
+      \(dqsize\(dq: 4
     }
   ]
 }
@@ -1144,7 +1155,7 @@ modified before being archived, and the size in bytes.
 Restore archived versions of a given set of files.  Expects an object with
 attributes named after the relative file paths, with timestamps as values
 matching valid \fBversionTime\fP entries in the corresponding
-folder\-versions\-get response object.
+\fI\%GET /rest/folder/versions\fP response object.
 .sp
 Takes the mandatory parameter \fBfolder\fP (folder ID).  Returns an object
 containing any error messages that occurred during restoration of the file, with
@@ -1155,8 +1166,8 @@ the file path as attribute name.
 .nf
 .ft C
 curl \-X POST \-H X\-API\-key:... http://127.0.0.1:8384/rest/folder/versions?folder=default \-d \(aq{
-  "dir1/dir2/bar": "2022\-02\-06T20:44:12+01:00",
-  "baz": "2022\-02\-06T20:44:20+01:00"
+  \(dqdir1/dir2/bar\(dq: \(dq2022\-02\-06T20:44:12+01:00\(dq,
+  \(dqbaz\(dq: \(dq2022\-02\-06T20:44:20+01:00\(dq
 }\(aq
 .ft P
 .fi
@@ -1183,48 +1194,48 @@ start building the structure.
 $ curl \-s http://localhost:8384/rest/db/browse?folder=j663y\-3ct3e&prefix=DCIM&levels=2
 [
     {
-        "modTime" : "2020\-10\-02T23:48:52.076996974+02:00",
-        "name" : "100ANDRO",
-        "size" : 128,
-        "type" : "FILE_INFO_TYPE_DIRECTORY"
+        \(dqmodTime\(dq : \(dq2020\-10\-02T23:48:52.076996974+02:00\(dq,
+        \(dqname\(dq : \(dq100ANDRO\(dq,
+        \(dqsize\(dq : 128,
+        \(dqtype\(dq : \(dqFILE_INFO_TYPE_DIRECTORY\(dq
     },
     {
-        "children" : [
+        \(dqchildren\(dq : [
             {
-                "modTime" : "2020\-12\-16T23:31:34.5009668+01:00",
-                "name" : "IMG_20201114_124821.jpg",
-                "size" : 10682189,
-                "type" : "FILE_INFO_TYPE_FILE"
+                \(dqmodTime\(dq : \(dq2020\-12\-16T23:31:34.5009668+01:00\(dq,
+                \(dqname\(dq : \(dqIMG_20201114_124821.jpg\(dq,
+                \(dqsize\(dq : 10682189,
+                \(dqtype\(dq : \(dqFILE_INFO_TYPE_FILE\(dq
             },
             {
-                "modTime" : "2020\-12\-16T23:31:35.0106367+01:00",
-                "name" : "IMG_20201213_122451.jpg",
-                "size" : 7936351,
-                "type" : "FILE_INFO_TYPE_FILE"
+                \(dqmodTime\(dq : \(dq2020\-12\-16T23:31:35.0106367+01:00\(dq,
+                \(dqname\(dq : \(dqIMG_20201213_122451.jpg\(dq,
+                \(dqsize\(dq : 7936351,
+                \(dqtype\(dq : \(dqFILE_INFO_TYPE_FILE\(dq
             },
             {
-                "modTime" : "2020\-12\-13T12:25:05.017097469+01:00",
-                "name" : "IMG_20201213_122504.jpg",
-                "size" : 8406507,
-                "type" : "FILE_INFO_TYPE_FILE"
+                \(dqmodTime\(dq : \(dq2020\-12\-13T12:25:05.017097469+01:00\(dq,
+                \(dqname\(dq : \(dqIMG_20201213_122504.jpg\(dq,
+                \(dqsize\(dq : 8406507,
+                \(dqtype\(dq : \(dqFILE_INFO_TYPE_FILE\(dq
             },
             {
-                "modTime" : "2020\-12\-13T12:25:06.127097469+01:00",
-                "name" : "IMG_20201213_122505.jpg",
-                "size" : 8381931,
-                "type" : "FILE_INFO_TYPE_FILE"
+                \(dqmodTime\(dq : \(dq2020\-12\-13T12:25:06.127097469+01:00\(dq,
+                \(dqname\(dq : \(dqIMG_20201213_122505.jpg\(dq,
+                \(dqsize\(dq : 8381931,
+                \(dqtype\(dq : \(dqFILE_INFO_TYPE_FILE\(dq
             },
             {
-                "modTime" : "2020\-12\-13T12:53:29.707298401+01:00",
-                "name" : "IMG_20201213_125329.jpg",
-                "size" : 4388331,
-                "type" : "FILE_INFO_TYPE_FILE"
+                \(dqmodTime\(dq : \(dq2020\-12\-13T12:53:29.707298401+01:00\(dq,
+                \(dqname\(dq : \(dqIMG_20201213_125329.jpg\(dq,
+                \(dqsize\(dq : 4388331,
+                \(dqtype\(dq : \(dqFILE_INFO_TYPE_FILE\(dq
             },
         ],
-        "modTime" : "2020\-10\-09T13:04:42.4410738+02:00",
-        "name" : "Camera",
-        "size" : 128,
-        "type" : "FILE_INFO_TYPE_DIRECTORY"
+        \(dqmodTime\(dq : \(dq2020\-10\-09T13:04:42.4410738+02:00\(dq,
+        \(dqname\(dq : \(dqCamera\(dq,
+        \(dqsize\(dq : 128,
+        \(dqtype\(dq : \(dqFILE_INFO_TYPE_DIRECTORY\(dq
     },
 ]
 .ft P
@@ -1309,14 +1320,14 @@ Aggregated completion status for all folders on the local device:
 .nf
 .ft C
 {
-  "completion": 99.9937565835,
-  "globalBytes": 156793013575,
-  "needBytes": 9789241,
-  "globalItems": 7823,
-  "needItems": 412,
-  "needDeletes": 0,
-  "remoteState": "valid",
-  "sequence": 12
+  \(dqcompletion\(dq: 99.9937565835,
+  \(dqglobalBytes\(dq: 156793013575,
+  \(dqneedBytes\(dq: 9789241,
+  \(dqglobalItems\(dq: 7823,
+  \(dqneedItems\(dq: 412,
+  \(dqneedDeletes\(dq: 0,
+  \(dqremoteState\(dq: \(dqvalid\(dq,
+  \(dqsequence\(dq: 12
 }
 .ft P
 .fi
@@ -1346,14 +1357,14 @@ respectively.
 .nf
 .ft C
 {
-  "availability": [
+  \(dqavailability\(dq: [
     {
-      "id": "ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM",
-      "fromTemporary": false
+      \(dqid\(dq: \(dqITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM\(dq,
+      \(dqfromTemporary\(dq: false
     }
   ],
-  "global": { /* a file entry */ },
-  "local": { /* a file entry */ }
+  \(dqglobal\(dq: { /* a file entry */ },
+  \(dqlocal\(dq: { /* a file entry */ }
 }
 .ft P
 .fi
@@ -1368,31 +1379,31 @@ A file entry looks like this:
 .ft C
 {
   {
-    "deleted": false,
-    "ignored": false,
-    "inodeChange": "1970\-01\-01T01:00:00+01:00",
-    "invalid": false,
-    "localFlags": 0,
-    "modified": "2022\-09\-28T08:07:19.979723+02:00",
-    "modifiedBy": "523ITIE",
-    "mustRescan": false,
-    "name": "img",
-    "noPermissions": false,
-    "numBlocks": 0,
-    "permissions": "0755",
-    "platform": { /* platform specific data */ },
-    "sequence": 914,
-    "size": 128,
-    "type": "FILE_INFO_TYPE_DIRECTORY",
-    "version": [
-      "523ITIE:1664345275"
+    \(dqdeleted\(dq: false,
+    \(dqignored\(dq: false,
+    \(dqinodeChange\(dq: \(dq1970\-01\-01T01:00:00+01:00\(dq,
+    \(dqinvalid\(dq: false,
+    \(dqlocalFlags\(dq: 0,
+    \(dqmodified\(dq: \(dq2022\-09\-28T08:07:19.979723+02:00\(dq,
+    \(dqmodifiedBy\(dq: \(dq523ITIE\(dq,
+    \(dqmustRescan\(dq: false,
+    \(dqname\(dq: \(dqimg\(dq,
+    \(dqnoPermissions\(dq: false,
+    \(dqnumBlocks\(dq: 0,
+    \(dqpermissions\(dq: \(dq0755\(dq,
+    \(dqplatform\(dq: { /* platform specific data */ },
+    \(dqsequence\(dq: 914,
+    \(dqsize\(dq: 128,
+    \(dqtype\(dq: \(dqFILE_INFO_TYPE_DIRECTORY\(dq,
+    \(dqversion\(dq: [
+      \(dq523ITIE:1664345275\(dq
     ]
   },
-  "mtime": {
-    "err": null,
-    "value": {
-      "real": "0001\-01\-01T00:00:00Z",
-      "virtual": "0001\-01\-01T00:00:00Z"
+  \(dqmtime\(dq: {
+    \(dqerr\(dq: null,
+    \(dqvalue\(dq: {
+      \(dqreal\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
+      \(dqvirtual\(dq: \(dq0001\-01\-01T00:00:00Z\(dq
     }
   }
 }
@@ -1411,24 +1422,24 @@ attribute for macOS (“darwin”) looks as follows:
 .nf
 .ft C
 {
-  "darwin": {
-    "xattrs": [
+  \(dqdarwin\(dq: {
+    \(dqxattrs\(dq: [
       {
-        "name": "net.kastelo.xattrtest",
-        "value": "aGVsbG8="
+        \(dqname\(dq: \(dqnet.kastelo.xattrtest\(dq,
+        \(dqvalue\(dq: \(dqaGVsbG8=\(dq
       }
     ]
   },
-  "freebsd": null,
-  "linux": null,
-  "netbsd": null,
-  "unix": {
-    "gid": 20,
-    "groupName": "staff",
-    "ownerName": "jb",
-    "uid": 501
+  \(dqfreebsd\(dq: null,
+  \(dqlinux\(dq: null,
+  \(dqnetbsd\(dq: null,
+  \(dqunix\(dq: {
+    \(dqgid\(dq: 20,
+    \(dqgroupName\(dq: \(dqstaff\(dq,
+    \(dqownerName\(dq: \(dqjb\(dq,
+    \(dquid\(dq: 501
   },
-  "windows": null
+  \(dqwindows\(dq: null
 }
 .ft P
 .fi
@@ -1445,12 +1456,12 @@ provides a list of strings which represent globbing patterns described by gobwas
 .nf
 .ft C
 {
-  "ignore": [
-    "(?i)/Backups"
+  \(dqignore\(dq: [
+    \(dq(?i)/Backups\(dq
   ],
-  "expanded": [
-    "(?i)Backups",
-    "(?i)Backups/**"
+  \(dqexpanded\(dq: [
+    \(dq(?i)Backups\(dq,
+    \(dq(?i)Backups/**\(dq
   ]
 }
 .ft P
@@ -1459,7 +1470,7 @@ provides a list of strings which represent globbing patterns described by gobwas
 .UNINDENT
 .SS POST /rest/db/ignores
 .sp
-Expects a format similar to the output of db\-ignores\-get call, but only
+Expects a format similar to the output of \fI\%GET /rest/db/ignores\fP call, but only
 containing the \fBignore\fP field (\fBexpanded\fP field should be omitted).
 It takes one parameter, \fBfolder\fP, and either updates the content of
 the \fB\&.stignore\fP echoing it back as a response, or returns an error.
@@ -1471,29 +1482,29 @@ New in version 0.14.55.
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of files which
 were changed locally in a receive\-only folder.  Thus they differ from the global
 state and could be reverted by pulling from remote devices again, see
-db\-revert\-post\&.
+\fI\%POST /rest/db/revert\fP\&.
 .sp
-The results can be paginated using the common pagination parameters\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "files": [
+  \(dqfiles\(dq: [
     {
-      "flags": "0755",
-      "sequence": 6,
-      "modified": "2015\-04\-20T23:06:12+09:00",
-      "name": "ls",
-      "size": 34640,
-      "version": [
-        "5157751870738175669:1"
+      \(dqflags\(dq: \(dq0755\(dq,
+      \(dqsequence\(dq: 6,
+      \(dqmodified\(dq: \(dq2015\-04\-20T23:06:12+09:00\(dq,
+      \(dqname\(dq: \(dqls\(dq,
+      \(dqsize\(dq: 34640,
+      \(dqversion\(dq: [
+        \(dq5157751870738175669:1\(dq
       ]
     }
   ],
-  "page": 1,
-  "perpage": 100
+  \(dqpage\(dq: 1,
+  \(dqperpage\(dq: 100
 }
 .ft P
 .fi
@@ -1512,7 +1523,7 @@ Use sparingly.
 Takes one mandatory parameter, \fBfolder\fP, and returns lists of files which are
 needed by this device in order for it to become in sync.
 .sp
-The results can be paginated using the common pagination parameters\&.  Pagination happens, across the union of all needed files,
+The results can be paginated using the \fI\%common pagination parameters\fP\&.  Pagination happens, across the union of all needed files,
 that is \- across all 3 sections of the response.  For example, given the current
 need state is as follows:
 .INDENT 0.0
@@ -1545,29 +1556,29 @@ attribute.
 .ft C
 {
   # Files currently being downloaded
-  "progress": [
+  \(dqprogress\(dq: [
     {
-      "flags": "0755",
-      "sequence": 6,
-      "modified": "2015\-04\-20T23:06:12+09:00",
-      "name": "ls",
-      "size": 34640,
-      "version": [
-        "5157751870738175669:1"
+      \(dqflags\(dq: \(dq0755\(dq,
+      \(dqsequence\(dq: 6,
+      \(dqmodified\(dq: \(dq2015\-04\-20T23:06:12+09:00\(dq,
+      \(dqname\(dq: \(dqls\(dq,
+      \(dqsize\(dq: 34640,
+      \(dqversion\(dq: [
+        \(dq5157751870738175669:1\(dq
       ]
     }
   ],
   # Files queued to be downloaded next (as per array order)
-  "queued": [
+  \(dqqueued\(dq: [
       ...
   ],
   # Files to be downloaded after all queued files will be downloaded.
   # This happens when we start downloading files, and new files get added while we are downloading.
-  "rest": [
+  \(dqrest\(dq: [
       ...
   ],
-  "page": 1,
-  "perpage": 100
+  \(dqpage\(dq: 1,
+  \(dqperpage\(dq: 100
 }
 .ft P
 .fi
@@ -1612,7 +1623,7 @@ curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
 .UNINDENT
 .UNINDENT
 .sp
-Response contains the same output as db\-need\-get\&.
+Response contains the same output as \fI\%GET /rest/db/need\fP\&.
 .SS GET /rest/db/remoteneed
 .sp
 New in version 0.14.43.
@@ -1622,27 +1633,27 @@ Takes the mandatory parameters \fBfolder\fP and \fBdevice\fP, and returns the li
 of files which are needed by that remote device in order for it to become in
 sync with the shared folder.
 .sp
-The results can be paginated using the common pagination parameters\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "files": [
+  \(dqfiles\(dq: [
     {
-      "flags": "0755",
-      "sequence": 6,
-      "modified": "2015\-04\-20T23:06:12+09:00",
-      "name": "ls",
-      "size": 34640,
-      "version": [
-        "5157751870738175669:1"
+      \(dqflags\(dq: \(dq0755\(dq,
+      \(dqsequence\(dq: 6,
+      \(dqmodified\(dq: \(dq2015\-04\-20T23:06:12+09:00\(dq,
+      \(dqname\(dq: \(dqls\(dq,
+      \(dqsize\(dq: 34640,
+      \(dqversion\(dq: [
+        \(dq5157751870738175669:1\(dq
       ]
     }
   ],
-  "page": 1,
-  "perpage": 100
+  \(dqpage\(dq: 1,
+  \(dqperpage\(dq: 100
 }
 .ft P
 .fi
@@ -1712,39 +1723,39 @@ Parameters: \fBfolder\fP, the ID of a folder.
 .nf
 .ft C
 {
-  "globalBytes": 0,
-  "globalDeleted": 0,
-  "globalDirectories": 0,
-  "globalFiles": 0,
-  "globalSymlinks": 0,
-  "globalTotalItems": 0,
-  "ignorePatterns": false,
-  "inSyncBytes": 0,
-  "inSyncFiles": 0,
-  "invalid": "",
-  "localBytes": 0,
-  "localDeleted": 0,
-  "localDirectories": 0,
-  "localFiles": 0,
-  "localSymlinks": 0,
-  "localTotalItems": 0,
-  "needBytes": 0,
-  "needDeletes": 0,
-  "needDirectories": 0,
-  "needFiles": 0,
-  "needSymlinks": 0,
-  "needTotalItems": 0,
-  "pullErrors": 0,
-  "receiveOnlyChangedBytes": 0,
-  "receiveOnlyChangedDeletes": 0,
-  "receiveOnlyChangedDirectories": 0,
-  "receiveOnlyChangedFiles": 0,
-  "receiveOnlyChangedSymlinks": 0,
-  "receiveOnlyTotalItems": 0,
-  "sequence": 0,
-  "state": "idle",
-  "stateChanged": "2018\-08\-08T07:04:57.301064781+02:00",
-  "version": 0
+  \(dqglobalBytes\(dq: 0,
+  \(dqglobalDeleted\(dq: 0,
+  \(dqglobalDirectories\(dq: 0,
+  \(dqglobalFiles\(dq: 0,
+  \(dqglobalSymlinks\(dq: 0,
+  \(dqglobalTotalItems\(dq: 0,
+  \(dqignorePatterns\(dq: false,
+  \(dqinSyncBytes\(dq: 0,
+  \(dqinSyncFiles\(dq: 0,
+  \(dqinvalid\(dq: \(dq\(dq,
+  \(dqlocalBytes\(dq: 0,
+  \(dqlocalDeleted\(dq: 0,
+  \(dqlocalDirectories\(dq: 0,
+  \(dqlocalFiles\(dq: 0,
+  \(dqlocalSymlinks\(dq: 0,
+  \(dqlocalTotalItems\(dq: 0,
+  \(dqneedBytes\(dq: 0,
+  \(dqneedDeletes\(dq: 0,
+  \(dqneedDirectories\(dq: 0,
+  \(dqneedFiles\(dq: 0,
+  \(dqneedSymlinks\(dq: 0,
+  \(dqneedTotalItems\(dq: 0,
+  \(dqpullErrors\(dq: 0,
+  \(dqreceiveOnlyChangedBytes\(dq: 0,
+  \(dqreceiveOnlyChangedDeletes\(dq: 0,
+  \(dqreceiveOnlyChangedDirectories\(dq: 0,
+  \(dqreceiveOnlyChangedFiles\(dq: 0,
+  \(dqreceiveOnlyChangedSymlinks\(dq: 0,
+  \(dqreceiveOnlyTotalItems\(dq: 0,
+  \(dqsequence\(dq: 0,
+  \(dqstate\(dq: \(dqidle\(dq,
+  \(dqstateChanged\(dq: \(dq2018\-08\-08T07:04:57.301064781+02:00\(dq,
+  \(dqversion\(dq: 0
 }
 .ft P
 .fi
@@ -1801,9 +1812,9 @@ To receive events, perform a HTTP GET of \fB/rest/events\fP\&.
 .sp
 To filter the event list, in effect creating a specific subscription for only
 the desired event types, add a parameter \fBevents=EventTypeA,EventTypeB,...\fP
-where the event types are any of the event\-types\&.  If no filter is
-specified, all events \fIexcept\fP /events/localchangedetected and
-/events/remotechangedetected are included.
+where the event types are any of the \fI\%Event Types\fP\&.  If no filter is
+specified, all events \fIexcept\fP \fI\%LocalChangeDetected\fP and
+\fI\%RemoteChangeDetected\fP are included.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
 you’ve already seen. Syncthing returns a JSON encoded array of event objects,
@@ -1814,9 +1825,10 @@ long some events might be missed. This can be detected by noting a discontinuity
 in the event IDs.
 .sp
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
-waits for new events to happen before returning. By default it times out after
-60 seconds returning an empty array. The time out duration can be customized
-with the optional parameter \fBtimeout=<seconds>\fP\&.
+waits for new events to happen before returning. If \fB<lastSeenID>\fP is a
+future ID, the HTTP call blocks until such ID is reached or timeouts. By
+default it times out after 60 seconds returning an empty array. The time out
+duration can be customized with the optional parameter \fBtimeout=<seconds>\fP\&.
 .sp
 To receive only a limited number of events, add the \fBlimit=<n>\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
@@ -1825,13 +1837,13 @@ example: \fB/rest/events?since=0&limit=1\fP\&.
 .SS GET /rest/events/disk
 .sp
 This convenience endpoint provides the same event stream, but pre\-filtered to show
-only /events/localchangedetected and /events/remotechangedetected
+only \fI\%LocalChangeDetected\fP and \fI\%RemoteChangeDetected\fP
 event types.  The \fBevents\fP parameter is not used.
 .SH STATISTICS ENDPOINTS
 .SS GET /rest/stats/device
 .sp
 Returns general statistics about devices. Currently, only contains the
-time the device was last seen.
+time the device was last seen and the last connection duration.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1839,8 +1851,9 @@ time the device was last seen.
 .ft C
 $ curl \-s http://localhost:8384/rest/stats/device | json
 {
-  "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
-    "lastSeen" : "2015\-04\-18T11:21:31.3256277+01:00"
+  \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
+    \(dqlastSeen\(dq : \(dq2015\-04\-18T11:21:31.3256277+01:00\(dq
+    \(dqlastConnectionDurationS\(dq: 556335.421708141
   }
 }
 .ft P
@@ -1857,11 +1870,11 @@ last scan time and the last synced file.
 .nf
 .ft C
 {
-  "folderid": {
-    "lastScan": "2016\-06\-02T13:28:01.288181412\-04:00",
-    "lastFile": {
-      "filename": "file/name",
-      "at": "2015\-04\-16T22:04:18.3066971+01:00"
+  \(dqfolderid\(dq: {
+    \(dqlastScan\(dq: \(dq2016\-06\-02T13:28:01.288181412\-04:00\(dq,
+    \(dqlastFile\(dq: {
+      \(dqfilename\(dq: \(dqfile/name\(dq,
+      \(dqat\(dq: \(dq2015\-04\-16T22:04:18.3066971+01:00\(dq
     }
   }
 }
@@ -1883,12 +1896,12 @@ either a valid device ID in modern format, or an error.
 .ft C
 $ curl \-s http://localhost:8384/rest/svc/deviceid?id=1234 | json
 {
-  "error": "device ID invalid: incorrect length"
+  \(dqerror\(dq: \(dqdevice ID invalid: incorrect length\(dq
 }
 
 $ curl \-s http://localhost:8384/rest/svc/deviceid?id=p56ioi7m\-\-zjnu2iq\-gdr\-eydm\-2mgtmgl3bxnpq6w5btbbz4tjxzwicq | json
 {
-  "id": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
+  \(dqid\(dq: \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq
 }
 .ft P
 .fi
@@ -1903,7 +1916,7 @@ the \fBAccept\-Language\fP header sent by the browser.
 .sp
 .nf
 .ft C
-["sv_sv","sv","en_us","en"]
+[\(dqsv_sv\(dq,\(dqsv\(dq,\(dqen_us\(dq,\(dqen\(dq]
 .ft P
 .fi
 .UNINDENT
@@ -1917,7 +1930,7 @@ Returns a strong random generated string (alphanumeric) of the specified length.
 .nf
 .ft C
 {
-  "random": "FdPaEaZQ56sXEKYNxpgF"
+  \(dqrandom\(dq: \(dqFdPaEaZQ56sXEKYNxpgF\(dq
 }
 .ft P
 .fi
@@ -1932,55 +1945,55 @@ Returns the data sent in the anonymous usage report.
 .nf
 .ft C
 {
-   "folderMaxMiB" : 0,
-   "platform" : "linux\-amd64",
-   "totMiB" : 0,
-   "longVersion" : "syncthing v0.12.2 \e"Beryllium Bedbug\e" (go1.4.3 linux\-amd64 default) unknown\-user@build2.syncthing.net 2015\-11\-09 13:23:26 UTC",
-   "upgradeAllowedManual" : true,
-   "totFiles" : 3,
-   "folderUses" : {
-      "ignorePerms" : 0,
-      "autoNormalize" : 0,
-      "sendonly" : 0,
-      "ignoreDelete" : 0
+   \(dqfolderMaxMiB\(dq : 0,
+   \(dqplatform\(dq : \(dqlinux\-amd64\(dq,
+   \(dqtotMiB\(dq : 0,
+   \(dqlongVersion\(dq : \(dqsyncthing v0.12.2 \e\(dqBeryllium Bedbug\e\(dq (go1.4.3 linux\-amd64 default) unknown\-user@build2.syncthing.net 2015\-11\-09 13:23:26 UTC\(dq,
+   \(dqupgradeAllowedManual\(dq : true,
+   \(dqtotFiles\(dq : 3,
+   \(dqfolderUses\(dq : {
+      \(dqignorePerms\(dq : 0,
+      \(dqautoNormalize\(dq : 0,
+      \(dqsendonly\(dq : 0,
+      \(dqignoreDelete\(dq : 0
    },
-   "memoryUsageMiB" : 13,
-   "version" : "v0.12.2",
-   "sha256Perf" : 27.28,
-   "numFolders" : 2,
-   "memorySize" : 1992,
-   "announce" : {
-      "defaultServersIP" : 0,
-      "otherServers" : 0,
-      "globalEnabled" : false,
-      "defaultServersDNS" : 1,
-      "localEnabled" : false
+   \(dqmemoryUsageMiB\(dq : 13,
+   \(dqversion\(dq : \(dqv0.12.2\(dq,
+   \(dqsha256Perf\(dq : 27.28,
+   \(dqnumFolders\(dq : 2,
+   \(dqmemorySize\(dq : 1992,
+   \(dqannounce\(dq : {
+      \(dqdefaultServersIP\(dq : 0,
+      \(dqotherServers\(dq : 0,
+      \(dqglobalEnabled\(dq : false,
+      \(dqdefaultServersDNS\(dq : 1,
+      \(dqlocalEnabled\(dq : false
    },
-   "usesRateLimit" : false,
-   "numCPU" : 2,
-   "uniqueID" : "",
-   "urVersion" : 2,
-   "rescanIntvs" : [
+   \(dqusesRateLimit\(dq : false,
+   \(dqnumCPU\(dq : 2,
+   \(dquniqueID\(dq : \(dq\(dq,
+   \(dqurVersion\(dq : 2,
+   \(dqrescanIntvs\(dq : [
       60,
       60
    ],
-   "numDevices" : 2,
-   "folderMaxFiles" : 3,
-   "relays" : {
-      "defaultServers" : 1,
-      "enabled" : true,
-      "otherServers" : 0
+   \(dqnumDevices\(dq : 2,
+   \(dqfolderMaxFiles\(dq : 3,
+   \(dqrelays\(dq : {
+      \(dqdefaultServers\(dq : 1,
+      \(dqenabled\(dq : true,
+      \(dqotherServers\(dq : 0
    },
-   "deviceUses" : {
-      "compressMetadata" : 1,
-      "customCertName" : 0,
-      "staticAddr" : 1,
-      "compressAlways" : 0,
-      "compressNever" : 1,
-      "introducer" : 0,
-      "dynamicAddr" : 1
+   \(dqdeviceUses\(dq : {
+      \(dqcompressMetadata\(dq : 1,
+      \(dqcustomCertName\(dq : 0,
+      \(dqstaticAddr\(dq : 1,
+      \(dqcompressAlways\(dq : 0,
+      \(dqcompressNever\(dq : 1,
+      \(dqintroducer\(dq : 0,
+      \(dqdynamicAddr\(dq : 1
    },
-   "upgradeAllowedAuto" : false
+   \(dqupgradeAllowedAuto\(dq : false
 }
 .ft P
 .fi
@@ -1989,11 +2002,11 @@ Returns the data sent in the anonymous usage report.
 .SH DEBUG ENDPOINTS
 .SS Debug Endpoints
 .sp
-These endpoints require the \fBgui.debugging\fP configuration option to
+These endpoints require the \fI\%gui.debugging\fP configuration option to
 be enabled and yield an access denied error code otherwise.
 .SS GET /rest/debug/peerCompletion
 .sp
-Summarizes the completion precentage for each remote device.  Returns an object
+Summarizes the completion percentage for each remote device.  Returns an object
 with device IDs as keys and an integer percentage as values.
 .SS GET /rest/debug/httpmetrics
 .sp
@@ -2002,11 +2015,11 @@ time was spent generating the responses.
 .SS GET /rest/debug/cpuprof
 .sp
 Used to capture a profile of what Syncthing is doing on the CPU.  See
-/users/profiling\&.
+\fI\%Profiling\fP\&.
 .SS GET /rest/debug/heapprof
 .sp
 Used to capture a profile of what Syncthing is doing with the heap memory.  See
-/users/profiling\&.
+\fI\%Profiling\fP\&.
 .SS GET /rest/debug/support
 .sp
 Collects information about the running instance for troubleshooting purposes.
@@ -2022,27 +2035,27 @@ Shows diagnostics about a certain file in a shared folder.  Takes the \fBfolder\
 .sp
 .nf
 .ft C
-$ curl \-H X\-API\-Key:... "http://localhost:8384/rest/debug/file?folder=default&file=foo/bar"
+$ curl \-H X\-API\-Key:... \(dqhttp://localhost:8384/rest/debug/file?folder=default&file=foo/bar\(dq
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-The returned object contains the same info as db\-file\-get, plus a summary
+The returned object contains the same info as \fI\%GET /rest/db/file\fP, plus a summary
 of \fBglobalVersions\fP\&.
 .SH NOAUTH ENDPOINTS
 .sp
 Calls that do not require authentication.
 .SS GET /rest/noauth/health
 .sp
-Returns a \fB{"status": "OK"}\fP object.
+Returns a \fB{\(dqstatus\(dq: \(dqOK\(dq}\fP object.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "status": "OK"
+  \(dqstatus\(dq: \(dqOK\(dq
 }
 .ft P
 .fi

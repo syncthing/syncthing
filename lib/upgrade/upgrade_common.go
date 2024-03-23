@@ -35,7 +35,7 @@ type Asset struct {
 
 	// The browser URL is needed for human readable links in the output created
 	// by cmd/stupgrades.
-	BrowserURL string `json:"browser_download_url"`
+	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
 var (

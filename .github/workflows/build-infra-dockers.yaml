@@ -1,0 +1,74 @@
+name: Build Infrastructure Images
+
+on:
+  push:
+    branches:
+      - infrastructure
+      - infra-*
+
+env:
+  GO_VERSION: "~1.22.0"
+  CGO_ENABLED: "0"
+  BUILD_USER: docker
+  BUILD_HOST: github.syncthing.net
+
+jobs:
+  docker-syncthing:
+    name: Build and push Docker images
+    if: github.repository == 'syncthing/syncthing'
+    runs-on: ubuntu-latest
+    environment: docker
+    strategy:
+      matrix:
+        pkg:
+          - stcrashreceiver
+          - strelaypoolsrv
+          - stupgrades
+          - ursrv
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build binaries
+        run: |
+          for arch in arm64 amd64; do
+            go run build.go -goos linux -goarch "$arch" build ${{ matrix.pkg }}
+            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
+          done
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set Docker tags (all branches)
+        run: |
+          tags=syncthing/${{ matrix.pkg }}:${{ github.sha }}
+          echo "TAGS=$tags" >> $GITHUB_ENV
+
+      - name: Set Docker tags (latest)
+        if: github.ref == 'refs/heads/infrastructure'
+        run: |
+          tags=syncthing/${{ matrix.pkg }}:latest,${{ env.TAGS }}
+          echo "TAGS=$tags" >> $GITHUB_ENV
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.${{ matrix.pkg }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.TAGS }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}

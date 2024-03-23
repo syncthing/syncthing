@@ -200,20 +200,19 @@ func dbIsLarge(location string) bool {
 		return false
 	}
 
-	dir, err := os.Open(location)
-	if err != nil {
-		return false
-	}
-
-	fis, err := dir.Readdir(-1)
+	entries, err := os.ReadDir(location)
 	if err != nil {
 		return false
 	}
 
 	var size int64
-	for _, fi := range fis {
-		if fi.Name() == "LOG" {
+	for _, entry := range entries {
+		if entry.Name() == "LOG" {
 			// don't count the size
+			continue
+		}
+		fi, err := entry.Info()
+		if err != nil {
 			continue
 		}
 		size += fi.Size()

@@ -16,14 +16,17 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/sliceutil"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 const (
@@ -42,9 +45,9 @@ var (
 	// "consumer" of the configuration as we don't want these saved to the
 	// config.
 	DefaultListenAddresses = []string{
-		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
+		netutil.AddressURL("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
-		util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
+		netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
 	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -107,7 +110,7 @@ func New(myID protocol.DeviceID) Configuration {
 		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 	}
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -133,9 +136,9 @@ func (cfg *Configuration) ProbeFreePorts() error {
 		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
 		cfg.Options.RawListenAddresses = []string{
-			util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			netutil.AddressURL("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
-			util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 		}
 	}
 
@@ -150,7 +153,7 @@ type xmlConfiguration struct {
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 	var cfg xmlConfiguration
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, 0, err
@@ -172,7 +175,7 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 	var cfg Configuration
 
-	util.SetDefaults(&cfg)
+	structutil.SetDefaults(&cfg)
 
 	if err := json.Unmarshal(bs, &cfg); err != nil {
 		return Configuration{}, err
@@ -265,7 +268,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 
 	cfg.removeDeprecatedProtocols()
 
-	util.FillNilExceptDeprecated(cfg)
+	structutil.FillNilExceptDeprecated(cfg)
 
 	// TestIssue1750 relies on migrations happening after preparing options.
 	cfg.applyMigrations()
@@ -274,6 +277,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 }
 
 func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
+	if myID == protocol.EmptyDeviceID {
+		return
+	}
 	for _, device := range cfg.Devices {
 		if device.DeviceID == myID {
 			return
@@ -287,7 +293,7 @@ func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
 	})
 }
 
-func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[protocol.DeviceID]bool, error) {
+func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[protocol.DeviceID]*DeviceConfiguration, error) {
 	existingDevices := cfg.prepareDeviceList()
 
 	sharedFolders, err := cfg.prepareFolders(myID, existingDevices)
@@ -300,7 +306,7 @@ func (cfg *Configuration) prepareFoldersAndDevices(myID protocol.DeviceID) (map[
 	return existingDevices, nil
 }
 
-func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]bool {
+func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfiguration {
 	// Ensure that the device list is
 	// - free from duplicates
 	// - no devices with empty ID
@@ -312,14 +318,14 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]bool {
 	})
 
 	// Build a list of available devices
-	existingDevices := make(map[protocol.DeviceID]bool, len(cfg.Devices))
-	for _, device := range cfg.Devices {
-		existingDevices[device.DeviceID] = true
+	existingDevices := make(map[protocol.DeviceID]*DeviceConfiguration, len(cfg.Devices))
+	for i, device := range cfg.Devices {
+		existingDevices[device.DeviceID] = &cfg.Devices[i]
 	}
 	return existingDevices
 }
 
-func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) (map[protocol.DeviceID][]string, error) {
+func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) (map[protocol.DeviceID][]string, error) {
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
 	// happen when configured by the GUI. We return with an error in that
@@ -362,13 +368,13 @@ func (cfg *Configuration) prepareDevices(sharedFolders map[protocol.DeviceID][]s
 	}
 }
 
-func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.DeviceID]bool) map[protocol.DeviceID]bool {
+func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.DeviceID]*DeviceConfiguration) map[protocol.DeviceID]bool {
 	// The list of ignored devices should not contain any devices that have
 	// been manually added to the config.
 	newIgnoredDevices := cfg.IgnoredDevices[:0]
 	ignoredDevices := make(map[protocol.DeviceID]bool, len(cfg.IgnoredDevices))
 	for _, dev := range cfg.IgnoredDevices {
-		if !existingDevices[dev.ID] {
+		if _, ok := existingDevices[dev.ID]; !ok {
 			ignoredDevices[dev.ID] = true
 			newIgnoredDevices = append(newIgnoredDevices, dev)
 		}
@@ -489,6 +495,9 @@ func (cfg *Configuration) SetFolders(folders []FolderConfiguration) {
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
+	if myID == protocol.EmptyDeviceID {
+		return devices
+	}
 	for _, device := range devices {
 		if device.DeviceID.Equals(myID) {
 			return devices
@@ -502,7 +511,7 @@ func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.Devi
 	return devices
 }
 
-func ensureExistingDevices(devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]bool) []FolderDeviceConfiguration {
+func ensureExistingDevices(devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
 	count := len(devices)
 	i := 0
 loop:
@@ -553,6 +562,22 @@ loop:
 	return devices[0:count]
 }
 
+func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDeviceConfiguration, existingDevices map[protocol.DeviceID]*DeviceConfiguration) []FolderDeviceConfiguration {
+	for i := 0; i < len(devices); i++ {
+		dev := devices[i]
+		if dev.EncryptionPassword != "" || f.Type == FolderTypeReceiveEncrypted {
+			// There's a password set or the folder is received encrypted, no check required
+			continue
+		}
+		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
+			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
+			devices = sliceutil.RemoveAndZero(devices, i)
+			i--
+		}
+	}
+	return devices
+}
+
 func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 	if build.IsWindows {
 		// We don't do symlinks on Windows. Additionally, there may
@@ -582,9 +607,7 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 			continue
 		}
 		if strings.HasPrefix(uri.Scheme, prefix) {
-			// Remove this entry
-			copy(addrs[i:], addrs[i+1:])
-			addrs = addrs[:len(addrs)-1]
+			addrs = sliceutil.RemoveAndZero(addrs, i)
 			i--
 		}
 	}
@@ -611,7 +634,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 	return addr.Port, nil
 }
 
-func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) {
 	ensureZeroForNodefault(&FolderConfiguration{}, &defaults.Folder)
 	ensureZeroForNodefault(&DeviceConfiguration{}, &defaults.Device)
 	defaults.Folder.prepare(myID, existingDevices)
@@ -619,12 +642,42 @@ func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[pr
 }
 
 func ensureZeroForNodefault(empty interface{}, target interface{}) {
-	util.CopyMatchingTag(empty, target, "nodefault", func(v string) bool {
+	copyMatchingTag(empty, target, "nodefault", func(v string) bool {
 		if len(v) > 0 && v != "true" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
 		}
 		return len(v) > 0
 	})
+}
+
+// copyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
+func copyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy func(value string) bool) {
+	fromStruct := reflect.ValueOf(from).Elem()
+	fromType := fromStruct.Type()
+
+	toStruct := reflect.ValueOf(to).Elem()
+	toType := toStruct.Type()
+
+	if fromType != toType {
+		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
+	}
+
+	for i := 0; i < toStruct.NumField(); i++ {
+		fromField := fromStruct.Field(i)
+		toField := toStruct.Field(i)
+
+		if !toField.CanSet() {
+			// Unexported fields
+			continue
+		}
+
+		structTag := toType.Field(i).Tag
+
+		v := structTag.Get(tag)
+		if shouldCopy(v) {
+			toField.Set(fromField)
+		}
+	}
 }
 
 func (i Ignores) Copy() Ignores {

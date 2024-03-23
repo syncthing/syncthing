@@ -13,6 +13,7 @@ import (
 	"reflect"
 
 	"github.com/AudriusButkevicius/recli"
+	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
 )
@@ -23,9 +24,20 @@ type configHandler struct {
 	err           error
 }
 
-func getConfigCommand(f *apiClientFactory) (cli.Command, error) {
+type configCommand struct {
+	Args []string `arg:"" default:"-h"`
+}
+
+func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
+	app := cli.NewApp()
+	app.Name = "syncthing"
+	app.Author = "The Syncthing Authors"
+	app.Metadata = map[string]interface{}{
+		"clientFactory": ctx.clientFactory,
+	}
+
 	h := new(configHandler)
-	h.client, h.err = f.getClient()
+	h.client, h.err = ctx.clientFactory.getClient()
 	if h.err == nil {
 		h.cfg, h.err = getConfig(h.client)
 	}
@@ -38,17 +50,15 @@ func getConfigCommand(f *apiClientFactory) (cli.Command, error) {
 
 	commands, err := recli.New(recliCfg).Construct(&h.cfg)
 	if err != nil {
-		return cli.Command{}, fmt.Errorf("config reflect: %w", err)
+		return fmt.Errorf("config reflect: %w", err)
 	}
 
-	return cli.Command{
-		Name:        "config",
-		HideHelp:    true,
-		Usage:       "Configuration modification command group",
-		Subcommands: commands,
-		Before:      h.configBefore,
-		After:       h.configAfter,
-	}, nil
+	app.Commands = commands
+	app.HideHelp = true
+	app.Before = h.configBefore
+	app.After = h.configAfter
+
+	return app.Run(append([]string{app.Name}, c.Args...))
 }
 
 func (h *configHandler) configBefore(c *cli.Context) error {
