@@ -25,12 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-func init() {
-	if build.IsDarwin || build.IsIOS || build.IsWindows {
-		defaultResult |= resultFoldCase
-	}
-}
-
 // A ParseError signifies an error with contents of an ignore file,
 // including I/O errors on included files. An I/O error on the root level
 // ignore file is not a ParseError.

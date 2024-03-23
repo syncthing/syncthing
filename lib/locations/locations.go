@@ -186,8 +186,8 @@ func defaultConfigDir(userHome string) string {
 	case build.IsWindows:
 		return windowsConfigDataDir()
 
-	case build.Darwin, build.IOS:
-	  // FIXME: check darwinConfigDataDir()
+	case build.IsDarwin, build.IsIOS:
+		// FIXME: check darwinConfigDataDir()
 		return darwinConfigDataDir(userHome)
 
 	default:
