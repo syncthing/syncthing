@@ -588,6 +588,7 @@ func SyncthingMain(options ServeOptions) error {
 	}
 
 	dbFile := locations.Get(locations.Database)
+	l.Infoln("Opening database at: ", dbFile)
 	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
