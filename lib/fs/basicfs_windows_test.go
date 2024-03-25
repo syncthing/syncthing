@@ -37,7 +37,7 @@ func TestWindowsPaths(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		fs := newBasicFilesystem(testCase.input)
+		fs := newBasicFilesystem(testCase.input, testOpts...)
 		if fs.root != testCase.expectedRoot {
 			t.Errorf("test %d: root: expected `%s`, got `%s`", i, testCase.expectedRoot, fs.root)
 		}
@@ -46,7 +46,7 @@ func TestWindowsPaths(t *testing.T) {
 		}
 	}
 
-	fs := newBasicFilesystem(`relative\path`)
+	fs := newBasicFilesystem(`relative\path`, testOpts...)
 	if fs.root == `relative\path` || !strings.HasPrefix(fs.root, "\\\\?\\") {
 		t.Errorf("%q == %q, expected absolutification", fs.root, `relative\path`)
 	}
@@ -56,14 +56,14 @@ func TestResolveWindows83(t *testing.T) {
 	fs, dir := setup(t)
 	if isMaybeWin83(dir) {
 		dir = fs.resolveWin83(dir)
-		fs = newBasicFilesystem(dir)
+		fs = newBasicFilesystem(dir, testOpts...)
 	}
 
-	shortAbs, _ := fs.rooted("LFDATA~1")
+	shortAbs, _ := fs.rooted("LFDATA~1", "")
 	long := "LFDataTool"
-	longAbs, _ := fs.rooted(long)
-	deleted, _ := fs.rooted(filepath.Join("foo", "LFDATA~1"))
-	notShort, _ := fs.rooted(filepath.Join("foo", "bar", "baz"))
+	longAbs, _ := fs.rooted(long, "")
+	deleted, _ := fs.rooted(filepath.Join("foo", "LFDATA~1"), "")
+	notShort, _ := fs.rooted(filepath.Join("foo", "bar", "baz"), "")
 
 	fd, err := fs.Create(long)
 	if err != nil {
@@ -86,13 +86,13 @@ func TestIsWindows83(t *testing.T) {
 	fs, dir := setup(t)
 	if isMaybeWin83(dir) {
 		dir = fs.resolveWin83(dir)
-		fs = newBasicFilesystem(dir)
+		fs = newBasicFilesystem(dir, testOpts...)
 	}
 
-	tempTop, _ := fs.rooted(TempName("baz"))
-	tempBelow, _ := fs.rooted(filepath.Join("foo", "bar", TempName("baz")))
-	short, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")))
-	tempAndShort, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")))
+	tempTop, _ := fs.rooted(TempName("baz"), "")
+	tempBelow, _ := fs.rooted(filepath.Join("foo", "bar", TempName("baz")), "")
+	short, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")), "")
+	tempAndShort, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")), "")
 
 	for _, f := range []string{tempTop, tempBelow} {
 		if isMaybeWin83(f) {

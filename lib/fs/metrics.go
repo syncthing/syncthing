@@ -277,6 +277,10 @@ func (m *metricsFS) wrapperType() filesystemWrapperType {
 	return filesystemWrapperTypeMetrics
 }
 
+func (m *metricsFS) ValidPath(path string) error {
+	return m.next.ValidPath(path)
+}
+
 type metricsFile struct {
 	fs   *metricsFS
 	next File

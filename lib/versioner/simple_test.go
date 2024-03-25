@@ -88,7 +88,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 		}
 
 		if len(n) != min(i, 2) {
-			t.Error("Wrong count")
+			t.Errorf("Wrong count, expected %v, but got %v", min(i, 2), len(n))
 		}
 
 		time.Sleep(time.Second)

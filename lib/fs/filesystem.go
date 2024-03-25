@@ -74,6 +74,7 @@ type Filesystem interface {
 	PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error)
 	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
 	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
+	ValidPath(name string) error
 
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)

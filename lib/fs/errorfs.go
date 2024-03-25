@@ -63,6 +63,7 @@ func (fs *errorFilesystem) Watch(_ string, _ Matcher, _ context.Context, _ bool)
 func (fs *errorFilesystem) PlatformData(_ string, _, _ bool, _ XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, fs.err
 }
+func (fs *errorFilesystem) ValidPath(path string) error { return fs.err }
 
 func (*errorFilesystem) underlying() (Filesystem, bool) {
 	return nil, false

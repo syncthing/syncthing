@@ -10,10 +10,12 @@
 package fs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 func (*BasicFilesystem) SymlinksSupported() bool {
@@ -21,19 +23,39 @@ func (*BasicFilesystem) SymlinksSupported() bool {
 }
 
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {
-	name, err := f.rooted(name)
+	name2, err := f.rooted(name, "symlink")
 	if err != nil {
+		var pathError *os.PathError
+		if errors.As(err, &pathError) {
+			return &os.LinkError{Op: "symlink", Old: target, New: name, Err: syscall.ENOENT}
+		}
 		return err
 	}
-	return os.Symlink(target, name)
+	_, err = f.rooted(target, "symlink")
+	if err != nil {
+		var pathError *os.PathError
+		if errors.As(err, &pathError) {
+			return &os.LinkError{Op: "symlink", Old: target, New: name, Err: syscall.ENOENT}
+		}
+		// Currently we allow targets to live outside of f.root, so
+		// we ignore these errors
+	}
+	if f.encoder != nil {
+		target = f.encoder.encode(target)
+	}
+	return os.Symlink(target, name2)
 }
 
 func (f *BasicFilesystem) ReadSymlink(name string) (string, error) {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "readlink")
 	if err != nil {
 		return "", err
 	}
-	return os.Readlink(name)
+	res, err := os.Readlink(name)
+	if f.encoder != nil {
+		res = decode(res)
+	}
+	return res, err
 }
 
 func (*BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
@@ -43,14 +65,14 @@ func (*BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 // Unhide is a noop on unix, as unhiding files requires renaming them.
 // We still check that the relative path does not try to escape the root
 func (f *BasicFilesystem) Unhide(name string) error {
-	_, err := f.rooted(name)
+	_, err := f.rooted(name, "unhide")
 	return err
 }
 
 // Hide is a noop on unix, as hiding files requires renaming them.
 // We still check that the relative path does not try to escape the root
 func (f *BasicFilesystem) Hide(name string) error {
-	_, err := f.rooted(name)
+	_, err := f.rooted(name, "hide")
 	return err
 }
 
@@ -59,7 +81,7 @@ func (*BasicFilesystem) Roots() ([]string, error) {
 }
 
 func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "lchown")
 	if err != nil {
 		return err
 	}
@@ -75,7 +97,7 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 }
 
 func (f *BasicFilesystem) Remove(name string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "remove")
 	if err != nil {
 		return err
 	}

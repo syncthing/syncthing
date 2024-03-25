@@ -21,7 +21,7 @@ func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
 		t.Skip("Symlinks skipping is not tested on windows")
 	}
 
-	fs := NewFilesystem(fsType, uri)
+	fs := NewFilesystem(fsType, uri, testOpts...)
 
 	if err := fs.MkdirAll("target/foo", 0755); err != nil {
 		t.Fatal(err)
@@ -53,12 +53,31 @@ func createDirJunct(target string, name string) error {
 	return nil
 }
 
+func checkOptionJunctionsAsDirs(t *testing.T) bool {
+	optionJunctionsAsDirs := false
+	for _, opt := range testOpts {
+		if _, ok := opt.(*OptionJunctionsAsDirs); ok {
+			optionJunctionsAsDirs = true
+			break
+		}
+	}
+	if !optionJunctionsAsDirs {
+		t.Skip("Only testing when OptionJunctionsAsDirs is set")
+	}
+
+	return optionJunctionsAsDirs
+}
+
 func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 	if !build.IsWindows {
 		t.Skip("Directory junctions are available and tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri, new(OptionJunctionsAsDirs))
+	if !checkOptionJunctionsAsDirs(t) {
+		return
+	}
+
+	fs := NewFilesystem(fsType, uri, testOpts...)
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
@@ -91,7 +110,11 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 		t.Skip("Infinite recursion detection is tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri, new(OptionJunctionsAsDirs))
+	if !checkOptionJunctionsAsDirs(t) {
+		return
+	}
+
+	fs := NewFilesystem(fsType, uri, testOpts...)
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)

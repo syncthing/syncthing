@@ -12,6 +12,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +27,33 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 )
 
+var testOpts []Option
+var junctionsAsDirsOptions = []bool{false}
+
+func init() {
+	if build.IsWindows {
+		junctionsAsDirsOptions = append(junctionsAsDirsOptions, true)
+	}
+}
+
 func TestMain(m *testing.M) {
+	flag.CommandLine.Parse(os.Args[1:])
+	bench := false
+	if f := flag.Lookup("test.bench"); f != nil {
+		bench = f.Value.String() > ""
+	}
+	failfast := false
+	if f := flag.Lookup("test.failfast"); f != nil {
+		failfast = f.Value.String() == "true"
+	}
+	short := false
+	if f := flag.Lookup("test.short"); f != nil {
+		short = f.Value.String() == "true"
+	}
+	verbose := false
+	if f := flag.Lookup("test.v"); f != nil {
+		verbose = f.Value.String() == "true"
+	}
 	if err := os.RemoveAll(testDir); err != nil {
 		panic(err)
 	}
@@ -46,11 +73,51 @@ func TestMain(m *testing.M) {
 		testDirAbs = longFilenameSupport(testDirAbs)
 	}
 
-	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
-
 	backendBuffer = 10
 
-	exitCode := m.Run()
+	var exitCode int
+OuterLoop:
+	// Test all possible combinations of basicFS options.
+	// On Windows testing will take twice as long as on
+	// non-Windows systems due to the Windows specific option
+	// added to the test matrix. This might be overkill.
+	for encoderType := range GetEncoders() {
+		if short {
+			if encoderType != FilesystemEncoderTypeFat {
+				// Skip testing the other encoders
+				continue
+			}
+		}
+		for _, junctionsAsDirs := range junctionsAsDirsOptions {
+			testOpts = testOpts[:0]
+			logMsg := ""
+			if junctionsAsDirs {
+				testOpts = append(testOpts, new(OptionJunctionsAsDirs))
+				logMsg += " junctionsAsDirs"
+			}
+			testOpts = append(testOpts, GetEncoderOption(encoderType))
+			if logMsg > "" {
+				logMsg += " /"
+			}
+			if verbose {
+				logMsg = ">>>>>>>>> Testing basicFS options:" + logMsg + fmt.Sprintf(" encoder %q", encoderType)
+				// no log functions are available in TestMain()
+				fmt.Println(logMsg)
+			}
+			testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs, testOpts...)
+			exitCode = m.Run()
+			if failfast && exitCode != 0 {
+				break OuterLoop
+			}
+			if short {
+				break OuterLoop
+			}
+			if bench {
+				// We only need to run the benchmarks once, right?
+				break OuterLoop
+			}
+		}
+	}
 
 	backendBuffer = 500
 	os.RemoveAll(testDir)
@@ -167,7 +234,7 @@ func TestWatchWinRoot(t *testing.T) {
 
 	// testFs is Filesystem, but we need BasicFilesystem here
 	root := `D:\`
-	fs := newBasicFilesystem(root)
+	fs := newBasicFilesystem(root, testOpts...)
 	watch, roots, err := fs.watchPaths(".")
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +291,7 @@ func expectErrorForPath(t *testing.T, path string) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// testFs is Filesystem, but we need BasicFilesystem here
-	fs := newBasicFilesystem(testDirAbs)
+	fs := newBasicFilesystem(testDirAbs, testOpts...)
 
 	done := make(chan struct{})
 	go func() {
@@ -256,9 +323,9 @@ func TestWatchSubpath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// testFs is Filesystem, but we need BasicFilesystem here
-	fs := newBasicFilesystem(testDirAbs)
+	fs := newBasicFilesystem(testDirAbs, testOpts...)
 
-	abs, _ := fs.rooted("sub")
+	abs, _ := fs.rooted("sub", "")
 	done := make(chan struct{})
 	go func() {
 		fs.watchLoop(ctx, "sub", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
@@ -362,7 +429,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 		panic(err)
 	}
 
-	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link))
+	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link), testOpts...)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -379,7 +446,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 }
 
 func TestUnrootedChecked(t *testing.T) {
-	fs := newBasicFilesystem(testDirAbs)
+	fs := newBasicFilesystem(testDirAbs, testOpts...)
 	if unrooted, err := fs.unrootedChecked("/random/other/path", []string{testDirAbs}); err == nil {
 		t.Error("unrootedChecked did not return an error on outside path, but returned", unrooted)
 	}
@@ -410,7 +477,7 @@ func TestWatchIssue4877(t *testing.T) {
 		t.Fatalf("Failed to get volume name for path %v", testDirAbs)
 	}
 	origTestFs := testFs
-	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(volName)+strings.ToUpper(testDirAbs[len(volName):]))
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(volName)+strings.ToUpper(testDirAbs[len(volName):]), testOpts...)
 	defer func() {
 		testFs = origTestFs
 	}()

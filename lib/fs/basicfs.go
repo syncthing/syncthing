@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
@@ -20,10 +21,13 @@ import (
 )
 
 var (
-	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
-	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
-	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name")
-	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character")
+	errInvalidFilenameEmpty                 = errors.New("name is invalid, must not be empty")
+	errInvalidFilenameWindowsSpacePeriod    = errors.New("name is invalid, must not end in space or period on Windows")
+	errInvalidFilenameWindowsReservedName   = errors.New("name is invalid, contains Windows reserved name")
+	errInvalidFilenameWindowsReservedChar   = errors.New("name is invalid, contains Windows reserved character")
+	errNotRelative                          = errors.New("not a relative path")
+	errInvalidFilenameSyncthingReservedChar = errors.New("name is invalid, contains Syncthing reserved character (\\uf000-\\uf0ff)")
+	filenameContainsSyncthingReservedChars  = "Skipping %q as the name contains Syncthing reserved characters (\\uf0xx)"
 )
 
 type OptionJunctionsAsDirs struct{}
@@ -46,6 +50,8 @@ func (*OptionJunctionsAsDirs) String() string {
 type BasicFilesystem struct {
 	root            string
 	junctionsAsDirs bool
+	encoderType     FilesystemEncoderType
+	encoder         encoder
 	options         []Option
 	userCache       *userCache
 	groupCache      *groupCache
@@ -92,14 +98,17 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	}
 
 	fs := &BasicFilesystem{
-		root:       root,
-		options:    opts,
-		userCache:  newValueCache(time.Hour, user.LookupId),
-		groupCache: newValueCache(time.Hour, user.LookupGroupId),
+		root:        root,
+		options:     opts,
+		userCache:   newValueCache(time.Hour, user.LookupId),
+		groupCache:  newValueCache(time.Hour, user.LookupGroupId),
+		encoderType: DefaultFilesystemEncoderType,
 	}
 	for _, opt := range opts {
 		opt.apply(fs)
 	}
+
+	fs.encoder = GetEncoder(fs.encoderType)
 	return fs
 }
 
@@ -107,7 +116,24 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 // package. If the relative path somehow causes the final path to escape the root
 // directory, this returns an error, to prevent accessing files that are not in the
 // shared directory.
-func (f *BasicFilesystem) rooted(rel string) (string, error) {
+func (f *BasicFilesystem) rooted(rel string, op string) (string, error) {
+	if f.ignore(rel) {
+		switch op {
+		case "mkdir", "readdir", "watch":
+			return "", &os.PathError{Op: op, Path: rel, Err: syscall.ENOTDIR}
+		default:
+			return "", &os.PathError{Op: op, Path: rel, Err: syscall.ENOENT}
+		}
+	}
+	if f.isEncoding() { // was f.encoder.CharsToEncode() != ""
+		if l.ShouldDebug("encoder") {
+			encoded := f.encoder.encode(rel)
+			if encoded != rel {
+				l.Debugf("Encoded %q as %q via %v encoder", rel, encoded, f.encoderType)
+			}
+		}
+		rel = f.encoder.encode(rel)
+	}
 	return rooted(rel, f.root)
 }
 
@@ -128,11 +154,15 @@ func rooted(rel, root string) (string, error) {
 }
 
 func (f *BasicFilesystem) unrooted(path string) string {
-	return rel(path, f.root)
+	rel := rel(path, f.root)
+	if f.encoder != nil {
+		rel = decode(rel)
+	}
+	return rel
 }
 
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "chmod")
 	if err != nil {
 		return err
 	}
@@ -140,7 +170,7 @@ func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 }
 
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "chtimes")
 	if err != nil {
 		return err
 	}
@@ -148,7 +178,7 @@ func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time)
 }
 
 func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "mkdir")
 	if err != nil {
 		return err
 	}
@@ -160,7 +190,7 @@ func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
 // The permission bits perm are used for all directories that MkdirAll creates.
 // If path is already a directory, MkdirAll does nothing and returns nil.
 func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
-	path, err := f.rooted(path)
+	path, err := f.rooted(path, "mkdir")
 	if err != nil {
 		return err
 	}
@@ -169,7 +199,7 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "lstat")
 	if err != nil {
 		return nil, err
 	}
@@ -177,11 +207,14 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{fi}, err
+	if f.encoder == nil {
+		return basicFileInfo{fi, fi.Name()}, err
+	}
+	return basicFileInfo{fi, decode(fi.Name())}, err
 }
 
 func (f *BasicFilesystem) RemoveAll(name string) error {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "removeall")
 	if err != nil {
 		return err
 	}
@@ -189,19 +222,27 @@ func (f *BasicFilesystem) RemoveAll(name string) error {
 }
 
 func (f *BasicFilesystem) Rename(oldpath, newpath string) error {
-	oldpath, err := f.rooted(oldpath)
+	oldpath2, err := f.rooted(oldpath, "rename")
 	if err != nil {
+		var pathError *os.PathError
+		if errors.As(err, &pathError) {
+			return &os.LinkError{Op: "rename", Old: oldpath, New: newpath, Err: syscall.ENOENT}
+		}
 		return err
 	}
-	newpath, err = f.rooted(newpath)
+	newpath2, err := f.rooted(newpath, "rename")
 	if err != nil {
+		var pathError *os.PathError
+		if errors.As(err, &pathError) {
+			return &os.LinkError{Op: "rename", Old: oldpath, New: newpath, Err: syscall.ENOENT}
+		}
 		return err
 	}
-	return os.Rename(oldpath, newpath)
+	return os.Rename(oldpath2, newpath2)
 }
 
 func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "stat")
 	if err != nil {
 		return nil, err
 	}
@@ -209,11 +250,14 @@ func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{fi}, err
+	if f.encoder == nil {
+		return basicFileInfo{fi, fi.Name()}, err
+	}
+	return basicFileInfo{fi, decode(fi.Name())}, err
 }
 
 func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "readdir")
 	if err != nil {
 		return nil, err
 	}
@@ -227,12 +271,27 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if f.encoder != nil {
+		// If we find an encoded filename on disk, but it was encoded by a
+		// encoder other than the current encoder, then we ignore it.
+		// These files must be ignored or the same file would be created
+		// with different encoded names.
+		//
+		// The standard encoder doesn't encode any filenames, so any encoded
+		// filenames found on disk are ignored, as they are probably due to
+		// the user selecting a different encoder, such as fat, and then
+		// having that encoder save files with encoded names. Then, the user
+		// changes the encoder back to standard. If the user wants Syncthing
+		// to "see" these encoded filenames, they need to select an encoder,
+		// such as the fat encoder, that will decode these filenames, or
+		// configure all connected devices to use the passthrough encoder.
+		names = f.encoder.filter(names)
+	}
 	return names, nil
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {
-	rootedName, err := f.rooted(name)
+	rootedName, err := f.rooted(name, "open")
 	if err != nil {
 		return nil, err
 	}
@@ -240,11 +299,14 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFile{fd, name}, err
+	if f.encoder == nil {
+		return basicFile{fd, name}, err
+	}
+	return basicFile{fd, decode(name)}, err
 }
 
 func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	rootedName, err := f.rooted(name)
+	rootedName, err := f.rooted(name, "open")
 	if err != nil {
 		return nil, err
 	}
@@ -252,11 +314,14 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
-	return basicFile{fd, name}, err
+	if f.encoder == nil {
+		return basicFile{fd, name}, err
+	}
+	return basicFile{fd, decode(name)}, err
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
-	rootedName, err := f.rooted(name)
+	rootedName, err := f.rooted(name, "open")
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +329,10 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFile{fd, name}, err
+	if f.encoder == nil {
+		return basicFile{fd, name}, err
+	}
+	return basicFile{fd, decode(name)}, err
 }
 
 func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {
@@ -273,20 +341,26 @@ func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {
 }
 
 func (f *BasicFilesystem) Glob(pattern string) ([]string, error) {
-	pattern, err := f.rooted(pattern)
+	pattern, err := f.rooted(pattern, "readdir")
 	if err != nil {
 		return nil, err
 	}
+	// If * and ? where encoded, unencode them
+	pattern = decodePattern(pattern)
 	files, err := filepath.Glob(pattern)
+	// See DirNames' comments above
 	unrooted := make([]string, len(files))
-	for i := range files {
-		unrooted[i] = f.unrooted(files[i])
+	for i, file := range files {
+		unrooted[i] = rel(file, f.root)
+	}
+	if f.encoder != nil {
+		unrooted = f.encoder.filter(unrooted)
 	}
 	return unrooted, err
 }
 
 func (f *BasicFilesystem) Usage(name string) (Usage, error) {
-	name, err := f.rooted(name)
+	name, err := f.rooted(name, "usage")
 	if err != nil {
 		return Usage{}, err
 	}
@@ -324,7 +398,46 @@ func (*BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	return os.SameFile(f1.osFileInfo(), f2.osFileInfo())
 }
 
-func (*BasicFilesystem) underlying() (Filesystem, bool) {
+// ValidPath returns an error if the path is not valid in the underlying
+// filesystem/operating system. The path is a non-rooted, relative path.
+//
+// ValidPath() is only called in lib/model/folder_sendrecv.go.
+func (f *BasicFilesystem) ValidPath(path string) error {
+	// Unless the passthrough encoder is selected, encoded filenames should
+	// always be decoded to their original name before being transmitted.
+	// So sending or receiving an encoded filename is an error, and they
+	// are rejected.
+	if f.encoder != nil && isEncoded(path) {
+		return errInvalidFilenameSyncthingReservedChar
+	}
+	// The WindowsInvalidFilename() function only applies in Windows, as
+	// NTFS/exFAT/FAT32 partitions mounted on other OSs allow reserved
+	// filenames, such as CON, and files that end in periods or spaces.
+	if !build.IsWindows {
+		return nil
+	}
+
+	if f.encoder != nil && f.encoder.wouldEncode(path) {
+		// it's a valid file, as the current encoder will encode it
+		return nil
+	}
+
+	// The WindowsInvalidFilename() function is only called by this
+	// ValidPath() function, so we could simplify this logic by merging the
+	// two functions together.
+	err := WindowsInvalidFilename(path)
+	if f.encoder == nil {
+		return err
+	}
+	if err == errInvalidFilenameWindowsSpacePeriod || err == errInvalidFilenameWindowsReservedName {
+		if f.encoder.AllowReservedFilenames() {
+			return nil
+		}
+	}
+	return err
+}
+
+func (f *BasicFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
@@ -343,16 +456,26 @@ func (f basicFile) Name() string {
 }
 
 func (f basicFile) Stat() (FileInfo, error) {
+	// save the decoded name
+	name := filepath.Base(f.name)
 	info, err := f.File.Stat()
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{info}, nil
+	if name == "" {
+		name = info.Name()
+	}
+	return basicFileInfo{info, name}, nil
 }
 
 // basicFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
 type basicFileInfo struct {
 	os.FileInfo
+	name string // the original non-encoded filename
+}
+
+func (e basicFileInfo) Name() string {
+	return e.name
 }
 
 func (e basicFileInfo) IsSymlink() bool {
@@ -383,4 +506,21 @@ func (e *ErrWatchEventOutsideRoot) Error() string {
 
 func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *ErrWatchEventOutsideRoot {
 	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
+}
+
+// isEncoding() returns true if the current encoder encodes filenames.
+func (f *BasicFilesystem) isEncoding() bool {
+	return f.encoder != nil && f.encoderType != FilesystemEncoderTypeStandard
+}
+
+// ignore() returns true if the file is encoded and should be ignored by
+// the current encoder.
+func (f *BasicFilesystem) ignore(name string) bool {
+	if f.encoder != nil && f.encoderType == FilesystemEncoderTypeStandard && isEncoded(name) {
+		if l.ShouldDebug("encoder") {
+			l.Debugf("Ignoring %q by %v encoder", name, f.encoderType)
+		}
+		return true
+	}
+	return false
 }

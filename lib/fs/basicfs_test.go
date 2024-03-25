@@ -27,7 +27,7 @@ import (
 func setup(t *testing.T) (*BasicFilesystem, string) {
 	t.Helper()
 	dir := t.TempDir()
-	return newBasicFilesystem(dir), dir
+	return newBasicFilesystem(dir, testOpts...), dir
 }
 
 func TestChmodFile(t *testing.T) {
@@ -250,10 +250,10 @@ func TestNames(t *testing.T) {
 	defer fd.Close()
 
 	if fd.Name() != expected {
-		t.Errorf("incorrect %s != %s", fd.Name(), expected)
+		t.Errorf("incorrect, expected %q, but got %q", expected, fd.Name())
 	}
 	if stat, err := fd.Stat(); err != nil || stat.Name() != expected {
-		t.Errorf("incorrect %s != %s (%v)", stat.Name(), expected, err)
+		t.Errorf("incorrect, expected %q, but got %q (%v)", expected, stat.Name(), err)
 	}
 
 	if err := fs.Mkdir("dir", 0777); err != nil {
@@ -268,12 +268,12 @@ func TestNames(t *testing.T) {
 	defer fd.Close()
 
 	if fd.Name() != expected {
-		t.Errorf("incorrect %s != %s", fd.Name(), expected)
+		t.Errorf("incorrect, expected %q, but got %q", expected, fd.Name())
 	}
 
 	// os.fd.Stat() returns just base, so do we.
 	if stat, err := fd.Stat(); err != nil || stat.Name() != filepath.Base(expected) {
-		t.Errorf("incorrect %s != %s (%v)", stat.Name(), filepath.Base(expected), err)
+		t.Errorf("incorrect, expected %q, but got %q (%v)", filepath.Base(expected), stat.Name(), err)
 	}
 }
 
@@ -327,7 +327,7 @@ func TestGlob(t *testing.T) {
 			t.Error(err)
 		}
 		if len(results) != len(testCase.matches) {
-			t.Errorf("result count mismatch")
+			t.Errorf("result count mismatch: expected %d, but got %d", len(testCase.matches), len(results))
 		}
 		for i := range testCase.matches {
 			if results[i] != testCase.matches[i] {
@@ -490,7 +490,7 @@ func TestRooted(t *testing.T) {
 
 	for _, tc := range cases {
 		fs := BasicFilesystem{root: tc.root}
-		res, err := fs.rooted(tc.rel)
+		res, err := fs.rooted(tc.rel, "")
 		if tc.ok {
 			if err != nil {
 				t.Errorf("Unexpected error for rooted(%q, %q): %v", tc.root, tc.rel, err)
@@ -498,11 +498,10 @@ func TestRooted(t *testing.T) {
 			}
 			exp := filepath.FromSlash(tc.joined)
 			if res != exp {
-				t.Errorf("Unexpected result for rooted(%q, %q): %q != expected %q", tc.root, tc.rel, res, exp)
+				t.Errorf("Unexpected result for rooted(%q, %q): expected %q, but got %q", tc.root, tc.rel, exp, res)
 			}
 		} else if err == nil {
 			t.Errorf("Unexpected pass for rooted(%q, %q) => %q", tc.root, tc.rel, res)
-			continue
 		}
 	}
 }
@@ -529,7 +528,7 @@ func TestNewBasicFilesystem(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		fs := newBasicFilesystem(testCase.input)
+		fs := newBasicFilesystem(testCase.input, testOpts...)
 		if fs.root != testCase.expectedRoot {
 			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
 		}
@@ -538,7 +537,7 @@ func TestNewBasicFilesystem(t *testing.T) {
 		}
 	}
 
-	fs := newBasicFilesystem("relative/path")
+	fs := newBasicFilesystem("relative/path", testOpts...)
 	if fs.root == "relative/path" || !strings.HasPrefix(fs.root, string(PathSeparator)) {
 		t.Errorf(`newBasicFilesystem("relative/path").root == %q, expected absolutification`, fs.root)
 	}
@@ -673,3 +672,27 @@ func (testXattrFilter) Permit(name string) bool { return strings.HasPrefix(name,
 
 func (testXattrFilter) GetMaxSingleEntrySize() int { return 0 }
 func (testXattrFilter) GetMaxTotalSize() int       { return 0 }
+
+func TestValidPath(t *testing.T) {
+	fs, dir := setup(t)
+	defer os.RemoveAll(dir)
+
+	cases, ok := validPathCases[fs.encoderType]
+	if !ok {
+		panic(fmt.Sprintf("%v encoder: No test cases defined for ValidPath()", fs.encoderType))
+	}
+
+	for input, isNil := range cases {
+		err := fs.ValidPath(input)
+		res := err == nil
+		if isNil != res {
+			var expected string
+			if isNil {
+				expected = "<nil>"
+			} else {
+				expected = "an error"
+			}
+			t.Errorf("%v encoder: ValidPath(%q), expected %v, got %v", fs.encoderType, input, expected, err)
+		}
+	}
+}
