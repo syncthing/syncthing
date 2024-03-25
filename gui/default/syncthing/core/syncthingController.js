@@ -807,8 +807,6 @@ angular.module('syncthing.core')
             if (base === "" || base === ".") {
                 return name;
             }
-						// FIXME: expandTilde is gone in v1.27.4?
-            base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;
             }
