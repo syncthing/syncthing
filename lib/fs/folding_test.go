@@ -49,6 +49,18 @@ var caseCases = [][2]string{
 	{"a\xCC\x88", "\xC3\xA4"}, // ä
 }
 
+var benchmarkCases = [][2]string{
+	{"img_202401241010.jpg", "ASCII lowercase"},
+	{"IMG_202401241010.jpg", "ASCII mixedcase start"},
+	{"img_202401241010.JPG", "ASCII mixedcase end"},
+	{"wir_kinder_aus_bullerbü.epub", "Latin1 lowercase"},
+	{"Wir_Kinder_aus_Bullerbü.epub", "Latin1 mixedcase start"},
+	{"wir_kinder_aus_bullerbü.EPUB", "Latin1 mixedcase end"},
+	{"translated_ウェブの国際化.html", "Unicode lowercase"},
+	{"Translated_ウェブの国際化.html", "Unicode mixedcase start"},
+	{"translated_ウェブの国際化.HTML", "Unicode mixedcase end"},
+}
+
 func TestUnicodeLowercaseNormalized(t *testing.T) {
 	for _, tc := range caseCases {
 		res := UnicodeLowercaseNormalized(tc[0])
@@ -58,22 +70,13 @@ func TestUnicodeLowercaseNormalized(t *testing.T) {
 	}
 }
 
-func BenchmarkUnicodeLowercaseMaybeChange(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for _, s := range caseCases {
-			UnicodeLowercaseNormalized(s[0])
-		}
-	}
-}
-
-func BenchmarkUnicodeLowercaseNoChange(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for _, s := range caseCases {
-			UnicodeLowercaseNormalized(s[1])
-		}
+func BenchmarkUnicodeLowercase(b *testing.B) {
+	for _, c := range benchmarkCases {
+		b.Run(c[1], func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				UnicodeLowercaseNormalized(c[0])
+			}
+		})
 	}
 }
