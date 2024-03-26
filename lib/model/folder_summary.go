@@ -314,6 +314,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
+	defer pump.Stop()
 
 	for {
 		select {

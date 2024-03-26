@@ -311,6 +311,7 @@ func (m *Matcher) Stop() {
 
 func (m *Matcher) clean(d time.Duration) {
 	t := time.NewTimer(d / 2)
+	defer t.Stop()
 	for {
 		select {
 		case <-m.stop:

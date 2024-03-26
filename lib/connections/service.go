@@ -521,6 +521,7 @@ func (s *service) connect(ctx context.Context) error {
 			timeout.Stop()
 		case <-timeout.C:
 		case <-ctx.Done():
+			timeout.Stop()
 			return ctx.Err()
 		}
 	}

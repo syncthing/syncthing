@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 // Not meant to be changed, but must be changeable for tests
@@ -101,7 +102,6 @@ type aggregator struct {
 	notifyDelay time.Duration
 	// Time after which an event is scheduled for scanning even though modifications occur.
 	notifyTimeout         time.Duration
-	notifyTimer           *time.Timer
 	notifyTimerNeedsReset bool
 	notifyTimerResetChan  chan time.Duration
 	counts                eventCounter
@@ -129,7 +129,7 @@ func newAggregator(ctx context.Context, folderCfg config.FolderConfiguration) *a
 		folderID:              folderCfg.ID,
 		folderCfgUpdate:       make(chan config.FolderConfiguration),
 		notifyTimerNeedsReset: false,
-		notifyTimerResetChan:  make(chan time.Duration),
+		notifyTimerResetChan:  make(chan time.Duration, 1),
 		root:                  newEventDir(),
 		ctx:                   ctx,
 	}
@@ -147,8 +147,8 @@ func Aggregate(ctx context.Context, in <-chan fs.Event, out chan<- []string, fol
 }
 
 func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg config.Wrapper, evLogger events.Logger) {
-	a.notifyTimer = time.NewTimer(a.notifyDelay)
-	defer a.notifyTimer.Stop()
+	notifyTimer := time.NewTimer(a.notifyDelay)
+	defer notifyTimer.Stop()
 
 	inProgressItemSubscription := evLogger.Subscribe(events.ItemStarted | events.ItemFinished)
 	defer inProgressItemSubscription.Unsubscribe()
@@ -166,10 +166,12 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg confi
 			if ok {
 				updateInProgressSet(event, inProgress)
 			}
-		case <-a.notifyTimer.C:
+		case <-notifyTimer.C:
 			a.actOnTimer(out)
 		case interval := <-a.notifyTimerResetChan:
-			a.resetNotifyTimer(interval)
+			l.Debugln(a, "Resetting notifyTimer to", interval)
+			a.notifyTimerNeedsReset = false
+			timeutil.ResetTimer(notifyTimer, interval)
 		case folderCfg := <-a.folderCfgUpdate:
 			a.updateConfig(folderCfg)
 		case <-a.ctx.Done():
@@ -305,16 +307,11 @@ func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 
 func (a *aggregator) resetNotifyTimerIfNeeded() {
 	if a.notifyTimerNeedsReset {
-		a.resetNotifyTimer(a.notifyDelay)
+		select {
+		case a.notifyTimerResetChan <- a.notifyDelay:
+		default:
+		}
 	}
-}
-
-// resetNotifyTimer should only ever be called when notifyTimer has stopped
-// and notifyTimer.C been read from. Otherwise, call resetNotifyTimerIfNeeded.
-func (a *aggregator) resetNotifyTimer(duration time.Duration) {
-	l.Debugln(a, "Resetting notifyTimer to", duration.String())
-	a.notifyTimerNeedsReset = false
-	a.notifyTimer.Reset(duration)
 }
 
 func (a *aggregator) actOnTimer(out chan<- []string) {
@@ -332,7 +329,10 @@ func (a *aggregator) actOnTimer(out chan<- []string) {
 	}
 	if len(oldEvents) == 0 {
 		l.Debugln(a, "No old fs events")
-		a.resetNotifyTimer(a.notifyDelay)
+		select {
+		case a.notifyTimerResetChan <- a.notifyDelay:
+		default:
+		}
 		return
 	}
 	// Sending to channel might block for a long time, but we need to keep

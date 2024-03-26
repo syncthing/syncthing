@@ -15,12 +15,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 )
 
 type EventType int64
@@ -239,7 +239,6 @@ type logger struct {
 	subs                []*subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
-	timeout             *time.Timer
 	events              chan Event
 	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
@@ -266,7 +265,6 @@ type subscription struct {
 	mask          EventType
 	events        chan Event
 	toUnsubscribe chan *subscription
-	timeout       *time.Timer
 	ctx           context.Context
 }
 
@@ -277,15 +275,9 @@ var (
 
 func NewLogger() Logger {
 	l := &logger{
-		timeout:       time.NewTimer(time.Second),
 		events:        make(chan Event, BufferSize),
 		funcs:         make(chan func(context.Context)),
 		toUnsubscribe: make(chan *subscription),
-	}
-	// Make sure the timer is in the stopped state and hasn't fired anything
-	// into the channel.
-	if !l.timeout.Stop() {
-		<-l.timeout.C
 	}
 	return l
 }
@@ -336,28 +328,21 @@ func (l *logger) sendEvent(e Event) {
 
 	e.GlobalID = l.nextGlobalID
 
+	timer := time.NewTimer(eventLogTimeout)
+	defer timer.Stop()
+
 	for i, s := range l.subs {
 		if s.mask&e.Type != 0 {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
-			l.timeout.Reset(eventLogTimeout)
-			timedOut := false
-
+			timeutil.ResetTimer(timer, eventLogTimeout)
 			select {
 			case s.events <- e:
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDelivered).Inc()
-			case <-l.timeout.C:
+			case <-timer.C:
 				// if s.events is not ready, drop the event
-				timedOut = true
 				metricEvents.WithLabelValues(e.Type.String(), metricEventStateDropped).Inc()
-			}
-
-			// If stop returns false it already sent something to the
-			// channel. If we didn't already read it above we must do so now
-			// or we get a spurious timeout on the next loop.
-			if !l.timeout.Stop() && !timedOut {
-				<-l.timeout.C
 			}
 		}
 	}
@@ -372,22 +357,7 @@ func (l *logger) Subscribe(mask EventType) Subscription {
 			mask:          mask,
 			events:        make(chan Event, BufferSize),
 			toUnsubscribe: l.toUnsubscribe,
-			timeout:       time.NewTimer(0),
 			ctx:           ctx,
-		}
-
-		// We need to create the timeout timer in the stopped, non-fired state so
-		// that Subscription.Poll() can safely reset it and select on the timeout
-		// channel. This ensures the timer is stopped and the channel drained.
-		if runningTests {
-			// Make the behavior stable when running tests to avoid randomly
-			// varying test coverage. This ensures, in practice if not in
-			// theory, that the timer fires and we take the true branch of the
-			// next if.
-			runtime.Gosched()
-		}
-		if !s.timeout.Stop() {
-			<-s.timeout.C
 		}
 
 		l.subs = append(l.subs, s)
@@ -427,28 +397,16 @@ func (l *logger) String() string {
 func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 	dl.Debugln("poll", timeout)
 
-	s.timeout.Reset(timeout)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
 	select {
 	case e, ok := <-s.events:
 		if !ok {
 			return e, ErrClosed
 		}
-		if runningTests {
-			// Make the behavior stable when running tests to avoid randomly
-			// varying test coverage. This ensures, in practice if not in
-			// theory, that the timer fires and we take the true branch of
-			// the next if.
-			s.timeout.Reset(0)
-			runtime.Gosched()
-		}
-		if !s.timeout.Stop() {
-			// The timeout must be stopped and possibly drained to be ready
-			// for reuse in the next call.
-			<-s.timeout.C
-		}
 		return e, nil
-	case <-s.timeout.C:
+	case <-timer.C:
 		return Event{}, ErrTimeout
 	}
 }

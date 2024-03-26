@@ -186,10 +186,12 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
 		// time to batch them up a little.
+		t := time.NewTimer(250 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			t.Stop()
 			return ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+		case <-t.C:
 		}
 	}
 

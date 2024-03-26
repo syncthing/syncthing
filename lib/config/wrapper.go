@@ -240,6 +240,7 @@ func (w *wrapper) Serve(ctx context.Context) error {
 
 	var e modifyEntry
 	saveTimer := time.NewTimer(0)
+	defer saveTimer.Stop()
 	<-saveTimer.C
 	saveTimerRunning := false
 	for {

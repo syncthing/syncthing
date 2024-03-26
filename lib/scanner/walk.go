@@ -663,12 +663,12 @@ func (c *byteCounter) ticker() {
 	// The metrics.EWMA expects clock ticks every five seconds in order to
 	// decay the average properly.
 	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			c.Tick()
 		case <-c.stop:
-			t.Stop()
 			return
 		}
 	}

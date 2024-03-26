@@ -93,6 +93,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	}()
 
 	timer := time.NewTimer(time.Millisecond)
+	defer timer.Stop()
 
 	for {
 	disabled:

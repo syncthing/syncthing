@@ -195,7 +195,7 @@ loop:
 
 		case <-statisticsDone:
 			// The statistics routine is done with one iteratation, schedule
-			// the next.
+			// the next. Guaranteed to happen after a read from t.C above.
 			t.Reset(databaseStatisticsInterval)
 
 		case <-ctx.Done():

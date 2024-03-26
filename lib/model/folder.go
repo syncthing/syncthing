@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/timeutil"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -54,16 +55,12 @@ type folder struct {
 	done          chan struct{}   // used externally, accessible regardless of serve
 
 	scanInterval           time.Duration
-	scanTimer              *time.Timer
 	scanDelay              chan time.Duration
 	initialScanFinished    chan struct{}
-	scanScheduled          chan struct{}
 	versionCleanupInterval time.Duration
-	versionCleanupTimer    *time.Timer
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
-	pullFailTimer *time.Timer
 
 	scanErrors []FileError
 	pullErrors []FileError
@@ -112,12 +109,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		done:          make(chan struct{}),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
-		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
-		scanDelay:              make(chan time.Duration),
+		scanDelay:              make(chan time.Duration, 1),
 		initialScanFinished:    make(chan struct{}),
-		scanScheduled:          make(chan struct{}, 1),
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
-		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
@@ -136,8 +130,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		versioner: ver,
 	}
 	f.pullPause = f.pullBasePause()
-	f.pullFailTimer = time.NewTimer(0)
-	<-f.pullFailTimer.C
 
 	registerFolderMetrics(f.ID)
 
@@ -153,9 +145,15 @@ func (f *folder) Serve(ctx context.Context) error {
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 
+	scanTimer := time.NewTimer(0) // The first scan should be done immediately.
+	pullFailTimer := time.NewTimer(0)
+	timeutil.StopAndDrain(pullFailTimer)
+	versionCleanupTimer := time.NewTimer(time.Duration(f.Versioning.CleanupIntervalS) * time.Second)
+
 	defer func() {
-		f.scanTimer.Stop()
-		f.versionCleanupTimer.Stop()
+		scanTimer.Stop()
+		pullFailTimer.Stop()
+		versionCleanupTimer.Stop()
 		f.setState(FolderIdle)
 	}()
 
@@ -166,9 +164,7 @@ func (f *folder) Serve(ctx context.Context) error {
 	// If we're configured to not do version cleanup, or we don't have a
 	// versioner, cancel and drain that timer now.
 	if f.versionCleanupInterval == 0 || f.versioner == nil {
-		if !f.versionCleanupTimer.Stop() {
-			<-f.versionCleanupTimer.C
-		}
+		timeutil.StopAndDrain(versionCleanupTimer)
 	}
 
 	initialCompleted := f.initialScanFinished
@@ -182,15 +178,22 @@ func (f *folder) Serve(ctx context.Context) error {
 			return nil
 
 		case <-f.pullScheduled:
-			_, err = f.pull()
-
-		case <-f.pullFailTimer.C:
+			timeutil.StopAndDrain(pullFailTimer)
 			var success bool
+			t0 := time.Now()
 			success, err = f.pull()
 			if (err != nil || !success) && f.pullPause < 60*f.pullBasePause() {
 				// Back off from retrying to pull
 				f.pullPause *= 2
+
+				// Pulling failed, try again later.
+				delay := f.pullPause + time.Since(t0)
+				l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), stringutil.NiceDurationString(delay))
+				timeutil.ResetTimer(pullFailTimer, delay)
 			}
+
+		case <-pullFailTimer.C:
+			f.SchedulePull()
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
@@ -200,7 +203,7 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.forcedRescanRequested:
 			err = f.handleForcedRescans()
 
-		case <-f.scanTimer.C:
+		case <-scanTimer.C:
 			l.Debugln(f, "Scanning due to timer")
 			err = f.scanTimerFired()
 
@@ -210,12 +213,12 @@ func (f *folder) Serve(ctx context.Context) error {
 			req.err <- err
 
 		case next := <-f.scanDelay:
-			l.Debugln(f, "Delaying scan")
-			f.scanTimer.Reset(next)
-
-		case <-f.scanScheduled:
-			l.Debugln(f, "Scan was scheduled")
-			f.scanTimer.Reset(0)
+			if next > 0 {
+				l.Debugln(f, "Delaying scan")
+			} else {
+				l.Debugln(f, "Scan was scheduled")
+			}
+			timeutil.ResetTimer(scanTimer, next)
 
 		case fsEvents := <-f.watchChan:
 			l.Debugln(f, "Scan due to watcher")
@@ -225,9 +228,10 @@ func (f *folder) Serve(ctx context.Context) error {
 			l.Debugln(f, "Restart watcher")
 			err = f.restartWatch()
 
-		case <-f.versionCleanupTimer.C:
+		case <-versionCleanupTimer.C:
 			l.Debugln(f, "Doing version cleanup")
 			f.versionCleanupTimerFired()
+			timeutil.ResetTimer(versionCleanupTimer, f.versionCleanupInterval)
 		}
 
 		if err != nil {
@@ -255,7 +259,7 @@ func (f *folder) DelayScan(next time.Duration) {
 func (f *folder) ScheduleScan() {
 	// 1-buffered chan
 	select {
-	case f.scanScheduled <- struct{}{}:
+	case f.scanDelay <- 0:
 	default:
 	}
 }
@@ -309,8 +313,11 @@ func (f *folder) Reschedule() {
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
 	sleepNanos := (f.scanInterval.Nanoseconds()*3 + rand.Int63n(2*f.scanInterval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
-	l.Debugln(f, "next rescan in", interval)
-	f.scanTimer.Reset(interval)
+	select {
+	case f.scanDelay <- interval:
+		l.Debugln(f, "next rescan in", interval)
+	default:
+	}
 }
 
 func (f *folder) getHealthErrorAndLoadIgnores() error {
@@ -346,12 +353,6 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 }
 
 func (f *folder) pull() (success bool, err error) {
-	f.pullFailTimer.Stop()
-	select {
-	case <-f.pullFailTimer.C:
-	default:
-	}
-
 	select {
 	case <-f.initialScanFinished:
 	default:
@@ -403,8 +404,6 @@ func (f *folder) pull() (success bool, err error) {
 		defer f.ioLimiter.Give(1)
 	}
 
-	startTime := time.Now()
-
 	// Check if the ignore patterns changed.
 	oldHash := f.ignores.Hash()
 	defer func() {
@@ -424,11 +423,6 @@ func (f *folder) pull() (success bool, err error) {
 	if success && err == nil {
 		return true, nil
 	}
-
-	// Pulling failed, try again later.
-	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), stringutil.NiceDurationString(delay))
-	f.pullFailTimer.Reset(delay)
 
 	return false, err
 }
@@ -945,8 +939,6 @@ func (f *folder) versionCleanupTimerFired() {
 	if err := f.versioner.Clean(f.ctx); err != nil {
 		l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
 	}
-
-	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
 }
 
 func (f *folder) WatchError() error {
@@ -1047,7 +1039,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 					pause *= 2
 				}
 			}
-			failTimer.Reset(next)
+			timeutil.ResetTimer(failTimer, next)
 			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
