@@ -1,0 +1,115 @@
+{
+    "date": "20231220",
+    "address": "8.8.8.8",
+    "uniqueID": "abcdef",
+    "version": "v1.27.2-rc.1",
+    "longVersion": "syncthing v1.27.2-rc.1 \"Gold Grasshopper\" (go1.21.5 darwin-arm64) builder@github.syncthing.net 2023-12-11 21:06:45 UTC",
+    "platform": "darwin-arm64",
+    "numFolders": 9,
+    "numDevices": 6,
+    "totFiles": 20178,
+    "folderMaxFiles": 10015,
+    "totMiB": 867,
+    "folderMaxMiB": 837,
+    "memoryUsageMiB": 79,
+    "sha256Perf": 1036.27,
+    "hashPerf": 537.63,
+    "memorySize": 16384,
+    "urVersion": 3,
+    "numCPU": 8,
+    "folderUses": {
+        "sendreceive": 7,
+        "receiveonly": 2,
+        "autoNormalize": 9,
+        "trashcanVersioning": 1
+    },
+    "deviceUses": {
+        "compressMetadata": 6,
+        "dynamicAddr": 5,
+        "staticAddr": 1
+    },
+    "announce": {
+        "localEnabled": true,
+        "defaultServersDNS": 1
+    },
+    "relays": {},
+    "upgradeAllowedManual": true,
+    "upgradeAllowedAuto": true,
+    "upgradeAllowedPre": true,
+    "rescanIntvs": [
+        3600,
+        3600,
+        3600,
+        3600,
+        3600,
+        3600,
+        3600,
+        3600,
+        3600
+    ],
+    "uptime": 7,
+    "natType": "unknown",
+    "progressEmitterEnabled": true,
+    "customDefaultFolderPath": true,
+    "folderUsesV3": {
+        "conflictsOther": 9,
+        "fsWatcherEnabled": 9,
+        "pullOrder": {
+            "random": 9
+        },
+        "filesystemType": {
+            "basic": 9
+        },
+        "fsWatcherDelays": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10
+        ],
+        "modTimeWindowS": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "maxConcurrentWrites": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+        ],
+        "blockPullOrder": {
+            "standard": 9
+        },
+        "copyRangeMethod": {
+            "standard": 9
+        }
+    },
+    "deviceUsesV3": {},
+    "guiStats": {
+        "enabled": 1,
+        "listenLocal": 1,
+        "theme": {
+            "dark": 1
+        }
+    },
+    "blockStats": {},
+    "ignoreStats": {
+        "lines": 3
+    }
+}

@@ -1,0 +1,105 @@
+{
+    "date": "20231220",
+    "uniqueID": "bcdefg",
+    "address": "8.8.8.8",
+    "version": "v1.27.2",
+    "longVersion": "syncthing v1.27.2 \"Gold Grasshopper\" (go1.21.5 linux-arm64) docker@github.syncthing.net 2023-12-25 03:45:16 UTC [noupgrade]",
+    "platform": "linux-arm64",
+    "numFolders": 6,
+    "numDevices": 2,
+    "totFiles": 6387,
+    "folderMaxFiles": 6387,
+    "totMiB": 3626,
+    "folderMaxMiB": 3626,
+    "memoryUsageMiB": 84,
+    "sha256Perf": 1317.58,
+    "hashPerf": 712.36,
+    "memorySize": 8053,
+    "urVersion": 3,
+    "numCPU": 4,
+    "folderUses": {
+      "sendonly": 1,
+      "sendreceive": 4,
+      "ignorePerms": 1,
+      "autoNormalize": 6
+    },
+    "deviceUses": {
+      "compressMetadata": 2,
+      "dynamicAddr": 2
+    },
+    "announce": {
+      "localEnabled": true,
+      "defaultServersDNS": 1
+    },
+    "relays": {
+      "defaultServers": 1
+    },
+    "rescanIntvs": [
+      3600,
+      3600,
+      3600,
+      3600,
+      3600,
+      86400
+    ],
+    "uptime": 417487,
+    "natType": "unknown",
+    "progressEmitterEnabled": true,
+    "customDefaultFolderPath": true,
+    "folderUsesV3": {
+      "conflictsOther": 6,
+      "disableTempIndexes": 1,
+      "fsWatcherEnabled": 5,
+      "pullOrder": {
+        "random": 6
+      },
+      "filesystemType": {
+        "basic": 6
+      },
+      "fsWatcherDelays": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "modTimeWindowS": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "maxConcurrentWrites": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "blockPullOrder": {
+        "standard": 6
+      },
+      "copyRangeMethod": {
+        "standard": 6
+      },
+      "receiveencrypted": 1
+    },
+    "deviceUsesV3": {},
+    "guiStats": {
+      "enabled": 1,
+      "useAuth": 1,
+      "listenUnspecified": 1,
+      "theme": {
+        "dark": 1
+      }
+    },
+    "blockStats": {},
+    "transportStats": {
+      "tcp4": 1
+    },
+    "ignoreStats": {}
+  }

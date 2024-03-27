@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
+	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
@@ -110,8 +111,8 @@ func (s *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report,
 
 // Aggregated reports.
 
-func (s *UrsrvStore) PutAggregatedReport(rep *report.AggregatedReport) error {
-	key := aggregatedReportKey(rep.Date)
+func (s *UrsrvStore) PutAggregatedReport(rep *ur.Aggregation) error {
+	key := aggregatedReportKey(time.Unix(rep.Date, 0))
 	bs, err := json.Marshal(rep)
 	if err != nil {
 		return err
