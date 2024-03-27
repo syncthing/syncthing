@@ -9,6 +9,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -54,12 +55,10 @@ func (f *receiveEncryptedFolder) revert() error {
 		return err
 	}
 	defer snap.Release()
-	var iterErr error
+
 	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		if iterErr = batch.FlushIfFull(); iterErr != nil {
-			return false
-		}
+		_ = batch.FlushIfFull()
 
 		fit := intf.(db.FileInfoTruncated)
 		if !fit.IsReceiveOnlyChanged() || intf.IsDeleted() {
@@ -88,15 +87,12 @@ func (f *receiveEncryptedFolder) revert() error {
 
 		return true
 	})
+	_ = batch.Flush()
 
-	f.revertHandleDirs(dirs, snap)
+	// Revert the respective dirs.
+	f.revertHandleDirs(dirs, snap, batch)
 
-	if iterErr != nil {
-		return iterErr
-	}
-	if err := batch.Flush(); err != nil {
-		return err
-	}
+	_ = batch.Flush()
 
 	// We might need to pull items if the local changes were on valid, global files.
 	f.SchedulePull()
@@ -104,7 +100,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	return nil
 }
 
-func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
+func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot, batch *db.FileInfoBatch) {
 	if len(dirs) == 0 {
 		return
 	}
@@ -113,8 +109,18 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapsh
 	go f.pullScannerRoutine(scanChan)
 	defer close(scanChan)
 
+	now := time.Now()
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	for _, dir := range dirs {
+		batch.Append(protocol.FileInfo{
+			Name:       dir,
+			Type:       protocol.FileInfoTypeDirectory,
+			ModifiedS:  now.Unix(),
+			ModifiedBy: f.shortID,
+			Deleted:    true,
+			Version:    protocol.Vector{},
+			LocalFlags: protocol.FlagLocalReceiveOnly,
+		})
 		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
