@@ -584,7 +584,7 @@
                         </td>
                       </tr>
                       <tr>
-                        <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
+                        <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span>&nbsp;<span class="fas fa-pencil-alt"></span>&nbsp;<a href="" ng-click="editFolderExisting(folder, '#folder-sharing')"><i class="small">...</i></a>
                         <td class="text-right no-overflow-ellipse overflow-break-word">
                           <span ng-repeat="device in otherDevices(folder.devices)">
                             <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
@@ -943,7 +943,7 @@
                         <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
-                        <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
+                        <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span>&nbsp;<span class="fas fa-pencil-alt"></span>&nbsp;<a href="" ng-click="editDeviceExisting(deviceCfg, '#device-sharing')"><i class="small">...</i></a></th>
                         <td class="text-right no-overflow-ellipse overflow-break-word">
                           <span ng-repeat="folderID in deviceFolders(deviceCfg)">
                             <span ng-if="folderIsSharedEncrypted(folderID, deviceCfg.deviceID)" class="text-nowrap">
