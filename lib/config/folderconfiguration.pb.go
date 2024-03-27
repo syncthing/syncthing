@@ -105,6 +105,8 @@ type FolderConfiguration struct {
 	SyncXattrs              bool                        `protobuf:"varint,37,opt,name=sync_xattrs,json=syncXattrs,proto3" json:"syncXattrs" xml:"syncXattrs"`
 	SendXattrs              bool                        `protobuf:"varint,38,opt,name=send_xattrs,json=sendXattrs,proto3" json:"sendXattrs" xml:"sendXattrs"`
 	XattrFilter             XattrFilter                 `protobuf:"bytes,39,opt,name=xattr_filter,json=xattrFilter,proto3" json:"xattrFilter" xml:"xattrFilter"`
+	AdvancedIgnorePatterns  bool                        `protobuf:"varint,40,opt,name=advanced_ignore_patterns,json=advancedIgnorePatterns,proto3" json:"advancedIgnorePatterns" xml:"advancedIgnorePatterns"`
+
 	// Legacy deprecated
 	DeprecatedReadOnly       bool    `protobuf:"varint,9000,opt,name=read_only,json=readOnly,proto3" json:"-" xml:"ro,attr,omitempty"`                       // Deprecated: Do not use.
 	DeprecatedMinDiskFreePct float64 `protobuf:"fixed64,9001,opt,name=min_disk_free_pct,json=minDiskFreePct,proto3" json:"-" xml:"minDiskFreePct,omitempty"` // Deprecated: Do not use.

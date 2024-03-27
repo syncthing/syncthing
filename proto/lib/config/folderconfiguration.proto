@@ -59,6 +59,7 @@ message FolderConfiguration {
     bool                               sync_xattrs                = 37;
     bool                               send_xattrs                = 38;
     XattrFilter                        xattr_filter               = 39;
+    bool                               advanced_ignore_patterns   = 40;
 
     // Legacy deprecated
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];

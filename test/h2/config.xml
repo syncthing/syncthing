@@ -42,6 +42,7 @@
             <maxSingleEntrySize>0</maxSingleEntrySize>
             <maxTotalSize>0</maxTotalSize>
         </xattrFilter>
+        <advancedIgnorePatterns>false</advancedIgnorePatterns>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
@@ -169,6 +170,7 @@
                 <maxSingleEntrySize>1024</maxSingleEntrySize>
                 <maxTotalSize>4096</maxTotalSize>
             </xattrFilter>
+            <advancedIgnores>false</advancedIgnores>
         </folder>
         <device id="" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
             <address>dynamic</address>
