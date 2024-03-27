@@ -24,6 +24,7 @@ var (
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
 	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name")
 	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character")
+	errInvalidFilenameAndroidReservedChar = errors.New("name is invalid, contains Android reserved character")
 )
 
 type OptionJunctionsAsDirs struct{}
