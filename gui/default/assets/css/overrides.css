@@ -189,6 +189,13 @@ input[type="checkbox"].extended-attributes-filter-rule-checkbox {
     word-break: break-all;
 }
 
+/* Break up long words in paragraphs only if necessary to prevent text overflow. */
+.overflow-break-word {
+    overflow-wrap: break-word;
+    /* Legacy name alias */
+    word-wrap: break-word;
+}
+
 .folder-advanced {
     padding: 1rem;
     margin-bottom: 15px;

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Jan 04, 2024" "v1.27.2" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Mar 21, 2024" "v1.27.4" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -90,10 +90,9 @@ any lower case character.
 \fBBackslash\fP (\fB\e\fP) “escapes” a special character so that it loses its
 special meaning. For example, \fB\e{banana\e}\fP matches \fB{banana}\fP exactly
 and does not denote a set of alternatives as above.
-.UNINDENT
 .sp
 \fBNOTE:\fP
-.INDENT 0.0
+.INDENT 2.0
 .INDENT 3.5
 Escaped characters are not supported on Windows, where \fB\e\fP is the
 path separator. If you still need to match files that have square or
@@ -103,7 +102,6 @@ you can type \fB?banana?\fP to match both \fB[banana]\fP and
 \fB{banana}\fP, and so on.
 .UNINDENT
 .UNINDENT
-.INDENT 0.0
 .IP \(bu 2
 A pattern beginning with \fB/\fP matches in the root of the synced folder only.
 \fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
@@ -122,6 +120,51 @@ synchronised root directory.
 A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
 more general patterns that follow.
+.sp
+\fBNOTE:\fP
+.INDENT 2.0
+.INDENT 3.5
+Negated patterns that can match items below the folder root will cause
+Syncthing to traverse otherwise ignored directories. If the
+\fI\%watcher\fP is enabled, those directories will also be
+watched. Directories ignored before the first negated pattern can
+however be safely skipped, since the first matching pattern wins. For
+example:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+/foo
+/bar
+!baz
+*
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The directories \fBfoo\fP and \fBbar\fP will be entirely ignored. However any
+other directories present must be scanned entirely to find any items
+named \fIbaz\fP, despite the fact that they will be ignored due to the
+\fB*\fP\&. As a special case, top\-level rooted patterns (e.g. \fB!/foo\fP) do
+not cause this behaviour:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+!/baz
+*
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+In this case, only the directory \fBbaz\fP will be scanned, since
+everything else is ignored by the \fB*\fP pattern.
+.UNINDENT
+.UNINDENT
 .IP \(bu 2
 A pattern beginning with a \fB(?i)\fP prefix enables case\-insensitive pattern
 matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
@@ -132,32 +175,18 @@ be synchronized. On Mac OS and Windows, patterns are always case\-insensitive.
 A pattern beginning with a \fB(?d)\fP prefix enables removal of these files if
 they are preventing directory deletion. This prefix should be used by any OS
 generated files which you are happy to be removed.
+.sp
+\fBNOTE:\fP
+.INDENT 2.0
+.INDENT 3.5
+Prefixes can be specified in any order (e.g. \fB(?d)(?i)\fP), but cannot
+be combined in a single pair of parentheses like (?di)\&.
+.UNINDENT
+.UNINDENT
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect. The same double
 slashes in any other place are interpreted literally, e.g. trying to do
 \fBfile // comment\fP will make Syncthing look for a file called \fBfile // comment\fP\&.
-.UNINDENT
-.sp
-\fBNOTE:\fP
-.INDENT 0.0
-.INDENT 3.5
-Prefixes can be specified in any order (e.g. “(?d)(?i)”), but cannot be in a
-single pair of parentheses (not “(?di)”).
-.UNINDENT
-.UNINDENT
-.sp
-\fBNOTE:\fP
-.INDENT 0.0
-.INDENT 3.5
-Include patterns (that begin with \fB!\fP) cause Syncthing to traverse
-the entire directory tree regardless of other ignore patterns.
-If the \fI\%watcher\fP is enabled, the entire directory
-tree will be watched as well.
-.sp
-Top\-level include patterns are treated as special cases and will not force Syncthing to
-scan (or watch) the entire directory tree. For example: \fB!/foo\fP is a top\-level include
-pattern, while \fB!/foo/bar\fP is not.
-.UNINDENT
 .UNINDENT
 .SH EXAMPLE
 .sp

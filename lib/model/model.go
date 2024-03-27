@@ -839,7 +839,7 @@ func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFol
 		Sequence:    sequence,
 		RemoteState: state,
 	}
-	comp.setComplectionPct()
+	comp.setCompletionPct()
 	return comp
 }
 
@@ -849,10 +849,10 @@ func (comp *FolderCompletion) add(other FolderCompletion) {
 	comp.GlobalItems += other.GlobalItems
 	comp.NeedItems += other.NeedItems
 	comp.NeedDeletes += other.NeedDeletes
-	comp.setComplectionPct()
+	comp.setCompletionPct()
 }
 
-func (comp *FolderCompletion) setComplectionPct() {
+func (comp *FolderCompletion) setCompletionPct() {
 	if comp.GlobalBytes == 0 {
 		comp.CompletionPct = 100
 	} else {
@@ -1133,14 +1133,14 @@ func (p *pager) done() bool {
 
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *model) Index(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(conn, folder, fs, false)
+func (m *model) Index(conn protocol.Connection, idx *protocol.Index) error {
+	return m.handleIndex(conn, idx.Folder, idx.Files, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
-func (m *model) IndexUpdate(conn protocol.Connection, folder string, fs []protocol.FileInfo) error {
-	return m.handleIndex(conn, folder, fs, true)
+func (m *model) IndexUpdate(conn protocol.Connection, idxUp *protocol.IndexUpdate) error {
+	return m.handleIndex(conn, idxUp.Folder, idxUp.Files, true)
 }
 
 func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protocol.FileInfo, update bool) error {
@@ -1182,7 +1182,7 @@ type ClusterConfigReceivedEventData struct {
 	Device protocol.DeviceID `json:"device"`
 }
 
-func (m *model) ClusterConfig(conn protocol.Connection, cm protocol.ClusterConfig) error {
+func (m *model) ClusterConfig(conn protocol.Connection, cm *protocol.ClusterConfig) error {
 	deviceID := conn.DeviceID()
 
 	if cm.Secondary {
@@ -1632,7 +1632,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 }
 
 // handleIntroductions handles adding devices/folders that are shared by an introducer device
-func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
+func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm *protocol.ClusterConfig, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
 	changed := false
 
 	foldersDevices := make(folderDeviceSet)
@@ -1946,50 +1946,52 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(conn protocol.Connection, folder, name string, _, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
-	if size < 0 || offset < 0 {
+func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out protocol.RequestResponse, err error) {
+	if req.Size < 0 || req.Offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
 
 	deviceID := conn.DeviceID()
 
 	m.mut.RLock()
-	folderCfg, ok := m.folderCfgs[folder]
-	folderIgnores := m.folderIgnores[folder]
+	folderCfg, ok := m.folderCfgs[req.Folder]
+	folderIgnores := m.folderIgnores[req.Folder]
 	m.mut.RUnlock()
 	if !ok {
 		// The folder might be already unpaused in the config, but not yet
 		// in the model.
-		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), name, folder)
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	if !folderCfg.SharedWith(deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), name, folder)
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 	if folderCfg.Paused {
-		l.Debugf("Request from %s for file %s in paused folder %q", deviceID.Short(), name, folder)
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID.Short(), req.Name, req.Folder)
 		return nil, protocol.ErrGeneric
 	}
 
 	// Make sure the path is valid and in canonical form
-	if name, err = fs.Canonicalize(name); err != nil {
-		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID.Short(), folder, name)
+	if name, err := fs.Canonicalize(req.Name); err != nil {
+		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID.Short(), req.Folder, req.Name)
 		return nil, protocol.ErrGeneric
+	} else {
+		req.Name = name
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID.Short(), folder, name, offset, size, fromTemporary)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size, req.FromTemporary)
 	}
 
-	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
+	if fs.IsInternal(req.Name) {
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrInvalid
 	}
 
-	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
+	if folderIgnores.Match(req.Name).IsIgnored() {
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrInvalid
 	}
 
@@ -2001,7 +2003,7 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 
 	// The requestResponse releases the bytes to the buffer pool and the
 	// limiters when its Close method is called.
-	res := newLimitedRequestResponse(int(size), limiter, m.globalRequestLimiter)
+	res := newLimitedRequestResponse(int(req.Size), limiter, m.globalRequestLimiter)
 
 	defer func() {
 		// Close it ourselves if it isn't returned due to an error
@@ -2015,40 +2017,40 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 
 	folderFs := folderCfg.Filesystem(nil)
 
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
-	if fromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := fs.TempName(name)
+	if req.FromTemporary && !folderCfg.DisableTempIndexes {
+		tempFn := fs.TempName(req.Name)
 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 			return nil, protocol.ErrNoSuchFile
 		}
-		_, err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
-		if err == nil && scanner.Validate(res.data, hash, weakHash) {
+		_, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, res.data)
+		if err == nil && scanner.Validate(res.data, req.Hash, req.WeakHash) {
 			return res, nil
 		}
 		// Fall through to reading from a non-temp file, just in case the temp
 		// file has finished downloading.
 	}
 
-	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
+	if info, err := folderFs.Lstat(req.Name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
-	n, err := readOffsetIntoBuf(folderFs, name, offset, res.data)
+	n, err := readOffsetIntoBuf(folderFs, req.Name, req.Offset, res.data)
 	if fs.IsNotExist(err) {
-		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	} else if err == io.EOF {
 		// Read beyond end of file. This might indicate a problem, or it
@@ -2057,13 +2059,13 @@ func (m *model) Request(conn protocol.Connection, folder, name string, _, size i
 		// next step take care of it, by only hashing the part we actually
 		// managed to read.
 	} else if err != nil {
-		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrGeneric
 	}
 
-	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(hash) > 0 && !scanner.Validate(res.data[:n], hash, weakHash) {
-		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
-		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), folder, name, offset, size)
+	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {
+		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash)
+		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
@@ -2416,11 +2418,11 @@ func (m *model) promoteConnections() {
 	}
 }
 
-func (m *model) DownloadProgress(conn protocol.Connection, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+func (m *model) DownloadProgress(conn protocol.Connection, p *protocol.DownloadProgress) error {
 	deviceID := conn.DeviceID()
 
 	m.mut.RLock()
-	cfg, ok := m.folderCfgs[folder]
+	cfg, ok := m.folderCfgs[p.Folder]
 	m.mut.RUnlock()
 
 	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(deviceID) {
@@ -2430,12 +2432,12 @@ func (m *model) DownloadProgress(conn protocol.Connection, folder string, update
 	m.mut.RLock()
 	downloads := m.deviceDownloads[deviceID]
 	m.mut.RUnlock()
-	downloads.Update(folder, updates)
-	state := downloads.GetBlockCounts(folder)
+	downloads.Update(p.Folder, p.Updates)
+	state := downloads.GetBlockCounts(p.Folder)
 
 	m.evLogger.Log(events.RemoteDownloadProgress, map[string]interface{}{
 		"device": deviceID.String(),
-		"folder": folder,
+		"folder": p.Folder,
 		"state":  state,
 	})
 

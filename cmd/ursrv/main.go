@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/ursrv/aggregate"
 	"github.com/syncthing/syncthing/cmd/ursrv/blob"
 	"github.com/syncthing/syncthing/cmd/ursrv/serve"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 type CLI struct {

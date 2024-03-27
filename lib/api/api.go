@@ -355,12 +355,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
-		// fetching metrics counts as an event, for the purpose of whether
-		// we should prepare folder summaries etc.
-		s.fss.OnEventRequest()
-		promHttpHandler.ServeHTTP(w, req)
-	})
+	mux.Handle("/metrics", promHttpHandler)
 
 	guiCfg := s.cfg.GUI()
 
@@ -373,8 +368,8 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		sessionCookieName := "sessionid-" + s.id.Short().String()
-		authMW := newBasicAuthAndSessionMiddleware(sessionCookieName, s.id.Short().String(), guiCfg, s.cfg.LDAP(), handler, s.evLogger, s.miscDB)
+		tokenCookieManager := newTokenCookieManager(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+		authMW := newBasicAuthAndSessionMiddleware(tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
@@ -982,6 +977,7 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	av, err := s.model.Availability(folder, gf, protocol.BlockInfo{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
@@ -1395,11 +1391,7 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 	s.getEvents(w, r, sub)
 }
 
-func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
-	if eventSub.Mask()&(events.FolderSummary|events.FolderCompletion) != 0 {
-		s.fss.OnEventRequest()
-	}
-
+func (*service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")

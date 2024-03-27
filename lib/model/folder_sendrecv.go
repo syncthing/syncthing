@@ -88,7 +88,7 @@ func (d dbUpdateType) String() string {
 	case dbUpdateDeleteFile:
 		return "dbUpdateDeleteFile"
 	case dbUpdateShortcutFile:
-		return "dbUpdateShourtcutFile"
+		return "dbUpdateShortcutFile"
 	case dbUpdateHandleSymlink:
 		return "dbUpdateHandleSymlink"
 	case dbUpdateInvalidate:
@@ -596,7 +596,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
-		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
 		}
@@ -787,7 +787,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 	}
 	// Check that it is what we have in the database.
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
-	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
+	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 		return err
 	}
 	// Remove it to replace with the symlink. This also handles the
@@ -1629,7 +1629,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
-		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, false, scanChan); err != nil {
 			return fmt.Errorf("checking existing file: %w", err)
 		}
 
@@ -1967,7 +1967,6 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 	var dirsToDelete []string
 	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
 	var delErr error
-
 	err := f.mtimefs.Walk(dir, func(path string, info fs.FileInfo, err error) error {
 		if path == dir {
 			return nil
@@ -2066,7 +2065,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 // scanIfItemChanged schedules the given file for scanning and returns errModified
 // if it differs from the information in the database. Returns nil if the file has
 // not changed.
-func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (err error) {
+func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, item protocol.FileInfo, hasItem bool, fromDelete bool, scanChan chan<- string) (err error) {
 	defer func() {
 		if err == errModified {
 			scanChan <- name
@@ -2086,14 +2085,13 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 	if err != nil {
 		return fmt.Errorf("comparing item on disk to db: %w", err)
 	}
-
 	if !statItem.IsEquivalentOptional(item, protocol.FileInfoComparison{
 		ModTimeWindow:   f.modTimeWindow,
 		IgnorePerms:     f.IgnorePerms,
 		IgnoreBlocks:    true,
 		IgnoreFlags:     protocol.LocalAllFlags,
-		IgnoreOwnership: !f.SyncOwnership,
-		IgnoreXattrs:    !f.SyncXattrs,
+		IgnoreOwnership: fromDelete || !f.SyncOwnership,
+		IgnoreXattrs:    fromDelete || !f.SyncXattrs,
 	}) {
 		return errModified
 	}
@@ -2124,7 +2122,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 		return err
 	}
 
-	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
+	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, true, scanChan)
 }
 
 // setPlatformData makes adjustments to the metadata that should happen for

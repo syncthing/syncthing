@@ -7,10 +7,10 @@
 package sliceutil_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/sliceutil"
-	"golang.org/x/exp/slices"
 )
 
 func TestRemoveAndZero(t *testing.T) {

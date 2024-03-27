@@ -19,24 +19,24 @@ type nativeModel struct {
 	rawModel
 }
 
-func (m nativeModel) Index(folder string, files []FileInfo) error {
-	files = fixupFiles(files)
-	return m.rawModel.Index(folder, files)
+func (m nativeModel) Index(idx *Index) error {
+	idx.Files = fixupFiles(idx.Files)
+	return m.rawModel.Index(idx)
 }
 
-func (m nativeModel) IndexUpdate(folder string, files []FileInfo) error {
-	files = fixupFiles(files)
-	return m.rawModel.IndexUpdate(folder, files)
+func (m nativeModel) IndexUpdate(idxUp *IndexUpdate) error {
+	idxUp.Files = fixupFiles(idxUp.Files)
+	return m.rawModel.IndexUpdate(idxUp)
 }
 
-func (m nativeModel) Request(folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	if strings.Contains(name, `\`) {
-		l.Warnf("Dropping request for %s, contains invalid path separator", name)
+func (m nativeModel) Request(req *Request) (RequestResponse, error) {
+	if strings.Contains(req.Name, `\`) {
+		l.Warnf("Dropping request for %s, contains invalid path separator", req.Name)
 		return nil, ErrNoSuchFile
 	}
 
-	name = filepath.FromSlash(name)
-	return m.rawModel.Request(folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+	req.Name = filepath.FromSlash(req.Name)
+	return m.rawModel.Request(req)
 }
 
 func fixupFiles(files []FileInfo) []FileInfo {
