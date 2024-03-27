@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
-	github.com/alecthomas/kong v0.8.1
+	github.com/alecthomas/kong v0.9.0
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.4
@@ -50,8 +50,6 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/alecthomas/assert/v2 v2.5.0 // indirect
-	github.com/alecthomas/repr v0.3.0 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
