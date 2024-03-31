@@ -57,7 +57,7 @@ func newWebauthnEngine(cfg config.Wrapper) (*webauthnLib.WebAuthn, error) {
 	return webauthnLib.New(&webauthnLib.Config{
 		RPDisplayName: displayName,
 		RPID:          rpId,
-		RPOrigin:      origin,
+		RPOrigins:     []string{origin},
 	})
 }
 
