@@ -1620,8 +1620,18 @@ func TestConfigChanges(t *testing.T) {
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
 			APIKey:     testAPIKey,
+
+			// Needed because GUIConfiguration.prepare() assigns this a random value if empty
+			WebauthnUserId: "AAAA",
+			// Needed because WebauthnCredentials is nil by default,
+			// but gets replaced with empty slice before the check for whether config has changed,
+			// causing the config server to restart between the
+			// PUT /rest/config/devices and GET /rest/config/devices/{id} calls below,
+			// causing the latter to fail on connection refused.
+			WebauthnCredentials: []config.WebauthnCredential{},
 		},
 	}
+
 	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
