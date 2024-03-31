@@ -189,7 +189,7 @@
     "Generate": "Подновяване",
     "Global Discovery": "Глобално откриване",
     "Global Discovery Servers": "Сървъри за глобално откриване",
-    "Global State": "Глобално състояние",
+    "Global State": "Общо състояние",
     "Help": "Помощ",
     "Hint: only deny-rules detected while the default is deny. Consider adding \"permit any\" as last rule.": "Подсказка: има само забрабяващи правила, а по подразбиране е „забранено“. Помислете дали да не добавите „permit any“ като последно правило.",
     "Home page": "Страница",
