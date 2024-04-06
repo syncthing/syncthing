@@ -10,6 +10,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptoRand "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +31,9 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
+	"github.com/go-webauthn/webauthn/protocol/webauthncose"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -507,11 +516,17 @@ func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
 	return false
 }
 
-func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
-	req, err := http.NewRequest("GET", url, nil)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
+func httpRequest(method string, url string, body any, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, csrfTokenName, csrfTokenValue string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	var bodyReader io.Reader = nil
+	if body != nil {
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
 	}
+
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,7 +543,16 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 		req.Header.Set("Authorization", "Bearer "+authorizationBearer)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	if csrfTokenName != "" && csrfTokenValue != "" {
+		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+	}
+
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,27 +560,24 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 	return resp
 }
 
+func httpGet(url string, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	return httpRequest(http.MethodGet, url, nil, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, "", "", cookies, t)
+}
+
+func httpGetCsrf(url string, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	return httpRequest(http.MethodGet, url, nil, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
+}
+
 func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *testing.T) *http.Response {
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	return httpRequest(http.MethodPost, url, body, "", "", "", "", "", "", cookies, t)
+}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		t.Fatal(err)
-	}
+func httpPostCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	return httpRequest(http.MethodPost, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
+}
 
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resp
+func httpPutCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	return httpRequest(http.MethodPut, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
 }
 
 func TestHTTPLogin(t *testing.T) {
@@ -1785,4 +1806,346 @@ func runningInContainer() bool {
 		return true
 	}
 	return false
+}
+
+func encodeCosePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
+	bufX := new(bytes.Buffer)
+	bufY := new(bytes.Buffer)
+	binary.Write(bufX, binary.LittleEndian, *publicKey.X)
+	binary.Write(bufY, binary.LittleEndian, *publicKey.Y)
+	publicKeyCose := webauthncose.EC2PublicKeyData{
+		PublicKeyData: webauthncose.PublicKeyData{
+			KeyType:   int64(webauthncose.EllipticKey),
+			Algorithm: int64(webauthncose.AlgES256),
+		},
+		Curve:  int64(webauthncose.P256),
+		XCoord: bufX.Bytes(),
+		YCoord: bufY.Bytes(),
+	}
+	publicKeyCoseBytes, err := webauthncbor.Marshal(publicKeyCose)
+	if err != nil {
+		return nil, err
+	}
+	return publicKeyCoseBytes, nil
+}
+
+func createWebauthnRegistrationResponse(
+	options webauthnProtocol.CredentialCreation,
+	credentialId []byte,
+	publicKeyCose []byte,
+	origin string,
+	signCount byte,
+	transports []string,
+	t *testing.T,
+) webauthnProtocol.CredentialCreationResponse {
+	rpIdHash := sha256.Sum256([]byte(options.Response.RelyingParty.ID))
+	signCountBytes := []byte{0, 0, 0, signCount}
+
+	aaguid := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+	credentialIdLength := []byte{byte(len(credentialId) >> 8), byte(len(credentialId) & 0xff)}
+	attestedCredentialData := append(append(append(aaguid, credentialIdLength...), credentialId...), publicKeyCose...)
+
+	authData := append(append(append(
+		rpIdHash[:],
+		byte(webauthnProtocol.FlagAttestedCredentialData|webauthnProtocol.FlagUserPresent),
+	),
+		signCountBytes...),
+		attestedCredentialData...,
+	)
+
+	clientData := webauthnProtocol.CollectedClientData{
+		Type:      webauthnProtocol.CreateCeremony,
+		Challenge: options.Response.Challenge.String(),
+		Origin:    origin,
+	}
+	clientDataJSON, err := json.Marshal(clientData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// clientDataJSONHash := sha256.Sum256(clientDataJSON)
+	// signedData := append(authData, clientDataJSONHash[:]...)
+	// signedDataDigest := sha256.Sum256(signedData)
+
+	// sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
+	// if err != nil {
+	// 	t.Fatal("Failed to sign registration challenge", err)
+	// }
+
+	attObj, err := webauthncbor.Marshal(map[string]any{
+		"fmt":      "none",
+		"attStmt":  map[string]any{},
+		"authData": authData,
+	})
+	if err != nil {
+		t.Fatal("Failed to create WebAuthn credential for test", err)
+	}
+
+	return webauthnProtocol.CredentialCreationResponse{
+		PublicKeyCredential: webauthnProtocol.PublicKeyCredential{
+			Credential: webauthnProtocol.Credential{
+				ID:   webauthnProtocol.URLEncodedBase64(credentialId).String(),
+				Type: "public-key",
+			},
+			RawID: webauthnProtocol.URLEncodedBase64(credentialId),
+		},
+		AttestationResponse: webauthnProtocol.AuthenticatorAttestationResponse{
+			AuthenticatorResponse: webauthnProtocol.AuthenticatorResponse{
+				ClientDataJSON: webauthnProtocol.URLEncodedBase64(clientDataJSON),
+			},
+			AttestationObject: webauthnProtocol.URLEncodedBase64(attObj),
+		},
+		Transports: transports,
+	}
+}
+
+func TestWebauthnRegistration(t *testing.T) {
+	t.Parallel()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
+	if err != nil {
+		t.Fatal("Failed to generate private key for test", err)
+	}
+	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
+	if err != nil {
+		t.Fatal("Failed to encode public key", err)
+	}
+
+	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, func(t *testing.T) webauthnProtocol.CredentialCreation) {
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "user",
+			RawAddress:          "127.0.0.1:0",
+			WebauthnCredentials: credentials,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(cancel)
+
+		cli := &http.Client{
+			Timeout: 5 * time.Second,
+		}
+		resp, err := cli.Get(baseURL)
+		if err != nil {
+			t.Fatal("Unexpected error from getting CSRF token:", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal("Unexpected status while getting CSRF token:", resp.Status)
+		}
+		resp.Body.Close()
+		var csrfTokenName, csrfTokenValue string
+		for _, cookie := range resp.Cookies() {
+			if strings.HasPrefix(cookie.Name, "CSRF-Token") {
+				csrfTokenName = cookie.Name
+				csrfTokenValue = cookie.Value
+				break
+			}
+		}
+		if csrfTokenValue == "" {
+			t.Fatal("Failed to initialize test: no CSRF cookie returned from " + baseURL)
+		}
+
+		getCreateOptions := func(t *testing.T) webauthnProtocol.CredentialCreation {
+			startResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-start", nil, csrfTokenName, csrfTokenValue, t)
+			if startResp.StatusCode != http.StatusOK {
+				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
+			}
+			if hasSessionCookie(startResp.Cookies()) {
+				t.Errorf("Expected no session cookie when starting WebAuthn registration")
+			}
+
+			var options webauthnProtocol.CredentialCreation
+			if err := unmarshalTo(startResp.Body, &options); err != nil {
+				t.Fatal(err)
+			}
+
+			return options
+		}
+
+		return baseURL, csrfTokenName, csrfTokenValue, getCreateOptions
+	}
+
+	t.Run("Can register a new WebAuthn credential", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+
+		transports := []string{"transportA", "transportB"}
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 42, transports, t)
+
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusOK {
+			t.Fatalf("Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
+		}
+
+		var pendingCred config.WebauthnCredential
+		if err := unmarshalTo(finishResp.Body, &pendingCred); err != nil {
+			t.Fatal(err)
+		}
+
+		if pendingCred.ID != base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}) {
+			t.Errorf("Wrong credential ID in registration success response; expected: %s, was: %s", cred.RawID.String(), pendingCred.ID)
+		}
+		if pendingCred.RpId != "localhost" {
+			t.Errorf("Wrong RP ID in registration success response; expected: %s, was: %s", "localhost", pendingCred.RpId)
+		}
+		if time.Now().Sub(pendingCred.CreateTime) > 1*time.Second {
+			t.Errorf("Wrong CreateTime in registration success response; expected approximately: %s, was: %s", time.Now(), pendingCred.CreateTime)
+		}
+		if time.Now().Sub(pendingCred.LastUseTime) > 1*time.Second {
+			t.Errorf("Wrong LastUseTime in registration success response; expected approximately: %s, was: %s", time.Now(), pendingCred.LastUseTime)
+		}
+		if !slices.Equal(transports, pendingCred.Transports) {
+			t.Errorf("Wrong transports in registration success response; expected: %s, was: %s", transports, pendingCred.Transports)
+		}
+		if pendingCred.RequireUv {
+			t.Errorf("Wrong RequireUv in registration success response; expected: %t, was: %t", false, pendingCred.RequireUv)
+		}
+		if pendingCred.SignCount != 42 {
+			t.Errorf("Wrong SignCount in registration success response; expected: %d, was: %d", 42, pendingCred.SignCount)
+		}
+		if pendingCred.Nickname != "" {
+			t.Errorf("Wrong Nickname in registration success response; expected empty string, was: %s", pendingCred.Nickname)
+		}
+
+		var conf config.Configuration
+		getConfResp := httpGetCsrf(baseURL+"/rest/config", csrfTokenName, csrfTokenValue, t)
+		if getConfResp.StatusCode != http.StatusOK {
+			t.Fatalf("Failed to fetch config after WebAuthn registration: status %d", getConfResp.StatusCode)
+		}
+		if err := unmarshalTo(getConfResp.Body, &conf); err != nil {
+			t.Fatal(err)
+		}
+		if len(conf.GUI.WebauthnCredentials) != 0 {
+			t.Error("Expected newly registered WebAuthn credential to not yet be committed to config")
+		}
+	})
+
+	t.Run("WebAuthn registration fails with wrong challenge", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+
+		cryptoRand.Reader.Read(options.Response.Challenge)
+
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential with wrong challenge; status: %d", finishResp.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration fails with wrong origin", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
+
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential with wrong origin; status: %d", finishResp.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration fails without user presence flag set", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+
+		var attObj webauthnProtocol.AttestationObject
+		err := webauthncbor.Unmarshal(cred.AttestationResponse.AttestationObject, &attObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Set the UP flag bit to 0
+		attObj.RawAuthData[32] &= ^byte(webauthnProtocol.FlagUserPresent)
+		modAttObj, err := webauthncbor.Marshal(attObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cred.AttestationResponse.AttestationObject = modAttObj
+
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential without user presence flag set; status: %d", finishResp.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration fails with malformed public key", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+
+		var attObj webauthnProtocol.AttestationObject
+		err := webauthncbor.Unmarshal(cred.AttestationResponse.AttestationObject, &attObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Flip all bits in an arbitrary byte of the credential public key
+		attObj.RawAuthData[len(attObj.RawAuthData)-4] ^= 0xff
+		modAttObj, err := webauthncbor.Marshal(attObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cred.AttestationResponse.AttestationObject = modAttObj
+
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential with malformed public key; status: %d", finishResp.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration fails with credential ID duplicated in config", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t,
+			[]config.WebauthnCredential{
+				{
+					ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+					RpId:          "localhost",
+					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					SignCount:     0,
+					RequireUv:     false,
+				},
+			},
+		)
+		options := getCreateOptions(t)
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration fails with credential ID duplicated in pending credentials", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected WebAuthn credential registration to succeed; status: %d", finishResp.StatusCode)
+		}
+
+		options2 := getCreateOptions(t)
+		cred2 := createWebauthnRegistrationResponse(options2, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred2, csrfTokenName, csrfTokenValue, t)
+
+		if finishResp2.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp2.StatusCode)
+		}
+	})
+
+	t.Run("WebAuthn registration can only be attempted once per challenge", func(t *testing.T) {
+		baseURL, csrfTokenName, csrfTokenValue, getCreateOptions := startServer(t, nil)
+		options := getCreateOptions(t)
+		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
+		if finishResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected WebAuthn credential registration to fail; status: %d", finishResp.StatusCode)
+		}
+
+		cred2 := createWebauthnRegistrationResponse(options, []byte{5, 6, 7, 8}, publicKeyCose, "https://localhost:8384", 0, nil, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred2, csrfTokenName, csrfTokenValue, t)
+
+		if finishResp2.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
+		}
+	})
 }
