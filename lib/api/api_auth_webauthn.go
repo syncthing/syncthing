@@ -7,6 +7,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -162,6 +163,23 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 		l.Infoln("Failed to register WebAuthn credential:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	for _, existingCred := range s.cfg.GUI().WebauthnCredentials {
+		existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+		if err == nil && bytes.Equal(credential.ID, existId) {
+			l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
+			http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
+			return
+		}
+	}
+	for _, existingCred := range s.credentialsPendingRegistration {
+		existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+		if err == nil && bytes.Equal(credential.ID, existId) {
+			l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
+			http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
+			return
+		}
 	}
 
 	transports := make([]string, len(credential.Transport))
