@@ -34,6 +34,7 @@ import (
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
 	"github.com/go-webauthn/webauthn/protocol/webauthncose"
+	"github.com/google/go-cmp/cmp"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -2147,5 +2148,233 @@ func TestWebauthnRegistration(t *testing.T) {
 		if finishResp2.StatusCode != http.StatusBadRequest {
 			t.Fatalf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
 		}
+	})
+}
+
+func TestWebauthnConfigChanges(t *testing.T) {
+	t.Parallel()
+
+	const testAPIKey = "foobarbaz"
+	initialGuiCfg := config.GUIConfiguration{
+		RawAddress:     "127.0.0.1:0",
+		RawUseTLS:      false,
+		APIKey:         testAPIKey,
+		WebauthnUserId: "AAAA",
+		WebauthnCredentials: []config.WebauthnCredential{
+			{
+				ID:            "AAAA",
+				RpId:          "localhost",
+				Nickname:      "Credential A",
+				PublicKeyCose: base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				SignCount:     0,
+				Transports:    []string{"transportA"},
+				RequireUv:     false,
+				CreateTime:    time.Now(),
+				LastUseTime:   time.Now(),
+			},
+		},
+	}
+
+	initTest := func() (config.Configuration, func(), func() (func(string) *http.Response, func(string, string, any), func())) {
+		cfg := config.Configuration{
+			GUI: initialGuiCfg.Copy(),
+		}
+
+		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
+		if err != nil {
+			panic(err)
+		}
+		w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
+		tmpFile.Close()
+		cfgCtx, cfgCancel := context.WithCancel(context.Background())
+		go w.Serve(cfgCtx)
+		cancel := func() {
+			os.Remove(tmpFile.Name())
+			cfgCancel()
+		}
+
+		startHttpServer := func() (func(string) *http.Response, func(string, string, any), func()) {
+			baseURL, cancel, err := startHTTP(w)
+			if err != nil {
+				t.Fatal("Unexpected error from getting base URL:", err)
+			}
+
+			cli := &http.Client{
+				Timeout: 5 * time.Second,
+			}
+
+			do := func(req *http.Request, status int) *http.Response {
+				t.Helper()
+				req.Header.Set("X-API-Key", testAPIKey)
+				resp, err := cli.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resp.StatusCode != status {
+					t.Errorf("Expected status %v, got %v", status, resp.StatusCode)
+				}
+				return resp
+			}
+
+			mod := func(method, path string, data interface{}) {
+				t.Helper()
+				bs, err := json.Marshal(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req, _ := http.NewRequest(method, baseURL+path, bytes.NewReader(bs))
+				do(req, http.StatusOK).Body.Close()
+			}
+
+			get := func(path string) *http.Response {
+				t.Helper()
+				req, _ := http.NewRequest(http.MethodGet, baseURL+path, nil)
+				return do(req, http.StatusOK)
+			}
+			return get, mod, cancel
+		}
+
+		return cfg, cancel, startHttpServer
+	}
+
+	guiCfgPath := "/rest/config/gui"
+
+	t.Run("Cannot add WebAuthn credential through just config", func(t *testing.T) {
+		cfg, cancel, startHttpServer := initTest()
+		defer cancel()
+		{
+			_, mod, cancel := startHttpServer()
+			defer cancel()
+			guiCfg := cfg.GUI.Copy()
+			guiCfg.WebauthnCredentials = append(
+				guiCfg.WebauthnCredentials,
+				config.WebauthnCredential{
+					ID:            "BBBB",
+					RpId:          "localhost",
+					PublicKeyCose: base64.URLEncoding.EncodeToString([]byte{}),
+					SignCount:     0,
+					RequireUv:     false,
+				},
+			)
+			mod(http.MethodPut, guiCfgPath, guiCfg)
+		}
+		{
+			get, _, cancel := startHttpServer()
+			defer cancel()
+			resp := get(guiCfgPath)
+			var guiCfg config.GUIConfiguration
+			if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
+				t.Fatal(err)
+			}
+			if !cmp.Equal(guiCfg, initialGuiCfg) {
+				t.Errorf("Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", guiCfg)
+			}
+		}
+	})
+
+	t.Run("Editing WebAuthn credential ID results in deleting the existing credential", func(t *testing.T) {
+		cfg, cancel, startHttpServer := initTest()
+		defer cancel()
+		{
+			_, mod, cancel := startHttpServer()
+			defer cancel()
+			guiCfg := cfg.GUI.Copy()
+			guiCfg.WebauthnCredentials[0].ID = "HURGELBURKEL"
+			mod(http.MethodPut, guiCfgPath, guiCfg)
+		}
+		{
+			get, _, cancel := startHttpServer()
+			defer cancel()
+			resp := get(guiCfgPath)
+			var guiCfg config.GUIConfiguration
+			if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
+				t.Fatal(err)
+			}
+			if len(guiCfg.WebauthnCredentials) != 0 {
+				t.Errorf("Expected attempt to edit WebAuthn credential ID to result in deleting the existing credential. Updated config: %v", guiCfg)
+			}
+		}
+	})
+
+	testCannotEdit := func(propName string, modify func(*config.GUIConfiguration)) {
+		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
+			cfg, cancel, startHttpServer := initTest()
+			defer cancel()
+			{
+				_, mod, cancel := startHttpServer()
+				defer cancel()
+				guiCfg := cfg.GUI.Copy()
+				modify(&guiCfg)
+				mod(http.MethodPut, guiCfgPath, guiCfg)
+			}
+			{
+				get, _, cancel := startHttpServer()
+				defer cancel()
+				resp := get(guiCfgPath)
+				var guiCfg config.GUIConfiguration
+				if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
+					t.Fatal(err)
+				}
+				if !cmp.Equal(guiCfg, initialGuiCfg) {
+					t.Errorf("Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, guiCfg)
+				}
+			}
+		})
+	}
+
+	testCannotEdit("RpId", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].RpId = "no-longer-locahost"
+	})
+	testCannotEdit("PublicKeyCose", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].PublicKeyCose = "BBBB"
+	})
+	testCannotEdit("SignCount", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].SignCount = 1337
+	})
+	testCannotEdit("Transports", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].Transports = []string{"transportA", "transportC"}
+	})
+	testCannotEdit("CreateTime", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].CreateTime = time.Now().Add(10 * time.Second)
+	})
+	testCannotEdit("LastUseTime", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].LastUseTime = time.Now().Add(10 * time.Second)
+	})
+
+	testCanEdit := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
+		t.Run(fmt.Sprintf("Can edit WebauthnCredential.%s", propName), func(t *testing.T) {
+			cfg, cancel, startHttpServer := initTest()
+			defer cancel()
+			{
+				_, mod, cancel := startHttpServer()
+				defer cancel()
+				guiCfg := cfg.GUI.Copy()
+				modify(&guiCfg)
+				mod(http.MethodPut, guiCfgPath, guiCfg)
+			}
+			{
+				get, _, cancel := startHttpServer()
+				defer cancel()
+				resp := get(guiCfgPath)
+				var guiCfg config.GUIConfiguration
+				if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
+					t.Fatal(err)
+				}
+				if cmp.Equal(guiCfg, initialGuiCfg) || !verify(guiCfg) {
+					t.Errorf("Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, guiCfg)
+				}
+			}
+		})
+	}
+
+	testCanEdit("Nickname", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].Nickname = "Blåbärsmjölk"
+	}, func(guiCfg config.GUIConfiguration) bool {
+		return guiCfg.WebauthnCredentials[0].Nickname == "Blåbärsmjölk"
+	})
+	testCanEdit("RequireUv", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnCredentials[0].RequireUv = true
+	}, func(guiCfg config.GUIConfiguration) bool {
+		return guiCfg.WebauthnCredentials[0].RequireUv == true
 	})
 }
