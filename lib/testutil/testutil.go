@@ -8,6 +8,7 @@ package testutil
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 
@@ -63,57 +64,78 @@ func (NoopCloser) Close() error {
 	return nil
 }
 
-func AssertTrue(testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
+func AssertTrue(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
+	t.Helper()
 	if !a {
 		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed", a)
+			testFailFunc("Assertion failed")
+		} else if len(sprintfArgs) == 1 {
+			testFailFunc("Assertion failed: %s", sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: "+sprintfArgs[0].(string), a, sprintfArgs[1:])
+			testFailFunc("Assertion failed: "+sprintfArgs[0].(string), sprintfArgs[1:]...)
 		}
 	}
 }
 
-func AssertEqual[T comparable](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+func AssertFalse(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
+	t.Helper()
+	AssertTrue(t, testFailFunc, !a, sprintfArgs)
+}
+
+func AssertEqual[T comparable](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	t.Helper()
 	if a != b {
 		if len(sprintfArgs) == 0 {
 			testFailFunc("Assertion failed: %v == %v", a, b)
+		} else if len(sprintfArgs) == 1 {
+			testFailFunc("Assertion failed: %v == %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
 
-func AssertNotEqual[T comparable](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+func AssertNotEqual[T comparable](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	t.Helper()
 	if a == b {
 		if len(sprintfArgs) == 0 {
 			testFailFunc("Assertion failed: %v != %v", a, b)
+		} else if len(sprintfArgs) == 1 {
+			testFailFunc("Assertion failed: %v != %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
 
-func AssertGreater[T constraints.Ordered](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+func AssertGreater[T constraints.Ordered](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	t.Helper()
 	if a > b {
 		if len(sprintfArgs) == 0 {
 			testFailFunc("Assertion failed: %v > %v", a, b)
+		} else if len(sprintfArgs) == 1 {
+			testFailFunc("Assertion failed: %v > %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v > %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+			testFailFunc("Assertion failed: %v > %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
 
-func AssertPredicate[T any](testFailFunc func(string, ...any), predicate func(T, T) bool, a T, b T, sprintfArgs ...any) {
+func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), predicate func(T, T) bool, a T, b T, sprintfArgs ...any) {
+	t.Helper()
 	if !predicate(a, b) {
 		if len(sprintfArgs) == 0 {
 			testFailFunc("Assertion failed: %s(%v, %v) != true", predicate, a, b)
+		} else if len(sprintfArgs) == 1 {
+			testFailFunc("Assertion failed: %s(%v, %v) != true: %s", predicate, a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %s(%v, %v) != true: "+sprintfArgs[0].(string), predicate, a, b, sprintfArgs[1:])
+			testFailFunc("Assertion failed: %s(%v, %v) != true: "+sprintfArgs[0].(string), slices.Concat([]any{predicate, a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
 
-func FatalErr(t *testing.T, err error) {
+func FatalIfErr(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}

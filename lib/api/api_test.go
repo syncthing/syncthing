@@ -1856,9 +1856,7 @@ func createWebauthnRegistrationResponse(
 		Origin:    origin,
 	}
 	clientDataJSON, err := json.Marshal(clientData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testutil.FatalIfErr(t, err)
 	// clientDataJSONHash := sha256.Sum256(clientDataJSON)
 	// signedData := append(authData, clientDataJSONHash[:]...)
 	// signedDataDigest := sha256.Sum256(signedData)
@@ -1873,9 +1871,7 @@ func createWebauthnRegistrationResponse(
 		"attStmt":  map[string]any{},
 		"authData": authData,
 	})
-	if err != nil {
-		t.Fatal("Failed to create WebAuthn credential for test", err)
-	}
+	testutil.FatalIfErr(t, err)
 
 	return webauthnProtocol.CredentialCreationResponse{
 		PublicKeyCredential: webauthnProtocol.PublicKeyCredential{
@@ -1897,13 +1893,9 @@ func createWebauthnRegistrationResponse(
 
 func TestWebauthnRegistration(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
-	if err != nil {
-		t.Fatal("Failed to generate private key for test", err)
-	}
+	testutil.FatalIfErr(t, err)
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
-	if err != nil {
-		t.Fatal("Failed to encode public key", err)
-	}
+	testutil.FatalIfErr(t, err)
 
 	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, func(t *testing.T) webauthnProtocol.CredentialCreation) {
 		cfg := newMockedConfig()
@@ -1922,12 +1914,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			Timeout: 5 * time.Second,
 		}
 		resp, err := cli.Get(baseURL)
-		if err != nil {
-			t.Fatal("Unexpected error from getting CSRF token:", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Fatal("Unexpected status while getting CSRF token:", resp.Status)
-		}
+		testutil.FatalIfErr(t, err)
+		testutil.AssertEqual(t, t.Fatalf, resp.StatusCode, http.StatusOK,
+			"Unexpected status while getting CSRF token: %v", resp.Status)
 		resp.Body.Close()
 		var csrfTokenName, csrfTokenValue string
 		for _, cookie := range resp.Cookies() {
@@ -1937,23 +1926,18 @@ func TestWebauthnRegistration(t *testing.T) {
 				break
 			}
 		}
-		if csrfTokenValue == "" {
-			t.Fatal("Failed to initialize test: no CSRF cookie returned from " + baseURL)
-		}
+		testutil.AssertNotEqual(t, t.Fatalf, csrfTokenValue, "",
+			"Failed to initialize test: no CSRF cookie returned from %v", baseURL)
 
 		getCreateOptions := func(t *testing.T) webauthnProtocol.CredentialCreation {
 			startResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-start", nil, csrfTokenName, csrfTokenValue, t)
-			if startResp.StatusCode != http.StatusOK {
-				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
-			}
-			if hasSessionCookie(startResp.Cookies()) {
-				t.Errorf("Expected no session cookie when starting WebAuthn registration")
-			}
+			testutil.AssertEqual(t, t.Fatalf, startResp.StatusCode, http.StatusOK,
+				"Failed to start WebAuthn registration: status %d", startResp.StatusCode)
+			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
+				"Expected no session cookie when starting WebAuthn registration")
 
 			var options webauthnProtocol.CredentialCreation
-			if err := unmarshalTo(startResp.Body, &options); err != nil {
-				t.Fatal(err)
-			}
+			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options))
 
 			return options
 		}
@@ -1970,33 +1954,32 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 42, transports, t)
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		if finishResp.StatusCode != http.StatusOK {
-			t.Fatalf("Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
-		}
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusOK,
+			"Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
 
 		var pendingCred config.WebauthnCredential
 		testutil.FatalIfErr(t, unmarshalTo(finishResp.Body, &pendingCred))
 
-		testutil.AssertEqual(t.Errorf, pendingCred.ID, base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+		testutil.AssertEqual(t, t.Errorf, pendingCred.ID, base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 			"Wrong credential ID in registration success response")
 
-		testutil.AssertEqual(t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
-		testutil.AssertGreater(t.Errorf, time.Since(pendingCred.CreateTime), 1*time.Second,
+		testutil.AssertEqual(t, t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
+		testutil.AssertGreater(t, t.Errorf, time.Since(pendingCred.CreateTime), 1*time.Second,
 			"Wrong CreateTime in registration success response")
-		testutil.AssertGreater(t.Errorf, time.Since(pendingCred.LastUseTime), 1*time.Second,
+		testutil.AssertGreater(t, t.Errorf, time.Since(pendingCred.LastUseTime), 1*time.Second,
 			"Wrong LastUseTime in registration success response")
-		testutil.AssertPredicate(t.Errorf, slices.Equal, transports, pendingCred.Transports,
+		testutil.AssertPredicate(t, t.Errorf, slices.Equal, transports, pendingCred.Transports,
 			"Wrong Transports in registration success response")
-		testutil.AssertEqual(t.Errorf, false, pendingCred.RequireUv, "Wrong RequireUv in registration success response")
-		testutil.AssertEqual(t.Errorf, 42, pendingCred.SignCount, "Wrong SignCount in registration success response")
-		testutil.AssertEqual(t.Errorf, "", pendingCred.Nickname, "Wrong Nickname in registration success response")
+		testutil.AssertEqual(t, t.Errorf, false, pendingCred.RequireUv, "Wrong RequireUv in registration success response")
+		testutil.AssertEqual(t, t.Errorf, 42, pendingCred.SignCount, "Wrong SignCount in registration success response")
+		testutil.AssertEqual(t, t.Errorf, "", pendingCred.Nickname, "Wrong Nickname in registration success response")
 
 		var conf config.Configuration
 		getConfResp := httpGetCsrf(baseURL+"/rest/config", csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, getConfResp.StatusCode, http.StatusOK,
+		testutil.AssertEqual(t, t.Fatalf, getConfResp.StatusCode, http.StatusOK,
 			"Failed to fetch config after WebAuthn registration: status %d", getConfResp.StatusCode)
 		testutil.FatalIfErr(t, unmarshalTo(getConfResp.Body, &conf))
-		testutil.AssertEqual(t.Errorf, 0, len(conf.GUI.WebauthnCredentials),
+		testutil.AssertEqual(t, t.Errorf, 0, len(conf.GUI.WebauthnCredentials),
 			"Expected newly registered WebAuthn credential to not yet be committed to config")
 	})
 
@@ -2009,7 +1992,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential with wrong challenge; status: %d", finishResp.StatusCode)
 	})
 
@@ -2021,7 +2004,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential with wrong origin; status: %d", finishResp.StatusCode)
 	})
 
@@ -2045,7 +2028,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred.AttestationResponse.AttestationObject = modAttObj
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential without user presence flag set; status: %d", finishResp.StatusCode)
 	})
 
@@ -2058,7 +2041,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, corruptPublicKeyCose, "https://localhost:8384", 0, nil, t)
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential with malformed public key; status: %d", finishResp.StatusCode)
 	})
 
@@ -2078,7 +2061,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp.StatusCode)
 	})
 
@@ -2088,15 +2071,14 @@ func TestWebauthnRegistration(t *testing.T) {
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		if finishResp.StatusCode != http.StatusOK {
-			t.Fatalf("Expected WebAuthn credential registration to succeed; status: %d", finishResp.StatusCode)
-		}
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusOK,
+			"Expected WebAuthn credential registration to succeed; status: %d", finishResp.StatusCode)
 
 		options2 := getCreateOptions(t)
 		cred2 := createWebauthnRegistrationResponse(options2, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred2, csrfTokenName, csrfTokenValue, t)
 
-		testutil.AssertEqual(t.Fatalf, finishResp2.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp2.StatusCode, http.StatusBadRequest,
 			"Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp2.StatusCode)
 	})
 
@@ -2106,13 +2088,13 @@ func TestWebauthnRegistration(t *testing.T) {
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
-		testutil.AssertEqual(t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusBadRequest,
 			"Expected WebAuthn credential registration to fail; status: %d", finishResp.StatusCode)
 
 		cred2 := createWebauthnRegistrationResponse(options, []byte{5, 6, 7, 8}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred2, csrfTokenName, csrfTokenValue, t)
 
-		testutil.AssertEqual(t.Fatalf, finishResp2.StatusCode, http.StatusBadRequest,
+		testutil.AssertEqual(t, t.Fatalf, finishResp2.StatusCode, http.StatusBadRequest,
 			"Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
 	})
 }
@@ -2175,7 +2157,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				req.Header.Set("X-API-Key", testAPIKey)
 				resp, err := cli.Do(req)
 				testutil.FatalIfErr(t, err)
-				testutil.AssertEqual(t.Errorf, status, resp.StatusCode, "Expected status %v, got %v", status, resp.StatusCode)
+				testutil.AssertEqual(t, t.Errorf, status, resp.StatusCode, "Expected status %v, got %v", status, resp.StatusCode)
 				return resp
 			}
 
@@ -2223,7 +2205,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			resp := get(guiCfgPath)
 			var guiCfg config.GUIConfiguration
 			testutil.FatalIfErr(t, unmarshalTo(resp.Body, &guiCfg))
-			testutil.AssertPredicate(t.Errorf, guiConfigEqual, guiCfg, initialGuiCfg,
+			testutil.AssertPredicate(t, t.Errorf, guiConfigEqual, guiCfg, initialGuiCfg,
 				"Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", guiCfg)
 		}
 	})
@@ -2242,7 +2224,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			resp := get(guiCfgPath)
 			var guiCfg config.GUIConfiguration
 			testutil.FatalIfErr(t, unmarshalTo(resp.Body, &guiCfg))
-			testutil.AssertEqual(t.Errorf, 0, len(guiCfg.WebauthnCredentials),
+			testutil.AssertEqual(t, t.Errorf, 0, len(guiCfg.WebauthnCredentials),
 				"Expected attempt to edit WebAuthn credential ID to result in deleting the existing credential. Updated config: %v", guiCfg)
 		}
 	})
@@ -2263,6 +2245,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				var guiCfg config.GUIConfiguration
 				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &guiCfg))
 				testutil.AssertTrue(
+					t,
 					t.Errorf,
 					!guiConfigEqual(guiCfg, initialGuiCfg) && verify(guiCfg),
 					"Expected to be able to edit GUIConfiguration.%s. Updated config: %v", propName, guiCfg)
@@ -2301,7 +2284,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				resp := get(guiCfgPath)
 				var guiCfg config.GUIConfiguration
 				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &guiCfg))
-				testutil.AssertPredicate(t.Errorf, guiConfigEqual, guiCfg, initialGuiCfg,
+				testutil.AssertPredicate(t, t.Errorf, guiConfigEqual, guiCfg, initialGuiCfg,
 					"Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, guiCfg)
 			}
 		})
@@ -2341,7 +2324,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				resp := get(guiCfgPath)
 				var guiCfg config.GUIConfiguration
 				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &guiCfg))
-				testutil.AssertTrue(t.Errorf,
+				testutil.AssertTrue(t, t.Errorf,
 					!guiConfigEqual(guiCfg, initialGuiCfg) && verify(guiCfg),
 					"Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, guiCfg)
 			}
