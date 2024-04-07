@@ -185,7 +185,7 @@ func (c *GUIConfiguration) prepare() error {
 		c.APIKey = rand.String(32)
 	}
 
-	if len(c.WebauthnUserId) == 0 {
+	if c.WebauthnUserId == "" {
 		newUserId := make([]byte, 64)
 		_, err := rand.Read(newUserId)
 		if err != nil {
@@ -197,7 +197,8 @@ func (c *GUIConfiguration) prepare() error {
 	return nil
 }
 
-func (c GUIConfiguration) Copy() GUIConfiguration {
+func (g GUIConfiguration) Copy() GUIConfiguration {
+	c := g
 	if c.WebauthnCredentials != nil {
 		creds := make([]WebauthnCredential, len(c.WebauthnCredentials))
 		for i := range c.WebauthnCredentials {
@@ -208,7 +209,8 @@ func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
 }
 
-func (c WebauthnCredential) Copy() WebauthnCredential {
+func (g WebauthnCredential) Copy() WebauthnCredential {
+	c := g
 	if c.Transports != nil {
 		transports := make([]string, len(c.Transports))
 		copy(transports, c.Transports)
@@ -217,7 +219,7 @@ func (c WebauthnCredential) Copy() WebauthnCredential {
 	return c
 }
 
-func (c *WebauthnCredential) NicknameOrID() string {
+func (c WebauthnCredential) NicknameOrID() string {
 	if c.Nickname != "" {
 		return c.Nickname
 	} else {

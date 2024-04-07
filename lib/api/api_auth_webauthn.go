@@ -105,7 +105,7 @@ func (s *webauthnService) WebAuthnDisplayName() string {
 	return s.cfg.GUI().User
 }
 
-func (s *webauthnService) WebAuthnIcon() string {
+func (*webauthnService) WebAuthnIcon() string {
 	return ""
 }
 
@@ -114,13 +114,13 @@ func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
 	for _, cred := range s.cfg.GUI().EligibleWebAuthnCredentials() {
 		id, err := base64.URLEncoding.DecodeString(cred.ID)
 		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential \"%s\": %s", cred.Nickname, cred.ID), err)
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID), err)
 			continue
 		}
 
 		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential \"%s\" (%s)", cred.Nickname, cred.ID), err)
+			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID), err)
 			continue
 		}
 
@@ -141,11 +141,11 @@ func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, _ *http.Request) {
 	options, sessionData, err := s.engine.BeginRegistration(s)
 	if err != nil {
 		l.Warnln("Failed to initiate WebAuthn registration:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		internalServerError(w)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 	sendJSON(w, configCred)
 }
 
-func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, _ *http.Request) {
 	allRequireUv := true
 	someRequiresUv := false
 	for _, cred := range s.cfg.GUI().WebauthnCredentials {
@@ -297,10 +297,15 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 			}
 		}
 	})
+	if err != nil {
+		l.Warnln("Failed to update authenticated WebAuthn credential", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 	awaitSaveConfig(w, s.cfg, waiter)
 
 	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
-		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential \"%s\": expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
+		l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
 	}
 
 	guiCfg := s.cfg.GUI()
