@@ -92,6 +92,9 @@ func (c GUIConfiguration) WebauthnReady() bool {
 func (c GUIConfiguration) EligibleWebAuthnCredentials() []WebauthnCredential {
 	var result []WebauthnCredential
 	rpId := c.WebauthnRpId
+	if rpId == "" {
+		rpId = "localhost"
+	}
 	for _, cred := range c.WebauthnCredentials {
 		if cred.RpId == rpId {
 			result = append(result, cred)
