@@ -9,6 +9,9 @@ package testutil
 import (
 	"errors"
 	"sync"
+	"testing"
+
+	"golang.org/x/exp/constraints"
 )
 
 var ErrClosed = errors.New("closed")
@@ -58,4 +61,60 @@ type NoopCloser struct{}
 
 func (NoopCloser) Close() error {
 	return nil
+}
+
+func AssertTrue(testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
+	if !a {
+		if len(sprintfArgs) == 0 {
+			testFailFunc("Assertion failed", a)
+		} else {
+			testFailFunc("Assertion failed: "+sprintfArgs[0].(string), a, sprintfArgs[1:])
+		}
+	}
+}
+
+func AssertEqual[T comparable](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	if a != b {
+		if len(sprintfArgs) == 0 {
+			testFailFunc("Assertion failed: %v == %v", a, b)
+		} else {
+			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+		}
+	}
+}
+
+func AssertNotEqual[T comparable](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	if a == b {
+		if len(sprintfArgs) == 0 {
+			testFailFunc("Assertion failed: %v != %v", a, b)
+		} else {
+			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+		}
+	}
+}
+
+func AssertGreater[T constraints.Ordered](testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
+	if a > b {
+		if len(sprintfArgs) == 0 {
+			testFailFunc("Assertion failed: %v > %v", a, b)
+		} else {
+			testFailFunc("Assertion failed: %v > %v: "+sprintfArgs[0].(string), a, b, sprintfArgs[1:])
+		}
+	}
+}
+
+func AssertPredicate[T any](testFailFunc func(string, ...any), predicate func(T, T) bool, a T, b T, sprintfArgs ...any) {
+	if !predicate(a, b) {
+		if len(sprintfArgs) == 0 {
+			testFailFunc("Assertion failed: %s(%v, %v) != true", predicate, a, b)
+		} else {
+			testFailFunc("Assertion failed: %s(%v, %v) != true: "+sprintfArgs[0].(string), predicate, a, b, sprintfArgs[1:])
+		}
+	}
+}
+
+func FatalErr(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
 }
