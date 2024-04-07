@@ -1857,14 +1857,6 @@ func createWebauthnRegistrationResponse(
 	}
 	clientDataJSON, err := json.Marshal(clientData)
 	testutil.FatalIfErr(t, err)
-	// clientDataJSONHash := sha256.Sum256(clientDataJSON)
-	// signedData := append(authData, clientDataJSONHash[:]...)
-	// signedDataDigest := sha256.Sum256(signedData)
-
-	// sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
-	// if err != nil {
-	// 	t.Fatal("Failed to sign registration challenge", err)
-	// }
 
 	attObj, err := webauthncbor.Marshal(map[string]any{
 		"fmt":      "none",
