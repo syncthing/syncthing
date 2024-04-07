@@ -2291,7 +2291,46 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		}
 	})
 
-	testCannotEdit := func(propName string, modify func(*config.GUIConfiguration)) {
+	testCanEditConfig := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
+		t.Run(fmt.Sprintf("Can edit GUIConfiguration.%s", propName), func(t *testing.T) {
+			cfg, startHttpServer := initTest(t)
+			{
+				_, mod := startHttpServer(t)
+				guiCfg := cfg.GUI.Copy()
+				modify(&guiCfg)
+				mod(http.MethodPut, guiCfgPath, guiCfg)
+			}
+			{
+				get, _ := startHttpServer(t)
+				resp := get(guiCfgPath)
+				var guiCfg config.GUIConfiguration
+				if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
+					t.Fatal(err)
+				}
+				if cmp.Equal(guiCfg, initialGuiCfg) || !verify(guiCfg) {
+					t.Errorf("Expected to be able to edit GUIConfiguration.%s. Updated config: %v", propName, guiCfg)
+				}
+			}
+		})
+	}
+
+	testCanEditConfig("WebauthnUserId", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnUserId = "ABCDEFGH"
+	}, func(guiCfg config.GUIConfiguration) bool {
+		return guiCfg.WebauthnUserId == "ABCDEFGH"
+	})
+	testCanEditConfig("WebauthnRpId", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnRpId = "no-longer-localhost"
+	}, func(guiCfg config.GUIConfiguration) bool {
+		return guiCfg.WebauthnRpId == "no-longer-localhost"
+	})
+	testCanEditConfig("WebauthnOrigin", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnOrigin = "https://no-longer-localhost:8888"
+	}, func(guiCfg config.GUIConfiguration) bool {
+		return guiCfg.WebauthnOrigin == "https://no-longer-localhost:8888"
+	})
+
+	testCannotEditCredential := func(propName string, modify func(*config.GUIConfiguration)) {
 		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
 			cfg, startHttpServer := initTest(t)
 			{
@@ -2314,26 +2353,26 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		})
 	}
 
-	testCannotEdit("RpId", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("RpId", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].RpId = "no-longer-locahost"
 	})
-	testCannotEdit("PublicKeyCose", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("PublicKeyCose", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].PublicKeyCose = "BBBB"
 	})
-	testCannotEdit("SignCount", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("SignCount", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].SignCount = 1337
 	})
-	testCannotEdit("Transports", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("Transports", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].Transports = []string{"transportA", "transportC"}
 	})
-	testCannotEdit("CreateTime", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("CreateTime", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].CreateTime = time.Now().Add(10 * time.Second)
 	})
-	testCannotEdit("LastUseTime", func(guiCfg *config.GUIConfiguration) {
+	testCannotEditCredential("LastUseTime", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].LastUseTime = time.Now().Add(10 * time.Second)
 	})
 
-	testCanEdit := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
+	testCanEditCredential := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
 		t.Run(fmt.Sprintf("Can edit WebauthnCredential.%s", propName), func(t *testing.T) {
 			cfg, startHttpServer := initTest(t)
 			{
@@ -2356,12 +2395,12 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		})
 	}
 
-	testCanEdit("Nickname", func(guiCfg *config.GUIConfiguration) {
+	testCanEditCredential("Nickname", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].Nickname = "Blåbärsmjölk"
 	}, func(guiCfg config.GUIConfiguration) bool {
 		return guiCfg.WebauthnCredentials[0].Nickname == "Blåbärsmjölk"
 	})
-	testCanEdit("RequireUv", func(guiCfg *config.GUIConfiguration) {
+	testCanEditCredential("RequireUv", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnCredentials[0].RequireUv = true
 	}, func(guiCfg config.GUIConfiguration) bool {
 		return guiCfg.WebauthnCredentials[0].RequireUv == true
