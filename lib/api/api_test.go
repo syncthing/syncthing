@@ -1911,7 +1911,7 @@ func createWebauthnAssertionResponse(
 	clientDataJSON, err := json.Marshal(clientData)
 	testutil.FatalIfErr(t, err)
 	clientDataJSONHash := sha256.Sum256(clientDataJSON)
-	signedData := append(authData, clientDataJSONHash[:]...)
+	signedData := slices.Concat(authData, clientDataJSONHash[:])
 	signedDataDigest := sha256.Sum256(signedData)
 
 	sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
@@ -1937,6 +1937,8 @@ func createWebauthnAssertionResponse(
 }
 
 func TestWebauthnRegistration(t *testing.T) {
+	t.Parallel()
+
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
 	testutil.FatalIfErr(t, err)
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
@@ -2145,6 +2147,8 @@ func TestWebauthnRegistration(t *testing.T) {
 }
 
 func TestWebauthnAuthentication(t *testing.T) {
+	t.Parallel()
+
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
 	testutil.FatalIfErr(t, err)
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
@@ -2636,6 +2640,8 @@ func TestWebauthnAuthentication(t *testing.T) {
 }
 
 func TestPasswordOrWebauthnAuthentication(t *testing.T) {
+	t.Parallel()
+
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
 	testutil.FatalIfErr(t, err)
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
@@ -2760,6 +2766,8 @@ func guiConfigEqual(a config.GUIConfiguration, b config.GUIConfiguration) bool {
 }
 
 func TestWebauthnConfigChanges(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	initialGuiCfg := config.GUIConfiguration{
 		RawAddress:     "127.0.0.1:0",
