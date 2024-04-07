@@ -2175,7 +2175,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		},
 	}
 
-	initTest := func() (config.Configuration, func(), func() (func(string) *http.Response, func(string, string, any), func())) {
+	initTest := func(t *testing.T) (config.Configuration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
 		cfg := config.Configuration{
 			GUI: initialGuiCfg.Copy(),
 		}
@@ -2188,13 +2188,14 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		tmpFile.Close()
 		cfgCtx, cfgCancel := context.WithCancel(context.Background())
 		go w.Serve(cfgCtx)
-		cancel := func() {
+		t.Cleanup(func() {
 			os.Remove(tmpFile.Name())
 			cfgCancel()
-		}
+		})
 
-		startHttpServer := func() (func(string) *http.Response, func(string, string, any), func()) {
+		startHttpServer := func(t *testing.T) (func(string) *http.Response, func(string, string, any)) {
 			baseURL, cancel, err := startHTTP(w)
+			t.Cleanup(cancel)
 			if err != nil {
 				t.Fatal("Unexpected error from getting base URL:", err)
 			}
@@ -2231,20 +2232,18 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodGet, baseURL+path, nil)
 				return do(req, http.StatusOK)
 			}
-			return get, mod, cancel
+			return get, mod
 		}
 
-		return cfg, cancel, startHttpServer
+		return cfg, startHttpServer
 	}
 
 	guiCfgPath := "/rest/config/gui"
 
 	t.Run("Cannot add WebAuthn credential through just config", func(t *testing.T) {
-		cfg, cancel, startHttpServer := initTest()
-		defer cancel()
+		cfg, startHttpServer := initTest(t)
 		{
-			_, mod, cancel := startHttpServer()
-			defer cancel()
+			_, mod := startHttpServer(t)
 			guiCfg := cfg.GUI.Copy()
 			guiCfg.WebauthnCredentials = append(
 				guiCfg.WebauthnCredentials,
@@ -2259,8 +2258,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			mod(http.MethodPut, guiCfgPath, guiCfg)
 		}
 		{
-			get, _, cancel := startHttpServer()
-			defer cancel()
+			get, _ := startHttpServer(t)
 			resp := get(guiCfgPath)
 			var guiCfg config.GUIConfiguration
 			if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
@@ -2273,18 +2271,15 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	})
 
 	t.Run("Editing WebAuthn credential ID results in deleting the existing credential", func(t *testing.T) {
-		cfg, cancel, startHttpServer := initTest()
-		defer cancel()
+		cfg, startHttpServer := initTest(t)
 		{
-			_, mod, cancel := startHttpServer()
-			defer cancel()
+			_, mod := startHttpServer(t)
 			guiCfg := cfg.GUI.Copy()
 			guiCfg.WebauthnCredentials[0].ID = "HURGELBURKEL"
 			mod(http.MethodPut, guiCfgPath, guiCfg)
 		}
 		{
-			get, _, cancel := startHttpServer()
-			defer cancel()
+			get, _ := startHttpServer(t)
 			resp := get(guiCfgPath)
 			var guiCfg config.GUIConfiguration
 			if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
@@ -2298,18 +2293,15 @@ func TestWebauthnConfigChanges(t *testing.T) {
 
 	testCannotEdit := func(propName string, modify func(*config.GUIConfiguration)) {
 		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
-			cfg, cancel, startHttpServer := initTest()
-			defer cancel()
+			cfg, startHttpServer := initTest(t)
 			{
-				_, mod, cancel := startHttpServer()
-				defer cancel()
+				_, mod := startHttpServer(t)
 				guiCfg := cfg.GUI.Copy()
 				modify(&guiCfg)
 				mod(http.MethodPut, guiCfgPath, guiCfg)
 			}
 			{
-				get, _, cancel := startHttpServer()
-				defer cancel()
+				get, _ := startHttpServer(t)
 				resp := get(guiCfgPath)
 				var guiCfg config.GUIConfiguration
 				if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
@@ -2343,18 +2335,15 @@ func TestWebauthnConfigChanges(t *testing.T) {
 
 	testCanEdit := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
 		t.Run(fmt.Sprintf("Can edit WebauthnCredential.%s", propName), func(t *testing.T) {
-			cfg, cancel, startHttpServer := initTest()
-			defer cancel()
+			cfg, startHttpServer := initTest(t)
 			{
-				_, mod, cancel := startHttpServer()
-				defer cancel()
+				_, mod := startHttpServer(t)
 				guiCfg := cfg.GUI.Copy()
 				modify(&guiCfg)
 				mod(http.MethodPut, guiCfgPath, guiCfg)
 			}
 			{
-				get, _, cancel := startHttpServer()
-				defer cancel()
+				get, _ := startHttpServer(t)
 				resp := get(guiCfgPath)
 				var guiCfg config.GUIConfiguration
 				if err := unmarshalTo(resp.Body, &guiCfg); err != nil {
