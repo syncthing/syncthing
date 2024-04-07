@@ -1915,7 +1915,6 @@ func createWebauthnAssertionResponse(
 	signedDataDigest := sha256.Sum256(signedData)
 
 	sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
-	// fmt.Printf("signature: %d %v\n", len(sig), sig)
 	testutil.FatalIfErr(t, err)
 
 	return webauthnProtocol.CredentialAssertionResponse{
