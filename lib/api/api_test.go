@@ -10,10 +10,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	cryptoRand "crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -1883,6 +1885,57 @@ func createWebauthnRegistrationResponse(
 	}
 }
 
+func createWebauthnAssertionResponse(
+	options webauthnProtocol.CredentialAssertion,
+	credentialId []byte,
+	privateKey *ecdsa.PrivateKey,
+	origin string,
+	userVerified bool,
+	signCount byte,
+	t *testing.T,
+) webauthnProtocol.CredentialAssertionResponse {
+	rpIdHash := sha256.Sum256([]byte(options.Response.RelyingPartyID))
+	signCountBytes := []byte{0, 0, 0, signCount}
+
+	authData := append(append(
+		rpIdHash[:],
+		byte(webauthnProtocol.FlagUserPresent|testutil.IfExpr(userVerified, webauthnProtocol.FlagUserVerified, 0)),
+	),
+		signCountBytes...)
+
+	clientData := webauthnProtocol.CollectedClientData{
+		Type:      webauthnProtocol.AssertCeremony,
+		Challenge: options.Response.Challenge.String(),
+		Origin:    origin,
+	}
+	clientDataJSON, err := json.Marshal(clientData)
+	testutil.FatalIfErr(t, err)
+	clientDataJSONHash := sha256.Sum256(clientDataJSON)
+	signedData := append(authData, clientDataJSONHash[:]...)
+	signedDataDigest := sha256.Sum256(signedData)
+
+	sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
+	// fmt.Printf("signature: %d %v\n", len(sig), sig)
+	testutil.FatalIfErr(t, err)
+
+	return webauthnProtocol.CredentialAssertionResponse{
+		PublicKeyCredential: webauthnProtocol.PublicKeyCredential{
+			Credential: webauthnProtocol.Credential{
+				ID:   webauthnProtocol.URLEncodedBase64(credentialId).String(),
+				Type: "public-key",
+			},
+			RawID: webauthnProtocol.URLEncodedBase64(credentialId),
+		},
+		AssertionResponse: webauthnProtocol.AuthenticatorAssertionResponse{
+			AuthenticatorResponse: webauthnProtocol.AuthenticatorResponse{
+				ClientDataJSON: webauthnProtocol.URLEncodedBase64(clientDataJSON),
+			},
+			AuthenticatorData: webauthnProtocol.URLEncodedBase64(authData),
+			Signature:         webauthnProtocol.URLEncodedBase64(sig),
+		},
+	}
+}
+
 func TestWebauthnRegistration(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
 	testutil.FatalIfErr(t, err)
@@ -2088,6 +2141,617 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		testutil.AssertEqual(t, t.Fatalf, finishResp2.StatusCode, http.StatusBadRequest,
 			"Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
+	})
+}
+
+func TestWebauthnAuthentication(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
+	testutil.FatalIfErr(t, err)
+	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
+	testutil.FatalIfErr(t, err)
+
+	startServer := func(t *testing.T, rpId, origin string, credentials []config.WebauthnCredential) (func(string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
+		t.Helper()
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "user",
+			RawAddress:          "localhost:0",
+			WebauthnCredentials: credentials,
+			WebauthnRpId:        rpId,
+			WebauthnOrigin:      origin,
+			RawUseTLS:           true,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
+		t.Cleanup(cancel)
+
+		httpRequest := func(method string, url string, body any, csrfTokenName, csrfTokenValue string) *http.Response {
+			t.Helper()
+			var bodyReader io.Reader = nil
+			if body != nil {
+				bodyBytes, err := json.Marshal(body)
+				testutil.FatalIfErr(t, err, "Failed to marshal HTTP request body")
+				bodyReader = bytes.NewReader(bodyBytes)
+			}
+
+			req, err := http.NewRequest(method, baseURL+url, bodyReader)
+			testutil.FatalIfErr(t, err, "Failed to construct HttpRequest")
+
+			if csrfTokenName != "" && csrfTokenValue != "" {
+				req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+			}
+
+			client := http.Client{
+				Timeout: 5 * time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						// Syncthing config requires TLS in order to enable WebAuthn without a password set
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+			resp, err := client.Do(req)
+			testutil.FatalIfErr(t, err, "Failed to execute HTTP request")
+
+			return resp
+		}
+
+		httpGet := func(url string, csrfTokenName, csrfTokenValue string) *http.Response {
+			t.Helper()
+			return httpRequest(http.MethodGet, url, nil, csrfTokenName, csrfTokenValue)
+		}
+
+		httpPost := func(url string, body any) *http.Response {
+			t.Helper()
+			return httpRequest(http.MethodPost, url, body, "", "")
+		}
+
+		getAssertionOptions := func() webauthnProtocol.CredentialAssertion {
+			t.Helper()
+			startResp := httpPost("/rest/noauth/auth/webauthn-start", nil)
+			testutil.AssertEqual(t, t.Fatalf, startResp.StatusCode, http.StatusOK,
+				"Failed to start WebAuthn registration: status %d", startResp.StatusCode)
+			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
+				"Expected no session cookie when starting WebAuthn registration")
+
+			var options webauthnProtocol.CredentialAssertion
+			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options), "Failed to unmarshal CredentialAssertion")
+
+			return options
+		}
+
+		return httpGet, httpPost, getAssertionOptions
+	}
+
+	type webauthnAuthResponseBody struct {
+		StayLoggedIn bool
+		Credential   webauthnProtocol.CredentialAssertionResponse
+	}
+	webauthnAuthResponse := func(stayLoggedIn bool, cred webauthnProtocol.CredentialAssertionResponse) webauthnAuthResponseBody {
+		return webauthnAuthResponseBody{
+			StayLoggedIn: stayLoggedIn,
+			Credential:   cred,
+		}
+	}
+
+	t.Run("A credential that doesn't require UV", func(t *testing.T) {
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				SignCount:     0,
+				RequireUv:     false,
+			},
+		}
+
+		t.Run("can authenticate without UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+				"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("can authenticate without UV even if a different credential requires UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", []config.WebauthnCredential{
+				credentials[0],
+				{
+					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					RpId:          "localhost",
+					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					SignCount:     0,
+					RequireUv:     true,
+				},
+			})
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+				"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("can authenticate with UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", true, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+				"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+	})
+
+	t.Run("A credential that requires UV", func(t *testing.T) {
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				SignCount:     0,
+				RequireUv:     true,
+			},
+		}
+
+		t.Run("cannot authenticate without UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusConflict,
+				"Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("cannot authenticate without UV even if a different credential does not require UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", []config.WebauthnCredential{
+				credentials[0],
+				{
+					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					RpId:          "localhost",
+					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					SignCount:     0,
+					RequireUv:     false,
+				},
+			})
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusConflict,
+				"Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("can authenticate with UV", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", true, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+				"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+	})
+
+	t.Run("With non-default RP ID and origin", func(t *testing.T) {
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+			},
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+				RpId:          "custom-host",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+			},
+		}
+
+		t.Run("Can use a credential with matching RP ID", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "custom-host", "https://origin-other-than-rp-id", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{5, 6, 7, 8}, privateKey, "https://origin-other-than-rp-id", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+				"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("Cannot use a credential with non-matching RP ID", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "custom-host", "https://origin-other-than-rp-id", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://origin-other-than-rp-id", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden,
+				"Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+
+		t.Run("Cannot use a credential with matching RP ID on the wrong origin", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "custom-host", "https://origin-other-than-rp-id", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{5, 6, 7, 8}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden,
+				"Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
+		})
+	})
+
+	t.Run("Authentication fails", func(t *testing.T) {
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				SignCount:     17,
+				RequireUv:     false,
+			},
+		}
+
+		t.Run("with wrong challenge", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cryptoRand.Reader.Read(options.Response.Challenge)
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("with wrong RP ID", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "not-localhost", "", append(credentials,
+				config.WebauthnCredential{
+					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					RpId:          "not-localhost",
+					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					SignCount:     17,
+					RequireUv:     false,
+				}))
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("with wrong origin", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost", false, 18, t)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("without user presence flag set", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
+
+			cred.AssertionResponse.AuthenticatorData[32] &= ^byte(webauthnProtocol.FlagUserPresent)
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("with signature by wrong private key", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			wrongPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
+			testutil.FatalIfErr(t, err)
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, wrongPrivateKey, "https://localhost:8384", false, 18, t)
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("with invalid signature", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
+			cred.AssertionResponse.Signature[17] ^= 0xff
+
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+
+		t.Run("with wrong credential ID", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+			options := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(options, []byte{5, 6, 7, 8}, privateKey, "https://localhost:8384", false, 18, t)
+			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+		})
+	})
+
+	t.Run("Authentication can only be attempted once per challenge", func(t *testing.T) {
+		t.Parallel()
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				SignCount:     17,
+				RequireUv:     false,
+			},
+		}
+		_, httpPost, getAssertionOptions := startServer(t, "", "", credentials)
+		options := getAssertionOptions()
+
+		cred := createWebauthnAssertionResponse(options, []byte{5, 6, 7, 8}, privateKey, "https://localhost:8384", false, 18, t)
+		finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden)
+
+		cred2 := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
+		finishResp2 := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred2))
+		testutil.AssertEqual(t, t.Fatalf, finishResp2.StatusCode, http.StatusForbidden)
+	})
+
+	t.Run("userVerification is set to", func(t *testing.T) {
+		credsWithRequireUv := func(aRequiresUv, bRequiresUv bool) []config.WebauthnCredential {
+			return []config.WebauthnCredential{
+				{
+					ID:        base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+					RpId:      "localhost",
+					RequireUv: aRequiresUv,
+				},
+				{
+					ID:        base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					RpId:      "localhost",
+					RequireUv: bRequiresUv,
+				},
+			}
+		}
+
+		t.Run("discouraged if no credential requires UV", func(t *testing.T) {
+			t.Parallel()
+			_, _, getAssertionOptions := startServer(t, "", "", credsWithRequireUv(false, false))
+			options := getAssertionOptions()
+			testutil.AssertEqual(t, t.Errorf, options.Response.UserVerification, "discouraged",
+				"Expected userVerification: discouraged when no credential requires UV")
+		})
+
+		t.Run("preferred if some but not all credentials require UV", func(t *testing.T) {
+			t.Parallel()
+			{
+				_, _, getAssertionOptions := startServer(t, "", "", credsWithRequireUv(true, false))
+				options := getAssertionOptions()
+				testutil.AssertEqual(t, t.Errorf, options.Response.UserVerification, "preferred",
+					"Expected userVerification: preferred when some but not all credentials require UV")
+			}
+
+			{
+				_, _, getAssertionOptions := startServer(t, "", "", credsWithRequireUv(false, true))
+				options := getAssertionOptions()
+				testutil.AssertEqual(t, t.Errorf, options.Response.UserVerification, "preferred",
+					"Expected userVerification: preferred when some but not all credentials require UV")
+			}
+		})
+
+		t.Run("required if all credentials require UV", func(t *testing.T) {
+			t.Parallel()
+			_, _, getAssertionOptions := startServer(t, "", "", credsWithRequireUv(true, true))
+			options := getAssertionOptions()
+			testutil.AssertEqual(t, t.Errorf, options.Response.UserVerification, "required",
+				"Expected userVerification: required when all credentials require UV")
+		})
+	})
+
+	t.Run("Credentials with wrong RP ID are not eligible", func(t *testing.T) {
+		t.Parallel()
+		_, _, getAssertionOptions := startServer(t, "", "", []config.WebauthnCredential{
+			{
+				ID:   "AAAA",
+				RpId: "rp-id-is-not-localhost",
+			},
+			{
+				ID:   "BBBB",
+				RpId: "localhost",
+			},
+		})
+		options := getAssertionOptions()
+		testutil.AssertEqual(t, t.Errorf, len(options.Response.AllowedCredentials), 1,
+			"Expected only credentials with RpId=%s in allowCredentials, got: %v", "localhost", options.Response.AllowedCredentials)
+		testutil.AssertEqual(t, t.Errorf, options.Response.AllowedCredentials[0].CredentialID.String(), "BBBB",
+			"Expected only credentials with RpId=%s in allowCredentials, got: %v", "localhost", options.Response.AllowedCredentials)
+	})
+
+	t.Run("Auth is required with a WebAuthn credential set", func(t *testing.T) {
+		t.Parallel()
+		httpGet, _, _ := startServer(t, "", "", []config.WebauthnCredential{
+			{
+				ID:   "AAAA",
+				RpId: "localhost",
+			},
+		})
+		csrfRresp := httpGet("/", "", "")
+		csrfRresp.Body.Close()
+		var csrfTokenName, csrfTokenValue string
+		for _, cookie := range csrfRresp.Cookies() {
+			if strings.HasPrefix(cookie.Name, "CSRF-Token") {
+				csrfTokenName = cookie.Name
+				csrfTokenValue = cookie.Value
+				break
+			}
+		}
+
+		resp := httpGet("/rest/config", csrfTokenName, csrfTokenValue)
+		testutil.AssertEqual(t, t.Errorf, resp.StatusCode, http.StatusForbidden,
+			"Expected auth to be required with WebAuthn credential set")
+	})
+
+	t.Run("No auth required when no password and no WebAuthn credentials set", func(t *testing.T) {
+		t.Parallel()
+		httpGet, _, _ := startServer(t, "", "", []config.WebauthnCredential{})
+		csrfRresp := httpGet("/", "", "")
+		csrfRresp.Body.Close()
+		var csrfTokenName, csrfTokenValue string
+		for _, cookie := range csrfRresp.Cookies() {
+			if strings.HasPrefix(cookie.Name, "CSRF-Token") {
+				csrfTokenName = cookie.Name
+				csrfTokenValue = cookie.Value
+				break
+			}
+		}
+
+		resp := httpGet("/rest/config", csrfTokenName, csrfTokenValue)
+		testutil.AssertEqual(t, t.Errorf, resp.StatusCode, http.StatusOK,
+			"Expected no auth to be required with neither password nor WebAuthn credentials set")
+	})
+}
+
+func TestPasswordOrWebauthnAuthentication(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
+	testutil.FatalIfErr(t, err)
+	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
+	testutil.FatalIfErr(t, err)
+
+	startServer := func(t *testing.T) (func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
+		t.Helper()
+
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				SignCount:     0,
+				RequireUv:     false,
+			},
+		}
+		password := "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
+
+		cfg := newMockedConfig()
+		cfg.GUIReturns(config.GUIConfiguration{
+			User:                "user",
+			Password:            password,
+			RawAddress:          "localhost:0",
+			WebauthnCredentials: credentials,
+
+			// Don't need TLS in this test because the password enables the auth middleware,
+			// and there's no browser to prevent us from generating a WebAuthn response without HTTPS
+			RawUseTLS: false,
+		})
+		baseURL, cancel, err := startHTTP(cfg)
+		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
+		t.Cleanup(cancel)
+
+		httpRequest := func(method string, url string, body any) *http.Response {
+			t.Helper()
+			var bodyReader io.Reader = nil
+			if body != nil {
+				bodyBytes, err := json.Marshal(body)
+				testutil.FatalIfErr(t, err, "Failed to marshal HTTP request body")
+				bodyReader = bytes.NewReader(bodyBytes)
+			}
+
+			req, err := http.NewRequest(method, baseURL+url, bodyReader)
+			testutil.FatalIfErr(t, err, "Failed to construct HttpRequest")
+
+			client := http.Client{
+				Timeout: 5 * time.Second,
+			}
+			resp, err := client.Do(req)
+			testutil.FatalIfErr(t, err, "Failed to execute HTTP request")
+
+			return resp
+		}
+
+		httpPost := func(url string, body any) *http.Response {
+			t.Helper()
+			return httpRequest(http.MethodPost, url, body)
+		}
+
+		getAssertionOptions := func() webauthnProtocol.CredentialAssertion {
+			startResp := httpPost("/rest/noauth/auth/webauthn-start", nil)
+			testutil.AssertEqual(t, t.Fatalf, startResp.StatusCode, http.StatusOK,
+				"Failed to start WebAuthn registration: status %d", startResp.StatusCode)
+			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
+				"Expected no session cookie when starting WebAuthn registration")
+
+			var options webauthnProtocol.CredentialAssertion
+			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options), "Failed to unmarshal CredentialAssertion")
+
+			return options
+		}
+
+		return httpPost, getAssertionOptions
+	}
+
+	type webauthnAuthResponseBody struct {
+		StayLoggedIn bool
+		Credential   webauthnProtocol.CredentialAssertionResponse
+	}
+	webauthnAuthResponse := func(stayLoggedIn bool, cred webauthnProtocol.CredentialAssertionResponse) webauthnAuthResponseBody {
+		return webauthnAuthResponseBody{
+			StayLoggedIn: stayLoggedIn,
+			Credential:   cred,
+		}
+	}
+
+	type passwordAuthResponseBody struct {
+		Username     string
+		Password     string
+		StayLoggedIn bool
+	}
+
+	t.Run("Can log in with password instead of WebAuthn", func(t *testing.T) {
+		t.Parallel()
+		httpPost, _ := startServer(t)
+
+		finishResp := httpPost("/rest/noauth/auth/password", passwordAuthResponseBody{
+			Username:     "user",
+			Password:     "räksmörgås",
+			StayLoggedIn: false,
+		})
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+			"Failed password authentication: status %d", finishResp.StatusCode)
+	})
+
+	t.Run("Can log in with WebAuthn instead of password", func(t *testing.T) {
+		t.Parallel()
+		httpPost, getAssertionOptions := startServer(t)
+		options := getAssertionOptions()
+
+		cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+		finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
+		testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusNoContent,
+			"Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 	})
 }
 

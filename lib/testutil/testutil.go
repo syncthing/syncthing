@@ -64,6 +64,14 @@ func (NoopCloser) Close() error {
 	return nil
 }
 
+func IfExpr[T any](expr bool, then T, els T) T {
+	if expr {
+		return then
+	} else {
+		return els
+	}
+}
+
 func AssertTrue(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
 	t.Helper()
 	if !a {
@@ -134,9 +142,9 @@ func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), pre
 	}
 }
 
-func FatalIfErr(t *testing.T, err error) {
+func FatalIfErr(t *testing.T, err error, args ...any) {
 	t.Helper()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err, args)
 	}
 }
