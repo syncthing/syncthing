@@ -233,9 +233,8 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 		default:
 		}
 
-		// Delete addresses for NATDevice's that do not exist anymore
-		nat, ok := nats[id]
-		if !ok {
+		if nat, ok := nats[id]; !ok || len(extAddrs) == 0 {
+			// Delete addresses for NATDevice's that do not exist anymore
 			mapping.removeAddressLocked(id)
 			change = true
 			continue
