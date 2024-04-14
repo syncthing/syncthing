@@ -520,6 +520,8 @@ func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
 }
 
 func httpRequest(method string, url string, body any, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, csrfTokenName, csrfTokenValue string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
+
 	var bodyReader io.Reader = nil
 	if body != nil {
 		bodyBytes, err := json.Marshal(body)
@@ -564,22 +566,27 @@ func httpRequest(method string, url string, body any, basicAuthUsername, basicAu
 }
 
 func httpGet(url string, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
 	return httpRequest(http.MethodGet, url, nil, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, "", "", cookies, t)
 }
 
 func httpGetCsrf(url string, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	t.Helper()
 	return httpRequest(http.MethodGet, url, nil, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
 }
 
 func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
 	return httpRequest(http.MethodPost, url, body, "", "", "", "", "", "", cookies, t)
 }
 
 func httpPostCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	t.Helper()
 	return httpRequest(http.MethodPost, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
 }
 
 func httpPutCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
+	t.Helper()
 	return httpRequest(http.MethodPut, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
 }
 
