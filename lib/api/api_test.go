@@ -2022,9 +2022,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			"Wrong credential ID in registration success response")
 
 		testutil.AssertEqual(t, t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
-		testutil.AssertGreater(t, t.Errorf, time.Since(pendingCred.CreateTime), 1*time.Second,
+		testutil.AssertLessThan(t, t.Errorf, time.Since(pendingCred.CreateTime), 1*time.Second,
 			"Wrong CreateTime in registration success response")
-		testutil.AssertGreater(t, t.Errorf, time.Since(pendingCred.LastUseTime), 1*time.Second,
+		testutil.AssertLessThan(t, t.Errorf, time.Since(pendingCred.LastUseTime), 1*time.Second,
 			"Wrong LastUseTime in registration success response")
 		testutil.AssertPredicate(t, t.Errorf, slices.Equal, transports, pendingCred.Transports,
 			"Wrong Transports in registration success response")
