@@ -2891,7 +2891,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		{
 			_, mod := startHttpServer(t)
 			guiCfg := cfg.GUI.Copy()
-			guiCfg.WebauthnCredentials[0].ID = "HURGELBURKEL"
+			guiCfg.WebauthnCredentials[0].ID = "ZZZZ"
 			mod(http.MethodPut, guiCfgPath, guiCfg)
 		}
 		{
