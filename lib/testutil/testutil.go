@@ -161,6 +161,6 @@ func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), pre
 func FatalIfErr(t *testing.T, err error, args ...any) {
 	t.Helper()
 	if err != nil {
-		t.Fatal(err, args)
+		t.Fatal(t.Name(), err, args)
 	}
 }
