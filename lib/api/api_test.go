@@ -594,14 +594,17 @@ func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
 
 	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
+		t.Helper()
 		return httpGet(url, username, password, "", "", nil, t)
 	}
 
 	httpGetXapikey := func(url string, xapikeyHeader string) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", xapikeyHeader, "", nil, t)
 	}
 
 	httpGetAuthorizationBearer := func(url string, bearer string) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", "", bearer, nil, t)
 	}
 
@@ -789,10 +792,12 @@ func TestHtmlFormLogin(t *testing.T) {
 	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performLogin := func(username string, password string) *http.Response {
+		t.Helper()
 		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, nil, t)
 	}
 
 	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", "", "", cookies, t)
 	}
 
