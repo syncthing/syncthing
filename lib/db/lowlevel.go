@@ -665,6 +665,24 @@ func (db *Lowlevel) dropIndexIDs() error {
 	return t.Commit()
 }
 
+// dropOtherDeviceIndexIDs drops all index IDs for devices other than the
+// local device. This means we will resend our indexes to all other devices,
+// but they don't have to resend to us.
+func (db *Lowlevel) dropOtherDeviceIndexIDs() error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+	if err := t.deleteKeyPrefixMatching([]byte{KeyTypeIndexID}, func(key []byte) bool {
+		dev, _ := t.keyer.DeviceFromIndexIDKey(key)
+		return !bytes.Equal(dev, protocol.LocalDeviceID[:])
+	}); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
 func (db *Lowlevel) dropMtimes(folder []byte) error {
 	key, err := db.keyer.GenerateMtimesKey(nil, folder)
 	if err != nil {
