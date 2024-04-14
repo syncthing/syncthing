@@ -149,11 +149,11 @@ func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), pre
 	t.Helper()
 	if !predicate(a, b) {
 		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed: %s(%v, %v) != true", predicate, a, b)
+			testFailFunc("Assertion failed: %s(%v, %v) == true", predicate, a, b)
 		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: %s(%v, %v) != true: %s", predicate, a, b, sprintfArgs[0])
+			testFailFunc("Assertion failed: %s(%v, %v) == true: %s", predicate, a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %s(%v, %v) != true: "+sprintfArgs[0].(string), ConcatSlices([]any{predicate, a, b}, sprintfArgs[1:])...)
+			testFailFunc("Assertion failed: %s(%v, %v) == true: "+sprintfArgs[0].(string), ConcatSlices([]any{predicate, a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
