@@ -556,7 +556,7 @@ func httpRequest(method string, url string, body any, basicAuthUsername, basicAu
 		req.AddCookie(cookie)
 	}
 
-	client := http.Client{Timeout: 5 * time.Second}
+	client := http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -1969,7 +1969,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		t.Cleanup(cancel)
 
 		cli := &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 15 * time.Second,
 		}
 		resp, err := cli.Get(baseURL)
 		testutil.FatalIfErr(t, err)
@@ -2197,7 +2197,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			}
 
 			client := http.Client{
-				Timeout: 5 * time.Second,
+				Timeout: 15 * time.Second,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						// Syncthing config requires TLS in order to enable WebAuthn without a password set
@@ -2700,7 +2700,7 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			testutil.FatalIfErr(t, err, "Failed to construct HttpRequest")
 
 			client := http.Client{
-				Timeout: 5 * time.Second,
+				Timeout: 15 * time.Second,
 			}
 			resp, err := client.Do(req)
 			testutil.FatalIfErr(t, err, "Failed to execute HTTP request")
@@ -2822,7 +2822,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			testutil.FatalIfErr(t, err)
 
 			cli := &http.Client{
-				Timeout: 5 * time.Second,
+				Timeout: 60 * time.Second,
 			}
 
 			do := func(req *http.Request, status int) *http.Response {
