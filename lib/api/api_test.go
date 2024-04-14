@@ -1923,7 +1923,7 @@ func createWebauthnAssertionResponse(
 	clientDataJSON, err := json.Marshal(clientData)
 	testutil.FatalIfErr(t, err)
 	clientDataJSONHash := sha256.Sum256(clientDataJSON)
-	signedData := slices.Concat(authData, clientDataJSONHash[:])
+	signedData := testutil.ConcatSlices(authData, clientDataJSONHash[:])
 	signedDataDigest := sha256.Sum256(signedData)
 
 	sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
