@@ -2806,9 +2806,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
-		if err != nil {
-			panic(err)
-		}
+		testutil.FatalIfErr(t, err, "Failed to create tmpfile for test")
 		w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
 		tmpFile.Close()
 		cfgCtx, cfgCancel := context.WithCancel(context.Background())
