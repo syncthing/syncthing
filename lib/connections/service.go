@@ -441,8 +441,6 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		registerDeviceMetrics(remoteID.String())
-
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
 		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold)
 		go func() {
@@ -848,6 +846,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
+		registerDeviceMetrics(dev.DeviceID.String())
 	}
 
 	for _, dev := range from.Devices {
@@ -855,6 +854,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
+			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String())
 		}
 	}
 
