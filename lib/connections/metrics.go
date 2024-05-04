@@ -16,7 +16,7 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "connections",
 		Name:      "active",
-		Help:      "Amount of currently active connections, per device. If value is 0, the device is disconnected.",
+		Help:      "Number of currently active connections, per device. If value is 0, the device is disconnected.",
 	}, []string{"device"})
 )
 
