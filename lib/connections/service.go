@@ -846,6 +846,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
+		registerDeviceMetrics(dev.DeviceID.String())
 	}
 
 	for _, dev := range from.Devices {
@@ -853,6 +854,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
+			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String())
 		}
 	}
 
@@ -1378,6 +1380,9 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	c.wantConnections[d] = int(h.NumConnections)
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Inc()
+
 	// Close any connections we no longer want to retain.
 	c.closeWorsePriorityConnectionsLocked(d, conn.Priority()-upgradeThreshold)
 }
@@ -1399,6 +1404,10 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 		delete(c.connections, d)
 		delete(c.wantConnections, d)
 	}
+
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Dec()
+
 	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }
 
