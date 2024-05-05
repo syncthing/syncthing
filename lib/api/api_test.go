@@ -625,6 +625,7 @@ func TestHTTPLogin(t *testing.T) {
 		url := baseURL + path
 
 		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
+			t.Parallel()
 			t.Run("no auth is rejected", func(t *testing.T) {
 				t.Parallel()
 				resp := httpGetBasicAuth(url, "", "")
@@ -2250,6 +2251,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	}
 
 	t.Run("A credential that doesn't require UV", func(t *testing.T) {
+		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
 				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2307,6 +2309,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	})
 
 	t.Run("A credential that requires UV", func(t *testing.T) {
+		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
 				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2364,6 +2367,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	})
 
 	t.Run("With non-default RP ID and origin", func(t *testing.T) {
+		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
 				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2415,6 +2419,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	})
 
 	t.Run("Authentication fails", func(t *testing.T) {
+		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
 				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2538,6 +2543,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	})
 
 	t.Run("userVerification is set to", func(t *testing.T) {
+		t.Parallel()
 		credsWithRequireUv := func(aRequiresUv, bRequiresUv bool) []config.WebauthnCredential {
 			return []config.WebauthnCredential{
 				{
