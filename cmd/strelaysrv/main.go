@@ -78,7 +78,7 @@ var httpClient = &http.Client{
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
-	var dir, extAddress, proto string
+	var dir, extAddress, proto, nextProto string
 
 	flag.StringVar(&listen, "listen", ":22067", "Protocol listen address")
 	flag.StringVar(&dir, "keys", ".", "Directory where cert.pem and key.pem is stored")
@@ -94,6 +94,7 @@ func main() {
 	flag.StringVar(&providedBy, "provided-by", "", "An optional description about who provides the relay")
 	flag.StringVar(&extAddress, "ext-address", "", "An optional address to advertise as being available on.\n\tAllows listening on an unprivileged port with port forwarding from e.g. 443, and be connected to on port 443.")
 	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
+	flag.StringVar(&nextProto, "alpn", protocol.ProtocolName, "Next protocol (ALPN) used for connection. Multiple values are separated by a comma.")
 	flag.BoolVar(&natEnabled, "nat", false, "Use UPnP/NAT-PMP to acquire external port mapping")
 	flag.IntVar(&natLease, "nat-lease", 60, "NAT lease length in minutes")
 	flag.IntVar(&natRenewal, "nat-renewal", 30, "NAT renewal frequency in minutes")
@@ -165,7 +166,7 @@ func main() {
 
 	tlsCfg := &tls.Config{
 		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{protocol.ProtocolName},
+		NextProtos:             strings.Split(nextProto, ","),
 		ClientAuth:             tls.RequestClientCert,
 		SessionTicketsDisabled: true,
 		InsecureSkipVerify:     true,
