@@ -22,11 +22,10 @@ type FileInfoBatch struct {
 	flushFn func([]protocol.FileInfo) error
 }
 
+// NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
+// to flush.
 func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
-	return &FileInfoBatch{
-		infos:   make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
-		flushFn: fn,
-	}
+	return &FileInfoBatch{flushFn: fn}
 }
 
 func (b *FileInfoBatch) SetFlushFunc(fn func([]protocol.FileInfo) error) {
@@ -34,6 +33,9 @@ func (b *FileInfoBatch) SetFlushFunc(fn func([]protocol.FileInfo) error) {
 }
 
 func (b *FileInfoBatch) Append(f protocol.FileInfo) {
+	if b.infos == nil {
+		b.infos = make([]protocol.FileInfo, 0, MaxBatchSizeFiles)
+	}
 	b.infos = append(b.infos, f)
 	b.size += f.ProtoSize()
 }
@@ -61,7 +63,7 @@ func (b *FileInfoBatch) Flush() error {
 }
 
 func (b *FileInfoBatch) Reset() {
-	b.infos = b.infos[:0]
+	b.infos = nil
 	b.size = 0
 }
 

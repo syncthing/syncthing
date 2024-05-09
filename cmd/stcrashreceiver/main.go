@@ -23,11 +23,11 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
+	raven "github.com/getsentry/raven-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/ur"
-
-	raven "github.com/getsentry/raven-go"
 )
 
 const maxRequestSize = 1 << 20 // 1 MiB

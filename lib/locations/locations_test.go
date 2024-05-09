@@ -10,10 +10,9 @@ package locations
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
 func TestUnixConfigDir(t *testing.T) {

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jan 31, 2024" "v1.27.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 11, 2024" "v1.27.5" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -1415,7 +1415,10 @@ the user acknowledged it (e.g. an transition notice on an upgrade).
 .INDENT 0.0
 .TP
 .B trafficClass
-Specify a type of service (TOS)/traffic class of outgoing packets.
+Specify an IPv4 type of service (TOS)/IPv6 traffic class for outgoing
+packets. To specify a differentiated services code point (DSCP) the value
+must be bit shifted to the left by two to take the two least significant
+ECN bits into account.
 .UNINDENT
 .INDENT 0.0
 .TP
