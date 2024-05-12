@@ -2793,6 +2793,9 @@ func guiConfigEqual(a config.GUIConfiguration, b config.GUIConfiguration) bool {
 func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
+	// This test needs a longer-than-default shutdown timeout when running on GitHub Actions
+	shutdownTimeout := testutil.IfNotCI(0, 1000*time.Millisecond)
+
 	const testAPIKey = "foobarbaz"
 	initialGuiCfg := config.GUIConfiguration{
 		RawAddress:     "127.0.0.1:0",
@@ -2831,7 +2834,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		})
 
 		startHttpServer := func(t *testing.T) (func(string) *http.Response, func(string, string, any)) {
-			baseURL, cancel, err := startHTTP(w)
+			baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 			t.Cleanup(cancel)
 			testutil.FatalIfErr(t, err)
 
