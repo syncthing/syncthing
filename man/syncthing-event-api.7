@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -40,8 +40,7 @@ Each event is represented by an object similar to the following:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 2,
     \(dqglobalID\(dq: 3,
@@ -52,8 +51,7 @@ Each event is represented by an object similar to the following:
         \(dqid\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -85,7 +83,7 @@ determined by the event type.
 .SH EVENT TYPES
 .SS ClusterConfigReceived
 .sp
-New in version 1.20.0.
+Added in version 1.20.0.
 
 .sp
 The \fBClusterConfigReceived\fP event is emitted after processing such a protocol
@@ -93,8 +91,7 @@ message received from a remote device.  It is mainly used for internal purposes.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 84,
     \(dqglobalID\(dq: 84,
@@ -104,8 +101,7 @@ message received from a remote device.  It is mainly used for internal purposes.
         \(dqdevice\(dq: \(dqI6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS ConfigSaved
@@ -115,8 +111,7 @@ itself.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 50,
     \(dqglobalID\(dq: 50,
@@ -133,8 +128,7 @@ itself.
         \(dqdefaults\(dq: {\(dq...\(dq}
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DeviceConnected
@@ -143,8 +137,7 @@ Generated each time a connection to a device has been established.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 2,
     \(dqglobalID\(dq: 2,
@@ -159,8 +152,7 @@ Generated each time a connection to a device has been established.
         \(dqtype\(dq: \(dqTCP (Client)\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DeviceDisconnected
@@ -169,8 +161,7 @@ Generated each time a connection to a device has been terminated.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 48,
     \(dqglobalID\(dq: 48,
@@ -181,8 +172,7 @@ Generated each time a connection to a device has been terminated.
         \(dqid\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -201,8 +191,7 @@ Emitted when a new device is discovered using local discovery.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 13,
     \(dqglobalID\(dq: 13,
@@ -215,8 +204,7 @@ Emitted when a new device is discovered using local discovery.
         \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DevicePaused
@@ -225,8 +213,7 @@ Emitted when a device was paused.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 13,
     \(dqglobalID\(dq: 13,
@@ -236,8 +223,7 @@ Emitted when a device was paused.
         \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DeviceRejected (DEPRECATED)
@@ -251,8 +237,7 @@ to talk to.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 24,
     \(dqglobalID\(dq: 24,
@@ -264,8 +249,7 @@ to talk to.
         \(dqdevice\(dq: \(dqEJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DeviceResumed
@@ -274,8 +258,7 @@ Generated each time a device was resumed.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 2,
     \(dqglobalID\(dq: 2,
@@ -285,8 +268,7 @@ Generated each time a device was resumed.
         \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DownloadProgress
@@ -297,8 +279,7 @@ configuration can cause multiple files to be shown.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 221,
     \(dqglobalID\(dq: 221,
@@ -351,8 +332,7 @@ configuration can cause multiple files to be shown.
         }
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -393,8 +373,7 @@ The \fBdata\fP field contains a textual error message.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 93,
   \(dqglobalID\(dq: 93,
@@ -402,8 +381,7 @@ The \fBdata\fP field contains a textual error message.
   \(dqtime\(dq: \(dq2021\-06\-07T21:22:03.414609034+02:00\(dq,
   \(dqdata\(dq: \(dqindex handler got paused while already paused\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderCompletion
@@ -413,7 +391,7 @@ contents for a folder changes. It contains the completion percentage for
 a given remote device and is emitted once per currently connected remote
 device.
 .sp
-New in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
+Added in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
 us) as well, and whether it is paused.  The \fBremoteState\fP field is
 \fBunknown\fP when the remote device is not connected.  Otherwise it can be
 either \fBpaused\fP, \fBnotSharing\fP, or \fBvalid\fP if the remote is sharing back.
@@ -421,8 +399,7 @@ either \fBpaused\fP, \fBnotSharing\fP, or \fBvalid\fP if the remote is sharing b
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 84,
     \(dqglobalID\(dq: 84,
@@ -441,8 +418,7 @@ either \fBpaused\fP, \fBnotSharing\fP, or \fBvalid\fP if the remote is sharing b
         \(dqsequence\(dq: 12
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderErrors
@@ -455,8 +431,7 @@ synchronization attempt, a new \fBFolderErrors\fP event is emitted.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 132,
     \(dqtype\(dq: \(dqFolderErrors\(dq,
@@ -471,18 +446,17 @@ synchronization attempt, a new \fBFolderErrors\fP event is emitted.
         \(dqfolder\(dq: \(dqdefault\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
-New in version 0.11.12.
+Added in version 0.11.12.
 
 .sp
 \fBSEE ALSO:\fP
 .INDENT 0.0
 .INDENT 3.5
-The \fI\%StateChanged\fP event.
+The \X'tty: link #statechanged'\fI\%StateChanged\fP\X'tty: link' event.
 .UNINDENT
 .UNINDENT
 .SS FolderPaused
@@ -492,8 +466,7 @@ of a folder.  Sent repeatedly for each changed folder.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 93,
   \(dqglobalID\(dq: 93,
@@ -504,8 +477,7 @@ of a folder.  Sent repeatedly for each changed folder.
     \(dqlabel\(dq: \(dqMy folder\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderRejected (DEPRECATED)
@@ -519,8 +491,7 @@ have, or have but do not share with the device in question.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 27,
     \(dqglobalID\(dq: 27,
@@ -532,8 +503,7 @@ have, or have but do not share with the device in question.
         \(dqfolderLabel\(dq: \(dqMy Pictures\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderResumed
@@ -543,8 +513,7 @@ of a folder.  Sent repeatedly for each changed folder.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 93,
   \(dqglobalID\(dq: 93,
@@ -555,8 +524,7 @@ of a folder.  Sent repeatedly for each changed folder.
     \(dqlabel\(dq: \(dqMy folder\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderScanProgress
@@ -567,8 +535,7 @@ total , as well as the current scanning rates in bytes per second.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqdata\(dq : {
       \(dqtotal\(dq : 1,
@@ -581,8 +548,7 @@ total , as well as the current scanning rates in bytes per second.
    \(dqtime\(dq : \(dq2017\-03\-06T15:00:58.072004209+01:00\(dq,
    \(dqid\(dq : 29
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderSummary
@@ -593,8 +559,7 @@ state.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 16,
     \(dqtype\(dq: \(dqFolderSummary\(dq,
@@ -644,8 +609,7 @@ state.
         }
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS FolderWatchStateChanged
@@ -658,8 +622,7 @@ If there was no error in either of these, the respective field is omitted.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 123,
   \(dqtype\(dq: \(dqFolderWatchStateChanged\(dq,
@@ -670,8 +633,7 @@ If there was no error in either of these, the respective field is omitted.
     \(dqto\(dq: \(dqSomething worse happened.\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS ItemFinished
@@ -681,8 +643,7 @@ successful operation:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 93,
     \(dqglobalID\(dq: 93,
@@ -696,8 +657,7 @@ successful operation:
         \(dqaction\(dq: \(dqupdate\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -705,8 +665,7 @@ An unsuccessful operation:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 44,
     \(dqglobalID\(dq: 44,
@@ -720,14 +679,13 @@ An unsuccessful operation:
         \(dqtype\(dq: \(dqfile\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP (file metadata changed but not contents), or \fBdelete\fP\&.
 .sp
-New in version 0.11.10: The \fBmetadata\fP action.
+Added in version 0.11.10: The \fBmetadata\fP action.
 
 .SS ItemStarted
 .sp
@@ -735,8 +693,7 @@ Generated when Syncthing begins synchronizing a file to a newer version.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 93,
     \(dqglobalID\(dq: 93,
@@ -749,23 +706,21 @@ Generated when Syncthing begins synchronizing a file to a newer version.
         \(dqaction\(dq: \(dqupdate\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP (file metadata changed but not contents), or \fBdelete\fP\&.
 .sp
-New in version 0.11.10: The \fBmetadata\fP action.
+Added in version 0.11.10: The \fBmetadata\fP action.
 
 .SS ListenAddressesChanged
 .sp
-This event is emitted when a \fI\%listen address\fP changes.
+This event is emitted when a \X'tty: link #listen-addresses'\fI\%listen address\fP\X'tty: link' changes.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqtype\(dq : \(dqListenAddressesChanged\(dq,
    \(dqid\(dq : 70,
@@ -811,8 +766,7 @@ This event is emitted when a \fI\%listen address\fP changes.
       ]
    }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS LocalChangeDetected
@@ -832,8 +786,7 @@ a mask specified, but needs to be selected explicitly.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 7,
   \(dqglobalID\(dq: 59,
@@ -848,8 +801,7 @@ a mask specified, but needs to be selected explicitly.
     \(dqtype\(dq: \(dqfile\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -864,8 +816,7 @@ changes during a scan.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 59,
     \(dqglobalID\(dq: 59,
@@ -883,8 +834,7 @@ changes during a scan.
         \(dqversion\(dq: 12345
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -901,8 +851,7 @@ origin of the request, but e.g. a reverse proxy.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqid\(dq : 187,
    \(dqtime\(dq : \(dq2017\-03\-07T00:19:24.420386143+01:00\(dq,
@@ -914,13 +863,12 @@ origin of the request, but e.g. a reverse proxy.
    \(dqtype\(dq : \(dqLoginAttempt\(dq,
    \(dqglobalID\(dq : 195
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS PendingDevicesChanged
 .sp
-New in version 1.14.0.
+Added in version 1.14.0.
 
 .sp
 Emitted when pending devices were added / updated (connection from
@@ -928,8 +876,7 @@ unknown ID) or removed (device is ignored, dismissed or added).
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 87,
   \(dqtype\(dq: \(dqPendingDevicesChanged\(dq,
@@ -949,13 +896,12 @@ unknown ID) or removed (device is ignored, dismissed or added).
     ]
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS PendingFoldersChanged
 .sp
-New in version 1.14.0.
+Added in version 1.14.0.
 
 .sp
 Emitted when pending folders were added / updated (offered by some
@@ -966,8 +912,7 @@ longer pending for any device.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqid\(dq: 101,
   \(dqtype\(dq: \(dqPendingFoldersChanged\(dq,
@@ -993,8 +938,7 @@ longer pending for any device.
     ]
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS RemoteChangeDetected
@@ -1012,8 +956,7 @@ a mask specified, but needs to be selected explicitly.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqtime\(dq : \(dq2017\-03\-06T23:58:21.844739891+01:00\(dq,
    \(dqglobalID\(dq : 123,
@@ -1029,8 +972,7 @@ a mask specified, but needs to be selected explicitly.
    \(dqtype\(dq : \(dqRemoteChangeDetected\(dq,
    \(dqid\(dq : 2
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1039,15 +981,14 @@ Deprecated since version v1.1.2: The \fBfolderID\fP field is a legacy name kept 
 
 .SS RemoteDownloadProgress
 .sp
-This event is emitted when a \fI\%DownloadProgress\fP message is
+This event is emitted when a \X'tty: link #download-progress'\fI\%DownloadProgress\fP\X'tty: link' message is
 received. It returns a map \fBdata\fP of filenames with a count of
 downloaded blocks. The files in questions are currently being
 downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqtime\(dq : \(dq2017\-03\-07T00:11:37.65838955+01:00\(dq,
    \(dqglobalID\(dq : 170,
@@ -1061,8 +1002,7 @@ downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
    \(dqtype\(dq : \(dqRemoteDownloadProgress\(dq,
    \(dqid\(dq : 163
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS RemoteIndexUpdated
@@ -1071,8 +1011,7 @@ Generated each time new index information is received from a device.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 44,
     \(dqglobalID\(dq: 44,
@@ -1084,8 +1023,7 @@ Generated each time new index information is received from a device.
         \(dqitems\(dq: 1000
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Starting
@@ -1095,8 +1033,7 @@ configuration etc.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 1,
     \(dqglobalID\(dq: 1,
@@ -1106,8 +1043,7 @@ configuration etc.
         \(dqhome\(dq: \(dq/home/jb/.config/syncthing\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS StartupComplete
@@ -1117,8 +1053,7 @@ ready to start exchanging data with other devices.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 1,
     \(dqglobalID\(dq: 1,
@@ -1126,8 +1061,7 @@ ready to start exchanging data with other devices.
     \(dqtime\(dq: \(dq2014\-07\-13T21:03:18.383239179+02:00\(dq,
     \(dqdata\(dq: null
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS StateChanged
@@ -1140,8 +1074,7 @@ seconds and is now in state \fBidle\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
     \(dqid\(dq: 8,
     \(dqglobalID\(dq: 8,
@@ -1154,8 +1087,7 @@ seconds and is now in state \fBidle\fP\&.
         \(dqto\(dq: \(dqidle\(dq
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH AUTHOR
