@@ -22,8 +22,6 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
-const maxDatabaseSize = 1 << 30 // 1 GiB, at the time of writing the database is about 95 MiB
-
 type Provider struct {
 	edition         string
 	accountID       int
