@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -86,7 +85,6 @@ func (p *Provider) download(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	log.Println("Downloading GeoIP2 database to", newSubdir)
 
 	cfg := &geoipupdate.Config{
 		URL:               "https://updates.maxmind.com",
@@ -119,10 +117,8 @@ func (p *Provider) download(ctx context.Context) error {
 	p.mut.Unlock()
 
 	if prevDBDir != "" {
-		log.Println("Removing old GeoIP2 database", prevDBDir)
 		_ = os.RemoveAll(p.currentDBDir)
 	}
 
-	log.Println("Downloaded GeoIP2 database to", dbPath)
 	return nil
 }
