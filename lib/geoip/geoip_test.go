@@ -7,6 +7,7 @@
 package geoip
 
 import (
+	"context"
 	"net"
 	"os"
 	"strconv"
@@ -23,8 +24,12 @@ func TestDownloadAndOpen(t *testing.T) {
 		t.Skip("No license key set")
 	}
 
-	p := NewGeoLite2CityProvider(acctID, license, t.TempDir())
-	_, err := p.City(net.ParseIP("8.8.8.8"))
+	p, err := NewGeoLite2CityProvider(context.Background(), acctID, license, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = p.City(net.ParseIP("8.8.8.8"))
 	if err != nil {
 		t.Fatal(err)
 	}

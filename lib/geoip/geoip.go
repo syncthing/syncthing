@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,82 +30,68 @@ type Provider struct {
 	refreshInterval time.Duration
 	directory       string
 
-	mut        sync.Mutex
-	db         *geoip2.Reader
-	lastOpened time.Time
+	mut          sync.Mutex
+	currentDBDir string
+	db           *geoip2.Reader
 }
 
 // NewGeoLite2CityProvider returns a new GeoIP2 database provider for the
 // GeoLite2-City database. The database will be stored in the given
 // directory (which should exist) and refreshed every 7 days.
-func NewGeoLite2CityProvider(accountID int, licenseKey string, directory string) *Provider {
-	return &Provider{
+func NewGeoLite2CityProvider(ctx context.Context, accountID int, licenseKey string, directory string) (*Provider, error) {
+	p := &Provider{
 		edition:         "GeoLite2-City",
 		accountID:       accountID,
 		licenseKey:      licenseKey,
 		refreshInterval: 7 * 24 * time.Hour,
 		directory:       directory,
 	}
+
+	if err := p.download(ctx); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (p *Provider) City(ip net.IP) (*geoip2.City, error) {
 	p.mut.Lock()
+	defer p.mut.Unlock()
 
-	if p.db != nil && time.Since(p.lastOpened) > p.refreshInterval/2 {
-		p.db.Close()
-		p.db = nil
-	}
 	if p.db == nil {
-		var err error
-		p.db, err = p.open(context.Background())
-		if err != nil {
-			p.mut.Unlock()
-			return nil, err
-		}
-		p.lastOpened = time.Now()
+		return nil, errors.New("database not open")
 	}
-	db := p.db
 
-	p.mut.Unlock()
-
-	return db.City(ip)
+	return p.db.City(ip)
 }
 
-// open returns a reader for the GeoIP2 database. If the database is not
-// available locally, it will be downloaded. If the database is older than
-// refreshInterval, it will be downloaded again. If the download fails, the
-// existing database will be used. The returned reader must be closed by the
-// caller in the normal manner.
-func (p *Provider) open(ctx context.Context) (*geoip2.Reader, error) {
-	if p.licenseKey == "" {
-		return nil, errors.New("open: no license key set")
-	}
-	if p.edition == "" {
-		return nil, errors.New("open: no edition set")
-	}
+// Serve downloads the GeoIP2 database and keeps it up to date. It will return
+// when the context is canceled.
+func (p *Provider) Serve(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 
-	path := filepath.Join(p.directory, p.edition+".mmdb")
-	info, err := os.Stat(path)
-	if err != nil {
-		// No file exists, download it
-		err = p.download(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("open: %w", err)
+		case <-time.After(p.refreshInterval):
+			if err := p.download(ctx); err != nil {
+				return err
+			}
 		}
-	} else if time.Since(info.ModTime()) > p.refreshInterval {
-		// File is too old, attempt to download it. If it fails, use the old
-		// file.
-		_ = p.download(ctx)
 	}
-
-	return geoip2.Open(path)
 }
 
 func (p *Provider) download(ctx context.Context) error {
+	newSubdir, err := os.MkdirTemp(p.directory, "geoipupdate")
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	log.Println("Downloading GeoIP2 database to", newSubdir)
+
 	cfg := &geoipupdate.Config{
 		URL:               "https://updates.maxmind.com",
-		DatabaseDirectory: p.directory,
-		LockFile:          filepath.Join(p.directory, "geoipupdate.lock"),
+		DatabaseDirectory: newSubdir,
+		LockFile:          filepath.Join(newSubdir, "geoipupdate.lock"),
 		RetryFor:          5 * time.Minute,
 		Parallelism:       1,
 		AccountID:         p.accountID,
@@ -115,5 +102,27 @@ func (p *Provider) download(ctx context.Context) error {
 	if err := geoipupdate.NewClient(cfg).Run(ctx); err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
+
+	dbPath := filepath.Join(newSubdir, p.edition+".mmdb")
+	db, err := geoip2.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open downloaded db: %w", err)
+	}
+
+	p.mut.Lock()
+	prevDBDir := p.currentDBDir
+	if p.db != nil {
+		p.db.Close()
+	}
+	p.currentDBDir = newSubdir
+	p.db = db
+	p.mut.Unlock()
+
+	if prevDBDir != "" {
+		log.Println("Removing old GeoIP2 database", prevDBDir)
+		_ = os.RemoveAll(p.currentDBDir)
+	}
+
+	log.Println("Downloaded GeoIP2 database to", dbPath)
 	return nil
 }

@@ -8,6 +8,7 @@ package serve
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"embed"
 	"encoding/json"
@@ -191,10 +192,16 @@ func (cli *CLI) Run() error {
 		log.Fatalln("listen:", err)
 	}
 
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("geoip:", err)
+	}
+	go geoip.Serve(context.TODO())
+
 	srv := &server{
 		db:    db,
 		debug: cli.Debug,
-		geoip: geoip.NewGeoLite2CityProvider(cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir()),
+		geoip: geoip,
 	}
 	http.HandleFunc("/", srv.rootHandler)
 	http.HandleFunc("/newdata", srv.newDataHandler)

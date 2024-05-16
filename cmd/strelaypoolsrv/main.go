@@ -140,10 +140,13 @@ func main() {
 	flag.Parse()
 
 	requests = make(chan request, requestQueueLen)
-	geoip := geoip.NewGeoLite2CityProvider(geoipAccountID, geoipLicenseKey, os.TempDir())
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), geoipAccountID, geoipLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("Failed to create GeoIP provider:", err)
+	}
+	go geoip.Serve(context.TODO())
 
 	var listener net.Listener
-	var err error
 
 	if permRelaysFile != "" {
 		permanentRelays = loadRelays(permRelaysFile, geoip)
