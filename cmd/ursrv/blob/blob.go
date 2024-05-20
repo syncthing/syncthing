@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/cmd/ursrv/report"
 	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
@@ -120,12 +119,12 @@ func (s *UrsrvStore) PutAggregatedReport(rep *ur.Aggregation) error {
 	return s.Store.Put(key, bs)
 }
 
-func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]report.AggregatedReport, error) {
+func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]ur.Aggregation, error) {
 	ctx := context.Background()
 
-	var res []report.AggregatedReport
-	var rep report.AggregatedReport
+	var res []ur.Aggregation
 	err := s.Store.IterateFromDate(ctx, AGGREGATED_PREFIX, from, func(b []byte) bool {
+		var rep ur.Aggregation
 		err := json.Unmarshal(b, &rep)
 		if err != nil {
 			return true
@@ -137,8 +136,8 @@ func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]report.AggregatedR
 	return res, err
 }
 
-func (s *UrsrvStore) LatestAggregatedReport() (report.AggregatedReport, error) {
-	var rep report.AggregatedReport
+func (s *UrsrvStore) LatestAggregatedReport() (ur.Aggregation, error) {
+	var rep ur.Aggregation
 
 	// Requires an aggregated report of the day before, which in practise should
 	// always be the case.

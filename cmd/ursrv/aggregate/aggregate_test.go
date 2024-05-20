@@ -64,6 +64,11 @@ func TestAggregateV2(t *testing.T) {
 	if err != nil {
 		t.Fatal("Unmarshall error")
 	}
+
+	if nap.Count != 100000 {
+		t.Fatalf("incorrect count, expected %d, got %d", 100, nap.Count)
+	}
+	// t.Error("testing")
 }
 
 func generateUsageReports() ([]contract.Report, error) {
@@ -73,7 +78,7 @@ func generateUsageReports() ([]contract.Report, error) {
 		return reps, err
 	}
 	// Add enough reports to trigger the percentiles
-	for i := 0; i < 49; i++ {
+	for i := 0; i < 49000; i++ {
 		reps = append(reps, rep)
 	}
 
@@ -82,7 +87,7 @@ func generateUsageReports() ([]contract.Report, error) {
 		return reps, err
 	}
 	// Add enough reports to trigger the percentiles
-	for i := 0; i < 51; i++ {
+	for i := 0; i < 51000; i++ {
 		reps = append(reps, rep)
 	}
 

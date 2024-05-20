@@ -28,6 +28,7 @@ import (
 
 	"github.com/syncthing/syncthing/cmd/ursrv/blob"
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
+	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
@@ -135,17 +136,18 @@ func (s *server) refreshCacheLocked() error {
 		return err
 	}
 
-	if rep.Date.Equal(s.cachedLatestReport.Date) && s.cachedReportCount() == storedReportsCount {
+	time := time.Unix(rep.Date, 0).UTC()
+	if time.Equal(s.cachedLatestReport.Date) && s.cachedReportCount() == storedReportsCount {
 		// The latest report is already cached and the presentation data
 		// contains data from all the existing reports. Update not required.
 		return nil
 	}
 
-	var reportsToCache []report.AggregatedReport
-	if rep.Date.After(s.cachedLatestReport.Date) {
+	var reportsToCache []ur.Aggregation
+	if time.After(s.cachedLatestReport.Date) {
 		// The latest report from the store is more recent than the cached
 		// report.
-		reportsToCache = []report.AggregatedReport{rep}
+		reportsToCache = []ur.Aggregation{rep}
 	}
 
 	if s.cachedReportCount()+len(reportsToCache) != storedReportsCount {
@@ -163,8 +165,8 @@ func (s *server) refreshCacheLocked() error {
 		s.cachePresentationData(reportsToCache)
 	}
 
-	s.cachedLatestReport = rep
-	s.cacheTime = time.Now()
+	// s.cachedLatestReport = rep
+	// s.cacheTime = time.Now()
 
 	return nil
 }
@@ -344,18 +346,18 @@ func (s *server) blockStatsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write(blockstats)
 }
 
-func (s *server) cachePresentationData(reports []report.AggregatedReport) {
-	for _, rep := range reports {
-		date := rep.Date.UTC().Format(time.DateOnly)
+func (s *server) cachePresentationData(reports []ur.Aggregation) {
+	// for _, rep := range reports {
+	// 	// date := time.Unix(rep.Date, 0).UTC().Format(time.DateOnly)
 
-		s.cachedSummary.setCounts(date, rep.VersionCount)
-		if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
-			s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
-		}
-		s.cachedPerformance = append(s.cachedPerformance, []any{
-			date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
-		})
-	}
+	// 	// s.cachedSummary.setCounts(date, rep.VersionCount)
+	// 	// if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
+	// 	// 	s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
+	// 	// }
+	// 	// s.cachedPerformance = append(s.cachedPerformance, []any{
+	// 	// 	date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
+	// 	// })
+	// }
 }
 
 func (s *server) cachedReportCount() int {

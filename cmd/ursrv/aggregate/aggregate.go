@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -244,36 +245,52 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.Report) *ur.Aggregation {
 	h := newAggregateHelper()
 
+	var wg sync.WaitGroup
+	max := make(chan struct{}, 5)
 	for _, rep := range reps {
-		// Prepare the report
-		rep.Version = transformVersion(rep.Version)
+		wg.Add(1)
+		max <- struct{}{}
+		go func(rep contract.Report) {
+			defer func() {
+				wg.Done()
+				<-max
+			}()
+			// Prepare the report
+			rep.Version = transformVersion(rep.Version)
 
-		// Handle distrubition, compiler and builder info
-		h.handleMiscStats(rep.LongVersion)
+			// Handle distrubition, compiler and builder info
+			h.handleMiscStats(rep.LongVersion)
 
-		// Handle Geo-locations
-		h.parseGeoLocation(geoip, rep.Address)
+			// Handle Geo-locations
+			h.parseGeoLocation(geoip, rep.Address)
 
-		// Aggregate the rest of the report
-		h.aggregateReportData(rep, rep.URVersion, "")
+			// Aggregate the rest of the report
+			h.aggregateReportData(rep, rep.URVersion, "")
 
-		// Increase the report counter(s)
-		h.incReportCounter(rep.URVersion)
+			// Increase the report counter(s)
+			h.incReportCounter(rep.URVersion)
+		}(rep)
 	}
+	wg.Wait()
 
 	// Summarise the data to one report
 	return h.calculateSummary(date)
+}
+
+type SyncMap struct {
 }
 
 // CounterHelper is a helper object. It collects the values from the usage
 // reports and stores it in a structural manner, making it easy to calculate the
 // average, median, sum, min, max, percentile values.
 type AggregateHelper struct {
-	floats         map[string][]float64          // fieldName -> data for float statistics
-	ints           map[string][]int64            // fieldName -> data for int statistics
-	mapStrings     map[string]map[string]int64   // fieldName -> mapped value -> data for histogram
-	mapInts        map[string]map[string][]int64 // fieldName -> mapped value -> data for int statistics
-	totalReports   int                           // All handled reports counter
+	mutex      sync.Mutex
+	floats     map[string][]float64          // fieldName -> data for float statistics
+	ints       map[string][]int64            // fieldName -> data for int statistics
+	mapStrings map[string]map[string]int64   // fieldName -> mapped value -> data for histogram
+	mapInts    map[string]map[string][]int64 // fieldName -> mapped value -> data for int statistics
+
+	totalReports   int // All handled reports counter
 	totalV2Reports int
 	totalV3Reports int
 }
@@ -292,6 +309,9 @@ func (h *AggregateHelper) addFloat(label string, value float64) {
 		return
 	}
 
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	res := h.floats[label]
 	if res == nil {
 		res = make([]float64, 0)
@@ -305,6 +325,9 @@ func (h *AggregateHelper) addInt(label string, value int) {
 		return
 	}
 
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	res := h.ints[label]
 	if res == nil {
 		res = make([]int64, 0)
@@ -317,6 +340,9 @@ func (h *AggregateHelper) addMapStrings(label, key string, value int64) {
 	if value == 0 || key == "" {
 		return
 	}
+
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 
 	res := h.mapStrings[label]
 	if res == nil {
@@ -337,6 +363,9 @@ func (h *AggregateHelper) addMapInts(label string, value map[string]int) {
 		return
 	}
 
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	res := h.mapInts[label]
 	if res == nil {
 		res = make(map[string][]int64)
@@ -352,6 +381,9 @@ func (h *AggregateHelper) addMapInts(label string, value map[string]int) {
 }
 
 func (h *AggregateHelper) incReportCounter(version int) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	h.totalReports++
 	if version == 2 {
 		h.totalV2Reports++
@@ -364,88 +396,83 @@ func (h *AggregateHelper) calculateSummary(date time.Time) *ur.Aggregation {
 	// Summarises the data to a single report. This includes calculating the
 	// required values, like average, median, sum, etc.
 	ap := &ur.Aggregation{
-		Date:    date.UTC().Unix(),
-		Count:   int64(h.totalReports),   // all reports
-		CountV2: int64(h.totalV2Reports), // v2 repots
-		CountV3: int64(h.totalV3Reports), // v3 reports
+		Date:       date.UTC().Unix(),
+		Count:      int64(h.totalReports),   // all reports
+		CountV2:    int64(h.totalV2Reports), // v2 repots
+		CountV3:    int64(h.totalV3Reports), // v3 reports
+		Statistics: make(map[string]ur.Statistic),
 	}
 
-	var statistics []ur.Statistic
-	for label, v := range h.floats {
-		count, sum, min, max, med, avg, percentiles := CalculateStatistics(v)
-		stats := &ur.FloatStatistic{
-			Count:       count,
-			Sum:         roundFloat(sum, floatPrecision),
-			Min:         min,
-			Max:         max,
-			Med:         med,
-			Avg:         avg,
-			Percentiles: percentiles,
+	res := make(map[string]ur.Statistic)
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		for label, v := range h.floats {
+			res[label] =
+				ur.Statistic{
+					Key:       label,
+					Statistic: &ur.Statistic_Float{Float: floatStats(v)},
+				}
 		}
-		statistics = append(statistics,
-			ur.Statistic{
-				Key: label,
-				Statistic: &ur.Statistic_Float{
-					Float: stats,
-				},
-			})
-	}
-	for label, v := range h.ints {
-		count, sum, min, max, med, avg, percentiles := CalculateStatistics(v)
-		stats := &ur.IntegerStatistic{
-			Count:       count,
-			Sum:         sum,
-			Min:         min,
-			Max:         max,
-			Med:         med,
-			Avg:         avg,
-			Percentiles: percentiles,
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for label, v := range h.ints {
+			mutex.Lock()
+			res[label] =
+				ur.Statistic{
+					Key:       label,
+					Statistic: &ur.Statistic_Integer{Integer: intStats(v)},
+				}
+			mutex.Unlock()
 		}
-		statistics = append(statistics,
-			ur.Statistic{
-				Key: label,
-				Statistic: &ur.Statistic_Integer{
-					Integer: stats,
-				},
-			})
-	}
-	for label, child := range h.mapInts {
-		mapStats := &ur.MapIntegerStatistic{Map: make(map[string]ur.IntegerStatistic)}
-		for k, v := range child {
-			count, sum, min, max, med, avg, percentiles := CalculateStatistics(v)
-			stats := ur.IntegerStatistic{
-				Count:       count,
-				Sum:         sum,
-				Min:         min,
-				Max:         max,
-				Med:         med,
-				Avg:         avg,
-				Percentiles: percentiles,
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for label, child := range h.mapInts {
+			mapStats := &ur.MapIntegerStatistic{Map: make(map[string]ur.IntegerStatistic)}
+			for k, v := range child {
+				mapStats.Map[k] = *intStats(v)
 			}
-			mapStats.Map[k] = stats
-		}
 
-		statistics = append(statistics,
-			ur.Statistic{
-				Key: label,
-				Statistic: &ur.Statistic_MappedInteger{
-					MappedInteger: mapStats,
-				},
-			})
-	}
-	for label, child := range h.mapStrings {
-		stats := &ur.MapHistogram{Map: make(map[string]int64)}
-		for k, v := range child {
-			stats.Map[k] = v
+			mutex.Lock()
+			res[label] = ur.Statistic{
+				Key:       label,
+				Statistic: &ur.Statistic_MappedInteger{MappedInteger: mapStats},
+			}
+			mutex.Unlock()
 		}
-		statistics = append(statistics, ur.Statistic{
-			Key: label,
-			Statistic: &ur.Statistic_Histogram{
-				Histogram: stats,
-			},
-		})
-	}
-	ap.Statistics = statistics
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for label, child := range h.mapStrings {
+			stats := &ur.MapHistogram{Map: make(map[string]int64)}
+			for k, v := range child {
+				stats.Map[k] = v
+			}
+			mutex.Lock()
+			res[label] = ur.Statistic{
+				Key:       label,
+				Statistic: &ur.Statistic_Histogram{Histogram: stats},
+			}
+			mutex.Unlock()
+		}
+	}()
+	wg.Wait()
+
+	ap.Statistics = res
+
 	return ap
 }
 

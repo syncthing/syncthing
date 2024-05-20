@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/syncthing/syncthing/lib/ur"
 	"golang.org/x/exp/constraints"
 )
 
@@ -96,7 +97,33 @@ func roundFloat(value float64, precision int) float64 {
 	return math.Round(value*ratio) / ratio
 }
 
-func CalculateStatistics[E Numerical](data []E) (count int64, sum, min, max E, med, avg float64, percentiles []E) {
+func floatStats(data []float64) *ur.FloatStatistic {
+	count, sum, min, max, med, avg, percentiles := calculateStatistics(data)
+	return &ur.FloatStatistic{
+		Count:       count,
+		Sum:         roundFloat(sum, floatPrecision),
+		Min:         min,
+		Max:         max,
+		Med:         med,
+		Avg:         avg,
+		Percentiles: percentiles,
+	}
+}
+
+func intStats(data []int64) *ur.IntegerStatistic {
+	count, sum, min, max, med, avg, percentiles := calculateStatistics(data)
+	return &ur.IntegerStatistic{
+		Count:       count,
+		Sum:         sum,
+		Min:         min,
+		Max:         max,
+		Med:         med,
+		Avg:         avg,
+		Percentiles: percentiles,
+	}
+}
+
+func calculateStatistics[E Numerical](data []E) (count int64, sum, min, max E, med, avg float64, percentiles []E) {
 	slices.Sort(data)
 	count = int64(len(data))
 	sum = Sum(data)

@@ -5,11 +5,11 @@ package ur;
 import "repos/protobuf/gogoproto/gogo.proto";
 
 message Aggregation {
-    int64              date       = 1;
-    int64              count      = 2;
-    int64              countV2    = 3;
-    int64              countV3    = 4;
-    repeated Statistic statistics = 5;
+    int64                  date       = 1;
+    int64                  count      = 2;
+    int64                  countV2    = 3;
+    int64                  countV3    = 4;
+    map<string, Statistic> statistics = 5;
 }
 
 message Statistic {
