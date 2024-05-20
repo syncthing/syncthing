@@ -41,7 +41,6 @@ type CLI struct {
 	_               string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
 	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE_KEY"`
 	GeoIPAccountID  int    `env:"UR_GEOIP_ACCOUNT_ID"`
-	_               string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
 }
 
 const maxCacheTime = 15 * time.Minute
@@ -175,9 +174,9 @@ func (s *server) refreshCacheLocked() error {
 		}
 	}
 
-	if len(reportsToCache) > 0 {
-		s.cachePresentationData(reportsToCache)
-	}
+	// if len(reportsToCache) > 0 {
+	s.cachePresentationData(reportsToCache)
+	// }
 
 	// s.cachedLatestReport = rep
 	// s.cacheTime = time.Now()
@@ -361,17 +360,21 @@ func (s *server) blockStatsHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) cachePresentationData(reports []ur.Aggregation) {
-	// for _, rep := range reports {
-	// 	// date := time.Unix(rep.Date, 0).UTC().Format(time.DateOnly)
+	log.Print("cache presentation")
+	for _, rep := range reports {
+		versions := rep.Statistics["version"]
+		fmt.Println(versions)
 
-	// 	// s.cachedSummary.setCounts(date, rep.VersionCount)
-	// 	// if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
-	// 	// 	s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
-	// 	// }
-	// 	// s.cachedPerformance = append(s.cachedPerformance, []any{
-	// 	// 	date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
-	// 	// })
-	// }
+		// date := time.Unix(rep.Date, 0).UTC().Format(time.DateOnly)
+
+		// s.cachedSummary.setCounts(date, rep.VersionCount)
+		// if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
+		// 	s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
+		// }
+		// s.cachedPerformance = append(s.cachedPerformance, []any{
+		// 	date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
+		// })
+	}
 }
 
 func (s *server) cachedReportCount() int {

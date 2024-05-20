@@ -24,6 +24,7 @@ import (
 const (
 	USAGE_PREFIX      = "UR" // contract.Report
 	AGGREGATED_PREFIX = "AR" // report.AggregatedReport
+	dateFormat        = "20060102"
 )
 
 func NewBlobStorage(s3Config S3Config) Store {
@@ -69,7 +70,7 @@ func usageReportKey(when time.Time, uniqueId string) string {
 }
 
 func aggregatedReportKey(when time.Time) string {
-	return fmt.Sprintf("%s/%s.json", AGGREGATED_PREFIX, when.UTC().Format("20060102"))
+	return fmt.Sprintf("%s/%s.json", AGGREGATED_PREFIX, when.UTC().Format(dateFormat))
 }
 
 // Usage Reports.
@@ -112,7 +113,7 @@ func (s *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report,
 
 func (s *UrsrvStore) PutAggregatedReport(rep *ur.Aggregation) error {
 	key := aggregatedReportKey(time.Unix(rep.Date, 0))
-	bs, err := json.Marshal(rep)
+	bs, err := rep.Marshal()
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]ur.Aggregation, er
 	var res []ur.Aggregation
 	err := s.Store.IterateFromDate(ctx, AGGREGATED_PREFIX, from, func(b []byte) bool {
 		var rep ur.Aggregation
-		err := json.Unmarshal(b, &rep)
+		err := rep.Unmarshal(b)
 		if err != nil {
 			return true
 		}
@@ -155,12 +156,12 @@ func (s *UrsrvStore) LatestAggregatedReport() (ur.Aggregation, error) {
 		}
 	}
 
-	err = json.Unmarshal(data, &rep)
+	err = rep.Unmarshal(data)
 	return rep, err
 }
 
 func (s *UrsrvStore) CountAggregatedReports(from time.Time) (int, error) {
-	prefix := AGGREGATED_PREFIX + "/"
+	prefix := AGGREGATED_PREFIX
 	return s.Count(prefix, from)
 }
 
@@ -171,23 +172,17 @@ func (s *UrsrvStore) Count(prefix string, from time.Time) (int, error) {
 }
 
 func hasValidDate(key string, from time.Time) bool {
-	key, found := strings.CutSuffix(key, ".json")
-	if !found {
-		return false
-	}
-	keyDate, err := time.Parse(time.DateOnly, key)
+	key, _ = strings.CutSuffix(key, ".json")
+	keyDate, err := time.Parse(dateFormat, filepath.Base(key))
 	if err != nil {
 		return false
 	}
-	if keyDate.Before(from) {
-		return false
-	}
-	return true
+	return keyDate.Equal(from) || keyDate.After(from)
 }
 
 func commonTimestampPrefix(a, b time.Time) string {
-	aFormatted := a.UTC().Format("20060102")
-	bFormatted := b.UTC().Format("20060102")
+	aFormatted := a.UTC().Format(dateFormat)
+	bFormatted := b.UTC().Format(dateFormat)
 	prefixLen := 0
 	for i := range aFormatted {
 		if aFormatted[i] != bFormatted[i] {

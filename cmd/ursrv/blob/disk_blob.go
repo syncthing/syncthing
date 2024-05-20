@@ -103,6 +103,7 @@ func (d *Disk) CountFromDate(reportType string, from time.Time) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	var count = 0
 	for _, match := range matches {
 		if !hasValidDate(match, from) {
