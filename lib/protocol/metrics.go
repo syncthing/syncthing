@@ -58,5 +58,6 @@ func registerDeviceMetrics(deviceID string) {
 	metricDeviceSentUncompressedBytes.WithLabelValues(deviceID)
 	metricDeviceSentMessages.WithLabelValues(deviceID)
 	metricDeviceRecvBytes.WithLabelValues(deviceID)
+	metricDeviceRecvDecompressedBytes.WithLabelValues(deviceID)
 	metricDeviceRecvMessages.WithLabelValues(deviceID)
 }

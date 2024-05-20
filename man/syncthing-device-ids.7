@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-DEVICE-IDS" "7" "Mar 21, 2024" "v1.27.4" "Syncthing"
+.TH "SYNCTHING-DEVICE-IDS" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-device-ids \- Understanding Device IDs
 .sp
@@ -52,8 +52,7 @@ The typical certificate will look something like this, inspected with
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 Certificate:
     Data:
         Version: 3 (0x2)
@@ -87,8 +86,7 @@ Certificate:
         ...
         88:7e:e2:61:aa:4c:02:e3:64:b0:da:70:3a:cd:1c:3d:86:db:
         df:54:b9:4e:be:1b
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -113,27 +111,23 @@ bits) so the resulting ID looks something like:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 MFZWI3DBONSGYYLTMRWGC43ENRQXGZDMMFZWI3DBONSGYYLTMRWA====
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 The padding (\fB====\fP) is stripped away, the device ID split into four
-groups, and \fI\%check
-digits\fP <\fBhttps://forum.syncthing.net/t/v0-9-0-new-node-id-format/478\fP>
+groups, and \X'tty: link https://forum.syncthing.net/t/v0-9-0-new-node-id-format/478'\fI\%check
+digits\fP <\fBhttps://forum.syncthing.net/t/v0-9-0-new-node-id-format/478\fP>\X'tty: link'
 are added for each group. For presentation purposes the device ID is
 grouped with dashes, resulting in the final value:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 MFZWI3D\-BONSGYC\-YLTMRWG\-C43ENR5\-QXGZDMM\-FZWI3DP\-BONSGYY\-LTMRWAD
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Connection Establishment
@@ -192,8 +186,8 @@ You can argue that of course there are collisions \- there’s an infinite
 amount of inputs and a finite amount of outputs \- so by definition there
 are infinitely many messages that result in the same hash.
 .sp
-I’m going to quote \fI\%stack
-overflow\fP <\fBhttps://stackoverflow.com/questions/4014090/is-it-safe-to-ignore-the-possibility-of-sha-collisions-in-practice\fP>
+I’m going to quote \X'tty: link https://stackoverflow.com/questions/4014090/is-it-safe-to-ignore-the-possibility-of-sha-collisions-in-practice'\fI\%stack
+overflow\fP <\fBhttps://stackoverflow.com/questions/4014090/is-it-safe-to-ignore-the-possibility-of-sha-collisions-in-practice\fP>\X'tty: link'
 here:
 .INDENT 0.0
 .INDENT 3.5

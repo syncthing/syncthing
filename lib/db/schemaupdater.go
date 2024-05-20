@@ -20,7 +20,7 @@ import (
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
-	dbMigrationVersion    = 19
+	dbMigrationVersion    = 20
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -102,7 +102,8 @@ func (db *schemaUpdater) updateSchema() error {
 		{14, 14, "v1.9.0", db.updateSchemaTo14},
 		{14, 16, "v1.9.0", db.checkRepairMigration},
 		{14, 17, "v1.9.0", db.migration17},
-		{14, 19, "v1.9.0", db.dropIndexIDsMigration},
+		{14, 19, "v1.9.0", db.dropAllIndexIDsMigration},
+		{14, 20, "v1.9.0", db.dropOutgoingIndexIDsMigration},
 	}
 
 	for _, m := range migrations {
@@ -130,13 +131,13 @@ func (db *schemaUpdater) updateSchema() error {
 }
 
 func (*schemaUpdater) writeVersions(m migration, miscDB *NamespacedKV) error {
-	if err := miscDB.PutInt64("dbVersion", m.schemaVersion); err != nil && err == nil {
+	if err := miscDB.PutInt64("dbVersion", m.schemaVersion); err != nil {
 		return err
 	}
-	if err := miscDB.PutString("dbMinSyncthingVersion", m.minSyncthingVersion); err != nil && err == nil {
+	if err := miscDB.PutString("dbMinSyncthingVersion", m.minSyncthingVersion); err != nil {
 		return err
 	}
-	if err := miscDB.PutInt64("dbMigrationVersion", m.migrationVersion); err != nil && err == nil {
+	if err := miscDB.PutInt64("dbMigrationVersion", m.migrationVersion); err != nil {
 		return err
 	}
 	return nil
@@ -831,8 +832,12 @@ func (db *schemaUpdater) migration17(prev int) error {
 	return nil
 }
 
-func (db *schemaUpdater) dropIndexIDsMigration(_ int) error {
+func (db *schemaUpdater) dropAllIndexIDsMigration(_ int) error {
 	return db.dropIndexIDs()
+}
+
+func (db *schemaUpdater) dropOutgoingIndexIDsMigration(_ int) error {
+	return db.dropOtherDeviceIndexIDs()
 }
 
 func rewriteGlobals(t readWriteTransaction) error {

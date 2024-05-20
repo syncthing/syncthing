@@ -8,6 +8,7 @@ package serve
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -24,18 +25,23 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/blob"
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 type CLI struct {
-	Debug  bool   `env:"UR_DEBUG"`
-	Listen string `env:"UR_LISTEN_V2" default:"0.0.0.0:8081"`
-	_      string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
+	Debug           bool   `env:"UR_DEBUG"`
+	Listen          string `env:"UR_LISTEN_V2" default:"0.0.0.0:8081"`
+	_               string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
+	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE_KEY"`
+	GeoIPAccountID  int    `env:"UR_GEOIP_ACCOUNT_ID"`
+	_               string `env:"UR_REPORTS_PROXY" help:"Old address to send the incoming reports to (temporary)"`
 }
 
 const maxCacheTime = 15 * time.Minute
@@ -69,9 +75,16 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 		log.Fatalln("listen:", err)
 	}
 
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("geoip:", err)
+	}
+	go geoip.Serve(context.TODO())
+
 	srv := &server{
 		store:             store,
 		debug:             cli.Debug,
+		geoip:             geoip,
 		cachedSummary:     newSummary(),
 		cachedBlockstats:  newBlockStats(),
 		cachedPerformance: newPerformance(),
@@ -97,6 +110,7 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 type server struct {
 	debug bool
 	store *blob.UrsrvStore
+	geoip *geoip.Provider
 
 	cacheMut           sync.Mutex
 	cachedLatestReport report.AggregatedReport

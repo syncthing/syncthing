@@ -27,18 +27,16 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Mar 21, 2024" "v1.27.4" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 \&.stignore
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -126,21 +124,19 @@ more general patterns that follow.
 .INDENT 3.5
 Negated patterns that can match items below the folder root will cause
 Syncthing to traverse otherwise ignored directories. If the
-\fI\%watcher\fP is enabled, those directories will also be
+\X'tty: link #scanning'\fI\%watcher\fP\X'tty: link' is enabled, those directories will also be
 watched. Directories ignored before the first negated pattern can
 however be safely skipped, since the first matching pattern wins. For
 example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 /foo
 /bar
 !baz
 *
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -152,12 +148,10 @@ not cause this behaviour:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 !/baz
 *
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -194,8 +188,7 @@ Given a directory layout starting at the synced folder’s root:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 \&.DS_Store
 \&.stignore
 foo
@@ -209,8 +202,7 @@ bar2/
     frobble
 My Pictures/
     Img15.PNG
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -218,8 +210,7 @@ and an \fB\&.stignore\fP file with the contents:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 (?d).DS_Store
 !frobble
 !quuz
@@ -227,8 +218,7 @@ foo
 *2
 qu*
 (?i)my pictures
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -237,8 +227,7 @@ all files and directories called “foo”, ending in a “2” or starting with
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 \&.DS_Store     # ignored, will be deleted if gets in the way of parent directory removal
 foo           # ignored, matches \(dqfoo\(dq
 foofoo        # synced, does not match \(dqfoo\(dq but would match \(dqfoo*\(dq or \(dq*foo\(dq
@@ -251,8 +240,7 @@ bar2/         # synced, despite matching \(dq*2\(dq due to child frobble
     frobble   # synced, due to \(dq!frobble\(dq
 My Pictures/  # ignored, matched case insensitive \(dq(?i)my pictures\(dq pattern
     Img15.PNG # ignored, due to parent being ignored
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -266,7 +254,7 @@ content, make sure it does not have a \fB/\fP at the end of the pattern.
 .UNINDENT
 .UNINDENT
 .sp
-New in version 1.19.0: Default patterns can be configured which will take effect when automatically
+Added in version 1.19.0: Default patterns can be configured which will take effect when automatically
 accepting a folder from a remote device.  The GUI suggests same the patterns
 when adding a folder manually.  In either case, the \fB\&.stignore\fP file is
 created with these defaults if none is present yet.

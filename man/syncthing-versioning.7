@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Mar 21, 2024" "v1.27.4" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -113,7 +113,7 @@ will be deleted unless when the interval they are entering is empty. By keeping
 the oldest versions this versioning scheme preserves the file if it is
 overwritten.
 .sp
-For more info, check the \fI\%unit test file\fP <\fBhttps://github.com/syncthing/syncthing/blob/main/lib/versioner/staggered_test.go#L32\fP>
+For more info, check the \X'tty: link https://github.com/syncthing/syncthing/blob/main/lib/versioner/staggered_test.go#L32'\fI\%unit test file\fP <\fBhttps://github.com/syncthing/syncthing/blob/main/lib/versioner/staggered_test.go#L32\fP>\X'tty: link'
 that shows which versions are deleted for a specific run.
 .SH EXTERNAL FILE VERSIONING
 .sp
@@ -147,8 +147,7 @@ the following script and store it as \fB/Users/jb/bin/onlylatest.sh\fP (i.e. the
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 #!/bin/sh
 set \-eu
 
@@ -164,8 +163,7 @@ outpath=$(dirname \(dq$versionspath/$filepath\(dq)
 mkdir \-p \(dq$outpath\(dq
 # Then move the file there
 mv \-f \(dq$folderpath/$filepath\(dq \(dq$versionspath/$filepath\(dq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -178,11 +176,9 @@ script will be called as if I ran this from the command line:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ /Users/jb/bin/onlylatest.sh /Users/jb/Sync docs/letter.txt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -198,8 +194,7 @@ behavior as mentioned above. I created the following script and saved it as
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 @echo off
 
 rem Enable UTF\-8 encoding to deal with multilingual folder and file names
@@ -221,8 +216,7 @@ if not exist \(dq%output_path%\(dq md \(dq%output_path%\(dq || exit /b
 
 rem Finally move the file, overwrite existing file if any
 move /y \(dq%folder_path%\e%file_path%\(dq \(dq%versions_path%\e%file_path%\(dq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -237,8 +231,7 @@ location, e.g. \fBC:\eUsers\eUser\eScripts\eSendToRecycleBin.ps1\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 # PowerShell has no native method to recycle files, so we use Visual
 # Basic to perform the operation. If succeeded, we also include the
 # recycled file in the Syncthing\(aqs DEBUG output.
@@ -247,8 +240,7 @@ Add\-Type \-AssemblyName Microsoft.VisualBasic
 if ($?) {
   Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -258,8 +250,7 @@ more consistent with how the Explorer works.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 # PowerShell has no native method to recycle files, so we use Visual
 # Basic to perform the operation.
 Add\-Type \-AssemblyName Microsoft.VisualBasic
@@ -279,8 +270,7 @@ if (Test\-Path \-LiteralPath ((Split\-Path \-Path $args) + \(dq\e~syncthing~\(dq
     Write\-Output (\(dqRecycled \(dq + $args + \(dq.\(dq)
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -295,13 +285,12 @@ files permanently.
 .SH CONFIGURATION PARAMETER REFERENCE
 .sp
 The versioning settings are grouped into their own section of each folder in the
-\fI\%configuration file\fP\&.  The following shows an
+\X'tty: link #config-option-folder.versioning'\fI\%configuration file\fP\X'tty: link'\&.  The following shows an
 example of such a section in the XML:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <folder id=\(dq...\(dq>
     <versioning type=\(dqsimple\(dq>
         <cleanupIntervalS>3600</cleanupIntervalS>
@@ -311,8 +300,7 @@ example of such a section in the XML:
         <param key=\(dqkeep\(dq val=\(dq5\(dq></param>
     </versioning>
 </folder>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -338,7 +326,7 @@ in the \fI\%params\fP element.
 .B versioning.fsType
 The internal file system implementation used to access this versions folder.
 Only applies if \fI\%fsPath\fP is also set non\-empty,
-otherwise the \fI\%filesystemType\fP from the folder element is used
+otherwise the \X'tty: link #config-option-folder.filesystemtype'\fI\%filesystemType\fP\X'tty: link' from the folder element is used
 instead.  Refer to that option description for possible values.  Ignored for
 the \fBexternal\fP versioning strategy.
 .sp

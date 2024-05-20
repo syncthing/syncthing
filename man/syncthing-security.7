@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-SECURITY" "7" "Mar 21, 2024" "v1.27.4" "Syncthing"
+.TH "SYNCTHING-SECURITY" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-security \- Security Principles
 .sp
@@ -46,7 +46,7 @@ Incoming requests for file data are verified to the extent that the requested
 file name must exist in the local index and the global model.
 .sp
 For information about ensuring you are running the code you think you are and
-for reporting security vulnerabilities, please see the official \fI\%security page\fP <\fBhttps://syncthing.net/security\fP>\&.
+for reporting security vulnerabilities, please see the official \X'tty: link https://syncthing.net/security'\fI\%security page\fP <\fBhttps://syncthing.net/security\fP>\X'tty: link'\&.
 .SH INFORMATION LEAKAGE
 .SS Global Discovery
 .sp
@@ -59,7 +59,7 @@ servers containing the device ID of the requested device. The connection to
 the discovery server is encrypted using TLS and the discovery server
 certificate is verified, so the contents of the query should be considered
 private between the device and the discovery server. The discovery servers
-are currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. Global discovery defaults to \fBon\fP\&.
+are currently hosted by \X'tty: link https://github.com/calmh'\fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\X'tty: link'\&. Global discovery defaults to \fBon\fP\&.
 .sp
 When turned off, devices with dynamic addresses not on the local network cannot
 be found and connected to.
@@ -87,7 +87,7 @@ found and connected to.
 .sp
 When automatic upgrades are enabled, Syncthing checks for a new version at
 startup and then once every twelve hours. This is by an HTTPS request to the
-download site for releases, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&.
+download site for releases, currently hosted by \X'tty: link https://github.com/calmh'\fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\X'tty: link'\&.
 Automatic upgrades default to \fBon\fP (unless Syncthing was compiled with
 upgrades disabled).
 .sp
@@ -105,7 +105,7 @@ information about the user or device.
 .sp
 When usage reporting is enabled, Syncthing reports usage data at startup and
 then every 24 hours. The report is sent as an HTTPS POST to the usage reporting
-server, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. The contents of the usage report can
+server, currently hosted by \X'tty: link https://github.com/calmh'\fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\X'tty: link'\&. The contents of the usage report can
 be seen behind the “Preview” link in settings. Usage reporting defaults to
 \fBoff\fP but the GUI will ask once about enabling it, shortly after the first
 install.
@@ -147,7 +147,7 @@ web GUI defaults to being reachable from the \fBlocal host only\fP\&.
 .sp
 Parties doing surveillance on your network (whether that be corporate IT, the
 NSA or someone else) will be able to see that you use Syncthing, and your device
-IDs \fI\%are OK to share anyway\fP <\fBhttps://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret\fP>,
+IDs \X'tty: link https://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret'\fI\%are OK to share anyway\fP <\fBhttps://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret\fP>\X'tty: link',
 but the actual transmitted data is protected as well as we can. Knowing your
 device ID can expose your IP address, using global discovery.
 .SH PROTECTING YOUR SYNCTHING KEYS AND IDENTITY

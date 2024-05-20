@@ -27,20 +27,18 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STDISCOSRV" "1" "Mar 21, 2024" "v1.27.4" "Syncthing"
+.TH "STDISCOSRV" "1" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 stdiscosrv [\-cert=<file>] [\-db\-dir=<string>] [\-debug] [\-http] [\-key=<string>]
            [\-listen=<address>] [\-metrics\-listen=<address>]
            [\-replicate=<peers>] [\-replication\-listen=<address>]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -87,7 +85,7 @@ Prometheus compatible metrics endpoint listen address (default disabled).
 .INDENT 0.0
 .TP
 .B \-replicate=<peers>
-Replication peers, \fI\%id@address\fP <\fBid@address\fP>, comma separated
+Replication peers, \X'tty: link mailto:id@address'\fI\%id@address\fP <\fBid@address\fP>\X'tty: link', comma separated
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -114,10 +112,10 @@ entry from the list.
 .SS Description
 .sp
 This guide assumes that you have already set up Syncthing. If you
-haven’t yet, head over to \fI\%Getting Started\fP first.
+haven’t yet, head over to \X'tty: link #getting-started'\fI\%Getting Started\fP\X'tty: link' first.
 .SS Installing
 .sp
-Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/discosrv/releases\fP> and
+Go to \X'tty: link https://github.com/syncthing/discosrv/releases'\fI\%releases\fP <\fBhttps://github.com/syncthing/discosrv/releases\fP>\X'tty: link' and
 download the file appropriate for your operating system. Unpacking it will
 yield a binary called \fBstdiscosrv\fP (or \fBstdiscosrv.exe\fP on Windows).
 Start this in whatever way you are most comfortable with; double clicking
@@ -127,7 +125,7 @@ given flags to the contrary.
 .sp
 The discovery server can also be obtained through apt, the Debian/Ubuntu package
 manager. Recent releases can be found at syncthing’s
-\fI\%apt repository\fP <\fBhttps://apt.syncthing.net/\fP>\&. The name of the package is
+\X'tty: link https://apt.syncthing.net/'\fI\%apt repository\fP <\fBhttps://apt.syncthing.net/\fP>\X'tty: link'\&. The name of the package is
 syncthing\-discosrv.
 .SS Configuring
 .sp
@@ -164,12 +162,10 @@ the certificate and key at startup. This isn’t necessary with the \fBhttp\fP f
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ stdiscosrv \-cert=/path/to/cert.pem \-key=/path/to/key.pem
 Server device ID is 7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -179,11 +175,9 @@ the clients in the discovery server URL:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 https://disco.example.com:8443/?id=7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -191,11 +185,9 @@ Otherwise, the URL will be:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 https://disco.example.com:8443/
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Replication
@@ -210,8 +202,8 @@ shared with the main discovery API. If the \fB\-http\fP mode is used the
 certificate is not used for client requests but only for replication
 connections.
 .sp
-Authentication of replication connections is done using \fI\%Syncthing\-style
-device IDs\fP <\fBhttps://docs.syncthing.net/dev/device-ids.html#id1\fP> only \- CA
+Authentication of replication connections is done using \X'tty: link https://docs.syncthing.net/dev/device-ids.html#id1'\fI\%Syncthing\-style
+device IDs\fP <\fBhttps://docs.syncthing.net/dev/device-ids.html#id1\fP>\X'tty: link' only \- CA
 verification is not available. The device IDs in question are those printed
 by the discovery server on startup.
 .sp
@@ -235,11 +227,9 @@ On server one:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ stdiscosrv \-replicate=MRI...7OK@192.0.2.55:19200 <other options>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -247,11 +237,9 @@ On server two:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ stdiscosrv \-replicate=I6K...H76@192.0.2.20:19200 <other options>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -266,11 +254,9 @@ device ID without “@ip:port” address:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ stdiscosrv \-replicate=I6K...H76 <other options>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -283,7 +269,7 @@ Syncthing towards this name. The same certificate must be used on both
 discovery servers.
 .SS Reverse Proxy Setup
 .sp
-New in version 1.8.0: A new “X\-Client\-Port” HTTP header was added.
+Added in version 1.8.0: A new “X\-Client\-Port” HTTP header was added.
 
 .sp
 The discovery server can be run behind an SSL\-secured reverse proxy. This
@@ -331,25 +317,22 @@ listed above:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 proxy_set_header X\-Forwarded\-For $proxy_add_x_forwarded_for;
 proxy_set_header X\-Client\-Port $remote_port;
 proxy_set_header X\-SSL\-Cert $ssl_client_cert;
 ssl_verify_client optional_no_ca;
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 The following is a complete example Nginx configuration file. With this setup,
-clients can use \fI\%https://discovery.example.com\fP as the discovery server URL in
+clients can use \X'tty: link https://discovery.example.com'\fI\%https://discovery.example.com\fP\X'tty: link' as the discovery server URL in
 the Syncthing settings.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 # HTTP 1.1 support
 proxy_http_version 1.1;
 proxy_buffering off;
@@ -404,26 +387,23 @@ server {
                 proxy_pass http://discovery.example.com;
         }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 An example of automating the SSL certificates and reverse\-proxying the Discovery
-Server and Syncthing using Nginx, \fI\%Let’s Encrypt\fP <\fBhttps://letsencrypt.org/\fP> and Docker can be found \fI\%here\fP <\fBhttps://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880\fP>\&.
+Server and Syncthing using Nginx, \X'tty: link https://letsencrypt.org/'\fI\%Let’s Encrypt\fP <\fBhttps://letsencrypt.org/\fP>\X'tty: link' and Docker can be found \X'tty: link https://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880'\fI\%here\fP <\fBhttps://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880\fP>\X'tty: link'\&.
 .SS Apache
 .sp
 The following lines must be added to the configuration:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 SSLProxyEngine On
 SSLVerifyClient optional_no_ca
 RequestHeader set X\-SSL\-Cert \(dq%{SSL_CLIENT_CERT}s\(dq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -435,11 +415,9 @@ configuration:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 RemoteIPHeader X\-Forwarded\-For
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Caddy
@@ -448,8 +426,7 @@ The following lines must be added to the Caddyfile:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
   discovery.example.com {
     reverse_proxy 192.0.2.1:8443 {
       header_up X\-Forwarded\-For {http.request.remote.host}
@@ -463,23 +440,20 @@ The following lines must be added to the Caddyfile:
       }
     }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 For more details, see also the recommendations in the
-\fI\%Reverse Proxy Setup\fP <\fBhttps://docs.syncthing.net/users/reverseproxy.html\fP>
+\X'tty: link https://docs.syncthing.net/users/reverseproxy.html'\fI\%Reverse Proxy Setup\fP <\fBhttps://docs.syncthing.net/users/reverseproxy.html\fP>\X'tty: link'
 page. Note that that page is directed at setting up a proxy for the
 Syncthing web UI. You should do the proper path and port adjustments to proxying
 the discovery server and your particular setup.
