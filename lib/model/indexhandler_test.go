@@ -81,6 +81,13 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 		}
 	}
 
+	// Every sent IndexUpdate should be matched by a corresponding index
+	// message on the other side. Use the waitgroup to wait for this to
+	// complete, as otherwise the Close below can race with the last
+	// outgoing index message and the count between sent and received is
+	// wrong.
+	wg.Wait()
+
 	c1.Close(io.EOF)
 	c2.Close(io.EOF)
 	<-c1.Closed()
