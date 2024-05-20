@@ -22,13 +22,11 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
-
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -848,6 +846,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
+		registerDeviceMetrics(dev.DeviceID.String())
 	}
 
 	for _, dev := range from.Devices {
@@ -855,6 +854,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
+			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String())
 		}
 	}
 
@@ -1380,6 +1380,9 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	c.wantConnections[d] = int(h.NumConnections)
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Inc()
+
 	// Close any connections we no longer want to retain.
 	c.closeWorsePriorityConnectionsLocked(d, conn.Priority()-upgradeThreshold)
 }
@@ -1401,6 +1404,10 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 		delete(c.connections, d)
 		delete(c.wantConnections, d)
 	}
+
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Dec()
+
 	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }
 
@@ -1467,21 +1474,4 @@ func newConnectionID(t0, t1 int64) string {
 	// character in the middle that is a mix of bits from the timestamp and
 	// from the random. We want the timestamp part deterministic.
 	return enc.EncodeToString(buf[:8]) + enc.EncodeToString(buf[8:])
-}
-
-// temporary implementations of min and max, to be removed once we can use
-// Go 1.21 builtins. :)
-
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max[T constraints.Ordered](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
 }

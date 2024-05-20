@@ -27,15 +27,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Jan 15, 2024" "v1.27.3" "Syncthing"
+.TH "SYNCTHING" "1" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 syncthing [serve]
           [\-\-audit] [\-\-auditfile=<file|\-|\-\->] [\-\-browser\-only] [\-\-device\-id]
           [\-\-generate=<dir>] [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
@@ -64,8 +63,7 @@ syncthing cli
           [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
           [\-\-help]
           <command> [command options...] [arguments...]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -369,7 +367,7 @@ it is validated and updated to the latest configuration schema, including adding
 default values for any new options.
 .sp
 The \fBdecrypt\fP subcommand is used in conjunction with untrusted (encrypted)
-devices, see the relevant section on \fI\%decryption\fP for
+devices, see the relevant section on \X'tty: link #untrusted-decrypt'\fI\%decryption\fP\X'tty: link' for
 details.  It does not depend on Syncthing to be running, but works on offline
 data.
 .sp
@@ -423,11 +421,9 @@ example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ export all_proxy=socks://192.0.2.42:8081
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DEVELOPMENT SETTINGS
@@ -582,7 +578,7 @@ Disable automatic upgrades.  Equivalent to the \fI\%\-\-no\-upgrade\fP flag.
 .B STPROFILER
 Set to a listen address such as “127.0.0.1:9090” to start the profiler with
 HTTP access, which then can be reached at
-\fI\%http://localhost:9090/debug/pprof\fP\&. See \fBgo tool pprof\fP for more
+\X'tty: link http://localhost:9090/debug/pprof'\fI\%http://localhost:9090/debug/pprof\fP\X'tty: link'\&. See \fBgo tool pprof\fP for more
 information.
 .TP
 .B STPERFSTATS

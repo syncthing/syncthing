@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 func main() {
@@ -43,7 +45,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 		}
 
 		p0 := filepath.Join(dir, string(n[0]), n[0:2])
-		err = os.MkdirAll(p0, 0755)
+		err = os.MkdirAll(p0, 0o755)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -82,7 +84,7 @@ func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
 		return err
 	}
 
-	os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
+	os.Chmod(p1, os.FileMode(rand.Intn(0o777)|0o400))
 
 	t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 	return os.Chtimes(p1, t, t)

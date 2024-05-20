@@ -237,6 +237,8 @@
     "Log File": "Arquivo de registro",
     "Log In": "Entrar",
     "Log Out": "Sair",
+    "Log in to see paths information.": "Faça Log In para ver informações de caminhos.",
+    "Log in to see version information.": "Faça Log In para ver informações de versão.",
     "Log tailing paused. Scroll to the bottom to continue.": "Log tailing pausado. Role até o final para continuar.",
     "Login failed, see Syncthing logs for details.": "Falha no login. Veja os logs do Syncthing para mais detalhes.",
     "Logs": "Registros",

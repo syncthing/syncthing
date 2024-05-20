@@ -293,15 +293,18 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 		return err
 	}
 
-	err = batch.Flush()
-
-	// True if there was nothing to be sent
-	if f.Sequence == 0 {
+	if err := batch.Flush(); err != nil {
 		return err
 	}
 
-	s.prevSequence = f.Sequence
-	return err
+	// Use the sequence of the snapshot we iterated as a starting point for the
+	// next run. Previously we used the sequence of the last file we sent,
+	// however it's possible that a higher sequence exists, just doesn't need to
+	// be sent (e.g. in a receive-only folder, when a local change was
+	// reverted). No point trying to send nothing again.
+	s.prevSequence = snap.Sequence(protocol.LocalDeviceID)
+
+	return nil
 }
 
 func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) error {

@@ -27,21 +27,19 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jan 15, 2024" "v1.27.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $XDG_STATE_HOME/syncthing
 $HOME/.local/state/syncthing
 $HOME/Library/Application Support/Syncthing
 %LOCALAPPDATA%\eSyncthing
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -56,7 +54,7 @@ installations may still use these directories instead of the newer
 defaults.
 
 .sp
-New in version 1.5.0: Database and config can now be set separately. Previously the database was
+Added in version 1.5.0: Database and config can now be set separately. Previously the database was
 always located in the same directory as the config.
 
 .sp
@@ -119,8 +117,7 @@ may no longer correspond to the defaults.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <configuration version=\(dq37\(dq>
     <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
@@ -277,16 +274,14 @@ may no longer correspond to the defaults.
         </device>
     </defaults>
 </configuration>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH CONFIGURATION ELEMENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <configuration version=\(dq37\(dq>
     <folder></folder>
     <device></device>
@@ -296,8 +291,7 @@ may no longer correspond to the defaults.
     <remoteIgnoredDevice></remoteIgnoredDevice>
     <defaults></defaults>
 </configuration>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -322,8 +316,7 @@ GUI.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
@@ -361,8 +354,7 @@ GUI.
     <syncXattrs>false</syncXattrs>
     <sendXattrs>false</sendXattrs>
 </folder>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -603,7 +595,7 @@ to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
-\fI\%How do I serve a folder from a read only filesystem?\fP\&. Default is \fB\&.stfolder\fP\&.
+\X'tty: link #marker-faq'\fI\%How do I serve a folder from a read only filesystem?\fP\X'tty: link'\&. Default is \fB\&.stfolder\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -715,8 +707,7 @@ devices when this is set to \fBtrue\fP\&. See
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
     <address>dynamic</address>
     <paused>false</paused>
@@ -741,8 +732,7 @@ devices when this is set to \fBtrue\fP\&. See
     <remoteGUIPort>8384</remoteGUIPort>
     <numConnections>0</numConnections>
 </device>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -754,7 +744,7 @@ element:
 .INDENT 0.0
 .TP
 .B id (mandatory)
-The \fI\%device ID\fP\&.
+The \X'tty: link #device-ids'\fI\%device ID\fP\X'tty: link'\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -855,15 +845,13 @@ for example:
 .INDENT 7.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <device id=\(dq...\(dq>
     <address>tcp://192.0.2.1:22001</address>
     <address>quic://192.0.1.254:22000</address>
     <address>dynamic</address>
 </device>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -942,15 +930,13 @@ The number of connections to this device. See
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
     <address>127.0.0.1:8384</address>
     <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
 </gui>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1060,7 +1046,7 @@ LDAP authentication. Requires ldap top level config section to be present.
 .INDENT 0.0
 .TP
 .B sendBasicAuthPrompt
-New in version 1.26.0.
+Added in version 1.26.0.
 
 .sp
 Prior to version 1.26.0 the GUI used HTTP Basic Authorization for login, but
@@ -1082,16 +1068,14 @@ won’t see browser popups prompting for username and password.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <ldap>
     <address>localhost:389</address>
     <bindDN>cn=%s,ou=users,dc=syncthing,dc=net</bindDN>
     <transport>nontls</transport>
     <insecureSkipVerify>false</insecureSkipVerify>
 </ldap>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1150,8 +1134,7 @@ Search filter for user searches.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <options>
     <listenAddress>default</listenAddress>
     <globalAnnounceServer>default</globalAnnounceServer>
@@ -1202,8 +1185,7 @@ Search filter for user searches.
     <connectionLimitMax>0</connectionLimitMax>
     <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
 </options>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1345,7 +1327,7 @@ automatic upgrades.
 .TP
 .B upgradeToPreReleases
 If \fBtrue\fP, automatic upgrades include release candidates (see
-\fI\%Versions & Releases\fP).
+\X'tty: link #releases'\fI\%Versions & Releases\fP\X'tty: link').
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1415,7 +1397,10 @@ the user acknowledged it (e.g. an transition notice on an upgrade).
 .INDENT 0.0
 .TP
 .B trafficClass
-Specify a type of service (TOS)/traffic class of outgoing packets.
+Specify an IPv4 type of service (TOS)/IPv6 traffic class for outgoing
+packets. To specify a differentiated services code point (DSCP) the value
+must be bit shifted to the left by two to take the two least significant
+ECN bits into account.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1497,7 +1482,7 @@ addresses to global discovery.
 .TP
 .B sendFullIndexOnUpgrade
 Controls whether all index data is resent when an upgrade has happened,
-equivalent to starting Syncthing with \fI\%\-\-reset\-deltas\fP\&.  This used
+equivalent to starting Syncthing with \X'tty: link #cmdoption-reset-deltas'\fI\%\-\-reset\-deltas\fP\X'tty: link'\&.  This used
 to be the default behavior in older versions, but is mainly useful as a
 troubleshooting step and causes high database churn. The default is now
 \fBfalse\fP\&.
@@ -1535,8 +1520,7 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <defaults>
     <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
@@ -1590,8 +1574,7 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
         <line>qu*</line>
     </ignores>
 </defaults>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1623,10 +1606,10 @@ including the appropriate \fI\%folder.device\fP element underneath.
 .INDENT 0.0
 .TP
 .B ignores
-New in version 1.19.0.
+Added in version 1.19.0.
 
 .sp
-Template for the \fI\%ignore patterns\fP applied to new
+Template for the \X'tty: link #ignoring-files'\fI\%ignore patterns\fP\X'tty: link' applied to new
 folders.  These are copied to the \fB\&.stignore\fP file when a folder is
 automatically accepted from a remote device.  The GUI uses them to pre\-fill
 the respective field when adding a new folder as well.  In XML, each pattern
@@ -1698,12 +1681,12 @@ accidentally if you sync your home folder between devices. A common symptom
 of syncing configuration files is two devices ending up with the same Device ID.
 .sp
 If you want to use Syncthing to backup your configuration files, it is recommended
-that the files you are backing up are in a \fI\%Send Only Folder\fP to prevent other
+that the files you are backing up are in a \X'tty: link #folder-sendonly'\fI\%Send Only Folder\fP\X'tty: link' to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
 If you’d like to sync your home folder in non\-send only mode, you may add the
-folder that stores the configuration files to the \fI\%ignore list\fP\&.
+folder that stores the configuration files to the \X'tty: link #ignoring-files'\fI\%ignore list\fP\X'tty: link'\&.
 If you’d also like to backup your configuration files, add another folder in
 send only mode for just the configuration folder.
 .SH AUTHOR

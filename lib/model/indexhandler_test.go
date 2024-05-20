@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db"
@@ -47,27 +48,34 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	const msgs = 5e2
 	const files = 1e3
 
-	recvd := 0
+	recvdEntries := 0
+	recvdBatches := 0
+	var wg sync.WaitGroup
 	m2.IndexUpdateCalls(func(_ protocol.Connection, idxUp *protocol.IndexUpdate) error {
 		for j := 0; j < files; j++ {
-			if n := idxUp.Files[j].Name; n != fmt.Sprintf("f%d-%d", recvd, j) {
+			if n := idxUp.Files[j].Name; n != fmt.Sprintf("f%d-%d", recvdBatches, j) {
 				t.Error("wrong filename", n)
 			}
+			recvdEntries++
 		}
-		recvd++
+		recvdBatches++
+		wg.Done()
 		return nil
 	})
 
 	b1 := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		return c1.IndexUpdate(ctx, &protocol.IndexUpdate{Folder: "foo", Files: fs})
 	})
+	sentEntries := 0
 	for i := 0; i < msgs; i++ {
 		for j := 0; j < files; j++ {
 			b1.Append(protocol.FileInfo{
 				Name:   fmt.Sprintf("f%d-%d", i, j),
 				Blocks: []protocol.BlockInfo{{Hash: make([]byte, 32)}},
 			})
+			sentEntries++
 		}
+		wg.Add(1)
 		if err := b1.Flush(); err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +86,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	<-c1.Closed()
 	<-c2.Closed()
 
-	if recvd != msgs-1 {
-		t.Error("didn't receive all expected messages")
+	if recvdEntries != sentEntries {
+		t.Error("didn't receive all expected messages", recvdEntries, sentEntries)
 	}
 }

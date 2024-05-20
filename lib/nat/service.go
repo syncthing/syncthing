@@ -12,6 +12,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
+	"slices"
 	stdsync "sync"
 	"time"
 
@@ -232,9 +233,8 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 		default:
 		}
 
-		// Delete addresses for NATDevice's that do not exist anymore
-		nat, ok := nats[id]
-		if !ok {
+		if nat, ok := nats[id]; !ok || len(extAddrs) == 0 {
+			// Delete addresses for NATDevice's that do not exist anymore
 			mapping.removeAddressLocked(id)
 			change = true
 			continue
@@ -411,21 +411,11 @@ func addrSetsEqual(a []Address, b []Address) bool {
 		return false
 	}
 
-	// TODO: Rewrite this using slice.Contains once Go 1.21 is the minimum Go version.
-	for _, aElem := range a {
-		aElemFound := false
-		for _, bElem := range b {
-			if bElem.Equal(aElem) {
-				aElemFound = true
-				break
-			}
-		}
-		if !aElemFound {
-			// Found element in a that is not in b.
+	for _, v := range a {
+		if !slices.ContainsFunc(b, v.Equal) {
 			return false
 		}
 	}
 
-	// b contains all elements of a and their lengths are equal, so the sets are equal.
 	return true
 }
