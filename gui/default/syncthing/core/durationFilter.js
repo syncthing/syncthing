@@ -15,15 +15,15 @@ angular.module('syncthing.core')
             var milliseconds = parseInt(input, 10) * 1000;
             var units = ["d", "h", "m", "s"];
             switch (precision) {
-                case "m":
-                    units = ["d", "h", "m"];
-                    break
-                case "h":
-                    units = ["d", "h"];
-                    break
                 case "d":
-                    units = ["d"];
-                    break
+                    units.pop();
+                    // fallthrough
+                case "h":
+                    units.pop();
+                    // fallthrough
+                case "m":
+                    units.pop();
+                    // fallthrough
                 case "s":
                     break
                 default:
