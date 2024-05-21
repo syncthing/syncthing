@@ -25,7 +25,7 @@ SOFTWARE.
 
 This project is also licensed under the Unlicense license, at your option:
 
-Thr Unlicense
+The Unlicense
 -----------
 This is free and unencumbered software released into the public domain.
 
