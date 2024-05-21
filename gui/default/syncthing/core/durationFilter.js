@@ -12,25 +12,11 @@ angular.module('syncthing.core')
 
         var SECONDS_IN = { "d": 86400, "h": 3600, "m": 60, "s": 1 };
         return function (input, precision) {
-            var milliseconds = parseInt(input, 10) * 1000;
-            var units = ["d", "h", "m", "s"];
-            switch (precision) {
-                case "d":
-                    units.pop();
-                    // fallthrough
-                case "h":
-                    units.pop();
-                    // fallthrough
-                case "m":
-                    units.pop();
-                    // fallthrough
-                case "s":
-                    break
-                default:
-                    return "[Error: incorrect usage, precision must be one of d, h, m or s]";
+            if (!precision) {
+                precision = "s";
             }
-
-            let language_cc = $translate.use();
+            input = parseInt(input, 10);
+            var language_cc = $translate.use();
             if (language_cc != null) {
                 language_cc = language_cc.replace("-", "_");
                 var fallbacks = [];
@@ -46,8 +32,27 @@ angular.module('syncthing.core')
                 }
                 // Fallback to english, if the language isn't found
                 fallbacks.push("en");
+
+                var units = ["d", "h", "m", "s"];
+                switch (precision) {
+                    case "d":
+                        units.pop();
+                        // fallthrough
+                    case "h":
+                        units.pop();
+                        // fallthrough
+                    case "m":
+                        units.pop();
+                        // fallthrough
+                    case "s":
+                        break
+                    default:
+                        return "[Error: precision must be d, h, m or s, it's " + precision + "]";
+                }
+
                 try {
-                    return humanizeDuration(milliseconds, {
+                    // humanizeDuration accepts only milliseconds
+                    return humanizeDuration(input * 1000, {
                         language: language_cc,
                         maxDecimalPoints: 0,
                         units: units,
@@ -59,10 +64,6 @@ angular.module('syncthing.core')
                 }
             }
             var result = "";
-            if (!precision) {
-                precision = "s";
-            }
-            input = parseInt(input, 10);
             for (var k in SECONDS_IN) {
                 var t = (input / SECONDS_IN[k] | 0); // Math.floor
 
