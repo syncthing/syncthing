@@ -29,7 +29,7 @@ message FolderConfiguration {
     int32                              rescan_interval_s          = 7 [(ext.xml) = "rescanIntervalS,attr", (ext.default) = "3600"];
     bool                               fs_watcher_enabled         = 8 [(ext.goname) = "FSWatcherEnabled", (ext.xml) = "fsWatcherEnabled,attr", (ext.default) = "true"];
     double                             fs_watcher_delay_s         = 9 [(ext.goname) = "FSWatcherDelayS", (ext.xml) = "fsWatcherDelayS,attr", (ext.default) = "10"];
-    double                             fs_watcher_max_delay_s     = 40 [(ext.goname) = "FSWatcherMaxDelayS", (ext.xml) = "fsWatcherMaxDelayS,attr"];
+    double                             fs_watcher_timeout_s       = 40 [(ext.goname) = "FSWatcherTimeoutS", (ext.xml) = "fsWatcherTimeoutS,attr"];
     bool                               ignore_perms               = 10 [(ext.xml) = "ignorePerms,attr"];
     bool                               auto_normalize             = 11 [(ext.xml) = "autoNormalize,attr", (ext.default) = "true"];
     Size                               min_disk_free              = 12 [(ext.default) = "1 %"];
