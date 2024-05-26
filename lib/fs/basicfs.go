@@ -57,6 +57,7 @@ type (
 )
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
+	l.Infoln("newBasicFilesystem root=", root)
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
@@ -71,11 +72,11 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	root = filepath.Clean(filepath.Dir(root + sep))
 
 	if build.IsIOS && !filepath.IsAbs(root) && root[0] != '~' {
-	  newroot, err2 := rooted(root, "~/Documents")
+		newroot, err2 := rooted(root, "~/Documents")
 		if err2 == nil {
-		  root = newroot
+			root = newroot
 		} else {
-		  l.Warnln("Illegal folder", root, "-", err2)
+			l.Warnln("Illegal folder", root, "-", err2)
 			// Cannot error from here so use an unwritable path that will fail later
 			root = "~/bad"
 		}

@@ -10,12 +10,12 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -84,7 +84,7 @@ func (c GUIConfiguration) UseTLS() bool {
 
 func (c GUIConfiguration) URL() string {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		return override;
+		return override
 	}
 
 	if c.Network() == "unix" {
@@ -107,7 +107,7 @@ func (c GUIConfiguration) URL() string {
 	if strings.HasPrefix(u.Host, ":") {
 		// Empty host, i.e. ":port", use IPv4 localhost
 		u.Host = "127.0.0.1" + u.Host
-	} else if strings.HasPrefix(u.Host, "0.0.0.0:") && runtime.GOOS != "ios" {
+	} else if strings.HasPrefix(u.Host, "0.0.0.0:") && !build.IsIOS {
 		// IPv4 all zeroes host, convert to IPv4 localhost
 		// Unless we are on iOS, keep it open to allow testing on host Mac (FIXME)
 		u.Host = "127.0.0.1" + u.Host[7:]

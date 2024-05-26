@@ -518,12 +518,12 @@ func (s *service) fatal(err *svcutil.FatalErr) {
 }
 
 func listContainsString(s []string, e string) bool {
-  for _, a := range s {
-    if a == e {
-      return true
-    }
-  }
-  return false
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 func getPostHandler(get, post http.Handler) http.Handler {
@@ -1125,10 +1125,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	tilde := "."
-	if runtime.GOOS != "ios" {
-		tilde, _ = fs.ExpandTilde("~")
-	}
+	tilde, _ := fs.ExpandTilde("~")
 	res := make(map[string]interface{})
 	res["myID"] = s.id.String()
 	res["goroutines"] = runtime.NumGoroutine()
