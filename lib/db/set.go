@@ -168,6 +168,10 @@ type Snapshot struct {
 func (s *FileSet) Snapshot() (*Snapshot, error) {
 	opStr := fmt.Sprintf("%s Snapshot()", s.folder)
 	l.Debugf(opStr)
+
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
 	t, err := s.db.newReadOnlyTransaction()
 	if err != nil {
 		s.db.handleFailure(err)

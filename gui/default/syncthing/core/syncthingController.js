@@ -2674,6 +2674,15 @@ angular.module('syncthing.core')
                          + '&device=' + encodeURIComponent(deviceID));
         };
 
+        $scope.folderIsSharedEncrypted = function (folderID, deviceID) {
+            var folderCfg = $scope.folders[folderID];
+            if (!folderCfg || folderCfg.type === 'receiveencrypted') return false;
+
+            return folderCfg.devices.some(function (device) {
+                return device.deviceID === deviceID && device.encryptionPassword !== '';
+            });
+        };
+
         $scope.folderHasUnacceptedDevices = function (folderCfg) {
             for (var deviceID in $scope.completion) {
                 if (deviceID in $scope.devices

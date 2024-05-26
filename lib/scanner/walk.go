@@ -142,8 +142,6 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
-	ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
-
 	// We need to emit progress events, hence we create a routine which buffers
 	// the list of files to be hashed, counts the total number of
 	// bytes to hash, and once no more files need to be hashed (chan gets closed),
@@ -188,17 +186,17 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 				})
 			}
 
+			ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-done:
 					emitProgressEvent()
 					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
-					ticker.Stop()
 					return
 				case <-ticker.C:
 					emitProgressEvent()
 				case <-ctx.Done():
-					ticker.Stop()
 					return
 				}
 			}
