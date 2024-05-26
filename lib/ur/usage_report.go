@@ -224,7 +224,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.TemporariesDisabled = opts.KeepTemporariesH == 0
 		report.TemporariesCustom = opts.KeepTemporariesH != 24
 		report.LimitBandwidthInLan = opts.LimitBandwidthInLan
-		report.CustomReleaseURL = opts.ReleasesURL != "https=//upgrades.syncthing.net/meta.json"
+		report.CustomReleaseURL = opts.ReleasesURL != "https://upgrades.syncthing.net/meta.json"
 		report.CustomStunServers = len(opts.RawStunServers) != 1 || opts.RawStunServers[0] != "default"
 
 		for _, cfg := range s.cfg.Folders() {
@@ -254,7 +254,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
-			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
+			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, int(cfg.FSWatcherDelayS))
 			if cfg.MarkerName != config.DefaultMarkerName {
 				report.FolderUsesV3.CustomMarkerName++
 			}
@@ -310,7 +310,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if err == nil {
 				if addr.IP.IsLoopback() {
 					report.GUIStats.ListenLocal++
-
 				} else if addr.IP.IsUnspecified() {
 					report.GUIStats.ListenUnspecified++
 				}
@@ -329,6 +328,11 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 }
 
 func (*Service) UptimeS() int {
+	// Handle nonexistent or wildly incorrect system clock.
+	// This code was written in 2023, it can't run in the past.
+	if StartTime.Year() < 2023 {
+		return 0
+	}
 	return int(time.Since(StartTime).Seconds())
 }
 

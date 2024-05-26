@@ -104,6 +104,7 @@ func newWalker(cfg Config) *walker {
 		w.Matcher = ignore.New(w.Filesystem)
 	}
 
+	registerFolderMetrics(w.Folder)
 	return w
 }
 
@@ -132,7 +133,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -140,8 +141,6 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	if w.ProgressTickIntervalS == 0 {
 		w.ProgressTickIntervalS = 2
 	}
-
-	ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
 
 	// We need to emit progress events, hence we create a routine which buffers
 	// the list of files to be hashed, counts the total number of
@@ -159,35 +158,45 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			total += file.Size
 		}
 
+		if len(filesToHash) == 0 {
+			close(finishedChan)
+			return
+		}
+
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
 		go func() {
 			defer progress.Close()
 
+			emitProgressEvent := func() {
+				current := progress.Total()
+				rate := progress.Rate()
+				l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+				w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
+					"folder":  w.Folder,
+					"current": current,
+					"total":   total,
+					"rate":    rate, // bytes per second
+				})
+			}
+
+			ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-done:
+					emitProgressEvent()
 					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
-					ticker.Stop()
 					return
 				case <-ticker.C:
-					current := progress.Total()
-					rate := progress.Rate()
-					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
-						"folder":  w.Folder,
-						"current": current,
-						"total":   total,
-						"rate":    rate, // bytes per second
-					})
+					emitProgressEvent()
 				case <-ctx.Done():
-					ticker.Stop()
 					return
 				}
 			}
@@ -255,6 +264,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		default:
 		}
 
+		metricScannedItems.WithLabelValues(w.Folder).Inc()
+
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
@@ -282,10 +293,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
+		if m := w.Matcher.Match(path); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+			if err != nil || m.CanSkipDir() || info.IsSymlink() {
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
@@ -413,12 +424,14 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -458,12 +471,14 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			l.Debugln(w, "unchanged:", curFile)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -511,12 +526,14 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 			return nil
 		}
-		if curFile.ShouldConflict() {
+		if curFile.ShouldConflict() && !f.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
 			// taken their version into account, and possibly cause a
-			// conflict.
+			// conflict. However, only do this if the new file is not also
+			// invalid. This would indicate that the new file is not part
+			// of the cluster, but e.g. a local change.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln(w, "rescan:", curFile)
@@ -599,7 +616,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	if dst.Type == protocol.FileInfoTypeFile && build.IsWindows {
 		// If we have an existing index entry, copy the executable bits
 		// from there.
-		dst.Permissions |= (src.Permissions & 0111)
+		dst.Permissions |= (src.Permissions & 0o111)
 	}
 	dst.Version = src.Version.Update(w.ShortID)
 	dst.ModifiedBy = w.ShortID
@@ -685,6 +702,13 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
 		}
 	}
+
+	if ct := fi.InodeChangeTime(); !ct.IsZero() {
+		f.InodeChangeNs = ct.UnixNano()
+	} else {
+		f.InodeChangeNs = 0
+	}
+
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)
@@ -695,19 +719,18 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
+
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = fi.ModTime().Nanosecond()
+
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil
 	}
+
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
-	if ct := fi.InodeChangeTime(); !ct.IsZero() {
-		f.InodeChangeNs = ct.UnixNano()
-	} else {
-		f.InodeChangeNs = 0
-	}
+
 	return f, nil
 }

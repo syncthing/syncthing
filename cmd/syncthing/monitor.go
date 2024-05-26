@@ -346,7 +346,7 @@ func restartMonitor(binary string, args []string) error {
 }
 
 func restartMonitorUnix(binary string, args []string) error {
-	return syscall.Exec(args[0], args, os.Environ())
+	return syscall.Exec(binary, args, os.Environ())
 }
 
 func restartMonitorWindows(binary string, args []string) error {
@@ -521,7 +521,7 @@ func (f *autoclosedFile) ensureOpenLocked() error {
 	// We open the file for write only, and create it if it doesn't exist.
 	flags := os.O_WRONLY | os.O_CREATE | os.O_APPEND
 
-	fd, err := os.OpenFile(f.name, flags, 0644)
+	fd, err := os.OpenFile(f.name, flags, 0o644)
 	if err != nil {
 		return err
 	}

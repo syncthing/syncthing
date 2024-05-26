@@ -9,16 +9,18 @@ package config
 import (
 	"net/url"
 	"os"
-	"runtime"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
+	// This function should match isAuthEnabled() in syncthingController.js
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
@@ -60,14 +62,12 @@ func (c GUIConfiguration) UnixSocketPermissions() os.FileMode {
 }
 
 func (c GUIConfiguration) Network() string {
-	if override := os.Getenv("STGUIADDRESS"); strings.Contains(override, "/") {
+	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		url, err := url.Parse(override)
-		if err != nil {
-			return "tcp"
-		}
-		if strings.HasPrefix(url.Scheme, "unix") {
+		if err == nil && strings.HasPrefix(url.Scheme, "unix") {
 			return "unix"
 		}
+		return "tcp"
 	}
 	if strings.HasPrefix(c.RawAddress, "/") {
 		return "unix"
@@ -77,23 +77,21 @@ func (c GUIConfiguration) Network() string {
 
 func (c GUIConfiguration) UseTLS() bool {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		if strings.HasPrefix(override, "http") {
-			return strings.HasPrefix(override, "https:")
-		}
-		if strings.HasPrefix(override, "unix") {
-			return strings.HasPrefix(override, "unixs:")
-		}
+		return strings.HasPrefix(override, "https:") || strings.HasPrefix(override, "unixs:")
 	}
 	return c.RawUseTLS
 }
 
 func (c GUIConfiguration) URL() string {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		return override;
+		return override
 	}
 
-	if strings.HasPrefix(c.RawAddress, "/") {
-		return "unix://" + c.RawAddress
+	if c.Network() == "unix" {
+		if c.UseTLS() {
+			return "unixs://" + c.Address()
+		}
+		return "unix://" + c.Address()
 	}
 
 	u := url.URL{
@@ -109,7 +107,7 @@ func (c GUIConfiguration) URL() string {
 	if strings.HasPrefix(u.Host, ":") {
 		// Empty host, i.e. ":port", use IPv4 localhost
 		u.Host = "127.0.0.1" + u.Host
-	} else if strings.HasPrefix(u.Host, "0.0.0.0:") && runtime.GOOS != "ios" {
+	} else if strings.HasPrefix(u.Host, "0.0.0.0:") && !build.IsIOS {
 		// IPv4 all zeroes host, convert to IPv4 localhost
 		// Unless we are on iOS, keep it open to allow testing on host Mac (FIXME)
 		u.Host = "127.0.0.1" + u.Host[7:]
@@ -121,9 +119,19 @@ func (c GUIConfiguration) URL() string {
 	return u.String()
 }
 
-// SetHashedPassword hashes the given plaintext password and stores the new hash.
-func (c *GUIConfiguration) HashAndSetPassword(password string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
+// matches a bcrypt hash and not too much else
+var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
+
+// SetPassword takes a bcrypt hash or a plaintext password and stores it.
+// Plaintext passwords are hashed. Returns an error if the password is not
+// valid.
+func (c *GUIConfiguration) SetPassword(password string) error {
+	if bcryptExpr.MatchString(password) {
+		// Already hashed
+		c.Password = password
+		return nil
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}

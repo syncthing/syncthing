@@ -27,13 +27,13 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Feb 22, 2023" "v1.23.1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
 .sp
 Syncthing provides a simple long polling interface for exposing events from the
-core utility towards a GUI. To receive events, see /rest/events\-get\&.
+core utility towards a GUI. To receive events, see \fI\%GET /rest/events\fP\&.
 .SH EVENT STRUCTURE
 .sp
 Each event is represented by an object similar to the following:
@@ -43,13 +43,13 @@ Each event is represented by an object similar to the following:
 .nf
 .ft C
 {
-    "id": 2,
-    "globalID": 3,
-    "type": "DeviceConnected",
-    "time": "2014\-07\-13T21:04:33.687836696+02:00",
-    "data": {
-        "addr": "172.16.32.25:22000",
-        "id": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+    \(dqid\(dq: 2,
+    \(dqglobalID\(dq: 3,
+    \(dqtype\(dq: \(dqDeviceConnected\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:04:33.687836696+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqaddr\(dq: \(dq172.16.32.25:22000\(dq,
+        \(dqid\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
 .ft P
@@ -96,12 +96,12 @@ message received from a remote device.  It is mainly used for internal purposes.
 .nf
 .ft C
 {
-    "id": 84,
-    "globalID": 84,
-    "type": "ClusterConfigReceived",
-    "time": "2022\-04\-27T14:14:27.043576583+09:00",
-    "data": {
-        "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU"
+    \(dqid\(dq: 84,
+    \(dqglobalID\(dq: 84,
+    \(dqtype\(dq: \(dqClusterConfigReceived\(dq,
+    \(dqtime\(dq: \(dq2022\-04\-27T14:14:27.043576583+09:00\(dq,
+    \(dqdata\(dq: {
+        \(dqdevice\(dq: \(dqI6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU\(dq
     }
 }
 .ft P
@@ -118,19 +118,19 @@ itself.
 .nf
 .ft C
 {
-    "id": 50,
-    "globalID": 50,
-    "type": "ConfigSaved",
-    "time": "2014\-12\-13T00:09:13.5166486Z",
-    "data": {
-        "version": 7,
-        "folders": [{"..."}],
-        "devices": [{"..."}],
-        "gui": {"..."},
-        "ldap": {"..."},
-        "options": {"..."},
-        "remoteIgnoredDevices": [{"..."}],
-        "defaults": {"..."}
+    \(dqid\(dq: 50,
+    \(dqglobalID\(dq: 50,
+    \(dqtype\(dq: \(dqConfigSaved\(dq,
+    \(dqtime\(dq: \(dq2014\-12\-13T00:09:13.5166486Z\(dq,
+    \(dqdata\(dq: {
+        \(dqversion\(dq: 7,
+        \(dqfolders\(dq: [{\(dq...\(dq}],
+        \(dqdevices\(dq: [{\(dq...\(dq}],
+        \(dqgui\(dq: {\(dq...\(dq},
+        \(dqldap\(dq: {\(dq...\(dq},
+        \(dqoptions\(dq: {\(dq...\(dq},
+        \(dqremoteIgnoredDevices\(dq: [{\(dq...\(dq}],
+        \(dqdefaults\(dq: {\(dq...\(dq}
     }
 }
 .ft P
@@ -146,17 +146,17 @@ Generated each time a connection to a device has been established.
 .nf
 .ft C
 {
-    "id": 2,
-    "globalID": 2,
-    "type": "DeviceConnected",
-    "time": "2014\-07\-13T21:04:33.687836696+02:00",
-    "data": {
-        "addr": "172.16.32.25:22000",
-        "id": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG",
-        "deviceName": "Laptop",
-        "clientName": "syncthing",
-        "clientVersion": "v0.13.4",
-        "type": "TCP (Client)"
+    \(dqid\(dq: 2,
+    \(dqglobalID\(dq: 2,
+    \(dqtype\(dq: \(dqDeviceConnected\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:04:33.687836696+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqaddr\(dq: \(dq172.16.32.25:22000\(dq,
+        \(dqid\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq,
+        \(dqdeviceName\(dq: \(dqLaptop\(dq,
+        \(dqclientName\(dq: \(dqsyncthing\(dq,
+        \(dqclientVersion\(dq: \(dqv0.13.4\(dq,
+        \(dqtype\(dq: \(dqTCP (Client)\(dq
     }
 }
 .ft P
@@ -172,13 +172,13 @@ Generated each time a connection to a device has been terminated.
 .nf
 .ft C
 {
-    "id": 48,
-    "globalID": 48,
-    "type": "DeviceDisconnected",
-    "time": "2014\-07\-13T21:18:52.859929215+02:00",
-    "data": {
-        "error": "unexpected EOF",
-        "id": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+    \(dqid\(dq: 48,
+    \(dqglobalID\(dq: 48,
+    \(dqtype\(dq: \(dqDeviceDisconnected\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:18:52.859929215+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqerror\(dq: \(dqunexpected EOF\(dq,
+        \(dqid\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
 .ft P
@@ -204,15 +204,15 @@ Emitted when a new device is discovered using local discovery.
 .nf
 .ft C
 {
-    "id": 13,
-    "globalID": 13,
-    "type": "DeviceDiscovered",
-    "time": "2014\-07\-17T13:28:05.043465207+02:00",
-    "data": {
-        "addrs": [
-            "172.16.32.25:22000"
+    \(dqid\(dq: 13,
+    \(dqglobalID\(dq: 13,
+    \(dqtype\(dq: \(dqDeviceDiscovered\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-17T13:28:05.043465207+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqaddrs\(dq: [
+            \(dq172.16.32.25:22000\(dq
         ],
-        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+        \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
 .ft P
@@ -228,12 +228,12 @@ Emitted when a device was paused.
 .nf
 .ft C
 {
-    "id": 13,
-    "globalID": 13,
-    "type": "DevicePaused",
-    "time": "2014\-07\-17T13:28:05.043465207+02:00",
-    "data": {
-        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+    \(dqid\(dq: 13,
+    \(dqglobalID\(dq: 13,
+    \(dqtype\(dq: \(dqDevicePaused\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-17T13:28:05.043465207+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
 .ft P
@@ -243,7 +243,7 @@ Emitted when a device was paused.
 .SS DeviceRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pendingdeviceschanged event instead.
+the replacement \fI\%PendingDevicesChanged\fP event instead.
 
 .sp
 Emitted when there is a connection from a device we are not configured
@@ -254,14 +254,14 @@ to talk to.
 .nf
 .ft C
 {
-    "id": 24,
-    "globalID": 24,
-    "type": "DeviceRejected",
-    "time": "2014\-08\-19T10:43:00.562821045+02:00",
-    "data": {
-        "address": "127.0.0.1:51807",
-        "name": "My dusty computer",
-        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK"
+    \(dqid\(dq: 24,
+    \(dqglobalID\(dq: 24,
+    \(dqtype\(dq: \(dqDeviceRejected\(dq,
+    \(dqtime\(dq: \(dq2014\-08\-19T10:43:00.562821045+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqaddress\(dq: \(dq127.0.0.1:51807\(dq,
+        \(dqname\(dq: \(dqMy dusty computer\(dq,
+        \(dqdevice\(dq: \(dqEJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK\(dq
     }
 }
 .ft P
@@ -277,12 +277,12 @@ Generated each time a device was resumed.
 .nf
 .ft C
 {
-    "id": 2,
-    "globalID": 2,
-    "type": "DeviceResumed",
-    "time": "2014\-07\-13T21:04:33.687836696+02:00",
-    "data": {
-        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+    \(dqid\(dq: 2,
+    \(dqglobalID\(dq: 2,
+    \(dqtype\(dq: \(dqDeviceResumed\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:04:33.687836696+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq
     }
 }
 .ft P
@@ -300,53 +300,53 @@ configuration can cause multiple files to be shown.
 .nf
 .ft C
 {
-    "id": 221,
-    "globalID": 221,
-    "type": "DownloadProgress",
-    "time": "2014\-12\-13T00:26:12.9876937Z",
-    "data": {
-        "folder1": {
-            "file1": {
-                "total": 800,
-                "pulling": 2,
-                "copiedFromOrigin": 0,
-                "reused": 633,
-                "copiedFromElsewhere": 0,
-                "pulled": 38,
-                "bytesTotal": 104792064,
-                "bytesDone": 87883776
+    \(dqid\(dq: 221,
+    \(dqglobalID\(dq: 221,
+    \(dqtype\(dq: \(dqDownloadProgress\(dq,
+    \(dqtime\(dq: \(dq2014\-12\-13T00:26:12.9876937Z\(dq,
+    \(dqdata\(dq: {
+        \(dqfolder1\(dq: {
+            \(dqfile1\(dq: {
+                \(dqtotal\(dq: 800,
+                \(dqpulling\(dq: 2,
+                \(dqcopiedFromOrigin\(dq: 0,
+                \(dqreused\(dq: 633,
+                \(dqcopiedFromElsewhere\(dq: 0,
+                \(dqpulled\(dq: 38,
+                \(dqbytesTotal\(dq: 104792064,
+                \(dqbytesDone\(dq: 87883776
             },
-            "dir\e\efile2": {
-                "total": 80,
-                "pulling": 2,
-                "copiedFromOrigin": 0,
-                "reused": 0,
-                "copiedFromElsewhere": 0,
-                "pulled": 32,
-                "bytesTotal": 10420224,
-                "bytesDone": 4128768
+            \(dqdir\e\efile2\(dq: {
+                \(dqtotal\(dq: 80,
+                \(dqpulling\(dq: 2,
+                \(dqcopiedFromOrigin\(dq: 0,
+                \(dqreused\(dq: 0,
+                \(dqcopiedFromElsewhere\(dq: 0,
+                \(dqpulled\(dq: 32,
+                \(dqbytesTotal\(dq: 10420224,
+                \(dqbytesDone\(dq: 4128768
             }
         },
-        "folder2": {
-            "file3": {
-                "total": 800,
-                "pulling": 2,
-                "copiedFromOrigin": 0,
-                "reused": 633,
-                "copiedFromElsewhere": 0,
-                "pulled": 38,
-                "bytesTotal": 104792064,
-                "bytesDone": 87883776
+        \(dqfolder2\(dq: {
+            \(dqfile3\(dq: {
+                \(dqtotal\(dq: 800,
+                \(dqpulling\(dq: 2,
+                \(dqcopiedFromOrigin\(dq: 0,
+                \(dqreused\(dq: 633,
+                \(dqcopiedFromElsewhere\(dq: 0,
+                \(dqpulled\(dq: 38,
+                \(dqbytesTotal\(dq: 104792064,
+                \(dqbytesDone\(dq: 87883776
             },
-            "dir\e\efile4": {
-                "total": 80,
-                "pulling": 2,
-                "copiedFromOrigin": 0,
-                "reused": 0,
-                "copiedFromElsewhere": 0,
-                "pulled": 32,
-                "bytesTotal": 10420224,
-                "bytesDone": 4128768
+            \(dqdir\e\efile4\(dq: {
+                \(dqtotal\(dq: 80,
+                \(dqpulling\(dq: 2,
+                \(dqcopiedFromOrigin\(dq: 0,
+                \(dqreused\(dq: 0,
+                \(dqcopiedFromElsewhere\(dq: 0,
+                \(dqpulled\(dq: 32,
+                \(dqbytesTotal\(dq: 10420224,
+                \(dqbytesDone\(dq: 4128768
             }
         }
     }
@@ -396,11 +396,11 @@ The \fBdata\fP field contains a textual error message.
 .nf
 .ft C
 {
-  "id": 93,
-  "globalID": 93,
-  "type": "Failure",
-  "time": "2021\-06\-07T21:22:03.414609034+02:00",
-  "data": "index handler got paused while already paused"
+  \(dqid\(dq: 93,
+  \(dqglobalID\(dq: 93,
+  \(dqtype\(dq: \(dqFailure\(dq,
+  \(dqtime\(dq: \(dq2021\-06\-07T21:22:03.414609034+02:00\(dq,
+  \(dqdata\(dq: \(dqindex handler got paused while already paused\(dq
 }
 .ft P
 .fi
@@ -424,21 +424,21 @@ either \fBpaused\fP, \fBnotSharing\fP, or \fBvalid\fP if the remote is sharing b
 .nf
 .ft C
 {
-    "id": 84,
-    "globalID": 84,
-    "type": "FolderCompletion",
-    "time": "2022\-04\-27T14:14:27.043576583+09:00",
-    "data": {
-        "completion": 100,
-        "device": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU",
-        "folder": "default",
-        "globalBytes": 17,
-        "globalItems": 4,
-        "needBytes": 0,
-        "needDeletes": 0,
-        "needItems": 0,
-        "remoteState": "valid",
-        "sequence": 12
+    \(dqid\(dq: 84,
+    \(dqglobalID\(dq: 84,
+    \(dqtype\(dq: \(dqFolderCompletion\(dq,
+    \(dqtime\(dq: \(dq2022\-04\-27T14:14:27.043576583+09:00\(dq,
+    \(dqdata\(dq: {
+        \(dqcompletion\(dq: 100,
+        \(dqdevice\(dq: \(dqI6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU\(dq,
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqglobalBytes\(dq: 17,
+        \(dqglobalItems\(dq: 4,
+        \(dqneedBytes\(dq: 0,
+        \(dqneedDeletes\(dq: 0,
+        \(dqneedItems\(dq: 0,
+        \(dqremoteState\(dq: \(dqvalid\(dq,
+        \(dqsequence\(dq: 12
     }
 }
 .ft P
@@ -458,17 +458,17 @@ synchronization attempt, a new \fBFolderErrors\fP event is emitted.
 .nf
 .ft C
 {
-    "id": 132,
-    "type": "FolderErrors",
-    "time": "2015\-06\-26T13:39:24.697401384+02:00",
-    "data": {
-        "errors": [
+    \(dqid\(dq: 132,
+    \(dqtype\(dq: \(dqFolderErrors\(dq,
+    \(dqtime\(dq: \(dq2015\-06\-26T13:39:24.697401384+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqerrors\(dq: [
             {
-                "error": "open /Users/jb/src/github.com/syncthing/syncthing/test/s2/h2j/.syncthing.aslkjd.tmp: permission denied",
-                "path": "h2j/aslkjd"
+                \(dqerror\(dq: \(dqopen /Users/jb/src/github.com/syncthing/syncthing/test/s2/h2j/.syncthing.aslkjd.tmp: permission denied\(dq,
+                \(dqpath\(dq: \(dqh2j/aslkjd\(dq
             }
         ],
-        "folder": "default"
+        \(dqfolder\(dq: \(dqdefault\(dq
     }
 }
 .ft P
@@ -482,7 +482,7 @@ New in version 0.11.12.
 \fBSEE ALSO:\fP
 .INDENT 0.0
 .INDENT 3.5
-The statechanged event.
+The \fI\%StateChanged\fP event.
 .UNINDENT
 .UNINDENT
 .SS FolderPaused
@@ -495,13 +495,13 @@ of a folder.  Sent repeatedly for each changed folder.
 .nf
 .ft C
 {
-  "id": 93,
-  "globalID": 93,
-  "type": "FolderPaused",
-  "time": "2021\-06\-07T23:45:03.414609034+02:00",
-  "data": {
-    "id": "abcde\-fghij",
-    "label": "My folder"
+  \(dqid\(dq: 93,
+  \(dqglobalID\(dq: 93,
+  \(dqtype\(dq: \(dqFolderPaused\(dq,
+  \(dqtime\(dq: \(dq2021\-06\-07T23:45:03.414609034+02:00\(dq,
+  \(dqdata\(dq: {
+    \(dqid\(dq: \(dqabcde\-fghij\(dq,
+    \(dqlabel\(dq: \(dqMy folder\(dq
   }
 }
 .ft P
@@ -511,7 +511,7 @@ of a folder.  Sent repeatedly for each changed folder.
 .SS FolderRejected (DEPRECATED)
 .sp
 Deprecated since version v1.13.0: This event is still emitted for compatibility, but deprecated.  Use
-the replacement pendingfolderschanged event instead.
+the replacement \fI\%PendingFoldersChanged\fP event instead.
 
 .sp
 Emitted when a device sends index information for a folder we do not
@@ -522,14 +522,14 @@ have, or have but do not share with the device in question.
 .nf
 .ft C
 {
-    "id": 27,
-    "globalID": 27,
-    "type": "FolderRejected",
-    "time": "2014\-08\-19T10:41:06.761751399+02:00",
-    "data": {
-        "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
-        "folder": "GXWxf\-3zgnU",
-        "folderLabel": "My Pictures"
+    \(dqid\(dq: 27,
+    \(dqglobalID\(dq: 27,
+    \(dqtype\(dq: \(dqFolderRejected\(dq,
+    \(dqtime\(dq: \(dq2014\-08\-19T10:41:06.761751399+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqdevice\(dq: \(dqEJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK\(dq,
+        \(dqfolder\(dq: \(dqGXWxf\-3zgnU\(dq,
+        \(dqfolderLabel\(dq: \(dqMy Pictures\(dq
     }
 }
 .ft P
@@ -546,13 +546,13 @@ of a folder.  Sent repeatedly for each changed folder.
 .nf
 .ft C
 {
-  "id": 93,
-  "globalID": 93,
-  "type": "FolderResumed",
-  "time": "2021\-06\-07T23:45:03.414609034+02:00",
-  "data": {
-    "id": "abcde\-fghij",
-    "label": "My folder"
+  \(dqid\(dq: 93,
+  \(dqglobalID\(dq: 93,
+  \(dqtype\(dq: \(dqFolderResumed\(dq,
+  \(dqtime\(dq: \(dq2021\-06\-07T23:45:03.414609034+02:00\(dq,
+  \(dqdata\(dq: {
+    \(dqid\(dq: \(dqabcde\-fghij\(dq,
+    \(dqlabel\(dq: \(dqMy folder\(dq
   }
 }
 .ft P
@@ -570,16 +570,16 @@ total , as well as the current scanning rates in bytes per second.
 .nf
 .ft C
 {
-   "data" : {
-      "total" : 1,
-      "rate" : 0,
-      "current" : 0,
-      "folder" : "bd7q3\-zskm5"
+   \(dqdata\(dq : {
+      \(dqtotal\(dq : 1,
+      \(dqrate\(dq : 0,
+      \(dqcurrent\(dq : 0,
+      \(dqfolder\(dq : \(dqbd7q3\-zskm5\(dq
    },
-   "globalID" : 29,
-   "type" : "FolderScanProgress",
-   "time" : "2017\-03\-06T15:00:58.072004209+01:00",
-   "id" : 29
+   \(dqglobalID\(dq : 29,
+   \(dqtype\(dq : \(dqFolderScanProgress\(dq,
+   \(dqtime\(dq : \(dq2017\-03\-06T15:00:58.072004209+01:00\(dq,
+   \(dqid\(dq : 29
 }
 .ft P
 .fi
@@ -596,28 +596,51 @@ state.
 .nf
 .ft C
 {
-    "id": 16,
-    "globalID": 16,
-    "type": "FolderSummary",
-    "time": "2015\-04\-17T14:12:20.460121585+09:00",
-    "data": {
-        "folder": "default",
-        "summary": {
-            "globalBytes": 0,
-            "globalDeleted": 0,
-            "globalFiles": 0,
-            "ignorePatterns": false,
-            "inSyncBytes": 0,
-            "inSyncFiles": 0,
-            "invalid": "",
-            "localBytes": 0,
-            "localDeleted": 0,
-            "localFiles": 0,
-            "needBytes": 0,
-            "needFiles": 0,
-            "state": "idle",
-            "stateChanged": "2015\-04\-17T14:12:12.455224687+09:00",
-            "version": 0
+    \(dqid\(dq: 16,
+    \(dqtype\(dq: \(dqFolderSummary\(dq,
+    \(dqtime\(dq: \(dq2024\-01\-31T08:27:30.777875+01:00\(dq,
+    \(dqdata\(dq: {
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqsummary\(dq: {
+            \(dqerror\(dq: \(dq\(dq,
+            \(dqerrors\(dq: 0,
+            \(dqglobalBytes\(dq: 4,
+            \(dqglobalDeleted\(dq: 18664,
+            \(dqglobalDirectories\(dq: 0,
+            \(dqglobalFiles\(dq: 1,
+            \(dqglobalSymlinks\(dq: 0,
+            \(dqglobalTotalItems\(dq: 18665,
+            \(dqignorePatterns\(dq: false,
+            \(dqinSyncBytes\(dq: 4,
+            \(dqinSyncFiles\(dq: 1,
+            \(dqinvalid\(dq: \(dq\(dq,
+            \(dqlocalBytes\(dq: 4,
+            \(dqlocalDeleted\(dq: 18664,
+            \(dqlocalDirectories\(dq: 0,
+            \(dqlocalFiles\(dq: 1,
+            \(dqlocalSymlinks\(dq: 0,
+            \(dqlocalTotalItems\(dq: 18665,
+            \(dqneedBytes\(dq: 0,
+            \(dqneedDeletes\(dq: 0,
+            \(dqneedDirectories\(dq: 0,
+            \(dqneedFiles\(dq: 0,
+            \(dqneedSymlinks\(dq: 0,
+            \(dqneedTotalItems\(dq: 0,
+            \(dqpullErrors\(dq: 0,
+            \(dqreceiveOnlyChangedBytes\(dq: 0,
+            \(dqreceiveOnlyChangedDeletes\(dq: 0,
+            \(dqreceiveOnlyChangedDirectories\(dq: 0,
+            \(dqreceiveOnlyChangedFiles\(dq: 0,
+            \(dqreceiveOnlyChangedSymlinks\(dq: 0,
+            \(dqreceiveOnlyTotalItems\(dq: 0,
+            \(dqremoteSequence\(dq: {
+                \(dqMRIW7OK\-NETT3M4\-N6SBWME\-N25O76W\-YJKVXPH\-FUMQJ3S\-P57B74J\-GBITBAC\(dq: 37329
+            },
+            \(dqsequence\(dq: 37329,
+            \(dqstate\(dq: \(dqidle\(dq,
+            \(dqstateChanged\(dq: \(dq2024\-01\-31T08:27:24+01:00\(dq,
+            \(dqversion\(dq: 37329,
+            \(dqwatchError\(dq: \(dq\(dq
         }
     }
 }
@@ -638,13 +661,13 @@ If there was no error in either of these, the respective field is omitted.
 .nf
 .ft C
 {
-  "id": 123,
-  "type": "FolderWatchStateChanged",
-  "time": "2022\-03\-14T12:34:56.890000000+01:00",
-  "data": {
-    "folder": "default",
-    "from": "Something bad happened.",
-    "to": "Something worse happened."
+  \(dqid\(dq: 123,
+  \(dqtype\(dq: \(dqFolderWatchStateChanged\(dq,
+  \(dqtime\(dq: \(dq2022\-03\-14T12:34:56.890000000+01:00\(dq,
+  \(dqdata\(dq: {
+    \(dqfolder\(dq: \(dqdefault\(dq,
+    \(dqfrom\(dq: \(dqSomething bad happened.\(dq,
+    \(dqto\(dq: \(dqSomething worse happened.\(dq
   }
 }
 .ft P
@@ -661,16 +684,16 @@ successful operation:
 .nf
 .ft C
 {
-    "id": 93,
-    "globalID": 93,
-    "type": "ItemFinished",
-    "time": "2014\-07\-13T21:22:03.414609034+02:00",
-    "data": {
-        "item": "test.txt",
-        "folder": "default",
-        "error": null,
-        "type": "file",
-        "action": "update"
+    \(dqid\(dq: 93,
+    \(dqglobalID\(dq: 93,
+    \(dqtype\(dq: \(dqItemFinished\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:22:03.414609034+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqitem\(dq: \(dqtest.txt\(dq,
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqerror\(dq: null,
+        \(dqtype\(dq: \(dqfile\(dq,
+        \(dqaction\(dq: \(dqupdate\(dq
     }
 }
 .ft P
@@ -685,16 +708,16 @@ An unsuccessful operation:
 .nf
 .ft C
 {
-    "id": 44,
-    "globalID": 44,
-    "type": "ItemFinished",
-    "time": "2015\-05\-27T11:21:05.711133004+02:00",
-    "data": {
-        "action": "update",
-        "error": "open /Users/jb/src/github.com/syncthing/syncthing/test/s2/foo/.syncthing.hej.tmp: permission denied",
-        "folder": "default",
-        "item": "foo/hej",
-        "type": "file"
+    \(dqid\(dq: 44,
+    \(dqglobalID\(dq: 44,
+    \(dqtype\(dq: \(dqItemFinished\(dq,
+    \(dqtime\(dq: \(dq2015\-05\-27T11:21:05.711133004+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqaction\(dq: \(dqupdate\(dq,
+        \(dqerror\(dq: \(dqopen /Users/jb/src/github.com/syncthing/syncthing/test/s2/foo/.syncthing.hej.tmp: permission denied\(dq,
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqitem\(dq: \(dqfoo/hej\(dq,
+        \(dqtype\(dq: \(dqfile\(dq
     }
 }
 .ft P
@@ -715,15 +738,15 @@ Generated when Syncthing begins synchronizing a file to a newer version.
 .nf
 .ft C
 {
-    "id": 93,
-    "globalID": 93,
-    "type": "ItemStarted",
-    "time": "2014\-07\-13T21:22:03.414609034+02:00",
-    "data": {
-        "item": "test.txt",
-        "folder": "default",
-        "type": "file",
-        "action": "update"
+    \(dqid\(dq: 93,
+    \(dqglobalID\(dq: 93,
+    \(dqtype\(dq: \(dqItemStarted\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:22:03.414609034+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqitem\(dq: \(dqtest.txt\(dq,
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqtype\(dq: \(dqfile\(dq,
+        \(dqaction\(dq: \(dqupdate\(dq
     }
 }
 .ft P
@@ -737,53 +760,53 @@ New in version 0.11.10: The \fBmetadata\fP action.
 
 .SS ListenAddressesChanged
 .sp
-This event is emitted when a listen address changes.
+This event is emitted when a \fI\%listen address\fP changes.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-   "type" : "ListenAddressesChanged",
-   "id" : 70,
-   "time" : "2017\-03\-06T15:01:24.88340663+01:00",
-   "globalID" : 70,
-   "data" : {
-      "address" : {
-         "Fragment" : "",
-         "RawQuery" : "",
-         "Scheme" : "dynamic+https",
-         "Path" : "/endpoint",
-         "RawPath" : "",
-         "User" : null,
-         "ForceQuery" : false,
-         "Host" : "relays.syncthing.net",
-         "Opaque" : ""
+   \(dqtype\(dq : \(dqListenAddressesChanged\(dq,
+   \(dqid\(dq : 70,
+   \(dqtime\(dq : \(dq2017\-03\-06T15:01:24.88340663+01:00\(dq,
+   \(dqglobalID\(dq : 70,
+   \(dqdata\(dq : {
+      \(dqaddress\(dq : {
+         \(dqFragment\(dq : \(dq\(dq,
+         \(dqRawQuery\(dq : \(dq\(dq,
+         \(dqScheme\(dq : \(dqdynamic+https\(dq,
+         \(dqPath\(dq : \(dq/endpoint\(dq,
+         \(dqRawPath\(dq : \(dq\(dq,
+         \(dqUser\(dq : null,
+         \(dqForceQuery\(dq : false,
+         \(dqHost\(dq : \(dqrelays.syncthing.net\(dq,
+         \(dqOpaque\(dq : \(dq\(dq
       },
-      "wan" : [
+      \(dqwan\(dq : [
          {
-            "ForceQuery" : false,
-            "User" : null,
-            "Host" : "31.15.66.212:443",
-            "Opaque" : "",
-            "Path" : "/",
-            "RawPath" : "",
-            "RawQuery" : "id=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=",
-            "Scheme" : "relay",
-            "Fragment" : ""
+            \(dqForceQuery\(dq : false,
+            \(dqUser\(dq : null,
+            \(dqHost\(dq : \(dq31.15.66.212:443\(dq,
+            \(dqOpaque\(dq : \(dq\(dq,
+            \(dqPath\(dq : \(dq/\(dq,
+            \(dqRawPath\(dq : \(dq\(dq,
+            \(dqRawQuery\(dq : \(dqid=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=\(dq,
+            \(dqScheme\(dq : \(dqrelay\(dq,
+            \(dqFragment\(dq : \(dq\(dq
          }
       ],
-      "lan" : [
+      \(dqlan\(dq : [
          {
-            "RawQuery" : "id=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=",
-            "Scheme" : "relay",
-            "Fragment" : "",
-            "RawPath" : "",
-            "Path" : "/",
-            "Host" : "31.15.66.212:443",
-            "Opaque" : "",
-            "ForceQuery" : false,
-            "User" : null
+            \(dqRawQuery\(dq : \(dqid=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=\(dq,
+            \(dqScheme\(dq : \(dqrelay\(dq,
+            \(dqFragment\(dq : \(dq\(dq,
+            \(dqRawPath\(dq : \(dq\(dq,
+            \(dqPath\(dq : \(dq/\(dq,
+            \(dqHost\(dq : \(dq31.15.66.212:443\(dq,
+            \(dqOpaque\(dq : \(dq\(dq,
+            \(dqForceQuery\(dq : false,
+            \(dqUser\(dq : null
          }
       ]
    }
@@ -796,13 +819,13 @@ This event is emitted when a listen address changes.
 .sp
 Generated upon scan whenever the local disk has discovered an updated file from the
 previous scan.  This does \fInot\fP include events that are discovered and copied from
-other devices (remotechangedetected), only files that were changed on the
+other devices (\fI\%RemoteChangeDetected\fP), only files that were changed on the
 local filesystem.
 .sp
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-This event is not included in /rest/events\-get endpoint without
+This event is not included in \fI\%GET /rest/events\fP endpoint without
 a mask specified, but needs to be selected explicitly.
 .UNINDENT
 .UNINDENT
@@ -812,17 +835,17 @@ a mask specified, but needs to be selected explicitly.
 .nf
 .ft C
 {
-  "id": 7,
-  "globalID": 59,
-  "time": "2016\-09\-26T22:07:10.7189141\-04:00",
-  "type": "LocalChangeDetected",
-  "data": {
-    "action": "deleted",
-    "folder": "vitwy\-zjxqt",
-    "folderID": "vitwy\-zjxqt",
-    "label": "TestSync",
-    "path": "C:\e\eUsers\e\eNate\e\eSync\e\etestfolder\e\etest file.rtf",
-    "type": "file"
+  \(dqid\(dq: 7,
+  \(dqglobalID\(dq: 59,
+  \(dqtime\(dq: \(dq2016\-09\-26T22:07:10.7189141\-04:00\(dq,
+  \(dqtype\(dq: \(dqLocalChangeDetected\(dq,
+  \(dqdata\(dq: {
+    \(dqaction\(dq: \(dqdeleted\(dq,
+    \(dqfolder\(dq: \(dqvitwy\-zjxqt\(dq,
+    \(dqfolderID\(dq: \(dqvitwy\-zjxqt\(dq,
+    \(dqlabel\(dq: \(dqTestSync\(dq,
+    \(dqpath\(dq: \(dqtest file.rtf\(dq,
+    \(dqtype\(dq: \(dqfile\(dq
   }
 }
 .ft P
@@ -844,20 +867,20 @@ changes during a scan.
 .nf
 .ft C
 {
-    "id": 59,
-    "globalID": 59,
-    "type": "LocalIndexUpdated",
-    "time": "2014\-07\-17T13:27:28.051369434+02:00",
-    "data": {
-        "folder": "default",
-        "items": 1000,
-        "filenames": [
-            "foo",
-            "bar",
-            "baz"
+    \(dqid\(dq: 59,
+    \(dqglobalID\(dq: 59,
+    \(dqtype\(dq: \(dqLocalIndexUpdated\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-17T13:27:28.051369434+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqitems\(dq: 1000,
+        \(dqfilenames\(dq: [
+            \(dqfoo\(dq,
+            \(dqbar\(dq,
+            \(dqbaz\(dq
         ],
-        "sequence": 12345,
-        "version": 12345
+        \(dqsequence\(dq: 12345,
+        \(dqversion\(dq: 12345
     }
 }
 .ft P
@@ -881,15 +904,15 @@ origin of the request, but e.g. a reverse proxy.
 .nf
 .ft C
 {
-   "id" : 187,
-   "time" : "2017\-03\-07T00:19:24.420386143+01:00",
-   "data" : {
-      "remoteAddress" : "127.0.0.1:55530",
-      "username" : "somename",
-      "success" : false
+   \(dqid\(dq : 187,
+   \(dqtime\(dq : \(dq2017\-03\-07T00:19:24.420386143+01:00\(dq,
+   \(dqdata\(dq : {
+      \(dqremoteAddress\(dq : \(dq127.0.0.1:55530\(dq,
+      \(dqusername\(dq : \(dqsomename\(dq,
+      \(dqsuccess\(dq : false
    },
-   "type" : "LoginAttempt",
-   "globalID" : 195
+   \(dqtype\(dq : \(dqLoginAttempt\(dq,
+   \(dqglobalID\(dq : 195
 }
 .ft P
 .fi
@@ -908,20 +931,20 @@ unknown ID) or removed (device is ignored, dismissed or added).
 .nf
 .ft C
 {
-  "id": 87,
-  "type": "PendingDevicesChanged",
-  "time": "2020\-12\-22T22:24:37.578586718+01:00",
-  "data": {
-    "added": [
+  \(dqid\(dq: 87,
+  \(dqtype\(dq: \(dqPendingDevicesChanged\(dq,
+  \(dqtime\(dq: \(dq2020\-12\-22T22:24:37.578586718+01:00\(dq,
+  \(dqdata\(dq: {
+    \(dqadded\(dq: [
       {
-        "address": "127.0.0.1:51807",
-        "deviceID": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
-        "name": "My dusty computer"
+        \(dqaddress\(dq: \(dq127.0.0.1:51807\(dq,
+        \(dqdeviceID\(dq: \(dqEJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK\(dq,
+        \(dqname\(dq: \(dqMy dusty computer\(dq
       }
     ],
-    "removed": [
+    \(dqremoved\(dq: [
       {
-        "deviceID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2"
+        \(dqdeviceID\(dq: \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq
       }
     ]
   }
@@ -946,26 +969,26 @@ longer pending for any device.
 .nf
 .ft C
 {
-  "id": 101,
-  "type": "PendingFoldersChanged",
-  "time": "2020\-12\-22T22:36:55.66744317+01:00",
-  "data": {
-    "added": [
+  \(dqid\(dq: 101,
+  \(dqtype\(dq: \(dqPendingFoldersChanged\(dq,
+  \(dqtime\(dq: \(dq2020\-12\-22T22:36:55.66744317+01:00\(dq,
+  \(dqdata\(dq: {
+    \(dqadded\(dq: [
       {
-        "deviceID": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
-        "folderID": "GXWxf\-3zgnU",
-        "folderLabel": "My Pictures"
-        "receiveEncrypted": "false"
-        "remoteEncrypted": "false"
+        \(dqdeviceID\(dq: \(dqEJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK\(dq,
+        \(dqfolderID\(dq: \(dqGXWxf\-3zgnU\(dq,
+        \(dqfolderLabel\(dq: \(dqMy Pictures\(dq
+        \(dqreceiveEncrypted\(dq: \(dqfalse\(dq
+        \(dqremoteEncrypted\(dq: \(dqfalse\(dq
       }
     ],
-    "removed": [
+    \(dqremoved\(dq: [
       {
-        "deviceID": "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2",
-        "folderID": "neyfh\-sa2nu"
+        \(dqdeviceID\(dq: \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq,
+        \(dqfolderID\(dq: \(dqneyfh\-sa2nu\(dq
       },
       {
-        "folderID": "abcde\-fghij"
+        \(dqfolderID\(dq: \(dqabcde\-fghij\(dq
       }
     ]
   }
@@ -977,12 +1000,12 @@ longer pending for any device.
 .SS RemoteChangeDetected
 .sp
 Generated upon scan whenever a file is locally updated due to a remote change.
-Files that are updated locally produce a localchangedetected event.
+Files that are updated locally produce a \fI\%LocalChangeDetected\fP event.
 .sp
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-This event is not included in /rest/events\-get endpoint without
+This event is not included in \fI\%GET /rest/events\fP endpoint without
 a mask specified, but needs to be selected explicitly.
 .UNINDENT
 .UNINDENT
@@ -992,19 +1015,19 @@ a mask specified, but needs to be selected explicitly.
 .nf
 .ft C
 {
-   "time" : "2017\-03\-06T23:58:21.844739891+01:00",
-   "globalID" : 123,
-   "data" : {
-      "type" : "file",
-      "action" : "deleted",
-      "folder": "Dokumente",
-      "folderID" : "Dokumente",
-      "path" : "/media/ntfs_data/Dokumente/testfile",
-      "label" : "Dokumente",
-      "modifiedBy" : "BPDFDTU"
+   \(dqtime\(dq : \(dq2017\-03\-06T23:58:21.844739891+01:00\(dq,
+   \(dqglobalID\(dq : 123,
+   \(dqdata\(dq : {
+      \(dqtype\(dq : \(dqfile\(dq,
+      \(dqaction\(dq : \(dqdeleted\(dq,
+      \(dqfolder\(dq: \(dqDokumente\(dq,
+      \(dqfolderID\(dq : \(dqDokumente\(dq,
+      \(dqpath\(dq : \(dqtestfile\(dq,
+      \(dqlabel\(dq : \(dqDokumente\(dq,
+      \(dqmodifiedBy\(dq : \(dqBPDFDTU\(dq
    },
-   "type" : "RemoteChangeDetected",
-   "id" : 2
+   \(dqtype\(dq : \(dqRemoteChangeDetected\(dq,
+   \(dqid\(dq : 2
 }
 .ft P
 .fi
@@ -1016,7 +1039,7 @@ Deprecated since version v1.1.2: The \fBfolderID\fP field is a legacy name kept 
 
 .SS RemoteDownloadProgress
 .sp
-This event is emitted when a download\-progress message is
+This event is emitted when a \fI\%DownloadProgress\fP message is
 received. It returns a map \fBdata\fP of filenames with a count of
 downloaded blocks. The files in questions are currently being
 downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
@@ -1026,17 +1049,17 @@ downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
 .nf
 .ft C
 {
-   "time" : "2017\-03\-07T00:11:37.65838955+01:00",
-   "globalID" : 170,
-   "data" : {
-      "state" : {
-         "tahr64\-6.0.5.iso" : 1784
+   \(dqtime\(dq : \(dq2017\-03\-07T00:11:37.65838955+01:00\(dq,
+   \(dqglobalID\(dq : 170,
+   \(dqdata\(dq : {
+      \(dqstate\(dq : {
+         \(dqtahr64\-6.0.5.iso\(dq : 1784
       },
-      "device" : "F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A",
-      "folder" : "Dokumente"
+      \(dqdevice\(dq : \(dqF4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A\(dq,
+      \(dqfolder\(dq : \(dqDokumente\(dq
    },
-   "type" : "RemoteDownloadProgress",
-   "id" : 163
+   \(dqtype\(dq : \(dqRemoteDownloadProgress\(dq,
+   \(dqid\(dq : 163
 }
 .ft P
 .fi
@@ -1051,14 +1074,14 @@ Generated each time new index information is received from a device.
 .nf
 .ft C
 {
-    "id": 44,
-    "globalID": 44,
-    "type": "RemoteIndexUpdated",
-    "time": "2014\-07\-13T21:04:35.394184435+02:00",
-    "data": {
-        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG",
-        "folder": "lightroom",
-        "items": 1000
+    \(dqid\(dq: 44,
+    \(dqglobalID\(dq: 44,
+    \(dqtype\(dq: \(dqRemoteIndexUpdated\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:04:35.394184435+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqdevice\(dq: \(dqNFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG\(dq,
+        \(dqfolder\(dq: \(dqlightroom\(dq,
+        \(dqitems\(dq: 1000
     }
 }
 .ft P
@@ -1075,12 +1098,12 @@ configuration etc.
 .nf
 .ft C
 {
-    "id": 1,
-    "globalID": 1,
-    "type": "Starting",
-    "time": "2014\-07\-17T13:13:32.044470055+02:00",
-    "data": {
-        "home": "/home/jb/.config/syncthing"
+    \(dqid\(dq: 1,
+    \(dqglobalID\(dq: 1,
+    \(dqtype\(dq: \(dqStarting\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-17T13:13:32.044470055+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqhome\(dq: \(dq/home/jb/.config/syncthing\(dq
     }
 }
 .ft P
@@ -1097,11 +1120,11 @@ ready to start exchanging data with other devices.
 .nf
 .ft C
 {
-    "id": 1,
-    "globalID": 1,
-    "type": "StartupComplete",
-    "time": "2014\-07\-13T21:03:18.383239179+02:00",
-    "data": null
+    \(dqid\(dq: 1,
+    \(dqglobalID\(dq: 1,
+    \(dqtype\(dq: \(dqStartupComplete\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-13T21:03:18.383239179+02:00\(dq,
+    \(dqdata\(dq: null
 }
 .ft P
 .fi
@@ -1120,15 +1143,15 @@ seconds and is now in state \fBidle\fP\&.
 .nf
 .ft C
 {
-    "id": 8,
-    "globalID": 8,
-    "type": "StateChanged",
-    "time": "2014\-07\-17T13:14:28.697493016+02:00",
-    "data": {
-        "folder": "default",
-        "from": "scanning",
-        "duration": 0.19782869900000002,
-        "to": "idle"
+    \(dqid\(dq: 8,
+    \(dqglobalID\(dq: 8,
+    \(dqtype\(dq: \(dqStateChanged\(dq,
+    \(dqtime\(dq: \(dq2014\-07\-17T13:14:28.697493016+02:00\(dq,
+    \(dqdata\(dq: {
+        \(dqfolder\(dq: \(dqdefault\(dq,
+        \(dqfrom\(dq: \(dqscanning\(dq,
+        \(dqduration\(dq: 0.19782869900000002,
+        \(dqto\(dq: \(dqidle\(dq
     }
 }
 .ft P

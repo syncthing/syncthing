@@ -19,13 +19,17 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/stringutil"
 )
 
 var (
 	ErrDirectory         = errors.New("cannot restore on top of a directory")
 	errNotFound          = errors.New("version not found")
 	errFileAlreadyExists = errors.New("file already exists")
+)
+
+const (
+	DefaultPath = ".stversions"
 )
 
 // TagFilename inserts ~tag just before the extension of the filename.
@@ -122,7 +126,6 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +152,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	if err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir")
-			err := dstFs.MkdirAll(".", 0755)
+			err := dstFs.MkdirAll(".", 0o755)
 			if err != nil {
 				return err
 			}
@@ -162,7 +165,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
 
-	err = dstFs.MkdirAll(inFolderPath, 0755)
+	err = dstFs.MkdirAll(inFolderPath, 0o755)
 	if err != nil && !fs.IsExist(err) {
 		l.Debugln("archiving", filePath, err)
 		return err
@@ -249,7 +252,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 		return err
 	}
 
-	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
+	_ = dst.MkdirAll(filepath.Dir(filePath), 0o755)
 	err := osutil.RenameOrCopy(method, src, dst, sourceFile, filePath)
 	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
 	return err
@@ -258,11 +261,21 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 func versionerFsFromFolderCfg(cfg config.FolderConfiguration) (versionsFs fs.Filesystem) {
 	folderFs := cfg.Filesystem(nil)
 	if cfg.Versioning.FSPath == "" {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
-	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic && !filepath.IsAbs(cfg.Versioning.FSPath) {
-		// We only know how to deal with relative folders for basic filesystems, as that's the only one we know
+		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), DefaultPath))
+	} else if cfg.Versioning.FSType == fs.FilesystemTypeBasic {
+		// Expand any leading tildes for basic filesystems,
+		// before checking for absolute paths.
+		path, err := fs.ExpandTilde(cfg.Versioning.FSPath)
+		if err != nil {
+			path = cfg.Versioning.FSPath
+		}
+		// We only know how to deal with relative folders for
+		// basic filesystems, as that's the only one we know
 		// how to check if it's absolute or relative.
-		versionsFs = fs.NewFilesystem(cfg.Versioning.FSType, filepath.Join(folderFs.URI(), cfg.Versioning.FSPath))
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(folderFs.URI(), path)
+		}
+		versionsFs = fs.NewFilesystem(cfg.Versioning.FSType, path)
 	} else {
 		versionsFs = fs.NewFilesystem(cfg.Versioning.FSType, cfg.Versioning.FSPath)
 	}
@@ -281,7 +294,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
-	versions = util.UniqueTrimmedStrings(versions)
+	versions = stringutil.UniqueTrimmedStrings(versions)
 	sort.Strings(versions)
 
 	return versions
@@ -327,7 +340,9 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 	}
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
-		l.Warnln("Versioner: error scanning versions dir", err)
+		if !errors.Is(err, context.Canceled) {
+			l.Warnln("Versioner: scanning versions dir:", err)
+		}
 		return err
 	}
 

@@ -11,12 +11,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/urfave/cli"
-
 	"github.com/syncthing/syncthing/lib/db"
 )
 
-func indexDumpSize(*cli.Context) error {
+func indexDumpSize() error {
 	type sizedElement struct {
 		key  string
 		size int

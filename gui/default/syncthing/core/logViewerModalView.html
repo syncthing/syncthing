@@ -1,4 +1,4 @@
-<modal id="logViewer" status="default" icon="far fa-file-alt" heading="{{'Logs' | translate}}" large="yes" closeable="yes">
+<modal id="logViewer" status="default" icon="fa fa-wrench" heading="{{'Logs' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <ul class="nav nav-tabs">
       <li class="active"><a data-toggle="tab" href="#log-viewer-log" translate>Log</a></li>
@@ -9,7 +9,7 @@
       <div id="log-viewer-log" class="tab-pane in active">
         <label translate ng-if="logging.logEntries.length == 0">Loading...</label>
         <textarea id="logViewerText" class="form-control" rows="20" ng-if="logging.logEntries.length != 0" readonly style="font-family: Consolas, monospace; font-size: 11px; overflow: auto;">{{ logging.content() }}</textarea>
-        <p translate class="help-block" ng-style="{'visibility': logging.paused ? 'visible' : 'hidden'}">Log tailing paused. Scroll to the bottom to continue.</p>
+        <a href="" translate class="help-block" ng-style="{'visibility': logging.paused ? 'visible' : 'hidden'}" ng-click="logging.scrollToBottom()" style="text-decoration: none">Log tailing paused. Scroll to the bottom to continue.</a>
       </div>
 
       <div id="log-viewer-facilities" class="tab-pane">

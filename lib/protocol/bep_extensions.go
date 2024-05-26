@@ -46,6 +46,7 @@ type FileIntf interface {
 	ModTime() time.Time
 	PlatformData() PlatformData
 	InodeChangeTime() time.Time
+	FileBlocksHash() []byte
 }
 
 func (Hello) Magic() uint32 {
@@ -168,6 +169,10 @@ func (f FileInfo) PlatformData() PlatformData {
 
 func (f FileInfo) InodeChangeTime() time.Time {
 	return time.Unix(0, f.InodeChangeNs)
+}
+
+func (f FileInfo) FileBlocksHash() []byte {
+	return f.BlocksHash
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in
@@ -563,7 +568,9 @@ func unixOwnershipEqual(a, b *UnixData) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	return a.UID == b.UID && a.GID == b.GID && a.OwnerName == b.OwnerName && a.GroupName == b.GroupName
+	ownerEqual := a.OwnerName == "" || b.OwnerName == "" || a.OwnerName == b.OwnerName
+	groupEqual := a.GroupName == "" || b.GroupName == "" || a.GroupName == b.GroupName
+	return a.UID == b.UID && a.GID == b.GID && ownerEqual && groupEqual
 }
 
 func windowsOwnershipEqual(a, b *WindowsData) bool {

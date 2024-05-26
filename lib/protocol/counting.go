@@ -10,8 +10,9 @@ import (
 
 type countingReader struct {
 	io.Reader
-	tot  atomic.Int64 // bytes
-	last atomic.Int64 // unix nanos
+	idString string
+	tot      atomic.Int64 // bytes
+	last     atomic.Int64 // unix nanos
 }
 
 var (
@@ -24,6 +25,7 @@ func (c *countingReader) Read(bs []byte) (int, error) {
 	c.tot.Add(int64(n))
 	totalIncoming.Add(int64(n))
 	c.last.Store(time.Now().UnixNano())
+	metricDeviceRecvBytes.WithLabelValues(c.idString).Add(float64(n))
 	return n, err
 }
 
@@ -35,8 +37,9 @@ func (c *countingReader) Last() time.Time {
 
 type countingWriter struct {
 	io.Writer
-	tot  atomic.Int64 // bytes
-	last atomic.Int64 // unix nanos
+	idString string
+	tot      atomic.Int64 // bytes
+	last     atomic.Int64 // unix nanos
 }
 
 func (c *countingWriter) Write(bs []byte) (int, error) {
@@ -44,6 +47,7 @@ func (c *countingWriter) Write(bs []byte) (int, error) {
 	c.tot.Add(int64(n))
 	totalOutgoing.Add(int64(n))
 	c.last.Store(time.Now().UnixNano())
+	metricDeviceSentBytes.WithLabelValues(c.idString).Add(float64(n))
 	return n, err
 }
 

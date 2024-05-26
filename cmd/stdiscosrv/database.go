@@ -12,10 +12,14 @@ package main
 import (
 	"context"
 	"log"
+	"net"
+	"net/url"
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -44,6 +48,18 @@ type levelDBStore struct {
 
 func newLevelDBStore(dir string) (*levelDBStore, error) {
 	db, err := leveldb.OpenFile(dir, levelDBOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &levelDBStore{
+		db:    db,
+		inbox: make(chan func(), 16),
+		clock: defaultClock{},
+	}, nil
+}
+
+func newMemoryLevelDBStore() (*levelDBStore, error) {
+	db, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +220,7 @@ func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- stru
 		cutoff24h := t0.Add(-24 * time.Hour).UnixNano()
 		cutoff1w := t0.Add(-7 * 24 * time.Hour).UnixNano()
 		cutoff2Mon := t0.Add(-60 * 24 * time.Hour).UnixNano()
-		current, last24h, last1w, inactive, errors := 0, 0, 0, 0, 0
+		current, currentIPv4, currentIPv6, last24h, last1w, inactive, errors := 0, 0, 0, 0, 0, 0, 0
 
 		iter := s.db.NewIterator(&util.Range{}, nil)
 		for iter.Next() {
@@ -219,9 +235,35 @@ func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- stru
 			// If there are addresses that have not expired it's a current
 			// record, otherwise account it based on when it was last seen
 			// (last 24 hours or last week) or finally as inactice.
+			addrs := expire(rec.Addresses, nowNanos)
 			switch {
-			case len(expire(rec.Addresses, nowNanos)) > 0:
+			case len(addrs) > 0:
 				current++
+				seenIPv4, seenIPv6 := false, false
+				for _, addr := range addrs {
+					uri, err := url.Parse(addr.Address)
+					if err != nil {
+						continue
+					}
+					host, _, err := net.SplitHostPort(uri.Host)
+					if err != nil {
+						continue
+					}
+					if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+						seenIPv4 = true
+					} else if ip != nil {
+						seenIPv6 = true
+					}
+					if seenIPv4 && seenIPv6 {
+						break
+					}
+				}
+				if seenIPv4 {
+					currentIPv4++
+				}
+				if seenIPv6 {
+					currentIPv6++
+				}
 			case rec.Seen > cutoff24h:
 				last24h++
 			case rec.Seen > cutoff1w:
@@ -245,6 +287,8 @@ func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- stru
 		iter.Release()
 
 		databaseKeys.WithLabelValues("current").Set(float64(current))
+		databaseKeys.WithLabelValues("currentIPv4").Set(float64(currentIPv4))
+		databaseKeys.WithLabelValues("currentIPv6").Set(float64(currentIPv6))
 		databaseKeys.WithLabelValues("last24h").Set(float64(last24h))
 		databaseKeys.WithLabelValues("last1w").Set(float64(last1w))
 		databaseKeys.WithLabelValues("inactive").Set(float64(inactive))
@@ -339,14 +383,7 @@ func expire(addrs []DatabaseAddress, now int64) []DatabaseAddress {
 	i := 0
 	for i < len(addrs) {
 		if addrs[i].Expires < now {
-			// This item is expired. Replace it with the last in the list
-			// (noop if we are at the last item).
-			addrs[i] = addrs[len(addrs)-1]
-			// Wipe the last item of the list to release references to
-			// strings and stuff.
-			addrs[len(addrs)-1] = DatabaseAddress{}
-			// Shorten the slice.
-			addrs = addrs[:len(addrs)-1]
+			addrs = sliceutil.RemoveAndZero(addrs, i)
 			continue
 		}
 		i++

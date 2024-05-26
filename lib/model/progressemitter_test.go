@@ -60,7 +60,7 @@ func TestProgressEmitter(t *testing.T) {
 
 	w := evLogger.Subscribe(events.DownloadProgress)
 
-	c, cfgCancel := createTmpWrapper(config.Configuration{})
+	c, cfgCancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer os.Remove(c.ConfigPath())
 	defer cfgCancel()
 	waiter, err := c.Modify(func(cfg *config.Configuration) {
@@ -91,7 +91,7 @@ func TestProgressEmitter(t *testing.T) {
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
 
-	s.copiedFromOrigin()
+	s.copiedFromOrigin(1)
 
 	expectEvent(w, t, 1)
 	expectTimeout(w, t)
@@ -110,11 +110,10 @@ func TestProgressEmitter(t *testing.T) {
 
 	expectEvent(w, t, 0)
 	expectTimeout(w, t)
-
 }
 
 func TestSendDownloadProgressMessages(t *testing.T) {
-	c, cfgCancel := createTmpWrapper(config.Configuration{})
+	c, cfgCancel := newConfigWrapper(config.Configuration{Version: config.CurrentVersion})
 	defer os.Remove(c.ConfigPath())
 	defer cfgCancel()
 	waiter, err := c.Modify(func(cfg *config.Configuration) {
@@ -455,8 +454,8 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 
 	// See progressemitter.go for explanation why this is commented out.
 	// Search for state.cleanup
-	//expect(-1, state2, protocol.FileDownloadProgressUpdateTypeForget, v1, nil, false)
-	//expect(-1, state4, protocol.FileDownloadProgressUpdateTypeForget, v1, nil, true)
+	// expect(-1, state2, protocol.FileDownloadProgressUpdateTypeForget, v1, nil, false)
+	// expect(-1, state4, protocol.FileDownloadProgressUpdateTypeForget, v1, nil, true)
 
 	expectEmpty()
 
@@ -464,7 +463,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	p.temporaryIndexUnsubscribe(fc)
 
 	sendMsgs(p)
-	_, ok := p.sentDownloadStates[fc.ID()]
+	_, ok := p.sentDownloadStates[fc.DeviceID()]
 	if ok {
 		t.Error("Should not be there")
 	}

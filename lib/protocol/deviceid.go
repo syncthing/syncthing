@@ -13,10 +13,16 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 
-const DeviceIDLength = 32
+const (
+	DeviceIDLength = 32
+	// keep consistent with shortIDStringLength in gui/default/syncthing/app.js
+	ShortIDStringLength = 7
+)
 
-type DeviceID [DeviceIDLength]byte
-type ShortID uint64
+type (
+	DeviceID [DeviceIDLength]byte
+	ShortID  uint64
+)
 
 var (
 	LocalDeviceID  = repeatedDeviceID(0xff)
@@ -94,7 +100,7 @@ func (s ShortID) String() string {
 	}
 	var bs [8]byte
 	binary.BigEndian.PutUint64(bs[:], uint64(s))
-	return base32.StdEncoding.EncodeToString(bs[:])[:7]
+	return base32.StdEncoding.EncodeToString(bs[:])[:ShortIDStringLength]
 }
 
 func (n *DeviceID) UnmarshalText(bs []byte) error {

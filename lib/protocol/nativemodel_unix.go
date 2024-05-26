@@ -7,4 +7,4 @@ package protocol
 
 // Normal Unixes uses NFC and slashes, which is the wire format.
 
-func makeNative(m Model) Model { return m }
+func makeNative(m rawModel) rawModel { return m }

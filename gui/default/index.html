@@ -12,7 +12,8 @@
   <meta charset="utf-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png"/>
+  <link rel="shortcut icon" href="assets/img/favicon-default.png" type="image/x-icon"/>
+  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png" type="image/x-icon"/>
   <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
@@ -71,7 +72,7 @@
           <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
           <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
         </span>
-        <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
+        <p ng-if="authenticated" class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
         <ul class="nav navbar-nav navbar-right">
           <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
             <button type="button" class="btn navbar-btn btn-primary btn-sm" data-toggle="modal" data-target="#upgrade">
@@ -86,34 +87,47 @@
             </button>
           </li>
           <li class="dropdown" language-select></li>
-          <li>
-            <a class="navbar-link" href="{{docsURL('intro/gui')}}" target="_blank">
-              <span class="fas fa-question-circle"></span>
-              <span class="hidden-xs" translate>Help</span>
-            </a>
-          </li>
           <li class="dropdown action-menu">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-              <span class="fas fa-cog"></span>
+              <span class="fa fa-question-circle"></span>
+              <span class="hidden-xs" translate>Help</span>
+              <span class="caret"></span>
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="navbar-link" href="{{docsURL('intro/gui')}}" target="_blank"><span class="fa fa-fw fa-info-circle"></span>&nbsp;<span translate>Introduction</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://mobiussync.com/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
+              <li><a class="navbar-link" href="{{docsURL()}}" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Syncthing Documentation</span></a></li>
+              <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fa fa-fw fa-users"></span>&nbsp;<span translate>Syncthing Support</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fa fa-fw fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a class="navbar-link" href="https://github.com/MobiusSync/MobiusSync/issues" target="_blank"><span class="fa fa-fw fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
+              <li><a class="navbar-link" href="https://github.com/MobiusSync/syncthing" target="_blank"><span class="fa fa-fw fa-file-code-o"></span>&nbsp;<span translate>Source Code</span></a></li>
+              <li class="divider" aria-hidden="true"></li>
+              <li><a href="" ng-click="about.show()"><span class="fa fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
+            </ul>
+          </li>
+          <li ng-if="authenticated || config.gui.debugging" class="dropdown action-menu">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+              <span class="fa fa-cog"></span>
               <span class="hidden-xs" translate>Actions</span>
               <span class="caret"></span>
             </a>
             <ul class="dropdown-menu">
               <!-- %TOPMENU% -->
-              <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-              <li><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
-              <li class="visible-xs">
-                <a href="{{docsURL('intro/gui')}}" target="_blank">
-                  <span class="fas fa-fw fa-question-circle"></span>&nbsp;<span translate>Help</span>
-                </a>
-              </li>
-              <li><a href="" ng-click="about.show()"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
-              <li class="divider" aria-hidden="true"></li>
-              <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
-              <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="showSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+
+              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated"><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-wrench"></span>&nbsp;<span translate>Logs</span></a></li>
+
               <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
-              <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
+              <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-fw fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
+
+              <li ng-if="authenticated && isAuthEnabled()" class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated && isAuthEnabled()"><a href="" ng-click="logout()"><span class="far fa-fw fa-sign-out"></span>&nbsp;<span translate>Log Out</span></a></li>
             </ul>
           </li>
         </ul>
@@ -286,7 +300,7 @@
             <div class="panel-body">
               <p ng-repeat="err in errorList()">
                 <small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small>
-                <span ng-bind-html="friendlyDevices(err.message) | linky: '_blank'"></span>
+                <span ng-bind="friendlyDevices(err.message)"></span>
               </p>
             </div>
             <div class="panel-footer">
@@ -326,9 +340,45 @@
         </div>
       </div>
 
-      <!-- First regular row -->
+      <!-- Login form -->
+      <div ng-if="!authenticated" class="center-block">
+        <h3 translate>Authentication Required</h3>
 
-      <div class="row">
+        <form ng-submit="authenticatePassword()">
+          <div class="form-group">
+            <label for="user" translate>User</label>
+            <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
+          </div>
+
+          <div class="form-group">
+            <label for="password" translate>Password</label>
+            <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
+            </label>
+          </div>
+
+          <div class="row">
+            <div class="col-md-9 login-form-messages">
+              <p ng-if="login.errors.badLogin" class="text-danger" translate>
+                Incorrect user name or password.
+              </p>
+              <p ng-if="login.errors.failed" class="text-danger" translate>
+                Login failed, see Syncthing logs for details.
+              </p>
+            </div>
+            <div class="col-md-3 text-right">
+              <button type="submit" id="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log In</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- First regular row -->
+      <div ng-if="authenticated" class="row">
 
         <!-- Folder list (top left) -->
 
@@ -347,37 +397,12 @@
                     <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
                   </div>
                   <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                    <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                    <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs" aria-label="{{'Unknown' | translate}}"><i class="fas fa-fw fa-question-circle"></i></span></span>
-                    <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs" aria-label="{{'Unshared' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                    <span ng-switch-when="scan-waiting"><span class="hidden-xs" translate>Waiting to Scan</span><span class="visible-xs" aria-label="{{'Waiting to Scan' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
-                    <span ng-switch-when="cleaning"><span class="hidden-xs" translate>Cleaning Versions</span><span class="visible-xs" aria-label="{{'Cleaning Versions' | translate}}"><i class="fas fa-fw fa-recycle"></i></span></span>
-                    <span ng-switch-when="clean-waiting"><span class="hidden-xs" translate>Waiting to Clean</span><span class="visible-xs" aria-label="{{'Waiting to Clean' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
-                    <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs" aria-label="{{'Stopped' | translate}}"><i class="fas fa-fw fa-stop"></i></span></span>
-                    <span ng-switch-when="scanning">
-                      <span class="hidden-xs" translate>Scanning</span>
-                      <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
-                        ({{scanPercentage(folder.id) | percent}})
-                      </span>
-                      <span class="visible-xs" aria-label="{{'Scanning' | translate}}"><i class="fas fa-fw fa-search"></i></span>
+                    <span class="hidden-xs">{{folderStatusText(folder)}}</span>
+                    <span ng-switch-when="scanning" ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
+                    <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
+                    <span class="inline-icon">
+                      <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
                     </span>
-                    <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="localadditions"><span class="hidden-xs" translate>Local Additions</span><span class="visible-xs" aria-label="{{'Local Additions' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                    <span ng-switch-when="sync-waiting">
-                      <span class="hidden-xs" translate>Waiting to Sync</span>
-                      <span class="visible-xs" aria-label="{{'Waiting to Sync' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span>
-                    </span>
-                    <span ng-switch-when="sync-preparing">
-                      <span class="hidden-xs" translate>Preparing to Sync</span>
-                      <span class="visible-xs" aria-label="{{'Preparing to Sync' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span>
-                    </span>
-                    <span ng-switch-when="syncing">
-                      <span class="hidden-xs" translate>Syncing</span>
-                      <span>({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
-                    </span>
-                    <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
-                    <span ng-switch-when="faileditems"><span class="hidden-xs" translate>Failed Items</span><span class="visible-xs" aria-label="{{'Failed Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
-                    <span ng-switch-when="localunencrypted"><span class="hidden-xs">{{'Unexpected Items' | translate}}</span><span class="visible-xs" aria-label="{{'Unexpected Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -388,6 +413,10 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr class="visible-xs">
+                        <th><span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span></th>
+                        <td class="text-right">{{folderStatusText(folder)}}</td>
+                      </tr>
                       <tr ng-show="folder.label != undefined && folder.label.length > 0">
                         <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
                         <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
@@ -462,9 +491,10 @@
                           <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                         </td>
                       </tr>
-                      <tr ng-if="folder.type != 'sendreceive'">
+                      <tr>
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                         <td class="text-right">
+                          <span ng-if="folder.type == 'sendreceive'" translate>Send &amp; Receive</span>
                           <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                           <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
                           <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
@@ -509,7 +539,7 @@
                           </div>
                         </td>
                       </tr>
-                      <tr ng-if="folder.order != 'random' && folder.type != 'sendonly'">
+                      <tr ng-if="folder.type != 'sendonly'">
                         <th><span class="fas fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
                         <td class="text-right" ng-switch="folder.order">
                           <span ng-switch-when="random" translate>Random</span>
@@ -521,38 +551,48 @@
                         </td>
                       </tr>
                       <tr ng-if="folder.versioning.type">
-                        <th><span class="fa fa-fw fa-file"></span>&nbsp;<span translate>File Versioning</span></th>
+                        <th><span class="fa fa-fw fa-files-o"></span>&nbsp;<span translate>File Versioning</span></th>
                         <td class="text-right">
                           <span ng-switch="folder.versioning.type">
                             <span ng-switch-when="trashcan" translate>Trash Can</span>
                             <span ng-switch-when="simple" translate>Simple</span>
                             <span ng-switch-when="staggered" translate>Staggered</span>
-                            <span ng-switch-when="external" tooltip data-original-title="<span class='text-monospace'>{{folder.versioning.params.command}}</span>" translate>External</span>
+                            <span ng-switch-when="external" tooltip data-original-title="{{folder.versioning.params.command}}" translate>External</span>
                           </span>
                           <span ng-if="folder.versioning.type != 'external'">
-                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple') && folder.versioning.params.cleanoutDays != versioningDefaults.trashcanClean" tooltip data-original-title="{{'Clean out after' | translate}}">
-                              &ensp;<span class="fa fa-calendar"></span>&nbsp;{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}
+                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">
+                              &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.cleanoutDays == 0" translate>Disabled</span><span ng-if="folder.versioning.params.cleanoutDays > 0">{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
                             </span>
-                            <span ng-if="folder.versioning.type == 'simple' && folder.versioning.params.keep != versioningDefaults.simpleKeep" tooltip data-original-title="{{'Keep Versions' | translate}}">
+                            <span ng-if="folder.versioning.type == 'simple'" tooltip data-original-title="{{'Keep Versions' | translate}}">
                               &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
                             </span>
-                            <span ng-if="folder.versioning.type == 'staggered' && folder.versioning.params.maxAge / 86400 != versioningDefaults.staggeredMaxAge" tooltip data-original-title="{{'Maximum Age' | translate}}">
+                            <span ng-if="folder.versioning.type == 'staggered'" tooltip data-original-title="{{'Maximum Age' | translate}}">
                               &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.maxAge == 0" translate>Forever</span><span ng-if="folder.versioning.params.maxAge > 0">{{folder.versioning.params.maxAge | duration}}</span>
                             </span>
-                            <span ng-if="folder.versioning.cleanupIntervalS != versioningDefaults.cleanupIntervalS" tooltip data-original-title="{{'Cleanup Interval' | translate}}">
+                            <span tooltip data-original-title="{{'Cleanup Interval' | translate}}">
                               &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
                             </span>
                             <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
-                            <span ng-if="folder.versioning.fsPath != ''" tooltip data-original-title="{{folder.versioning.fsPath}}">
-                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath}}
+                            <span tooltip data-original-title="{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}">
+                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}
                             </span>
                           </span>
                         </td>
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{sharesFolder(folder)}} {{folderHasUnacceptedDevices(folder) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : ''}} {{folderHasPausedDevices(folder) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : ''}}" ng-bind-html="sharesFolder(folder)"></span>
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
+                          <span ng-repeat="device in otherDevices(folder.devices)">
+                            <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
+                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
+                         --></span><!-- Avoid stray space...
+                         --><span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...
+                           --><a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...
+                           --><a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...
+                           --><a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...
+                           --><span ng-if="!$last">,</span>
+                            </span>
+                          </span>
                         </td>
                       </tr>
                       <tr ng-if="folderStats[folder.id].lastScan">
@@ -654,6 +694,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxRecvKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxRecvKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
@@ -670,6 +713,9 @@
                             <i class="text-muted"><span translate>Limit</span>:
                               <span ng-if="!metricRates">{{config.options.maxSendKbps*1024 | binary}}B/s</span>
                               <span ng-if="metricRates">{{config.options.maxSendKbps*1024*8 | metric}}bps</span>
+                              <span ng-if="config.options.limitBandwidthInLan">
+                                (<span translate>Applied to LAN</span>)
+                              </span>
                             </i>
                           </small>
                         </a>
@@ -736,23 +782,16 @@
                 <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                 <h4 class="panel-title">
                   <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                  <span class="pull-right text-{{deviceClass(deviceCfg)}}">
-                    <span ng-switch="deviceStatus(deviceCfg)" class="remote-devices-panel">
-                      <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
-                      <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                      <span ng-switch-when="syncing">
-                        <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
-                      </span>
-                      <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
-                      <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
-                      <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                      <span ng-switch-when="disconnected-inactive"><span class="hidden-xs" translate>Disconnected (Inactive)</span><span class="visible-xs" aria-label="{{'Disconnected (Inactive)' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                      <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                  <div class="panel-status pull-right text-{{deviceClass(deviceCfg)}}" ng-switch="deviceStatus(deviceCfg)">
+                    <span class="hidden-xs">{{deviceStatusText(deviceCfg)}}</span>
+                    <span ng-switch-when="syncing">({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)</span>
+                    <span class="inline-icon">
+                      <span class="visible-xs fa fa-fw {{deviceStatusIcon(deviceCfg)}}" aria-label="{{deviceStatusText(deviceCfg)}}"></span>
                     </span>
-                    <span class="remote-devices-panel">
+                    <span class="inline-icon">
                       <span ng-class="rdConnTypeIcon(rdConnType(deviceCfg.deviceID))" class="reception reception-theme"></span>
                     </span>
-                  </span>
+                  </div>
                   <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                 </h4>
               </button>
@@ -760,6 +799,10 @@
                 <div class="panel-body">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
+                      <tr class="visible-xs">
+                        <th><span class="fa fa-fw {{deviceStatusIcon(deviceCfg)}}"></span>&nbsp;<span translate>Device Status</span></th>
+                        <td class="text-right">{{deviceStatusText(deviceCfg)}}</td>
+                      </tr>
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
                         <td class="text-right">
@@ -849,16 +892,24 @@
                           </span>
                         </td>
                       </tr>
+                      <tr ng-if="connections[deviceCfg.deviceID].connected">
+                        <th><span class="fas fa-fw fa-random"></span>&nbsp;<span translate>Number of Connections</span></th>
+                        <td class="text-right">
+                          <span ng-if="connections[deviceCfg.deviceID].secondary.length">1 + {{connections[deviceCfg.deviceID].secondary.length | alwaysNumber}}</span>
+                          <span ng-if="!connections[deviceCfg.deviceID].secondary.length">1</span>
+                        </td>
+                      </tr>
                       <tr ng-if="deviceCfg.allowedNetworks.length > 0">
                         <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
                         <td class="text-right">
                           <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
                         </td>
                       </tr>
-                      <tr ng-if="deviceCfg.compression != 'metadata'">
+                      <tr>
                         <th><span class="fas fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
                         <td class="text-right">
                           <span ng-if="deviceCfg.compression == 'always'" translate>All Data</span>
+                          <span ng-if="deviceCfg.compression == 'metadata'" translate>Metadata Only</span>
                           <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                         </td>
                       </tr>
@@ -868,7 +919,11 @@
                       </tr>
                       <tr ng-if="deviceCfg.introducedBy">
                         <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceShortID(deviceCfg.introducedBy) }}</td>
+                      </tr>
+                      <tr ng-if="deviceCfg.autoAcceptFolders">
+                        <th><span class="fa fa-fw fa-level-down"></span>&nbsp;<span translate>Auto Accept</span></th>
+                        <td translate class="text-right">Yes</td>
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
@@ -878,14 +933,28 @@
                           </span>
                         </td>
                       </tr>
+                      <tr ng-if="deviceCfg.untrusted">
+                        <th><span class="fa fa-fw fa-user-secret"></span>&nbsp;<span translate>Untrusted</span></th>
+                        <td translate class="text-right">Yes</td>
+                      </tr>
                       <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                         <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                         <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{sharedFolders(deviceCfg)}} {{deviceHasUnacceptedFolders(deviceCfg) ? '<br/>(<sup>1</sup>' + ('The remote device has not accepted sharing this folder.' | translate) + ')' : '' }} {{deviceHasPausedFolders(deviceCfg) ? '<br/>(<sup>2</sup>' + ('The remote device has paused this folder.' | translate) + ')' : '' }}" ng-bind-html="sharedFolders(deviceCfg)"></span>
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
+                          <span ng-repeat="folderID in deviceFolders(deviceCfg)">
+                            <span ng-if="folderIsSharedEncrypted(folderID, deviceCfg.deviceID)" class="text-nowrap">
+                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
+                         --></span><!-- Avoid stray space...
+                         --><span ng-switch="completion[deviceCfg.deviceID][folderID].remoteState"><!-- Avoid stray space...
+                           --><span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>1</sup></span><!-- Avoid stray space...
+                           --><span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>2</sup></span><!-- Avoid stray space...
+                           --><span ng-switch-default>{{folderLabel(folderID)}}</span><!-- Avoid stray space...
+                           --><span ng-if="!$last">,</span>
+                            </span>
+                          </span>
                         </td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
@@ -939,27 +1008,12 @@
     </div> <!-- /container -->
   </div> <!-- /ng-cloak -->
 
-  <!-- Bottom bar -->
-
-  <nav class="navbar navbar-default navbar-fixed-bottom">
-    <div class="container">
-      <ul class="nav navbar-nav">
-        <li><a class="navbar-link" href="https://mobiussync.com/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
-        <li><a class="navbar-link" href="{{docsURL()}}" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Syncthing Documentation</span></a></li>
-        <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Syncthing Support</span></a></li>
-        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/MobiusSync/MobiusSync/issues" target="_blank"><span class="fas fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/MobiusSync/syncthing" target="_blank"><span class="fas fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>
-        <li><a class="navbar-link" href="https://twitter.com/MobiusSync" target="_blank"><span class="fab fa-twitter"></span translate>&nbsp;Twitter</a></li>
-      </ul>
-    </div>
-  </nav>
-
   <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/savingChangesDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
@@ -1009,7 +1063,6 @@
   <script type="text/javascript" src="syncthing/core/eventService.js"></script>
   <script type="text/javascript" src="syncthing/core/identiconDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/languageSelectDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/lastErrorComponentFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/localeService.js"></script>
   <script type="text/javascript" src="syncthing/core/modalDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/metricFilter.js"></script>

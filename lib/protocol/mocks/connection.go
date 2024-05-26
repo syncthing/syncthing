@@ -31,6 +31,16 @@ type Connection struct {
 	clusterConfigArgsForCall []struct {
 		arg1 protocol.ClusterConfig
 	}
+	ConnectionIDStub        func() string
+	connectionIDMutex       sync.RWMutex
+	connectionIDArgsForCall []struct {
+	}
+	connectionIDReturns struct {
+		result1 string
+	}
+	connectionIDReturnsOnCall map[int]struct {
+		result1 string
+	}
 	CryptoStub        func() string
 	cryptoMutex       sync.RWMutex
 	cryptoArgsForCall []struct {
@@ -40,6 +50,16 @@ type Connection struct {
 	}
 	cryptoReturnsOnCall map[int]struct {
 		result1 string
+	}
+	DeviceIDStub        func() protocol.DeviceID
+	deviceIDMutex       sync.RWMutex
+	deviceIDArgsForCall []struct {
+	}
+	deviceIDReturns struct {
+		result1 protocol.DeviceID
+	}
+	deviceIDReturnsOnCall map[int]struct {
+		result1 protocol.DeviceID
 	}
 	DownloadProgressStub        func(context.Context, string, []protocol.FileDownloadProgressUpdate)
 	downloadProgressMutex       sync.RWMutex
@@ -57,16 +77,6 @@ type Connection struct {
 	}
 	establishedAtReturnsOnCall map[int]struct {
 		result1 time.Time
-	}
-	IDStub        func() protocol.DeviceID
-	iDMutex       sync.RWMutex
-	iDArgsForCall []struct {
-	}
-	iDReturns struct {
-		result1 protocol.DeviceID
-	}
-	iDReturnsOnCall map[int]struct {
-		result1 protocol.DeviceID
 	}
 	IndexStub        func(context.Context, string, []protocol.FileInfo) error
 	indexMutex       sync.RWMutex
@@ -315,6 +325,59 @@ func (fake *Connection) ClusterConfigArgsForCall(i int) protocol.ClusterConfig {
 	return argsForCall.arg1
 }
 
+func (fake *Connection) ConnectionID() string {
+	fake.connectionIDMutex.Lock()
+	ret, specificReturn := fake.connectionIDReturnsOnCall[len(fake.connectionIDArgsForCall)]
+	fake.connectionIDArgsForCall = append(fake.connectionIDArgsForCall, struct {
+	}{})
+	stub := fake.ConnectionIDStub
+	fakeReturns := fake.connectionIDReturns
+	fake.recordInvocation("ConnectionID", []interface{}{})
+	fake.connectionIDMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Connection) ConnectionIDCallCount() int {
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
+	return len(fake.connectionIDArgsForCall)
+}
+
+func (fake *Connection) ConnectionIDCalls(stub func() string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = stub
+}
+
+func (fake *Connection) ConnectionIDReturns(result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	fake.connectionIDReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *Connection) ConnectionIDReturnsOnCall(i int, result1 string) {
+	fake.connectionIDMutex.Lock()
+	defer fake.connectionIDMutex.Unlock()
+	fake.ConnectionIDStub = nil
+	if fake.connectionIDReturnsOnCall == nil {
+		fake.connectionIDReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.connectionIDReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
 func (fake *Connection) Crypto() string {
 	fake.cryptoMutex.Lock()
 	ret, specificReturn := fake.cryptoReturnsOnCall[len(fake.cryptoArgsForCall)]
@@ -365,6 +428,59 @@ func (fake *Connection) CryptoReturnsOnCall(i int, result1 string) {
 	}
 	fake.cryptoReturnsOnCall[i] = struct {
 		result1 string
+	}{result1}
+}
+
+func (fake *Connection) DeviceID() protocol.DeviceID {
+	fake.deviceIDMutex.Lock()
+	ret, specificReturn := fake.deviceIDReturnsOnCall[len(fake.deviceIDArgsForCall)]
+	fake.deviceIDArgsForCall = append(fake.deviceIDArgsForCall, struct {
+	}{})
+	stub := fake.DeviceIDStub
+	fakeReturns := fake.deviceIDReturns
+	fake.recordInvocation("DeviceID", []interface{}{})
+	fake.deviceIDMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Connection) DeviceIDCallCount() int {
+	fake.deviceIDMutex.RLock()
+	defer fake.deviceIDMutex.RUnlock()
+	return len(fake.deviceIDArgsForCall)
+}
+
+func (fake *Connection) DeviceIDCalls(stub func() protocol.DeviceID) {
+	fake.deviceIDMutex.Lock()
+	defer fake.deviceIDMutex.Unlock()
+	fake.DeviceIDStub = stub
+}
+
+func (fake *Connection) DeviceIDReturns(result1 protocol.DeviceID) {
+	fake.deviceIDMutex.Lock()
+	defer fake.deviceIDMutex.Unlock()
+	fake.DeviceIDStub = nil
+	fake.deviceIDReturns = struct {
+		result1 protocol.DeviceID
+	}{result1}
+}
+
+func (fake *Connection) DeviceIDReturnsOnCall(i int, result1 protocol.DeviceID) {
+	fake.deviceIDMutex.Lock()
+	defer fake.deviceIDMutex.Unlock()
+	fake.DeviceIDStub = nil
+	if fake.deviceIDReturnsOnCall == nil {
+		fake.deviceIDReturnsOnCall = make(map[int]struct {
+			result1 protocol.DeviceID
+		})
+	}
+	fake.deviceIDReturnsOnCall[i] = struct {
+		result1 protocol.DeviceID
 	}{result1}
 }
 
@@ -457,59 +573,6 @@ func (fake *Connection) EstablishedAtReturnsOnCall(i int, result1 time.Time) {
 	}
 	fake.establishedAtReturnsOnCall[i] = struct {
 		result1 time.Time
-	}{result1}
-}
-
-func (fake *Connection) ID() protocol.DeviceID {
-	fake.iDMutex.Lock()
-	ret, specificReturn := fake.iDReturnsOnCall[len(fake.iDArgsForCall)]
-	fake.iDArgsForCall = append(fake.iDArgsForCall, struct {
-	}{})
-	stub := fake.IDStub
-	fakeReturns := fake.iDReturns
-	fake.recordInvocation("ID", []interface{}{})
-	fake.iDMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Connection) IDCallCount() int {
-	fake.iDMutex.RLock()
-	defer fake.iDMutex.RUnlock()
-	return len(fake.iDArgsForCall)
-}
-
-func (fake *Connection) IDCalls(stub func() protocol.DeviceID) {
-	fake.iDMutex.Lock()
-	defer fake.iDMutex.Unlock()
-	fake.IDStub = stub
-}
-
-func (fake *Connection) IDReturns(result1 protocol.DeviceID) {
-	fake.iDMutex.Lock()
-	defer fake.iDMutex.Unlock()
-	fake.IDStub = nil
-	fake.iDReturns = struct {
-		result1 protocol.DeviceID
-	}{result1}
-}
-
-func (fake *Connection) IDReturnsOnCall(i int, result1 protocol.DeviceID) {
-	fake.iDMutex.Lock()
-	defer fake.iDMutex.Unlock()
-	fake.IDStub = nil
-	if fake.iDReturnsOnCall == nil {
-		fake.iDReturnsOnCall = make(map[int]struct {
-			result1 protocol.DeviceID
-		})
-	}
-	fake.iDReturnsOnCall[i] = struct {
-		result1 protocol.DeviceID
 	}{result1}
 }
 
@@ -1162,14 +1225,16 @@ func (fake *Connection) Invocations() map[string][][]interface{} {
 	defer fake.closedMutex.RUnlock()
 	fake.clusterConfigMutex.RLock()
 	defer fake.clusterConfigMutex.RUnlock()
+	fake.connectionIDMutex.RLock()
+	defer fake.connectionIDMutex.RUnlock()
 	fake.cryptoMutex.RLock()
 	defer fake.cryptoMutex.RUnlock()
+	fake.deviceIDMutex.RLock()
+	defer fake.deviceIDMutex.RUnlock()
 	fake.downloadProgressMutex.RLock()
 	defer fake.downloadProgressMutex.RUnlock()
 	fake.establishedAtMutex.RLock()
 	defer fake.establishedAtMutex.RUnlock()
-	fake.iDMutex.RLock()
-	defer fake.iDMutex.RUnlock()
 	fake.indexMutex.RLock()
 	defer fake.indexMutex.RUnlock()
 	fake.indexUpdateMutex.RLock()

@@ -315,15 +315,15 @@ func (t *ProgressEmitter) emptyLocked() bool {
 func (t *ProgressEmitter) temporaryIndexSubscribe(conn protocol.Connection, folders []string) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
-	t.connections[conn.ID()] = conn
-	t.foldersByConns[conn.ID()] = folders
+	t.connections[conn.DeviceID()] = conn
+	t.foldersByConns[conn.DeviceID()] = folders
 }
 
 func (t *ProgressEmitter) temporaryIndexUnsubscribe(conn protocol.Connection) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
-	delete(t.connections, conn.ID())
-	delete(t.foldersByConns, conn.ID())
+	delete(t.connections, conn.DeviceID())
+	delete(t.foldersByConns, conn.DeviceID())
 }
 
 func (t *ProgressEmitter) clearLocked() {

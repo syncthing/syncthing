@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture/v4"
 )
@@ -198,9 +199,7 @@ func (w *wrapper) Unsubscribe(c Committer) {
 	w.mut.Lock()
 	for i := range w.subs {
 		if w.subs[i] == c {
-			copy(w.subs[i:], w.subs[i+1:])
-			w.subs[len(w.subs)-1] = nil
-			w.subs = w.subs[:len(w.subs)-1]
+			w.subs = sliceutil.RemoveAndZero(w.subs, i)
 			break
 		}
 	}
@@ -293,6 +292,9 @@ func (w *wrapper) Serve(ctx context.Context) error {
 }
 
 func (w *wrapper) serveSave() {
+	if w.path == "" {
+		return
+	}
 	if err := w.Save(); err != nil {
 		l.Warnln("Failed to save config:", err)
 	}
@@ -328,8 +330,8 @@ func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg := sync.NewWaitGroup()
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
-		go func(commiter Committer) {
-			w.notifyListener(commiter, from, to)
+		go func(committer Committer) {
+			w.notifyListener(committer, from, to)
 			wg.Done()
 		}(sub)
 	}

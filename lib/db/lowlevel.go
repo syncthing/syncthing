@@ -23,9 +23,9 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -665,6 +665,24 @@ func (db *Lowlevel) dropIndexIDs() error {
 	return t.Commit()
 }
 
+// dropOtherDeviceIndexIDs drops all index IDs for devices other than the
+// local device. This means we will resend our indexes to all other devices,
+// but they don't have to resend to us.
+func (db *Lowlevel) dropOtherDeviceIndexIDs() error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+	if err := t.deleteKeyPrefixMatching([]byte{KeyTypeIndexID}, func(key []byte) bool {
+		dev, _ := t.keyer.DeviceFromIndexIDKey(key)
+		return !bytes.Equal(dev, protocol.LocalDeviceID[:])
+	}); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
 func (db *Lowlevel) dropMtimes(folder []byte) error {
 	key, err := db.keyer.GenerateMtimesKey(nil, folder)
 	if err != nil {
@@ -1042,7 +1060,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) (*metadataTracker, error)
 	}
 
 	if age := time.Since(meta.Created()); age > db.recheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, util.NiceDurationString(age))
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, stringutil.NiceDurationString(age))
 		return db.getMetaAndCheck(folder)
 	}
 

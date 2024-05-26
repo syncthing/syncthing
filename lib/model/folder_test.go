@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 type unifySubsCase struct {
@@ -156,8 +157,7 @@ func TestSetPlatformData(t *testing.T) {
 	// Checks that setPlatformData runs without error when applied to a temp
 	// file, named differently than the given FileInfo.
 
-	dir := t.TempDir()
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 	if fd, err := fs.Create("file.tmp"); err != nil {
 		t.Fatal(err)
 	} else {
@@ -167,7 +167,7 @@ func TestSetPlatformData(t *testing.T) {
 	xattr := []protocol.Xattr{{Name: "user.foo", Value: []byte("bar")}}
 	fi := &protocol.FileInfo{
 		Name:        "should be ignored",
-		Permissions: 0400,
+		Permissions: 0o400,
 		ModifiedS:   1234567890,
 		Platform: protocol.PlatformData{
 			Linux:   &protocol.XattrData{Xattrs: xattr},

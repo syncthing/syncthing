@@ -43,6 +43,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -64,6 +65,7 @@ type upnpService struct {
 }
 
 type upnpDevice struct {
+	IsIPv6       bool
 	DeviceType   string        `xml:"deviceType"`
 	FriendlyName string        `xml:"friendlyName"`
 	Devices      []upnpDevice  `xml:"deviceList>device"`
@@ -83,6 +85,20 @@ func (e *UnsupportedDeviceTypeError) Error() string {
 	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
 }
 
+const (
+	urnIgdV1                    = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
+	urnIgdV2                    = "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
+	urnWANDeviceV1              = "urn:schemas-upnp-org:device:WANDevice:1"
+	urnWANDeviceV2              = "urn:schemas-upnp-org:device:WANDevice:2"
+	urnWANConnectionDeviceV1    = "urn:schemas-upnp-org:device:WANConnectionDevice:1"
+	urnWANConnectionDeviceV2    = "urn:schemas-upnp-org:device:WANConnectionDevice:2"
+	urnWANIPConnectionV1        = "urn:schemas-upnp-org:service:WANIPConnection:1"
+	urnWANIPConnectionV2        = "urn:schemas-upnp-org:service:WANIPConnection:2"
+	urnWANIPv6FirewallControlV1 = "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"
+	urnWANPPPConnectionV1       = "urn:schemas-upnp-org:service:WANPPPConnection:1"
+	urnWANPPPConnectionV2       = "urn:schemas-upnp-org:service:WANPPPConnection:2"
+)
+
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
 func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
@@ -99,18 +115,32 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	wg := &sync.WaitGroup{}
 
 	for _, intf := range interfaces {
-		// Interface flags seem to always be 0 on Windows
-		if !build.IsWindows && (intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagMulticast == 0) {
+		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
 			continue
 		}
 
-		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
-			wg.Add(1)
-			go func(intf net.Interface, deviceType string) {
-				discover(ctx, &intf, deviceType, timeout, resultChan)
-				wg.Done()
-			}(intf, deviceType)
-		}
+		wg.Add(1)
+		// Discovery is done sequentially per interface because we discovered that
+		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
+		// request arrive at the same time.
+		go func(iface net.Interface) {
+			defer wg.Done()
+			hasGUA, err := interfaceHasGUAIPv6(iface)
+			if err != nil {
+				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", iface.Name, err)
+			} else if hasGUA {
+				// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
+				// + IPv6 is not standardized and will lead to duplicates on routers.
+				// Only do this when a non-link-local IPv6 is available. if we can't
+				// enumerate the interface, the IPv6 code will not work anyway
+				discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
+			}
+
+			// Discover IPv4 gateways on interface.
+			for _, deviceType := range []string{urnIgdV2, urnIgdV1} {
+				discover(ctx, &iface, deviceType, timeout, resultChan, false)
+			}
+		}(intf)
 	}
 
 	go func() {
@@ -119,7 +149,6 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	}()
 
 	seenResults := make(map[string]bool)
-
 	for {
 		select {
 		case result, ok := <-resultChan:
@@ -143,33 +172,59 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds.
 // The order in which the devices appear in the result list is not deterministic
-func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
-	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
+func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device, ip6 bool) {
+	var ssdp net.UDPAddr
+	var template string
+	if ip6 {
+		ssdp = net.UDPAddr{IP: []byte{0xFF, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C}, Port: 1900}
 
-	tpl := `M-SEARCH * HTTP/1.1
+		template = `M-SEARCH * HTTP/1.1
+HOST: [FF05::C]:1900
+ST: %s
+MAN: "ssdp:discover"
+MX: %d
+USER-AGENT: syncthing/%s
+
+`
+	} else {
+		ssdp = net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
+
+		template = `M-SEARCH * HTTP/1.1
 HOST: 239.255.255.250:1900
 ST: %s
 MAN: "ssdp:discover"
 MX: %d
-USER-AGENT: syncthing/1.0
+USER-AGENT: syncthing/%s
 
 `
-	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
+	}
+
+	searchStr := fmt.Sprintf(template, deviceType, timeout/time.Second, build.Version)
 
 	search := []byte(strings.ReplaceAll(searchStr, "\n", "\r\n") + "\r\n")
 
 	l.Debugln("Starting discovery of device type", deviceType, "on", intf.Name)
 
-	socket, err := net.ListenMulticastUDP("udp4", intf, &net.UDPAddr{IP: ssdp.IP})
+	proto := "udp4"
+	if ip6 {
+		proto = "udp6"
+	}
+	socket, err := net.ListenMulticastUDP(proto, intf, &net.UDPAddr{IP: ssdp.IP})
+
 	if err != nil {
-		l.Debugln("UPnP discovery: listening to udp multicast:", err)
+		if runtime.GOOS == "windows" && ip6 {
+			// Requires https://github.com/golang/go/issues/63529 to be fixed.
+			l.Infoln("Support for IPv6 UPnP is currently not available on Windows:", err)
+		} else {
+			l.Debugln("UPnP discovery: listening to udp multicast:", err)
+		}
 		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
 	l.Debugln("Sending search request for device type", deviceType, "on", intf.Name)
 
-	_, err = socket.WriteTo(search, ssdp)
+	_, err = socket.WriteTo(search, &ssdp)
 	if err != nil {
 		if e, ok := err.(net.Error); !ok || !e.Timeout() {
 			l.Debugln("UPnP discovery: sending search request:", err)
@@ -192,7 +247,7 @@ loop:
 			break
 		}
 
-		n, _, err := socket.ReadFrom(resp)
+		n, udpAddr, err := socket.ReadFromUDP(resp)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -206,7 +261,7 @@ loop:
 			break
 		}
 
-		igds, err := parseResponse(ctx, deviceType, resp[:n])
+		igds, err := parseResponse(ctx, deviceType, udpAddr, resp[:n], intf)
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
@@ -230,7 +285,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, resp []byte, netInterface *net.Interface) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
@@ -251,14 +306,39 @@ func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDSe
 	}
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
-
 	if err != nil {
 		l.Infoln("Invalid IGD location: " + err.Error())
+		return nil, err
+	}
+
+	if err != nil {
+		l.Infoln("Invalid source IP for IGD: " + err.Error())
+		return nil, err
 	}
 
 	deviceUSN := response.Header.Get("USN")
 	if deviceUSN == "" {
 		return nil, errors.New("invalid IGD response: USN not specified")
+	}
+
+	deviceIP := net.ParseIP(deviceDescriptionURL.Hostname())
+	// If the hostname of the device parses as an IPv6 link-local address, we need
+	// to use the source IP address of the response as the hostname
+	// instead of the one given, since only the  former contains the zone index,
+	// while the URL returned from the gateway cannot contain the zone index.
+	// (It can't know how interfaces are named/numbered on our machine)
+	if deviceIP != nil && deviceIP.To4() == nil && deviceIP.IsLinkLocalUnicast() {
+		ipAddr := net.IPAddr{
+			IP:   addr.IP,
+			Zone: addr.Zone,
+		}
+
+		deviceDescriptionPort := deviceDescriptionURL.Port()
+		deviceDescriptionURL.Host = "[" + ipAddr.String() + "]"
+		if deviceDescriptionPort != "" {
+			deviceDescriptionURL.Host += ":" + deviceDescriptionPort
+		}
+		deviceDescriptionLocation = deviceDescriptionURL.String()
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
@@ -278,16 +358,27 @@ func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDSe
 		return nil, err
 	}
 
-	// Figure out our IP number, on the network used to reach the IGD.
-	// We do this in a fairly roundabout way by connecting to the IGD and
-	// checking the address of the local end of the socket. I'm open to
-	// suggestions on a better way to do this...
-	localIPAddress, err := localIP(ctx, deviceDescriptionURL)
+	// Figure out our IPv4 address on the interface used to reach the IGD.
+	localIPv4Address, err := localIPv4(netInterface)
 	if err != nil {
-		return nil, err
+		// On Android, we cannot enumerate IP addresses on interfaces directly.
+		// Therefore, we just try to connect to the IGD and look at which source IP
+		// address was used. This is not ideal, but it's the best we can do. Maybe
+		// we are on an IPv6-only network though, so don't error out in case pinholing is available.
+		localIPv4Address, err = localIPv4Fallback(ctx, deviceDescriptionURL)
+		if err != nil {
+			l.Infoln("Unable to determine local IPv4 address for IGD: " + err.Error())
+		}
 	}
 
-	services, err := getServiceDescriptions(deviceUUID, localIPAddress, deviceDescriptionLocation, upnpRoot.Device)
+	// This differs from IGDService.SupportsIPVersion(). While that method
+	// determines whether an already completely discovered device uses the IPv6
+	// firewall protocol, this just checks if the gateway's is IPv6. Currently we
+	// only want to discover IPv6 UPnP endpoints on IPv6 gateways and vice versa,
+	// which is why this needs to be stored but technically we could forgo this check
+	// and try WANIPv6FirewallControl via IPv4. This leads to errors though so we don't do it.
+	upnpRoot.Device.IsIPv6 = addr.IP.To4() == nil
+	services, err := getServiceDescriptions(deviceUUID, localIPv4Address, deviceDescriptionLocation, upnpRoot.Device, netInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -295,16 +386,46 @@ func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDSe
 	return services, nil
 }
 
-func localIP(ctx context.Context, url *url.URL) (net.IP, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	conn, err := dialer.DialContext(timeoutCtx, "tcp", url.Host)
+func localIPv4(netInterface *net.Interface) (net.IP, error) {
+	addrs, err := netInterface.Addrs()
 	if err != nil {
 		return nil, err
 	}
+
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			return ip, nil
+		}
+	}
+
+	return nil, errors.New("no IPv4 address found for interface " + netInterface.Name)
+}
+
+func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	conn, err := dialer.DialContext(timeoutCtx, "udp4", url.Host)
+
+	if err != nil {
+		return nil, err
+	}
+
 	defer conn.Close()
 
-	return osutil.IPFromAddr(conn.LocalAddr())
+	ip, err := osutil.IPFromAddr(conn.LocalAddr())
+	if err != nil {
+		return nil, err
+	}
+	if ip.To4() == nil {
+		return nil, errors.New("tried to obtain IPv4 through fallback but got IPv6 address")
+	}
+	return ip, nil
 }
 
 func getChildDevices(d upnpDevice, deviceType string) []upnpDevice {
@@ -327,21 +448,36 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice) ([]IGDService, error) {
+func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
 	var result []IGDService
 
-	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
+	if device.IsIPv6 && device.DeviceType == urnIgdV1 {
+		// IPv6 UPnP is only standardized for IGDv2. Furthermore, any WANIPConn services for IPv4 that
+		// we may discover here are likely to be broken because many routers make the choice to not allow
+		// port mappings for IPs differing from the source IP of the device making the request (which would be v6 here)
+		return nil, nil
+	} else if device.IsIPv6 && device.DeviceType == urnIgdV2 {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:1",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
+			urnWANDeviceV2,
+			urnWANConnectionDeviceV2,
+			[]string{urnWANIPv6FirewallControlV1},
+			netInterface)
 
 		result = append(result, descriptions...)
-	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
+	} else if device.DeviceType == urnIgdV1 {
 		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
-			"urn:schemas-upnp-org:device:WANDevice:2",
-			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
-			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"})
+			urnWANDeviceV1,
+			urnWANConnectionDeviceV1,
+			[]string{urnWANIPConnectionV1, urnWANPPPConnectionV1},
+			netInterface)
+
+		result = append(result, descriptions...)
+	} else if device.DeviceType == urnIgdV2 {
+		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
+			urnWANDeviceV2,
+			urnWANConnectionDeviceV2,
+			[]string{urnWANIPConnectionV2, urnWANPPPConnectionV2},
+			netInterface)
 
 		result = append(result, descriptions...)
 	} else {
@@ -354,7 +490,7 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 	return result, nil
 }
 
-func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string) []IGDService {
+func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string, netInterface *net.Interface) []IGDService {
 	var result []IGDService
 
 	devices := getChildDevices(device, wanDeviceURN)
@@ -375,7 +511,9 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 			for _, URN := range URNs {
 				services := getChildServices(connection, URN)
 
-				l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
+				if len(services) == 0 {
+					l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
+				}
 
 				for _, service := range services {
 					if service.ControlURL == "" {
@@ -392,7 +530,8 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 							ServiceID: service.ID,
 							URL:       u.String(),
 							URN:       service.Type,
-							LocalIP:   localIPAddress,
+							Interface: netInterface,
+							LocalIPv4: localIPAddress,
 						}
 
 						result = append(result, service)
@@ -430,14 +569,18 @@ func replaceRawPath(u *url.URL, rp string) {
 }
 
 func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
-	tpl := `<?xml version="1.0" ?>
+	return soapRequestWithIP(ctx, url, service, function, message, nil)
+}
+
+func soapRequestWithIP(ctx context.Context, url, service, function, message string, localIP *net.TCPAddr) ([]byte, error) {
+	const template = `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
 	</s:Envelope>
 `
 	var resp []byte
 
-	body := fmt.Sprintf(tpl, message)
+	body := fmt.Sprintf(template, message)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
@@ -455,13 +598,27 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 	l.Debugln("SOAP Action: " + req.Header.Get("SOAPAction"))
 	l.Debugln("SOAP Request:\n\n" + body)
 
-	r, err := http.DefaultClient.Do(req)
+	dialer := net.Dialer{
+		LocalAddr: localIP,
+	}
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
+	httpClient := &http.Client{
+		Transport: transport,
+	}
+	r, err := httpClient.Do(req)
 	if err != nil {
 		l.Debugln("SOAP do:", err)
 		return resp, err
 	}
 
-	resp, _ = io.ReadAll(r.Body)
+	resp, err = io.ReadAll(r.Body)
+	if err != nil {
+		l.Debugf("Error reading SOAP response: %s, partial response (if present):\n\n%s", resp)
+		return resp, err
+	}
+
 	l.Debugf("SOAP Response: %s\n\n%s\n\n", r.Status, resp)
 
 	r.Body.Close()
@@ -471,6 +628,27 @@ func soapRequest(ctx context.Context, url, service, function, message string) ([
 	}
 
 	return resp, nil
+}
+
+func interfaceHasGUAIPv6(intf net.Interface) (bool, error) {
+	addrs, err := intf.Addrs()
+	if err != nil {
+		return false, err
+	}
+
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			return false, err
+		}
+
+		// IsGlobalUnicast returns true for ULAs, so check for those separately.
+		if ip.To4() == nil && ip.IsGlobalUnicast() && !ip.IsPrivate() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 type soapGetExternalIPAddressResponseEnvelope struct {
@@ -490,4 +668,8 @@ type getExternalIPAddressResponse struct {
 type soapErrorResponse struct {
 	ErrorCode        int    `xml:"Body>Fault>detail>UPnPError>errorCode"`
 	ErrorDescription string `xml:"Body>Fault>detail>UPnPError>errorDescription"`
+}
+
+type soapAddPinholeResponse struct {
+	UniqueID int `xml:"Body>AddPinholeResponse>UniqueID"`
 }

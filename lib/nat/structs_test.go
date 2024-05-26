@@ -70,11 +70,11 @@ func TestMappingClearAddresses(t *testing.T) {
 	natSvc := NewService(protocol.EmptyDeviceID, w)
 	// Mock a mapped port; avoids the need to actually map a port
 	ip := net.ParseIP("192.168.0.1")
-	m := natSvc.NewMapping(TCP, ip, 1024)
-	m.extAddresses["test"] = Address{
+	m := natSvc.NewMapping(TCP, IPv4Only, ip, 1024)
+	m.extAddresses["test"] = []Address{{
 		IP:   ip,
 		Port: 1024,
-	}
+	}}
 	// Now try and remove the mapped port; prior to #4829 this deadlocked
 	natSvc.RemoveMapping(m)
 }

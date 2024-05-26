@@ -1,8 +1,8 @@
 import { environment } from '../environments/environment'
 
 export const deviceID = (): String => {
-    const dID: String = environment.production ? globalThis.metadata['deviceID'] : '12345';
-    return dID.substring(0, 5)
+    // keep consistent with ShortIDStringLength in lib/protocol/deviceid.go
+    return environment.production ? globalThis.metadata['deviceIDShort'] : '1234567';
 }
 
 export const apiURL: String = '/'

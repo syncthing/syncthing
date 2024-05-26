@@ -22,8 +22,8 @@ import (
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
-	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name (NUL, COM1, etc.)")
-	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character (?, *, etc.)")
+	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name")
+	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character")
 )
 
 type OptionJunctionsAsDirs struct{}
@@ -51,10 +51,13 @@ type BasicFilesystem struct {
 	groupCache      *groupCache
 }
 
-type userCache = valueCache[string, *user.User]
-type groupCache = valueCache[string, *user.Group]
+type (
+	userCache  = valueCache[string, *user.User]
+	groupCache = valueCache[string, *user.Group]
+)
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
+	l.Infoln("newBasicFilesystem root=", root)
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
@@ -62,18 +65,18 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
-	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
+	// C:\somedir\ ->  C:\somedir\    ->  C:\somedir
 	// This way in the tests, we get away without OS specific separators
 	// in the test configs.
 	sep := string(filepath.Separator)
-	root = filepath.Dir(root + sep)
+	root = filepath.Clean(filepath.Dir(root + sep))
 
 	if build.IsIOS && !filepath.IsAbs(root) && root[0] != '~' {
-	  newroot, err2 := rooted(root, "~/Documents")
+		newroot, err2 := rooted(root, "~/Documents")
 		if err2 == nil {
-		  root = newroot
+			root = newroot
 		} else {
-		  l.Warnln("Illegal folder", root, "-", err2)
+			l.Warnln("Illegal folder", root, "-", err2)
 			// Cannot error from here so use an unwritable path that will fail later
 			root = "~/bad"
 		}
@@ -226,7 +229,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	fd, err := os.OpenFile(name, OptReadOnly, 0777)
+	fd, err := os.OpenFile(name, OptReadOnly, 0o777)
 	if err != nil {
 		return nil, err
 	}

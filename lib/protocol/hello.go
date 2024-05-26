@@ -8,24 +8,19 @@ import (
 	"io"
 )
 
-// The HelloIntf interface is implemented by the version specific hello
-// message. It knows its magic number and how to serialize itself to a byte
-// buffer.
-type HelloIntf interface {
-	Magic() uint32
-	Marshal() ([]byte, error)
-}
-
 var (
 	// ErrTooOldVersion is returned by ExchangeHello when the other side
 	// speaks an older, incompatible version of the protocol.
 	ErrTooOldVersion = errors.New("the remote device speaks an older version of the protocol not compatible with this version")
-	// ErrUnknownMagic is returned by ExchangeHellow when the other side
+	// ErrUnknownMagic is returned by ExchangeHello when the other side
 	// speaks something entirely unknown.
 	ErrUnknownMagic = errors.New("the remote device speaks an unknown (newer?) version of the protocol")
 )
 
-func ExchangeHello(c io.ReadWriter, h HelloIntf) (Hello, error) {
+func ExchangeHello(c io.ReadWriter, h Hello) (Hello, error) {
+	if h.Timestamp == 0 {
+		panic("bug: missing timestamp in outgoing hello")
+	}
 	if err := writeHello(c, h); err != nil {
 		return Hello{}, err
 	}
@@ -80,7 +75,7 @@ func readHello(c io.Reader) (Hello, error) {
 	return Hello{}, ErrUnknownMagic
 }
 
-func writeHello(c io.Writer, h HelloIntf) error {
+func writeHello(c io.Writer, h Hello) error {
 	msg, err := h.Marshal()
 	if err != nil {
 		return err

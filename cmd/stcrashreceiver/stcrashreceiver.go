@@ -71,6 +71,11 @@ func (r *crashReceiver) serveHead(reportID string, w http.ResponseWriter, _ *htt
 
 // servePut accepts and stores the given report.
 func (r *crashReceiver) servePut(reportID string, w http.ResponseWriter, req *http.Request) {
+	result := "receive_failure"
+	defer func() {
+		metricCrashReportsTotal.WithLabelValues(result).Inc()
+	}()
+
 	// Read at most maxRequestSize of report data.
 	log.Println("Receiving report", reportID)
 	lr := io.LimitReader(req.Body, maxRequestSize)
@@ -81,13 +86,17 @@ func (r *crashReceiver) servePut(reportID string, w http.ResponseWriter, req *ht
 		return
 	}
 
+	result = "success"
+
 	// Store the report
 	if !r.store.Put(reportID, bs) {
 		log.Println("Failed to store report (queue full):", reportID)
+		result = "queue_failure"
 	}
 
 	// Send the report to Sentry
-	if !r.sentry.Send(reportID, bs) {
+	if !r.sentry.Send(reportID, userIDFor(req), bs) {
 		log.Println("Failed to send report to sentry (queue full):", reportID)
+		result = "sentry_failure"
 	}
 }
