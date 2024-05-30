@@ -652,6 +652,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync packages objstore:${{ secrets.S3_BUCKET }}/nightly
@@ -704,6 +705,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync packages objstore:${{ secrets.S3_BUCKET }}/release/${{ env.VERSION }}
@@ -716,6 +718,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync objstore:${{ secrets.S3_BUCKET }}/release/${{ env.VERSION }} objstore:${{ secrets.S3_BUCKET }}/release/latest
