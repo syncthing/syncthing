@@ -57,7 +57,6 @@ type (
 )
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
-	l.Infoln("newBasicFilesystem root=", root)
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
