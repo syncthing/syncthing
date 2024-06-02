@@ -6,8 +6,13 @@
 
 package ext
 
+import (
+	"github.com/syncthing/syncthing/lib/fs"
+)
+
 type ExtCallback interface {
 	ExtCheckAvailableSpace(req uint64) bool
+	ExtNewFilesystem(path string) fs.Filesystem
 	ExtAccessPath(path string) string
 }
 

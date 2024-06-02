@@ -376,7 +376,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		// it'll show up as errored later.
 
 		if err := cfg.CreateRoot(); err != nil {
-			l.Warnln("Failed to create folder root directory", err)
+			l.Warnln("Failed to create folder root directory:", err)
 		} else if err = cfg.CreateMarker(); err != nil {
 			l.Warnln("Failed to create folder marker:", err)
 		}
