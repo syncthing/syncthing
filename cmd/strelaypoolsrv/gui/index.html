@@ -259,7 +259,7 @@
       return a.value > b.value ? 1 : -1;
     }
 
-    $http.get("/endpoint").then(function(response) {
+    $http.get("/endpoint/full").then(function(response) {
       $scope.relays = response.data.relays;
 
       angular.forEach($scope.relays, function(relay) {
@@ -338,7 +338,7 @@
         relay.showMarker = function() {
           relay.marker.openPopup();
         }
-        
+
         relay.hideMarker = function() {
           relay.marker.closePopup();
         }
@@ -347,7 +347,7 @@
 
     function addCircleToMap(relay) {
       console.log(relay.location.latitude)
-      L.circle([relay.location.latitude, relay.location.longitude], 
+      L.circle([relay.location.latitude, relay.location.longitude],
         {
           radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
           color: "FF0000",
