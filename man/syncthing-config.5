@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "May 08, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jun 02, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -119,7 +119,7 @@ may no longer correspond to the defaults.
 .sp
 .EX
 <configuration version=\(dq37\(dq>
-    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -225,7 +225,7 @@ may no longer correspond to the defaults.
     </options>
     <remoteIgnoredDevice time=\(dq2022\-01\-09T20:02:01Z\(dq id=\(dq5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU\(dq name=\(dqbugger\(dq address=\(dq192.168.0.20:22000\(dq></remoteIgnoredDevice>
     <defaults>
-        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
             <filesystemType>basic</filesystemType>
             <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
                 <encryptionPassword></encryptionPassword>
@@ -317,7 +317,7 @@ GUI.
 .INDENT 3.5
 .sp
 .EX
-<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
@@ -427,6 +427,13 @@ If set to \fBtrue\fP, this detects changes to files in the folder and scans them
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
 scheduled (only takes effect if \fI\%fsWatcherEnabled\fP is set to \fBtrue\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsWatcherTimeoutS
+The maximum delay before a scan is triggered when a file is continuously
+changing. If unset or zero a default value is calculated based on
+\fI\%fsWatcherDelayS\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1522,7 +1529,7 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .sp
 .EX
 <defaults>
-    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
