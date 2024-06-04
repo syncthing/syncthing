@@ -31,6 +31,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.21
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/quic-go v0.44.0
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/shirou/gopsutil/v3 v3.24.4
 	github.com/syncthing/notify v0.0.0-20210616190510-c6b7342338d2

@@ -39,12 +39,13 @@ type announcement struct {
 }
 
 type apiSrv struct {
-	addr     string
-	cert     tls.Certificate
-	db       database
-	listener net.Listener
-	repl     replicator // optional
-	useHTTP  bool
+	addr           string
+	cert           tls.Certificate
+	db             database
+	listener       net.Listener
+	repl           replicator // optional
+	useHTTP        bool
+	missesIncrease int
 
 	mapsMut sync.Mutex
 	misses  map[string]int32
@@ -60,14 +61,15 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP bool) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP bool, missesIncrease int) *apiSrv {
 	return &apiSrv{
-		addr:    addr,
-		cert:    cert,
-		db:      db,
-		repl:    repl,
-		useHTTP: useHTTP,
-		misses:  make(map[string]int32),
+		addr:           addr,
+		cert:           cert,
+		db:             db,
+		repl:           repl,
+		useHTTP:        useHTTP,
+		misses:         make(map[string]int32),
+		missesIncrease: missesIncrease,
 	}
 }
 
@@ -197,14 +199,13 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		s.mapsMut.Lock()
 		misses := s.misses[key]
 		if misses < rec.Misses {
-			misses = rec.Misses + 1
-		} else {
-			misses++
+			misses = rec.Misses
 		}
+		misses += int32(s.missesIncrease)
 		s.misses[key] = misses
 		s.mapsMut.Unlock()
 
-		if misses%notFoundMissesWriteInterval == 0 {
+		if misses >= notFoundMissesWriteInterval {
 			rec.Misses = misses
 			rec.Missed = time.Now().UnixNano()
 			rec.Addresses = nil
@@ -444,7 +445,6 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 				// remote is nil, unable to determine host IP
 				continue
 			}
-
 		}
 
 		// If zero port was specified, use remote port.
