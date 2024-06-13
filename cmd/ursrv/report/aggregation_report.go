@@ -8,15 +8,14 @@ package report
 
 import (
 	"fmt"
-	"time"
 )
 
 type AggregatedReport struct {
-	Date                time.Time                 `json:"date"`
+	// Date                time.Time                 `json:"date"`
 	Features            map[string][]Feature      `json:"features"`
 	FeatureGroups       map[string][]FeatureGroup `json:"featureGroups"`
 	Nodes               int                       `json:"nodes"`
-	VersionNodes        map[string]int            `json:"versionNodes"`
+	VersionNodes        map[string]int64          `json:"versionNodes"`
 	Categories          []Category                `json:"categories"`
 	Versions            []Analytic                `json:"versions"`
 	VersionPenetrations []Analytic                `json:"versionPenetrations"`
@@ -28,13 +27,13 @@ type AggregatedReport struct {
 	Locations           []Location                `json:"locations"`
 	Countries           []Feature                 `json:"countries"`
 
-	VersionCount map[string]int `json:"versionCount"`
-	Performance  Performance    `json:"performance"`
-	BlockStats   BlockStats     `json:"blockStats"`
+	// VersionCount map[string]int `json:"versionCount"`
+	// Performance  Performance    `json:"performance"`
+	// BlockStats   BlockStats     `json:"blockStats"`
 }
 
 type Category struct {
-	Values [4]float64 `json:"values"`
+	Values []float64  `json:"values"`
 	Descr  string     `json:"descr"`
 	Unit   string     `json:"unit,omitempty"`
 	Type   NumberType `json:"type"`
@@ -53,10 +52,17 @@ type FeatureGroup struct {
 	Counts  map[string]int `json:"counts"`
 }
 
+func (fg *FeatureGroup) SumCounts() (sum int) {
+	for _, value := range fg.Counts {
+		sum += value
+	}
+	return
+}
+
 type Location struct {
 	Latitude  float64 `json:"lat"`
 	Longitude float64 `json:"lon"`
-	Count     int     `json:"count"`
+	Count     int64   `json:"count"`
 }
 
 func (l *Location) Inc() {

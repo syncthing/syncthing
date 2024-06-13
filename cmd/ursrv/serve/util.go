@@ -8,16 +8,52 @@ package serve
 
 import (
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur"
 )
 
+type distributionMatch struct {
+	matcher      *regexp.Regexp
+	distribution string
+}
+
 var (
-	progressBarClass = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
-	blocksToGb       = float64(8 * 1024)
+	progressBarClass   = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
+	blocksToGb         = float64(8 * 1024)
+	plusStr            = "(+dev)"
+	knownDistributions = []distributionMatch{
+		// Maps well known builders to the official distribution method that
+		// they represent
+
+		{regexp.MustCompile(`\steamcity@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sjenkins@build\.syncthing\.net`), "GitHub"},
+		{regexp.MustCompile(`\sbuilder@github\.syncthing\.net`), "GitHub"},
+
+		{regexp.MustCompile(`\sdeb@build\.syncthing\.net`), "APT"},
+		{regexp.MustCompile(`\sdebian@github\.syncthing\.net`), "APT"},
+
+		{regexp.MustCompile(`\sdocker@syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@build.syncthing\.net`), "Docker Hub"},
+		{regexp.MustCompile(`\sdocker@github.syncthing\.net`), "Docker Hub"},
+
+		{regexp.MustCompile(`\sandroid-builder@github\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*teamcity@build\.syncthing\.net`), "Google Play"},
+		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
+		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
+		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
+		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
+		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
+		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
+		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
+		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
+		{regexp.MustCompile(`.`), "Others"},
+	}
 )
 
 // Functions used in index.html
@@ -53,21 +89,29 @@ func newBlockStats() [][]any {
 	}
 }
 
-func parseBlockStats(date string, reports int, blockStats report.BlockStats) []interface{} {
+func parseBlockStatsV2(rep ur.Aggregation, parsedDate string) []interface{} {
 	// Legacy bad data on certain days
-	if reports <= 0 || !blockStats.Valid() {
+	if rep.Count <= 0 {
 		return nil
 	}
 
+	// blockTotal, _ := intAnalysis(rep, "blockStats.total")
+	blockRenamed, _, _ := intAnalysis(rep, "blockStats.renamed")
+	blockReused, _, _ := intAnalysis(rep, "blockStats.reused")
+	blockPulled, _, _ := intAnalysis(rep, "blockStats.pulled")
+	blockCopyOrigin, _, _ := intAnalysis(rep, "blockStats.copyOrigin")
+	blockCopyOriginShifted, _, _ := intAnalysis(rep, "blockStats.copyOriginShifted")
+	blockElsewhere, _, _ := intAnalysis(rep, "blockStats.copyElsewhere")
+
 	return []interface{}{
-		date,
-		reports,
-		blockStats.Pulled / blocksToGb,
-		blockStats.Renamed / blocksToGb,
-		blockStats.Reused / blocksToGb,
-		blockStats.CopyOrigin / blocksToGb,
-		blockStats.CopyOriginShifted / blocksToGb,
-		blockStats.CopyElsewhere / blocksToGb,
+		parsedDate,
+		rep.CountV3,
+		float64(blockPulled.Sum) / blocksToGb,
+		float64(blockRenamed.Sum) / blocksToGb,
+		float64(blockReused.Sum) / blocksToGb,
+		float64(blockCopyOrigin.Sum) / blocksToGb,
+		float64(blockCopyOriginShifted.Sum) / blocksToGb,
+		float64(blockElsewhere.Sum) / blocksToGb,
 	}
 }
 
@@ -91,8 +135,31 @@ func newSummary() summary {
 	}
 }
 
-func (s *summary) setCounts(date string, versions map[string]int) {
-	for version, count := range versions {
+func simplifyVersion(version string) string {
+	re := regexp.MustCompile(`^v\d.\d+`)
+	return re.FindString(version)
+}
+
+func (s *summary) setCountsV2(date string, versions *ur.MapHistogram) {
+	if versions == nil {
+		return
+	}
+
+	simpleVersions := make(map[string]int64)
+	for version, count := range versions.Map {
+		version = simplifyVersion(version)
+		if version == "" {
+			continue
+		}
+
+		curr, ok := simpleVersions[version]
+		if ok {
+			count += curr
+		}
+		simpleVersions[version] = count
+	}
+
+	for version, count := range simpleVersions {
 		if version == "v0.0" {
 			// ?
 			continue
@@ -103,7 +170,7 @@ func (s *summary) setCounts(date string, versions map[string]int) {
 			version = version[:3] + "0" + version[3:] // now v0.0x
 		}
 
-		s.setCount(date, version, count)
+		s.setCount(date, version, int(count))
 	}
 }
 
@@ -134,7 +201,6 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 	var versions []string
 	for v := range s.versions {
 		versions = append(versions, v)
-		println(v)
 	}
 	sort.Slice(versions, func(a, b int) bool {
 		return upgrade.CompareVersions(versions[a], versions[b]) < 0
@@ -190,4 +256,21 @@ func (s *summary) filter(min int) {
 			delete(s.max, ver)
 		}
 	}
+}
+
+type sortableFeatureList []report.Feature
+
+func (l sortableFeatureList) Len() int {
+	return len(l)
+}
+
+func (l sortableFeatureList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func (l sortableFeatureList) Less(a, b int) bool {
+	if l[a].Pct != l[b].Pct {
+		return l[a].Pct < l[b].Pct
+	}
+	return l[a].Key > l[b].Key
 }

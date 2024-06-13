@@ -76,18 +76,18 @@ func Sum[E Numerical, S ~[]E](data S) E {
 
 // Obtain the 5th, 50th, 95th and 100th percentiles. Requires [threshold] data
 // points or more.
-func Percentiles[E Numerical, S ~[]E](data S, threshold int) []E {
-	percentiles := make([]E, 4)
+func Percentiles[E Numerical, S ~[]E](data S, threshold int) []float64 {
+	percentiles := make([]float64, 4)
 	l := len(data)
 	if l == 0 || l < threshold {
 		return percentiles
 	}
 	slices.Sort(data)
 
-	percentiles[0] = E(data[int(float64(len(data))*0.05)]) // 5th
-	percentiles[1] = E(data[len(data)/2])                  // 50th
-	percentiles[2] = E(data[int(float64(len(data))*0.95)]) // 95th
-	percentiles[3] = E(data[len(data)-1])                  // 100th
+	percentiles[0] = float64(data[int(float64(len(data))*0.05)]) // 5th
+	percentiles[1] = float64(data[len(data)/2])                  // 50th
+	percentiles[2] = float64(data[int(float64(len(data))*0.95)]) // 95th
+	percentiles[3] = float64(data[len(data)-1])                  // 100th
 
 	return percentiles
 }
@@ -123,7 +123,7 @@ func intStats(data []int64) *ur.IntegerStatistic {
 	}
 }
 
-func calculateStatistics[E Numerical](data []E) (count int64, sum, min, max E, med, avg float64, percentiles []E) {
+func calculateStatistics[E Numerical](data []E) (count int64, sum, min, max E, med, avg float64, percentiles []float64) {
 	slices.Sort(data)
 	count = int64(len(data))
 	sum = Sum(data)

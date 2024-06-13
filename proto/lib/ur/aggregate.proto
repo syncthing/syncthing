@@ -20,6 +20,7 @@ message Statistic {
     MapHistogram        histogram     = 4 [(gogoproto.nullable) = true]; // e.g. for Version
     MapIntegerStatistic mappedInteger = 5 [(gogoproto.nullable) = true]; // e.g. for FilesystemType
     }
+    int64 since = 6;
 }
 
 message FloatStatistic {
@@ -33,17 +34,18 @@ message FloatStatistic {
 }
 
 message IntegerStatistic {
-    int64          count       = 1; // count of non-zero reports
-    int64          min         = 2;
-    int64          max         = 3;
-    double         med         = 4;
-    repeated int64 percentiles = 5;
-    int64          sum         = 6;
-    double         avg         = 7;
+    int64           count       = 1; // count of non-zero reports
+    int64           min         = 2;
+    int64           max         = 3;
+    double          med         = 4;
+    repeated double percentiles = 5;
+    int64           sum         = 6;
+    double          avg         = 7;
 }
 
 message MapHistogram {
-    map<string, int64> map = 1;
+    map<string, int64> map   = 1;
+    int64              count = 2; // Total
 }
 
 message MapIntegerStatistic {

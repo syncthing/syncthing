@@ -113,6 +113,7 @@ func (s *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report,
 
 func (s *UrsrvStore) PutAggregatedReport(rep *ur.Aggregation) error {
 	key := aggregatedReportKey(time.Unix(rep.Date, 0))
+
 	bs, err := rep.Marshal()
 	if err != nil {
 		return err
@@ -124,8 +125,8 @@ func (s *UrsrvStore) ListAggregatedReports(from time.Time) ([]ur.Aggregation, er
 	ctx := context.Background()
 
 	var res []ur.Aggregation
+	var rep ur.Aggregation
 	err := s.Store.IterateFromDate(ctx, AGGREGATED_PREFIX, from, func(b []byte) bool {
-		var rep ur.Aggregation
 		err := rep.Unmarshal(b)
 		if err != nil {
 			return true

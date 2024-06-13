@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
 )
@@ -122,6 +123,19 @@ func proportion(m map[string]int, count int) float64 {
 		pct -= 0.01
 	}
 	return pct
+}
+
+func prettyCase(input string) string {
+	output := ""
+	for i, runeValue := range input {
+		if i == 0 {
+			runeValue = unicode.ToUpper(runeValue)
+		} else if unicode.IsUpper(runeValue) {
+			output += " "
+		}
+		output += string(runeValue)
+	}
+	return output
 }
 
 // Used in the templates

@@ -62,7 +62,6 @@ func (d *Disk) IterateFromDate(_ context.Context, reportType string, from time.T
 		if err != nil {
 			continue
 		}
-
 		if !fn(content) {
 			break
 		}

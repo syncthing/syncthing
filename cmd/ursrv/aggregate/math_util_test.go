@@ -9,21 +9,21 @@ func TestMathematicalFunctions(t *testing.T) {
 	var intCases = []struct {
 		input       []int
 		med         float64
-		percentiles []int
+		percentiles []float64
 		sum         int
 		avg         int
 	}{
 		{
 			input:       []int{5, 1, 200, 15},
 			med:         10,
-			percentiles: []int{0, 0, 0, 0}, // Makes no sense to calculate percentiles with too few data points.
+			percentiles: []float64{0, 0, 0, 0}, // Makes no sense to calculate percentiles with too few data points.
 			sum:         221,
 			avg:         55,
 		},
 		{
 			input:       make([]int, 100),
 			med:         49, // 49.5
-			percentiles: []int{5, 50, 95, 99},
+			percentiles: []float64{5, 50, 95, 99},
 			sum:         4950,
 			avg:         50, // 50.5
 		},
