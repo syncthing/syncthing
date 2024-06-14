@@ -7,6 +7,7 @@
 package aggregate
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -85,14 +86,12 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 	// Initialize the storage and store.
 	store := blob.NewUrsrvStore(blob.NewBlobStorage(s3Config))
 
-	var geoip *geoip.Provider
-	// TO-DO REVERT
-
-	// geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
-	// if err != nil {
-	// 	log.Fatalln("geoip:", err)
-	// }
-	// go geoip.Serve(context.TODO())
+	// Initialize the geoip provider.
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("geoip:", err)
+	}
+	go geoip.Serve(context.TODO())
 
 	// Migration support (to be removed post-migration).
 	if cli.Migrate {

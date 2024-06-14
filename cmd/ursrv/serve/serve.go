@@ -8,6 +8,7 @@ package serve
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -77,12 +78,13 @@ func (cli *CLI) Run(s3Config blob.S3Config) error {
 		log.Fatalln("listen:", err)
 	}
 
-	var geoip *geoip.Provider
-	// TO-DO: Revert back
-	// geoip, err := geoip.NewGeoLite2CityProvider(context.Background(),
-	// cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir()) if err != nil {
-	//  log.Fatalln("geoip:", err)
-	// } go geoip.Serve(context.TODO())
+	// Initialize the geoip provider.
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(),
+		cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("geoip:", err)
+	}
+	go geoip.Serve(context.TODO())
 
 	srv := &server{
 		store:             store,
