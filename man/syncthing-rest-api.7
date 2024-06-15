@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -62,14 +62,13 @@ used parameters are always returned as attributes in the response object.
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://pkg.go.dev/path/filepath#Match\fP>\&. A ‘*’ will always be appended
+\fBcurrent\fP\&. The path can use \X'tty: link https://pkg.go.dev/path/filepath#Match'\fI\%patterns as described in Go’s filepath package\fP <\fBhttps://pkg.go.dev/path/filepath#Match\fP>\X'tty: link'\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse | json_pp
 [
     \(dq/\(dq
@@ -98,13 +97,12 @@ $ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse?curren
     \(dq/var/opt/\(dq,
     \(dq/var/spool/\(dq
 ]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use \fI\%/rest/config\fP
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use \X'tty: link #rest-config'\fI\%/rest/config\fP\X'tty: link'
 instead.
 
 .sp
@@ -112,8 +110,7 @@ Returns the current configuration.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqversion\(dq: 35,
   \(dqfolders\(dq: [
@@ -368,14 +365,13 @@ Returns the current configuration.
     }
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/system/config/insync (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use
-\fI\%/rest/config/restart\-required\fP instead.
+\X'tty: link #rest-config-insync'\fI\%/rest/config/restart\-required\fP\X'tty: link' instead.
 
 .sp
 Returns whether the config is in sync, i.e. whether the running
@@ -383,13 +379,11 @@ configuration is the same as that on disk.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqconfigInSync\(dq: true
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/config (DEPRECATED)
@@ -401,7 +395,7 @@ instead.
 Post the full contents of the configuration, in the same format as returned by
 the corresponding GET request. When posting the configuration succeeds,
 the posted configuration is immediately applied, except for changes that require a restart. Query
-\fI\%/rest/config/restart\-required\fP to check if a restart is required.
+\X'tty: link #rest-config-insync'\fI\%/rest/config/restart\-required\fP\X'tty: link' to check if a restart is required.
 .sp
 This endpoint is the main point to control Syncthing, even if the change only
 concerns a very small part of the config: The usual workflow is to get the
@@ -422,8 +416,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqconnections\(dq: {
     \(dqDOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA\(dq: {
@@ -469,21 +462,19 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
     \(dqoutBytesTotal\(dq: 1318
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/system/debug
 .sp
-New in version 0.12.0.
+Added in version 0.12.0.
 
 .sp
 Returns the set of debug facilities and which of them are currently enabled.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqenabled\(dq: [
     \(dqbeacon\(dq
@@ -509,13 +500,12 @@ Returns the set of debug facilities and which of them are currently enabled.
     \(dqversioner\(dq: \(dqFile versioning\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/debug
 .sp
-New in version 0.12.0.
+Added in version 0.12.0.
 
 .sp
 Enables or disables debugging for specified facilities. Give one or both of
@@ -525,11 +515,9 @@ for config and db:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-H X\-API\-Key:abc123 \-X POST \(aqhttp://localhost:8384/rest/system/debug?disable=beacon,discovery&enable=config,db\(aq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/system/discovery
@@ -538,15 +526,13 @@ Returns the contents of the local discovery cache.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqLGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\(dq: [
     \(dq192.162.129.11:22000\(dq
   ]
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/discovery
@@ -563,13 +549,11 @@ the discovery cache.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST http://127.0.0.1:8384/rest/system/discovery?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
 # Or with the X\-API\-Key header:
 curl \-X POST \-\-header \(dqX\-API\-Key: TcE28kVPdtJ8COws1JdM0b2nodj77WeQ\(dq http://127.0.0.1:8384/rest/system/discovery?device=LGFPDIT7SKNNJVJZA4FC7QNCRKCE753K72BW5QD2FOZ7FRFEP57Q\e&addr=192.162.129.11:22000
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/error/clear
@@ -588,8 +572,7 @@ Returns the list of recent errors.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqerrors\(dq: [
     {
@@ -598,8 +581,7 @@ Returns the list of recent errors.
     }
   ]
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/error
@@ -608,16 +590,15 @@ Post with an error message in the body (plain text) to register a new
 error. The new error will be displayed on any active GUI clients.
 .SS GET /rest/system/log
 .sp
-New in version 0.12.0.
+Added in version 0.12.0.
 
 .sp
 Returns the list of recent log entries.  The optional \fBsince\fP parameter limits
-the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc3339.html\fP> format.
+the results to message newer than the given timestamp in \X'tty: link https://datatracker.ietf.org/doc/html/rfc3339.html'\fI\%RFC 3339\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc3339.html\fP>\X'tty: link' format.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqmessages\(dq: [
     {
@@ -626,8 +607,7 @@ the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBht
     }
   ]
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/system/log.txt
@@ -635,7 +615,7 @@ the results to message newer than the given timestamp in \fI\%RFC 3339\fP <\fBht
 Returns the same information, formatted as a text log instead of a JSON object.
 .SS GET /rest/system/paths
 .sp
-New in version 1.21.0.
+Added in version 1.21.0.
 
 .sp
 Returns the path locations used internally for storing configuration, database,
@@ -643,8 +623,7 @@ and others.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqauditLog\(dq: \(dq/home/user/.local/share/syncthing/audit\-${timestamp}.log\(dq,
   \(dqbaseDir\-config\(dq: \(dq/home/user/.config/syncthing\(dq,
@@ -662,8 +641,7 @@ and others.
   \(dqlogFile\(dq: \(dq\-\(dq,
   \(dqpanicLog\(dq: \(dq/home/user/.local/share/syncthing/panic\-${timestamp}.log\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/pause
@@ -679,13 +657,11 @@ Returns a \fB{\(dqping\(dq: \(dqpong\(dq}\fP object.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqping\(dq: \(dqpong\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/ping
@@ -700,15 +676,13 @@ information for that folder will be erased:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/system/reset?folder=ab1c2\-def3g
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fI\%\-\-reset\-database\fP for \fB\&.stfolder\fP creation
+\fBCaution\fP: See \X'tty: link #cmdoption-reset-database'\fI\%\-\-reset\-database\fP\X'tty: link' for \fB\&.stfolder\fP creation
 side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
@@ -729,8 +703,7 @@ Returns information about current system status and resource usage. The CPU perc
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqalloc\(dq: 30618136,
   \(dqconnectionServiceStatus\(dq: {
@@ -816,19 +789,18 @@ Returns information about current system status and resource usage. The CPU perc
   \(dqtilde\(dq: \(dq/Users/jb\(dq,
   \(dquptime\(dq: 2635
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
-New in version 1.2.0: The \fBlastDialStatus\fP dictionary contains the last error (or \fBnull\fP for
+Added in version 1.2.0: The \fBlastDialStatus\fP dictionary contains the last error (or \fBnull\fP for
 success) for each peer address that Syncthing has attempted to contact.
 The \fBconnectionServiceStatus\fP entries gained \fB\(dqerror\(dq: null\fP
 attributes where previously there would be no \fBerror\fP attribute at all
 in the success case.
 
 .sp
-New in version 1.18.0: The \fBdiscoveryStatus\fP dictionary lists all configured discovery methods, not
+Added in version 1.18.0: The \fBdiscoveryStatus\fP dictionary lists all configured discovery methods, not
 only failed ones like the now deprecated \fBdiscoveryErrors\fP\&.  Each entry is
 an object itself (for consistency with other fields), where a \fBnull\fP value
 for the \fBerror\fP attribute means the method is running successfully.  This
@@ -842,16 +814,14 @@ newest version and upgrade possibility.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqlatest\(dq: \(dqv0.14.47\(dq,
   \(dqmajorNewer\(dq: false,
   \(dqnewer\(dq: true,
   \(dqrunning\(dq: \(dqv0.14.46\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/system/upgrade
@@ -864,22 +834,20 @@ Returns the current Syncthing version information.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqarch\(dq: \(dqamd64\(dq,
   \(dqlongVersion\(dq: \(dqsyncthing v0.10.27+3\-gea8c3de (go1.4 darwin\-amd64 default) jb@syno 2015\-03\-16 11:01:29 UTC\(dq,
   \(dqos\(dq: \(dqdarwin\(dq,
   \(dqversion\(dq: \(dqv0.10.27+3\-gea8c3de\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH CONFIG ENDPOINTS
 .SS Config Endpoints
 .sp
-New in version 1.12.0.
+Added in version 1.12.0.
 
 .sp
 These endpoints facilitate access and modification of the \fI\%configuration\fP in a granular way. Config sent to the endpoints must be in the
@@ -920,7 +888,7 @@ default config (omitted values are reset to the hard\-coded defaults), \fBPATCH\
 replaces only the given child objects.
 .SS /rest/config/defaults/ignores
 .sp
-New in version 1.19.0.
+Added in version 1.19.0.
 
 .sp
 \fBGET\fP returns an object with a single \fBlines\fP attribute listing ignore
@@ -934,7 +902,7 @@ patterns to be used by default on folders, as an array of single\-line strings.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-The \fI\%gui.password\fP configuration option has special handling to
+The \X'tty: link #config-option-gui.password'\fI\%gui.password\fP\X'tty: link' configuration option has special handling to
 accept already hashed passwords.  Any valid bcrypt hash is stored verbatim,
 while a plaintext password is first hashed.
 .UNINDENT
@@ -944,7 +912,7 @@ while a plaintext password is first hashed.
 Concerns the mesh network structure.
 .SS DELETE /rest/cluster/pending/devices
 .sp
-New in version 1.18.0.
+Added in version 1.18.0.
 
 .sp
 Remove records about a pending remote device which tried to connect.  Valid
@@ -953,11 +921,9 @@ values for the \fBdevice\fP parameter are those from the corresponding
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-X DELETE \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/cluster/pending/devices?device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -969,7 +935,7 @@ For a more permanent effect, also for future connections from the same
 device ID, the device should be ignored in the \fI\%configuration\fP instead.
 .SS GET /rest/cluster/pending/devices
 .sp
-New in version 1.13.0.
+Added in version 1.13.0.
 
 .sp
 Lists remote devices which have tried to connect, but are not yet
@@ -977,8 +943,7 @@ configured in our instance.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
     \(dqtime\(dq: \(dq2020\-03\-18T11:43:07Z\(dq,
@@ -986,13 +951,12 @@ configured in our instance.
     \(dqaddress\(dq: \(dq192.168.1.2:22000\(dq
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS DELETE /rest/cluster/pending/folders
 .sp
-New in version 1.18.0.
+Added in version 1.18.0.
 
 .sp
 Remove records about a pending folder announced from a remote device.  Valid
@@ -1003,11 +967,9 @@ device, or from \fIany\fP device if omitted.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-X DELETE \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/cluster/pending/folders?folder=cpkn4\-57ysy&device=P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1020,7 +982,7 @@ ID, the folder should be ignored in the \fI\%configuration\fP
 instead.
 .SS GET /rest/cluster/pending/folders
 .sp
-New in version 1.13.0.
+Added in version 1.13.0.
 
 .sp
 Lists folders which remote devices have offered to us, but are not yet
@@ -1030,8 +992,7 @@ Other offering devices are also omitted from the result.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqcpkn4\-57ysy\(dq: {
     \(dqofferedBy\(dq: {
@@ -1060,8 +1021,7 @@ Other offering devices are also omitted from the result.
     }
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH FOLDER ENDPOINTS
@@ -1069,18 +1029,17 @@ Other offering devices are also omitted from the result.
 Runtime state of the individual shared folders.
 .SS GET /rest/folder/errors
 .sp
-New in version 0.14.53.
+Added in version 0.14.53.
 
 .sp
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of errors
 encountered during scanning or pulling.
 .sp
-The results can be paginated using the \fI\%common pagination parameters\fP\&.
+The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqfolder\(dq: \(dqnnhic\-sxuae\(dq,
   \(dqerrors\(dq: [
@@ -1092,8 +1051,7 @@ The results can be paginated using the \fI\%common pagination parameters\fP\&.
   \(dqpage\(dq: 1,
   \(dqperpage\(dq: 100
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/folder/pullerrors (DEPRECATED)
@@ -1101,11 +1059,11 @@ The results can be paginated using the \fI\%common pagination parameters\fP\&.
 Deprecated since version v0.14.53: This endpoint still works as before but is deprecated.  Use
 \fI\%GET /rest/folder/errors\fP instead, which returns the same information.
 .sp
-See \fI\%https://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP
+See \X'tty: link https://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e'\fI\%https://github.com/syncthing/syncthing/commit/d510e3cca3d5caae42121fa206b3decc981ae59e\fP\X'tty: link'
 
 .SS GET /rest/folder/versions
 .sp
-New in version 0.14.44.
+Added in version 0.14.44.
 
 .sp
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of archived
@@ -1116,8 +1074,7 @@ modified before being archived, and the size in bytes.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqdir1/dir2/bar\(dq: [
     {
@@ -1146,8 +1103,7 @@ modified before being archived, and the size in bytes.
     }
   ]
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/folder/versions
@@ -1163,14 +1119,12 @@ the file path as attribute name.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST \-H X\-API\-key:... http://127.0.0.1:8384/rest/folder/versions?folder=default \-d \(aq{
   \(dqdir1/dir2/bar\(dq: \(dq2022\-02\-06T20:44:12+01:00\(dq,
   \(dqbaz\(dq: \(dq2022\-02\-06T20:44:20+01:00\(dq
 }\(aq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DATABASE ENDPOINTS
@@ -1189,8 +1143,7 @@ start building the structure.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-s http://localhost:8384/rest/db/browse?folder=j663y\-3ct3e&prefix=DCIM&levels=2
 [
     {
@@ -1238,8 +1191,7 @@ $ curl \-s http://localhost:8384/rest/db/browse?folder=j663y\-3ct3e&prefix=DCIM&
         \(dqtype\(dq : \(dqFILE_INFO_TYPE_DIRECTORY\(dq
     },
 ]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1270,11 +1222,9 @@ Completion status for folder \fBabcd\-1234\fP on device \fBI6KAH76\-...\-3PSROAU
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 /rest/db/completion?folder=abcd\-1234&device=I6KAH76\-...\-3PSROAU
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1282,11 +1232,9 @@ Aggregated completion status for device \fBI6KAH76\-...\-3PSROAU\fP (all folders
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 /rest/db/completion?device=I6KAH76\-...\-3PSROAU
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1294,11 +1242,9 @@ Completion status for folder \fBabcd\-1234\fP on the local device:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 /rest/db/completion?folder=abcd\-1234
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1306,19 +1252,16 @@ Aggregated completion status for all folders on the local device:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 /rest/db/completion
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Example Response
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqcompletion\(dq: 99.9937565835,
   \(dqglobalBytes\(dq: 156793013575,
@@ -1329,17 +1272,16 @@ Aggregated completion status for all folders on the local device:
   \(dqremoteState\(dq: \(dqvalid\(dq,
   \(dqsequence\(dq: 12
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
-New in version 1.8.0: The ability to aggregate multiple folders by leaving out the folder ID.
+Added in version 1.8.0: The ability to aggregate multiple folders by leaving out the folder ID.
 Querying data for the local device by leaving out the device ID. Returning
 the \fBglobalItems\fP counter in the response.
 
 .sp
-New in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
+Added in version 1.20.0: Indication whether the remote device has accepted the folder (shares it with
 us) as well, and whether it is paused.  The \fBremoteState\fP field is
 meaningless for aggregated responses, \fBunknown\fP when the remote device is
 not connected.  Otherwise it can be either \fBpaused\fP, \fBnotSharing\fP, or
@@ -1354,8 +1296,7 @@ respectively.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqavailability\(dq: [
     {
@@ -1366,8 +1307,7 @@ respectively.
   \(dqglobal\(dq: { /* a file entry */ },
   \(dqlocal\(dq: { /* a file entry */ }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1375,8 +1315,7 @@ A file entry looks like this:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   {
     \(dqdeleted\(dq: false,
@@ -1407,8 +1346,7 @@ A file entry looks like this:
     }
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1419,8 +1357,7 @@ attribute for macOS (“darwin”) looks as follows:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqdarwin\(dq: {
     \(dqxattrs\(dq: [
@@ -1441,8 +1378,7 @@ attribute for macOS (“darwin”) looks as follows:
   },
   \(dqwindows\(dq: null
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/db/ignores
@@ -1453,8 +1389,7 @@ provides a list of strings which represent globbing patterns described by gobwas
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqignore\(dq: [
     \(dq(?i)/Backups\(dq
@@ -1464,8 +1399,7 @@ provides a list of strings which represent globbing patterns described by gobwas
     \(dq(?i)Backups/**\(dq
   ]
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/ignores
@@ -1476,7 +1410,7 @@ It takes one parameter, \fBfolder\fP, and either updates the content of
 the \fB\&.stignore\fP echoing it back as a response, or returns an error.
 .SS GET /rest/db/localchanged
 .sp
-New in version 0.14.55.
+Added in version 0.14.55.
 
 .sp
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of files which
@@ -1484,12 +1418,11 @@ were changed locally in a receive\-only folder.  Thus they differ from the globa
 state and could be reverted by pulling from remote devices again, see
 \fI\%POST /rest/db/revert\fP\&.
 .sp
-The results can be paginated using the \fI\%common pagination parameters\fP\&.
+The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqfiles\(dq: [
     {
@@ -1506,8 +1439,7 @@ The results can be paginated using the \fI\%common pagination parameters\fP\&.
   \(dqpage\(dq: 1,
   \(dqperpage\(dq: 100
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1523,7 +1455,7 @@ Use sparingly.
 Takes one mandatory parameter, \fBfolder\fP, and returns lists of files which are
 needed by this device in order for it to become in sync.
 .sp
-The results can be paginated using the \fI\%common pagination parameters\fP\&.  Pagination happens, across the union of all needed files,
+The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.  Pagination happens, across the union of all needed files,
 that is \- across all 3 sections of the response.  For example, given the current
 need state is as follows:
 .INDENT 0.0
@@ -1552,8 +1484,7 @@ attribute.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   # Files currently being downloaded
   \(dqprogress\(dq: [
@@ -1580,8 +1511,7 @@ attribute.
   \(dqpage\(dq: 1,
   \(dqperpage\(dq: 100
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1602,11 +1532,9 @@ Takes the mandatory parameter \fIfolder\fP (folder ID).
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST \-H X\-API\-key:... http://127.0.0.1:8384/rest/db/override?folder=default
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/prio
@@ -1615,30 +1543,27 @@ Moves the file to the top of the download queue.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 Response contains the same output as \fI\%GET /rest/db/need\fP\&.
 .SS GET /rest/db/remoteneed
 .sp
-New in version 0.14.43.
+Added in version 0.14.43.
 
 .sp
 Takes the mandatory parameters \fBfolder\fP and \fBdevice\fP, and returns the list
 of files which are needed by that remote device in order for it to become in
 sync with the shared folder.
 .sp
-The results can be paginated using the \fI\%common pagination parameters\fP\&.
+The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqfiles\(dq: [
     {
@@ -1655,8 +1580,7 @@ The results can be paginated using the \fI\%common pagination parameters\fP\&.
   \(dqpage\(dq: 1,
   \(dqperpage\(dq: 100
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1669,7 +1593,7 @@ Use sparingly.
 .UNINDENT
 .SS POST /rest/db/revert
 .sp
-New in version 0.14.50.
+Added in version 0.14.50.
 
 .sp
 Request revert of a receive only folder. Reverting a folder means to undo
@@ -1680,11 +1604,9 @@ Takes the mandatory parameter \fIfolder\fP (folder ID).
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST \-H X\-API\-Key:... http://127.0.0.1:8384/rest/db/revert?folder=default
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/scan
@@ -1705,11 +1627,9 @@ plain text error if an error occurred during scanning.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 curl \-X POST http://127.0.0.1:8384/rest/db/scan?folder=default&sub=foo/bar
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/db/status
@@ -1720,8 +1640,7 @@ Parameters: \fBfolder\fP, the ID of a folder.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqglobalBytes\(dq: 0,
   \(dqglobalDeleted\(dq: 0,
@@ -1757,8 +1676,7 @@ Parameters: \fBfolder\fP, the ID of a folder.
   \(dqstateChanged\(dq: \(dq2018\-08\-08T07:04:57.301064781+02:00\(dq,
   \(dqversion\(dq: 0
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1812,7 +1730,7 @@ To receive events, perform a HTTP GET of \fB/rest/events\fP\&.
 .sp
 To filter the event list, in effect creating a specific subscription for only
 the desired event types, add a parameter \fBevents=EventTypeA,EventTypeB,...\fP
-where the event types are any of the \fI\%Event Types\fP\&.  If no filter is
+where the event types are any of the \X'tty: link #event-types'\fI\%Event Types\fP\X'tty: link'\&.  If no filter is
 specified, all events \fIexcept\fP \fI\%LocalChangeDetected\fP and
 \fI\%RemoteChangeDetected\fP are included.
 .sp
@@ -1847,8 +1765,7 @@ time the device was last seen and the last connection duration.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-s http://localhost:8384/rest/stats/device | json
 {
   \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq: {
@@ -1856,8 +1773,7 @@ $ curl \-s http://localhost:8384/rest/stats/device | json
     \(dqlastConnectionDurationS\(dq: 556335.421708141
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/stats/folder
@@ -1867,8 +1783,7 @@ last scan time and the last synced file.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqfolderid\(dq: {
     \(dqlastScan\(dq: \(dq2016\-06\-02T13:28:01.288181412\-04:00\(dq,
@@ -1878,8 +1793,7 @@ last scan time and the last synced file.
     }
   }
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH MISC SERVICES ENDPOINTS
@@ -1892,8 +1806,7 @@ either a valid device ID in modern format, or an error.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-s http://localhost:8384/rest/svc/deviceid?id=1234 | json
 {
   \(dqerror\(dq: \(dqdevice ID invalid: incorrect length\(dq
@@ -1903,8 +1816,7 @@ $ curl \-s http://localhost:8384/rest/svc/deviceid?id=p56ioi7m\-\-zjnu2iq\-gdr\-
 {
   \(dqid\(dq: \(dqP56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/svc/lang
@@ -1914,11 +1826,9 @@ the \fBAccept\-Language\fP header sent by the browser.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 [\(dqsv_sv\(dq,\(dqsv\(dq,\(dqen_us\(dq,\(dqen\(dq]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/svc/random/string
@@ -1927,13 +1837,11 @@ Returns a strong random generated string (alphanumeric) of the specified length.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqrandom\(dq: \(dqFdPaEaZQ56sXEKYNxpgF\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS GET /rest/svc/report
@@ -1942,8 +1850,7 @@ Returns the data sent in the anonymous usage report.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
    \(dqfolderMaxMiB\(dq : 0,
    \(dqplatform\(dq : \(dqlinux\-amd64\(dq,
@@ -1995,14 +1902,13 @@ Returns the data sent in the anonymous usage report.
    },
    \(dqupgradeAllowedAuto\(dq : false
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DEBUG ENDPOINTS
 .SS Debug Endpoints
 .sp
-These endpoints require the \fI\%gui.debugging\fP configuration option to
+These endpoints require the \X'tty: link #config-option-gui.debugging'\fI\%gui.debugging\fP\X'tty: link' configuration option to
 be enabled and yield an access denied error code otherwise.
 .SS GET /rest/debug/peerCompletion
 .sp
@@ -2033,11 +1939,9 @@ Shows diagnostics about a certain file in a shared folder.  Takes the \fBfolder\
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ curl \-H X\-API\-Key:... \(dqhttp://localhost:8384/rest/debug/file?folder=default&file=foo/bar\(dq
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -2052,13 +1956,11 @@ Returns a \fB{\(dqstatus\(dq: \(dqOK\(dq}\fP object.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 {
   \(dqstatus\(dq: \(dqOK\(dq
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH AUTHOR

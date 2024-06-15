@@ -7,6 +7,8 @@
 package config
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -104,25 +106,49 @@ func (f *FolderConfiguration) CreateMarker() error {
 		return nil
 	}
 
-	permBits := fs.FileMode(0o777)
-	if build.IsWindows {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0o700
-	}
-	fs := f.Filesystem(nil)
-	err := fs.Mkdir(DefaultMarkerName, permBits)
+	ffs := f.Filesystem(nil)
+
+	// Create the marker as a directory
+	err := ffs.Mkdir(DefaultMarkerName, 0o755)
 	if err != nil {
 		return err
 	}
-	if dir, err := fs.Open("."); err != nil {
+
+	// Create a file inside it, reducing the risk of the marker directory
+	// being removed by automated cleanup tools.
+	markerFile := filepath.Join(DefaultMarkerName, f.markerFilename())
+	if err := fs.WriteFile(ffs, markerFile, f.markerContents(), 0o644); err != nil {
+		return err
+	}
+
+	// Sync & hide the containing directory
+	if dir, err := ffs.Open("."); err != nil {
 		l.Debugln("folder marker: open . failed:", err)
 	} else if err := dir.Sync(); err != nil {
 		l.Debugln("folder marker: fsync . failed:", err)
 	}
-	fs.Hide(DefaultMarkerName)
+	ffs.Hide(DefaultMarkerName)
 
 	return nil
+}
+
+func (f *FolderConfiguration) RemoveMarker() error {
+	ffs := f.Filesystem(nil)
+	_ = ffs.Remove(filepath.Join(DefaultMarkerName, f.markerFilename()))
+	return ffs.Remove(DefaultMarkerName)
+}
+
+func (f *FolderConfiguration) markerFilename() string {
+	h := sha256.Sum256([]byte(f.ID))
+	return fmt.Sprintf("syncthing-folder-%x.txt", h[:3])
+}
+
+func (f *FolderConfiguration) markerContents() []byte {
+	var buf bytes.Buffer
+	buf.WriteString("# This directory is a Syncthing folder marker.\n# Do not delete.\n\n")
+	fmt.Fprintf(&buf, "folderID: %s\n", f.ID)
+	fmt.Fprintf(&buf, "created: %s\n", time.Now().Format(time.RFC3339))
+	return buf.Bytes()
 }
 
 // CheckPath returns nil if the folder root exists and contains the marker file

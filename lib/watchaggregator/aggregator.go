@@ -437,7 +437,14 @@ func (a *aggregator) CommitConfiguration(_, to config.Configuration) bool {
 
 func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 	a.notifyDelay = time.Duration(folderCfg.FSWatcherDelayS) * time.Second
-	a.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
+	if maxDelay := folderCfg.FSWatcherTimeoutS; maxDelay > 0 {
+		// FSWatcherTimeoutS is set explicitly so use that, but it also
+		// can't be lower than FSWatcherDelayS
+		a.notifyTimeout = time.Duration(max(maxDelay, folderCfg.FSWatcherDelayS)) * time.Second
+	} else {
+		// Use the default FSWatcherTimeoutS calculation
+		a.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
+	}
 	a.folderCfg = folderCfg
 }
 
@@ -461,8 +468,8 @@ func notifyTimeout(eventDelayS float64) time.Duration {
 		shortDelayS             = 10
 		shortDelayMultiplicator = 6
 		longDelayS              = 60
+		longDelayTimeout        = time.Minute
 	)
-	longDelayTimeout := time.Duration(1) * time.Minute
 	if eventDelayS < shortDelayS {
 		return time.Duration(eventDelayS*shortDelayMultiplicator) * time.Second
 	}

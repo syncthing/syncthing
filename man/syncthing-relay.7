@@ -1,3 +1,4 @@
+'\" t
 .\" Man page generated from reStructuredText.
 .
 .
@@ -27,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -114,9 +115,8 @@ The connection is terminated immediately after that.
 Client A \- Permanent protocol submode
 Client B \- Temporary protocol submode
 .TS
-center;
-|l|l|l|l|.
-_
+box center;
+l|l|l|l.
 T{
 #
 T}	T{
@@ -222,7 +222,6 @@ T}	T{
 <\-Pong
 T}	T{
 T}
-_
 .TE
 .SH SESSION MODE
 .sp
@@ -246,9 +245,8 @@ relayed between the two devices in the session directly.
 Client A \- Permanent protocol mode
 Client B \- Temporary protocol mode
 .TS
-center;
-|l|l|l|l|.
-_
+box center;
+l|l|l|l.
 T{
 #
 T}	T{
@@ -333,7 +331,6 @@ T}	T{
 T}	T{
 <\-Data
 T}
-_
 .TE
 .SH MESSAGES
 .sp
@@ -351,8 +348,7 @@ us to identify what type of message it is.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -369,16 +365,14 @@ struct Header {
         int MessageType;
         int MessageLength;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Ping message (Type = 0)
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -386,16 +380,14 @@ struct Header {
 
 struct Ping {
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Pong message (Type = 1)
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -403,16 +395,14 @@ struct Ping {
 
 struct Pong {
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS JoinRelayRequest message (Type = 2)
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -420,16 +410,14 @@ struct Pong {
 
 struct JoinRelayRequest {
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS JoinSessionRequest message (Type = 3)
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -444,8 +432,7 @@ struct JoinRelayRequest {
 struct JoinSessionRequest {
         opaque Key<32>;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -458,8 +445,7 @@ used to identify which session you are trying to connect to.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -477,8 +463,7 @@ struct Response {
         int Code;
         string Message<>;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -493,8 +478,7 @@ Message associated with the code.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -509,8 +493,7 @@ Message associated with the code.
 struct ConnectRequest {
         opaque ID<32>;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -522,8 +505,7 @@ Device ID to which the client would like to connect.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -558,8 +540,7 @@ struct SessionInvitation {
         unsigned int Port;
         bool ServerSocket;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .INDENT 0.0
@@ -615,9 +596,8 @@ performing device ID validation, and full TLS encryption, and provides the same
 security properties as it would provide when connecting over the internet.
 .SH EXAMPLES OF STRONG CIPHER SUITES
 .TS
-center;
-|l|l|l|.
-_
+box center;
+l|l|l.
 T{
 ID
 T}	T{
@@ -689,7 +669,6 @@ ECDHE\-RSA\-AES128\-SHA256
 T}	T{
 TLSv1.2 ECDH RSA AES(128) SHA256
 T}
-_
 .TE
 .SH AUTHOR
 The Syncthing Authors

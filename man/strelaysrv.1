@@ -27,22 +27,20 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "STRELAYSRV" "1" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "STRELAYSRV" "1" "May 08, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-keys=<dir>] [\-listen=<listen addr>]
            [\-message\-timeout=<duration>] [\-nat] [\-nat\-lease=<duration>] [\-nat\-renewal=<duration>]
            [\-nat\-timeout=<duration>] [\-network\-timeout=<duration>] [\-per\-session\-rate=<bytes/s>]
            [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-pprof] [\-protocol=<string>]
            [\-provided\-by=<string>] [\-status\-srv=<listen addr>] [\-token=<string>] [\-version]
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -50,7 +48,7 @@ strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-ke
 Syncthing relies on a network of community\-contributed relay servers. Anyone
 can run a relay server, and it will automatically join the relay pool and be
 available to Syncthing users. The current list of relays can be found at
-\fI\%https://relays.syncthing.net/\fP\&.
+\X'tty: link https://relays.syncthing.net/'\fI\%https://relays.syncthing.net/\fP\X'tty: link'\&.
 .SH OPTIONS
 .INDENT 0.0
 .TP
@@ -127,7 +125,7 @@ How often pings are sent (default 1m0s).
 .TP
 .B \-pools=<pool addresses>
 Comma separated list of relay pool addresses to join (default
-“\fI\%https://relays.syncthing.net/endpoint\fP”). Blank to disable announcement to
+“\X'tty: link https://relays.syncthing.net/endpoint'\fI\%https://relays.syncthing.net/endpoint\fP\X'tty: link'”). Blank to disable announcement to
 a pool, thereby remaining a private relay.
 .UNINDENT
 .INDENT 0.0
@@ -163,7 +161,7 @@ Show version
 .UNINDENT
 .SS Installing
 .sp
-Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/relaysrv/releases\fP> and
+Go to \X'tty: link https://github.com/syncthing/relaysrv/releases'\fI\%releases\fP <\fBhttps://github.com/syncthing/relaysrv/releases\fP>\X'tty: link' and
 download the file appropriate for your operating system. Unpacking it will
 yield a binary called \fBstrelaysrv\fP (or \fBstrelaysrv.exe\fP on Windows).
 Start this in whatever way you are most comfortable with; double clicking
@@ -175,7 +173,7 @@ The startup message prints instructions on how to change this.
 .sp
 The relay server can also be obtained through apt, the Debian/Ubuntu package
 manager. Recent releases can be found at syncthing’s
-\fI\%apt repository\fP <\fBhttps://apt.syncthing.net/\fP>\&. The name of the package is
+\X'tty: link https://apt.syncthing.net/'\fI\%apt repository\fP <\fBhttps://apt.syncthing.net/\fP>\X'tty: link'\&. The name of the package is
 syncthing\-relaysrv.
 .SH SETTING UP
 .sp
@@ -189,14 +187,12 @@ system:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ sudo useradd strelaysrv
 $ sudo mkdir /etc/strelaysrv
 $ sudo chown strelaysrv /etc/strelaysrv
 $ sudo \-u strelaysrv /usr/local/bin/strelaysrv \-keys /etc/strelaysrv
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -212,11 +208,9 @@ Syncthing can be configured to use specific relay servers (exclusively of the pu
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 relay://<host name|IP>[:port]/?id=<relay device ID>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -224,11 +218,9 @@ For example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 relay://private\-relay\-1.example.com:443/?id=ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -246,11 +238,9 @@ to forward traffic from port 443 to port 22067, for example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 iptables \-t nat \-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -258,8 +248,7 @@ Or, if you’re using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\f
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 *nat
 :PREROUTING ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
@@ -267,8 +256,7 @@ Or, if you’re using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\f
 \-A PREROUTING \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
 
 COMMIT
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -277,12 +265,12 @@ You will need to start \fBstrelaysrv\fP with \fB\-ext\-address \(dq:443\(dq\fP\&
 on port 22067. You will also need to let both port 443 and 22067 through your
 firewall.
 .sp
-Another option is \fI\%described here\fP <\fBhttps://wiki.apache.org/httpd/NonRootPortBinding\fP>,
+Another option is \X'tty: link https://wiki.apache.org/httpd/NonRootPortBinding'\fI\%described here\fP <\fBhttps://wiki.apache.org/httpd/NonRootPortBinding\fP>\X'tty: link',
 although your mileage may vary.
 .SH FIREWALL CONSIDERATIONS
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
-for providing public statistics at \fI\%https://relays.syncthing.net/\fP\&.  The firewall, such as
+for providing public statistics at \X'tty: link https://relays.syncthing.net/'\fI\%https://relays.syncthing.net/\fP\X'tty: link'\&.  The firewall, such as
 \fBiptables\fP, must permit incoming TCP connections to the following ports:
 .INDENT 0.0
 .IP \(bu 2
@@ -295,19 +283,17 @@ Runtime \fBiptables\fP rules to allow access to the default ports:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 iptables \-I INPUT \-p tcp \-\-dport 22067 \-j ACCEPT
 iptables \-I INPUT \-p tcp \-\-dport 22070 \-j ACCEPT
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 Please consult Linux distribution documentation to persist firewall rules.
 .SH ACCESS CONTROL FOR PRIVATE RELAYS
 .sp
-New in version 1.22.1.
+Added in version 1.22.1.
 
 .sp
 Private relays can be configured to only accept connections from peers in possession of a shared secret.
@@ -319,11 +305,9 @@ Then configure your Syncthing devices to send the token when joining the relay:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 relay://<host name|IP>[:port]/?id=<relay device ID>&token=mySecretToken
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH SEE ALSO
