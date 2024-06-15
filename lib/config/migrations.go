@@ -73,6 +73,12 @@ func (ms migrationSet) apply(cfg *Configuration) {
 	for _, m := range ms {
 		m.apply(cfg)
 	}
+
+	if build.IsIOS {
+		if cfg.Version >= 37 && cfg.Defaults.Folder.Path == "~" {
+			cfg.Defaults.Folder.Path = ""
+		}
+	}
 }
 
 // A migration is a target config version and a function to do the needful

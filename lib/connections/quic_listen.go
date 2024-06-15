@@ -12,6 +12,7 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/url"
 	"sync"
@@ -145,7 +146,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		}
 
 		session, err := listener.Accept(ctx)
-		if err == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
 			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
