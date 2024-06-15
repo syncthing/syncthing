@@ -287,10 +287,6 @@ func (cfg *Configuration) ensureMyDevice(myID protocol.DeviceID) {
 	}
 
 	myName, _ := os.Hostname()
-	l.Infoln("My hostname:", myName)
-	if build.IsIOS && myName == "localhost" {
-		myName = "My iOS Device"
-	}
 	cfg.Devices = append(cfg.Devices, DeviceConfiguration{
 		DeviceID: myID,
 		Name:     myName,
