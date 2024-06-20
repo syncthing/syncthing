@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-NETWORKING" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "Jun 02, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .SH ROUTER SETUP
@@ -40,11 +40,9 @@ message in the console saying:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 Created UPnP port mapping for external port XXXXX on UPnP device YYYYY.
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -57,7 +55,7 @@ Communication in Syncthing works both ways. Therefore if you set up port
 forwards for one device, other devices will be able to connect to it even when
 they are behind a NAT network or firewall.
 .sp
-In the absence of port forwarding, \fI\%Relaying\fP may work well enough to get
+In the absence of port forwarding, \X'tty: link #relaying'\fI\%Relaying\fP\X'tty: link' may work well enough to get
 devices connected and synced, but will perform poorly in comparison to a
 direct connection.
 .SS Local Discovery
@@ -87,15 +85,13 @@ If you configured a custom port in the \fISync Protocol Listen Address\fP settin
 you have to adapt the firewall rules accordingly.
 .SS Uncomplicated Firewall (ufw)
 .sp
-If you’re using \fBufw\fP on Linux and have installed the \fI\%Syncthing package\fP <\fBhttps://apt.syncthing.net/\fP>, you can allow the necessary ports by running:
+If you’re using \fBufw\fP on Linux and have installed the \X'tty: link https://apt.syncthing.net/'\fI\%Syncthing package\fP <\fBhttps://apt.syncthing.net/\fP>\X'tty: link', you can allow the necessary ports by running:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 sudo ufw allow syncthing
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -103,11 +99,9 @@ If you also want to allow external access to the Syncthing web GUI, run:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 sudo ufw allow syncthing\-gui
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -117,29 +111,25 @@ You can then verify that the ports mentioned above are allowed:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 sudo ufw status verbose
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
-In case you installed Syncthing manually you can follow the \fI\%instructions to manually add the syncthing preset\fP <\fBhttps://github.com/syncthing/syncthing/tree/main/etc/firewall-ufw\fP> to ufw.
+In case you installed Syncthing manually you can follow the \X'tty: link https://github.com/syncthing/syncthing/tree/main/etc/firewall-ufw'\fI\%instructions to manually add the syncthing preset\fP <\fBhttps://github.com/syncthing/syncthing/tree/main/etc/firewall-ufw\fP>\X'tty: link' to ufw.
 .SS Firewalld
 .sp
-If you are using \fI\%Firewalld\fP <\fBhttps://firewalld.org/\fP> it has included
+If you are using \X'tty: link https://firewalld.org/'\fI\%Firewalld\fP <\fBhttps://firewalld.org/\fP>\X'tty: link' it has included
 support for syncthing (since version 0.5.0, January 2018), and you can enable
 it with:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 sudo firewall\-cmd \-\-zone=public \-\-add\-service=syncthing \-\-permanent
 sudo firewall\-cmd \-\-reload
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -158,11 +148,9 @@ tunnel instead. You can start a tunnel with a command like the following:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 ssh \-L 9999:localhost:8384 machine
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -171,7 +159,7 @@ port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
 .SH VIA A PROXY
 .sp
-Syncthing can use a SOCKS5 proxy for outbound connections. Please see \fI\%Using Proxies\fP\&.
+Syncthing can use a SOCKS5 proxy for outbound connections. Please see \X'tty: link #proxying'\fI\%Using Proxies\fP\X'tty: link'\&.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -42,7 +42,7 @@ func TestHandleGetRequest(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	w.Body = new(bytes.Buffer)
-	handleGetRequest(w, httptest.NewRequest("GET", "/", nil))
+	handleEndpointFull(w, httptest.NewRequest("GET", "/", nil))
 
 	result := make(map[string][]*relay)
 	err := json.NewDecoder(w.Body).Decode(&result)
@@ -90,5 +90,20 @@ func TestCanonicalizeQueryValues(t *testing.T) {
 	if str != exp {
 		// The query string is now in correct format.
 		t.Errorf("expected %q, got %q", exp, str)
+	}
+}
+
+func TestSlimURL(t *testing.T) {
+	cases := []struct {
+		in, out string
+	}{
+		{"http://example.com/", "http://example.com/"},
+		{"relay://192.0.2.42:22067/?globalLimitBps=0&id=EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M&networkTimeout=2m0s&pingInterval=1m0s&providedBy=Test&sessionLimitBps=0&statusAddr=%3A22070", "relay://192.0.2.42:22067/?id=EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M-EIC6B3M"},
+	}
+
+	for _, c := range cases {
+		if got := slimURL(c.in); got != c.out {
+			t.Errorf("expected %q, got %q", c.out, got)
+		}
 	}
 }

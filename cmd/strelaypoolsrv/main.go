@@ -21,15 +21,13 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/assets"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
-	"github.com/syncthing/syncthing/lib/httpcache"
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -49,6 +47,10 @@ type relay struct {
 	uri            *url.URL
 	Stats          *stats    `json:"stats"`
 	StatsRetrieved time.Time `json:"statsRetrieved"`
+}
+
+type relayShort struct {
+	URL string `json:"url"`
 }
 
 type stats struct {
@@ -95,16 +97,18 @@ var (
 	testCert          tls.Certificate
 	knownRelaysFile   = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
 	listen            = ":80"
+	metricsListen     = ":8081"
 	dir               string
 	evictionTime      = time.Hour
 	debug             bool
 	permRelaysFile    string
 	ipHeader          string
-	geoipPath         string
 	proto             string
 	statsRefresh      = time.Minute
 	requestQueueLen   = 64
 	requestProcessors = 8
+	geoipLicenseKey   = os.Getenv("GEOIP_LICENSE_KEY")
+	geoipAccountID, _ = strconv.Atoi(os.Getenv("GEOIP_ACCOUNT_ID"))
 
 	requests chan request
 
@@ -124,40 +128,45 @@ func main() {
 	log.SetFlags(log.Lshortfile)
 
 	flag.StringVar(&listen, "listen", listen, "Listen address")
+	flag.StringVar(&metricsListen, "metrics-listen", metricsListen, "Metrics listen address")
 	flag.StringVar(&dir, "keys", dir, "Directory where http-cert.pem and http-key.pem is stored for TLS listening")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
 	flag.DurationVar(&evictionTime, "eviction", evictionTime, "After how long the relay is evicted")
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
 	flag.StringVar(&knownRelaysFile, "known-relays", knownRelaysFile, "Path to list of current relays")
 	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
-	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
 	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
 	flag.DurationVar(&statsRefresh, "stats-refresh", statsRefresh, "Interval at which to refresh relay stats")
 	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
 	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
+	flag.StringVar(&geoipLicenseKey, "geoip-license-key", geoipLicenseKey, "License key for GeoIP database")
 
 	flag.Parse()
 
 	requests = make(chan request, requestQueueLen)
+	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), geoipAccountID, geoipLicenseKey, os.TempDir())
+	if err != nil {
+		log.Fatalln("Failed to create GeoIP provider:", err)
+	}
+	go geoip.Serve(context.TODO())
 
 	var listener net.Listener
-	var err error
 
 	if permRelaysFile != "" {
-		permanentRelays = loadRelays(permRelaysFile)
+		permanentRelays = loadRelays(permRelaysFile, geoip)
 	}
 
 	testCert = createTestCertificate()
 
 	for i := 0; i < requestProcessors; i++ {
-		go requestProcessor()
+		go requestProcessor(geoip)
 	}
 
 	// Load relays from cache in the background.
 	// Load them in a serial fashion to make sure any genuine requests
 	// are not dropped.
 	go func() {
-		for _, relay := range loadRelays(knownRelaysFile) {
+		for _, relay := range loadRelays(knownRelaysFile, geoip) {
 			resultChan := make(chan result)
 			requests <- request{relay, resultChan, nil}
 			result := <-resultChan
@@ -213,15 +222,40 @@ func main() {
 		log.Fatalln("listen:", err)
 	}
 
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", handleAssets)
-	handler.Handle("/endpoint", httpcache.SinglePath(http.HandlerFunc(handleRequest), 15*time.Second))
-	handler.HandleFunc("/metrics", handleMetrics)
+	if metricsListen != "" {
+		mmux := http.NewServeMux()
+		mmux.HandleFunc("/metrics", handleMetrics)
+		go func() {
+			if err := http.ListenAndServe(metricsListen, mmux); err != nil {
+				log.Fatalln("HTTP serve metrics:", err)
+			}
+		}()
+	}
+
+	getMux := http.NewServeMux()
+	getMux.HandleFunc("/", handleAssets)
+	getMux.HandleFunc("/endpoint", withAPIMetrics(handleEndpointShort))
+	getMux.HandleFunc("/endpoint/full", withAPIMetrics(handleEndpointFull))
+
+	postMux := http.NewServeMux()
+	postMux.HandleFunc("/endpoint", withAPIMetrics(handleRegister))
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			getMux.ServeHTTP(w, r)
+		case http.MethodPost:
+			postMux.ServeHTTP(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	srv := http.Server{
 		Handler:     handler,
 		ReadTimeout: 10 * time.Second,
 	}
+	srv.SetKeepAlivesEnabled(false)
 
 	err = srv.Serve(listener)
 	if err != nil {
@@ -255,39 +289,24 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 	assets.Serve(w, r, as)
 }
 
-func handleRequest(w http.ResponseWriter, r *http.Request) {
-	timer := prometheus.NewTimer(apiRequestsSeconds.WithLabelValues(r.Method))
-
-	w = NewLoggingResponseWriter(w)
-	defer func() {
-		timer.ObserveDuration()
-		lw := w.(*loggingResponseWriter)
-		apiRequestsTotal.WithLabelValues(r.Method, strconv.Itoa(lw.statusCode)).Inc()
-	}()
-
-	if ipHeader != "" {
-		hdr := r.Header.Get(ipHeader)
-		fields := strings.Split(hdr, ",")
-		if len(fields) > 0 {
-			r.RemoteAddr = strings.TrimSpace(fields[len(fields)-1])
-		}
-	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	switch r.Method {
-	case "GET":
-		handleGetRequest(w, r)
-	case "POST":
-		handlePostRequest(w, r)
-	default:
-		if debug {
-			log.Println("Unhandled HTTP method", r.Method)
-		}
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+func withAPIMetrics(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timer := prometheus.NewTimer(apiRequestsSeconds.WithLabelValues(r.Method))
+		w = NewLoggingResponseWriter(w)
+		defer func() {
+			timer.ObserveDuration()
+			lw := w.(*loggingResponseWriter)
+			apiRequestsTotal.WithLabelValues(r.Method, strconv.Itoa(lw.statusCode)).Inc()
+		}()
+		next(w, r)
 	}
 }
 
-func handleGetRequest(rw http.ResponseWriter, r *http.Request) {
+// handleEndpointFull returns the relay list with full metadata and
+// statistics. Large, and expensive.
+func handleEndpointFull(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
 
 	mut.RLock()
 	relays := make([]*relay, len(permanentRelays)+len(knownRelays))
@@ -295,17 +314,38 @@ func handleGetRequest(rw http.ResponseWriter, r *http.Request) {
 	copy(relays[n:], knownRelays)
 	mut.RUnlock()
 
-	// Shuffle
-	rand.Shuffle(relays)
-
 	_ = json.NewEncoder(rw).Encode(map[string][]*relay{
 		"relays": relays,
 	})
 }
 
-func handlePostRequest(w http.ResponseWriter, r *http.Request) {
+// handleEndpointShort returns the relay list with only the URL.
+func handleEndpointShort(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+
+	mut.RLock()
+	relays := make([]relayShort, 0, len(permanentRelays)+len(knownRelays))
+	for _, r := range append(permanentRelays, knownRelays...) {
+		relays = append(relays, relayShort{URL: slimURL(r.URL)})
+	}
+	mut.RUnlock()
+
+	_ = json.NewEncoder(rw).Encode(map[string][]relayShort{
+		"relays": relays,
+	})
+}
+
+func handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Get the IP address of the client
 	rhost := r.RemoteAddr
+	if ipHeader != "" {
+		hdr := r.Header.Get(ipHeader)
+		fields := strings.Split(hdr, ",")
+		if len(fields) > 0 {
+			rhost = strings.TrimSpace(fields[len(fields)-1])
+		}
+	}
 	if host, _, err := net.SplitHostPort(rhost); err == nil {
 		rhost = host
 	}
@@ -425,19 +465,19 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestProcessor() {
+func requestProcessor(geoip *geoip.Provider) {
 	for request := range requests {
 		if request.queueTimer != nil {
 			request.queueTimer.ObserveDuration()
 		}
 
 		timer := prometheus.NewTimer(relayTestActionsSeconds.WithLabelValues("test"))
-		handleRelayTest(request)
+		handleRelayTest(request, geoip)
 		timer.ObserveDuration()
 	}
 }
 
-func handleRelayTest(request request) {
+func handleRelayTest(request request, geoip *geoip.Provider) {
 	if debug {
 		log.Println("Request for", request.relay)
 	}
@@ -450,7 +490,7 @@ func handleRelayTest(request request) {
 	}
 
 	stats := fetchStats(request.relay)
-	location := getLocation(request.relay.uri.Host)
+	location := getLocation(request.relay.uri.Host, geoip)
 
 	mut.Lock()
 	if stats != nil {
@@ -523,7 +563,7 @@ func evict(relay *relay) func() {
 	}
 }
 
-func loadRelays(file string) []*relay {
+func loadRelays(file string, geoip *geoip.Provider) []*relay {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		log.Println("Failed to load relays: " + err.Error())
@@ -547,7 +587,7 @@ func loadRelays(file string) []*relay {
 
 		relays = append(relays, &relay{
 			URL:      line,
-			Location: getLocation(uri.Host),
+			Location: getLocation(uri.Host, geoip),
 			uri:      uri,
 		})
 		if debug {
@@ -580,21 +620,16 @@ func createTestCertificate() tls.Certificate {
 	return cert
 }
 
-func getLocation(host string) location {
+func getLocation(host string, geoip *geoip.Provider) location {
 	timer := prometheus.NewTimer(locationLookupSeconds)
 	defer timer.ObserveDuration()
-	db, err := geoip2.Open(geoipPath)
-	if err != nil {
-		return location{}
-	}
-	defer db.Close()
 
 	addr, err := net.ResolveTCPAddr("tcp", host)
 	if err != nil {
 		return location{}
 	}
 
-	city, err := db.City(addr.IP)
+	city, err := geoip.City(addr.IP)
 	if err != nil {
 		return location{}
 	}
@@ -659,4 +694,17 @@ func (b *errorTracker) IsBlocked(host string) bool {
 		return be.count.Load() > 10
 	}
 	return false
+}
+
+func slimURL(u string) string {
+	p, err := url.Parse(u)
+	if err != nil {
+		return u
+	}
+	newQuery := url.Values{}
+	if id := p.Query().Get("id"); id != "" {
+		newQuery.Set("id", id)
+	}
+	p.RawQuery = newQuery.Encode()
+	return p.String()
 }

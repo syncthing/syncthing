@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-LOCALDISCO" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-LOCALDISCO" "7" "Jun 02, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-localdisco \- Local Discovery Protocol v4
 .SH MODE OF OPERATION
@@ -55,15 +55,14 @@ previously unknown device is discovered or a device has restarted (see the
 .SH DEVICE ID
 .sp
 The device ID is the SHA\-256 (32 bytes) of the device X.509 certificate. See
-\fI\%Understanding Device IDs\fP in the Syncthing documentation.
+\X'tty: link #device-ids'\fI\%Understanding Device IDs\fP\X'tty: link' in the Syncthing documentation.
 .SH ANNOUNCEMENT PACKET
 .sp
 The Announcement packet has the following structure:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -73,8 +72,7 @@ The Announcement packet has the following structure:
 \e                       Announce Message                        \e
 /                                                               /
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -90,15 +88,13 @@ following schema:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Announce {
     bytes           id          = 1;
     repeated string addresses   = 2;
     int64           instance_id = 3;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp

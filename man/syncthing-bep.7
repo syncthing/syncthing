@@ -1,3 +1,4 @@
+'\" t
 .\" Man page generated from reStructuredText.
 .
 .
@@ -27,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-BEP" "7" "Apr 11, 2024" "v1.27.5" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Jun 02, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
@@ -48,7 +49,7 @@ for the last block which may be smaller.
 .sp
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
 “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this
-document are to be interpreted as described in \fI\%RFC 2119\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc2119.html\fP>\&.
+document are to be interpreted as described in \X'tty: link https://datatracker.ietf.org/doc/html/rfc2119.html'\fI\%RFC 2119\fP <\fBhttps://datatracker.ietf.org/doc/html/rfc2119.html\fP>\X'tty: link'\&.
 .SH TRANSPORT AND AUTHENTICATION
 .sp
 BEP is deployed as the highest level in a protocol stack, with the lower
@@ -56,8 +57,7 @@ level protocols providing encryption and authentication.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
 |   Block Exchange Protocol   |
 |\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
@@ -66,8 +66,7 @@ level protocols providing encryption and authentication.
 |      Reliable Transport     |
 |\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
 v             ...             v
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -129,8 +128,7 @@ followed by the contents of the Hello message itself.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -143,8 +141,7 @@ followed by the contents of the Hello message itself.
 \e             Hello             \e
 /                               /
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -152,15 +149,13 @@ The Hello message itself is in protocol buffer format with the following schema:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Hello {
     string device_name    = 1;
     string client_name    = 2;
     string client_version = 3;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields (Hello message)
@@ -172,8 +167,8 @@ The \fBclient_name\fP and \fBclient_version\fP identifies the implementation. Th
 values SHOULD  be simple strings identifying the implementation name, as a
 user would expect to see it, and the version string in the same manner. An
 example client name is “syncthing” and an example client version is “v0.7.2”.
-The client version field SHOULD follow the patterns laid out in the \fI\%Semantic
-Versioning\fP <\fBhttps://semver.org/\fP> standard.
+The client version field SHOULD follow the patterns laid out in the \X'tty: link https://semver.org/'\fI\%Semantic
+Versioning\fP <\fBhttps://semver.org/\fP>\X'tty: link' standard.
 .sp
 Immediately after exchanging Hello messages, the connection MUST be dropped
 if the remote device does not pass authentication.
@@ -193,8 +188,7 @@ A \fBMessage\fP
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
  0                   1
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
@@ -211,8 +205,7 @@ A \fBMessage\fP
 \e            Message            \e
 /                               /
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -228,8 +221,7 @@ As always, the length words are in network byte order (big endian).
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Header {
     MessageType        type        = 1;
     MessageCompression compression = 2;
@@ -250,8 +242,7 @@ enum MessageCompression {
     NONE = 0;
     LZ4  = 1;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -274,8 +265,7 @@ initial exchange.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message ClusterConfig {
     repeated Folder folders = 1;
 }
@@ -310,8 +300,7 @@ enum Compression {
     NEVER    = 1;
     ALWAYS   = 2;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields (Cluster Config Message)
@@ -389,7 +378,7 @@ The \fBencryption_password_token\fP field contains a token derived from the pass
 used to encrypt data sent to this device. If the device is the same as the
 device sending the message, it signifies that the device itself has encrypted
 data that was encrypted with the given token. It is empty or missing if there is
-no encryption. See \fI\%Untrusted Device Encryption\fP for details on the encryption scheme.
+no encryption. See \X'tty: link #untrusted'\fI\%Untrusted Device Encryption\fP\X'tty: link' for details on the encryption scheme.
 .SS Index and Index Update
 .sp
 The Index and Index Update messages define the contents of the senders
@@ -406,8 +395,7 @@ although this is not guaranteed to be the case in the future.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Index {
     string            folder = 1;
     repeated FileInfo files  = 2;
@@ -460,8 +448,7 @@ message Counter {
     uint64 id    = 1;
     uint64 value = 2;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields (Index Message)
@@ -544,8 +531,7 @@ corresponding to a part of a certain file in the peer’s folder.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Request {
     int32  id             = 1;
     string folder         = 2;
@@ -555,8 +541,7 @@ message Request {
     bytes  hash           = 6;
     bool   from_temporary = 7;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields
@@ -586,8 +571,7 @@ The Response message is sent in response to a Request message.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Response {
     int32     id   = 1;
     bytes     data = 2;
@@ -600,8 +584,7 @@ enum ErrorCode {
     NO_SUCH_FILE = 2;
     INVALID_FILE = 3;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields
@@ -642,8 +625,7 @@ contain zero or more FileDownloadProgressUpdate messages.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message DownloadProgress {
     string                              folder  = 1;
     repeated FileDownloadProgressUpdate updates = 2;
@@ -660,8 +642,7 @@ enum FileDownloadProgressUpdateType {
     APPEND = 0;
     FORGET = 1;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields (DownloadProgress Message)
@@ -721,12 +702,10 @@ other message has been sent in the preceding 90 seconds.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Ping {
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Close
@@ -738,13 +717,11 @@ further messages.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 message Close {
     string reason = 1;
 }
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Fields
@@ -759,15 +736,13 @@ directions.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 +\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      /\-\-\-\-\-\-\-\-\-\e
 |            |  \-\-\-\-\-\-\-\-\-\-\->   /           \e
 |   Device   |                 |  Cluster  |
 |            |  <\-\-\-\-\-\-\-\-\-\-\-   \e           /
 +\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      \e\-\-\-\-\-\-\-\-\-/
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Send Only
@@ -777,15 +752,13 @@ publishes changes of its local folder to the cluster as usual.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 +\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      /\-\-\-\-\-\-\-\-\-\e
 |            |  \-\-\-\-\-\-\-\-\-\-\->   /           \e
 |   Device   |                 |  Cluster  |
 |            |                 \e           /
 +\-\-\-\-\-\-\-\-\-\-\-\-+                  \e\-\-\-\-\-\-\-\-\-/
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS Receive Only
@@ -795,15 +768,13 @@ accepts changes to its local folder from the cluster as usual.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 +\-\-\-\-\-\-\-\-\-\-\-\-+     Updates      /\-\-\-\-\-\-\-\-\-\e
 |            |  <\-\-\-\-\-\-\-\-\-\-\-   /           \e
 |   Device   |                 |  Cluster  |
 |            |                 \e           /
 +\-\-\-\-\-\-\-\-\-\-\-\-+                  \e\-\-\-\-\-\-\-\-\-/
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DELTA INDEX EXCHANGE
@@ -878,9 +849,8 @@ results in fewer than 2000 blocks, or the maximum block size for larger
 files. This rule results in the following table of block sizes per file
 size:
 .TS
-center;
-|l|l|.
-_
+box center;
+l|l.
 T{
 File Size
 T}	T{
@@ -934,7 +904,6 @@ T{
 T}	T{
 16 MiB
 T}
-_
 .TE
 .sp
 An implementation MAY deviate from the block size rule when there is good
@@ -950,9 +919,8 @@ allowed. The block size used MUST be exactly one of the power\-of\-two block
 sizes listed in the table above.
 .SH EXAMPLE EXCHANGE
 .TS
-center;
-|l|l|l|.
-_
+box center;
+l|l|l.
 T{
 #
 T}	T{
@@ -1074,7 +1042,6 @@ T}	T{
 Ping\->
 T}	T{
 T}
-_
 .TE
 .sp
 The connection is established and at 1. both peers send ClusterConfiguration
@@ -1089,9 +1056,8 @@ the ping timer on device B expires and a Ping message is sent. The same
 process occurs for device A at 15.
 .SH EXAMPLES OF STRONG CIPHER SUITES
 .TS
-center;
-|l|l|l|.
-_
+box center;
+l|l|l.
 T{
 ID
 T}	T{
@@ -1163,7 +1129,6 @@ ECDHE\-RSA\-AES128\-SHA256
 T}	T{
 TLSv1.2 ECDH RSA AES(128) SHA256
 T}
-_
 .TE
 .SH AUTHOR
 The Syncthing Authors
