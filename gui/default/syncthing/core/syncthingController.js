@@ -7,6 +7,7 @@ angular.module('syncthing.core')
         '$compileProvider',
         function ($compileProvider) {
             $compileProvider.imgSrcSanitizationWhitelist(/^\s*((https?|ftp|file|blob|unixs?):|data:image\/)/);
+            $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|tel|file|unixs?):/);
         }
     ])
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
