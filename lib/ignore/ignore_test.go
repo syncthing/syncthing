@@ -85,7 +85,7 @@ func TestIgnore(t *testing.T) {
 	}
 
 	for i, tc := range tests {
-		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
+		if r := pats.Match(osutil.NativeFilename(tc.f)); r.IsIgnored() != tc.r {
 			t.Errorf("Incorrect ignoreFile() #%d (%s); E: %v, A: %v", i, tc.f, tc.r, r)
 		}
 	}
@@ -125,7 +125,7 @@ func TestExcludes(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
+		if r := pats.Match(osutil.NativeFilename(tc.f)); r.IsIgnored() != tc.r {
 			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
 		}
 	}
@@ -156,18 +156,18 @@ func TestFlagOrder(t *testing.T) {
 
 	for i := 1; i < 7; i++ {
 		pat := fmt.Sprintf("ign%d", i)
-		if r := pats.Match(pat); r.IsIgnored() || r.IsDeletable() {
+		if r := pats.Match(osutil.NativeFilename(pat)); r.IsIgnored() || r.IsDeletable() {
 			t.Errorf("incorrect %s", pat)
 		}
 	}
 	for i := 7; i < 10; i++ {
 		pat := fmt.Sprintf("ign%d", i)
-		if r := pats.Match(pat); r.IsDeletable() {
+		if r := pats.Match(osutil.NativeFilename(pat)); r.IsDeletable() {
 			t.Errorf("incorrect %s", pat)
 		}
 	}
 
-	if r := pats.Match("(?d)!ign10"); !r.IsIgnored() {
+	if r := pats.Match(osutil.NativeFilename("(?d)!ign10")); !r.IsIgnored() {
 		t.Errorf("incorrect")
 	}
 }
@@ -207,7 +207,7 @@ func TestDeletables(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if r := pats.Match(tc.f); r.IsIgnored() != tc.i || r.IsDeletable() != tc.d {
+		if r := pats.Match(osutil.NativeFilename(tc.f)); r.IsIgnored() != tc.i || r.IsDeletable() != tc.d {
 			t.Errorf("Incorrect match for %s: %v != Result{%t, %t}", tc.f, r, tc.i, tc.d)
 		}
 	}
@@ -260,13 +260,13 @@ func TestCaseSensitivity(t *testing.T) {
 	}
 
 	for _, tc := range match {
-		if !ign.Match(tc).IsIgnored() {
+		if !ign.Match(osutil.NativeFilename(tc)).IsIgnored() {
 			t.Errorf("Incorrect match for %q: should be matched", tc)
 		}
 	}
 
 	for _, tc := range dontMatch {
-		if ign.Match(tc).IsIgnored() {
+		if ign.Match(osutil.NativeFilename(tc)).IsIgnored() {
 			t.Errorf("Incorrect match for %q: should not be matched", tc)
 		}
 	}
@@ -310,7 +310,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes
 
 	for _, letter := range []string{"a", "b", "x", "y"} {
-		pats.Match(letter)
+		pats.Match(osutil.NativeFilename(letter))
 	}
 
 	if pats.matches.len() != 4 {
@@ -347,7 +347,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes again
 
 	for _, letter := range []string{"b", "x", "y"} {
-		pats.Match(letter)
+		pats.Match(osutil.NativeFilename(letter))
 	}
 
 	// Verify that outcomes preserved on next load
@@ -378,7 +378,7 @@ func TestCaching(t *testing.T) {
 	// Cache some outcomes again
 
 	for _, letter := range []string{"b", "x", "y"} {
-		pats.Match(letter)
+		pats.Match(osutil.NativeFilename(letter))
 	}
 
 	// Verify that outcomes provided on next load
@@ -442,9 +442,10 @@ flamingo
 		b.Error(err)
 	}
 
+	f := osutil.NativeFilename("filename")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result = pats.Match("filename")
+		result = pats.Match(f)
 	}
 }
 
@@ -486,8 +487,9 @@ flamingo
 	if err != nil {
 		b.Fatal(err)
 	}
+	f := osutil.NativeFilename("filename")
 	// Cache the outcome for "filename"
-	pats.Match("filename")
+	pats.Match(f)
 
 	// This load should now load the cached outcomes as the set of patterns
 	// has not changed.
@@ -497,7 +499,7 @@ flamingo
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result = pats.Match("filename")
+		result = pats.Match(f)
 	}
 }
 
@@ -527,13 +529,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that both are ignored
 
-	if !pats.Match("f1").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("f1")).IsIgnored() {
 		t.Error("Unexpected non-match for f1")
 	}
-	if !pats.Match("f2").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("f2")).IsIgnored() {
 		t.Error("Unexpected non-match for f2")
 	}
-	if pats.Match("f3").IsIgnored() {
+	if pats.Match(osutil.NativeFilename("f3")).IsIgnored() {
 		t.Error("Unexpected match for f3")
 	}
 
@@ -562,13 +564,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that the new patterns are in effect
 
-	if !pats.Match("f1").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("f1")).IsIgnored() {
 		t.Error("Unexpected non-match for f1")
 	}
-	if pats.Match("f2").IsIgnored() {
+	if pats.Match(osutil.NativeFilename("f2")).IsIgnored() {
 		t.Error("Unexpected match for f2")
 	}
-	if !pats.Match("f3").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("f3")).IsIgnored() {
 		t.Error("Unexpected non-match for f3")
 	}
 }
@@ -683,9 +685,9 @@ func TestWindowsPatterns(t *testing.T) {
 	}
 
 	tests := []string{`a\b`, `c\d`}
-	for _, pat := range tests {
-		if !pats.Match(pat).IsIgnored() {
-			t.Errorf("Should match %s", pat)
+	for _, tc := range tests {
+		if !pats.Match(osutil.NativeFilename(tc)).IsIgnored() {
+			t.Errorf("Should match %s", tc)
 		}
 	}
 }
@@ -711,9 +713,9 @@ func TestAutomaticCaseInsensitivity(t *testing.T) {
 	}
 
 	tests := []string{`a/B`, `C/d`}
-	for _, pat := range tests {
-		if !pats.Match(pat).IsIgnored() {
-			t.Errorf("Should match %s", pat)
+	for _, tc := range tests {
+		if !pats.Match(osutil.NativeFilename(tc)).IsIgnored() {
+			t.Errorf("Should match %s", tc)
 		}
 	}
 }
@@ -745,7 +747,7 @@ func TestCommas(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if pats.Match(tc.name).IsIgnored() != tc.match {
+		if pats.Match(osutil.NativeFilename(tc.name)).IsIgnored() != tc.match {
 			t.Errorf("Match of %s was %v, should be %v", tc.name, !tc.match, tc.match)
 		}
 	}
@@ -823,11 +825,11 @@ func TestIssue3639(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !pats.Match("foo/bar").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("foo/bar")).IsIgnored() {
 		t.Error("Should match 'foo/bar'")
 	}
 
-	if pats.Match("foo").IsIgnored() {
+	if pats.Match(osutil.NativeFilename("foo")).IsIgnored() {
 		t.Error("Should not match 'foo'")
 	}
 }
@@ -860,7 +862,7 @@ func TestIssue3674(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		res := pats.Match(tc.file).IsIgnored()
+		res := pats.Match(osutil.NativeFilename(tc.file)).IsIgnored()
 		if res != tc.matches {
 			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
 		}
@@ -895,7 +897,7 @@ func TestGobwasGlobIssue18(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		res := pats.Match(tc.file).IsIgnored()
+		res := pats.Match(osutil.NativeFilename(tc.file)).IsIgnored()
 		if res != tc.matches {
 			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
 		}
@@ -927,7 +929,7 @@ func TestRoot(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		res := pats.Match(tc.file).IsIgnored()
+		res := pats.Match(osutil.NativeFilename(tc.file)).IsIgnored()
 		if res != tc.matches {
 			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
 		}
@@ -1027,7 +1029,7 @@ func TestIssue4680(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		res := pats.Match(tc.file).IsIgnored()
+		res := pats.Match(osutil.NativeFilename(tc.file)).IsIgnored()
 		if res != tc.matches {
 			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
 		}
@@ -1122,7 +1124,7 @@ func TestIssue5009(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if m := pats.Match("ign2"); !m.CanSkipDir() {
+	if m := pats.Match(osutil.NativeFilename("ign2")); !m.CanSkipDir() {
 		t.Error("CanSkipDir should be true without excludes")
 	}
 
@@ -1138,7 +1140,7 @@ func TestIssue5009(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if m := pats.Match("ign2"); m.CanSkipDir() {
+	if m := pats.Match(osutil.NativeFilename("ign2")); m.CanSkipDir() {
 		t.Error("CanSkipDir should not be true with excludes")
 	}
 }
@@ -1164,7 +1166,7 @@ func TestSpecialChars(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if !pats.Match(c).IsIgnored() {
+		if !pats.Match(osutil.NativeFilename(c)).IsIgnored() {
 			t.Errorf("%q should be ignored", c)
 		}
 	}
@@ -1191,7 +1193,7 @@ func TestIntlWildcards(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if !pats.Match(c).IsIgnored() {
+		if !pats.Match(osutil.NativeFilename(c)).IsIgnored() {
 			t.Errorf("%q should be ignored", c)
 		}
 	}
@@ -1272,7 +1274,7 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if m := pats.Match("whatever"); !m.CanSkipDir() {
+	if m := pats.Match(osutil.NativeFilename("whatever")); !m.CanSkipDir() {
 		t.Error("CanSkipDir should be true")
 	}
 
@@ -1283,7 +1285,7 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if m := pats.Match("whatever"); m.CanSkipDir() {
+	if m := pats.Match(osutil.NativeFilename("whatever")); m.CanSkipDir() {
 		t.Error("CanSkipDir should be false")
 	}
 }
