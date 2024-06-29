@@ -792,7 +792,7 @@ func TestIssue3164(t *testing.T) {
 	}
 }
 
-func TestIssue3174(t *testing.T) {
+func TestIssue3174AndIssue9597(t *testing.T) {
 	testFs := newTestFS()
 
 	stignore := `
@@ -805,7 +805,7 @@ func TestIssue3174(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !pats.Match("åäö").IsIgnored() {
+	if !pats.Match(osutil.NativeFilename("åäö")).IsIgnored() {
 		t.Error("Should match")
 	}
 }
