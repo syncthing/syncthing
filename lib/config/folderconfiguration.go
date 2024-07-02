@@ -60,6 +60,13 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 // The fset parameter may be nil, in which case no mtime handling on top of
 // the filesystem is provided.
 func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
+	if build.IsIOS {
+		extFs := ext.Callback.ExtNewFilesystem(f.Path)
+		if extFs != nil {
+			return extFs
+		}
+	}
+
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem(nil) should be valid.
 	opts := make([]fs.Option, 0, 3)

@@ -466,7 +466,7 @@ ul.three-columns li, ul.two-columns li {
     padding-top: 10px;
 }
 
-@media (max-width: 419px) {
+@media (max-width: 430px) {
     /* The selectors are build to target only the content of folder and device
        panels as it would "destroy" e.g. out of sync or recent changes listings.
        The !important is needed to override .visible-xs that sets display to a
