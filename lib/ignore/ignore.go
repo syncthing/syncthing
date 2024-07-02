@@ -231,6 +231,8 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		return ignoreresult.NotIgnored
 	}
 
+	file = filepath.ToSlash(file)
+
 	if m.matches != nil {
 		// Check the cache for a known result.
 		res, ok := m.matches.get(file)
@@ -248,7 +250,6 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	// allow skipping matched directories or not. As soon as we hit an
 	// exclude pattern (with some exceptions), we can't skip directories
 	// anymore.
-	file = filepath.ToSlash(file)
 	var lowercaseFile string
 	canSkipDir := true
 	for _, pattern := range m.patterns {
