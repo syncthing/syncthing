@@ -7,16 +7,63 @@
  * {{1|duration:"h"}}         --> <1h
 **/
 angular.module('syncthing.core')
-    .filter('duration', function () {
+    .filter('duration', function ($translate) {
         'use strict';
 
         var SECONDS_IN = { "d": 86400, "h": 3600, "m": 60, "s": 1 };
-        return function (input, precision, zero) {
-            var result = "";
+        return function (input, precision) {
             if (!precision) {
                 precision = "s";
             }
             input = parseInt(input, 10);
+            var language_cc = $translate.use();
+            if (language_cc != null) {
+                language_cc = language_cc.replace("-", "_");
+                var fallbacks = [];
+                var language = language_cc.substr(0, 2);
+                switch (language) {
+                case "zh":
+                    // Use zh_TW for zh_HK
+                    fallbacks.push("zh_TW");
+                    break
+                }
+                if (language != language_cc) {
+                    fallbacks.push(language);
+                }
+                // Fallback to english, if the language isn't found
+                fallbacks.push("en");
+
+                var units = ["d", "h", "m", "s"];
+                switch (precision) {
+                    case "d":
+                        units.pop();
+                        // fallthrough
+                    case "h":
+                        units.pop();
+                        // fallthrough
+                    case "m":
+                        units.pop();
+                        // fallthrough
+                    case "s":
+                        break
+                    default:
+                        return "[Error: precision must be d, h, m or s, it's " + precision + "]";
+                }
+
+                try {
+                    // humanizeDuration accepts only milliseconds
+                    return humanizeDuration(input * 1000, {
+                        language: language_cc,
+                        maxDecimalPoints: 0,
+                        units: units,
+                        fallbacks: fallbacks
+                    });
+                } catch(err) {
+                    console.log(err.message + ": language_cc=" + language_cc)
+                    // if we crash, fallthrough to english
+                }
+            }
+            var result = "";
             for (var k in SECONDS_IN) {
                 var t = (input / SECONDS_IN[k] | 0); // Math.floor
 
