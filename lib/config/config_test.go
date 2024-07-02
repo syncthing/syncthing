@@ -801,6 +801,18 @@ func TestGUIPasswordHash(t *testing.T) {
 	if err := c.CompareHashedPassword("test"); err != nil {
 		t.Errorf("No match on hashed password: %v", err)
 	}
+
+	c.User = "foo"
+	// Setting the password to empty disables password auth
+	if !c.IsAuthEnabled() {
+		t.Errorf("Authentication not enabled despite password being set")
+	}
+	if err := c.SetPassword(""); err != nil {
+		t.Fatal(err)
+	}
+	if c.IsAuthEnabled() {
+		t.Errorf("Authentication still enabled after unsetting password")
+	}
 }
 
 func TestDuplicateDevices(t *testing.T) {
