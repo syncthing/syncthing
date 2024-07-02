@@ -40,10 +40,10 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	c2.Start()
 	defer c2.Close(io.EOF)
 
-	c1.ClusterConfig(protocol.ClusterConfig{})
-	c2.ClusterConfig(protocol.ClusterConfig{})
-	c1.Index(ctx, "foo", nil)
-	c2.Index(ctx, "foo", nil)
+	c1.ClusterConfig(&protocol.ClusterConfig{})
+	c2.ClusterConfig(&protocol.ClusterConfig{})
+	c1.Index(ctx, &protocol.Index{Folder: "foo"})
+	c2.Index(ctx, &protocol.Index{Folder: "foo"})
 
 	const msgs = 5e2
 	const files = 1e3
@@ -64,7 +64,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	})
 
 	b1 := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
-		return c1.IndexUpdate(ctx, "foo", fs)
+		return c1.IndexUpdate(ctx, &protocol.IndexUpdate{Folder: "foo", Files: fs})
 	})
 	sentEntries := 0
 	for i := 0; i < msgs; i++ {
