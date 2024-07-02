@@ -205,7 +205,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	m.curHash = newHash
 	m.patterns = patterns
 	if m.withCache {
-		m.matches = newCache(patterns)
+		m.matches = newCache()
 	}
 
 	return err
