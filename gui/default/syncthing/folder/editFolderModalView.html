@@ -165,32 +165,41 @@
             <p translate class="help-block">Ignore patterns can only be added after the folder is created. If checked, an input field to enter ignore patterns will be presented after saving.</p>
           </div>
           <div ng-switch-default>
-            <p translate>Enter ignore patterns, one per line.</p>
-            <div ng-class="{'has-error': ignores.error != null}">
-              <textarea class="form-control" name="ignoresText" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
-              <p class="help-block" ng-if="ignores.error">
-                {{ignores.error}}
-              </p>
+            <div ng-if="!currentFolder.advancedIgnorePatterns">
+              <p ng-if="folderGlobalTreeData.loading" translate>Loading the folder structure...</p>
+              <p ng-if="!folderGlobalTreeData.loading" translate>Select files to download.</p>
+              <div id="folderGlobalTree-container" ng-show="!folderGlobalTreeData.loading" ng-disabled="ignores.disabled">
+                <div id="folderGlobalTree"></div>
+              </div>
             </div>
-            <hr />
-            <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="{{docsURL('users/ignoring')}}" target="_blank" translate>full documentation</a>):</p>
-            <dl class="dl-horizontal dl-narrow small">
-              <dt><code>(?d)</code></dt>
-              <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
-              <dt><code>(?i)</code></dt>
-              <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
-              <dt><code>!</code></dt>
-              <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
-              <dt><code>*</code></dt>
-              <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
-              <dt><code>**</code></dt>
-              <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
-              <dt><code>//</code></dt>
-              <dd><span translate>Comment, when used at the start of a line</span></dd>
-            </dl>
-            <div ng-if="!editingFolderDefaults()">
+            <div ng-if="currentFolder.advancedIgnorePatterns">
+              <p translate>Enter ignore patterns, one per line.</p>
+              <div ng-class="{'has-error': ignores.error != null}">
+                <textarea class="form-control" name="ignoresText" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
+                <p class="help-block" ng-if="ignores.error">
+                  {{ignores.error}}
+                </p>
+              </div>
               <hr />
-              <span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+              <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="{{docsURL('users/ignoring')}}" target="_blank" translate>full documentation</a>):</p>
+              <dl class="dl-horizontal dl-narrow small">
+                <dt><code>(?d)</code></dt>
+                <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+                <dt><code>(?i)</code></dt>
+                <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+                <dt><code>!</code></dt>
+                <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+                <dt><code>*</code></dt>
+                <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+                <dt><code>**</code></dt>
+                <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+                <dt><code>//</code></dt>
+                <dd><span translate>Comment, when used at the start of a line</span></dd>
+              </dl>
+              <div ng-if="!editingFolderDefaults()">
+                <hr />
+                <span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -237,6 +246,14 @@
               <p ng-if="currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type "{%receiveEncrypted%}" too.</p>
               <p ng-if="editingFolderExisting() && currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
               <p ng-if="editingFolderExisting() && currentFolder.type != 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" can only be set when adding a new folder.</p>
+            </div>
+            <div class="col-md-6 form-group">
+              <label>
+                <input type="checkbox" ng-model="currentFolder.advancedIgnorePatterns">&nbsp;<span translate>Use advanced ignore patterns</span>
+              </label>
+                <p class="help-block">
+                  <span translate>Set folder ignore patterns in text editor.</span>
+                </p>
             </div>
             <div class="col-md-6 form-group">
               <label translate>File Pull Order</label>
