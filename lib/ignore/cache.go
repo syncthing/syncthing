@@ -19,8 +19,7 @@ type nower interface {
 var clock = nower(defaultClock{})
 
 type cache struct {
-	patterns []Pattern
-	entries  map[string]cacheEntry
+	entries map[string]cacheEntry
 }
 
 type cacheEntry struct {
@@ -28,10 +27,9 @@ type cacheEntry struct {
 	access int64 // Unix nanosecond count. Sufficient until the year 2262.
 }
 
-func newCache(patterns []Pattern) *cache {
+func newCache() *cache {
 	return &cache{
-		patterns: patterns,
-		entries:  make(map[string]cacheEntry),
+		entries: make(map[string]cacheEntry),
 	}
 }
 
