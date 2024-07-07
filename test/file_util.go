@@ -71,7 +71,11 @@ func compareTrees(t *testing.T, a, b string) int {
 			return err
 		}
 
-		if slices.Contains(ignore, rel) {
+		// We need to ignore any files under .stfolder, too.
+		// See https://github.com/syncthing/syncthing/pull/9525
+		if slices.ContainsFunc(ignore, func(ignore string) bool {
+			return strings.HasPrefix(rel, ignore)
+		}) {
 			return nil
 		}
 
