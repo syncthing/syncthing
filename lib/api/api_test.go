@@ -444,7 +444,9 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	timeout := time.Second
+	// Since running tests in parallel, the previous 1s timeout proved to be too short.
+	// https://github.com/syncthing/syncthing/issues/9455
+	timeout := 10 * time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
 	}
