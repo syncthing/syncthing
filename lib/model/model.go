@@ -117,6 +117,8 @@ type Model interface {
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
+
+	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 }
 
 type model struct {
@@ -2461,7 +2463,7 @@ func (m *model) deviceDidCloseRLocked(deviceID protocol.DeviceID, duration time.
 	}
 }
 
-func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	conn, connOK := m.requestConnectionForDevice(deviceID)
 	if !connOK {
 		return nil, fmt.Errorf("requestGlobal: no connection to device: %s", deviceID.Short())
