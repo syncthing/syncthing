@@ -75,7 +75,7 @@ func TestSyncMergeTwoDevices(t *testing.T) {
 	}
 }
 
-func testSyncTwoDevicesFolders(ctx context.Context, t *testing.T, srcDir, dstDir string) {
+func testSyncTwoDevicesFolders(ctx context.Context, t *testing.T, srcDir, dstDir string) (*instance, *instance, string) {
 	t.Helper()
 
 	// The folder needs an ID.
@@ -160,6 +160,8 @@ func testSyncTwoDevicesFolders(ctx context.Context, t *testing.T, srcDir, dstDir
 
 	t.Log("src durations:", srcDur)
 	t.Log("dst durations:", dstDur)
+
+	return src, dst, folderID
 }
 
 // waitForSync waits for the folder with the given ID to be fully synced.

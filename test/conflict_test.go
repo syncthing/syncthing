@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
@@ -30,7 +32,7 @@ func TestConflictsDefault(t *testing.T) {
 	dstDir := t.TempDir()
 
 	srcTestfile := filepath.Join(srcDir, "testfile.txt")
-	dstTestfile := filepath.Join(srcDir, "testfile.txt")
+	dstTestfile := filepath.Join(dstDir, "testfile.txt")
 	os.WriteFile(srcTestfile, []byte("hello\n"), 0o664)
 
 	ctx := context.Background()
@@ -56,6 +58,10 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if diff := compareFiles(t, srcTestfile, dstTestfile); diff != "" {
+		t.Fatalf("%q (src) and %q (dst) have different contents:\n%q", srcTestfile, dstTestfile, diff)
+	}
+
 	fd, err := os.OpenFile(srcTestfile, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +84,19 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := compareFiles(t, srcTestfile, dstTestfile); diff == "" {
+		t.Fatalf("%q (src) and %q (dst) do not have different contents:\n%q", srcTestfile, dstTestfile, diff)
+	}
+
+	srcData, err := os.ReadFile(srcTestfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstData, err := os.ReadFile(dstTestfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +144,25 @@ func TestConflictsDefault(t *testing.T) {
 
 	t.Log("src durations:", srcDur)
 	t.Log("dst durations:", dstDur)
+
+	if diff := compareFiles(t, srcTestfile, dstTestfile); diff == "" {
+		srcData2, err := os.ReadFile(srcTestfile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dstData2, err := os.ReadFile(dstTestfile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		msg := fmt.Sprintf("The contents of %q (src) and %q (dst) is:\n%v\n", dstTestfile, srcTestfile, string(srcData2))
+		if string(dstData2) == string(srcData) {
+			msg = fmt.Sprintf("The contents of %q (dst) has been overwritten by the contents of %q (src):\n%v", dstTestfile, srcTestfile, string(srcData))
+		}
+		if string(dstData2) == string(dstData) {
+			msg = fmt.Sprintf("The contents of %q (src) has been overwritten by the contents of %q (dst)\n%v", srcTestfile, dstTestfile, string(dstData))
+		}
+		t.Fatal(msg)
+	}
 
 	// Expect one conflict file, created on either side.
 
@@ -214,4 +252,17 @@ func TestConflictsIndexReset(t *testing.T) {
 
 func TestConflictsSameContent(t *testing.T) {
 	// @TODO
+}
+
+func compareFiles(t *testing.T, srcFilename, dstFilename string) string {
+	srcData, err := os.ReadFile(srcFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstData, err := os.ReadFile(dstFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return cmp.Diff(srcData, dstData)
 }

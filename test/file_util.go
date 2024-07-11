@@ -20,6 +20,9 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 
+// These will not match, so we ignore them.
+var ignores = []string{".", ".stfolder", ".stversions"}
+
 // generateTree generates n files with random data in a temporary directory
 // and returns the path to the directory.
 func generateTree(t *testing.T, n int) string {
@@ -57,9 +60,6 @@ func generateTree(t *testing.T, n int) string {
 func compareTrees(t *testing.T, a, b string) int {
 	t.Helper()
 
-	// These will not match, so we ignore them.
-	ignore := []string{".", ".stfolder"}
-
 	nfiles := 0
 	if err := filepath.Walk(a, func(path string, aInfo os.FileInfo, err error) error {
 		if err != nil {
@@ -73,7 +73,7 @@ func compareTrees(t *testing.T, a, b string) int {
 
 		// We need to ignore any files under .stfolder, too.
 		// See https://github.com/syncthing/syncthing/pull/9525
-		if slices.ContainsFunc(ignore, func(ignore string) bool {
+		if slices.ContainsFunc(ignores, func(ignore string) bool {
 			return strings.HasPrefix(rel, ignore)
 		}) {
 			return nil
@@ -137,4 +137,42 @@ func sha256file(fname string) (string, error) {
 	}
 	hb := h.Sum(nil)
 	return fmt.Sprintf("%x", hb), nil
+}
+
+func walk(t *testing.T, dir string) []string {
+	t.Helper()
+
+	var files = []string{}
+
+	err := filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// We need to ignore any files under .stfolder, too.
+		// See https://github.com/syncthing/syncthing/pull/9525
+		if slices.ContainsFunc(ignores, func(ignore string) bool {
+			return strings.HasPrefix(rel, ignore)
+		}) {
+			return nil
+		}
+
+		if fi.IsDir() {
+			return nil
+		}
+
+		files = append(files, rel)
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return files
 }
