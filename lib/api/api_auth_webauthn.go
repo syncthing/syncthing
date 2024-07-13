@@ -238,6 +238,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 	if err != nil {
 		l.Warnln("Failed to load persistent WebAuthn state", err)
 		http.Error(w, "Failed to load persistent WebAuthn state", http.StatusInternalServerError)
+		return
 	}
 
 	for _, existingCred := range persistentState.Credentials {
@@ -400,7 +401,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *webauthnService) getConfigLikeState(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) getConfigLikeState(w http.ResponseWriter, _ *http.Request) {
 	persistentState, err := s.loadState()
 	if err != nil {
 		l.Warnln("Failed to load persistent WebAuthn state", err)

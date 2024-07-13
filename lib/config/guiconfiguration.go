@@ -181,8 +181,8 @@ func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
 }
 
-func (s WebauthnState) Copy() WebauthnState {
-	c := s
+func (s *WebauthnState) Copy() WebauthnState {
+	c := *s
 	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
 	for i := range s.Credentials {
 		c.Credentials[i] = s.Credentials[i].Copy()
@@ -190,17 +190,16 @@ func (s WebauthnState) Copy() WebauthnState {
 	return c
 }
 
-func (g WebauthnCredential) Copy() WebauthnCredential {
-	c := g
+func (g *WebauthnCredential) Copy() WebauthnCredential {
+	c := *g
 	if c.Transports != nil {
-		transports := make([]string, len(c.Transports))
-		copy(transports, c.Transports)
-		c.Transports = transports
+		c.Transports = make([]string, len(c.Transports))
+		copy(c.Transports, g.Transports)
 	}
 	return c
 }
 
-func (c WebauthnCredential) NicknameOrID() string {
+func (c *WebauthnCredential) NicknameOrID() string {
 	if c.Nickname != "" {
 		return c.Nickname
 	} else {
