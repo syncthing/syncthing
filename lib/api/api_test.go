@@ -962,10 +962,18 @@ func TestApiCache(t *testing.T) {
 }
 
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, *service, error) {
-	return startHTTPWithWebauthnState(cfg, nil)
+	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, nil, 0)
 }
 
 func startHTTPWithWebauthnState(cfg config.Wrapper, webauthnState *config.WebauthnState) (string, context.CancelFunc, *service, error) {
+	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, webauthnState, 0)
+}
+
+func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, *service, error) {
+	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, nil, shutdownTimeout)
+}
+
+func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnState *config.WebauthnState, shutdownTimeout time.Duration) (string, context.CancelFunc, *service, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
 	eventSub := new(eventmocks.BufferedSubscription)
@@ -999,6 +1007,10 @@ func startHTTPWithWebauthnState(cfg config.Wrapper, webauthnState *config.Webaut
 		svc.webauthnService.storeState(*webauthnState)
 	}
 	svc.started = addrChan
+
+	if shutdownTimeout > 0*time.Millisecond {
+		svc.shutdownTimeout = shutdownTimeout
+	}
 
 	// Actually start the API service
 	supervisor := suture.New("API test", suture.Spec{
