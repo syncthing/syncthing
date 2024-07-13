@@ -8,7 +8,6 @@ package testutil
 
 import (
 	"errors"
-	"os"
 	"sync"
 	"testing"
 
@@ -62,14 +61,6 @@ type NoopCloser struct{}
 
 func (NoopCloser) Close() error {
 	return nil
-}
-
-func IfNotCI[T any](notCiValue T, ciValue T) T {
-	if os.Getenv("CI") == "true" {
-		return ciValue
-	} else {
-		return notCiValue
-	}
 }
 
 func ConcatSlices[T any](slices ...[]T) []T {
