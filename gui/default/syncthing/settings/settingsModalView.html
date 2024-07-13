@@ -179,11 +179,11 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="cred in tmpGUI._webauthnCredentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
-                    <td ng-if="!cred.editing" class="no-overflow-ellipse stretch">
+                  <tr ng-repeat="cred in webauthn.state.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
+                    <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
                       {{ cred.nickname || (cred.id | limitTo: 20) }}
                     </td>
-                    <td ng-if="cred.editing" class="no-overflow-ellipse stretch">
+                    <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
                       <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
                     </td>
 
@@ -198,12 +198,12 @@
                       <input type="checkbox" ng-model="cred.requireUv" />
                     </td>
                     <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="cred.editing = true" ng-disabled="cred.editing">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
                         <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
                       </button>
                     </td>
                     <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(tmpGUI, cred)">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
                         <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
                       </button>
                     </td>
@@ -275,7 +275,7 @@
                 </tbody>
               </table>
 
-              <table class="table-striped table" ng-repeat="_ in tmpGUI._webauthnCredentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+              <table class="table-striped table" ng-repeat="_ in webauthn.state.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
                 <thead>
                   <tr>
                     <th colspan="1000"><label translate>Ineligible WebAuthn Credentials</label></th>
@@ -297,12 +297,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="cred in tmpGUI._webauthnCredentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
-                    <td ng-if="!cred.editing" class="no-overflow-ellipse stretch text-warning">
+                  <tr ng-repeat="cred in webauthn.state.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
+                    <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch text-warning">
                       <span class="fas fa-exclamation-triangle"></span>
                       {{ cred.nickname || (cred.id | limitTo: 20) }}
                     </td>
-                    <td ng-if="cred.editing" class="no-overflow-ellipse stretch">
+                    <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
                       <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
                     </td>
 
@@ -314,12 +314,12 @@
                     </td>
 
                     <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="cred.editing = true" ng-disabled="cred.editing">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
                         <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
                       </button>
                     </td>
                     <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(tmpGUI, cred)">
+                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
                         <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
                       </button>
                     </td>

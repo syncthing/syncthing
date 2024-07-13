@@ -308,11 +308,6 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
-func (c *configMuxBuilder) registerWebauthnConfig(path string) {
-	c.HandlerFunc(http.MethodPost, path+"/register-start", c.webauthnService.startWebauthnRegistration)
-	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration)
-}
-
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, c.id)
 	r.Body.Close()
@@ -332,8 +327,6 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
-
-		c.updateGuiWebauthn(&cfg.GUI, &to.GUI)
 
 		*cfg = to
 	})
@@ -420,8 +413,6 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 			}
 		}
 
-		c.updateGuiWebauthn(&cfg.GUI, &gui)
-
 		cfg.GUI = gui
 	})
 	if errMsg != "" {
@@ -431,28 +422,6 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 		return
 	}
 	c.finish(w, waiter)
-}
-
-func (c *configMuxBuilder) updateGuiWebauthn(from *config.GUIConfiguration, to *config.GUIConfiguration) {
-	// Don't allow adding new WebAuthn credentials without passing a registration challenge,
-	// and only allow updating the Nickname and RequireUv fields
-	existingCredentials := make(map[string]config.WebauthnCredential)
-	for _, cred := range from.WebauthnCredentials {
-		existingCredentials[cred.ID] = cred
-	}
-	for _, cred := range c.webauthnService.credentialsPendingRegistration {
-		existingCredentials[cred.ID] = cred
-	}
-
-	var updatedCredentials []config.WebauthnCredential
-	for _, newCred := range to.WebauthnCredentials {
-		if exCred, ok := existingCredentials[newCred.ID]; ok {
-			exCred.Nickname = newCred.Nickname
-			exCred.RequireUv = newCred.RequireUv
-			updatedCredentials = append(updatedCredentials, exCred)
-		}
-	}
-	to.WebauthnCredentials = updatedCredentials
 }
 
 func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {

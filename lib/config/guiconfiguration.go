@@ -18,11 +18,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (c GUIConfiguration) IsAuthEnabled() bool {
-	// This function should match isAuthEnabled() in syncthingController.js
-	return c.IsPasswordAuthEnabled() || c.WebauthnReady()
-}
-
 func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
@@ -83,24 +78,6 @@ func (c GUIConfiguration) UseTLS() bool {
 		return strings.HasPrefix(override, "https:") || strings.HasPrefix(override, "unixs:")
 	}
 	return c.RawUseTLS
-}
-
-func (c GUIConfiguration) WebauthnReady() bool {
-	return c.UseTLS() && len(c.EligibleWebAuthnCredentials()) > 0
-}
-
-func (c GUIConfiguration) EligibleWebAuthnCredentials() []WebauthnCredential {
-	var result []WebauthnCredential
-	rpId := c.WebauthnRpId
-	if rpId == "" {
-		rpId = "localhost"
-	}
-	for _, cred := range c.WebauthnCredentials {
-		if cred.RpId == rpId {
-			result = append(result, cred)
-		}
-	}
-	return result
 }
 
 func (c GUIConfiguration) URL() string {
@@ -200,14 +177,15 @@ func (c *GUIConfiguration) prepare() error {
 	return nil
 }
 
-func (g GUIConfiguration) Copy() GUIConfiguration {
-	c := g
-	if c.WebauthnCredentials != nil {
-		creds := make([]WebauthnCredential, len(c.WebauthnCredentials))
-		for i := range c.WebauthnCredentials {
-			creds[i] = c.WebauthnCredentials[i].Copy()
-		}
-		c.WebauthnCredentials = creds
+func (c GUIConfiguration) Copy() GUIConfiguration {
+	return c
+}
+
+func (s WebauthnState) Copy() WebauthnState {
+	c := s
+	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
+	for i := range s.Credentials {
+		c.Credentials[i] = s.Credentials[i].Copy()
 	}
 	return c
 }
