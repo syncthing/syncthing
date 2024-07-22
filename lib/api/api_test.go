@@ -592,11 +592,6 @@ func httpPostCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t 
 	return httpRequest(http.MethodPost, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
 }
 
-func httpPutCsrf(url string, body any, csrfTokenName, csrfTokenValue string, t *testing.T) *http.Response {
-	t.Helper()
-	return httpRequest(http.MethodPut, url, body, "", "", "", "", csrfTokenName, csrfTokenValue, nil, t)
-}
-
 func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
 
