@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{38, migrateToConfigV38},
 		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
@@ -96,6 +97,15 @@ func (m migration) apply(cfg *Configuration) {
 	cfg.Version = m.targetVersion
 }
 
+func migrateToConfigV38(cfg *Configuration) {
+	// Renamed notification ID
+	for i := range cfg.Options.UnackedNotificationIDs {
+		if cfg.Options.UnackedNotificationIDs[i] == "authenticationUserAndPassword" {
+			cfg.Options.UnackedNotificationIDs[i] = "guiAuthentication"
+		}
+	}
+}
+
 func migrateToConfigV37(cfg *Configuration) {
 	// "scan ownership" changed name to "send ownership"
 	for i := range cfg.Folders {
@@ -147,8 +157,8 @@ func migrateToConfigV32(cfg *Configuration) {
 }
 
 func migrateToConfigV31(cfg *Configuration) {
-	// Show a notification about setting User and Password
-	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
+	// Show a notification about setting GUI authentication
+	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "guiAuthentication")
 }
 
 func migrateToConfigV30(cfg *Configuration) {

@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 37
+	CurrentVersion       = 38
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -102,7 +102,7 @@ func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
 
-	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+	cfg.Options.UnackedNotificationIDs = []string{"guiAuthentication"}
 
 	structutil.SetDefaults(&cfg)
 

@@ -620,8 +620,8 @@ angular.module('syncthing.core')
                 && !$scope.isAuthEnabled()
                 && !guiCfg.insecureAdminAccess;
 
-            if ((guiCfg.user && guiCfg.password) || guiCfg.authMode === 'ldap') {
-                $scope.dismissNotification('authenticationUserAndPassword');
+            if ($scope.isAuthEnabled()) {
+                $scope.dismissNotification('guiAuthentication');
             }
         }
 
