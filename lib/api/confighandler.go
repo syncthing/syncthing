@@ -327,7 +327,6 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
-
 		*cfg = to
 	})
 	if errMsg != "" {
@@ -412,7 +411,6 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 				return
 			}
 		}
-
 		cfg.GUI = gui
 	})
 	if errMsg != "" {
