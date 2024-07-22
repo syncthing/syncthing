@@ -322,8 +322,6 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
 
-	guiCfg := s.cfg.GUI()
-
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
@@ -378,6 +376,8 @@ func (s *service) Serve(ctx context.Context) error {
 	// Handle Prometheus metrics
 	promHttpHandler := promhttp.Handler()
 	mux.Handle("/metrics", promHttpHandler)
+
+	guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
