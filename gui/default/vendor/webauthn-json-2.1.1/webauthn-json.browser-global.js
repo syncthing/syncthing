@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   var __defProp = Object.defineProperty;
   var __export = (target, all) => {
@@ -53,7 +54,10 @@
       str += String.fromCharCode(charCode);
     }
     const base64String = btoa(str);
-    const base64urlString = base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const base64urlString = base64String.replace(/\+/g, "-").replace(
+      /\//g,
+      "_"
+    ).replace(/=/g, "");
     return base64urlString;
   }
 
@@ -89,7 +93,11 @@
           output[key] = null;
           continue;
         }
-        output[key] = convert(conversionFn, schemaField.schema, input[key]);
+        output[key] = convert(
+          conversionFn,
+          schemaField.schema,
+          input[key]
+        );
       }
       return output;
     }
@@ -156,12 +164,18 @@
     response: required({
       clientDataJSON: required(convertValue),
       attestationObject: required(convertValue),
-      transports: derived(copyValue, (response) => {
-        var _a;
-        return ((_a = response.getTransports) == null ? void 0 : _a.call(response)) || [];
-      })
+      transports: derived(
+        copyValue,
+        (response) => {
+          var _a;
+          return ((_a = response.getTransports) == null ? void 0 : _a.call(response)) || [];
+        }
+      )
     }),
-    clientExtensionResults: derived(simplifiedClientExtensionResultsSchema, (pkc) => pkc.getClientExtensionResults())
+    clientExtensionResults: derived(
+      simplifiedClientExtensionResultsSchema,
+      (pkc) => pkc.getClientExtensionResults()
+    )
   };
   var credentialRequestOptions = {
     mediation: optional(copyValue),
@@ -186,7 +200,10 @@
       signature: required(convertValue),
       userHandle: required(convertValue)
     }),
-    clientExtensionResults: derived(simplifiedClientExtensionResultsSchema, (pkc) => pkc.getClientExtensionResults())
+    clientExtensionResults: derived(
+      simplifiedClientExtensionResultsSchema,
+      (pkc) => pkc.getClientExtensionResults()
+    )
   };
   var schema = {
     credentialCreationOptions,
@@ -200,11 +217,17 @@
     return convert(base64urlToBuffer, credentialCreationOptions, requestJSON);
   }
   function createResponseToJSON(credential) {
-    return convert(bufferToBase64url, publicKeyCredentialWithAttestation, credential);
+    return convert(
+      bufferToBase64url,
+      publicKeyCredentialWithAttestation,
+      credential
+    );
   }
   function create(requestJSON) {
     return __async(this, null, function* () {
-      const credential = yield navigator.credentials.create(createRequestFromJSON(requestJSON));
+      const credential = yield navigator.credentials.create(
+        createRequestFromJSON(requestJSON)
+      );
       return createResponseToJSON(credential);
     });
   }
@@ -212,11 +235,17 @@
     return convert(base64urlToBuffer, credentialRequestOptions, requestJSON);
   }
   function getResponseToJSON(credential) {
-    return convert(bufferToBase64url, publicKeyCredentialWithAssertion, credential);
+    return convert(
+      bufferToBase64url,
+      publicKeyCredentialWithAssertion,
+      credential
+    );
   }
   function get(requestJSON) {
     return __async(this, null, function* () {
-      const credential = yield navigator.credentials.get(getRequestFromJSON(requestJSON));
+      const credential = yield navigator.credentials.get(
+        getRequestFromJSON(requestJSON)
+      );
       return getResponseToJSON(credential);
     });
   }
