@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "이 ID를 가진 기기가 이미 추가되어 있습니다.",
+    "A device with that ID is already added.": "이 식별자를 가진 기기가 이미 추가되어 있습니다.",
     "A negative number of days doesn't make sense.": "일수를 음수로 입력하는 것은 올바르지 않습니다.",
     "A new major version may not be compatible with previous versions.": "새로운 주요 버전이 이전 버전들과 호환되지 않을 수 있습니다.",
     "API Key": "API 키",

@@ -924,6 +924,8 @@ func (f *fakeFile) Name() string {
 	if f.presentedName != "" {
 		return f.presentedName
 	}
+	f.mut.Lock()
+	defer f.mut.Unlock()
 	return f.name
 }
 
@@ -949,7 +951,9 @@ func (f *fakeFile) Truncate(size int64) error {
 }
 
 func (f *fakeFile) Stat() (FileInfo, error) {
+	f.mut.Lock()
 	info := &fakeFileInfo{*f.fakeEntry}
+	f.mut.Unlock()
 	if f.presentedName != "" {
 		info.name = f.presentedName
 	}

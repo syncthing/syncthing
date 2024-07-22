@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-STIGNORE" "5" "Jun 02, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Jul 18, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .SH SYNOPSIS
@@ -124,7 +124,7 @@ more general patterns that follow.
 .INDENT 3.5
 Negated patterns that can match items below the folder root will cause
 Syncthing to traverse otherwise ignored directories. If the
-\X'tty: link #scanning'\fI\%watcher\fP\X'tty: link' is enabled, those directories will also be
+\fI\%watcher\fP is enabled, those directories will also be
 watched. Directories ignored before the first negated pattern can
 however be safely skipped, since the first matching pattern wins. For
 example:
