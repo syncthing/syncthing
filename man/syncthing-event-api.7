@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Jul 09, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Jul 18, 2024" "v1.27.7" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -456,7 +456,7 @@ Added in version 0.11.12.
 \fBSEE ALSO:\fP
 .INDENT 0.0
 .INDENT 3.5
-The \X'tty: link #statechanged'\fI\%StateChanged\fP\X'tty: link' event.
+The \fI\%StateChanged\fP event.
 .UNINDENT
 .UNINDENT
 .SS FolderPaused
@@ -716,7 +716,7 @@ Added in version 0.11.10: The \fBmetadata\fP action.
 
 .SS ListenAddressesChanged
 .sp
-This event is emitted when a \X'tty: link #listen-addresses'\fI\%listen address\fP\X'tty: link' changes.
+This event is emitted when a \fI\%listen address\fP changes.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -981,7 +981,7 @@ Deprecated since version v1.1.2: The \fBfolderID\fP field is a legacy name kept 
 
 .SS RemoteDownloadProgress
 .sp
-This event is emitted when a \X'tty: link #download-progress'\fI\%DownloadProgress\fP\X'tty: link' message is
+This event is emitted when a \fI\%DownloadProgress\fP message is
 received. It returns a map \fBdata\fP of filenames with a count of
 downloaded blocks. The files in questions are currently being
 downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
