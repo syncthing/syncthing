@@ -4,9 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build !(solaris && !cgo) && !(darwin && !cgo) && !(android && amd64) && !ios
+//go:build !(solaris && !cgo) && !(darwin && !cgo) && !(darwin && kqueue) && !(android && amd64) && !ios
 // +build !solaris cgo
 // +build !darwin cgo
+// +build !darwin !kqueue
 // +build !android !amd64
 // +build !ios
 
