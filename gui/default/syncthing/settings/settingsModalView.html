@@ -168,13 +168,25 @@
               <table class="table-striped table">
                 <thead>
                   <tr>
-                    <th colspan="1000"><label translate>WebAuthn Credentials</label></th>
+                    <th colspan="1000">
+                      <label translate>WebAuthn Credentials</label>
+                      <a href="{{docsURL('users/webauthn')}}" target="_blank">
+                        <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
+                      </a>
+                    </th>
                   </tr>
                   <tr>
                     <th><label translate>Name</label></th>
                     <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
                     <th><label translate="settings.webauthn.credentials.columnHeading.lastUseTime">Last used</label></th>
-                    <th><label translate="settings.webauthn.credentials.columnHeading.requireUserVerification">Require UV</label></th>
+                    <th>
+                      <label>
+                        <span translate="settings.webauthn.credentials.columnHeading.require2fa">2FA</span>
+                        <a href="{{docsURL('users/webauthn') + '#webauthn-require2fa'}}">
+                          <span class="fa fa-question-circle"/>
+                        </a>
+                      </label>
+                    </th>
                     <th colspan="1000"><label translate>Actions</label></th>
                   </tr>
                 </thead>
