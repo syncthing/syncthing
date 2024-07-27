@@ -247,6 +247,15 @@
                         Registration failed - possibly aborted, timed out, or blocked by the browser.
                       </p>
 
+                      <div ng-if="webauthn.errors.securityError">
+                        <p class="text-danger" ng-if="webauthn.errors.securityError">
+                          Security error - please make sure Syncthing is correctly configured.
+                        </p>
+                        <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+                          Syncthing Documentation: Customizing the GUI address
+                        </a>
+                      </div>
+
                       <p class="text-danger" ng-if="webauthn.errors.registrationFailed" translate>
                         Failed to create credential, see Syncthing logs for details.
                       </p>

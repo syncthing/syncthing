@@ -416,6 +416,14 @@
           <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
             Authentication failed, please try again.
           </p>
+          <div ng-if="webauthn.errors.securityError">
+            <p class="text-danger" ng-if="webauthn.errors.securityError">
+              Security error - please make sure Syncthing is correctly configured.
+            </p>
+            <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+              Syncthing Documentation: Customizing the GUI address
+            </a>
+          </div>
           <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
             Initialization failed, see Syncthing logs for details.
           </p>
