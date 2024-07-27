@@ -211,7 +211,7 @@
 
                   <tr>
                     <td colspan="4">
-                      <p class="text-info" ng-if="!config.gui.user" translate>
+                      <p class="text-info" ng-if="webauthnAvailable() && !config.gui.user" translate>
                         Set a username and save to enable WebAuthn.
                       </p>
 
@@ -219,7 +219,7 @@
                         WebAuthn requires HTTPS.
                       </p>
 
-                      <p class="text-success" ng-if="tmpGUI.useTLS && isLocationInsecure()" translate>
+                      <p class="text-success" ng-if="tmpGUI.useTLS && webauthnAvailable() && isLocationInsecure()" translate>
                         Save and reload in HTTPS to enable WebAuthn.
                       </p>
 
@@ -239,7 +239,7 @@
                         Failed to create credential, see Syncthing logs for details.
                       </p>
 
-                      <p class="text-info" ng-if="isRawIpAddress()" translate>
+                      <p class="text-info" ng-if="webauthnAvailable() && isRawIpAddress()" translate>
                         WebAuthn is not supported on raw IP address hosts.
                       </p>
 
@@ -247,11 +247,11 @@
                         Your browser does not support WebAuthn.
                       </p>
 
-                      <p class="text-warning" ng-if="!locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
+                      <p class="text-warning" ng-if="webauthnAvailable() && !locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
                         Reload page at {%webauthnOrigin%} to enable WebAuthn.
                       </p>
 
-                      <p ng-if="!locationMatchesWebauthnOrigin()">
+                      <p ng-if="webauthnAvailable() && !locationMatchesWebauthnOrigin()">
                         <button ng-if="settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)">
                           <span class="fas fa-check"></span>
                           &nbsp;
