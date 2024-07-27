@@ -1742,6 +1742,12 @@ angular.module('syncthing.core')
             return window['PublicKeyCredential'] !== undefined;
         };
 
+        $scope.webauthnStateChanged = function () {
+            // This may produce false positives as order of keys in objects may not be consistent,
+            // but should be good enough for what we need
+            return jsonStringifyNoAngularHashKey($scope.webauthn.state) !== jsonStringifyNoAngularHashKey($scope.webauthn.uneditedState);
+        };
+
         if ($scope.webauthnAvailable()) {
             if ($scope.authenticated) {
                 // Functions for use in the settings dialog
@@ -1814,12 +1820,6 @@ angular.module('syncthing.core')
                         && !$scope.isLocationInsecure()
                         && $scope.webauthnAvailable()
                         && $scope.locationMatchesWebauthnOrigin();
-                };
-
-                $scope.webauthnStateChanged = function () {
-                    // This may produce false positives as order of keys in objects may not be consistent,
-                    // but should be good enough for what we need
-                    return jsonStringifyNoAngularHashKey($scope.webauthn.state) !== jsonStringifyNoAngularHashKey($scope.webauthn.uneditedState);
                 };
 
                 $scope.saveWebauthnState = function () {
