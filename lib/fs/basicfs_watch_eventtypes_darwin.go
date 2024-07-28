@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build darwin && !kqueue && cgo
-// +build darwin,!kqueue,cgo
+//go:build darwin && !kqueue && cgo && !ios
+// +build darwin,!kqueue,cgo,!ios
 
 package fs
 

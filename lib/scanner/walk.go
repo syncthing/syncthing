@@ -553,7 +553,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
 func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, err error) {
-	if build.IsDarwin {
+	if build.IsDarwin || build.IsIOS {
 		// Mac OS X file names should always be NFD normalized.
 		normPath = norm.NFD.String(path)
 	} else {
