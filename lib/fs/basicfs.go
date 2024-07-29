@@ -70,17 +70,6 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	sep := string(filepath.Separator)
 	root = filepath.Clean(filepath.Dir(root + sep))
 
-	if build.IsIOS && !filepath.IsAbs(root) && root[0] != '~' {
-		newroot, err2 := rooted(root, "~/Documents")
-		if err2 == nil {
-			root = newroot
-		} else {
-			l.Warnln("Illegal folder", root, "-", err2)
-			// Cannot error from here so use an unwritable path that will fail later
-			root = "~/bad"
-		}
-	}
-
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
 		root = path
