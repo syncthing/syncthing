@@ -14,8 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/rand"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
