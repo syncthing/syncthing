@@ -1,7 +1,7 @@
 {
-    "A device with that ID is already added.": "您已添加过相同 ID 的设备。",
+    "A device with that ID is already added.": "已添加过相同 ID 的设备。",
     "A negative number of days doesn't make sense.": "天数不能为负。",
-    "A new major version may not be compatible with previous versions.": "新的大版本可能与之前的版本之间无法兼容。",
+    "A new major version may not be compatible with previous versions.": "新的主要版本可能与以前的版本不兼容。",
     "API Key": "API 密钥",
     "About": "关于",
     "Action": "操作",
