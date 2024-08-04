@@ -4,25 +4,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package model
+package syncthing
 
 import (
 	"context"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 )
 
 // ModelWrapper allows access to a subset of functionality in model. While intended for use from applications that import
 // the package, it is not intended as a stable API at this time. It does however provide a boundary between the more
-// volatile Model interface and upstream users.
+// volatile Model interface and upstream users (one of which is an iOS app).
 type ModelWrapper struct {
-	model Model
+	model model.Model
 }
 
-func NewModelWrapper(model Model) *ModelWrapper {
+func newModelWrapper(model model.Model) *ModelWrapper {
 	return &ModelWrapper{
 		model: model,
 	}
@@ -44,7 +45,7 @@ func (m *ModelWrapper) DownloadBlock(ctx context.Context, deviceID protocol.Devi
 	return m.model.RequestGlobal(ctx, deviceID, folderID, path, int(blockNumber), blockInfo.Offset, blockInfo.Size, blockInfo.Hash, blockInfo.WeakHash, allowFromTemporary)
 }
 
-func (m *ModelWrapper) BlockAvailability(folderID string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error) {
+func (m *ModelWrapper) BlockAvailability(folderID string, file protocol.FileInfo, block protocol.BlockInfo) ([]model.Availability, error) {
 	return m.model.Availability(folderID, file, block)
 }
 
@@ -52,7 +53,7 @@ func (m *ModelWrapper) GlobalFileInfo(folderID, path string) (protocol.FileInfo,
 	return m.model.CurrentGlobalFile(folderID, path)
 }
 
-func (m *ModelWrapper) GlobalTreeEntries(folderID string, prefix string, levels int, returnOnlyDirectories bool) ([]*TreeEntry, error) {
+func (m *ModelWrapper) GlobalTreeEntries(folderID string, prefix string, levels int, returnOnlyDirectories bool) ([]*model.TreeEntry, error) {
 	return m.model.GlobalDirectoryTree(folderID, prefix, levels, returnOnlyDirectories)
 }
 
@@ -64,7 +65,7 @@ func (m *ModelWrapper) ScanFolders() map[string]error {
 	return m.model.ScanFolders()
 }
 
-func (m *ModelWrapper) Completion(deviceID protocol.DeviceID, folderID string) (FolderCompletion, error) {
+func (m *ModelWrapper) Completion(deviceID protocol.DeviceID, folderID string) (model.FolderCompletion, error) {
 	return m.model.Completion(deviceID, folderID)
 }
 
