@@ -563,8 +563,8 @@ ul.three-columns li, ul.two-columns li {
 
 /* Make a "well" look more like a readonly text input when grouped with a button */
 .input-group .well-sm {
-  padding-top: 6px;
-  padding-bottom: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
 }
 
 /* CJK languages don't use italic at all, hence don't force it on them. */
@@ -577,4 +577,9 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
+}
+
+
+#folderGlobalTree .fancytree-container {
+    padding-left: 0;
 }
