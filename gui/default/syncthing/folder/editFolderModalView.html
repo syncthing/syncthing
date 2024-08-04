@@ -249,10 +249,10 @@
             </div>
             <div class="col-md-6 form-group">
               <label>
-                <input type="checkbox" ng-model="currentFolder.advancedIgnorePatterns">&nbsp;<span translate>Use advanced ignore patterns</span>
+                <input type="checkbox" ng-model="currentFolder.advancedIgnorePatterns" ng-change="setFolderAdvancedIgnorePatterns()">&nbsp;<span translate>Use advanced ignore patterns</span>
               </label>
                 <p class="help-block">
-                  <span translate>Set folder ignore patterns in text editor.</span>
+                  <span translate>Write ignore patterns manually in the text editor.</span>
                 </p>
             </div>
             <div class="col-md-6 form-group">

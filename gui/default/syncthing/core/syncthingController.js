@@ -2245,6 +2245,12 @@ angular.module('syncthing.core')
             $scope.setFSWatcherIntervalDefault();
         };
 
+        $scope.setFolderAdvancedIgnorePatterns = function() {
+            console.log('setFolderAdvancedIgnorePatterns', $scope.currentFolder.advancedIgnorePatterns);
+            if (!$scope.currentFolder.advancedIgnorePatterns)
+                loadFolderGlobalTreeData()
+        };
+
         $scope.loadFormIntoScope = function (form) {
             console.log('loadFormIntoScope', form.$name);
             switch (form.$name) {
@@ -2468,7 +2474,7 @@ angular.module('syncthing.core')
                 setFolderGlobalTreeData(data);
                 $scope.folderGlobalTreeData.error = data.error;
             }, $scope.emitHTTPError);
-           
+
             return loadFolderGlobalTreeDataReq = req;
         }
 
@@ -2528,7 +2534,7 @@ angular.module('syncthing.core')
         }
 
         function setFolderGlobalTree() {
-            // console.log("setIgnoresGlobalTree")
+            console.log("setIgnoresGlobalTree", $scope.currentFolder.advancedIgnorePatterns)
             if (!$scope.currentFolder.advancedIgnorePatterns)
                 initFolderGlobalTree();
             else
