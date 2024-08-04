@@ -350,28 +350,18 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /*
- * Folder Basic Ignores Tree tweaks
+ * Folder Tree Ignores tweaks
  */
 
-#folderGlobalTree-container {
-    overflow-y: scroll;
-    resize: vertical;
-    /* Limit height to prevent vertical screen overflow. */
-    max-height: calc(100vh - 390px);
-    /* Always fit at least one folder with dropdown open. */
-    min-height: 136px;
-}
-
-/* Ignore fixed height when manually resized. */
-#folderGlobalTree-container[style*="height"] {
-    max-height: none;
+#folderGlobalTree .fancytree-container {
+    padding-left: 0;
 }
 
 /*
  * Restore Versions tweaks
  */
 
-#restoreTree-container {
+#restoreTree-container, #folderGlobalTree-container {
     overflow-y: scroll;
     resize: vertical;
     /* Limit height to prevent vertical screen overflow. */
@@ -379,11 +369,13 @@ ul.three-columns li, ul.two-columns li {
     /* Always fit at least one folder with dropdown open. */
     min-height: 136px;
 }
+
 @media (min-width: 768px) {
     #restoreTree-container {
         max-height: calc(100vh - 401px);
     }
 }
+
 @media (min-width: 992px) {
     #restoreTree-container {
         max-height: calc(100vh - 333px);
@@ -391,7 +383,7 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /* Ignore fixed height when manually resized. */
-#restoreTree-container[style*="height"] {
+#restoreTree-container[style*="height"], #folderGlobalTree-container[style*="height"]  {
     max-height: none;
 }
 
@@ -577,9 +569,4 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
-}
-
-
-#folderGlobalTree .fancytree-container {
-    padding-left: 0;
 }

@@ -166,7 +166,7 @@
           </div>
           <div ng-switch-default>
             <div ng-if="!currentFolder.advancedIgnorePatterns">
-              <p ng-if="folderGlobalTreeData.loading" translate>Loading the folder structure...</p>
+              <p ng-if="folderGlobalTreeData.loading" translate>Loading folders structure...</p>
               <p ng-if="!folderGlobalTreeData.loading" translate>Select files to download.</p>
               <div id="folderGlobalTree-container" ng-show="!folderGlobalTreeData.loading" ng-disabled="ignores.disabled">
                 <div id="folderGlobalTree"></div>

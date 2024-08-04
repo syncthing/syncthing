@@ -83,6 +83,7 @@ angular.module('syncthing.core')
             fancyData: [],
             error: null,
             loading: false,
+            itemCount: 0,
         };
         resetRemoteNeed();
 
@@ -2301,6 +2302,7 @@ angular.module('syncthing.core')
                         fancyData: [],
                         error: null,
                         loading: false,
+                        itemCount:0,
                     };
                     destroyFolderGlobalTree();
                 });
@@ -2456,6 +2458,7 @@ angular.module('syncthing.core')
             $scope.folderGlobalTreeData.fancyData = [];
             $scope.folderGlobalTreeData.error = null;
             $scope.folderGlobalTreeData.loading = true;
+            $scope.folderGlobalTreeData.itemCount = 0;
 
             const req = getFolderGlobalTreeData().then(function (data) {
                 if (!data) {
@@ -2493,20 +2496,20 @@ angular.module('syncthing.core')
                     ignorePatterns: ignoresArray(),
                 });
             } else {
-                setFolderGlobalTreeFancyData(formatGlobalTreeNodes($scope.folderGlobalTreeData.data, ""))
+                formatGlobalTreeNodes($scope.folderGlobalTreeData.data, "");
             }
         }
-        function setFolderGlobalTreeFancyData(data) {
+        function setFolderGlobalTreeFancyData(data, itemCount) {
             console.log("setFolderGlobalTreeFancyData", $scope.folderGlobalTreeData.loading, data)
             $scope.folderGlobalTreeData.fancyData = data;
             $scope.folderGlobalTree?.reload();
             $scope.folderGlobalTreeData.loading = false;
+            $scope.folderGlobalTreeData.itemCount = itemCount;
         }
 
-        function formatGlobalTreeNodes(data, parentKey, parentIgnored = true) {
-            var result = [];
+        function formatGlobalTreeNodes(data, parentKey) {
             var ignores = ignoresArray();
-            // console.log("formatGlobalTreeNodes", "data", data, "ignores", ignores);
+            console.log("formatGlobalTreeNodes", "data", data, "ignores", ignores);
             if (ignores[0] !== generatedByTreeSelector) {
                 ignores = [];
                 setIgnoresText([generatedByTreeSelector, "*"]);
@@ -2514,24 +2517,46 @@ angular.module('syncthing.core')
                 ignores = ignores.slice(1, -1)
             }
 
-            $.each(data, function (index, node) {
-                const isFolder = node.type == "FILE_INFO_TYPE_DIRECTORY";
-                const key = parentKey + "/" + node.name;
-                const found = ignores.find(function (ignoreKey) {
-                    return key == ignoreKey.slice(1);
+            const selectAllPattern = ignores.length == 0 || (ignores.length == 1 && ignores[0] == "");
+            var selectedAll = true;
+            var itemCount = 0;
+            console.log("formatGlobalTreeNodes", "selectAllPattern", selectAllPattern);
+
+            function formatGlobalTreeNodesRecursion(data, parentKey, parentIgnored = !selectAllPattern) {
+                var result = [];
+
+                $.each(data, function (index, node) {
+                    const isFolder = node.type == "FILE_INFO_TYPE_DIRECTORY";
+                    const key = parentKey + "/" + node.name;
+                    console.log(ignores, selectedAll);
+                    const found = ignores.find(function (ignoreKey) {
+                        return key == ignoreKey.slice(1);
+                    });
+                    const ignored = parentIgnored && !found;
+                    if (ignored)
+                        selectedAll = false;
+
+                    console.log("initFolderGlobalTree", "key", key, "ignored ", ignored, "parentIgnored", parentIgnored, "found", found, !found, "isFolder", isFolder, "node.children", node.children, "selectedAll", selectedAll);
+                    result.push({
+                        children: isFolder && node.children?.length > 0 ? formatGlobalTreeNodesRecursion(node.children, key, ignored) : [],
+                        key: key,
+                        title: node.name,
+                        folder: isFolder,
+                        selected: !ignored
+                    });
                 });
-                const ignored = parentIgnored && !found;
-                // console.log("initFolderGlobalTree", "key", key, "ignored ", ignored, "parentIgnored", parentIgnored, "found", found, !found, "isFolder", isFolder, "node.children", node.children);
-                result.push({
-                    children: isFolder && node.children?.length > 0 ? formatGlobalTreeNodes(node.children, key, ignored) : [],
-                    key: key,
-                    title: node.name,
-                    folder: isFolder,
-                    selected: !ignored
-                });
-            });
-            return result;
+                itemCount += result.length;
+                return result;
+            }
+            const fancyData = formatGlobalTreeNodesRecursion(data, parentKey);
+            
+            console.log("formatGlobalTreeNodes", "selectedAll", selectedAll);
+            if (selectedAll)
+                setIgnoresText([]);
+
+            setFolderGlobalTreeFancyData(fancyData, itemCount)
         }
+        
 
         function setFolderGlobalTree() {
             console.log("setIgnoresGlobalTree", $scope.currentFolder.advancedIgnorePatterns)
@@ -2560,12 +2585,20 @@ angular.module('syncthing.core')
                     console.log("initFolderGlobalTree | fancyTree select");
                     const rootNode = $scope.folderGlobalTree.getRootNode();
                     const generatedIgnorePatterns = ["*"];
-                    $.each(rootNode.getSelectedNodes(), function (_, node) {
-                        if (node.parent == rootNode || !node.parent.selected)
-                            generatedIgnorePatterns.unshift("!" + node.key);
-                    });
-                    generatedIgnorePatterns.unshift(generatedByTreeSelector);
-                    setIgnoresText(generatedIgnorePatterns);
+                    const selectedNodes = rootNode.getSelectedNodes();
+                    console.log("selectedNodes lenght:", selectedNodes.length, "itemCount", $scope.folderGlobalTreeData.itemCount);
+                    if (selectedNodes.length == $scope.folderGlobalTreeData.itemCount) {
+                        setIgnoresText([]);
+                    }
+                    else {
+                        $.each(selectedNodes, function (_, node) {
+                            if (node.parent == rootNode || !node.parent.selected)
+                                generatedIgnorePatterns.unshift("!" + node.key);
+                        });
+                        generatedIgnorePatterns.unshift(generatedByTreeSelector);
+                        setIgnoresText(generatedIgnorePatterns);
+                    }
+                    
                     $scope.$apply();
                 },
                 source: function () {
@@ -2598,7 +2631,10 @@ angular.module('syncthing.core')
                         console.log("fancyTreeGlobalDataWorker.onmessage", msg.data);
                         if (msg.data.invalidPatterns)
                             setIgnoresText([generatedByTreeSelector, "*"]);
-                        setFolderGlobalTreeFancyData(msg.data.data);
+                        if (msg.data.selectedAll)
+                            setIgnoresText([]);
+
+                        setFolderGlobalTreeFancyData(msg.data.data, msg.data.itemCount);
                     }
                     console.log('initFancyTreeGlobalDataWorker | worker ready', !!$scope.fancyTreeGlobalDataWorker);
             }
