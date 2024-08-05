@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package config;
 
+import "google/protobuf/timestamp.proto";
 import "lib/config/authmode.proto";
 
 import "ext.proto";
@@ -21,4 +22,24 @@ message GUIConfiguration {
     bool     insecure_skip_host_check     = 12 [(ext.xml) = "insecureSkipHostcheck,omitempty", (ext.json) = "insecureSkipHostcheck"];
     bool     insecure_allow_frame_loading = 13 [(ext.xml) = "insecureAllowFrameLoading,omitempty"];
     bool     send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
+    string   webauthn_user_id             = 15 [(ext.xml) = "webauthnUserId"];
+    string   webauthn_rp_id               = 16 [(ext.xml) = "webauthnRpId", (ext.default) = "localhost"];
+    string   webauthn_origin              = 17 [(ext.xml) = "webauthnOrigin", (ext.default) = "https://localhost:8384"];
+}
+
+// WebauthnCredentials are managed in the config GUI but are stored in DB
+message WebauthnState {
+    repeated WebauthnCredential credentials = 1;
+}
+
+message WebauthnCredential {
+    string                    ID              = 1;
+    string                    rp_id           = 2;
+    string                    nickname        = 3;
+    string                    public_key_cose = 4;
+    uint32                    sign_count      = 5;
+    repeated string           transports      = 6;
+    bool                      require_uv      = 7;
+    google.protobuf.Timestamp create_time     = 8;
+    google.protobuf.Timestamp last_use_time   = 9;
 }

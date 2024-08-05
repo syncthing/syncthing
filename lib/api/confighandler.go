@@ -20,8 +20,9 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id              protocol.DeviceID
+	cfg             config.Wrapper
+	webauthnService *webauthnService
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -334,7 +335,9 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c.finish(w, waiter)
+	if c.finish(w, waiter) {
+		c.webauthnService.credentialsPendingRegistration = make([]config.WebauthnCredential, 0)
+	}
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
@@ -450,10 +453,16 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	return data, err
 }
 
-func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
+func awaitSaveConfig(w http.ResponseWriter, wrapper config.Wrapper, waiter config.Waiter) bool {
 	waiter.Wait()
-	if err := c.cfg.Save(); err != nil {
-		l.Warnln("Saving config:", err)
+	if err := wrapper.Save(); err != nil {
+		l.Warnln("Failed to save config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return false
 	}
+	return true
+}
+
+func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) bool {
+	return awaitSaveConfig(w, c.cfg, waiter)
 }

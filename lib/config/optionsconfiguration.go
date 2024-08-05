@@ -42,7 +42,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 
 	if guiPWIsSet && len(opts.UnackedNotificationIDs) > 0 {
 		for i, key := range opts.UnackedNotificationIDs {
-			if key == "authenticationUserAndPassword" {
+			if key == "guiAuthentication" {
 				opts.UnackedNotificationIDs = append(opts.UnackedNotificationIDs[:i], opts.UnackedNotificationIDs[i+1:]...)
 				break
 			}

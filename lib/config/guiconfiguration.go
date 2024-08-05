@@ -7,6 +7,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"net/url"
 	"os"
 	"regexp"
@@ -18,8 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
-func (c GUIConfiguration) IsAuthEnabled() bool {
-	// This function should match isAuthEnabled() in syncthingController.js
+func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
@@ -119,7 +119,13 @@ var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 // SetPassword takes a bcrypt hash or a plaintext password and stores it.
 // Plaintext passwords are hashed. Returns an error if the password is not
 // valid.
+// If the plaintext password is empty, the password is unset instead.
 func (c *GUIConfiguration) SetPassword(password string) error {
+	if password == "" {
+		c.Password = ""
+		return nil
+	}
+
 	if bcryptExpr.MatchString(password) {
 		// Already hashed
 		c.Password = password
@@ -155,12 +161,49 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
-func (c *GUIConfiguration) prepare() {
+func (c *GUIConfiguration) prepare() error {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
+
+	if c.WebauthnUserId == "" {
+		newUserId := make([]byte, 64)
+		_, err := rand.Read(newUserId)
+		if err != nil {
+			return err
+		}
+		c.WebauthnUserId = base64.URLEncoding.EncodeToString(newUserId)
+	}
+
+	return nil
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
+}
+
+func (s *WebauthnState) Copy() WebauthnState {
+	c := *s
+	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
+	for i := range s.Credentials {
+		c.Credentials[i] = s.Credentials[i].Copy()
+	}
+	return c
+}
+
+func (g *WebauthnCredential) Copy() WebauthnCredential {
+	c := *g
+	if c.Transports != nil {
+		c.Transports = make([]string, len(c.Transports))
+		copy(c.Transports, g.Transports)
+	}
+	return c
+}
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	} else {
+		return c.ID
+	}
 }
