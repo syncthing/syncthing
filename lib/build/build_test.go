@@ -35,7 +35,7 @@ func TestAllowedVersions(t *testing.T) {
 	}
 
 	for i, c := range testcases {
-		if allowed := allowedVersionExp.MatchString(c.ver); allowed != c.allowed {
+		if allowed := AllowedVersionExp.MatchString(c.ver); allowed != c.allowed {
 			t.Errorf("%d: incorrect result %v != %v for %q", i, allowed, c.allowed, c.ver)
 		}
 	}
