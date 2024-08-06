@@ -2414,7 +2414,7 @@ func (m *model) promoteConnections() {
 			if conn.Statistics().StartedAt.IsZero() {
 				conn.SetFolderPasswords(passwords)
 				conn.Start()
-				conn.ClusterConfig(protocol.ClusterConfig{Secondary: true})
+				conn.ClusterConfig(&protocol.ClusterConfig{Secondary: true})
 			}
 		}
 	}
@@ -2469,7 +2469,7 @@ func (m *model) RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 	}
 
 	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID.Short(), conn, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
-	return conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+	return conn.Request(ctx, &protocol.Request{Folder: folder, Name: name, BlockNo: blockNo, Offset: offset, Size: size, Hash: hash, WeakHash: weakHash, FromTemporary: fromTemporary})
 }
 
 // requestConnectionForDevice returns a connection to the given device, to
@@ -2586,14 +2586,14 @@ func (m *model) numHashers(folder string) int {
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the
 // set of folder passwords for the given peer device
-func (m *model) generateClusterConfig(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
+func (m *model) generateClusterConfig(device protocol.DeviceID) (*protocol.ClusterConfig, map[string]string) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 	return m.generateClusterConfigRLocked(device)
 }
 
-func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (protocol.ClusterConfig, map[string]string) {
-	var message protocol.ClusterConfig
+func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protocol.ClusterConfig, map[string]string) {
+	message := &protocol.ClusterConfig{}
 	folders := m.cfg.FolderList()
 	passwords := make(map[string]string, len(folders))
 	for _, folderCfg := range folders {

@@ -154,30 +154,30 @@ type RequestResponse interface {
 }
 
 type Connection interface {
-	// Send an index message. The connection will read and marshal the
-	// parameters asynchronously, so they should not be modified after
-	// calling Index().
-	Index(ctx context.Context, folder string, files []FileInfo) error
+	// Send an Index message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	Index(ctx context.Context, idx *Index) error
 
-	// Send an index update message. The connection will read and marshal
-	// the parameters asynchronously, so they should not be modified after
-	// calling IndexUpdate().
-	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
+	// Send an Index Update message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error
 
-	// Send a request message. The connection will read and marshal the
-	// parameters asynchronously, so they should not be modified after
-	// calling Request().
-	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	// Send a Request message to the peer device. The message in the
+	// parameter may be altered by the connection and should not be used
+	// further by the caller.
+	Request(ctx context.Context, req *Request) ([]byte, error)
 
-	// Send a cluster configuration message. The connection will read and
-	// marshal the message asynchronously, so it should not be modified
-	// after calling ClusterConfig().
-	ClusterConfig(config ClusterConfig)
+	// Send a Cluster Configuration message to the peer device. The message
+	// in the parameter may be altered by the connection and should not be
+	// used further by the caller.
+	ClusterConfig(config *ClusterConfig)
 
-	// Send a download progress message. The connection will read and
-	// marshal the parameters asynchronously, so they should not be modified
-	// after calling DownloadProgress().
-	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
+	// Send a Download Progress message to the peer device. The message in
+	// the parameter may be altered by the connection and should not be used
+	// further by the caller.
+	DownloadProgress(ctx context.Context, dp *DownloadProgress)
 
 	Start()
 	SetFolderPasswords(passwords map[string]string)
@@ -185,6 +185,7 @@ type Connection interface {
 	DeviceID() DeviceID
 	Statistics() Statistics
 	Closed() <-chan struct{}
+
 	ConnectionInfo
 }
 
@@ -349,39 +350,33 @@ func (c *rawConnection) DeviceID() DeviceID {
 }
 
 // Index writes the list of file information to the connected peer device
-func (c *rawConnection) Index(ctx context.Context, folder string, idx []FileInfo) error {
+func (c *rawConnection) Index(ctx context.Context, idx *Index) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(ctx, &Index{
-		Folder: folder,
-		Files:  idx,
-	}, nil)
+	c.send(ctx, idx, nil)
 	c.idxMut.Unlock()
 	return nil
 }
 
 // IndexUpdate writes the list of file information to the connected peer device as an update
-func (c *rawConnection) IndexUpdate(ctx context.Context, folder string, idx []FileInfo) error {
+func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(ctx, &IndexUpdate{
-		Folder: folder,
-		Files:  idx,
-	}, nil)
+	c.send(ctx, idxUp, nil)
 	c.idxMut.Unlock()
 	return nil
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
 	rc := make(chan asyncResult, 1)
 
 	c.awaitingMut.Lock()
@@ -394,17 +389,8 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
-	ok := c.send(ctx, &Request{
-		ID:            id,
-		Folder:        folder,
-		Name:          name,
-		Offset:        offset,
-		Size:          size,
-		BlockNo:       blockNo,
-		Hash:          hash,
-		WeakHash:      weakHash,
-		FromTemporary: fromTemporary,
-	}, nil)
+	req.ID = id
+	ok := c.send(ctx, req, nil)
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -421,9 +407,9 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 }
 
 // ClusterConfig sends the cluster configuration message to the peer.
-func (c *rawConnection) ClusterConfig(config ClusterConfig) {
+func (c *rawConnection) ClusterConfig(config *ClusterConfig) {
 	select {
-	case c.clusterConfigBox <- &config:
+	case c.clusterConfigBox <- config:
 	case <-c.closed:
 	}
 }
@@ -433,11 +419,8 @@ func (c *rawConnection) Closed() <-chan struct{} {
 }
 
 // DownloadProgress sends the progress updates for the files that are currently being downloaded.
-func (c *rawConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	c.send(ctx, &DownloadProgress{
-		Folder:  folder,
-		Updates: updates,
-	}, nil)
+func (c *rawConnection) DownloadProgress(ctx context.Context, dp *DownloadProgress) {
+	c.send(ctx, dp, nil)
 }
 
 func (c *rawConnection) ping() bool {
