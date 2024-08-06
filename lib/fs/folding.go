@@ -9,7 +9,6 @@ package fs
 import (
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -17,33 +16,68 @@ import (
 // UnicodeLowercaseNormalized returns the Unicode lower case variant of s,
 // having also normalized it to normalization form C.
 func UnicodeLowercaseNormalized(s string) string {
-	i := firstCaseChange(s)
-	if i == -1 {
-		return norm.NFC.String(s)
+	if isASCII, isLower := isASCII(s); isASCII {
+		if isLower {
+			return s
+		}
+		return toLowerASCII(s)
 	}
 
-	var rs strings.Builder
-	// WriteRune always reserves utf8.UTFMax bytes for non-ASCII runes,
-	// even if it doesn't need all that space. Overallocate now to prevent
-	// it from ever triggering a reallocation.
-	rs.Grow(utf8.UTFMax - 1 + len(s))
-	rs.WriteString(s[:i])
-
-	for _, r := range s[i:] {
-		rs.WriteRune(unicode.ToLower(unicode.ToUpper(r)))
-	}
-	return norm.NFC.String(rs.String())
+	return toLowerUnicode(s)
 }
 
-// Byte index of the first rune r s.t. lower(upper(r)) != r.
-func firstCaseChange(s string) int {
-	for i, r := range s {
-		if r <= unicode.MaxASCII && (r < 'A' || r > 'Z') {
-			continue
+func isASCII(s string) (bool, bool) {
+	isLower := true
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c > unicode.MaxASCII {
+			return false, isLower
 		}
-		if unicode.ToLower(unicode.ToUpper(r)) != r {
-			return i
+		if 'A' <= c && c <= 'Z' {
+			isLower = false
 		}
 	}
-	return -1
+	return true, isLower
+}
+
+func toLowerASCII(s string) string {
+	var (
+		b   strings.Builder
+		pos int
+	)
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 'A' || 'Z' < c {
+			continue
+		}
+		if pos < i {
+			b.WriteString(s[pos:i])
+		}
+		pos = i + 1
+		c += 'a' - 'A'
+		b.WriteByte(c)
+	}
+	if pos != len(s) {
+		b.WriteString(s[pos:])
+	}
+	return b.String()
+}
+
+func toLowerUnicode(s string) string {
+	s = strings.Map(toLower, s)
+	return norm.NFC.String(s)
+}
+
+func toLower(r rune) rune {
+	if r <= unicode.MaxASCII {
+		if r < 'A' || 'Z' < r {
+			return r
+		}
+		return r + 'a' - 'A'
+	}
+	if r <= unicode.MaxLatin1 && r != 'µ' {
+		return unicode.To(unicode.LowerCase, r)
+	}
+	return unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r))
 }
