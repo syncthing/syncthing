@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"go/version"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,8 +23,6 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/build"
 )
-
-const compatibilityJson = "../../compatibility.json"
 
 var versions = []struct {
 	a, b string
@@ -166,7 +165,8 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 }
 
 func TestCompatibilityJson(t *testing.T) {
-	comp, err := os.ReadFile(compatibilityJson)
+	compatibilityPath := filepath.Join("..", "..", compatibilityJson)
+	comp, err := os.ReadFile(compatibilityPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -213,26 +213,26 @@ func TestCompatibilityVerify(t *testing.T) {
 	comp := fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err != nil {
-		t.Errorf("%s: %s", comp, err)
+		t.Errorf("%s: %q", err, comp)
 	}
 
 	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS+"/"+runtime.GOARCH, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err != nil {
-		t.Errorf("%s: %s", comp, err)
+		t.Errorf("%s: %q", err, comp)
 	}
 
 	before, after, _ := strings.Cut(ver, ".")
 	major, err := strconv.Atoi(before)
 	if err != nil {
-		t.Errorf("Cannot find an int in %q", currentKernelVersion)
+		t.Errorf("Invalid int in %q", currentKernelVersion)
 	}
 	major++
 	ver = fmt.Sprintf("%d.%s", major, after)
 	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err == nil {
-		t.Errorf("%s: got nil, expected error as our kernel is %s", comp, currentKernelVersion)
+		t.Errorf("got nil, expected an error, as our kernel is %s: %q", currentKernelVersion, comp)
 	}
 
 	major -= 2
@@ -240,6 +240,6 @@ func TestCompatibilityVerify(t *testing.T) {
 	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err != nil {
-		t.Errorf("%s: got %s, expected error as our kernel is %s", comp, err, currentKernelVersion)
+		t.Errorf("%s as our kernel is %s: %q", err, currentKernelVersion, comp)
 	}
 }

@@ -62,6 +62,8 @@ const (
 
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
+
+	compatibilityJson = "compatibility.json"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -80,6 +82,7 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+// CompInfo is the structure of the compatibility.json file.
 type CompInfo struct {
 	Runtime          string            `json:"runtime"`
 	MinKernelVersion map[string]string `json:"minKernelVersion"`
@@ -285,7 +288,7 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 			return "", err
 		}
 
-		if tempName != "" && sig != nil {
+		if tempName != "" && sig != nil && comp != nil {
 			break
 		}
 	}
@@ -337,7 +340,7 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 			return "", err
 		}
 
-		if tempName != "" && sig != nil {
+		if tempName != "" && sig != nil && comp != nil {
 			break
 		}
 	}
@@ -377,7 +380,7 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[
 			return err
 		}
 
-	case "compatibility.json":
+	case compatibilityJson:
 		l.Debugf("found compatibility file %s", archivePath)
 		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatibilitySize))
 		if err != nil {
@@ -394,6 +397,9 @@ func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error 
 	}
 	if sig == nil {
 		return errors.New("no signature found")
+	}
+	if comp == nil {
+		return errors.New(compatibilityJson + " not found")
 	}
 
 	l.Debugf("checking signature\n%s", sig)
