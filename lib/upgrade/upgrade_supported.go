@@ -451,8 +451,7 @@ func verifyCompatibility(comp []byte) error {
 				continue
 			}
 		}
-		rel := CompareVersions(minKernelVersion, currentKernelVersion)
-		if rel == Newer || rel == MajorNewer {
+		if CompareVersions(minKernelVersion, currentKernelVersion) > Equal {
 			return fmt.Errorf("The upgrade requires kernel version %s, but this system has version %s", minKernelVersion, currentKernelVersion)
 		}
 	}

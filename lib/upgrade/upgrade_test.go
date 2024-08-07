@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/version"
-	"io/ioutil"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -166,7 +166,7 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 }
 
 func TestCompatibilityJson(t *testing.T) {
-	comp, err := ioutil.ReadFile(compatibilityJson)
+	comp, err := os.ReadFile(compatibilityJson)
 	if err != nil {
 		t.Error(err)
 	}
@@ -194,6 +194,11 @@ func TestCompatibilityJson(t *testing.T) {
 		if strings.Count(minKernelVersion, ".") > 2 {
 			t.Errorf("%s: %q contains more than two periods, which is not supported by CompareVersions()", compatibilityJson, minKernelVersion)
 		}
+	}
+
+	err = verifyCompatibility(comp)
+	if err != nil {
+		t.Errorf("%s: %s", compatibilityJson, err)
 	}
 }
 
