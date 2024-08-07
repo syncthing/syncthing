@@ -10,13 +10,20 @@
 package upgrade
 
 import (
+	"encoding/json"
 	"fmt"
+	"go/version"
+	"io/ioutil"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/build"
 )
+
+const compatibilityJson = "../../compatibility.json"
 
 var versions = []struct {
 	a, b string
@@ -155,5 +162,79 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 		if sel.Assets[0].Name != assetName {
 			t.Error("wrong asset selected:", sel.Assets[0].Name)
 		}
+	}
+}
+
+func TestCompatibilityJson(t *testing.T) {
+	comp, err := ioutil.ReadFile(compatibilityJson)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var compInfo CompInfo
+	err = json.Unmarshal(comp, &compInfo)
+	if err != nil {
+		t.Error(err)
+	}
+	if compInfo.Runtime != strings.TrimSpace(compInfo.Runtime) {
+		t.Errorf("%s: %q contains spaces", compatibilityJson, compInfo.Runtime)
+	}
+	i := version.Compare(compInfo.Runtime, runtime.Version())
+	if i > 0 {
+		t.Errorf("Got version %s, want %s in %s", compInfo.Runtime, runtime.Version(), compatibilityJson)
+	}
+
+	for hostArch, minKernelVersion := range compInfo.MinKernelVersion {
+		if hostArch != strings.ReplaceAll(hostArch, " ", "") {
+			t.Errorf("%s: %q contains spaces", compatibilityJson, hostArch)
+		}
+		if minKernelVersion != strings.ReplaceAll(minKernelVersion, " ", "") {
+			t.Errorf("%s: %q contains spaces", compatibilityJson, minKernelVersion)
+		}
+		if strings.Count(minKernelVersion, ".") > 2 {
+			t.Errorf("%s: %q contains more than two periods, which is not supported by CompareVersions()", compatibilityJson, minKernelVersion)
+		}
+	}
+}
+
+func TestCompatibilityVerify(t *testing.T) {
+	currentKernelVersion, err := host.KernelVersion()
+	if err != nil {
+		t.Error(err)
+	}
+	ver, _, _ := strings.Cut(currentKernelVersion, " ")
+	tpl := `{"runtime": "%s", "minKernelVersion": {"%s": "%s"}}`
+
+	comp := fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
+	err = verifyCompatibility([]byte(comp))
+	if err != nil {
+		t.Errorf("%s: %s", comp, err)
+	}
+
+	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS+"/"+runtime.GOARCH, ver)
+	err = verifyCompatibility([]byte(comp))
+	if err != nil {
+		t.Errorf("%s: %s", comp, err)
+	}
+
+	before, after, _ := strings.Cut(ver, ".")
+	major, err := strconv.Atoi(before)
+	if err != nil {
+		t.Errorf("Cannot find an int in %q", currentKernelVersion)
+	}
+	major++
+	ver = fmt.Sprintf("%d.%s", major, after)
+	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
+	err = verifyCompatibility([]byte(comp))
+	if err == nil {
+		t.Errorf("%s: got nil, expected error as our kernel is %s", comp, currentKernelVersion)
+	}
+
+	major -= 2
+	ver = fmt.Sprintf("%d.%s", major, after)
+	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
+	err = verifyCompatibility([]byte(comp))
+	if err != nil {
+		t.Errorf("%s: got %s, expected error as our kernel is %s", comp, err, currentKernelVersion)
 	}
 }

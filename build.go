@@ -99,6 +99,7 @@ var targets = map[string]target{
 			{src: "README.md", dst: "README.txt", perm: 0644},
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+			{src: "compatibility.json", dst: "compatibility.json", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
 		systemdService: "syncthing@*.service",
