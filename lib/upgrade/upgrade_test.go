@@ -184,15 +184,15 @@ func TestCompatibilityJson(t *testing.T) {
 		t.Errorf("Got version %s, want %s in %s", compInfo.Runtime, runtime.Version(), compatibilityJson)
 	}
 
-	for hostArch, minKernelVersion := range compInfo.MinKernelVersion {
+	for hostArch, minOSVersion := range compInfo.MinOSVersion {
 		if hostArch != strings.ReplaceAll(hostArch, " ", "") {
 			t.Errorf("%s: %q contains spaces", compatibilityJson, hostArch)
 		}
-		if minKernelVersion != strings.ReplaceAll(minKernelVersion, " ", "") {
-			t.Errorf("%s: %q contains spaces", compatibilityJson, minKernelVersion)
+		if minOSVersion != strings.ReplaceAll(minOSVersion, " ", "") {
+			t.Errorf("%s: %q contains spaces", compatibilityJson, minOSVersion)
 		}
-		if strings.Count(minKernelVersion, ".") > 2 {
-			t.Errorf("%s: %q contains more than two periods, which is not supported by CompareVersions()", compatibilityJson, minKernelVersion)
+		if strings.Count(minOSVersion, ".") > 2 {
+			t.Errorf("%s: %q contains more than two periods, which is not supported by CompareVersions()", compatibilityJson, minOSVersion)
 		}
 	}
 
@@ -203,12 +203,13 @@ func TestCompatibilityJson(t *testing.T) {
 }
 
 func TestCompatibilityVerify(t *testing.T) {
-	currentKernelVersion, err := host.KernelVersion()
+	currentOSVersion, err := host.KernelVersion()
 	if err != nil {
 		t.Error(err)
 	}
-	ver, _, _ := strings.Cut(currentKernelVersion, " ")
-	tpl := `{"runtime": "%s", "minKernelVersion": {"%s": "%s"}}`
+	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
+	ver, _, _ := strings.Cut(currentOSVersion, " ")
+	tpl := `{"runtime": "%s", "minOSVersion": {"%s": "%s"}}`
 
 	comp := fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
@@ -225,14 +226,14 @@ func TestCompatibilityVerify(t *testing.T) {
 	before, after, _ := strings.Cut(ver, ".")
 	major, err := strconv.Atoi(before)
 	if err != nil {
-		t.Errorf("Invalid int in %q", currentKernelVersion)
+		t.Errorf("Invalid int in %q", currentOSVersion)
 	}
 	major++
 	ver = fmt.Sprintf("%d.%s", major, after)
 	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err == nil {
-		t.Errorf("got nil, expected an error, as our kernel is %s: %q", currentKernelVersion, comp)
+		t.Errorf("got nil, expected an error, as our OS version is %s: %q", currentOSVersion, comp)
 	}
 
 	major -= 2
@@ -240,6 +241,6 @@ func TestCompatibilityVerify(t *testing.T) {
 	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
 	err = verifyCompatibility([]byte(comp))
 	if err != nil {
-		t.Errorf("%s as our kernel is %s: %q", err, currentKernelVersion, comp)
+		t.Errorf("%s as our kernel is %s: %q", err, currentOSVersion, comp)
 	}
 }

@@ -1,6 +1,6 @@
 {
   "runtime": "go1.22",
-  "minKernelVersion": {
+  "minOSVersion": {
     "darwin": "10.15",
     "linux": "2.6.32",
     "windows": "10.0"

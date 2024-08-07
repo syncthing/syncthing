@@ -84,8 +84,8 @@ var insecureHTTP = &http.Client{
 
 // CompInfo is the structure of the compatibility.json file.
 type CompInfo struct {
-	Runtime          string            `json:"runtime"`
-	MinKernelVersion map[string]string `json:"minKernelVersion"`
+	Runtime      string            `json:"runtime"`
+	MinOSVersion map[string]string `json:"minOSVersion"`
 }
 
 func init() {
@@ -433,7 +433,7 @@ func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error 
 }
 
 func verifyCompatibility(comp []byte) error {
-	l.Debugln("checking minimum kernel version")
+	l.Debugln("checking minimum OS version")
 
 	var compInfo CompInfo
 	err := json.Unmarshal(comp, &compInfo)
@@ -441,13 +441,14 @@ func verifyCompatibility(comp []byte) error {
 		return err
 	}
 
-	currentKernelVersion, err := host.KernelVersion()
+	currentOSVersion, err := host.KernelVersion()
 	if err != nil {
 		return err
 	}
-	currentKernelVersion, _, _ = strings.Cut(currentKernelVersion, " ")
+	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
+	currentOSVersion, _, _ = strings.Cut(currentOSVersion, " ")
 
-	for hostArch, minKernelVersion := range compInfo.MinKernelVersion {
+	for hostArch, minOSVersion := range compInfo.MinOSVersion {
 		host, arch, found := strings.Cut(hostArch, "/")
 		if host != runtime.GOOS {
 			continue
@@ -457,8 +458,8 @@ func verifyCompatibility(comp []byte) error {
 				continue
 			}
 		}
-		if CompareVersions(minKernelVersion, currentKernelVersion) > Equal {
-			return fmt.Errorf("The upgrade requires kernel version %s, but this system has version %s", minKernelVersion, currentKernelVersion)
+		if CompareVersions(minOSVersion, currentOSVersion) > Equal {
+			return fmt.Errorf("The upgrade requires OS version %s, but this system has version %s", minOSVersion, currentOSVersion)
 		}
 	}
 	return nil
