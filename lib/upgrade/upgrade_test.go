@@ -12,7 +12,6 @@ package upgrade
 import (
 	"encoding/json"
 	"fmt"
-	"go/version"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -179,9 +178,22 @@ func TestCompatibilityJson(t *testing.T) {
 	if compInfo.Runtime != strings.TrimSpace(compInfo.Runtime) {
 		t.Errorf("%s: %q contains spaces", compatibilityJson, compInfo.Runtime)
 	}
-	i := version.Compare(compInfo.Runtime, runtime.Version())
-	if i > 0 {
-		t.Errorf("Got version %s, want %s in %s", compInfo.Runtime, runtime.Version(), compatibilityJson)
+	// If we're running inside a GitHub action, we need to compare the go
+	// version in compatibility.json with both the current runtime version, and
+	// the previous one, as build-syncthing.yaml runs our unit tests with
+	// both versions.
+	want := Newer
+	if os.Getenv("CI") != "" {
+		want = Older
+	}
+	crt := strings.ReplaceAll(compInfo.Runtime, "go", "")
+	rt := strings.ReplaceAll(runtime.Version(), "go", "")
+	// Strip off the patch level, as go has only ever dropped support when
+	// bumping the minor version number.
+	rt = rt[:4]
+	cmp := CompareVersions(crt, rt)
+	if cmp != Equal && cmp != want {
+		t.Errorf("Got go version %s, want %s in %s", crt, rt, compatibilityJson)
 	}
 
 	for hostArch, minOSVersion := range compInfo.MinOSVersion {

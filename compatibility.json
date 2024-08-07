@@ -3,6 +3,8 @@
   "minOSVersion": {
     "darwin": "10.15",
     "linux": "2.6.32",
-    "windows": "10.0"
+    "windows": "10.0",
+    "darwin@go1.23": "11",
+    "linux@go1.24": "3.10"
   }
 }
