@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 	"golang.org/x/net/http2"
@@ -42,6 +43,9 @@ const (
 
 	// The max expected size of the signature file.
 	maxSignatureSize = 10 << 10 // 10 KiB
+
+	// The max expected size of the compatibility.json file.
+	maxCompatibilitySize = 1 << 10 // 1 KiB
 
 	// We set the same limit on the archive. The binary will compress and we
 	// include some other stuff - currently the release archive size is
@@ -58,6 +62,8 @@ const (
 
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
+
+	compatibilityJson = "compatibility.json"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -74,6 +80,12 @@ var insecureHTTP = &http.Client{
 			InsecureSkipVerify: true,
 		},
 	},
+}
+
+// CompInfo is the structure of the compatibility.json file.
+type CompInfo struct {
+	Runtime      string            `json:"runtime"`
+	MinOSVersion map[string]string `json:"minOSVersion"`
 }
 
 func init() {
@@ -247,6 +259,7 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 
 	var tempName string
 	var sig []byte
+	var comp []byte
 
 	// Iterate through the files in the archive.
 	i := 0
@@ -270,17 +283,17 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 			break
 		}
 
-		err = archiveFileVisitor(dir, &tempName, &sig, hdr.Name, tr)
+		err = archiveFileVisitor(dir, &tempName, &sig, &comp, hdr.Name, tr)
 		if err != nil {
 			return "", err
 		}
 
-		if tempName != "" && sig != nil {
+		if tempName != "" && sig != nil && comp != nil {
 			break
 		}
 	}
 
-	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
+	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
 		return "", err
 	}
 
@@ -300,6 +313,7 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 
 	var tempName string
 	var sig []byte
+	var comp []byte
 
 	// Iterate through the files in the archive.
 	i := 0
@@ -320,18 +334,18 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 			return "", err
 		}
 
-		err = archiveFileVisitor(dir, &tempName, &sig, file.Name, inFile)
+		err = archiveFileVisitor(dir, &tempName, &sig, &comp, file.Name, inFile)
 		inFile.Close()
 		if err != nil {
 			return "", err
 		}
 
-		if tempName != "" && sig != nil {
+		if tempName != "" && sig != nil && comp != nil {
 			break
 		}
 	}
 
-	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
+	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
 		return "", err
 	}
 
@@ -340,7 +354,7 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 
 // archiveFileVisitor is called for each file in an archive. It may set
 // tempFile and signature.
-func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archivePath string, filedata io.Reader) error {
+func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[]byte, archivePath string, filedata io.Reader) error {
 	var err error
 	filename := path.Base(archivePath)
 	archiveDir := path.Dir(archivePath)
@@ -365,17 +379,27 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archive
 		if err != nil {
 			return err
 		}
+
+	case compatibilityJson:
+		l.Debugf("found compatibility file %s", archivePath)
+		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatibilitySize))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func verifyUpgrade(archiveName, tempName string, sig []byte) error {
+func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error {
 	if tempName == "" {
 		return errors.New("no upgrade found")
 	}
 	if sig == nil {
 		return errors.New("no signature found")
+	}
+	if comp == nil {
+		return errors.New(compatibilityJson + " not found")
 	}
 
 	l.Debugf("checking signature\n%s", sig)
@@ -405,6 +429,39 @@ func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 		return err
 	}
 
+	return verifyCompatibility(comp)
+}
+
+func verifyCompatibility(comp []byte) error {
+	l.Debugln("checking minimum OS version")
+
+	var compInfo CompInfo
+	err := json.Unmarshal(comp, &compInfo)
+	if err != nil {
+		return err
+	}
+
+	currentOSVersion, err := host.KernelVersion()
+	if err != nil {
+		return err
+	}
+	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
+	currentOSVersion, _, _ = strings.Cut(currentOSVersion, " ")
+
+	for hostArch, minOSVersion := range compInfo.MinOSVersion {
+		host, arch, found := strings.Cut(hostArch, "/")
+		if host != runtime.GOOS {
+			continue
+		}
+		if found {
+			if arch != runtime.GOARCH {
+				continue
+			}
+		}
+		if CompareVersions(minOSVersion, currentOSVersion) > Equal {
+			return fmt.Errorf("The upgrade requires OS version %s, but this system has version %s", minOSVersion, currentOSVersion)
+		}
+	}
 	return nil
 }
 
