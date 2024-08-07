@@ -182,9 +182,9 @@ func TestCompatibilityJson(t *testing.T) {
 	// version in compatibility.json with both the current runtime version, and
 	// the previous one, as build-syncthing.yaml runs our unit tests with
 	// both versions.
-	want := Newer
+	want := Equal
 	if os.Getenv("CI") != "" {
-		want = Older
+		want = Newer
 	}
 	crt := strings.ReplaceAll(compInfo.Runtime, "go", "")
 	rt := strings.ReplaceAll(runtime.Version(), "go", "")
