@@ -39,6 +39,10 @@ func newExternal(cfg config.FolderConfiguration) Versioner {
 		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 
+	if expanded, err := fs.ExpandTilde(command); err == nil {
+		command = expanded
+	}
+
 	s := external{
 		command:    command,
 		filesystem: cfg.Filesystem(nil),
