@@ -24,8 +24,9 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type FilesystemType int32
 
 const (
-	FilesystemTypeBasic FilesystemType = 0
-	FilesystemTypeFake  FilesystemType = 1
+	FilesystemTypeBasic   FilesystemType = 0
+	FilesystemTypeFake    FilesystemType = 1
+	FilesystemTypeOwnFuse FilesystemType = 2
 )
 
 var FilesystemType_name = map[int32]string{

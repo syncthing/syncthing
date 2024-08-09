@@ -16,6 +16,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/greatroar/blobloom v0.8.0
+	github.com/hanwen/go-fuse/v2 v2.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackpal/gateway v1.0.15
 	github.com/jackpal/go-nat-pmp v1.0.2
