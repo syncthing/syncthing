@@ -126,55 +126,29 @@ func (s *webauthnService) storeState(state config.WebauthnState) error {
 	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
 }
 
-func (s *webauthnService) WebAuthnID() []byte {
-	return s.userHandle
+func (s *webauthnService) user() webauthnLibUser {
+	return webauthnLibUser{service: s}
 }
 
-func (s *webauthnService) WebAuthnName() string {
-	return s.cfg.GUI().User
+type webauthnLibUser struct {
+	service *webauthnService
 }
 
-func (s *webauthnService) WebAuthnDisplayName() string {
-	return s.cfg.GUI().User
+func (u webauthnLibUser) WebAuthnID() []byte {
+	return u.service.userHandle
 }
-
-func (*webauthnService) WebAuthnIcon() string {
+func (u webauthnLibUser) WebAuthnName() string {
+	return u.service.cfg.GUI().User
+}
+func (u webauthnLibUser) WebAuthnDisplayName() string {
+	return u.service.cfg.GUI().User
+}
+func (webauthnLibUser) WebAuthnIcon() string {
 	return ""
 }
-
-func (s *webauthnService) IsAuthReady() (bool, error) {
-	eligibleCredentials, err := s.EligibleWebAuthnCredentials()
-	if err != nil {
-		return false, err
-	}
-	return s.cfg.GUI().UseTLS() && len(eligibleCredentials) > 0, nil
-}
-
-func (s *webauthnService) EligibleWebAuthnCredentials() ([]config.WebauthnCredential, error) {
-	state, err := s.loadState()
-	if err != nil {
-		return nil, err
-	}
-
-	guiCfg := s.cfg.GUI()
-	rpId := guiCfg.WebauthnRpId
-	if rpId == "" {
-		rpId = "localhost"
-	}
-
-	var result []config.WebauthnCredential
-	for _, cred := range state.Credentials {
-		if cred.RpId == rpId {
-			result = append(result, cred)
-		}
-	}
-	return result, nil
-}
-
-// Defined by webauthnLib.User, cannot return error
-func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
+func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
-	eligibleCredentials, err := s.EligibleWebAuthnCredentials()
+	eligibleCredentials, err := u.service.EligibleWebAuthnCredentials()
 	if err != nil {
 		return make([]webauthnLib.Credential, 0)
 	}
@@ -209,8 +183,37 @@ func (s *webauthnService) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
+func (s *webauthnService) IsAuthReady() (bool, error) {
+	eligibleCredentials, err := s.EligibleWebAuthnCredentials()
+	if err != nil {
+		return false, err
+	}
+	return s.cfg.GUI().UseTLS() && len(eligibleCredentials) > 0, nil
+}
+
+func (s *webauthnService) EligibleWebAuthnCredentials() ([]config.WebauthnCredential, error) {
+	state, err := s.loadState()
+	if err != nil {
+		return nil, err
+	}
+
+	guiCfg := s.cfg.GUI()
+	rpId := guiCfg.WebauthnRpId
+	if rpId == "" {
+		rpId = "localhost"
+	}
+
+	var result []config.WebauthnCredential
+	for _, cred := range state.Credentials {
+		if cred.RpId == rpId {
+			result = append(result, cred)
+		}
+	}
+	return result, nil
+}
+
 func (s *webauthnService) startWebauthnRegistration(w http.ResponseWriter, _ *http.Request) {
-	options, sessionData, err := s.engine.BeginRegistration(s)
+	options, sessionData, err := s.engine.BeginRegistration(s.user())
 	if err != nil {
 		l.Warnln("Failed to initiate WebAuthn registration:", err)
 		internalServerError(w)
@@ -226,7 +229,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 	state := s.registrationState
 	s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-	credential, err := s.engine.FinishRegistration(s, state, r)
+	credential, err := s.engine.FinishRegistration(s.user(), state, r)
 	if err != nil {
 		l.Infoln("Failed to register WebAuthn credential:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -301,7 +304,7 @@ func (s *webauthnService) startWebauthnAuthentication(w http.ResponseWriter, _ *
 		uv = webauthnProtocol.VerificationPreferred
 	}
 
-	options, sessionData, err := s.engine.BeginLogin(s, webauthnLib.WithUserVerification(uv))
+	options, sessionData, err := s.engine.BeginLogin(s.user(), webauthnLib.WithUserVerification(uv))
 	if err != nil {
 		badRequest, ok := err.(*webauthnProtocol.Error)
 		if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
@@ -339,7 +342,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		return
 	}
 
-	updatedCred, err := s.engine.ValidateLogin(s, state, parsedResponse)
+	updatedCred, err := s.engine.ValidateLogin(s.user(), state, parsedResponse)
 	if err != nil {
 		l.Infoln("WebAuthn authentication failed", err)
 
