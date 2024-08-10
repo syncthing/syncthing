@@ -2820,9 +2820,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		WebauthnUserId: "AAAA",
 	}
 
-	initTest := func(t *testing.T) (config.Configuration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
+	initTest := func(t *testing.T) (config.GUIConfiguration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
+		guiCfg := initialGuiCfg.Copy()
 		cfg := config.Configuration{
-			GUI: initialGuiCfg.Copy(),
+			GUI: guiCfg,
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
@@ -2870,7 +2871,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			return get, mod
 		}
 
-		return cfg, startHttpServer
+		return guiCfg, startHttpServer
 	}
 
 	guiCfgPath := "/rest/config/gui"
@@ -2878,10 +2879,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	testCanEditConfig := func(propName string, modify func(*config.GUIConfiguration), verify func(config.GUIConfiguration) bool) {
 		t.Run(fmt.Sprintf("Can edit GUIConfiguration.%s", propName), func(t *testing.T) {
 			t.Parallel()
-			cfg, startHttpServer := initTest(t)
+			guiCfg, startHttpServer := initTest(t)
 			{
 				_, mod := startHttpServer(t)
-				guiCfg := cfg.GUI.Copy()
 				modify(&guiCfg)
 				mod(http.MethodPut, guiCfgPath, guiCfg)
 			}
