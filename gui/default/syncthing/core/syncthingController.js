@@ -1743,9 +1743,7 @@ angular.module('syncthing.core')
         };
 
         $scope.webauthnStateChanged = function () {
-            // This may produce false positives as order of keys in objects may not be consistent,
-            // but should be good enough for what we need
-            return jsonStringifyNoAngularHashKey($scope.webauthn.state) !== jsonStringifyNoAngularHashKey($scope.webauthn.uneditedState);
+            return !angular.equals($scope.webauthn.uneditedState, $scope.webauthn.state);
         };
 
         if ($scope.webauthnAvailable()) {
