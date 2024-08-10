@@ -385,7 +385,7 @@ func (s *service) Serve(ctx context.Context) error {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
-	if s.IsAuthEnabled(guiCfg) {
+	if s.isAuthEnabled(guiCfg) {
 		authMW := newBasicAuthAndSessionMiddleware(&s.tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
@@ -518,7 +518,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *service) IsAuthEnabled(guiCfg config.GUIConfiguration) bool {
+func (s *service) isAuthEnabled(guiCfg config.GUIConfiguration) bool {
 	// This function should match isAuthEnabled() in syncthingController.js
 	webauthnReady, err := s.webauthnService.IsAuthReady(guiCfg)
 	if err != nil {
