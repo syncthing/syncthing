@@ -92,8 +92,6 @@ type service struct {
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
 	miscDB               *db.NamespacedKV
-	tokenCookieManager   tokenCookieManager
-	webauthnService      webauthnService
 	shutdownTimeout      time.Duration
 
 	guiErrors logger.Recorder
@@ -109,16 +107,6 @@ type Service interface {
 }
 
 func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.NamespacedKV) (Service, error) {
-
-	tokenCookieManager := newTokenCookieManager(id.Short().String(), cfg.GUI(), evLogger, miscDB)
-	webauthnDeviceName := ""
-	if dev, ok := cfg.Device(id); ok {
-		webauthnDeviceName = dev.Name
-	}
-	webauthnService, err := newWebauthnService(cfg.GUI(), webauthnDeviceName, evLogger, miscDB, "webauthn")
-	if err != nil {
-		return nil, err
-	}
 
 	return &service{
 		id:      id,
@@ -143,8 +131,6 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		startedOnce:          make(chan struct{}),
 		exitChan:             make(chan *svcutil.FatalErr, 1),
 		miscDB:               miscDB,
-		tokenCookieManager:   *tokenCookieManager,
-		webauthnService:      webauthnService,
 		shutdownTimeout:      100 * time.Millisecond,
 	}, nil
 }
@@ -263,6 +249,15 @@ func (s *service) Serve(ctx context.Context) error {
 
 	restMux := httprouter.New()
 
+	webauthnDeviceName := ""
+	if dev, ok := s.cfg.Device(s.id); ok {
+		webauthnDeviceName = dev.Name
+	}
+	webauthnService, err := newWebauthnService(guiCfg, webauthnDeviceName, s.evLogger, s.miscDB, "webauthn")
+	if err != nil {
+		return err
+	}
+
 	// The GET handlers
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/pending/devices", s.getPendingDevices) // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/pending/folders", s.getPendingFolders) // [device]
@@ -298,7 +293,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", s.webauthnService.getConfigLikeState)
+	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", webauthnService.getConfigLikeState)
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
@@ -318,9 +313,9 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-start", s.webauthnService.startWebauthnRegistration(guiCfg))
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-finish", s.webauthnService.finishWebauthnRegistration(guiCfg))
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/state", s.webauthnService.updateConfigLikeState)
+	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-start", webauthnService.startWebauthnRegistration(guiCfg))
+	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-finish", webauthnService.finishWebauthnRegistration(guiCfg))
+	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/state", webauthnService.updateConfigLikeState)
 
 	// The DELETE handlers
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
@@ -388,13 +383,14 @@ func (s *service) Serve(ctx context.Context) error {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
-	if s.isAuthEnabled(guiCfg) {
-		authMW := newBasicAuthAndSessionMiddleware(&s.tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+	if s.isAuthEnabled(&webauthnService, guiCfg) {
+		tokenCookieManager := newTokenCookieManager(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
+		authMW := newBasicAuthAndSessionMiddleware(tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", s.webauthnService.startWebauthnAuthentication(guiCfg))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", s.webauthnService.finishWebauthnAuthentication(&s.tokenCookieManager, guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, guiCfg))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
@@ -521,9 +517,9 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *service) isAuthEnabled(guiCfg config.GUIConfiguration) bool {
+func (s *service) isAuthEnabled(webauthnService *webauthnService, guiCfg config.GUIConfiguration) bool {
 	// This function should match isAuthEnabled() in syncthingController.js
-	webauthnReady, err := s.webauthnService.IsAuthReady(guiCfg)
+	webauthnReady, err := webauthnService.IsAuthReady(guiCfg)
 	if err != nil {
 		webauthnReady = false
 	}
