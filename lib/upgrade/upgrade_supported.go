@@ -63,7 +63,7 @@ const (
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
 
-	compatibilityJson = "compatibility.json"
+	CompatibilityJson = "compatibility.json"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -380,7 +380,7 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[
 			return err
 		}
 
-	case compatibilityJson:
+	case CompatibilityJson:
 		l.Debugf("found compatibility file %s", archivePath)
 		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatibilitySize))
 		if err != nil {
@@ -399,7 +399,7 @@ func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error 
 		return errors.New("no signature found")
 	}
 	if comp == nil {
-		return errors.New(compatibilityJson + " not found")
+		return errors.New(CompatibilityJson + " not found")
 	}
 
 	l.Debugf("checking signature\n%s", sig)

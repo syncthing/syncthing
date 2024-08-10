@@ -10,16 +10,11 @@
 package upgrade
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/build"
 )
 
@@ -160,99 +155,5 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 		if sel.Assets[0].Name != assetName {
 			t.Error("wrong asset selected:", sel.Assets[0].Name)
 		}
-	}
-}
-
-func TestCompatibilityJson(t *testing.T) {
-	compatibilityPath := filepath.Join("..", "..", compatibilityJson)
-	comp, err := os.ReadFile(compatibilityPath)
-	if err != nil {
-		t.Error(err)
-	}
-
-	var compInfo CompInfo
-	err = json.Unmarshal(comp, &compInfo)
-	if err != nil {
-		t.Error(err)
-	}
-	if compInfo.Runtime != strings.TrimSpace(compInfo.Runtime) {
-		t.Errorf("%s: %q contains spaces", compatibilityJson, compInfo.Runtime)
-	}
-	// If we're running inside a GitHub action, we need to compare the go
-	// version in compatibility.json with both the current runtime version, and
-	// the previous one, as build-syncthing.yaml runs our unit tests with
-	// both versions.
-	want := Equal
-	if os.Getenv("CI") != "" {
-		want = Newer
-	}
-	crt := strings.ReplaceAll(compInfo.Runtime, "go", "")
-	rt := strings.ReplaceAll(runtime.Version(), "go", "")
-	// Strip off the patch level, as go has only ever dropped support when
-	// bumping the minor version number.
-	rt = rt[:4]
-	cmp := CompareVersions(crt, rt)
-	if cmp != Equal && cmp != want {
-		t.Errorf("Got go version %s, want %s in %s", crt, rt, compatibilityJson)
-	}
-
-	for hostArch, minOSVersion := range compInfo.MinOSVersion {
-		if hostArch != strings.ReplaceAll(hostArch, " ", "") {
-			t.Errorf("%s: %q contains spaces", compatibilityJson, hostArch)
-		}
-		if minOSVersion != strings.ReplaceAll(minOSVersion, " ", "") {
-			t.Errorf("%s: %q contains spaces", compatibilityJson, minOSVersion)
-		}
-		if strings.Count(minOSVersion, ".") > 2 {
-			t.Errorf("%s: %q contains more than two periods, which is not supported by CompareVersions()", compatibilityJson, minOSVersion)
-		}
-	}
-
-	err = verifyCompatibility(comp)
-	if err != nil {
-		t.Errorf("%s: %s", compatibilityJson, err)
-	}
-}
-
-func TestCompatibilityVerify(t *testing.T) {
-	currentOSVersion, err := host.KernelVersion()
-	if err != nil {
-		t.Error(err)
-	}
-	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
-	ver, _, _ := strings.Cut(currentOSVersion, " ")
-	tpl := `{"runtime": "%s", "minOSVersion": {"%s": "%s"}}`
-
-	comp := fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
-	err = verifyCompatibility([]byte(comp))
-	if err != nil {
-		t.Errorf("%s: %q", err, comp)
-	}
-
-	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS+"/"+runtime.GOARCH, ver)
-	err = verifyCompatibility([]byte(comp))
-	if err != nil {
-		t.Errorf("%s: %q", err, comp)
-	}
-
-	before, after, _ := strings.Cut(ver, ".")
-	major, err := strconv.Atoi(before)
-	if err != nil {
-		t.Errorf("Invalid int in %q", currentOSVersion)
-	}
-	major++
-	ver = fmt.Sprintf("%d.%s", major, after)
-	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
-	err = verifyCompatibility([]byte(comp))
-	if err == nil {
-		t.Errorf("got nil, expected an error, as our OS version is %s: %q", currentOSVersion, comp)
-	}
-
-	major -= 2
-	ver = fmt.Sprintf("%d.%s", major, after)
-	comp = fmt.Sprintf(tpl, runtime.Version(), runtime.GOOS, ver)
-	err = verifyCompatibility([]byte(comp))
-	if err != nil {
-		t.Errorf("%s as our kernel is %s: %q", err, currentOSVersion, comp)
 	}
 }

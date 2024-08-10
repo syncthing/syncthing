@@ -34,6 +34,7 @@ import (
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
 var (
@@ -58,6 +59,8 @@ var (
 	longTimeout    = "600s"
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
+	release        bool
+	generatedFiles []string
 )
 
 type target struct {
@@ -99,7 +102,6 @@ var targets = map[string]target{
 			{src: "README.md", dst: "README.txt", perm: 0644},
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
-			{src: "compatibility.json", dst: "compatibility.json", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
 		systemdService: "syncthing@*.service",
@@ -252,6 +254,10 @@ func initTargets() {
 	for _, file := range listFiles("extra") {
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
 	}
+	if release {
+		archiveFile := archiveFile{src: upgrade.CompatibilityJson, dst: upgrade.CompatibilityJson, perm: 0o644}
+		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile)
+	}
 	for _, file := range listFiles("extra") {
 		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
 	}
@@ -269,6 +275,12 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
+
+	// Set release tag inside all GitHub actions.
+	if os.Getenv("CI") != "" {
+		release = true
+	}
+	defer shouldCleanupGeneratedFiles()
 
 	initTargets()
 
@@ -297,6 +309,9 @@ func runCommand(cmd string, target target) {
 	var tags []string
 	if noupgrade {
 		tags = []string{"noupgrade"}
+	}
+	if release {
+		tags = append(tags, "release")
 	}
 	tags = append(tags, strings.Fields(extraTags)...)
 
@@ -400,6 +415,7 @@ func parseFlags() {
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
+	flag.BoolVar(&release, "release", release, "Generate release-related files for tests and packaging")
 	flag.Parse()
 }
 
@@ -488,6 +504,8 @@ func install(target target, tags []string) {
 
 	setBuildEnvVars()
 
+	generateCompatibilityJson()
+
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
 	// the file icon, version, etc.
@@ -515,6 +533,8 @@ func build(target target, tags []string) {
 	rmr(target.BinaryName())
 
 	setBuildEnvVars()
+
+	generateCompatibilityJson()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -1557,4 +1577,36 @@ func nextPatchVersion(ver string) string {
 	n, _ := strconv.Atoi(digits[len(digits)-1])
 	digits[len(digits)-1] = strconv.Itoa(n + 1)
 	return strings.Join(digits, ".")
+}
+
+func generateCompatibilityJson() {
+	if !release {
+		return
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = upgrade.GenerateCompatibilityJson(cwd)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	addGeneratedFile(filepath.Join(cwd, upgrade.CompatibilityJson))
+}
+
+func addGeneratedFile(file string) {
+	if file != "" {
+		generatedFiles = append(generatedFiles, file)
+	}
+}
+
+func shouldCleanupGeneratedFiles() {
+	for _, file := range generatedFiles {
+		if file == "" {
+			return
+		}
+		if err := os.Remove(file); err != nil {
+			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", file, err)
+		}
+	}
 }
