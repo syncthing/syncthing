@@ -262,7 +262,7 @@ func (s *webauthnService) finishWebauthnRegistration(w http.ResponseWriter, r *h
 		transports[i] = string(t)
 	}
 
-	now := time.Now().Truncate(time.Second)
+	now := time.Now().Truncate(time.Second).UTC()
 	configCred := config.WebauthnCredential{
 		ID:            base64.URLEncoding.EncodeToString(credential.ID),
 		RpId:          s.engine.Config.RPID,
@@ -382,7 +382,7 @@ func (s *webauthnService) finishWebauthnAuthentication(w http.ResponseWriter, r 
 		signCountBefore = updateCred.SignCount
 		authenticatedCredName = updateCred.NicknameOrID()
 		updateCred.SignCount = updatedCred.Authenticator.SignCount
-		updateCred.LastUseTime = time.Now().Truncate(time.Second)
+		updateCred.LastUseTime = time.Now().Truncate(time.Second).UTC()
 		err = s.storeState(persistentState)
 		if err != nil {
 			l.Warnln("Failed to update authenticated WebAuthn credential", err)
