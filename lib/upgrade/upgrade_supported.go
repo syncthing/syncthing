@@ -451,7 +451,8 @@ func verifyCompatibility(comp []byte) error {
 			}
 		}
 		if CompareVersions(minOSVersion, currentOSVersion) > Equal {
-			return fmt.Errorf("The upgrade requires OS version %s, but this system has version %s", minOSVersion, currentOSVersion)
+			return fmt.Errorf("The upgrade requires OS version %s or later, but this system is running version %s",
+				minOSVersion, currentOSVersion)
 		}
 	}
 	return nil

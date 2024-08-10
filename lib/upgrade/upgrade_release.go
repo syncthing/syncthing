@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// CompatibilityJson is name of compatibility.json file.
+	// CompatibilityJson is compatibility.json.
 	CompatibilityJson = "compatibility.json"
 
 	compatibilityYaml = "compatibility.yaml"

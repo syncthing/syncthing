@@ -1,16 +1,22 @@
 runtimes:
   - runtime: go1.21
     minOSVersion:
-      darwin: "10.15" # per https://go.dev/doc/go1.22#darwin
-      linux: "2.6.32" # per https://tip.golang.org/doc/go1.23#linux
-      windows: "10.0" # per https://go.dev/doc/go1.21#windows
+      # macOS 10.15 (Catalina) per https://go.dev/doc/go1.22#darwin
+      # See https://en.wikipedia.org/wiki/MacOS_version_history#Releases
+      darwin: "19"
+      # per https://tip.golang.org/doc/go1.23#linux
+      linux: "2.6.32"
+      # Windows 10/Windows Server 2016 per https://go.dev/doc/go1.21#windows
+      windows: "10.0"
   - runtime: go1.22
     minOSVersion:
-    # no changes for go 1.22, so we inherit the settings for go 1.21
+    # no changes for go 1.22, so we inherit the settings from go 1.21
   - runtime: go1.23
     minOSVersion:
-      darwin: "11"    # per https://tip.golang.org/doc/go1.23#darwin
+      # macOS 11 (Big Sur) per https://tip.golang.org/doc/go1.23#darwin
+      darwin: "20"
 # for go1.24, check https://go.dev/doc/go1.24#ports once it's released
   # - runtime: go1.24
   #   minOSVersion:
-  #     linux: "3.10" # per https://tip.golang.org/doc/go1.23#linux
+  #     # per https://tip.golang.org/doc/go1.23#linux
+  #     linux: "3.10"
