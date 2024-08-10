@@ -40,7 +40,6 @@ var (
 
 	envTags = []string{
 		"STGUIASSETS",
-		"STHASHING",
 		"STNORESTART",
 		"STNOUPGRADE",
 	}

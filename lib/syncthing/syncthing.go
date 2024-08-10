@@ -37,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -152,11 +151,6 @@ func (a *App) startup() error {
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 	l.Infoln("My ID:", a.myID)
-
-	// Select SHA256 implementation and report. Affected by the
-	// STHASHING environment variable.
-	sha256.SelectAlgo()
-	sha256.Report()
 
 	// Emit the Starting event, now that we know who we are.
 
