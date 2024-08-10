@@ -18,14 +18,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const compatibilityYaml = "compatibility.yaml"
+const (
+	// CompatibilityJson is name of compatibility.json file.
+	CompatibilityJson = "compatibility.json"
 
+	compatibilityYaml = "compatibility.yaml"
+)
+
+// Runtimes defines the structure of the compatibility.yaml file.
 type Runtimes struct {
 	RuntimeEntries []RuntimeEntry `yaml:"runtimes"`
 }
 
+// RuntimeEntry is an entry in the compatibility.yaml file.
 type RuntimeEntry map[string]any
 
+// CompInfo is the structure of the compatibility.json file.
+type CompInfo struct {
+	Runtime      string            `json:"runtime"`
+	MinOSVersion map[string]string `json:"minOSVersion"`
+}
+
+// CompInfos is map of CompInfo's where the key is the runtime version (goX.YY).
 type CompInfos map[string]CompInfo
 
 func loadCompatibilityYaml(dir string) (CompInfos, error) {
@@ -131,6 +145,8 @@ func generateCompatibilityJson(dir string, rt string) error {
 	return nil
 }
 
+// GenerateCompatibilityJson generates compatibility.json for the
+// runtime.Version() found in compatibility.yaml.
 func GenerateCompatibilityJson(dir string) error {
 	return generateCompatibilityJson(dir, runtime.Version())
 }

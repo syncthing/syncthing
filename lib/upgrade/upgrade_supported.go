@@ -62,8 +62,6 @@ const (
 
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
-
-	CompatibilityJson = "compatibility.json"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -80,12 +78,6 @@ var insecureHTTP = &http.Client{
 			InsecureSkipVerify: true,
 		},
 	},
-}
-
-// CompInfo is the structure of the compatibility.json file.
-type CompInfo struct {
-	Runtime      string            `json:"runtime"`
-	MinOSVersion map[string]string `json:"minOSVersion"`
 }
 
 func init() {
