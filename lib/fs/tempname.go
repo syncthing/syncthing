@@ -7,12 +7,12 @@
 package fs
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (

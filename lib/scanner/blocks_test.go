@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	origAdler32 "hash/adler32"
 	mrand "math/rand"
@@ -18,7 +19,6 @@ import (
 
 	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 var blocksTestData = []struct {
