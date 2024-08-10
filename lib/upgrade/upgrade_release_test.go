@@ -39,7 +39,7 @@ func TestCompatibilityGenerate(t *testing.T) {
 	}
 
 	for rt := range compInfos {
-		err := generateCompatibilityJson(baseDir, rt)
+		err := genCompatibilityJson(baseDir, rt)
 		if err != nil {
 			t.Error(err)
 		}

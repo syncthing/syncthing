@@ -82,6 +82,13 @@ func loadCompatibilityYaml(dir string) (CompInfos, error) {
 		}
 		compInfos[rt] = compInfo
 	}
+
+	return fillCompatibilityYaml(compInfos), nil
+}
+
+// Copy any settings from each previous runtime entry into the next runtime
+// entry, if missing.
+func fillCompatibilityYaml(compInfos CompInfos) CompInfos {
 	keys := make([]string, 0, len(compInfos))
 
 	for key := range compInfos {
@@ -94,8 +101,6 @@ func loadCompatibilityYaml(dir string) (CompInfos, error) {
 		compInfo0.MinOSVersion[k] = v
 	}
 
-	// Copy any settings from the previous runtime into the next runtime, if
-	// missing in that runtime.
 	for _, rt := range keys[1:] {
 		for k0, v0 := range compInfo0.MinOSVersion {
 			v, ok := compInfos[rt].MinOSVersion[k0]
@@ -107,7 +112,7 @@ func loadCompatibilityYaml(dir string) (CompInfos, error) {
 		}
 	}
 
-	return compInfos, nil
+	return compInfos
 }
 
 func saveCompatibilityJson(dir string, compInfos CompInfos, rt string) error {
@@ -132,7 +137,7 @@ func saveCompatibilityJson(dir string, compInfos CompInfos, rt string) error {
 	return nil
 }
 
-func generateCompatibilityJson(dir string, rt string) error {
+func genCompatibilityJson(dir string, rt string) error {
 	compInfos, err := loadCompatibilityYaml(dir)
 	if err != nil {
 		return err
@@ -146,7 +151,7 @@ func generateCompatibilityJson(dir string, rt string) error {
 }
 
 // GenerateCompatibilityJson generates compatibility.json for the
-// runtime.Version() found in compatibility.yaml.
+// runtime.Version() entry in compatibility.yaml.
 func GenerateCompatibilityJson(dir string) error {
-	return generateCompatibilityJson(dir, runtime.Version())
+	return genCompatibilityJson(dir, runtime.Version())
 }
