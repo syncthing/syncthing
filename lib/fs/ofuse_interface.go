@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package own_fuse
+package fs
 
 import (
 	"context"
@@ -488,6 +488,7 @@ func (n *LoopbackNode) CopyFileRange(ctx context.Context, fhIn ffs.FileHandle,
 	}
 	signedOffIn := int64(offIn)
 	signedOffOut := int64(offOut)
+	willBeChangedFd(lfOut.fd)
 	doCopyFileRange(lfIn.fd, signedOffIn, lfOut.fd, signedOffOut, int(len), int(flags))
 	return 0, syscall.ENOSYS
 }

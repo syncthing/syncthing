@@ -1,6 +1,6 @@
 //go:build !darwin
 
-package own_fuse
+package fs
 
 import (
 	"syscall"

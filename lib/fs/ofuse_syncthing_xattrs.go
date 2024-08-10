@@ -1,4 +1,4 @@
-package own_fuse
+package fs
 
 import "golang.org/x/sys/unix"
 

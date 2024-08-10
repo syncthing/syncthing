@@ -12,6 +12,8 @@ func (t FilesystemType) String() string {
 		return "basic"
 	case FilesystemTypeFake:
 		return "fake"
+	case FilesystemTypeOwnFuse:
+		return "ofuse"
 	default:
 		return "unknown"
 	}
@@ -27,6 +29,8 @@ func (t *FilesystemType) UnmarshalText(bs []byte) error {
 		*t = FilesystemTypeBasic
 	case "fake":
 		*t = FilesystemTypeFake
+	case "ofuse":
+		*t = FilesystemTypeOwnFuse
 	default:
 		*t = FilesystemTypeBasic
 	}
