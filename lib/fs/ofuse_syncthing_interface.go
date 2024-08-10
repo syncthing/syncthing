@@ -12,6 +12,16 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+// basicFile implements the fs.File interface on top of an os.File
+type ofuseFile struct {
+	basicFile
+}
+
+func (of ofuseFile) Close() error {
+	l.Warnf("================> Syncthing closes %s", of.name)
+	return of.basicFile.Close()
+}
+
 type OwnFuseFilesystem struct {
 	loopback_root string
 	mnt           string
@@ -95,9 +105,17 @@ func (o OwnFuseFilesystem) MkdirAll(name string, perm FileMode) error {
 func (o OwnFuseFilesystem) Open(name string) (File, error) {
 	return o.basic_fs.Open(name)
 }
+
 func (o OwnFuseFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	return o.basic_fs.OpenFile(name, flags, mode)
+	file, err := o.basic_fs.OpenFile(name, flags, mode)
+	if err != nil {
+		return nil, err
+	}
+	return ofuseFile{
+		basicFile: file.(basicFile),
+	}, nil
 }
+
 func (o OwnFuseFilesystem) ReadSymlink(name string) (string, error) {
 	return o.basic_fs.ReadSymlink(name)
 }
