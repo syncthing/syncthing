@@ -1978,7 +1978,7 @@ func TestWebauthnRegistration(t *testing.T) {
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
 	testutil.FatalIfErr(t, err)
 
-	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *service, func(t *testing.T) webauthnProtocol.CredentialCreation) {
+	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *service, func(t *testing.T) webauthnProtocol.CredentialCreation, config.Wrapper) {
 		cfg := newMockedConfig()
 		cfg.GUIReturns(config.GUIConfiguration{
 			User:       "user",
@@ -2022,12 +2022,12 @@ func TestWebauthnRegistration(t *testing.T) {
 			return options
 		}
 
-		return baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions
+		return baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions, cfg
 	}
 
 	t.Run("Can register a new WebAuthn credential", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions, cfg := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		transports := []string{"transportA", "transportB"}
@@ -2059,7 +2059,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		testutil.AssertEqual(t, t.Fatalf, getConfResp.StatusCode, http.StatusOK,
 			"Failed to fetch config after WebAuthn registration: status %d", getConfResp.StatusCode)
 		testutil.FatalIfErr(t, unmarshalTo(getConfResp.Body, &conf))
-		eligibleCredentials, err := service.webauthnService.EligibleWebAuthnCredentials()
+		eligibleCredentials, err := service.webauthnService.EligibleWebAuthnCredentials(cfg.GUI())
 		testutil.FatalIfErr(t, err, "Failed to retrieve registered WebAuthn credentials")
 		testutil.AssertEqual(t, t.Errorf, 0, len(eligibleCredentials),
 			"Expected newly registered WebAuthn credential to not yet be committed to config")
@@ -2067,7 +2067,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with wrong challenge", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		cryptoRand.Reader.Read(options.Response.Challenge)
@@ -2080,7 +2080,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with wrong origin", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
@@ -2092,7 +2092,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails without user presence flag set", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 
@@ -2116,7 +2116,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with malformed public key", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		corruptPublicKeyCose := bytes.Clone(publicKeyCose)
 		corruptPublicKeyCose[7] ^= 0xff
@@ -2129,7 +2129,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with credential ID duplicated in config", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t,
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t,
 			[]config.WebauthnCredential{
 				{
 					ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2149,7 +2149,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with credential ID duplicated in pending credentials", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
@@ -2166,7 +2166,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration can only be attempted once per challenge", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)

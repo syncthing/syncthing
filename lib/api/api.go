@@ -111,7 +111,11 @@ type Service interface {
 func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.NamespacedKV) (Service, error) {
 
 	tokenCookieManager := newTokenCookieManager(id.Short().String(), cfg.GUI(), evLogger, miscDB)
-	webauthnService, err := newWebauthnService(tokenCookieManager, cfg, evLogger, miscDB, "webauthn")
+	webauthnDeviceName := ""
+	if dev, ok := cfg.Device(id); ok {
+		webauthnDeviceName = dev.Name
+	}
+	webauthnService, err := newWebauthnService(cfg.GUI(), webauthnDeviceName, evLogger, miscDB, "webauthn")
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +230,8 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *service) Serve(ctx context.Context) error {
-	listener, err := s.getListener(s.cfg.GUI())
+	guiCfg := s.cfg.GUI()
+	listener, err := s.getListener(guiCfg)
 	if err != nil {
 		select {
 		case <-s.startedOnce:
@@ -313,8 +318,8 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-start", s.webauthnService.startWebauthnRegistration)
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-finish", s.webauthnService.finishWebauthnRegistration)
+	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-start", s.webauthnService.startWebauthnRegistration(guiCfg))
+	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-finish", s.webauthnService.finishWebauthnRegistration(guiCfg))
 	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/state", s.webauthnService.updateConfigLikeState)
 
 	// The DELETE handlers
@@ -375,8 +380,6 @@ func (s *service) Serve(ctx context.Context) error {
 	promHttpHandler := promhttp.Handler()
 	mux.Handle("/metrics", promHttpHandler)
 
-	guiCfg := s.cfg.GUI()
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
 	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, s.miscDB)
@@ -390,8 +393,8 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", s.webauthnService.startWebauthnAuthentication)
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", s.webauthnService.finishWebauthnAuthentication)
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", s.webauthnService.startWebauthnAuthentication(guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", s.webauthnService.finishWebauthnAuthentication(&s.tokenCookieManager, guiCfg))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
