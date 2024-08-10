@@ -20,9 +20,8 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id              protocol.DeviceID
-	cfg             config.Wrapper
-	webauthnService *webauthnService
+	id  protocol.DeviceID
+	cfg config.Wrapper
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -335,9 +334,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if c.finish(w, waiter) {
-		c.webauthnService.credentialsPendingRegistration = make([]config.WebauthnCredential, 0)
-	}
+	c.finish(w, waiter)
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {

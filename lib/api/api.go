@@ -324,10 +324,9 @@ func (s *service) Serve(ctx context.Context) error {
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
-		Router:          restMux,
-		id:              s.id,
-		cfg:             s.cfg,
-		webauthnService: &s.webauthnService,
+		Router: restMux,
+		id:     s.id,
+		cfg:    s.cfg,
 	}
 
 	configBuilder.registerConfig("/rest/config")
