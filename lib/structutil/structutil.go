@@ -82,6 +82,12 @@ func SetDefaults(data any) {
 	}
 }
 
+// Expression-oriented variant of [SetDefaults].
+func WithDefaults[T any](data T) T {
+	SetDefaults(&data)
+	return data
+}
+
 func FillNilExceptDeprecated(data any) {
 	fillNil(data, true)
 }
