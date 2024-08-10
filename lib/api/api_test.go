@@ -97,10 +97,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	srvAbstract, err := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	if err != nil {
-		t.Fatal("Failed to create server instance", err)
-	}
+	srvAbstract := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
 	srv := srvAbstract.(*service)
 
 	srv.started = make(chan string)
@@ -994,10 +991,7 @@ func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnSt
 	urService := ur.New(cfg, m, connections, false)
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract, err := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
-	if err != nil {
-		return "", nil, nil, err
-	}
+	svcAbstract := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
 	svc := svcAbstract.(*service)
 
 	webauthnService, err := newWebauthnService(cfg.GUI(), "test", events.NoopLogger, kdb, "webauthn")
@@ -1553,10 +1547,7 @@ func TestEventMasks(t *testing.T) {
 	diskSub := new(eventmocks.BufferedSubscription)
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract, err := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	if err != nil {
-		t.Fatal("Failed to create server instance", err)
-	}
+	svcAbstract := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
 	svc := svcAbstract.(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
