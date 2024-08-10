@@ -183,12 +183,12 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-func (s *webauthnService) IsAuthReady() (bool, error) {
+func (s *webauthnService) IsAuthReady(guiCfg config.GUIConfiguration) (bool, error) {
 	eligibleCredentials, err := s.EligibleWebAuthnCredentials()
 	if err != nil {
 		return false, err
 	}
-	return s.cfg.GUI().UseTLS() && len(eligibleCredentials) > 0, nil
+	return guiCfg.UseTLS() && len(eligibleCredentials) > 0, nil
 }
 
 func (s *webauthnService) EligibleWebAuthnCredentials() ([]config.WebauthnCredential, error) {
