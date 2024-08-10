@@ -53,6 +53,7 @@ import (
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/testutil"
@@ -68,9 +69,22 @@ var (
 	testAPIKey = "foobarbaz"
 )
 
+func withTestDefaults(guiCfg config.GUIConfiguration) config.GUIConfiguration {
+	defaultGuiCfg := structutil.WithDefaults(config.GUIConfiguration{})
+
+	if guiCfg.WebauthnRpId == "" {
+		guiCfg.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+	}
+	if guiCfg.WebauthnOrigin == "" {
+		guiCfg.WebauthnOrigin = defaultGuiCfg.WebauthnOrigin
+	}
+
+	return guiCfg
+}
+
 func init() {
 	dev1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"})
+	apiCfg.GUIReturns(withTestDefaults(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"}))
 }
 
 func TestMain(m *testing.M) {
@@ -88,10 +102,10 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Configuration{
-		GUI: config.GUIConfiguration{
+		GUI: withTestDefaults(config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
-		},
+		}),
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
@@ -608,13 +622,13 @@ func TestHTTPLogin(t *testing.T) {
 
 	testWith := func(sendBasicAuthPrompt bool, expectedOkStatus int, expectedFailStatus int, path string) {
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:                "üser",
 			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 			RawAddress:          "127.0.0.1:0",
 			APIKey:              testAPIKey,
 			SendBasicAuthPrompt: sendBasicAuthPrompt,
-		})
+		}))
 		baseURL, cancel, _, err := startHTTP(cfg)
 		if err != nil {
 			t.Fatal(err)
@@ -775,11 +789,11 @@ func TestHtmlFormLogin(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		User:                "üser",
 		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: false,
-	})
+	}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -921,10 +935,10 @@ func TestApiCache(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress: "127.0.0.1:0",
 		APIKey:     testAPIKey,
-	})
+	}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1268,7 +1282,7 @@ func TestHostCheck(t *testing.T) {
 	// An API service bound to localhost should reject non-localhost host Headers
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{RawAddress: "127.0.0.1:0"})
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{RawAddress: "127.0.0.1:0"}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1328,10 +1342,10 @@ func TestHostCheck(t *testing.T) {
 	// A server with InsecureSkipHostCheck set behaves differently
 
 	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress:            "127.0.0.1:0",
 		InsecureSkipHostCheck: true,
-	})
+	}))
 	baseURL, cancel, _, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1386,9 +1400,9 @@ func TestHostCheck(t *testing.T) {
 	}
 
 	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress: "[::1]:0",
-	})
+	}))
 	baseURL, cancel, _, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1678,14 +1692,14 @@ func TestConfigChanges(t *testing.T) {
 
 	const testAPIKey = "foobarbaz"
 	cfg := config.Configuration{
-		GUI: config.GUIConfiguration{
+		GUI: withTestDefaults(config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
 			APIKey:     testAPIKey,
 
 			// Needed because GUIConfiguration.prepare() assigns this a random value if empty
 			WebauthnUserId: "AAAA",
-		},
+		}),
 	}
 
 	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
@@ -1977,10 +1991,10 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *webauthnService, func(t *testing.T) webauthnProtocol.CredentialCreation, config.Wrapper) {
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:       "user",
 			RawAddress: "127.0.0.1:0",
-		})
+		}))
 		baseURL, cancel, webauthnService, err := startHTTPWithWebauthnState(cfg, &config.WebauthnState{Credentials: credentials})
 		if err != nil {
 			t.Fatal(err)
@@ -2189,13 +2203,13 @@ func TestWebauthnAuthentication(t *testing.T) {
 	startServer := func(t *testing.T, rpId, origin string, credentials []config.WebauthnCredential) (func(string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
 		t.Helper()
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:           "user",
 			RawAddress:     "localhost:0",
 			WebauthnRpId:   rpId,
 			WebauthnOrigin: origin,
 			RawUseTLS:      true,
-		})
+		}))
 		baseURL, cancel, _, err := startHTTPWithWebauthnState(cfg, &config.WebauthnState{Credentials: credentials})
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
 		t.Cleanup(cancel)
@@ -2689,7 +2703,7 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 		password := "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
 
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:       "user",
 			Password:   password,
 			RawAddress: "localhost:0",
@@ -2697,7 +2711,7 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			// Don't need TLS in this test because the password enables the auth middleware,
 			// and there's no browser to prevent us from generating a WebAuthn response without HTTPS
 			RawUseTLS: false,
-		})
+		}))
 		baseURL, cancel, webauthnService, err := startHTTP(cfg)
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
 		t.Cleanup(cancel)
@@ -2810,12 +2824,12 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	shutdownTimeout := testutil.IfNotCI(0, 1000*time.Millisecond)
 
 	const testAPIKey = "foobarbaz"
-	initialGuiCfg := config.GUIConfiguration{
+	initialGuiCfg := withTestDefaults(config.GUIConfiguration{
 		RawAddress:     "127.0.0.1:0",
 		RawUseTLS:      false,
 		APIKey:         testAPIKey,
 		WebauthnUserId: "AAAA",
-	}
+	})
 
 	initTest := func(t *testing.T) (config.Configuration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
 		cfg := config.Configuration{
@@ -2920,12 +2934,12 @@ func TestWebauthnStateChanges(t *testing.T) {
 
 	initTest := func(t *testing.T) (config.WebauthnState, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
 		cfg := config.Configuration{
-			GUI: config.GUIConfiguration{
+			GUI: withTestDefaults(config.GUIConfiguration{
 				RawAddress:     "127.0.0.1:0",
 				RawUseTLS:      false,
 				APIKey:         testAPIKey,
 				WebauthnUserId: "AAAA",
-			},
+			}),
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
