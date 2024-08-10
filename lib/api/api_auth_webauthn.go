@@ -34,11 +34,11 @@ func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*weba
 		guiCfgStruct := reflect.TypeOf(guiCfg)
 		field, found := guiCfgStruct.FieldByName("WebauthnRpId")
 		if !found {
-			return nil, fmt.Errorf(`Field "WebauthnRpId" not found in struct GUIConfiguration`)
+			return nil, fmt.Errorf(`field "WebauthnRpId" not found in struct GUIConfiguration`)
 		}
 		rpId = field.Tag.Get("default")
 		if rpId == "" {
-			return nil, fmt.Errorf(`Default tag not found on field "WebauthnRpId" in struct GUIConfiguration`)
+			return nil, fmt.Errorf(`default tag not found on field "WebauthnRpId" in struct GUIConfiguration`)
 		}
 	}
 
@@ -47,11 +47,11 @@ func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*weba
 		guiCfgStruct := reflect.TypeOf(guiCfg)
 		field, found := guiCfgStruct.FieldByName("WebauthnOrigin")
 		if !found {
-			return nil, fmt.Errorf(`Field "WebauthnOrigin" not found in struct GUIConfiguration`)
+			return nil, fmt.Errorf(`field "WebauthnOrigin" not found in struct GUIConfiguration`)
 		}
 		origin = field.Tag.Get("default")
 		if origin == "" {
-			return nil, fmt.Errorf(`Default tag not found on field "WebauthnOrigin" in struct GUIConfiguration`)
+			return nil, fmt.Errorf(`default tag not found on field "WebauthnOrigin" in struct GUIConfiguration`)
 		}
 	}
 
