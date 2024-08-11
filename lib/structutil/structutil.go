@@ -16,7 +16,8 @@ type defaultParser interface {
 	ParseDefault(string) error
 }
 
-// SetDefaults sets default values on a struct, based on the default annotation.
+// Set _all_ fields (not just fields with a zero value) with a `default` tag
+// to the value of the `default` tag.
 func SetDefaults(data any) {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
