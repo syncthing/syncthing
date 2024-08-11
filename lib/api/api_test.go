@@ -2248,9 +2248,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			t.Helper()
 			startResp := httpPost("/rest/noauth/auth/webauthn-start", nil)
 			testutil.AssertEqual(t, t.Fatalf, startResp.StatusCode, http.StatusOK,
-				"Failed to start WebAuthn registration: status %d", startResp.StatusCode)
+				"Failed to start WebAuthn authentication: status %d", startResp.StatusCode)
 			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
-				"Expected no session cookie when starting WebAuthn registration")
+				"Expected no session cookie when starting WebAuthn authentication")
 
 			var options webauthnProtocol.CredentialAssertion
 			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options), "Failed to unmarshal CredentialAssertion")
