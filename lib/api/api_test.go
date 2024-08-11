@@ -2135,8 +2135,6 @@ func TestWebauthnRegistration(t *testing.T) {
 					ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 					RpId:          "localhost",
 					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
-					SignCount:     0,
-					RequireUv:     false,
 				},
 			},
 		)
@@ -2391,11 +2389,6 @@ func TestWebauthnAuthentication(t *testing.T) {
 	t.Run("With non-default RP ID and origin", func(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
-			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
-				RpId:          "localhost",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
-			},
 			{
 				ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 				RpId:          "custom-host",
