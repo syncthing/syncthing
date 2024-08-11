@@ -248,11 +248,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	restMux := httprouter.New()
 
-	webauthnDeviceName := ""
-	if dev, ok := s.cfg.Device(s.id); ok {
-		webauthnDeviceName = dev.Name
-	}
-	webauthnService, err := newWebauthnService(guiCfg, webauthnDeviceName, s.evLogger, s.miscDB, "webauthn")
+	webauthnService, err := newWebauthnService(guiCfg, s.id.Short().String(), s.evLogger, s.miscDB, "webauthn")
 	if err != nil {
 		return err
 	}
