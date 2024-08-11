@@ -2419,8 +2419,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			t.Parallel()
 			_, httpPost, getAssertionOptions := startServer(t, "custom-host", "https://origin-other-than-rp-id", credentials)
 			options := getAssertionOptions()
+			options.Response.RelyingPartyID = "localhost"
 
-			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://origin-other-than-rp-id", false, 1, t)
+			cred := createWebauthnAssertionResponse(options, []byte{5, 6, 7, 8}, privateKey, "https://origin-other-than-rp-id", false, 1, t)
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
 			testutil.AssertEqual(t, t.Fatalf, finishResp.StatusCode, http.StatusForbidden,
