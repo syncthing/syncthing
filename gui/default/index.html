@@ -427,9 +427,11 @@
             <p class="text-danger" translate>
               Initialization blocked by browser. Please make sure Syncthing is correctly configured.
             </p>
-            <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
-              Syncthing Documentation: Customizing the GUI address
-            </a>
+            <p>
+              <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+                Syncthing Documentation: Customizing the GUI address
+              </a>
+            </p>
           </div>
           <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
             Initialization failed, see Syncthing logs for details.
