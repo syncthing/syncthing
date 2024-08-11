@@ -2467,15 +2467,16 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 		t.Run("with wrong RP ID", func(t *testing.T) {
 			t.Parallel()
-			_, httpPost, getAssertionOptions := startServer(t, "not-localhost", "", append(credentials,
+			_, httpPost, getAssertionOptions := startServer(t, "localhost", "", append(credentials,
 				config.WebauthnCredential{
 					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
-					RpId:          "not-localhost",
+					RpId:          "localhost",
 					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
 					SignCount:     17,
 					RequireUv:     false,
 				}))
 			options := getAssertionOptions()
+			options.Response.RelyingPartyID = "not-localhost"
 
 			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
 
