@@ -62,6 +62,9 @@ const (
 
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
+
+	unsupportedKernel = "The upgrade was compiled with %v which requires OS " +
+		"version %s or later, but this system is currently running version %s"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -131,7 +134,12 @@ func (s SortByRelease) Less(i, j int) bool {
 
 func LatestRelease(releasesURL, current string, upgradeToPreReleases bool) (Release, error) {
 	rels := FetchLatestReleases(releasesURL, current)
-	return SelectLatestRelease(rels, current, upgradeToPreReleases)
+	rel, err := SelectLatestRelease(rels, current, upgradeToPreReleases)
+	if err != nil {
+		return rel, err
+	}
+
+	return rel, nil
 }
 
 func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bool) (Release, error) {
@@ -189,7 +197,11 @@ func upgradeTo(binary string, rel Release) error {
 
 		for _, expRel := range expectedReleases {
 			if strings.HasPrefix(assetName, expRel) {
-				return upgradeToURL(assetName, binary, asset.URL)
+				rt, err := upgradeToURL(assetName, binary, asset.URL)
+				if err != nil {
+					return err
+				}
+				return verifyCompatibility(rel, rt)
 			}
 		}
 	}
@@ -198,10 +210,10 @@ func upgradeTo(binary string, rel Release) error {
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func upgradeToURL(archiveName, binary string, url string) error {
-	fname, err := readRelease(archiveName, filepath.Dir(binary), url)
+func upgradeToURL(archiveName, binary string, url string) (string, error) {
+	fname, rt, err := readRelease(archiveName, filepath.Dir(binary), url)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer os.Remove(fname)
 
@@ -209,27 +221,27 @@ func upgradeToURL(archiveName, binary string, url string) error {
 	os.Remove(old)
 	err = os.Rename(binary, old)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := os.Rename(fname, binary); err != nil {
 		os.Rename(old, binary)
-		return err
+		return "", err
 	}
-	return nil
+	return rt, nil
 }
 
-func readRelease(archiveName, dir, url string) (string, error) {
+func readRelease(archiveName, dir, url string) (string, string, error) {
 	l.Debugf("loading %q", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
 	resp, err := insecureHTTP.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
@@ -241,10 +253,10 @@ func readRelease(archiveName, dir, url string) (string, error) {
 	}
 }
 
-func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
+func readTarGz(archiveName, dir string, r io.Reader) (string, string, error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	tr := tar.NewReader(gr)
@@ -267,7 +279,7 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		if hdr.Size > maxBinarySize {
 			// We don't even want to try processing or skipping over files
@@ -277,7 +289,7 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 
 		err = archiveFileVisitor(dir, &tempName, &sig, &comp, hdr.Name, tr)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		if tempName != "" && sig != nil && comp != nil {
@@ -286,21 +298,27 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 	}
 
 	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return tempName, nil
+	var runtimeInfo RuntimeInfo
+	err = json.Unmarshal(comp, &runtimeInfo)
+	if err != nil {
+		return "", "", err
+	}
+
+	return tempName, runtimeInfo.Runtime, nil
 }
 
-func readZip(archiveName, dir string, r io.Reader) (string, error) {
+func readZip(archiveName, dir string, r io.Reader) (string, string, error) {
 	body, err := io.ReadAll(r)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	archive, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	var tempName string
@@ -323,13 +341,13 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 
 		inFile, err := file.Open()
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		err = archiveFileVisitor(dir, &tempName, &sig, &comp, file.Name, inFile)
 		inFile.Close()
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		if tempName != "" && sig != nil && comp != nil {
@@ -338,10 +356,16 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 	}
 
 	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return tempName, nil
+	var runtimeInfo RuntimeInfo
+	err = json.Unmarshal(comp, &runtimeInfo)
+	if err != nil {
+		return "", "", err
+	}
+
+	return tempName, runtimeInfo.Runtime, nil
 }
 
 // archiveFileVisitor is called for each file in an archive. It may set
@@ -421,26 +445,29 @@ func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error 
 		return err
 	}
 
-	return verifyCompatibility(comp)
+	return nil
 }
 
-func verifyCompatibility(comp []byte) error {
+func verifyCompatibility(rel Release, rt string) error {
 	l.Debugln("checking minimum OS version")
 
-	var compInfo CompInfo
-	err := json.Unmarshal(comp, &compInfo)
+	majorMinor, err := normalizeRuntimeVersion(rt)
 	if err != nil {
 		return err
 	}
 
-	currentOSVersion, err := host.KernelVersion()
+	minOSVersion, ok := rel.MinOSVersions[majorMinor]
+	if !ok {
+		return fmt.Errorf("Go runtime %v not found", majorMinor)
+	}
+
+	currentKernel, err := host.KernelVersion()
 	if err != nil {
 		return err
 	}
-	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
-	currentOSVersion, _, _ = strings.Cut(currentOSVersion, " ")
+	currentKernel = normalizeKernelVersion(currentKernel)
 
-	for hostArch, minOSVersion := range compInfo.MinOSVersion {
+	for hostArch, minKernel := range minOSVersion {
 		host, arch, found := strings.Cut(hostArch, "/")
 		if host != runtime.GOOS {
 			continue
@@ -450,11 +477,11 @@ func verifyCompatibility(comp []byte) error {
 				continue
 			}
 		}
-		if CompareVersions(minOSVersion, currentOSVersion) > Equal {
-			return fmt.Errorf("The upgrade requires OS version %s or later, but this system is running version %s",
-				minOSVersion, currentOSVersion)
+		if CompareVersions(minKernel, currentKernel) > Equal {
+			return fmt.Errorf(unsupportedKernel, rt, minKernel, currentKernel)
 		}
 	}
+
 	return nil
 }
 

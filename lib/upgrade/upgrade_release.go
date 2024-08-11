@@ -19,139 +19,195 @@ import (
 )
 
 const (
-	// CompatibilityJson is compatibility.json.
+	// CompatibilityJson is the name of the file generated to be included in
+	// the release bundle (.tar.gz or .zip).
 	CompatibilityJson = "compatibility.json"
-
-	compatibilityYaml = "compatibility.yaml"
+	// CompatibilityYaml is the name of the file whose content is included in
+	// the upgrade server's /meta.json response.
+	CompatibilityYaml = "compatibility.yaml"
 )
 
-// Runtimes defines the structure of the compatibility.yaml file.
-type Runtimes struct {
-	RuntimeEntries []RuntimeEntry `yaml:"runtimes"`
-}
-
-// RuntimeEntry is an entry in the compatibility.yaml file.
-type RuntimeEntry map[string]any
-
-// CompInfo is the structure of the compatibility.json file.
-type CompInfo struct {
-	Runtime      string            `json:"runtime"`
-	MinOSVersion map[string]string `json:"minOSVersion"`
-}
-
-// CompInfos is map of CompInfo's where the key is the runtime version (goX.YY).
-type CompInfos map[string]CompInfo
-
-func loadCompatibilityYaml(dir string) (CompInfos, error) {
-	compatibilityPath := filepath.Join(dir, compatibilityYaml)
-	data, err := os.ReadFile(compatibilityPath)
+// GetMinOSVersions reads compatibility.yaml and returns the MinOSVersions found.
+func GetMinOSVersions(dir string) (MinOSVersions, error) {
+	path, err := findCompatibilityYaml(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	runtimes := Runtimes{}
-	if err := yaml.Unmarshal(data, &runtimes); err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return nil, err
 	}
 
-	compInfos := make(CompInfos, len(runtimes.RuntimeEntries))
-
-	for i, entry := range runtimes.RuntimeEntries {
-		rt := ""
-		minOSVersion := make(map[string]string)
-		for k, v := range entry {
-			if k == "runtime" {
-				rt = strings.TrimSpace(v.(string))
-				continue
-			}
-			if k == "minOSVersion" {
-				switch m := v.(type) {
-				case RuntimeEntry:
-					for mk, mv := range m {
-						minOSVersion[strings.TrimSpace(mk)] = strings.TrimSpace(mv.(string))
-					}
-				case nil:
-				default:
-					return nil, fmt.Errorf("%s: entry %d is a %T not a map[string]any", compatibilityPath, i, v)
-				}
-			}
-		}
-		compInfo := CompInfo{
-			Runtime:      rt,
-			MinOSVersion: minOSVersion,
-		}
-		compInfos[rt] = compInfo
+	minOSVersions := MinOSVersions{}
+	if err := yaml.Unmarshal(data, &minOSVersions); err != nil {
+		return nil, err
 	}
 
-	return fillCompatibilityYaml(compInfos), nil
+	return fillMinOSVersions(minOSVersions), nil
 }
 
-// Copy any settings from each previous runtime entry into the next runtime
-// entry, if missing.
-func fillCompatibilityYaml(compInfos CompInfos) CompInfos {
-	keys := make([]string, 0, len(compInfos))
+func (mm *MinOSVersions) UnmarshalYAML(value *yaml.Node) error {
+	var temp RuntimeInfos
+	if err := value.Decode(&temp); err != nil {
+		return err
+	}
 
-	for key := range compInfos {
+	if *mm == nil {
+		*mm = make(MinOSVersions, len(temp))
+	}
+
+	for _, entry := range temp {
+		if entry.MinOSVersion == nil {
+			entry.MinOSVersion = make(MinOSVersion)
+		}
+		(*mm)[entry.Runtime] = entry.MinOSVersion
+	}
+
+	return nil
+}
+
+// findCompatibilityYaml searches for compatibility.yaml in startDir, and all
+// parent directories of startDir, and returns the first match found.
+// If startDir is empty it searches from the current directory up.
+// If still not found, it searches from the executable's directory, and up.
+func findCompatibilityYaml(startDir string) (string, error) {
+	dir := startDir
+
+	var err error
+
+	if dir != "" {
+		return findFile(dir, CompatibilityYaml)
+	}
+
+	dir, err = os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	path, err := findFile(dir, CompatibilityYaml)
+	if err == nil {
+		return path, nil
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Dir(exe)
+
+	return findFile(dir, CompatibilityYaml)
+}
+
+func findFile(startDir string, filename string) (string, error) {
+	dir := startDir
+
+	for {
+		path := filepath.Join(dir, filename)
+
+		_, err := os.Stat(path)
+		if err == nil {
+			return path, nil
+		}
+
+		parentDir := filepath.Dir(dir)
+
+		if parentDir == dir {
+			return "", fmt.Errorf("Cannot find %q in, or under, %q", filename, startDir)
+		}
+
+		dir = parentDir
+	}
+}
+
+// fillMinOSVersions copies any settings from each previous runtime entry into
+// the next runtime entry, if missing in that entry.
+func fillMinOSVersions(minOSVersions MinOSVersions) MinOSVersions {
+	keys := make([]string, 0, len(minOSVersions))
+
+	for key := range minOSVersions {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
-	compInfo0 := CompInfo{"", make(map[string]string)}
-	for k, v := range compInfos[keys[0]].MinOSVersion {
-		compInfo0.MinOSVersion[k] = v
+	info0 := make(MinOSVersion)
+	for k, v := range minOSVersions[keys[0]] {
+		info0[k] = v
 	}
 
 	for _, rt := range keys[1:] {
-		for k0, v0 := range compInfo0.MinOSVersion {
-			v, ok := compInfos[rt].MinOSVersion[k0]
+		for k0, v0 := range info0 {
+			v, ok := minOSVersions[rt][k0]
 			if ok {
-				compInfo0.MinOSVersion[k0] = v
+				info0[k0] = v
 			} else {
-				compInfos[rt].MinOSVersion[k0] = v0
+				minOSVersions[rt][k0] = v0
 			}
 		}
 	}
 
-	return compInfos
+	return minOSVersions
 }
 
-func saveCompatibilityJson(dir string, compInfos CompInfos, rt string) error {
-	parts := strings.Split(rt, ".")
-	if len(parts) < 2 {
-		return fmt.Errorf("Go version %q is not in the form gox.y", rt)
+// saveCompatibilityJson saves a compatibility.json for the runtime version rt.
+func saveCompatibilityJson(dir string, minOSVersions MinOSVersions, rt string) error {
+	majorMinor, err := normalizeRuntimeVersion(rt)
+	if err != nil {
+		return err
 	}
-	majorMinor := strings.Join(parts[:2], ".")
-	compInfo, ok := compInfos[majorMinor]
+	minOSVersion, ok := minOSVersions[majorMinor]
 	if !ok {
-		return fmt.Errorf("Runtime %v not found in %q", majorMinor, compatibilityYaml)
-	}
-	data, err := json.Marshal(compInfo)
-	if err != nil {
-		return err
-	}
-	compatibilityPath := filepath.Join(dir, CompatibilityJson)
-	err = os.WriteFile(compatibilityPath, data, 0o644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func genCompatibilityJson(dir string, rt string) error {
-	compInfos, err := loadCompatibilityYaml(dir)
-	if err != nil {
-		return err
+		return fmt.Errorf("Runtime %v not found in %q", majorMinor, CompatibilityYaml)
 	}
 
-	err = saveCompatibilityJson(dir, compInfos, rt)
+	runtimeInfo := RuntimeInfo{
+		Runtime:      majorMinor,
+		MinOSVersion: minOSVersion,
+	}
+
+	data, err := json.Marshal(runtimeInfo)
 	if err != nil {
 		return err
 	}
-	return nil
+	path := filepath.Join(dir, CompatibilityJson)
+
+	return os.WriteFile(path, data, 0o644)
 }
 
 // GenerateCompatibilityJson generates compatibility.json for the
-// runtime.Version() entry in compatibility.yaml.
+// runtime.Version() entry found in compatibility.yaml.
 func GenerateCompatibilityJson(dir string) error {
 	return genCompatibilityJson(dir, runtime.Version())
+}
+
+func genCompatibilityJson(dir string, rt string) error {
+	minOSVersions, err := GetMinOSVersions(dir)
+	if err != nil {
+		return err
+	}
+
+	return saveCompatibilityJson(dir, minOSVersions, rt)
+}
+
+// normalizeRuntimeVersion strips off the runtime.Version()'s patch level, so
+// "go1.22.5" becomes "go1.22".
+func normalizeRuntimeVersion(rt string) (string, error) {
+	parts := strings.Split(rt, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("Go version %q is not in the form gox.y", rt)
+	}
+
+	return strings.Join(parts[:2], "."), nil
+}
+
+// normalizeKernelVersion strips off anything after the kernel version's patch
+// level. So Windows' "10.0.22631.3880 Build 22631.3880" becomes "10.0.22631",
+// and Linux's "6.8.0-39-generic" becomes "6.8.0".
+func normalizeKernelVersion(ver string) string {
+	ver, _, _ = strings.Cut(ver, " ")
+	ver, _, _ = strings.Cut(ver, "-")
+
+	parts := strings.Split(ver, ".")
+	maxParts := min(len(parts), 3)
+	return strings.Join(parts[:maxParts], ".")
 }

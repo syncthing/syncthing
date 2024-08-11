@@ -54,8 +54,14 @@ func server(params *cli) error {
 		}()
 	}
 
+	minOSVersions, err := upgrade.GetMinOSVersions("")
+	if err != nil {
+		log.Fatalf("Error: %v\n", err)
+	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/meta.json", httpcache.SinglePath(&githubReleases{url: params.URL}, params.CacheTime))
+	releases := &githubReleases{url: params.URL, minOSVersions: minOSVersions}
+	mux.Handle("/meta.json", httpcache.SinglePath(releases, params.CacheTime))
 
 	for _, fwd := range params.Forward {
 		path, url, ok := strings.Cut(fwd, "->")
@@ -77,7 +83,8 @@ func server(params *cli) error {
 }
 
 type githubReleases struct {
-	url string
+	url           string
+	minOSVersions upgrade.MinOSVersions
 }
 
 func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
@@ -94,7 +101,8 @@ func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	// Move the URL used for browser downloads to the URL field, and remove
 	// the browser URL field. This avoids going via the GitHub API for
 	// downloads, since Syncthing uses the URL field.
-	for _, rel := range rels {
+	for i, rel := range rels {
+		rels[i].MinOSVersions = p.minOSVersions
 		for j, asset := range rel.Assets {
 			rel.Assets[j].URL = asset.BrowserURL
 			rel.Assets[j].BrowserURL = ""

@@ -312,8 +312,9 @@ func runCommand(cmd string, target target) {
 	}
 	if release {
 		tags = append(tags, "release")
+		// Tests in lib/upgrade are tagged with the release tag.
+		extraTags += "release"
 	}
-	tags = append(tags, strings.Fields(extraTags)...)
 
 	switch cmd {
 	case "install":
@@ -415,7 +416,7 @@ func parseFlags() {
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
-	flag.BoolVar(&release, "release", release, "Generate release-related files for tests and packaging")
+	flag.BoolVar(&release, "release", release, "Generate release-related files for test suite and packaging")
 	flag.Parse()
 }
 
@@ -1600,6 +1601,8 @@ func addGeneratedFile(file string) {
 	}
 }
 
+// This could be used to cleanup other generated files, currently resource.syso
+// and versioninfo.json.
 func shouldCleanupGeneratedFiles() {
 	for _, file := range generatedFiles {
 		if file == "" {

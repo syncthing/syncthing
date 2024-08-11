@@ -26,7 +26,8 @@ type Release struct {
 
 	// The HTML URL is needed for human readable links in the output created
 	// by cmd/stupgrades.
-	HTMLURL string `json:"html_url"`
+	HTMLURL       string        `json:"html_url"`
+	MinOSVersions MinOSVersions `json:"min_os_versions"`
 }
 
 type Asset struct {
@@ -37,6 +38,23 @@ type Asset struct {
 	// by cmd/stupgrades.
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
+
+// MinOSVersion maps OS names to the minimum kernel version required for that OS.
+type MinOSVersion map[string]string
+
+// MinOSVersions maps go versions to a MinOSVersion map for that version.
+// It effectively defines the structure of compatibility.yaml.
+type MinOSVersions map[string]MinOSVersion
+
+// RuntimeInfo defines the structure of compatibility.json, which is included
+// in the release bundle (.tar.gz or .zip).
+type RuntimeInfo struct {
+	Runtime      string       `json:"runtime" yaml:"runtime"`
+	MinOSVersion MinOSVersion `json:"minOSVersion" yaml:"minOSVersion"`
+}
+
+// RuntimeInfos defines the structure of compatibility.yaml.
+type RuntimeInfos []RuntimeInfo
 
 var (
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
@@ -77,7 +95,7 @@ func ToURL(url string) error {
 			upgradeUnlocked <- true
 			return err
 		}
-		err = upgradeToURL(path.Base(url), binary, url)
+		_, err = upgradeToURL(path.Base(url), binary, url)
 		// If we've failed to upgrade, unlock so that another attempt could be made
 		if err != nil {
 			upgradeUnlocked <- true

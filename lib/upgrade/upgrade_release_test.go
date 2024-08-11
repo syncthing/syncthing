@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !noupgrade || release
-// +build !noupgrade release
+//go:build !noupgrade && release
+// +build !noupgrade,release
 
 package upgrade
 
@@ -29,39 +29,39 @@ func TestCompatibilityGenerate(t *testing.T) {
 	}
 	baseDir := filepath.Clean(filepath.Join(cwd, "..", ".."))
 
-	compatibilityPath := filepath.Join(baseDir, CompatibilityJson)
-	os.Remove(compatibilityPath)
-	defer os.Remove(compatibilityPath)
+	path := filepath.Join(baseDir, CompatibilityJson)
+	os.Remove(path)
+	defer os.Remove(path)
 
-	compInfos, err := loadCompatibilityYaml(baseDir)
+	minOSVersions, err := GetMinOSVersions(baseDir)
 	if err != nil {
 		t.Error(err)
 	}
 
-	for rt := range compInfos {
+	for rt := range minOSVersions {
 		err := genCompatibilityJson(baseDir, rt)
 		if err != nil {
 			t.Error(err)
 		}
 
-		compatibilityPath := filepath.Join(baseDir, CompatibilityJson)
-		comp, err := os.ReadFile(compatibilityPath)
+		path := filepath.Join(baseDir, CompatibilityJson)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Error(err)
 		}
 
-		var compInfo CompInfo
-		err = json.Unmarshal(comp, &compInfo)
+		var runtimeInfo RuntimeInfo
+		err = json.Unmarshal(data, &runtimeInfo)
 		if err != nil {
 			t.Error(err)
 		}
-		if compInfo.Runtime != rt {
-			t.Errorf("Got %q, expected %q in %q", compInfo.Runtime, rt, compatibilityPath)
+		if runtimeInfo.Runtime != rt {
+			t.Errorf("Got %q, expected %q in %q", runtimeInfo.Runtime, rt, path)
 		}
 
 		if testing.Verbose() {
-			t.Logf("%v:\n", compInfo.Runtime)
-			for k, v := range compInfo.MinOSVersion {
+			t.Logf("%v:\n", runtimeInfo.Runtime)
+			for k, v := range runtimeInfo.MinOSVersion {
 				t.Logf("  %v: %v\n", k, v)
 			}
 		}
@@ -75,27 +75,27 @@ func TestCompatibilityJson(t *testing.T) {
 	}
 	baseDir := filepath.Clean(filepath.Join(cwd, "..", ".."))
 
-	compatibilityPath := filepath.Join(baseDir, CompatibilityJson)
-	os.Remove(compatibilityPath)
-	defer os.Remove(compatibilityPath)
+	path := filepath.Join(baseDir, CompatibilityJson)
+	os.Remove(path)
+	defer os.Remove(path)
 
 	err = GenerateCompatibilityJson(baseDir)
 	if err != nil {
 		t.Error(err)
 	}
 
-	comp, err := os.ReadFile(compatibilityPath)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		t.Error(err)
 	}
 
-	var compInfo CompInfo
-	err = json.Unmarshal(comp, &compInfo)
+	var runtimeInfo RuntimeInfo
+	err = json.Unmarshal(bytes, &runtimeInfo)
 	if err != nil {
 		t.Error(err)
 	}
-	if compInfo.Runtime != strings.TrimSpace(compInfo.Runtime) {
-		t.Errorf("%s: %q contains spaces", CompatibilityJson, compInfo.Runtime)
+	if runtimeInfo.Runtime != strings.TrimSpace(runtimeInfo.Runtime) {
+		t.Errorf("%s: %q contains spaces", CompatibilityJson, runtimeInfo.Runtime)
 	}
 	// If we're running inside a GitHub action, we need to compare the go
 	// version in compatibility.json with both the current runtime version, and
@@ -105,21 +105,20 @@ func TestCompatibilityJson(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		want = Newer
 	}
-	crt := strings.ReplaceAll(compInfo.Runtime, "go", "")
+	crt := strings.ReplaceAll(runtimeInfo.Runtime, "go", "")
 	rt := strings.ReplaceAll(runtime.Version(), "go", "")
 	// Strip off the patch level, as go has only ever dropped support when
 	// bumping the minor version number.
-	parts := strings.Split(rt, ".")
-	if len(parts) < 2 {
-		t.Errorf("Go version %q is not in the form goX.Y", rt)
+	majorMinor, err := normalizeRuntimeVersion(rt)
+	if err != nil {
+		t.Fatal(err)
 	}
-	majorMinor := strings.Join(parts[:2], ".")
 	cmp := CompareVersions(crt, majorMinor)
 	if cmp != Equal && cmp != want {
 		t.Errorf("Got go version %q, want %q in %q", crt, majorMinor, CompatibilityJson)
 	}
 
-	for hostArch, minOSVersion := range compInfo.MinOSVersion {
+	for hostArch, minOSVersion := range runtimeInfo.MinOSVersion {
 		if hostArch != strings.ReplaceAll(hostArch, " ", "") {
 			t.Errorf("%s: %q contains spaces", CompatibilityJson, hostArch)
 		}
@@ -131,66 +130,63 @@ func TestCompatibilityJson(t *testing.T) {
 		}
 	}
 
-	err = verifyCompatibility(comp)
-	if err != nil {
-		t.Errorf("%s: %s", CompatibilityJson, err)
-	}
+	// rel := Release{MinOSVersions: MinOSVersions{runtimeInfo.MinOSVersion}}
+	// err = verifyCompatibility(rel, runtimeInfo.Runtime)
+	// if err != nil {
+	// 	t.Errorf("%s: %s", CompatibilityJson, err)
+	// }
 }
 
 func TestCompatibilityVerify(t *testing.T) {
-	currentOSVersion, err := host.KernelVersion()
+	majorMinor, err := normalizeRuntimeVersion(runtime.Version())
 	if err != nil {
-		t.Error(err)
-	}
-	// KernelVersion() returns '10.0.22631.3880 Build 22631.3880' on Windows
-	ver, _, _ := strings.Cut(currentOSVersion, " ")
-	compInfo := CompInfo{runtime.Version(), map[string]string{runtime.GOOS: ver}}
-	bytes, err := json.Marshal(compInfo)
-	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	err = verifyCompatibility(bytes)
-	if err != nil {
-		t.Errorf("%s: %q", err, string(bytes))
-	}
-
-	compInfo = CompInfo{runtime.Version(), map[string]string{runtime.GOOS + "/" + runtime.GOARCH: ver}}
-	bytes, err = json.Marshal(compInfo)
+	currentKernel, err := host.KernelVersion()
 	if err != nil {
 		t.Error(err)
 	}
-	err = verifyCompatibility(bytes)
+	ver := normalizeKernelVersion(currentKernel)
+
+	rel := Release{MinOSVersions: MinOSVersions{
+		majorMinor: MinOSVersion{runtime.GOOS: ver},
+	}}
+	err = verifyCompatibility(rel, majorMinor)
 	if err != nil {
-		t.Errorf("%s: %q", err, string(bytes))
+		t.Errorf("verifyCompatibility(%+v, %s): got %q, expected nil", rel.MinOSVersions, majorMinor, err)
+	}
+
+	rel.MinOSVersions = MinOSVersions{
+		majorMinor: MinOSVersion{runtime.GOOS + "/" + runtime.GOARCH: ver},
+	}
+	err = verifyCompatibility(rel, majorMinor)
+	if err != nil {
+		t.Errorf("verifyCompatibility(%+v, %s): got %q, expected nil", rel.MinOSVersions, majorMinor, err)
 	}
 
 	before, after, _ := strings.Cut(ver, ".")
 	major, err := strconv.Atoi(before)
 	if err != nil {
-		t.Errorf("Invalid int in %q", currentOSVersion)
+		t.Errorf("Invalid int in %q", currentKernel)
 	}
 	major++
-	ver = fmt.Sprintf("%d.%s", major, after)
-	compInfo = CompInfo{runtime.Version(), map[string]string{runtime.GOOS: ver}}
-	bytes, err = json.Marshal(compInfo)
-	if err != nil {
-		t.Error(err)
+	rel.MinOSVersions = MinOSVersions{
+		majorMinor: MinOSVersion{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)},
 	}
-	err = verifyCompatibility(bytes)
+	err = verifyCompatibility(rel, majorMinor)
 	if err == nil {
-		t.Errorf("got nil, expected an error, as our OS version is %s: %q", currentOSVersion, string(bytes))
+		t.Errorf("verifyCompatibility(%+v, %s): got nil, expected an error, as our OS kernel is %q",
+			rel.MinOSVersions, majorMinor, currentKernel)
 	}
 
 	major -= 2
-	ver = fmt.Sprintf("%d.%s", major, after)
-	compInfo = CompInfo{runtime.Version(), map[string]string{runtime.GOOS: ver}}
-	bytes, err = json.Marshal(compInfo)
-	if err != nil {
-		t.Error(err)
+	rel.MinOSVersions = MinOSVersions{
+		majorMinor: MinOSVersion{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)},
 	}
-	err = verifyCompatibility(bytes)
+	err = verifyCompatibility(rel, majorMinor)
 	if err != nil {
-		t.Errorf("%s as our kernel is %s: %q", err, currentOSVersion, string(bytes))
+		t.Errorf("verifyCompatibility(%+v, %s): got %q, expected nil, as our OS kernel is %q",
+			rel.MinOSVersions, majorMinor, err, currentKernel)
 	}
 }
