@@ -181,29 +181,3 @@ func (c *GUIConfiguration) prepare() error {
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
 }
-
-func (s *WebauthnState) Copy() WebauthnState {
-	c := *s
-	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
-	for i := range s.Credentials {
-		c.Credentials[i] = s.Credentials[i].Copy()
-	}
-	return c
-}
-
-func (g *WebauthnCredential) Copy() WebauthnCredential {
-	c := *g
-	if c.Transports != nil {
-		c.Transports = make([]string, len(c.Transports))
-		copy(c.Transports, g.Transports)
-	}
-	return c
-}
-
-func (c *WebauthnCredential) NicknameOrID() string {
-	if c.Nickname != "" {
-		return c.Nickname
-	} else {
-		return c.ID
-	}
-}

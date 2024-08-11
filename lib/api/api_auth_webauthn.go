@@ -43,7 +43,7 @@ type webauthnService struct {
 	userHandle                     []byte
 	registrationState              webauthnLib.SessionData
 	authenticationState            webauthnLib.SessionData
-	credentialsPendingRegistration []config.WebauthnCredential
+	credentialsPendingRegistration []WebauthnCredential
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
@@ -66,31 +66,57 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 	}, nil
 }
 
-func (s *webauthnService) loadState() (config.WebauthnState, error) {
+func (s *webauthnService) loadState() (WebauthnState, error) {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
-		return config.WebauthnState{}, err
+		return WebauthnState{}, err
 	}
 	if !ok {
-		return config.WebauthnState{}, nil
+		return WebauthnState{}, nil
 	}
 
-	var state config.WebauthnState
+	var state WebauthnState
 	err = state.Unmarshal(stateBytes)
 	if err != nil {
-		return config.WebauthnState{}, err
+		return WebauthnState{}, err
 	}
 
 	return state, nil
 }
 
-func (s *webauthnService) storeState(state config.WebauthnState) error {
+func (s *webauthnService) storeState(state WebauthnState) error {
 	stateBytes, err := state.Marshal()
 	if err != nil {
 		return err
 	}
 
 	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
+}
+
+func (s *WebauthnState) Copy() WebauthnState {
+	c := *s
+	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
+	for i := range s.Credentials {
+		c.Credentials[i] = s.Credentials[i].Copy()
+	}
+	return c
+}
+
+func (g *WebauthnCredential) Copy() WebauthnCredential {
+	c := *g
+	if c.Transports != nil {
+		c.Transports = make([]string, len(c.Transports))
+		copy(c.Transports, g.Transports)
+	}
+	return c
+}
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	} else {
+		return c.ID
+	}
 }
 
 func (s *webauthnService) user(guiCfg config.GUIConfiguration) webauthnLibUser {
@@ -162,13 +188,13 @@ func (s *webauthnService) IsAuthReady(guiCfg config.GUIConfiguration) (bool, err
 	return guiCfg.UseTLS() && len(eligibleCredentials) > 0, nil
 }
 
-func (s *webauthnService) EligibleWebAuthnCredentials(guiCfg config.GUIConfiguration) ([]config.WebauthnCredential, error) {
+func (s *webauthnService) EligibleWebAuthnCredentials(guiCfg config.GUIConfiguration) ([]WebauthnCredential, error) {
 	state, err := s.loadState()
 	if err != nil {
 		return nil, err
 	}
 
-	var result []config.WebauthnCredential
+	var result []WebauthnCredential
 	for _, cred := range state.Credentials {
 		if cred.RpId == guiCfg.WebauthnRpId {
 			result = append(result, cred)
@@ -234,7 +260,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 
 		now := time.Now().Truncate(time.Second).UTC()
-		configCred := config.WebauthnCredential{
+		configCred := WebauthnCredential{
 			ID:            base64.URLEncoding.EncodeToString(credential.ID),
 			RpId:          s.engine.Config.RPID,
 			PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
@@ -351,7 +377,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		authenticatedCredName := authenticatedCredId
 		var signCountBefore uint32 = 0
 
-		updateCredIndex := slices.IndexFunc(persistentState.Credentials, func(cred config.WebauthnCredential) bool { return cred.ID == authenticatedCredId })
+		updateCredIndex := slices.IndexFunc(persistentState.Credentials, func(cred WebauthnCredential) bool { return cred.ID == authenticatedCredId })
 		if updateCredIndex != -1 {
 			updateCred := &persistentState.Credentials[updateCredIndex]
 			signCountBefore = updateCred.SignCount
@@ -398,14 +424,14 @@ func (s *webauthnService) updateConfigLikeState(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var newState config.WebauthnState
+	var newState WebauthnState
 	if err := unmarshalTo(r.Body, &newState); err != nil {
 		l.Debugln("Failed to parse response:", err)
 		http.Error(w, "Failed to parse response.", http.StatusBadRequest)
 		return
 	}
 
-	existingCredentials := make(map[string]config.WebauthnCredential)
+	existingCredentials := make(map[string]WebauthnCredential)
 	for _, cred := range persistentState.Credentials {
 		existingCredentials[cred.ID] = cred
 	}
@@ -413,8 +439,8 @@ func (s *webauthnService) updateConfigLikeState(w http.ResponseWriter, r *http.R
 		existingCredentials[cred.ID] = cred
 	}
 
-	var updatedCredentials []config.WebauthnCredential
-	updatedCredentialsMap := make(map[string]config.WebauthnCredential)
+	var updatedCredentials []WebauthnCredential
+	updatedCredentialsMap := make(map[string]WebauthnCredential)
 	for _, newCred := range newState.Credentials {
 		if exCred, ok := existingCredentials[newCred.ID]; ok {
 			exCred.Nickname = newCred.Nickname
@@ -434,7 +460,7 @@ func (s *webauthnService) updateConfigLikeState(w http.ResponseWriter, r *http.R
 
 	s.credentialsPendingRegistration = sliceutil.Filter(
 		s.credentialsPendingRegistration,
-		func(pendCred *config.WebauthnCredential) bool {
+		func(pendCred *WebauthnCredential) bool {
 			_, ok := updatedCredentialsMap[pendCred.ID]
 			return !ok
 		},
