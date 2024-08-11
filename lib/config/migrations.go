@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
+	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
@@ -103,6 +104,15 @@ func migrateToConfigV38(cfg *Configuration) {
 		if cfg.Options.UnackedNotificationIDs[i] == "authenticationUserAndPassword" {
 			cfg.Options.UnackedNotificationIDs[i] = "guiAuthentication"
 		}
+	}
+
+	// New required settings
+	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+	if cfg.GUI.WebauthnRpId == "" {
+		cfg.GUI.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+	}
+	if cfg.GUI.WebauthnOrigin == "" {
+		cfg.GUI.WebauthnOrigin = defaultGuiCfg.WebauthnOrigin
 	}
 }
 

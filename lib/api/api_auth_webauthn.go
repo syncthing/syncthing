@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"reflect"
 	"slices"
 	"time"
 
@@ -29,36 +28,10 @@ func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*weba
 		displayName = "Syncthing @ " + deviceName
 	}
 
-	rpId := guiCfg.WebauthnRpId
-	if rpId == "" {
-		guiCfgStruct := reflect.TypeOf(guiCfg)
-		field, found := guiCfgStruct.FieldByName("WebauthnRpId")
-		if !found {
-			return nil, fmt.Errorf(`field "WebauthnRpId" not found in struct GUIConfiguration`)
-		}
-		rpId = field.Tag.Get("default")
-		if rpId == "" {
-			return nil, fmt.Errorf(`default tag not found on field "WebauthnRpId" in struct GUIConfiguration`)
-		}
-	}
-
-	origin := guiCfg.WebauthnOrigin
-	if origin == "" {
-		guiCfgStruct := reflect.TypeOf(guiCfg)
-		field, found := guiCfgStruct.FieldByName("WebauthnOrigin")
-		if !found {
-			return nil, fmt.Errorf(`field "WebauthnOrigin" not found in struct GUIConfiguration`)
-		}
-		origin = field.Tag.Get("default")
-		if origin == "" {
-			return nil, fmt.Errorf(`default tag not found on field "WebauthnOrigin" in struct GUIConfiguration`)
-		}
-	}
-
 	return webauthnLib.New(&webauthnLib.Config{
 		RPDisplayName: displayName,
-		RPID:          rpId,
-		RPOrigins:     []string{origin},
+		RPID:          guiCfg.WebauthnRpId,
+		RPOrigins:     []string{guiCfg.WebauthnOrigin},
 	})
 }
 
