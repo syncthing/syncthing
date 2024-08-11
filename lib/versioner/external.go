@@ -39,10 +39,6 @@ func newExternal(cfg config.FolderConfiguration) Versioner {
 		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 
-	if expanded, err := fs.ExpandTilde(command); err == nil {
-		command = expanded
-	}
-
 	s := external{
 		command:    command,
 		filesystem: cfg.Filesystem(nil),
@@ -90,6 +86,12 @@ func (v external) Archive(filePath string) error {
 
 		words[i] = word
 	}
+
+	if expanded, err := fs.ExpandTilde(words[0]); err == nil {
+		words[0] = expanded
+	}
+
+	l.Debugf("executing command \"%s\" with arguments: %v", words[0], words[1:])
 
 	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
