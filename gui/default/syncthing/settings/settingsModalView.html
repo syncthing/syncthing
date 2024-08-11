@@ -273,7 +273,7 @@
                       </p>
 
                       <p ng-if="webauthnAvailable() && !locationMatchesWebauthnOrigin()">
-                        <button ng-if="settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)">
+                        <button ng-if="tmpGUI && settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)">
                           <span class="fas fa-check"></span>
                           &nbsp;
                           <span translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
@@ -281,7 +281,7 @@
                           </span>
                         </button>
 
-                        <button ng-if="!settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
+                        <button ng-if="tmpGUI && !settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">
                           Reload page at {%webauthnOrigin%}
                         </button>
                       </p>
