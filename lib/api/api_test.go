@@ -2655,7 +2655,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 	t.Run("No auth required when no password and no WebAuthn credentials set", func(t *testing.T) {
 		t.Parallel()
-		httpGet, _, _ := startServer(t, "", "", []config.WebauthnCredential{})
+		httpGet, _, _ := startServer(t, "rp-id-irrelevant", "origin-irrelevant", []config.WebauthnCredential{})
 		csrfRresp := httpGet("/", "", "")
 		csrfRresp.Body.Close()
 		var csrfTokenName, csrfTokenValue string
