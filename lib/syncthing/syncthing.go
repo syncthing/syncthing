@@ -76,7 +76,9 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
-	Model             model.Model
+
+	// Access to internals for direct users of this package. Note that the interface in Internals is unstable!
+	Internals *Internals
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
@@ -244,7 +246,7 @@ func (a *App) startup() error {
 
 	keyGen := protocol.NewKeyGenerator()
 	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
-	a.Model = m
+	a.Internals = newInternals(m)
 
 	a.mainService.Add(m)
 
