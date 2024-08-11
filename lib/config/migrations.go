@@ -157,8 +157,8 @@ func migrateToConfigV32(cfg *Configuration) {
 }
 
 func migrateToConfigV31(cfg *Configuration) {
-	// Show a notification about setting GUI authentication
-	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "guiAuthentication")
+	// Show a notification about setting User and Password
+	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
 }
 
 func migrateToConfigV30(cfg *Configuration) {
