@@ -195,14 +195,9 @@ func (s *webauthnService) EligibleWebAuthnCredentials(guiCfg config.GUIConfigura
 		return nil, err
 	}
 
-	rpId := guiCfg.WebauthnRpId
-	if rpId == "" {
-		rpId = "localhost"
-	}
-
 	var result []config.WebauthnCredential
 	for _, cred := range state.Credentials {
-		if cred.RpId == rpId {
+		if cred.RpId == guiCfg.WebauthnRpId {
 			result = append(result, cred)
 		}
 	}
