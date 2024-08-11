@@ -401,9 +401,16 @@
           <p class="text-info" ng-if="!webauthnAvailable()" translate>
             Your browser does not support WebAuthn.
           </p>
-          <p class="text-info" ng-if="locationDoesNotMatchWebauthnRpId()" translate>
-            Current domain does not match WebAuthn configuration.
-          </p>
+          <div ng-if="locationDoesNotMatchWebauthnRpId()">
+            <p class="text-info" translate>
+              Current domain does not match WebAuthn configuration.
+            </p>
+            <p>
+              <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+                Syncthing Documentation: Customizing the GUI address
+              </a>
+            </p>
+          </div>
           <p class="text-info" ng-if="isLocationInsecure()" translate>
             WebAuthn requires HTTPS.
           </p>
