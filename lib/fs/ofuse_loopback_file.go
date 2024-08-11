@@ -21,13 +21,15 @@ import (
 // operations are implemented. When using the Fd from a *os.File, call
 // syscall.Dup() on the fd, to avoid os.File's finalizer from closing
 // the file descriptor.
-func NewLoopbackFile(fd int) ffs.FileHandle {
-	return &loopbackFile{fd: fd}
+func NewLoopbackFile(rel_name string, fd int, changeChan chan<- Event) ffs.FileHandle {
+	return &loopbackFile{fd: fd, rel_name: rel_name, changeChan: changeChan}
 }
 
 type loopbackFile struct {
-	mu sync.Mutex
-	fd int
+	mu         sync.Mutex
+	fd         int
+	rel_name   string // relative filepath
+	changeChan chan<- Event
 }
 
 var _ = (ffs.FileHandle)((*loopbackFile)(nil))
@@ -56,6 +58,7 @@ func (f *loopbackFile) Write(ctx context.Context, data []byte, off int64) (uint3
 	defer f.mu.Unlock()
 	willBeChangedFd(f.fd)
 	n, err := syscall.Pwrite(f.fd, data, off)
+	f.changeChan <- Event{f.rel_name, NonRemove}
 	return uint32(n), ffs.ToErrno(err)
 }
 

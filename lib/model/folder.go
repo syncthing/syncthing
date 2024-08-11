@@ -144,7 +144,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	return f
 }
 
-func (f *folder) Serve(ctx context.Context) error {
+func (f *folder) Serve(ctx context.Context) error { // main loop for each shared folder
 	f.model.foldersRunning.Add(1)
 	defer f.model.foldersRunning.Add(-1)
 
@@ -668,9 +668,9 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 	}
 
 	alreadyUsedOrExisting := make(map[string]struct{})
-	for res := range fchan {
-		if res.Err != nil {
-			f.newScanError(res.Path, res.Err)
+	for detectedChange := range fchan {
+		if detectedChange.Err != nil {
+			f.newScanError(detectedChange.Path, detectedChange.Err)
 			continue
 		}
 
@@ -683,14 +683,14 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 			return changes, err
 		}
 
-		if batch.Update(res.File, snap) {
+		if batch.Update(detectedChange.File, snap) {
 			changes++
 		}
 
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(snap, res.File, alreadyUsedOrExisting); ok {
+			if nf, ok := f.findRename(snap, detectedChange.File, alreadyUsedOrExisting); ok {
 				if batch.Update(nf, snap) {
 					changes++
 				}

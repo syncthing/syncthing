@@ -236,7 +236,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error) {
+func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error) { // files are received here
 	f.errorsMut.Lock()
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()

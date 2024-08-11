@@ -30,6 +30,8 @@ type LoopbackRoot struct {
 	// to a LOOKUP/CREATE/MKDIR/MKNOD opcode. If not set, use a
 	// LoopbackNode.
 	NewNode func(rootData *LoopbackRoot, parent *ffs.Inode, name string, st *syscall.Stat_t) ffs.InodeEmbedder
+
+	changeChan chan<- Event
 }
 
 func (r *LoopbackRoot) newNode(parent *ffs.Inode, name string, st *syscall.Stat_t) ffs.InodeEmbedder {
@@ -86,8 +88,8 @@ func (n *LoopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 // path returns the full path to the file in the underlying file
 // system.
 func (n *LoopbackNode) path() string {
-	path := n.Path(n.Root())
-	return filepath.Join(n.RootData.Path, path)
+	relative_path := n.Path(n.Root())
+	return filepath.Join(n.RootData.Path, relative_path)
 }
 
 var _ = (ffs.NodeLookuper)((*LoopbackNode)(nil))
@@ -200,13 +202,13 @@ var _ = (ffs.NodeCreater)((*LoopbackNode)(nil))
 
 func (n *LoopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut,
 ) (inode *ffs.Inode, fh ffs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	p := filepath.Join(n.path(), name)
+	abs_path := filepath.Join(n.path(), name)
 	flags = flags &^ syscall.O_APPEND
-	fd, err := syscall.Open(p, int(flags)|os.O_CREATE, mode)
+	fd, err := syscall.Open(abs_path, int(flags)|os.O_CREATE, mode)
 	if err != nil {
 		return nil, nil, 0, ffs.ToErrno(err)
 	}
-	n.preserveOwner(ctx, p)
+	n.preserveOwner(ctx, abs_path)
 	st := syscall.Stat_t{}
 	if err := syscall.Fstat(fd, &st); err != nil {
 		syscall.Close(fd)
@@ -215,7 +217,8 @@ func (n *LoopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 
 	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
-	lf := NewLoopbackFile(fd)
+	relative_path := filepath.Join(n.Path(n.Root()), name)
+	lf := NewLoopbackFile(relative_path, fd, n.RootData.changeChan)
 
 	out.FromStat(&st)
 	return ch, lf, 0, 0
@@ -325,7 +328,8 @@ func (n *LoopbackNode) Open(ctx context.Context, flags uint32) (fh ffs.FileHandl
 	if err != nil {
 		return nil, 0, ffs.ToErrno(err)
 	}
-	lf := NewLoopbackFile(f)
+	relative_path := n.Path(n.Root())
+	lf := NewLoopbackFile(relative_path, f, n.RootData.changeChan)
 	return lf, 0, 0
 }
 
@@ -496,7 +500,7 @@ func (n *LoopbackNode) CopyFileRange(ctx context.Context, fhIn ffs.FileHandle,
 // NewLoopbackRoot returns a root node for a loopback file system whose
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
-func NewLoopbackRoot(rootPath string) (ffs.InodeEmbedder, error) {
+func NewLoopbackRoot(rootPath string, changeChan chan<- Event) (ffs.InodeEmbedder, error) {
 	var st syscall.Stat_t
 	err := syscall.Stat(rootPath, &st)
 	if err != nil {
@@ -504,8 +508,9 @@ func NewLoopbackRoot(rootPath string) (ffs.InodeEmbedder, error) {
 	}
 
 	root := &LoopbackRoot{
-		Path: rootPath,
-		Dev:  uint64(st.Dev),
+		Path:       rootPath,
+		Dev:        uint64(st.Dev),
+		changeChan: changeChan,
 	}
 
 	return root.newNode(nil, "", &st), nil
