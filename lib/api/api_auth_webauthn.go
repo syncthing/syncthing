@@ -52,17 +52,12 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 		return webauthnService{}, err
 	}
 
-	userHandle, err := base64.URLEncoding.DecodeString(guiCfg.WebauthnUserId)
-	if err != nil {
-		return webauthnService{}, err
-	}
-
 	return webauthnService{
 		miscDB:     miscDB,
 		miscDBKey:  miscDBKey,
 		engine:     engine,
 		evLogger:   evLogger,
-		userHandle: userHandle,
+		userHandle: guiCfg.WebauthnUserId,
 	}, nil
 }
 
