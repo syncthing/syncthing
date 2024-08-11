@@ -53,6 +53,7 @@ import (
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/testutil"
@@ -68,9 +69,22 @@ var (
 	testAPIKey = "foobarbaz"
 )
 
+func withTestDefaults(guiCfg config.GUIConfiguration) config.GUIConfiguration {
+	defaultGuiCfg := structutil.WithDefaults(config.GUIConfiguration{})
+
+	if guiCfg.WebauthnRpId == "" {
+		guiCfg.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+	}
+	if guiCfg.WebauthnOrigin == "" {
+		guiCfg.WebauthnOrigin = defaultGuiCfg.WebauthnOrigin
+	}
+
+	return guiCfg
+}
+
 func init() {
 	dev1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	apiCfg.GUIReturns(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"})
+	apiCfg.GUIReturns(withTestDefaults(config.GUIConfiguration{APIKey: testAPIKey, RawAddress: "127.0.0.1:0"}))
 }
 
 func TestMain(m *testing.M) {
@@ -88,19 +102,16 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Configuration{
-		GUI: config.GUIConfiguration{
+		GUI: withTestDefaults(config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
-		},
+		}),
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	srvAbstract, err := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	if err != nil {
-		t.Fatal("Failed to create server instance", err)
-	}
+	srvAbstract := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
 	srv := srvAbstract.(*service)
 
 	srv.started = make(chan string)
@@ -611,13 +622,13 @@ func TestHTTPLogin(t *testing.T) {
 
 	testWith := func(sendBasicAuthPrompt bool, expectedOkStatus int, expectedFailStatus int, path string) {
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:                "üser",
 			Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 			RawAddress:          "127.0.0.1:0",
 			APIKey:              testAPIKey,
 			SendBasicAuthPrompt: sendBasicAuthPrompt,
-		})
+		}))
 		baseURL, cancel, _, err := startHTTP(cfg)
 		if err != nil {
 			t.Fatal(err)
@@ -778,11 +789,11 @@ func TestHtmlFormLogin(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		User:                "üser",
 		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: false,
-	})
+	}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -924,10 +935,10 @@ func TestApiCache(t *testing.T) {
 	t.Parallel()
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress: "127.0.0.1:0",
 		APIKey:     testAPIKey,
-	})
+	}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -957,19 +968,19 @@ func TestApiCache(t *testing.T) {
 	})
 }
 
-func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, *service, error) {
+func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, *webauthnService, error) {
 	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, nil, 0)
 }
 
-func startHTTPWithWebauthnState(cfg config.Wrapper, webauthnState *config.WebauthnState) (string, context.CancelFunc, *service, error) {
+func startHTTPWithWebauthnState(cfg config.Wrapper, webauthnState *config.WebauthnState) (string, context.CancelFunc, *webauthnService, error) {
 	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, webauthnState, 0)
 }
 
-func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, *service, error) {
+func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
 	return startHTTPWithWebauthnStateAndShutdownTimeout(cfg, nil, shutdownTimeout)
 }
 
-func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnState *config.WebauthnState, shutdownTimeout time.Duration) (string, context.CancelFunc, *service, error) {
+func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnState *config.WebauthnState, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
 	eventSub := new(eventmocks.BufferedSubscription)
@@ -994,14 +1005,17 @@ func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnSt
 	urService := ur.New(cfg, m, connections, false)
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract, err := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
+	svcAbstract := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
+	svc := svcAbstract.(*service)
+
+	webauthnService, err := newWebauthnService(cfg.GUI(), "test", events.NoopLogger, kdb, "webauthn")
 	if err != nil {
 		return "", nil, nil, err
 	}
-	svc := svcAbstract.(*service)
 	if webauthnState != nil {
-		svc.webauthnService.storeState(*webauthnState)
+		webauthnService.storeState(*webauthnState)
 	}
+
 	svc.started = addrChan
 
 	if shutdownTimeout > 0*time.Millisecond {
@@ -1030,7 +1044,7 @@ func startHTTPWithWebauthnStateAndShutdownTimeout(cfg config.Wrapper, webauthnSt
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
 
-	return baseURL, cancel, svc, nil
+	return baseURL, cancel, &webauthnService, nil
 }
 
 func TestCSRFRequired(t *testing.T) {
@@ -1268,7 +1282,7 @@ func TestHostCheck(t *testing.T) {
 	// An API service bound to localhost should reject non-localhost host Headers
 
 	cfg := newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{RawAddress: "127.0.0.1:0"})
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{RawAddress: "127.0.0.1:0"}))
 	baseURL, cancel, _, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1328,10 +1342,10 @@ func TestHostCheck(t *testing.T) {
 	// A server with InsecureSkipHostCheck set behaves differently
 
 	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress:            "127.0.0.1:0",
 		InsecureSkipHostCheck: true,
-	})
+	}))
 	baseURL, cancel, _, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1386,9 +1400,9 @@ func TestHostCheck(t *testing.T) {
 	}
 
 	cfg = newMockedConfig()
-	cfg.GUIReturns(config.GUIConfiguration{
+	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress: "[::1]:0",
-	})
+	}))
 	baseURL, cancel, _, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -1547,10 +1561,7 @@ func TestEventMasks(t *testing.T) {
 	diskSub := new(eventmocks.BufferedSubscription)
 	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
 	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract, err := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	if err != nil {
-		t.Fatal("Failed to create server instance", err)
-	}
+	svcAbstract := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
 	svc := svcAbstract.(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
@@ -1681,14 +1692,14 @@ func TestConfigChanges(t *testing.T) {
 
 	const testAPIKey = "foobarbaz"
 	cfg := config.Configuration{
-		GUI: config.GUIConfiguration{
+		GUI: withTestDefaults(config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
 			APIKey:     testAPIKey,
 
 			// Needed because GUIConfiguration.prepare() assigns this a random value if empty
 			WebauthnUserId: "AAAA",
-		},
+		}),
 	}
 
 	tmpFile, err := os.CreateTemp("", "syncthing-testConfig-")
@@ -1978,13 +1989,13 @@ func TestWebauthnRegistration(t *testing.T) {
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
 	testutil.FatalIfErr(t, err)
 
-	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *service, func(t *testing.T) webauthnProtocol.CredentialCreation) {
+	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *webauthnService, func(t *testing.T) webauthnProtocol.CredentialCreation, config.Wrapper) {
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:       "user",
 			RawAddress: "127.0.0.1:0",
-		})
-		baseURL, cancel, service, err := startHTTPWithWebauthnState(cfg, &config.WebauthnState{Credentials: credentials})
+		}))
+		baseURL, cancel, webauthnService, err := startHTTPWithWebauthnState(cfg, &config.WebauthnState{Credentials: credentials})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2022,12 +2033,12 @@ func TestWebauthnRegistration(t *testing.T) {
 			return options
 		}
 
-		return baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions
+		return baseURL, csrfTokenName, csrfTokenValue, webauthnService, getCreateOptions, cfg
 	}
 
 	t.Run("Can register a new WebAuthn credential", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, service, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, webauthnService, getCreateOptions, cfg := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		transports := []string{"transportA", "transportB"}
@@ -2059,7 +2070,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		testutil.AssertEqual(t, t.Fatalf, getConfResp.StatusCode, http.StatusOK,
 			"Failed to fetch config after WebAuthn registration: status %d", getConfResp.StatusCode)
 		testutil.FatalIfErr(t, unmarshalTo(getConfResp.Body, &conf))
-		eligibleCredentials, err := service.webauthnService.EligibleWebAuthnCredentials()
+		eligibleCredentials, err := webauthnService.EligibleWebAuthnCredentials(cfg.GUI())
 		testutil.FatalIfErr(t, err, "Failed to retrieve registered WebAuthn credentials")
 		testutil.AssertEqual(t, t.Errorf, 0, len(eligibleCredentials),
 			"Expected newly registered WebAuthn credential to not yet be committed to config")
@@ -2067,7 +2078,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with wrong challenge", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		cryptoRand.Reader.Read(options.Response.Challenge)
@@ -2080,7 +2091,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with wrong origin", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
@@ -2092,7 +2103,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails without user presence flag set", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 
@@ -2116,7 +2127,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with malformed public key", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		corruptPublicKeyCose := bytes.Clone(publicKeyCose)
 		corruptPublicKeyCose[7] ^= 0xff
@@ -2129,7 +2140,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with credential ID duplicated in config", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t,
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t,
 			[]config.WebauthnCredential{
 				{
 					ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2147,7 +2158,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration fails with credential ID duplicated in pending credentials", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
@@ -2164,7 +2175,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 	t.Run("WebAuthn registration can only be attempted once per challenge", func(t *testing.T) {
 		t.Parallel()
-		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions := startServer(t, nil)
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		options := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/webauthn/register-finish", cred, csrfTokenName, csrfTokenValue, t)
@@ -2190,13 +2201,13 @@ func TestWebauthnAuthentication(t *testing.T) {
 	startServer := func(t *testing.T, rpId, origin string, credentials []config.WebauthnCredential) (func(string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
 		t.Helper()
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:           "user",
 			RawAddress:     "localhost:0",
 			WebauthnRpId:   rpId,
 			WebauthnOrigin: origin,
 			RawUseTLS:      true,
-		})
+		}))
 		baseURL, cancel, _, err := startHTTPWithWebauthnState(cfg, &config.WebauthnState{Credentials: credentials})
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
 		t.Cleanup(cancel)
@@ -2687,7 +2698,7 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 		password := "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
 
 		cfg := newMockedConfig()
-		cfg.GUIReturns(config.GUIConfiguration{
+		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 			User:       "user",
 			Password:   password,
 			RawAddress: "localhost:0",
@@ -2695,14 +2706,14 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			// Don't need TLS in this test because the password enables the auth middleware,
 			// and there's no browser to prevent us from generating a WebAuthn response without HTTPS
 			RawUseTLS: false,
-		})
-		baseURL, cancel, service, err := startHTTP(cfg)
+		}))
+		baseURL, cancel, webauthnService, err := startHTTP(cfg)
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
 		t.Cleanup(cancel)
 
 		testutil.FatalIfErr(
 			t,
-			service.webauthnService.storeState(config.WebauthnState{
+			webauthnService.storeState(config.WebauthnState{
 				Credentials: []config.WebauthnCredential{
 					{
 						ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
@@ -2808,12 +2819,12 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	shutdownTimeout := testutil.IfNotCI(0, 1000*time.Millisecond)
 
 	const testAPIKey = "foobarbaz"
-	initialGuiCfg := config.GUIConfiguration{
+	initialGuiCfg := withTestDefaults(config.GUIConfiguration{
 		RawAddress:     "127.0.0.1:0",
 		RawUseTLS:      false,
 		APIKey:         testAPIKey,
 		WebauthnUserId: "AAAA",
-	}
+	})
 
 	initTest := func(t *testing.T) (config.GUIConfiguration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
 		guiCfg := initialGuiCfg.Copy()
@@ -2918,12 +2929,12 @@ func TestWebauthnStateChanges(t *testing.T) {
 
 	initTest := func(t *testing.T) (config.WebauthnState, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
 		cfg := config.Configuration{
-			GUI: config.GUIConfiguration{
+			GUI: withTestDefaults(config.GUIConfiguration{
 				RawAddress:     "127.0.0.1:0",
 				RawUseTLS:      false,
 				APIKey:         testAPIKey,
 				WebauthnUserId: "AAAA",
-			},
+			}),
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
@@ -2954,11 +2965,11 @@ func TestWebauthnStateChanges(t *testing.T) {
 		}
 
 		startHttpServer := func(t *testing.T) (func(string) *http.Response, func(string, string, any)) {
-			baseURL, _, service, err := startHTTPWithWebauthnState(w, &initialWebauthnState)
+			baseURL, _, webauthnService, err := startHTTPWithWebauthnState(w, &initialWebauthnState)
 			testutil.FatalIfErr(t, err)
 
 			testutil.FatalIfErr(t,
-				service.webauthnService.storeState(initialWebauthnState), "Failed to set initial WebAuthn state")
+				webauthnService.storeState(initialWebauthnState), "Failed to set initial WebAuthn state")
 
 			cli := &http.Client{
 				Timeout: 60 * time.Second,
