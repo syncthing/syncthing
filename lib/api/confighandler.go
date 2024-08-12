@@ -20,8 +20,9 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id              protocol.DeviceID
+	cfg             config.Wrapper
+	webauthnService *webauthnService
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -307,6 +308,11 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerWebauthnConfig(path string) {
+	c.HandlerFunc(http.MethodPost, path+"/register-start", c.webauthnService.startWebauthnRegistration(c.cfg, c.cfg.GUI()))
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration(c.cfg, c.cfg.GUI()))
+}
+
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, c.id)
 	r.Body.Close()
@@ -318,11 +324,12 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if err := postAdjustGui(&cfg.GUI, &to.GUI); err != nil {
+		if err := c.postAdjustGui(&cfg.GUI, &to.GUI); err != nil {
 			errMsg = err.Error()
 			status = http.StatusInternalServerError
 			return
 		}
+
 		*cfg = to
 	})
 	if errMsg != "" {
@@ -396,7 +403,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if err := postAdjustGui(&cfg.GUI, &gui); err != nil {
+		if err := c.postAdjustGui(&cfg.GUI, &gui); err != nil {
 			errMsg = err.Error()
 			status = http.StatusInternalServerError
 			return
@@ -412,13 +419,15 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	c.finish(w, waiter)
 }
 
-func postAdjustGui(from *config.GUIConfiguration, to *config.GUIConfiguration) error {
+func (c *configMuxBuilder) postAdjustGui(from *config.GUIConfiguration, to *config.GUIConfiguration) error {
 	if to.Password != from.Password {
 		if err := to.SetPassword(to.Password); err != nil {
 			l.Warnln("hashing password:", err)
 			return err
 		}
 	}
+
+	config.SanitizeWebauthnStateChanges(&from.WebauthnState, &to.WebauthnState, c.webauthnService.credentialsPendingRegistration)
 
 	return nil
 }

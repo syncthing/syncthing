@@ -248,7 +248,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	restMux := httprouter.New()
 
-	webauthnService, err := newWebauthnService(guiCfg, s.id.Short().String(), s.evLogger, s.miscDB, "webauthn")
+	webauthnService, err := newWebauthnService(guiCfg, s.id.Short().String(), s.evLogger)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,6 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", webauthnService.getConfigLikeState)
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
@@ -308,10 +307,6 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-start", webauthnService.startWebauthnRegistration(guiCfg))
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/register-finish", webauthnService.finishWebauthnRegistration(guiCfg))
-	restMux.HandlerFunc(http.MethodPost, "/rest/webauthn/state", webauthnService.updateConfigLikeState)
-
 	// The DELETE handlers
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/folders", s.deletePendingFolders) // folder [device]
@@ -319,9 +314,10 @@ func (s *service) Serve(ctx context.Context) error {
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
-		Router: restMux,
-		id:     s.id,
-		cfg:    s.cfg,
+		Router:          restMux,
+		id:              s.id,
+		cfg:             s.cfg,
+		webauthnService: &webauthnService,
 	}
 
 	configBuilder.registerConfig("/rest/config")
@@ -336,6 +332,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
@@ -378,14 +375,14 @@ func (s *service) Serve(ctx context.Context) error {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
-	if isAuthEnabled(&webauthnService, guiCfg) {
+	if isAuthEnabled(guiCfg) {
 		tokenCookieManager := newTokenCookieManager(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
 		authMW := newBasicAuthAndSessionMiddleware(tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(guiCfg))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(s.cfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, s.cfg))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
@@ -512,14 +509,9 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func isAuthEnabled(webauthnService *webauthnService, guiCfg config.GUIConfiguration) bool {
+func isAuthEnabled(guiCfg config.GUIConfiguration) bool {
 	// This function should match isAuthEnabled() in syncthingController.js
-	webauthnConfigured, err := webauthnService.IsAuthConfigured()
-	if err != nil {
-		// Better to lock user out than let the world in if loading WebAuthn state fails
-		webauthnConfigured = true
-	}
-	return guiCfg.IsPasswordAuthEnabled() || webauthnConfigured
+	return guiCfg.IsPasswordAuthEnabled() || guiCfg.IsWebauthnAuthEnabled()
 }
 
 func (s *service) fatal(err *svcutil.FatalErr) {
