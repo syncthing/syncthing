@@ -7,8 +7,10 @@
 package fs
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
 )
@@ -169,5 +171,37 @@ func TestIsParent(t *testing.T) {
 				test("C:/"+path, "D:/"+parent, false)
 			}
 		}
+	}
+}
+
+func TestCaseFSMtimeFSInteraction(t *testing.T) {
+	fs := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(make(mapStore)))
+
+	name := "Testfile"
+	nameLower := UnicodeLowercaseNormalized(name)
+
+	file, err := fs.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	testTime := time.Unix(1723491493, 123456789)
+	err = fs.Chtimes(name, testTime, testTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := fs.Lstat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(testTime) {
+		t.Errorf("Expected mtime %v for %v, got %v", testTime, name, info.ModTime())
+	}
+	info, err = fs.Lstat(nameLower)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(testTime) {
+		t.Errorf("Expected mtime %v for %v, got %v", testTime, nameLower, info.ModTime())
 	}
 }

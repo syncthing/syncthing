@@ -54,18 +54,20 @@ const randomBlockShift = 14 // 128k
 //     latency=d  to set the amount of time each "disk" operation takes, where d is time.ParseDuration format
 //     content=true to save actual file contents instead of generating pseudorandomly; n.b. memory usage
 //     nostfolder=true skip the creation of .stfolder
+//     timeprecisionsecond=true Modification times are stored with only second precision
 //
 // - Two fakeFS:s pointing at the same root path see the same files.
 type fakeFS struct {
-	counters    fakeFSCounters
-	uri         string
-	mut         sync.Mutex
-	root        *fakeEntry
-	insens      bool
-	withContent bool
-	latency     time.Duration
-	userCache   *userCache
-	groupCache  *groupCache
+	counters            fakeFSCounters
+	uri                 string
+	mut                 sync.Mutex
+	root                *fakeEntry
+	insens              bool
+	withContent         bool
+	timePrecisionSecond bool
+	latency             time.Duration
+	userCache           *userCache
+	groupCache          *groupCache
 }
 
 type fakeFSCounters struct {
@@ -126,6 +128,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 	fs.insens = params.Get("insens") == "true"
 	fs.withContent = params.Get("content") == "true"
 	nostfolder := params.Get("nostfolder") == "true"
+	fs.timePrecisionSecond = params.Get("timeprecisionsecond") == "true"
 
 	if sizeavg == 0 {
 		sizeavg = 1 << 20
@@ -258,6 +261,9 @@ func (fs *fakeFS) Chtimes(name string, _ time.Time, mtime time.Time) error {
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return os.ErrNotExist
+	}
+	if fs.timePrecisionSecond {
+		mtime = mtime.Round(time.Second)
 	}
 	entry.mtime = mtime
 	return nil
