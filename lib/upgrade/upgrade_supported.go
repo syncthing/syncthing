@@ -134,12 +134,7 @@ func (s SortByRelease) Less(i, j int) bool {
 
 func LatestRelease(releasesURL, current string, upgradeToPreReleases bool) (Release, error) {
 	rels := FetchLatestReleases(releasesURL, current)
-	rel, err := SelectLatestRelease(rels, current, upgradeToPreReleases)
-	if err != nil {
-		return rel, err
-	}
-
-	return rel, nil
+	return SelectLatestRelease(rels, current, upgradeToPreReleases)
 }
 
 func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bool) (Release, error) {
