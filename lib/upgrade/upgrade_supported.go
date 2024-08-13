@@ -63,8 +63,9 @@ const (
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
 
-	unsupportedKernel = "The upgrade was compiled with %v which requires OS " +
-		"version %s or later, but this system is currently running version %s"
+	unsupportedKernel = "cannot upgrade, as the upgrade was compiled with %v " +
+		"which requires OS version %s or later, but this system is currently " +
+		"running version %s"
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -453,7 +454,7 @@ func verifyCompatibility(rel Release, rt string) error {
 
 	minOSVersion, ok := rel.MinOSVersions[majorMinor]
 	if !ok {
-		return fmt.Errorf("Go runtime %v not found", majorMinor)
+		return fmt.Errorf("go runtime %v not found", majorMinor)
 	}
 
 	currentKernel, err := host.KernelVersion()

@@ -113,7 +113,7 @@ func findFile(startDir string, filename string) (string, error) {
 		parentDir := filepath.Dir(dir)
 
 		if parentDir == dir {
-			return "", fmt.Errorf("Cannot find %q in, or under, %q", filename, startDir)
+			return "", fmt.Errorf("cannot find %q in, or under, %q", filename, startDir)
 		}
 
 		dir = parentDir
@@ -157,7 +157,7 @@ func saveCompatibilityJson(dir string, minOSVersions MinOSVersions, rt string) e
 	}
 	minOSVersion, ok := minOSVersions[majorMinor]
 	if !ok {
-		return fmt.Errorf("Runtime %v not found in %q", majorMinor, CompatibilityYaml)
+		return fmt.Errorf("runtime %v not found in %q", majorMinor, CompatibilityYaml)
 	}
 
 	runtimeInfo := RuntimeInfo{
@@ -194,7 +194,7 @@ func genCompatibilityJson(dir string, rt string) error {
 func normalizeRuntimeVersion(rt string) (string, error) {
 	parts := strings.Split(rt, ".")
 	if len(parts) < 2 {
-		return "", fmt.Errorf("Go version %q is not in the form gox.y", rt)
+		return "", fmt.Errorf("go version %q is not in the form gox.y", rt)
 	}
 
 	return strings.Join(parts[:2], "."), nil
