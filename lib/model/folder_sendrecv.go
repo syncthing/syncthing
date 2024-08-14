@@ -363,12 +363,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.IsDeleted():
-			if isConflict(file.Name) {
-				f.conflictFilesMut.Lock()
-				delete(f.conflictFiles, file.Name)
-				l.Debugln("Deleting conflicting file: ", file.Name)
-				f.conflictFilesMut.Unlock()
-			}
+			f.handleConflictFileChange(file)
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
@@ -489,12 +484,7 @@ nextFile:
 			continue
 		}
 
-		if isConflict(fi.Name) {
-			f.conflictFilesMut.Lock()
-			f.conflictFiles[fi.Name] = struct{}{}
-			l.Debugln("Adding conflicting file: ", fi)
-			f.conflictFilesMut.Unlock()
-		}
+		f.handleConflictFileChange(fi)
 
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.

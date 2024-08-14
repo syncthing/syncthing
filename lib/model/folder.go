@@ -732,18 +732,8 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			}
 
 			file := fi.(db.FileInfoTruncated)
-			if isConflict(file.Name) {
-				f.conflictFilesMut.Lock()
-				if !fi.IsDeleted() {
-					l.Debugln("Adding conflicting file: ", fi)
-					f.conflictFiles[file.Name] = struct{}{}
-				} else {
-					l.Debugln("Deleting conflicting file: ", fi)
-					delete(f.conflictFiles, file.Name)
-				}
-				// TODO: emit event
-				f.conflictFilesMut.Unlock()
-			}
+
+			f.handleConflictFileChange(file)
 
 			if err := batch.FlushIfFull(); err != nil {
 				iterError = err
@@ -1366,6 +1356,21 @@ func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 	return snap, nil
+}
+
+func (f *folder) handleConflictFileChange(file protocol.FileIntf) {
+	if isConflict(file.FileName()) {
+		f.conflictFilesMut.Lock()
+		if !file.IsDeleted() {
+			l.Debugln("Adding conflicting file: ", file)
+			f.conflictFiles[file.FileName()] = struct{}{}
+		} else {
+			l.Debugln("Deleting conflicting file: ", file)
+			delete(f.conflictFiles, file.FileName())
+		}
+		// TODO: emit event
+		f.conflictFilesMut.Unlock()
+	}
 }
 
 // The exists function is expected to return true for all known paths
