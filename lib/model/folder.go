@@ -529,10 +529,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		// If we have no specific subdirectories to traverse, set it to one
 		// empty prefix so we traverse the entire folder contents once.
 		subDirs = []string{""}
-
-		f.conflictFilesMut.Lock()
-		f.conflictFiles = make(map[string]struct{})
-		f.conflictFilesMut.Unlock()
 	}
 
 	// Do a scan of the database for each prefix, to check for deleted and
@@ -1361,6 +1357,7 @@ func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 func (f *folder) handleConflictFileChange(file protocol.FileIntf) {
 	if isConflict(file.FileName()) {
 		f.conflictFilesMut.Lock()
+		defer f.conflictFilesMut.Unlock()
 		if !file.IsDeleted() {
 			l.Debugln("Adding conflicting file: ", file)
 			f.conflictFiles[file.FileName()] = struct{}{}
@@ -1369,7 +1366,6 @@ func (f *folder) handleConflictFileChange(file protocol.FileIntf) {
 			delete(f.conflictFiles, file.FileName())
 		}
 		// TODO: emit event
-		f.conflictFilesMut.Unlock()
 	}
 }
 
