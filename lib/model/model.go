@@ -2682,11 +2682,11 @@ func (m *model) State(folder string) (string, time.Time, error) {
 }
 
 func (m *model) GetFolderConflicts(folder string) []string {
-	m.fmut.RLock()
+	m.mut.RLock()
 	runner, ok := m.folderRunners.Get(folder)
-	m.fmut.RUnlock()
+	m.mut.RUnlock()
 	if !ok {
-		return []string{}
+		return nil
 	}
 
 	return runner.GetConflicts()

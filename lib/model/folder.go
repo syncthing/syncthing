@@ -75,7 +75,7 @@ type folder struct {
 	forcedRescanPaths     map[string]struct{}
 	forcedRescanPathsMut  sync.Mutex
 
-	conflictFiles    []string
+	conflictFiles    map[string]struct{}
 	conflictFilesMut sync.Mutex
 
 	watchCancel      context.CancelFunc
@@ -132,7 +132,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		forcedRescanPaths:     make(map[string]struct{}),
 		forcedRescanPathsMut:  sync.NewMutex(),
 
-		conflictFiles:    make([]string, 0),
+		conflictFiles:    make(map[string]struct{}),
 		conflictFilesMut: sync.NewMutex(),
 
 		watchCancel:      func() {},
@@ -461,9 +461,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 	}()
 
-	f.conflictFilesMut.Lock()
-	f.conflictFiles = make([]string, 0)
-	f.conflictFilesMut.Unlock()
 	f.setState(FolderScanWaiting)
 	defer f.setState(FolderIdle)
 
@@ -532,6 +529,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		// If we have no specific subdirectories to traverse, set it to one
 		// empty prefix so we traverse the entire folder contents once.
 		subDirs = []string{""}
+
+		f.conflictFilesMut.Lock()
+		f.conflictFiles = make(map[string]struct{})
+		f.conflictFilesMut.Unlock()
 	}
 
 	// Do a scan of the database for each prefix, to check for deleted and
@@ -731,6 +732,20 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			}
 
 			file := fi.(db.FileInfoTruncated)
+			l.Infoln("-----> file: ", file)
+			if isConflict(file.Name) {
+				f.conflictFilesMut.Lock()
+				if !fi.IsDeleted() {
+					l.Debugln("Adding conflicting file: ", fi)
+					f.conflictFiles[file.Name] = struct{}{}
+				} else {
+					l.Debugln("Deleting conflicting file: ", fi)
+					delete(f.conflictFiles, file.Name)
+				}
+				// TODO: emit event
+				l.Debugln("f.conflictFiles: ", f.conflictFiles)
+				f.conflictFilesMut.Unlock()
+			}
 
 			if err := batch.FlushIfFull(); err != nil {
 				iterError = err
@@ -1248,16 +1263,6 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		delete(f.forcedRescanPaths, file.Name)
 	}
 	f.forcedRescanPathsMut.Unlock()
-	l.Infof("WTF", fs)
-
-	for _, file := range fs {
-		if isConflict(file.Name) {
-			f.conflictFilesMut.Lock()
-			f.conflictFiles = append(f.conflictFiles, file.Name)
-			f.conflictFilesMut.Unlock()
-			// TODO: emit event
-		}
-	}
 
 	seq := f.fset.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
@@ -1273,8 +1278,10 @@ func (f *folder) GetConflicts() []string {
 	f.conflictFilesMut.Lock()
 	defer f.conflictFilesMut.Unlock()
 
-	sCopy := make([]string, len(f.conflictFiles))
-	copy(sCopy, f.conflictFiles)
+	sCopy := make([]string, 0, len(f.conflictFiles))
+	for k := range f.conflictFiles {
+		sCopy = append(sCopy, k)
+	}
 	return sCopy
 }
 
