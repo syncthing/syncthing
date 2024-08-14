@@ -732,7 +732,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			}
 
 			file := fi.(db.FileInfoTruncated)
-			l.Infoln("-----> file: ", file)
 			if isConflict(file.Name) {
 				f.conflictFilesMut.Lock()
 				if !fi.IsDeleted() {
@@ -743,7 +742,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					delete(f.conflictFiles, file.Name)
 				}
 				// TODO: emit event
-				l.Debugln("f.conflictFiles: ", f.conflictFiles)
 				f.conflictFilesMut.Unlock()
 			}
 

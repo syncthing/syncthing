@@ -363,7 +363,6 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.IsDeleted():
-			l.Debugln("------> file: ", file)
 			if isConflict(file.Name) {
 				f.conflictFilesMut.Lock()
 				delete(f.conflictFiles, file.Name)
@@ -490,7 +489,6 @@ nextFile:
 			continue
 		}
 
-		l.Debugln("------> file: ", fi)
 		if isConflict(fi.Name) {
 			f.conflictFilesMut.Lock()
 			f.conflictFiles[fi.Name] = struct{}{}
