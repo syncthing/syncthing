@@ -255,7 +255,7 @@ func initTargets() {
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
 	}
 	if release {
-		archiveFile := archiveFile{src: upgrade.CompatibilityJson, dst: upgrade.CompatibilityJson, perm: 0o644}
+		archiveFile := archiveFile{src: upgrade.CompatJson, dst: upgrade.CompatJson, perm: 0o644}
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile)
 	}
 	for _, file := range listFiles("extra") {
@@ -505,7 +505,7 @@ func install(target target, tags []string) {
 
 	setBuildEnvVars()
 
-	generateCompatibilityJson()
+	generateCompatJson()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -535,7 +535,7 @@ func build(target target, tags []string) {
 
 	setBuildEnvVars()
 
-	generateCompatibilityJson()
+	generateCompatJson()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -1580,7 +1580,7 @@ func nextPatchVersion(ver string) string {
 	return strings.Join(digits, ".")
 }
 
-func generateCompatibilityJson() {
+func generateCompatJson() {
 	if !release {
 		return
 	}
@@ -1588,11 +1588,11 @@ func generateCompatibilityJson() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = upgrade.GenerateCompatibilityJson(cwd)
+	err = upgrade.GenerateCompatJson(cwd)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	addGeneratedFile(filepath.Join(cwd, upgrade.CompatibilityJson))
+	addGeneratedFile(filepath.Join(cwd, upgrade.CompatJson))
 }
 
 func addGeneratedFile(file string) {

@@ -26,8 +26,8 @@ type Release struct {
 
 	// The HTML URL is needed for human readable links in the output created
 	// by cmd/stupgrades.
-	HTMLURL       string        `json:"html_url"`
-	MinOSVersions MinOSVersions `json:"min_os_versions"`
+	HTMLURL     string      `json:"html_url"`
+	RuntimeReqs RuntimeReqs `json:"runtime_requirements"`
 }
 
 type Asset struct {
@@ -39,22 +39,27 @@ type Asset struct {
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
-// MinOSVersion maps OS names to the minimum kernel version required for that OS.
-type MinOSVersion map[string]string
+// Requirements maps a host/arch to the minimum OS (aka kernel) version
+// required for that host/arch.
+type Requirements map[string]string
 
-// MinOSVersions maps go versions to a MinOSVersion map for that version.
-// It effectively defines the structure of compatibility.yaml.
-type MinOSVersions map[string]MinOSVersion
+// RequirementsMap maps go versions to a Requirements map for that version.
+// It contains the same data that's in compat.yaml, but reorganized as a map.
+type RequirementsMap map[string]Requirements
 
-// RuntimeInfo defines the structure of compatibility.json, which is included
+// RuntimeReqs defines the structure of compat.json, which is included
 // in the release bundle (.tar.gz or .zip).
-type RuntimeInfo struct {
+type RuntimeReqs struct {
 	Runtime      string       `json:"runtime" yaml:"runtime"`
-	MinOSVersion MinOSVersion `json:"minOSVersion" yaml:"minOSVersion"`
+	Requirements Requirements `json:"requirements" yaml:"requirements"`
 }
 
-// RuntimeInfos defines the structure of compatibility.yaml.
-type RuntimeInfos []RuntimeInfo
+// RuntimeReqsArray defines the structure of compat.yaml.
+type RuntimeReqsArray []RuntimeReqs
+
+// Used to allow testing against a custom upgrade server. For example:
+// STUPGRADETEST_RELEASESURL=http://127.0.0.1:8080/meta.json .
+const testingReleasesURL = "STUPGRADETEST_RELEASESURL"
 
 var (
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
@@ -95,7 +100,7 @@ func ToURL(url string) error {
 			upgradeUnlocked <- true
 			return err
 		}
-		_, err = upgradeToURL(path.Base(url), binary, url)
+		err = upgradeToURL(path.Base(url), binary, url)
 		// If we've failed to upgrade, unlock so that another attempt could be made
 		if err != nil {
 			upgradeUnlocked <- true

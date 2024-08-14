@@ -33,6 +33,10 @@ type cli struct {
 	CacheTime     time.Duration `default:"15m" help:"Cache time"`
 }
 
+// RuntimeReqsMap maps a release's HTMLURL to the RuntimeReqs for the build of
+// that release.
+type RuntimeReqsMap map[string]upgrade.RuntimeReqs
+
 func main() {
 	var params cli
 	kong.Parse(&params)
@@ -54,13 +58,11 @@ func server(params *cli) error {
 		}()
 	}
 
-	minOSVersions, err := upgrade.GetMinOSVersions("")
-	if err != nil {
-		log.Fatalf("Error: %v\n", err)
-	}
-
 	mux := http.NewServeMux()
-	releases := &githubReleases{url: params.URL, minOSVersions: minOSVersions}
+	releases := &githubReleases{
+		url:              params.URL,
+		runtimeReqsCache: make(RuntimeReqsMap),
+	}
 	mux.Handle("/meta.json", httpcache.SinglePath(releases, params.CacheTime))
 
 	for _, fwd := range params.Forward {
@@ -83,8 +85,8 @@ func server(params *cli) error {
 }
 
 type githubReleases struct {
-	url           string
-	minOSVersions upgrade.MinOSVersions
+	url              string
+	runtimeReqsCache RuntimeReqsMap
 }
 
 func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
@@ -102,11 +104,24 @@ func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	// the browser URL field. This avoids going via the GitHub API for
 	// downloads, since Syncthing uses the URL field.
 	for i, rel := range rels {
-		rels[i].MinOSVersions = p.minOSVersions
 		for j, asset := range rel.Assets {
-			rel.Assets[j].URL = asset.BrowserURL
+			rel.Assets[j].URL = asset.BrowserURL + ""
 			rel.Assets[j].BrowserURL = ""
 		}
+
+		// Add the OS' minimum version requirements to each release in the response.
+		runtimeReqs, ok := p.runtimeReqsCache[rel.HTMLURL]
+		if !ok {
+			var err error
+			runtimeReqs, err = upgrade.FetchCompatJson(rel, "")
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			p.runtimeReqsCache[rel.HTMLURL] = runtimeReqs
+		}
+		log.Printf("Adding to response: %+v", runtimeReqs)
+		rels[i].RuntimeReqs = runtimeReqs
 	}
 
 	buf := new(bytes.Buffer)
