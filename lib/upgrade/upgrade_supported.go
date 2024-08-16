@@ -133,7 +133,7 @@ func (s SortByRelease) Less(i, j int) bool {
 // is found. Only releases that are compatible with the OS are returned.
 func LatestRelease(releasesURL, current string, upgradeToPreReleases bool) (Release, error) {
 	rels := FetchLatestReleases(releasesURL, current)
-	rel, err := selectLatestRelease(rels, current, upgradeToPreReleases)
+	rel, err := SelectLatestRelease(rels, current, upgradeToPreReleases)
 	if err != nil {
 		return Release{}, err
 	}
@@ -144,9 +144,9 @@ func LatestRelease(releasesURL, current string, upgradeToPreReleases bool) (Rele
 	return rel, nil
 }
 
-// selectLatestRelease returns the latest minor release found, or the latest
+// SelectLatestRelease returns the latest minor release found, or the latest
 // major release, if not minor release is found.
-func selectLatestRelease(rels []Release, current string, upgradeToPreReleases bool) (Release, error) {
+func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bool) (Release, error) {
 	if len(rels) == 0 {
 		return Release{}, ErrNoVersionToSelect
 	}
