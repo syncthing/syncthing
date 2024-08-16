@@ -416,7 +416,7 @@ func parseFlags() {
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
-	flag.BoolVar(&release, "release", release, "Generate release-related files for test suite and packaging")
+	flag.BoolVar(&release, "release", release, "Run release-related tests, and add release-related files (compat.json) to build archive")
 	flag.Parse()
 }
 

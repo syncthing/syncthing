@@ -14,23 +14,17 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"time"
 
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
-	"golang.org/x/net/http2"
 )
 
 const DisabledByCompilation = false
@@ -43,9 +37,6 @@ const (
 	// The max expected size of the signature file.
 	maxSignatureSize = 10 << 10 // 10 KiB
 
-	// The max expected size of the compat.json file.
-	maxCompatSize = 1 << 10 // 1 KiB
-
 	// We set the same limit on the archive. The binary will compress and we
 	// include some other stuff - currently the release archive size is
 	// around 6 MB.
@@ -55,43 +46,9 @@ const (
 	// looking once we've searched this many files.
 	maxArchiveMembers = 100
 
-	// Archive reads, or metadata checks, that take longer than this will be
-	// rejected.
-	readTimeout = 30 * time.Minute
-
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
-
-// This is an HTTP/HTTPS client that does *not* perform certificate
-// validation. We do this because some systems where Syncthing runs have
-// issues with old or missing CA roots. It doesn't actually matter that we
-// load the upgrade insecurely as we verify an ECDSA signature of the actual
-// binary contents before accepting the upgrade.
-var insecureHTTP = &http.Client{
-	Timeout: readTimeout,
-	Transport: &http.Transport{
-		DialContext: dialer.DialContext,
-		Proxy:       http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	},
-}
-
-func init() {
-	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
-}
-
-func insecureGet(url, version string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
-	return insecureHTTP.Do(req)
-}
 
 // FetchLatestReleases returns the latest releases. The "current" parameter
 // is used for setting the User-Agent only.
@@ -404,7 +361,7 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[
 
 	case CompatJson:
 		l.Debugf("found compatibility file %s", archivePath)
-		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatSize))
+		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatJsonSize))
 		if err != nil {
 			return err
 		}

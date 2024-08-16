@@ -74,7 +74,7 @@ func FetchCompatJson(rel Release, current string) (RuntimeReqs, error) {
 		if resp.StatusCode > 299 {
 			err = fmt.Errorf("error %v downloading %s", resp.Status, url)
 		} else {
-			err = json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&runtimeReqs)
+			err = json.NewDecoder(io.LimitReader(resp.Body, maxCompatJsonSize)).Decode(&runtimeReqs)
 		}
 
 		resp.Body.Close()
@@ -84,7 +84,7 @@ func FetchCompatJson(rel Release, current string) (RuntimeReqs, error) {
 
 	if err != nil {
 		// Once we include compat.json in our release bundles, we can remove this logic.
-		if os.Getenv("STUPGRADETEST_RELEASESURL") != "" {
+		if os.Getenv(releasesURLEnvVar) != "" {
 			var err2 error
 			runtimeReqs, err2 = getRuntimeReqsByReleaseTag(rel)
 			if err2 == nil {

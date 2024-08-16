@@ -15,9 +15,9 @@ import (
 )
 
 func TestFetchLatestReleases(t *testing.T) {
-	releasesURL := os.Getenv(testingReleasesURL)
+	releasesURL := os.Getenv(releasesURLEnvVar)
 	if releasesURL == "" {
-		t.Skipf("Skipping as %q is not set", testingReleasesURL)
+		t.Skipf("Skipping as %q is not set", releasesURLEnvVar)
 	}
 
 	t.Logf("Calling FetchLatestReleases(%q, %q)", releasesURL, "")
@@ -28,9 +28,9 @@ func TestFetchLatestReleases(t *testing.T) {
 }
 
 func TestLatestRelease(t *testing.T) {
-	releasesURL := os.Getenv(testingReleasesURL)
+	releasesURL := os.Getenv(releasesURLEnvVar)
 	if releasesURL == "" {
-		t.Skipf("Skipping as %q is not set", testingReleasesURL)
+		t.Skipf("Skipping as %q is not set", releasesURLEnvVar)
 	}
 
 	for _, upgradeToPreReleases := range []bool{false, true} {

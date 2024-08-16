@@ -15,8 +15,8 @@ func upgradeTo(binary string, rel Release) error {
 	return ErrUpgradeUnsupported
 }
 
-func upgradeToURL(archiveName, binary, url string) (string, error) {
-	return "", ErrUpgradeUnsupported
+func upgradeToURL(archiveName, binary, url string) error {
+	return ErrUpgradeUnsupported
 }
 
 func LatestRelease(releasesURL, current string, upgradeToPreRelease bool) (Release, error) {

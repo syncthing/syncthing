@@ -8,15 +8,33 @@
 package upgrade
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/dialer"
+	"golang.org/x/net/http2"
+)
+
+const (
+	// The max expected size of the compat.json file.
+	maxCompatJsonSize = 1 << 10 // 1 KiB
+
+	// Archive reads, or metadata checks, that take longer than this will be
+	// rejected.
+	readTimeout = 30 * time.Minute
+
+	// Used to allow testing against a custom upgrade server. For example:
+	// STUPGRADETEST_RELEASESURL=http://127.0.0.1:8080/meta.json .
+	releasesURLEnvVar = "STUPGRADETEST_RELEASESURL"
 )
 
 type Release struct {
@@ -56,10 +74,6 @@ type RuntimeReqs struct {
 
 // RuntimeReqsArray defines the structure of compat.yaml.
 type RuntimeReqsArray []RuntimeReqs
-
-// Used to allow testing against a custom upgrade server. For example:
-// STUPGRADETEST_RELEASESURL=http://127.0.0.1:8080/meta.json .
-const testingReleasesURL = "STUPGRADETEST_RELEASESURL"
 
 var (
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
@@ -270,4 +284,34 @@ func releaseNames(tag string) []string {
 	return []string{
 		fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag),
 	}
+}
+
+// This is an HTTP/HTTPS client that does *not* perform certificate
+// validation. We do this because some systems where Syncthing runs have
+// issues with old or missing CA roots. It doesn't actually matter that we
+// load the upgrade insecurely as we verify an ECDSA signature of the actual
+// binary contents before accepting the upgrade.
+var insecureHTTP = &http.Client{
+	Timeout: readTimeout,
+	Transport: &http.Transport{
+		DialContext: dialer.DialContext,
+		Proxy:       http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
+
+func init() {
+	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+}
+
+func insecureGet(url, version string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	return insecureHTTP.Do(req)
 }
