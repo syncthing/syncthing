@@ -42,8 +42,8 @@ type tagRuntime struct {
 
 // tagRuntimes defines the go version used to build each release, and all
 // future releases, if not listed.
-// It's only used when the STUPGRADETEST_RELEASESURL environment variable is so
-// our unit tests pass.
+// It's only used when the STUPGRADETEST_RELEASESURL environment variable is set
+// so our unit tests pass.
 // Once we include compat.json in our release bundles, we can remove this logic.
 var tagRuntimes = []tagRuntime{
 	{"1.27.10", "go1.22"},

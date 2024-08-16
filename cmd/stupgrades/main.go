@@ -105,7 +105,7 @@ func (p *githubReleases) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	// downloads, since Syncthing uses the URL field.
 	for i, rel := range rels {
 		for j, asset := range rel.Assets {
-			rel.Assets[j].URL = asset.BrowserURL + ""
+			rel.Assets[j].URL = asset.BrowserURL
 			rel.Assets[j].BrowserURL = ""
 		}
 
