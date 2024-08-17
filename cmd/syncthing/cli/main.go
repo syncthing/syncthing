@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/flynn-archive/go-shlex"
+	"github.com/kballard/go-shellquote"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
@@ -67,7 +67,7 @@ func (*stdinCommand) Run() error {
 	fmt.Println("Reading commands from stdin...", args)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		input, err := shlex.Split(scanner.Text())
+		input, err := shellquote.Split(scanner.Text())
 		if err != nil {
 			return fmt.Errorf("parsing input: %w", err)
 		}

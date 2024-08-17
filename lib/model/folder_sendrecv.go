@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/semaphore"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
