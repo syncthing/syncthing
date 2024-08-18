@@ -104,6 +104,22 @@ angular.module('syncthing.core')
             files: 0
         };
 
+        $scope.isDefaultLoginOption = function (loginOption) {
+            if (window.localStorage) {
+                return (window.localStorage.getItem("syncthing-default-login-option") || 'password') === loginOption;
+            } else {
+                return loginOption === 'password';
+            }
+        };
+
+        function saveDefaultLoginOption(loginOption) {
+            if (window.localStorage) {
+                window.localStorage.setItem("syncthing-default-login-option", loginOption);
+            } else {
+                // Nothing we can do
+            }
+        };
+
         $scope.authenticatePassword = function () {
             $scope.login.inProgress = true;
             $scope.login.errors = {};
@@ -112,6 +128,7 @@ angular.module('syncthing.core')
                 password: $scope.login.password,
                 stayLoggedIn: $scope.login.stayLoggedIn,
             }).then(function () {
+                saveDefaultLoginOption('password');
                 location.reload();
             }).catch(function (response) {
                 if (response.status === 403) {
@@ -1875,6 +1892,7 @@ angular.module('syncthing.core')
                                 );
                             })
                             .then(function () {
+                                saveDefaultLoginOption('webauthn');
                                 location.reload();
                             })
                             .catch(function (e) {

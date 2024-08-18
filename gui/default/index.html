@@ -355,7 +355,7 @@
               data-toggle="collapse"
               data-parent="#login-options"
               data-target="#login-option-password"
-              aria-expanded="true"
+              aria-expanded="{{isDefaultLoginOption('password') ? 'true' : 'false'}}"
             >
               <h4 class="panel-title">
                 <div class="panel-title-text" translate>
@@ -363,7 +363,7 @@
                 </div>
               </h4>
             </button>
-            <div id="login-option-password" class="panel-collapse collapse in">
+            <div id="login-option-password" class="panel-collapse collapse {{isDefaultLoginOption('password') ? 'in' : ''}}">
               <div class="panel-body">
                 <form ng-submit="authenticatePassword()">
                   <div class="form-group">
@@ -433,7 +433,7 @@
               data-toggle="collapse"
               data-parent="#login-options"
               data-target="#login-option-webauthn"
-              aria-expanded="false"
+              aria-expanded="{{isDefaultLoginOption('webauthn') ? 'true' : 'false'}}"
             >
               <h4 class="panel-title">
                 <div class="panel-title-text" translate>
@@ -441,7 +441,7 @@
                 </div>
               </h4>
             </button>
-            <div id="login-option-webauthn" class="panel-collapse collapse">
+            <div id="login-option-webauthn" class="panel-collapse collapse {{isDefaultLoginOption('webauthn') ? 'in' : ''}}">
               <div class="panel-body">
                 <div class="form-group">
                   <div class="col-md-6">
