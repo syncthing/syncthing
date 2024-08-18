@@ -395,7 +395,7 @@
 
                   <div class="form-group">
                     <div class="col-md-9">
-                      <label>
+                      <label class="stay-logged-in">
                         <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
                       </label>
                     </div>
@@ -445,7 +445,7 @@
               <div class="panel-body">
                 <div class="form-group">
                   <div class="col-md-6">
-                    <label>
+                    <label class="stay-logged-in">
                       <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
                     </label>
                   </div>
@@ -453,7 +453,6 @@
                     <button
                       type="button"
                       class="btn btn-primary"
-                      style="margin-bottom: 0.5em;"
                       ng-click="authenticateWebauthnFinish()"
                       ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()"
                       tabindex="3">

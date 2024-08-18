@@ -569,6 +569,14 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
+#login-options .panel-body {
+  padding: 1em;
+}
+
+#login-options .stay-logged-in {
+  margin-top: 0.25em;
+}
+
 .webauthn-credentials table.table > tbody > tr > td {
   vertical-align: middle;
 }
