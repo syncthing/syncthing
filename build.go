@@ -1606,7 +1606,7 @@ func addGeneratedFile(file string) {
 func shouldCleanupGeneratedFiles() {
 	for _, file := range generatedFiles {
 		if file == "" {
-			return
+			continue
 		}
 		if err := os.Remove(file); err != nil {
 			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", file, err)
