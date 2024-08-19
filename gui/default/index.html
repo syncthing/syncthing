@@ -350,13 +350,7 @@
         <div class="panel-group" id="login-options">
 
           <div class="panel panel-default">
-            <button
-              class="btn panel-heading"
-              data-toggle="collapse"
-              data-parent="#login-options"
-              data-target="#login-option-password"
-              aria-expanded="{{isDefaultLoginOption('password') ? 'true' : 'false'}}"
-            >
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#login-options" data-target="#login-option-password" aria-expanded="{{isDefaultLoginOption('password') ? 'true' : 'false'}}">
               <h4 class="panel-title">
                 <div class="panel-title-text" translate>Password</div>
               </h4>
@@ -366,29 +360,12 @@
                 <form ng-submit="authenticatePassword()">
                   <div class="form-group">
                     <label for="user" translate>User</label>
-                    <input
-                      id="user"
-                      class="form-control"
-                      type="text"
-                      name="user"
-                      ng-model="login.username"
-                      autofocus
-                      required
-                      autocomplete="username"
-                    />
+                    <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
                   </div>
 
                   <div class="form-group">
                     <label for="password" translate>Password</label>
-                    <input
-                      id="password"
-                      class="form-control"
-                      type="password"
-                      name="password"
-                      ng-model="login.password"
-                      ng-trim="false"
-                      autocomplete="current-password"
-                    />
+                    <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
                   </div>
 
                   <div class="form-group">
@@ -398,13 +375,7 @@
                       </label>
                     </div>
                     <div class="col-md-3 text-right">
-                      <button
-                        type="submit"
-                        id="submit"
-                        class="btn btn-primary"
-                        ng-disabled="login.inProgress"
-                        translate
-                      >
+                      <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>
                         Log In
                       </button>
                     </div>
@@ -426,13 +397,7 @@
           </div>
 
           <div class="panel panel-default">
-            <button
-              class="btn panel-heading"
-              data-toggle="collapse"
-              data-parent="#login-options"
-              data-target="#login-option-webauthn"
-              aria-expanded="{{isDefaultLoginOption('webauthn') ? 'true' : 'false'}}"
-            >
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#login-options" data-target="#login-option-webauthn" aria-expanded="{{isDefaultLoginOption('webauthn') ? 'true' : 'false'}}">
               <h4 class="panel-title">
                 <div class="panel-title-text" translate>WebAuthn (Passkey)</div>
               </h4>
@@ -442,22 +407,13 @@
                 <div class="form-group">
                   <div class="col-md-6">
                     <label class="stay-logged-in">
-                      <input
-                        type="checkbox"
-                        ng-model="login.stayLoggedIn"
-                        ng-disabled="login.inProgress || isWebauthnLoginDisabled()"
-                      >
+                      <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress || isWebauthnLoginDisabled()">
                       &nbsp;
                       <span translate>Stay logged in</span>
                     </label>
                   </div>
                   <div class="col-md-6 text-right">
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      ng-click="authenticateWebauthnFinish()"
-                      ng-disabled="login.inProgress || isWebauthnLoginDisabled()"
-                      tabindex="3">
+                    <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || isWebauthnLoginDisabled()" tabindex="3">
                       <span translate>Log in with WebAuthn</span>
                     </button>
                   </div>
