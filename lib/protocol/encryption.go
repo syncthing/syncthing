@@ -8,6 +8,7 @@ package protocol
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
 	"errors"
@@ -20,7 +21,6 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/miscreant/miscreant.go"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"

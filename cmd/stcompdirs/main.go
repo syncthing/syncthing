@@ -7,6 +7,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"path/filepath"
 
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 func main() {

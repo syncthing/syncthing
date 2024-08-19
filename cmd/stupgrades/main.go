@@ -19,16 +19,18 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
 type cli struct {
-	Listen    string        `default:":8080" help:"Listen address"`
-	URL       string        `short:"u" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=25" help:"GitHub releases url"`
-	Forward   []string      `short:"f" help:"Forwarded pages, format: /path->https://example/com/url"`
-	CacheTime time.Duration `default:"15m" help:"Cache time"`
+	Listen        string        `default:":8080" help:"Listen address"`
+	MetricsListen string        `default:":8081" help:"Listen address for metrics"`
+	URL           string        `short:"u" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=25" help:"GitHub releases url"`
+	Forward       []string      `short:"f" help:"Forwarded pages, format: /path->https://example/com/url"`
+	CacheTime     time.Duration `default:"15m" help:"Cache time"`
 }
 
 func main() {
@@ -41,17 +43,37 @@ func main() {
 }
 
 func server(params *cli) error {
-	http.Handle("/meta.json", httpcache.SinglePath(&githubReleases{url: params.URL}, params.CacheTime))
+	if params.MetricsListen != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		go func() {
+			log.Println("Listening for metrics on", params.MetricsListen)
+			if err := http.ListenAndServe(params.MetricsListen, mux); err != nil {
+				log.Fatalf("Failed to start metrics server: %v", err)
+			}
+		}()
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/meta.json", httpcache.SinglePath(&githubReleases{url: params.URL}, params.CacheTime))
 
 	for _, fwd := range params.Forward {
 		path, url, ok := strings.Cut(fwd, "->")
 		if !ok {
 			return fmt.Errorf("invalid forward: %q", fwd)
 		}
-		http.Handle(path, httpcache.SinglePath(&proxy{url: url}, params.CacheTime))
+		log.Println("Forwarding", path, "to", url)
+		mux.Handle(path, httpcache.SinglePath(&proxy{url: url}, params.CacheTime))
 	}
 
-	return http.ListenAndServe(params.Listen, nil)
+	srv := &http.Server{
+		Addr:         params.Listen,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	srv.SetKeepAlivesEnabled(false)
+	return srv.ListenAndServe()
 }
 
 type githubReleases struct {

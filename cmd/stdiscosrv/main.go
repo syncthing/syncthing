@@ -22,6 +22,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture/v4"
@@ -80,6 +81,8 @@ func main() {
 	var replKeyFile string
 	var useHTTP bool
 	var largeDB bool
+	var amqpAddress string
+	missesIncrease := 1
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
@@ -96,6 +99,8 @@ func main() {
 	flag.StringVar(&replCertFile, "replication-cert", "", "Certificate file for replication")
 	flag.StringVar(&replKeyFile, "replication-key", "", "Key file for replication")
 	flag.BoolVar(&largeDB, "large-db", false, "Use larger database settings")
+	flag.StringVar(&amqpAddress, "amqp-address", "", "Address to AMQP broker")
+	flag.IntVar(&missesIncrease, "misses-increase", 1, "How many times to increase the misses counter on each miss")
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
@@ -203,8 +208,24 @@ func main() {
 		main.Add(rl)
 	}
 
+	// If we have an AMQP broker, start that
+	if amqpAddress != "" {
+		clientID := rand.String(10)
+		kr := newAMQPReplicator(amqpAddress, clientID, db)
+		repl = append(repl, kr)
+		main.Add(kr)
+	}
+
+	go func() {
+		for range time.NewTicker(time.Second).C {
+			for _, r := range repl {
+				r.send("<heartbeat>", nil, time.Now().UnixNano())
+			}
+		}
+	}()
+
 	// Start the main API server.
-	qs := newAPISrv(listen, cert, db, repl, useHTTP)
+	qs := newAPISrv(listen, cert, db, repl, useHTTP, missesIncrease)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.

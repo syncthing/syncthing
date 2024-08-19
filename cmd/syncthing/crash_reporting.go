@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,8 +17,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (

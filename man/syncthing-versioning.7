@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "May 08, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Aug 15, 2024" "v1.27.10" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -285,7 +285,7 @@ files permanently.
 .SH CONFIGURATION PARAMETER REFERENCE
 .sp
 The versioning settings are grouped into their own section of each folder in the
-\X'tty: link #config-option-folder.versioning'\fI\%configuration file\fP\X'tty: link'\&.  The following shows an
+\fI\%configuration file\fP\&.  The following shows an
 example of such a section in the XML:
 .INDENT 0.0
 .INDENT 3.5
@@ -326,7 +326,7 @@ in the \fI\%params\fP element.
 .B versioning.fsType
 The internal file system implementation used to access this versions folder.
 Only applies if \fI\%fsPath\fP is also set non\-empty,
-otherwise the \X'tty: link #config-option-folder.filesystemtype'\fI\%filesystemType\fP\X'tty: link' from the folder element is used
+otherwise the \fI\%filesystemType\fP from the folder element is used
 instead.  Refer to that option description for possible values.  Ignored for
 the \fBexternal\fP versioning strategy.
 .sp

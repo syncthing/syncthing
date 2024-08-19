@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "May 08, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Aug 15, 2024" "v1.27.10" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -102,7 +102,7 @@ $ curl \-H \(dqX\-API\-Key: yourkey\(dq localhost:8384/rest/system/browse?curren
 .UNINDENT
 .SS GET /rest/system/config (DEPRECATED)
 .sp
-Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use \X'tty: link #rest-config'\fI\%/rest/config\fP\X'tty: link'
+Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use \fI\%/rest/config\fP
 instead.
 
 .sp
@@ -371,7 +371,7 @@ Returns the current configuration.
 .SS GET /rest/system/config/insync (DEPRECATED)
 .sp
 Deprecated since version v1.12.0: This endpoint still works as before but is deprecated. Use
-\X'tty: link #rest-config-insync'\fI\%/rest/config/restart\-required\fP\X'tty: link' instead.
+\fI\%/rest/config/restart\-required\fP instead.
 
 .sp
 Returns whether the config is in sync, i.e. whether the running
@@ -395,7 +395,7 @@ instead.
 Post the full contents of the configuration, in the same format as returned by
 the corresponding GET request. When posting the configuration succeeds,
 the posted configuration is immediately applied, except for changes that require a restart. Query
-\X'tty: link #rest-config-insync'\fI\%/rest/config/restart\-required\fP\X'tty: link' to check if a restart is required.
+\fI\%/rest/config/restart\-required\fP to check if a restart is required.
 .sp
 This endpoint is the main point to control Syncthing, even if the change only
 concerns a very small part of the config: The usual workflow is to get the
@@ -682,7 +682,7 @@ curl \-X POST \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/system/
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \X'tty: link #cmdoption-reset-database'\fI\%\-\-reset\-database\fP\X'tty: link' for \fB\&.stfolder\fP creation
+\fBCaution\fP: See \fI\%\-\-reset\-database\fP for \fB\&.stfolder\fP creation
 side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
@@ -902,7 +902,7 @@ patterns to be used by default on folders, as an array of single\-line strings.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-The \X'tty: link #config-option-gui.password'\fI\%gui.password\fP\X'tty: link' configuration option has special handling to
+The \fI\%gui.password\fP configuration option has special handling to
 accept already hashed passwords.  Any valid bcrypt hash is stored verbatim,
 while a plaintext password is first hashed.
 .UNINDENT
@@ -1035,7 +1035,7 @@ Added in version 0.14.53.
 Takes one mandatory parameter, \fBfolder\fP, and returns the list of errors
 encountered during scanning or pulling.
 .sp
-The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1418,7 +1418,7 @@ were changed locally in a receive\-only folder.  Thus they differ from the globa
 state and could be reverted by pulling from remote devices again, see
 \fI\%POST /rest/db/revert\fP\&.
 .sp
-The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1455,7 +1455,7 @@ Use sparingly.
 Takes one mandatory parameter, \fBfolder\fP, and returns lists of files which are
 needed by this device in order for it to become in sync.
 .sp
-The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.  Pagination happens, across the union of all needed files,
+The results can be paginated using the \fI\%common pagination parameters\fP\&.  Pagination happens, across the union of all needed files,
 that is \- across all 3 sections of the response.  For example, given the current
 need state is as follows:
 .INDENT 0.0
@@ -1559,7 +1559,7 @@ Takes the mandatory parameters \fBfolder\fP and \fBdevice\fP, and returns the li
 of files which are needed by that remote device in order for it to become in
 sync with the shared folder.
 .sp
-The results can be paginated using the \X'tty: link #rest-pagination'\fI\%common pagination parameters\fP\X'tty: link'\&.
+The results can be paginated using the \fI\%common pagination parameters\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1730,7 +1730,7 @@ To receive events, perform a HTTP GET of \fB/rest/events\fP\&.
 .sp
 To filter the event list, in effect creating a specific subscription for only
 the desired event types, add a parameter \fBevents=EventTypeA,EventTypeB,...\fP
-where the event types are any of the \X'tty: link #event-types'\fI\%Event Types\fP\X'tty: link'\&.  If no filter is
+where the event types are any of the \fI\%Event Types\fP\&.  If no filter is
 specified, all events \fIexcept\fP \fI\%LocalChangeDetected\fP and
 \fI\%RemoteChangeDetected\fP are included.
 .sp
@@ -1908,7 +1908,7 @@ Returns the data sent in the anonymous usage report.
 .SH DEBUG ENDPOINTS
 .SS Debug Endpoints
 .sp
-These endpoints require the \X'tty: link #config-option-gui.debugging'\fI\%gui.debugging\fP\X'tty: link' configuration option to
+These endpoints require the \fI\%gui.debugging\fP configuration option to
 be enabled and yield an access denied error code otherwise.
 .SS GET /rest/debug/peerCompletion
 .sp

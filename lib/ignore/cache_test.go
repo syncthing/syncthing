@@ -21,7 +21,7 @@ func TestCache(t *testing.T) {
 		clock = oldClock
 	}()
 
-	c := newCache(nil)
+	c := newCache()
 
 	res, ok := c.get("nonexistent")
 	if res.IsIgnored() || res.IsDeletable() || ok {

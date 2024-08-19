@@ -75,7 +75,7 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 }
 
 // A momentary state representing the progress of the puller
-type pullerProgress struct {
+type PullerProgress struct {
 	Total                   int   `json:"total"`
 	Reused                  int   `json:"reused"`
 	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
@@ -405,13 +405,13 @@ func encryptionTrailerSize(file protocol.FileInfo) int64 {
 }
 
 // Progress returns the momentarily progress for the puller
-func (s *sharedPullerState) Progress() *pullerProgress {
+func (s *sharedPullerState) Progress() *PullerProgress {
 	s.mut.RLock()
 	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
 	file := len(s.file.Blocks)
-	return &pullerProgress{
+	return &PullerProgress{
 		Total:               total,
 		Reused:              s.reused,
 		CopiedFromOrigin:    s.copyOrigin,

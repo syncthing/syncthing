@@ -9,6 +9,7 @@ package ignore
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +22,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -205,7 +205,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	m.curHash = newHash
 	m.patterns = patterns
 	if m.withCache {
-		m.matches = newCache(patterns)
+		m.matches = newCache()
 	}
 
 	return err
@@ -231,6 +231,8 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		return ignoreresult.NotIgnored
 	}
 
+	file = filepath.ToSlash(file)
+
 	if m.matches != nil {
 		// Check the cache for a known result.
 		res, ok := m.matches.get(file)
@@ -248,7 +250,6 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	// allow skipping matched directories or not. As soon as we hit an
 	// exclude pattern (with some exceptions), we can't skip directories
 	// anymore.
-	file = filepath.ToSlash(file)
 	var lowercaseFile string
 	canSkipDir := true
 	for _, pattern := range m.patterns {

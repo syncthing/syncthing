@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "May 08, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 15, 2024" "v1.27.10" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -84,7 +84,7 @@ with a custom certificate for HTTPS as desired.
 .sp
 The database is by default stored in the same directory as the config, but
 the location may be overridden by the \fB\-\-data\fP or \fB\-\-home\fP flags or the
-corresponding environment varibles (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
+corresponding environment variables (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 .sp
 The database directory contains the following files, among others:
 .INDENT 0.0
@@ -119,7 +119,7 @@ may no longer correspond to the defaults.
 .sp
 .EX
 <configuration version=\(dq37\(dq>
-    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -225,7 +225,7 @@ may no longer correspond to the defaults.
     </options>
     <remoteIgnoredDevice time=\(dq2022\-01\-09T20:02:01Z\(dq id=\(dq5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU\(dq name=\(dqbugger\(dq address=\(dq192.168.0.20:22000\(dq></remoteIgnoredDevice>
     <defaults>
-        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
             <filesystemType>basic</filesystemType>
             <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
                 <encryptionPassword></encryptionPassword>
@@ -317,7 +317,7 @@ GUI.
 .INDENT 3.5
 .sp
 .EX
-<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
@@ -427,6 +427,13 @@ If set to \fBtrue\fP, this detects changes to files in the folder and scans them
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
 scheduled (only takes effect if \fI\%fsWatcherEnabled\fP is set to \fBtrue\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsWatcherTimeoutS
+The maximum delay before a scan is triggered when a file is continuously
+changing. If unset or zero a default value is calculated based on
+\fI\%fsWatcherDelayS\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -595,7 +602,7 @@ to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
-\X'tty: link #marker-faq'\fI\%How do I serve a folder from a read only filesystem?\fP\X'tty: link'\&. Default is \fB\&.stfolder\fP\&.
+\fI\%How do I serve a folder from a read only filesystem?\fP\&. Default is \fB\&.stfolder\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -744,7 +751,7 @@ element:
 .INDENT 0.0
 .TP
 .B id (mandatory)
-The \X'tty: link #device-ids'\fI\%device ID\fP\X'tty: link'\&.
+The \fI\%device ID\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1327,7 +1334,7 @@ automatic upgrades.
 .TP
 .B upgradeToPreReleases
 If \fBtrue\fP, automatic upgrades include release candidates (see
-\X'tty: link #releases'\fI\%Versions & Releases\fP\X'tty: link').
+\fI\%Versions & Releases\fP).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1482,7 +1489,7 @@ addresses to global discovery.
 .TP
 .B sendFullIndexOnUpgrade
 Controls whether all index data is resent when an upgrade has happened,
-equivalent to starting Syncthing with \X'tty: link #cmdoption-reset-deltas'\fI\%\-\-reset\-deltas\fP\X'tty: link'\&.  This used
+equivalent to starting Syncthing with \fI\%\-\-reset\-deltas\fP\&.  This used
 to be the default behavior in older versions, but is mainly useful as a
 troubleshooting step and causes high database churn. The default is now
 \fBfalse\fP\&.
@@ -1522,7 +1529,7 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .sp
 .EX
 <defaults>
-    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -1609,7 +1616,7 @@ including the appropriate \fI\%folder.device\fP element underneath.
 Added in version 1.19.0.
 
 .sp
-Template for the \X'tty: link #ignoring-files'\fI\%ignore patterns\fP\X'tty: link' applied to new
+Template for the \fI\%ignore patterns\fP applied to new
 folders.  These are copied to the \fB\&.stignore\fP file when a folder is
 automatically accepted from a remote device.  The GUI uses them to pre\-fill
 the respective field when adding a new folder as well.  In XML, each pattern
@@ -1681,12 +1688,12 @@ accidentally if you sync your home folder between devices. A common symptom
 of syncing configuration files is two devices ending up with the same Device ID.
 .sp
 If you want to use Syncthing to backup your configuration files, it is recommended
-that the files you are backing up are in a \X'tty: link #folder-sendonly'\fI\%Send Only Folder\fP\X'tty: link' to prevent other
+that the files you are backing up are in a \fI\%Send Only Folder\fP to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
 If you’d like to sync your home folder in non\-send only mode, you may add the
-folder that stores the configuration files to the \X'tty: link #ignoring-files'\fI\%ignore list\fP\X'tty: link'\&.
+folder that stores the configuration files to the \fI\%ignore list\fP\&.
 If you’d also like to backup your configuration files, add another folder in
 send only mode for just the configuration folder.
 .SH AUTHOR

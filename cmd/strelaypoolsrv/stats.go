@@ -6,26 +6,11 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/syncthing/syncthing/lib/sync"
 )
-
-func init() {
-	processCollectorOpts := collectors.ProcessCollectorOpts{
-		Namespace: "syncthing_relaypoolsrv",
-		PidFn: func() (int, error) {
-			return os.Getpid(), nil
-		},
-	}
-
-	prometheus.MustRegister(
-		collectors.NewProcessCollector(processCollectorOpts),
-	)
-}
 
 var (
 	statusClient = http.Client{

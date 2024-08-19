@@ -261,11 +261,6 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		}
 	}
 
-	// Case handling is the innermost, as any filesystem calls by wrappers should be case-resolved
-	if caseOpt != nil {
-		fs = caseOpt.apply(fs)
-	}
-
 	// mtime handling should happen inside walking, as filesystem calls while
 	// walking should be mtime-resolved too
 	if mtimeOpt != nil {
@@ -274,15 +269,35 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 
 	fs = &metricsFS{next: fs}
 
+	layersAboveWalkFilesystem := 0
+	if caseOpt != nil {
+		// DirNames calls made to check the case of a name will also be
+		// attributed to the calling function.
+		layersAboveWalkFilesystem++
+	}
 	if l.ShouldDebug("walkfs") {
-		return NewWalkFilesystem(&logFilesystem{fs})
+		// A walkFilesystem is not a layer to skip, it embeds the underlying
+		// filesystem, passing calls directly trough. Except for calls made
+		// during walking, however those are truly originating in the walk
+		// filesystem.
+		fs = NewWalkFilesystem(newLogFilesystem(fs, layersAboveWalkFilesystem))
+	} else if l.ShouldDebug("fs") {
+		fs = newLogFilesystem(NewWalkFilesystem(fs), layersAboveWalkFilesystem)
+	} else {
+		fs = NewWalkFilesystem(fs)
 	}
 
-	if l.ShouldDebug("fs") {
-		return &logFilesystem{NewWalkFilesystem(fs)}
+	// Case handling is at the outermost layer to resolve all input names.
+	// Reason being is that the only names/paths that are potentially "wrong"
+	// come from outside the fs package. Any paths that result from filesystem
+	// operations itself already have the correct case. Thus there's e.g. no
+	// point to check the case on all the stating the walk filesystem does, it
+	// just adds overhead.
+	if caseOpt != nil {
+		fs = caseOpt.apply(fs)
 	}
 
-	return NewWalkFilesystem(fs)
+	return fs
 }
 
 // IsInternal returns true if the file, as a path relative to the folder

@@ -222,7 +222,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(context.Background(), device1, "default", files[i%n].Name, 0, 0, 32, nil, 0, false)
+		data, err := m.RequestGlobal(context.Background(), device1, "default", files[i%n].Name, 0, 0, 32, nil, 0, false)
 		if err != nil {
 			b.Error(err)
 		}

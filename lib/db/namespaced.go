@@ -143,7 +143,7 @@ func NewFolderStatisticsNamespace(db backend.Backend, folder string) *Namespaced
 	return NewNamespacedKV(db, string(KeyTypeFolderStatistic)+folder)
 }
 
-// NewMiscDateNamespace creates a KV namespace for miscellaneous metadata.
+// NewMiscDataNamespace creates a KV namespace for miscellaneous metadata.
 func NewMiscDataNamespace(db backend.Backend) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeMiscData))
 }
