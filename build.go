@@ -34,6 +34,7 @@ import (
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1562,18 +1563,13 @@ func nextPatchVersion(ver string) string {
 	return strings.Join(digits, ".")
 }
 
-type compatEntry struct {
-	Runtime      string            `json:"runtime"`
-	Requirements map[string]string `json:"requirements"`
-}
-
 func writeCompatJSON() error {
 	bs, err := os.ReadFile("compat.yaml")
 	if err != nil {
 		return err
 	}
 
-	var entries []compatEntry
+	var entries []upgrade.RuntimeCompat
 	if err := yaml.Unmarshal(bs, &entries); err != nil {
 		return err
 	}

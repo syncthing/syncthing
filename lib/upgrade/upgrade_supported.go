@@ -119,12 +119,13 @@ func FetchLatestReleases(releasesURL, current string) []Release {
 		// requirements
 		for _, asset := range rel.Assets {
 			if asset.Name == "compat.json" {
-				bs, err := http.Get(asset.URL)
+				resp, err := insecureGet(asset.URL, current)
 				if err != nil {
 					l.Infoln("Fetching compat.json:", err)
 					continue
 				}
-				if err := json.NewDecoder(bs.Body).Decode(&rel.RuntimeReqs); err != nil {
+				defer resp.Body.Close()
+				if err := json.NewDecoder(resp.Body).Decode(&rel.RuntimeReqs); err != nil {
 					l.Infoln("Unmarshalling compat.json:", err)
 				}
 				break

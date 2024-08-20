@@ -27,7 +27,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 	osVersion := normalizeKernelVersion(currentKernel)
 	runtimeReqs := RuntimeReqs{
 		Runtime:      runtime.Version(),
-		Requirements: Requirements{runtime.GOOS: osVersion},
+		Requirements: map[string]string{runtime.GOOS: osVersion},
 	}
 
 	err = verifyRuntimeRequirements(runtimeReqs)
@@ -35,7 +35,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil", runtimeReqs, err)
 	}
 
-	runtimeReqs.Requirements = Requirements{runtime.GOOS + "/" + runtime.GOARCH: osVersion}
+	runtimeReqs.Requirements = map[string]string{runtime.GOOS + "/" + runtime.GOARCH: osVersion}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err != nil {
 		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil", runtimeReqs, err)
@@ -47,7 +47,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 		t.Errorf("Invalid int in %q", currentKernel)
 	}
 	major++
-	runtimeReqs.Requirements = Requirements{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
+	runtimeReqs.Requirements = map[string]string{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err == nil {
 		t.Errorf("checkOSCompatibility(%+v): got nil, expected an error, as our OS kernel is %q",
@@ -55,7 +55,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 	}
 
 	major -= 2
-	runtimeReqs.Requirements = Requirements{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
+	runtimeReqs.Requirements = map[string]string{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err != nil {
 		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil, as our OS kernel is %q",

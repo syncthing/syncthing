@@ -39,23 +39,12 @@ type Asset struct {
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
-// Requirements maps a host/arch to the minimum OS (aka kernel) version
-// required for that host/arch.
-type Requirements map[string]string
-
-// RequirementsMap maps go versions to a Requirements map for that version.
-// It contains the same data that's in compat.yaml, but reorganized as a map.
-type RequirementsMap map[string]Requirements
-
 // RuntimeReqs defines the structure of compat.json, which is included
-// in the release bundle (.tar.gz or .zip).
+// with each elease.
 type RuntimeReqs struct {
-	Runtime      string       `json:"runtime" yaml:"runtime"`
-	Requirements Requirements `json:"requirements" yaml:"requirements"`
+	Runtime      string            `json:"runtime"`
+	Requirements map[string]string `json:"requirements"`
 }
-
-// RuntimeReqsArray defines the structure of compat.yaml.
-type RuntimeReqsArray []RuntimeReqs
 
 var (
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
