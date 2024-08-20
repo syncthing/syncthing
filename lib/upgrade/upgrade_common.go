@@ -42,8 +42,8 @@ type Asset struct {
 // RuntimeReqs defines the structure of compat.json, which is included
 // with each elease.
 type RuntimeReqs struct {
-	Runtime      string            `json:"runtime"`
-	Requirements map[string]string `json:"requirements"`
+	Runtime      string            `json:"runtime,omitempty"`
+	Requirements map[string]string `json:"requirements,omitempty"`
 }
 
 var (
