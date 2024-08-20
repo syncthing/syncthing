@@ -13,7 +13,7 @@
           <h4 class="panel-title" translate tabindex="0">GUI</h4>
         </div>
         <div id="guiConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="guiHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
                 <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-gui.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
@@ -32,7 +32,7 @@
           <h4 class="panel-title" tabindex="0" translate>Options</h4>
         </div>
         <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in advancedConfig.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                 <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-options.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
@@ -51,7 +51,7 @@
           <h4 class="panel-title" tabindex="0" translate>LDAP</h4>
         </div>
         <div id="ldapConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ldapHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in advancedConfig.ldap" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                 <label for="ldapInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-ldap.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
@@ -70,7 +70,7 @@
           <h4 class="panel-title" translate>Folders</h4>
         </div>
         <div id="advancedFolders" class="panel-collapse collapse" role="tabpanel" aria-labelledby="advancedFoldersHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
             <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders" ng-init="folderIndex = $index">
               <div class="panel-heading" role="tab" id="folder{{folderIndex}}Heading" data-toggle="collapse" data-parent="#advancedFolders" href="#folder{{folderIndex}}Config" aria-expanded="false" aria-controls="folder{{folderIndex}}Config" style="cursor: pointer;">
                 <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">
@@ -81,7 +81,7 @@
                 </h4>
               </div>
               <div id="folder{{folderIndex}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folderIndex}}Heading">
-                <div class="panel-body">
+                <div class="panel-body less-padding">
                   <form class="form-horizontal" role="form">
                     <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                       <label for="folder{{folderIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-folder.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
@@ -103,7 +103,7 @@
           <h4 class="panel-title" tabindex="0" translate>Devices</h4>
         </div>
         <div id="advancedDevices" class="panel-collapse collapse" role="tabpanel" aria-labelledby="advancedDevicesHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
             <div class="panel panel-default" ng-repeat="device in advancedConfig.devices" ng-init="deviceIndex = $index">
               <div class="panel-heading" role="tab" id="device{{deviceIndex}}Heading" data-toggle="collapse" data-parent="#advancedDevices" href="#device{{deviceIndex}}Config" aria-expanded="false" aria-controls="device{{deviceIndex}}Config" style="cursor: pointer;">
                 <h4 class="panel-title" tabindex="0">
@@ -111,7 +111,7 @@
                 </h4>
               </div>
               <div id="device{{deviceIndex}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="device{{deviceIndex}}Heading">
-                <div class="panel-body">
+                <div class="panel-body less-padding">
                   <form class="form-horizontal" role="form">
                     <div ng-repeat="(key, value) in device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                       <label for="device{{deviceIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-device.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
@@ -133,7 +133,7 @@
           <h4 class="panel-title" tabindex="0" translate>Defaults</h4>
         </div>
         <div id="advancedDefaults" class="panel-collapse collapse" role="tabpanel" aria-labelledby="advancedDefaultsHeading">
-          <div class="panel-body">
+          <div class="panel-body less-padding">
 
             <div class="panel panel-default">
               <div class="panel-heading" role="tab" id="advancedDefaultFolderHeading" data-toggle="collapse" data-parent="#advancedDefaults" href="#advancedDefaultFolder" aria-expanded="false" aria-controls="advancedDefaultFolder" style="cursor: pointer;">
