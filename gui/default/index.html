@@ -375,9 +375,7 @@
                       </label>
                     </div>
                     <div class="col-md-3 text-right">
-                      <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>
-                        Log In
-                      </button>
+                      <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>Log In</button>
                     </div>
                   </div>
 
@@ -407,9 +405,7 @@
                 <div class="form-group">
                   <div class="col-md-6">
                     <label class="stay-logged-in">
-                      <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress || isWebauthnLoginDisabled()">
-                      &nbsp;
-                      <span translate>Stay logged in</span>
+                      <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress || isWebauthnLoginDisabled()">&nbsp;<span translate>Stay logged in</span>
                     </label>
                   </div>
                   <div class="col-md-6 text-right">
