@@ -19,7 +19,7 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 )
 
-func TestCompatCheckOSCompatibility(t *testing.T) {
+func TestVerifyRuntimeRequirements(t *testing.T) {
 	currentKernel, err := host.KernelVersion()
 	if err != nil {
 		t.Fatal(err)
@@ -32,13 +32,13 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err != nil {
-		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil", runtimeReqs, err)
+		t.Errorf("verifyRuntimeRequirements(%+v): got %q, expected nil", runtimeReqs, err)
 	}
 
 	runtimeReqs.Requirements = map[string]string{runtime.GOOS + "/" + runtime.GOARCH: osVersion}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err != nil {
-		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil", runtimeReqs, err)
+		t.Errorf("verifyRuntimeRequirements(%+v): got %q, expected nil", runtimeReqs, err)
 	}
 
 	before, after, _ := strings.Cut(osVersion, ".")
@@ -50,7 +50,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 	runtimeReqs.Requirements = map[string]string{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err == nil {
-		t.Errorf("checkOSCompatibility(%+v): got nil, expected an error, as our OS kernel is %q",
+		t.Errorf("verifyRuntimeRequirements(%+v): got nil, expected an error, as our OS kernel is %q",
 			runtimeReqs, currentKernel)
 	}
 
@@ -58,7 +58,7 @@ func TestCompatCheckOSCompatibility(t *testing.T) {
 	runtimeReqs.Requirements = map[string]string{runtime.GOOS: fmt.Sprintf("%d.%s", major, after)}
 	err = verifyRuntimeRequirements(runtimeReqs)
 	if err != nil {
-		t.Errorf("checkOSCompatibility(%+v): got %q, expected nil, as our OS kernel is %q",
+		t.Errorf("verifyRuntimeRequirements(%+v): got %q, expected nil, as our OS kernel is %q",
 			runtimeReqs, err, currentKernel)
 	}
 }
