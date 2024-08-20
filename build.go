@@ -307,9 +307,6 @@ func runCommand(cmd string, target target) {
 		metalintShort()
 
 	case "build":
-		if err := writeCompatJSON(); err != nil {
-			log.Fatalf("Failed to write compat.json: %v", err)
-		}
 		build(target, tags)
 
 	case "test":
@@ -347,12 +344,15 @@ func runCommand(cmd string, target target) {
 
 	case "tar":
 		buildTar(target, tags)
+		writeCompatJSON()
 
 	case "zip":
 		buildZip(target, tags)
+		writeCompatJSON()
 
 	case "deb":
 		buildDeb(target)
+		writeCompatJSON()
 
 	case "vet":
 		metalintShort()
@@ -1563,24 +1563,28 @@ func nextPatchVersion(ver string) string {
 	return strings.Join(digits, ".")
 }
 
-func writeCompatJSON() error {
+func writeCompatJSON() {
 	bs, err := os.ReadFile("compat.yaml")
 	if err != nil {
-		return err
+		log.Fatal("Reading compat.yaml:", err)
 	}
 
-	var entries []upgrade.RuntimeCompat
+	var entries []upgrade.RuntimeReqs
 	if err := yaml.Unmarshal(bs, &entries); err != nil {
-		return err
+		log.Fatal("Parsing compat.yaml:", err)
 	}
 
 	rt := runtime.Version()
 	for _, e := range entries {
-		if strings.HasPrefix(rt, e.Runtime) {
-			bs, _ := json.MarshalIndent(e, "", "  ")
-			return os.WriteFile("compat.json", bs, 0o644)
+		if !strings.HasPrefix(rt, e.Runtime) {
+			continue
 		}
+		bs, _ := json.MarshalIndent(e, "", "  ")
+		if err := os.WriteFile("compat.json", bs, 0o644); err != nil {
+			log.Fatal("Writing compat.json:", err)
+		}
+		return
 	}
 
-	return fmt.Errorf("runtime %v not found in compat.yaml", rt)
+	log.Fatalf("runtime %v not found in compat.yaml", rt)
 }
