@@ -14,17 +14,23 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
+	"golang.org/x/net/http2"
 )
 
 const DisabledByCompilation = false
@@ -46,9 +52,43 @@ const (
 	// looking once we've searched this many files.
 	maxArchiveMembers = 100
 
+	// Archive reads, or metadata checks, that take longer than this will be
+	// rejected.
+	readTimeout = 30 * time.Minute
+
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
+
+// This is an HTTP/HTTPS client that does *not* perform certificate
+// validation. We do this because some systems where Syncthing runs have
+// issues with old or missing CA roots. It doesn't actually matter that we
+// load the upgrade insecurely as we verify an ECDSA signature of the actual
+// binary contents before accepting the upgrade.
+var insecureHTTP = &http.Client{
+	Timeout: readTimeout,
+	Transport: &http.Transport{
+		DialContext: dialer.DialContext,
+		Proxy:       http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
+
+func init() {
+	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+}
+
+func insecureGet(url, version string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	return insecureHTTP.Do(req)
+}
 
 // FetchLatestReleases returns the latest releases. The "current" parameter
 // is used for setting the User-Agent only.
@@ -70,6 +110,28 @@ func FetchLatestReleases(releasesURL, current string) []Release {
 	}
 	resp.Body.Close()
 
+	for _, rel := range rels {
+		if len(rel.RuntimeReqs.Requirements) > 0 {
+			continue // requirements already filled in
+		}
+
+		// see if a compat.json is available, if so fill out the
+		// requirements
+		for _, asset := range rel.Assets {
+			if asset.Name == "compat.json" {
+				bs, err := http.Get(asset.URL)
+				if err != nil {
+					l.Infoln("Fetching compat.json:", err)
+					continue
+				}
+				if err := json.NewDecoder(bs.Body).Decode(&rel.RuntimeReqs); err != nil {
+					l.Infoln("Unmarshalling compat.json:", err)
+				}
+				break
+			}
+		}
+	}
+
 	return rels
 }
 
@@ -78,31 +140,20 @@ type SortByRelease []Release
 func (s SortByRelease) Len() int {
 	return len(s)
 }
+
 func (s SortByRelease) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
+
 func (s SortByRelease) Less(i, j int) bool {
 	return CompareVersions(s[i].Tag, s[j].Tag) > 0
 }
 
-// LatestRelease downloads the list of releases from GitHub, and returns the
-// latest minor release found, or the latest major release, if not minor release
-// is found. Only releases that are compatible with the OS are returned.
 func LatestRelease(releasesURL, current string, upgradeToPreReleases bool) (Release, error) {
 	rels := FetchLatestReleases(releasesURL, current)
-	rel, err := SelectLatestRelease(rels, current, upgradeToPreReleases)
-	if err != nil {
-		return Release{}, err
-	}
-	err = checkOSCompatibility(rel.RuntimeReqs)
-	if err != nil {
-		return Release{}, err
-	}
-	return rel, nil
+	return SelectLatestRelease(rels, current, upgradeToPreReleases)
 }
 
-// SelectLatestRelease returns the latest minor release found, or the latest
-// major release, if not minor release is found.
 func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bool) (Release, error) {
 	if len(rels) == 0 {
 		return Release{}, ErrNoVersionToSelect
@@ -113,6 +164,11 @@ func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bo
 
 	var selected Release
 	for _, rel := range rels {
+		if err := verifyRuntimeRequirements(rel.RuntimeReqs); err != nil {
+			l.Debugf("skipping release %s due to %v", rel.Tag, err)
+			continue
+		}
+
 		if CompareVersions(rel.Tag, current) == MajorNewer {
 			// We've found a new major version. That's fine, but if we've
 			// already found a minor upgrade that is acceptable we should go
@@ -150,7 +206,6 @@ func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bo
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-// We fail if the OS is not compatible with the go runtime used to build the release.
 func upgradeTo(binary string, rel Release) error {
 	expectedReleases := releaseNames(rel.Tag)
 	for _, asset := range rel.Assets {
@@ -168,13 +223,8 @@ func upgradeTo(binary string, rel Release) error {
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-// We fail if the OS is not compatible with the go runtime used to build the release.
 func upgradeToURL(archiveName, binary string, url string) error {
-	fname, runtimeReqs, err := readRelease(archiveName, filepath.Dir(binary), url)
-	if err != nil {
-		return err
-	}
-	err = checkOSCompatibility(runtimeReqs)
+	fname, err := readRelease(archiveName, filepath.Dir(binary), url)
 	if err != nil {
 		return err
 	}
@@ -193,18 +243,18 @@ func upgradeToURL(archiveName, binary string, url string) error {
 	return nil
 }
 
-func readRelease(archiveName, dir, url string) (string, RuntimeReqs, error) {
+func readRelease(archiveName, dir, url string) (string, error) {
 	l.Debugf("loading %q", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", RuntimeReqs{}, err
+		return "", err
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
 	resp, err := insecureHTTP.Do(req)
 	if err != nil {
-		return "", RuntimeReqs{}, err
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -216,17 +266,16 @@ func readRelease(archiveName, dir, url string) (string, RuntimeReqs, error) {
 	}
 }
 
-func readTarGz(archiveName, dir string, r io.Reader) (string, RuntimeReqs, error) {
+func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
-		return "", RuntimeReqs{}, err
+		return "", err
 	}
 
 	tr := tar.NewReader(gr)
 
 	var tempName string
 	var sig []byte
-	var comp []byte
 
 	// Iterate through the files in the archive.
 	i := 0
@@ -242,7 +291,7 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, RuntimeReqs, error
 			break
 		}
 		if err != nil {
-			return "", RuntimeReqs{}, err
+			return "", err
 		}
 		if hdr.Size > maxBinarySize {
 			// We don't even want to try processing or skipping over files
@@ -250,43 +299,36 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, RuntimeReqs, error
 			break
 		}
 
-		err = archiveFileVisitor(dir, &tempName, &sig, &comp, hdr.Name, tr)
+		err = archiveFileVisitor(dir, &tempName, &sig, hdr.Name, tr)
 		if err != nil {
-			return "", RuntimeReqs{}, err
+			return "", err
 		}
 
-		if tempName != "" && sig != nil && comp != nil {
+		if tempName != "" && sig != nil {
 			break
 		}
 	}
 
-	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
-		return "", RuntimeReqs{}, err
+	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
+		return "", err
 	}
 
-	var runtimeReqs RuntimeReqs
-	err = json.Unmarshal(comp, &runtimeReqs)
-	if err != nil {
-		return "", runtimeReqs, err
-	}
-
-	return tempName, runtimeReqs, nil
+	return tempName, nil
 }
 
-func readZip(archiveName, dir string, r io.Reader) (string, RuntimeReqs, error) {
+func readZip(archiveName, dir string, r io.Reader) (string, error) {
 	body, err := io.ReadAll(r)
 	if err != nil {
-		return "", RuntimeReqs{}, err
+		return "", err
 	}
 
 	archive, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
-		return "", RuntimeReqs{}, err
+		return "", err
 	}
 
 	var tempName string
 	var sig []byte
-	var comp []byte
 
 	// Iterate through the files in the archive.
 	i := 0
@@ -304,36 +346,30 @@ func readZip(archiveName, dir string, r io.Reader) (string, RuntimeReqs, error) 
 
 		inFile, err := file.Open()
 		if err != nil {
-			return "", RuntimeReqs{}, err
+			return "", err
 		}
 
-		err = archiveFileVisitor(dir, &tempName, &sig, &comp, file.Name, inFile)
+		err = archiveFileVisitor(dir, &tempName, &sig, file.Name, inFile)
 		inFile.Close()
 		if err != nil {
-			return "", RuntimeReqs{}, err
+			return "", err
 		}
 
-		if tempName != "" && sig != nil && comp != nil {
+		if tempName != "" && sig != nil {
 			break
 		}
 	}
 
-	if err := verifyUpgrade(archiveName, tempName, sig, comp); err != nil {
-		return "", RuntimeReqs{}, err
+	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
+		return "", err
 	}
 
-	var runtimeReqs RuntimeReqs
-	err = json.Unmarshal(comp, &runtimeReqs)
-	if err != nil {
-		return "", RuntimeReqs{}, err
-	}
-
-	return tempName, runtimeReqs, nil
+	return tempName, nil
 }
 
 // archiveFileVisitor is called for each file in an archive. It may set
 // tempFile and signature.
-func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[]byte, archivePath string, filedata io.Reader) error {
+func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archivePath string, filedata io.Reader) error {
 	var err error
 	filename := path.Base(archivePath)
 	archiveDir := path.Dir(archivePath)
@@ -358,27 +394,17 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, comp *[
 		if err != nil {
 			return err
 		}
-
-	case CompatJson:
-		l.Debugf("found compatibility file %s", archivePath)
-		*comp, err = io.ReadAll(io.LimitReader(filedata, maxCompatJsonSize))
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func verifyUpgrade(archiveName, tempName string, sig []byte, comp []byte) error {
+func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 	if tempName == "" {
 		return errors.New("no upgrade found")
 	}
 	if sig == nil {
 		return errors.New("no signature found")
-	}
-	if comp == nil {
-		return errors.New(CompatJson + " not found")
 	}
 
 	l.Debugf("checking signature\n%s", sig)
@@ -431,7 +457,7 @@ func writeBinary(dir string, inFile io.Reader) (filename string, err error) {
 		return "", err
 	}
 
-	err = os.Chmod(outFile.Name(), os.FileMode(0755))
+	err = os.Chmod(outFile.Name(), os.FileMode(0o755))
 	if err != nil {
 		os.Remove(outFile.Name())
 		return "", err

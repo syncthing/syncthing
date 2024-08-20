@@ -34,7 +34,7 @@ import (
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/upgrade"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -59,8 +59,6 @@ var (
 	longTimeout    = "600s"
 	numVersions    = 5
 	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
-	release        bool
-	generatedFiles []string
 )
 
 type target struct {
@@ -254,10 +252,6 @@ func initTargets() {
 	for _, file := range listFiles("extra") {
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
 	}
-	if release {
-		archiveFile := archiveFile{src: upgrade.CompatJson, dst: upgrade.CompatJson, perm: 0o644}
-		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile)
-	}
 	for _, file := range listFiles("extra") {
 		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
 	}
@@ -275,12 +269,6 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
-
-	// Set release tag inside all GitHub actions.
-	if os.Getenv("CI") != "" {
-		release = true
-	}
-	defer shouldCleanupGeneratedFiles()
 
 	initTargets()
 
@@ -310,11 +298,7 @@ func runCommand(cmd string, target target) {
 	if noupgrade {
 		tags = []string{"noupgrade"}
 	}
-	if release {
-		tags = append(tags, "release")
-		// Tests in lib/upgrade are tagged with the release tag.
-		extraTags += "release"
-	}
+	tags = append(tags, strings.Fields(extraTags)...)
 
 	switch cmd {
 	case "install":
@@ -322,6 +306,9 @@ func runCommand(cmd string, target target) {
 		metalintShort()
 
 	case "build":
+		if err := writeCompatJSON(); err != nil {
+			log.Fatalf("Failed to write compat.json: %v", err)
+		}
 		build(target, tags)
 
 	case "test":
@@ -416,7 +403,6 @@ func parseFlags() {
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
-	flag.BoolVar(&release, "release", release, "Run release-related tests, and add release-related files (compat.json) to build archive")
 	flag.Parse()
 }
 
@@ -505,8 +491,6 @@ func install(target target, tags []string) {
 
 	setBuildEnvVars()
 
-	generateCompatJson()
-
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
 	// the file icon, version, etc.
@@ -534,8 +518,6 @@ func build(target target, tags []string) {
 	rmr(target.BinaryName())
 
 	setBuildEnvVars()
-
-	generateCompatJson()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -1580,36 +1562,29 @@ func nextPatchVersion(ver string) string {
 	return strings.Join(digits, ".")
 }
 
-func generateCompatJson() {
-	if !release {
-		return
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = upgrade.GenerateCompatJson(cwd)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	addGeneratedFile(filepath.Join(cwd, upgrade.CompatJson))
+type compatEntry struct {
+	Runtime      string            `json:"runtime"`
+	Requirements map[string]string `json:"requirements"`
 }
 
-func addGeneratedFile(file string) {
-	if file != "" {
-		generatedFiles = append(generatedFiles, file)
+func writeCompatJSON() error {
+	bs, err := os.ReadFile("compat.yaml")
+	if err != nil {
+		return err
 	}
-}
 
-// This could be used to cleanup other generated files, currently resource.syso
-// and versioninfo.json.
-func shouldCleanupGeneratedFiles() {
-	for _, file := range generatedFiles {
-		if file == "" {
-			continue
-		}
-		if err := os.Remove(file); err != nil {
-			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", file, err)
+	var entries []compatEntry
+	if err := yaml.Unmarshal(bs, &entries); err != nil {
+		return err
+	}
+
+	rt := runtime.Version()
+	for _, e := range entries {
+		if strings.HasPrefix(rt, e.Runtime) {
+			bs, _ := json.MarshalIndent(e, "", "  ")
+			return os.WriteFile("compat.json", bs, 0o644)
 		}
 	}
+
+	return fmt.Errorf("runtime %v not found in compat.yaml", rt)
 }

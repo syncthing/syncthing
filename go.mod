@@ -47,7 +47,6 @@ require (
 	golang.org/x/time v0.6.0
 	golang.org/x/tools v0.24.0
 	google.golang.org/protobuf v1.34.2
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -68,7 +67,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
@@ -93,6 +91,7 @@ require (
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 // https://github.com/gobwas/glob/pull/55
