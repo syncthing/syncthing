@@ -565,6 +565,7 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
+/* Align checkbox with button in login forms */
 #login-options .stay-logged-in {
   margin-top: 0.25em;
 }
