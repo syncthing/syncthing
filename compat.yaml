@@ -13,11 +13,13 @@
     #
     # Windows 10/Windows Server 2016 per https://go.dev/doc/go1.21#windows
     windows: "10.0"
+
 - runtime: go1.22
   requirements:
     darwin: "19"
     linux: "2.6.32"
     windows: "10.0"
+
 - runtime: go1.23
   requirements:
     # macOS 11 (Big Sur) per https://tip.golang.org/doc/go1.23#darwin
