@@ -312,11 +312,7 @@ a.toggler:hover {
     text-decoration: none;
 }
 
-/**
- * Panel padding decrease
- */
-
-.panel-collapse .panel-body {
+.panel-body.less-padding {
     padding: 5px;
 }
 
