@@ -407,11 +407,11 @@
                 <div class="form-group">
                   <div class="col-md-6">
                     <label class="stay-logged-in">
-                      <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress || isWebauthnLoginDisabled()">&nbsp;<span translate>Stay logged in</span>
+                      <input type="checkbox" ng-model="login.stayLoggedIn">&nbsp;<span translate>Stay logged in</span>
                     </label>
                   </div>
                   <div class="col-md-6 text-right">
-                    <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || isWebauthnLoginDisabled()" tabindex="3">
+                    <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
                       <span translate>Log in with WebAuthn</span>
                     </button>
                   </div>

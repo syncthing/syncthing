@@ -1928,15 +1928,6 @@ angular.module('syncthing.core')
                     }
                 };
 
-                $scope.isWebauthnLoginDisabled = function () {
-                    return (
-                        $scope.webauthn.errors.noCredentials
-                        || $scope.webauthn.errors.initFailed
-                        || $scope.locationDoesNotMatchWebauthnRpId()
-                        || $scope.isLocationInsecure()
-                    );
-                };
-
                 $scope.locationDoesNotMatchWebauthnRpId = function () {
                     if ($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId) {
                         var exactMatch = $location.host() === $scope.webauthn.request.publicKey.rpId;
