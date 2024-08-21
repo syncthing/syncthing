@@ -406,7 +406,7 @@
                 </label>
 
                 <div class="form-group text-right">
-                  <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
+                  <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId()" tabindex="3">
                     <span translate>Log in with WebAuthn</span>
                   </button>
                 </div>
@@ -424,9 +424,6 @@
                     </a>
                   </p>
                 </div>
-                <p class="text-info" ng-if="isLocationInsecure()" translate>
-                  WebAuthn requires HTTPS.
-                </p>
                 <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
                   This device or security key is not registered. Please try a different one.
                 </p>
@@ -460,7 +457,7 @@
                 </p>
 
                 <button
-                  ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())"
+                  ng-if="inferWebauthnAddress() && locationDoesNotMatchWebauthnRpId()"
                   type="button"
                   class="btn btn-primary"
                   ng-click="reloadLoginAtWebauthnAddress()"

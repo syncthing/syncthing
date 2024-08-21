@@ -154,10 +154,6 @@ angular.module('syncthing.core')
             return $location.host();
         };
 
-        $scope.isLocationInsecure = function() {
-            return $location.protocol() !== 'https';
-        };
-
         var ipv4Pattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}(:.*)?$/;
         var ipv6Pattern = /^\[[0-9a-fA-F:]+\](:.*)?/;
         $scope.isRawIpAddress = function (host) {
@@ -1833,7 +1829,6 @@ angular.module('syncthing.core')
                     return $scope.config
                         && $scope.config.gui
                         && $scope.config.gui.user
-                        && !$scope.isLocationInsecure()
                         && $scope.webauthnAvailable()
                         && $scope.locationMatchesWebauthnOrigin();
                 };
@@ -1951,7 +1946,7 @@ angular.module('syncthing.core')
                     }
 
                     var portPart = $location.port() ? ':' + $location.port() : '';
-                    return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
+                    return '//' + $scope.webauthn.request.publicKey.rpId + portPart;
                 };
 
                 $scope.reloadLoginAtWebauthnAddress = function () {
