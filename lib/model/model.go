@@ -117,6 +117,8 @@ type Model interface {
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
+
+	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 }
 
 type model struct {
@@ -375,7 +377,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		// it'll show up as errored later.
 
 		if err := cfg.CreateRoot(); err != nil {
-			l.Warnln("Failed to create folder root directory", err)
+			l.Warnln("Failed to create folder root directory:", err)
 		} else if err = cfg.CreateMarker(); err != nil {
 			l.Warnln("Failed to create folder marker:", err)
 		}
@@ -2460,7 +2462,7 @@ func (m *model) deviceDidCloseRLocked(deviceID protocol.DeviceID, duration time.
 	}
 }
 
-func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	conn, connOK := m.requestConnectionForDevice(deviceID)
 	if !connOK {
 		return nil, fmt.Errorf("requestGlobal: no connection to device: %s", deviceID.Short())
@@ -2566,7 +2568,7 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	if build.IsWindows || build.IsDarwin || build.IsAndroid {
+	if build.IsWindows || build.IsDarwin || build.IsIOS || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
 		return 1
