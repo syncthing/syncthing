@@ -25,6 +25,8 @@ var trans = make(map[string]interface{})
 var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
 
+var debug = os.Getenv("TRANSLATEDEBUG") != ""
+
 // Find both $translate.instant("…") and $translate.instant("…",…) in JS.
 // Consider single quote variants too.
 var jsRe = []*regexp.Regexp{
@@ -52,10 +54,14 @@ func generalNode(n *html.Node, filename string) {
 				if a.Key == "translate" {
 					translate = true
 					translationId = a.Val
-				} else if a.Key == "id" && (a.Val == "contributor-list" ||
-					a.Val == "copyright-notices") {
-					// Don't translate a list of names and
-					// copyright notices of other projects
+				} else if a.Key == "no-translate" {
+					if debug {
+						if a.Val == "" {
+							log.Println("Ignoring no-translate <" + n.Data + "> in " + filename)
+						} else {
+							log.Println("Ignoring no-translate <" + n.Data + "> in " + filename + ": " + a.Val)
+						}
+					}
 					return
 				} else {
 					for _, matches := range attrRe.FindAllStringSubmatch(a.Val, -1) {
