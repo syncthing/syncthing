@@ -104,6 +104,21 @@ angular.module('syncthing.core')
             files: 0
         };
 
+        $scope.isDefaultLoginOption = function (loginOption) {
+            if (window.localStorage) {
+                return (window.localStorage.getItem("syncthing-default-login-option") || 'password') === loginOption;
+            } else {
+                return loginOption === 'password';
+            }
+        };
+
+        function saveDefaultLoginOption(loginOption) {
+            if (window.localStorage) {
+                window.localStorage.setItem("syncthing-default-login-option", loginOption);
+            }
+            // Else: Nothing we can do, but any browser that supports WebAuthn should support localStorage
+        };
+
         $scope.authenticatePassword = function () {
             $scope.login.inProgress = true;
             $scope.login.errors = {};
@@ -112,6 +127,7 @@ angular.module('syncthing.core')
                 password: $scope.login.password,
                 stayLoggedIn: $scope.login.stayLoggedIn,
             }).then(function () {
+                saveDefaultLoginOption('password');
                 location.reload();
             }).catch(function (response) {
                 if (response.status === 403) {
@@ -1864,6 +1880,7 @@ angular.module('syncthing.core')
 
                 $scope.authenticateWebauthnFinish = function () {
                     var finish = function (request) {
+                        $scope.login.inProgress = true;
                         return webauthnJSON.get(request)
                             .then(function (pkc) {
                                 return $http.post(
@@ -1875,6 +1892,7 @@ angular.module('syncthing.core')
                                 );
                             })
                             .then(function () {
+                                saveDefaultLoginOption('webauthn');
                                 location.reload();
                             })
                             .catch(function (e) {
@@ -1896,6 +1914,9 @@ angular.module('syncthing.core')
                                 }
 
                                 $scope.webauthn.request = false;
+
+                            }).finally(function () {
+                                $scope.login.inProgress = false;
 
                                 // Explicit apply needed here because webauthnJSON is outside the Angular framework
                                 $scope.$apply();

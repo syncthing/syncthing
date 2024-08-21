@@ -41,3 +41,9 @@
 .reception {
     filter: invert(12%) sepia(11%) saturate(20%) hue-rotate(318deg) brightness(100%) contrast(80%);
 }
+
+.divider {
+    /* Copied from `.dropdown-menu .divider` in bootstrap.css */
+    background-color: #e5e5e5; /* <li> */
+    border-color: #e5e5e5; /* <hr> */
+}

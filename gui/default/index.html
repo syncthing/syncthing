@@ -344,118 +344,134 @@
       </div>
 
       <!-- Login form -->
-      <div ng-if="!authenticated" class="center-block">
+      <div ng-if="!authenticated" class="col-md-6 col-md-offset-3">
         <h3 translate>Authentication Required</h3>
 
-        <form ng-submit="authenticatePassword()" class="col-md-6">
-          <div class="form-group">
-            <label for="user" translate>User</label>
-            <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
-          </div>
+        <div class="panel-group" id="login-options">
 
-          <div class="form-group">
-            <label for="password" translate>Password</label>
-            <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
-          </div>
+          <div class="panel panel-default">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#login-options" data-target="#login-option-password" aria-expanded="{{isDefaultLoginOption('password') ? 'true' : 'false'}}">
+              <h4 class="panel-title">
+                <div class="panel-title-text" translate>Password</div>
+              </h4>
+            </button>
+            <div id="login-option-password" class="panel-collapse collapse {{isDefaultLoginOption('password') ? 'in' : ''}}">
+              <div class="panel-body">
+                <form ng-submit="authenticatePassword()">
+                  <div class="form-group">
+                    <label for="user" translate>User</label>
+                    <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
+                  </div>
 
-          <div class="form-group">
-            <label>
-              <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
-            </label>
-          </div>
+                  <div class="form-group">
+                    <label for="password" translate>Password</label>
+                    <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
+                  </div>
 
-          <div class="row">
-            <div class="col-md-9 login-form-messages">
-              <p ng-if="login.errors.badLogin" class="text-danger" translate>
-                Incorrect user name or password.
-              </p>
-              <p ng-if="login.errors.failed" class="text-danger" translate>
-                Login failed, see Syncthing logs for details.
-              </p>
+                  <label class="stay-logged-in">
+                    <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
+                  </label>
+
+                  <div class="form-group text-right">
+                    <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>Log In</button>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-9 login-form-messages">
+                      <p ng-if="login.errors.badLogin" class="text-danger" translate>
+                        Incorrect user name or password.
+                      </p>
+                      <p ng-if="login.errors.failed" class="text-danger" translate>
+                        Login failed, see Syncthing logs for details.
+                      </p>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </div>
-            <div class="col-md-3 text-right">
-              <button type="submit" id="submit" class="btn btn-default" ng-disabled="login.inProgress" translate>Log In</button>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="panel panel-default">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#login-options" data-target="#login-option-webauthn" aria-expanded="{{isDefaultLoginOption('webauthn') ? 'true' : 'false'}}">
+              <h4 class="panel-title">
+                <div class="panel-title-text" translate>WebAuthn (Passkey)</div>
+              </h4>
+            </button>
+            <div id="login-option-webauthn" class="panel-collapse collapse {{isDefaultLoginOption('webauthn') ? 'in' : ''}}">
+              <div class="panel-body">
+                <label class="stay-logged-in">
+                  <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
+                </label>
+
+                <div class="form-group text-right">
+                  <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
+                    <span translate>Log in with WebAuthn</span>
+                  </button>
+                </div>
+
+                <p class="text-info" ng-if="!webauthnAvailable()" translate>
+                  Your browser does not support WebAuthn.
+                </p>
+                <div ng-if="locationDoesNotMatchWebauthnRpId()">
+                  <p class="text-info" translate>
+                    Current domain does not match WebAuthn configuration.
+                  </p>
+                  <p>
+                    <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+                      Syncthing Documentation: Customizing the GUI address
+                    </a>
+                  </p>
+                </div>
+                <p class="text-info" ng-if="isLocationInsecure()" translate>
+                  WebAuthn requires HTTPS.
+                </p>
+                <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
+                  This device or security key is not registered. Please try a different one.
+                </p>
+                <p class="text-info" ng-if="webauthn.errors.aborted" translate>
+                  Authentication aborted by user.
+                </p>
+                <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
+                  Authentication failed, please try again.
+                </p>
+                <div ng-if="webauthn.errors.securityError">
+                  <p class="text-danger" translate>
+                    Initialization blocked by browser. Please make sure Syncthing is correctly configured.
+                  </p>
+                  <p>
+                    <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
+                      Syncthing Documentation: Customizing the GUI address
+                    </a>
+                  </p>
+                </div>
+                <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
+                  Initialization failed, see Syncthing logs for details.
+                </p>
+                <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
+                  Authentication failed, see Syncthing logs for details.
+                </p>
+                <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>
+                  No WebAuthn credentials configured.
+                </p>
+                <p class="text-danger" ng-if="webauthn.errors.uvRequired" translate>
+                  User verification is required, but was not performed.
+                </p>
+
+                <button
+                  ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())"
+                  type="button"
+                  class="btn btn-primary"
+                  ng-click="reloadLoginAtWebauthnAddress()"
+                  translate
+                  translate-value-webauthn-address="{{ inferWebauthnAddress() }}"
+                >
+                  Reload page at {%webauthnAddress%}
+                </button>
+              </div>
             </div>
           </div>
-        </form>
-
-        <div class="col-md-6" style="text-align: center">
-          <p translate>
-            Or...
-          </p>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
-            </label>
-          </div>
-          <button
-            type="button"
-            class="btn btn-primary"
-            style="margin-bottom: 0.5em;"
-            ng-click="authenticateWebauthnFinish()"
-            ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()"
-            tabindex="3">
-            <span translate>Log in with WebAuthn</span>
-          </button>
-
-          <p class="text-info" ng-if="!webauthnAvailable()" translate>
-            Your browser does not support WebAuthn.
-          </p>
-          <div ng-if="locationDoesNotMatchWebauthnRpId()">
-            <p class="text-info" translate>
-              Current domain does not match WebAuthn configuration.
-            </p>
-            <p>
-              <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
-                Syncthing Documentation: Customizing the GUI address
-              </a>
-            </p>
-          </div>
-          <p class="text-info" ng-if="isLocationInsecure()" translate>
-            WebAuthn requires HTTPS.
-          </p>
-          <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>
-            This device or security key is not registered. Please try a different one.
-          </p>
-          <p class="text-info" ng-if="webauthn.errors.aborted" translate>
-            Authentication aborted by user.
-          </p>
-          <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>
-            Authentication failed, please try again.
-          </p>
-          <div ng-if="webauthn.errors.securityError">
-            <p class="text-danger" translate>
-              Initialization blocked by browser. Please make sure Syncthing is correctly configured.
-            </p>
-            <p>
-              <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>
-                Syncthing Documentation: Customizing the GUI address
-              </a>
-            </p>
-          </div>
-          <p class="text-danger" ng-if="webauthn.errors.initFailed" translate>
-            Initialization failed, see Syncthing logs for details.
-          </p>
-          <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>
-            Authentication failed, see Syncthing logs for details.
-          </p>
-          <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>
-            User has not configured any WebAuthn credentials.
-          </p>
-          <p class="text-danger" ng-if="webauthn.errors.uvRequired" translate>
-            User verification is required, but was not performed.
-          </p>
-
-          <button
-            ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())"
-            type="button"
-            class="btn btn-primary"
-            ng-click="reloadLoginAtWebauthnAddress()"
-            translate
-            translate-value-webauthn-address="{{ inferWebauthnAddress() }}"
-          >
-            Reload page at {%webauthnAddress%}
-          </button>
         </div>
       </div>
 
