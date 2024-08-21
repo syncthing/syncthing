@@ -1881,6 +1881,7 @@ angular.module('syncthing.core')
 
                 $scope.authenticateWebauthnFinish = function () {
                     var finish = function (request) {
+                        $scope.login.inProgress = true;
                         return webauthnJSON.get(request)
                             .then(function (pkc) {
                                 return $http.post(
@@ -1914,6 +1915,9 @@ angular.module('syncthing.core')
                                 }
 
                                 $scope.webauthn.request = false;
+
+                            }).finally(function () {
+                                $scope.login.inProgress = false;
 
                                 // Explicit apply needed here because webauthnJSON is outside the Angular framework
                                 $scope.$apply();
