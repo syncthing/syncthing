@@ -4,13 +4,12 @@ package protocol
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (

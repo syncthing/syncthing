@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "Zařízení s takovým identifikátorem už již přidáno.",
+    "A device with that ID is already added.": "Zařízení s takovým identifikátorem je již přidáno.",
     "A negative number of days doesn't make sense.": "Záporný počet dní nedává smysl.",
     "A new major version may not be compatible with previous versions.": "Nová hlavní verze nemusí být kompatibilní s předchozími verzemi.",
     "API Key": "Klíč k API",
@@ -477,8 +477,8 @@
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Varování, tento popis umístění je nadřazenou složkou existující „{{otherFolder}}“.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Varování, tento popis umístění je nadřazenou složkou existující „{{otherFolderLabel}}“ ({{otherFolder}}).",
     "Warning, this path is a subdirectory of an existing folder \"{%otherFolder%}\".": "Varování: toto umístění je podsložkou existující „{{otherFolder}}“.",
-    "Warning, this path is a subdirectory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Varování, toto umístění e podsložkou existující „{{otherFolderLabel}}“ ({{otherFolder}}).",
-    "Warning: If you are using an external watcher like {%syncthingInotify%}, you should make sure it is deactivated.": "Pozor: Pokud používáte externí sledování změn jako {{syncthingInotify}}, měly byste se ujistit, že je toto sledování vypnuto.",
+    "Warning, this path is a subdirectory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Varování, toto umístění je podsložkou existující „{{otherFolderLabel}}“ ({{otherFolder}}).",
+    "Warning: If you are using an external watcher like {%syncthingInotify%}, you should make sure it is deactivated.": "Pozor: Pokud používáte externí sledování změn jako {{syncthingInotify}}, měli byste se ujistit, že je toto sledování vypnuto.",
     "Watch for Changes": "Sledovat změny",
     "Watching for Changes": "Sledování změn",
     "Watching for changes discovers most changes without periodic scanning.": "Sledování změn odhalí většinu změn ještě před periodickým skenováním.",

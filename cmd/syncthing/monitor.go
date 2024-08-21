@@ -241,22 +241,6 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 		if panicFd == nil {
 			dst.Write([]byte(line))
 
-			if strings.Contains(line, "SIGILL") {
-				l.Warnln(`
-*******************************************************************************
-* Crash due to illegal instruction detected. This is most likely due to a CPU *
-* incompatibility with the high performance hashing package. Switching to the *
-* standard hashing package instead. Please report this issue at:              *
-*                                                                             *
-*   https://github.com/syncthing/syncthing/issues                             *
-*                                                                             *
-* Include the details of your CPU.                                            *
-*******************************************************************************
-`)
-				os.Setenv("STHASHING", "standard")
-				return
-			}
-
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {

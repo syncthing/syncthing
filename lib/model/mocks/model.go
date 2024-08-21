@@ -435,6 +435,28 @@ type Model struct {
 		result1 protocol.RequestResponse
 		result2 error
 	}
+	RequestGlobalStub        func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)
+	requestGlobalMutex       sync.RWMutex
+	requestGlobalArgsForCall []struct {
+		arg1  context.Context
+		arg2  protocol.DeviceID
+		arg3  string
+		arg4  string
+		arg5  int
+		arg6  int64
+		arg7  int
+		arg8  []byte
+		arg9  uint32
+		arg10 bool
+	}
+	requestGlobalReturns struct {
+		result1 []byte
+		result2 error
+	}
+	requestGlobalReturnsOnCall map[int]struct {
+		result1 []byte
+		result2 error
+	}
 	ResetFolderStub        func(string) error
 	resetFolderMutex       sync.RWMutex
 	resetFolderArgsForCall []struct {
@@ -2558,6 +2580,84 @@ func (fake *Model) RequestReturnsOnCall(i int, result1 protocol.RequestResponse,
 	}{result1, result2}
 }
 
+func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, arg3 string, arg4 string, arg5 int, arg6 int64, arg7 int, arg8 []byte, arg9 uint32, arg10 bool) ([]byte, error) {
+	var arg8Copy []byte
+	if arg8 != nil {
+		arg8Copy = make([]byte, len(arg8))
+		copy(arg8Copy, arg8)
+	}
+	fake.requestGlobalMutex.Lock()
+	ret, specificReturn := fake.requestGlobalReturnsOnCall[len(fake.requestGlobalArgsForCall)]
+	fake.requestGlobalArgsForCall = append(fake.requestGlobalArgsForCall, struct {
+		arg1  context.Context
+		arg2  protocol.DeviceID
+		arg3  string
+		arg4  string
+		arg5  int
+		arg6  int64
+		arg7  int
+		arg8  []byte
+		arg9  uint32
+		arg10 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+	stub := fake.RequestGlobalStub
+	fakeReturns := fake.requestGlobalReturns
+	fake.recordInvocation("RequestGlobal", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+	fake.requestGlobalMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) RequestGlobalCallCount() int {
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
+	return len(fake.requestGlobalArgsForCall)
+}
+
+func (fake *Model) RequestGlobalCalls(stub func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = stub
+}
+
+func (fake *Model) RequestGlobalArgsForCall(i int) (context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) {
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
+	argsForCall := fake.requestGlobalArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9, argsForCall.arg10
+}
+
+func (fake *Model) RequestGlobalReturns(result1 []byte, result2 error) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = nil
+	fake.requestGlobalReturns = struct {
+		result1 []byte
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) RequestGlobalReturnsOnCall(i int, result1 []byte, result2 error) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = nil
+	if fake.requestGlobalReturnsOnCall == nil {
+		fake.requestGlobalReturnsOnCall = make(map[int]struct {
+			result1 []byte
+			result2 error
+		})
+	}
+	fake.requestGlobalReturnsOnCall[i] = struct {
+		result1 []byte
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Model) ResetFolder(arg1 string) error {
 	fake.resetFolderMutex.Lock()
 	ret, specificReturn := fake.resetFolderReturnsOnCall[len(fake.resetFolderArgsForCall)]
@@ -3258,6 +3358,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.remoteNeedFolderFilesMutex.RUnlock()
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
 	fake.resetFolderMutex.RLock()
 	defer fake.resetFolderMutex.RUnlock()
 	fake.restoreFolderVersionsMutex.RLock()
