@@ -115,9 +115,8 @@ angular.module('syncthing.core')
         function saveDefaultLoginOption(loginOption) {
             if (window.localStorage) {
                 window.localStorage.setItem("syncthing-default-login-option", loginOption);
-            } else {
-                // Nothing we can do
             }
+            // Else: Nothing we can do, but any browser that supports WebAuthn should support localStorage
         };
 
         $scope.authenticatePassword = function () {
