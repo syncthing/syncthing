@@ -295,7 +295,9 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
 
+            <div class="table-responsive webauthn-credentials">
               <table class="table-striped table" ng-repeat="_ in webauthn.state.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
                 <thead>
                   <tr>
