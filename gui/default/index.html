@@ -371,7 +371,7 @@
                   <div class="form-group">
                     <div class="col-md-9">
                       <label class="stay-logged-in">
-                        <input type="checkbox" ng-model="login.stayLoggedIn" >&nbsp;<span translate>Stay logged in</span>
+                        <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
                       </label>
                     </div>
                     <div class="col-md-3 text-right">
@@ -407,7 +407,7 @@
                 <div class="form-group">
                   <div class="col-md-6">
                     <label class="stay-logged-in">
-                      <input type="checkbox" ng-model="login.stayLoggedIn">&nbsp;<span translate>Stay logged in</span>
+                      <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
                     </label>
                   </div>
                   <div class="col-md-6 text-right">
