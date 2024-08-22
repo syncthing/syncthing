@@ -119,16 +119,13 @@ func migrateToConfigV38(cfg *Configuration) {
 			if !cfg.GUI.RawUseTLS {
 				scheme = "http"
 			}
-
 			port = ":" + port
 			if scheme == "https" && port == ":443" {
 				port = ""
 			} else if scheme == "http" && port == ":80" {
 				port = ""
 			}
-
 			cfg.GUI.WebauthnOrigin = scheme + "://" + cfg.GUI.WebauthnRpId + port
-
 		} else {
 			cfg.GUI.WebauthnOrigin = defaultGuiCfg.WebauthnOrigin
 		}
