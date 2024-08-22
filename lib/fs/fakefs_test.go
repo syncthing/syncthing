@@ -150,7 +150,7 @@ func testFakeFSRead(t *testing.T, fs Filesystem) {
 
 	// Read again, starting at an odd offset
 	fd.Seek(0, io.SeekStart)
-	buf0 := make([]byte, 12345)
+	buf0 := make([]byte, 0, 12345)
 	n, _ := fd.Read(buf0)
 	if n != len(buf0) {
 		t.Fatal("short read")
