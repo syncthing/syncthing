@@ -13,7 +13,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -131,7 +130,7 @@ func migrateToConfigV38(cfg *Configuration) {
 			cfg.GUI.WebauthnOrigin = scheme + "://" + cfg.GUI.WebauthnRpId + port
 
 		} else {
-			cfg.GUI.WebauthnRpId = defaultGuiCfg.WebauthnOrigin
+			cfg.GUI.WebauthnOrigin = defaultGuiCfg.WebauthnOrigin
 		}
 	}
 }
