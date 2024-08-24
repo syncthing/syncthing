@@ -1136,16 +1136,16 @@ func (p *pager) done() bool {
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *model) Index(conn protocol.Connection, idx *protocol.Index) error {
-	return m.handleIndex(conn, idx.Folder, idx.Files, false)
+	return m.handleIndex(conn, idx.Folder, idx.Files, false, 0, idx.LastSequence)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *model) IndexUpdate(conn protocol.Connection, idxUp *protocol.IndexUpdate) error {
-	return m.handleIndex(conn, idxUp.Folder, idxUp.Files, true)
+	return m.handleIndex(conn, idxUp.Folder, idxUp.Files, true, idxUp.PrevSequence, idxUp.LastSequence)
 }
 
-func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protocol.FileInfo, update bool) error {
+func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protocol.FileInfo, update bool, prevSequence, lastSequence int64) error {
 	op := "Index"
 	if update {
 		op += " update"
@@ -1173,7 +1173,8 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 		l.Debugf("%v for folder (ID %q) sent from device %q: missing index handler", op, folder, deviceID)
 		return fmt.Errorf("%s: %w", folder, ErrFolderNotRunning)
 	}
-	return indexHandler.ReceiveIndex(folder, fs, update, op)
+
+	return indexHandler.ReceiveIndex(folder, fs, update, op, prevSequence, lastSequence)
 }
 
 type clusterConfigDeviceInfo struct {
