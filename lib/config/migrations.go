@@ -117,7 +117,7 @@ func migrateToConfigV38(cfg *Configuration) {
 		if err != nil {
 			_, defaultPort, err := net.SplitHostPort(defaultGuiCfg.RawAddress)
 			if err != nil {
-				defaultPort = "8384"
+				defaultPort = ""
 			}
 			port = defaultPort
 		}
