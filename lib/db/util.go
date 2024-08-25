@@ -20,10 +20,13 @@ type FileInfoBatch struct {
 	infos   []protocol.FileInfo
 	size    int
 	flushFn func([]protocol.FileInfo) error
+	error   error
 }
 
 // NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
-// to flush.
+// to flush. Errors from the flush function are considered non-recoverable;
+// once an error is returned the flush function wil not be called again, and
+// any further calls to Flush will return the same error.
 func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
 	return &FileInfoBatch{flushFn: fn}
 }
@@ -33,6 +36,9 @@ func (b *FileInfoBatch) SetFlushFunc(fn func([]protocol.FileInfo) error) {
 }
 
 func (b *FileInfoBatch) Append(f protocol.FileInfo) {
+	if b.error != nil {
+		panic("bug: calling append on a failed batch")
+	}
 	if b.infos == nil {
 		b.infos = make([]protocol.FileInfo, 0, MaxBatchSizeFiles)
 	}
@@ -45,6 +51,9 @@ func (b *FileInfoBatch) Full() bool {
 }
 
 func (b *FileInfoBatch) FlushIfFull() error {
+	if b.error != nil {
+		return b.error
+	}
 	if b.Full() {
 		return b.Flush()
 	}
@@ -52,10 +61,14 @@ func (b *FileInfoBatch) FlushIfFull() error {
 }
 
 func (b *FileInfoBatch) Flush() error {
+	if b.error != nil {
+		return b.error
+	}
 	if len(b.infos) == 0 {
 		return nil
 	}
 	if err := b.flushFn(b.infos); err != nil {
+		b.error = err
 		return err
 	}
 	b.Reset()

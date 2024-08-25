@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/ur"
 )
 
 type indexHandler struct {
@@ -235,6 +236,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 		if len(fs) > 0 {
 			lastSequence = fs[len(fs)-1].Sequence
 		}
+		defer func() { sentPrevSequence = lastSequence }()
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
 		if initial {
 			initial = false
@@ -244,7 +246,6 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 				LastSequence: lastSequence,
 			})
 		}
-		defer func() { sentPrevSequence = lastSequence }()
 		return s.conn.IndexUpdate(ctx, &protocol.IndexUpdate{
 			Folder:       s.folder,
 			Files:        fs,
@@ -271,14 +272,19 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 			}
 		}
 
-		if shouldDebug() {
-			if fi.SequenceNo() < s.prevSequence+1 {
-				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
-			}
+		if fi.SequenceNo() < s.prevSequence+1 {
+			s.logSequenceAnomaly("database returned sequence lower than requested", map[string]any{
+				"sequence": fi.SequenceNo(),
+				"start":    s.prevSequence + 1,
+			})
 		}
 
 		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
+			s.logSequenceAnomaly("database returned non-increasing sequence", map[string]any{
+				"sequence": fi.SequenceNo(),
+				"start":    s.prevSequence + 1,
+				"previous": f.Sequence,
+			})
 			// Abort this round of index sending - the next one will pick
 			// up from the last successful one with the repeaired db.
 			defer func() {
@@ -352,24 +358,46 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	l.Debugf("Received %d files for %s from %s, prevSeq=%d, lastSeq=%d", len(fs), s.folder, deviceID.Short(), prevSequence, lastSequence)
 
 	// Verify that the previous sequence number matches what we expected
-	if prevSequence > 0 && prevSequence != fset.Sequence(deviceID) {
-		l.Warnf("Bug: device %v folder %s sent index update with sequence %d while we expected %d", deviceID.Short(), s.folder, fset.Sequence(deviceID), s.prevSequence)
-		s.evLogger.Log(events.Failure, "index update with unexpected sequence")
+	if exp := fset.Sequence(deviceID); prevSequence > 0 && prevSequence != exp {
+		s.logSequenceAnomaly("index update with unexpected sequence", map[string]any{
+			"prevSeq":      prevSequence,
+			"lastSeq":      lastSequence,
+			"batch":        len(fs),
+			"expectedPrev": exp,
+		})
 	}
 
 	for i := range fs {
 		// Verify index in relation to the claimed sequence boundaries
 		if fs[i].Sequence < prevSequence {
 			l.Warnf("Bug: device %v folder %s sent file with sequence %d outside of claimed range %d-%d", deviceID.Short(), s.folder, fs[i].Sequence, prevSequence, lastSequence)
-			s.evLogger.Log(events.Failure, "file with sequence before prevSequence")
+			s.logSequenceAnomaly("file with sequence before prevSequence", map[string]any{
+				"prevSeq": prevSequence,
+				"lastSeq": lastSequence,
+				"batch":   len(fs),
+				"seenSeq": fs[i].Sequence,
+				"atIndex": i,
+			})
 		}
 		if lastSequence > 0 && fs[i].Sequence > lastSequence {
 			l.Warnf("Bug: device %v folder %s sent file with sequence %d outside of claimed range %d-%d", deviceID.Short(), s.folder, fs[i].Sequence, prevSequence, lastSequence)
-			s.evLogger.Log(events.Failure, "file with sequence after lastSequence")
+			s.logSequenceAnomaly("file with sequence after lastSequence", map[string]any{
+				"prevSeq": prevSequence,
+				"lastSeq": lastSequence,
+				"batch":   len(fs),
+				"seenSeq": fs[i].Sequence,
+				"atIndex": i,
+			})
 		}
 		if i > 0 && fs[i].Sequence <= fs[i-1].Sequence {
-			l.Warnf("Bug: device %v folder %s sent non-increasing sequence %d after %d", deviceID.Short(), s.folder, fs[i].Sequence, fs[i-1].Sequence)
-			s.evLogger.Log(events.Failure, "non-increasing sequence")
+			s.logSequenceAnomaly("index update with non-increasing sequence", map[string]any{
+				"prevSeq":      prevSequence,
+				"lastSeq":      lastSequence,
+				"batch":        len(fs),
+				"seenSeq":      fs[i].Sequence,
+				"atIndex":      i,
+				"precedingSeq": fs[i-1].Sequence,
+			})
 		}
 
 		// The local attributes should never be transmitted over the wire.
@@ -380,8 +408,12 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 
 	// Verify the claimed last sequence number
 	if lastSequence > 0 && len(fs) > 0 && lastSequence != fs[len(fs)-1].Sequence {
-		l.Warnf("Bug: device %v folder %s sent index update with last sequence %d after claiming %d", deviceID.Short(), s.folder, fs[len(fs)-1].Sequence, lastSequence)
-		s.evLogger.Log(events.Failure, "index update with unexpected last sequence")
+		s.logSequenceAnomaly("index update with unexpected last sequence", map[string]any{
+			"prevSeq": prevSequence,
+			"lastSeq": lastSequence,
+			"batch":   len(fs),
+			"seenSeq": fs[len(fs)-1].Sequence,
+		})
 	}
 
 	fset.Update(deviceID, fs)
@@ -396,6 +428,24 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	})
 
 	return nil
+}
+
+var warnSequenceAnomalyOne sync.Once
+
+func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
+	warnSequenceAnomalyOne.Do(func() {
+		l.Warnf("Index sequence anomaly detected (please report at https://forum.syncthing.net/t/22660): %s (%v)", msg, extra)
+	})
+
+	extraStrs := make(map[string]string, len(extra))
+	for k, v := range extra {
+		extraStrs[k] = fmt.Sprint(v)
+	}
+
+	s.evLogger.Log(events.Failure, ur.FailureData{
+		Description: msg,
+		Extra:       extraStrs,
+	})
 }
 
 func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
