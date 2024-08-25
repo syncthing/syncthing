@@ -2813,10 +2813,6 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 	})
 }
 
-func guiConfigEqual(a config.GUIConfiguration, b config.GUIConfiguration) bool {
-	return cmp.Equal(a, b)
-}
-
 func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
