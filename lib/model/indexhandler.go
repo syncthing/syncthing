@@ -231,27 +231,41 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 
 	initial := s.prevSequence == 0
 	batch := db.NewFileInfoBatch(nil)
+	var batchError error
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
-		var lastSequence int64
-		if len(fs) > 0 {
-			lastSequence = fs[len(fs)-1].Sequence
+		if len(fs) == 0 {
+			// can't happen, flush is not called with an empty batch
+			return nil
 		}
-		defer func() { sentPrevSequence = lastSequence }()
+		if batchError != nil {
+			// can't happen, once an error is returned the index sender exits
+			panic(fmt.Sprintf("bug: once failed it should stay failed (%v)", batchError))
+		}
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
+
+		lastSequence := fs[len(fs)-1].Sequence
+		var err error
 		if initial {
 			initial = false
-			return s.conn.Index(ctx, &protocol.Index{
+			err = s.conn.Index(ctx, &protocol.Index{
 				Folder:       s.folder,
 				Files:        fs,
 				LastSequence: lastSequence,
 			})
+		} else {
+			err = s.conn.IndexUpdate(ctx, &protocol.IndexUpdate{
+				Folder:       s.folder,
+				Files:        fs,
+				PrevSequence: sentPrevSequence,
+				LastSequence: lastSequence,
+			})
 		}
-		return s.conn.IndexUpdate(ctx, &protocol.IndexUpdate{
-			Folder:       s.folder,
-			Files:        fs,
-			PrevSequence: sentPrevSequence,
-			LastSequence: lastSequence,
-		})
+		if err != nil {
+			batchError = err
+			return err
+		}
+		sentPrevSequence = lastSequence
+		return nil
 	})
 
 	var err error
