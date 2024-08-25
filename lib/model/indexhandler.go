@@ -226,7 +226,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	// Keep track of the previous sequence we sent. This is separate from
 	// s.prevSequence because the latter will skip over holes in the
 	// sequence numberings, while sentPrevSequence should always be
-	// precisely the highest previousely sent sequence.
+	// precisely the highest previously sent sequence.
 	sentPrevSequence := s.prevSequence
 
 	initial := s.prevSequence == 0
