@@ -228,9 +228,9 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
 		if initial {
 			initial = false
-			return s.conn.Index(ctx, s.folder, fs)
+			return s.conn.Index(ctx, &protocol.Index{Folder: s.folder, Files: fs})
 		}
-		return s.conn.IndexUpdate(ctx, s.folder, fs)
+		return s.conn.IndexUpdate(ctx, &protocol.IndexUpdate{Folder: s.folder, Files: fs})
 	})
 
 	var err error

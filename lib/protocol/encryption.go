@@ -193,48 +193,52 @@ func (e encryptedConnection) DeviceID() DeviceID {
 	return e.conn.DeviceID()
 }
 
-func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys.get(folder); ok {
-		encryptFileInfos(e.keyGen, files, folderKey)
+func (e encryptedConnection) Index(ctx context.Context, idx *Index) error {
+	if folderKey, ok := e.folderKeys.get(idx.Folder); ok {
+		encryptFileInfos(e.keyGen, idx.Files, folderKey)
 	}
-	return e.conn.Index(ctx, folder, files)
+	return e.conn.Index(ctx, idx)
 }
 
-func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
-	if folderKey, ok := e.folderKeys.get(folder); ok {
-		encryptFileInfos(e.keyGen, files, folderKey)
+func (e encryptedConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error {
+	if folderKey, ok := e.folderKeys.get(idxUp.Folder); ok {
+		encryptFileInfos(e.keyGen, idxUp.Files, folderKey)
 	}
-	return e.conn.IndexUpdate(ctx, folder, files)
+	return e.conn.IndexUpdate(ctx, idxUp)
 }
 
-func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	folderKey, ok := e.folderKeys.get(folder)
+func (e encryptedConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
+	folderKey, ok := e.folderKeys.get(req.Folder)
 	if !ok {
-		return e.conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+		return e.conn.Request(ctx, req)
 	}
 
 	// Encrypt / adjust the request parameters.
 
-	origSize := size
-	if size < minPaddedSize {
+	origSize := req.Size
+	origName := req.Name
+	if req.Size < minPaddedSize {
 		// Make a request for minPaddedSize data instead of the smaller
 		// block. We'll chop of the extra data later.
-		size = minPaddedSize
+		req.Size = minPaddedSize
 	}
-	encName := encryptName(name, folderKey)
-	encOffset := offset + int64(blockNo*blockOverhead)
-	encSize := size + blockOverhead
+	encName := encryptName(req.Name, folderKey)
+	encOffset := req.Offset + int64(req.BlockNo*blockOverhead)
+	encSize := req.Size + blockOverhead
 
-	// Perform that request, getting back and encrypted block.
+	// Perform that request, getting back an encrypted block.
 
-	bs, err := e.conn.Request(ctx, folder, encName, blockNo, encOffset, encSize, nil, 0, false)
+	req.Name = encName
+	req.Offset = encOffset
+	req.Size = encSize
+	bs, err := e.conn.Request(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	fileKey := e.keyGen.FileKey(name, folderKey)
+	fileKey := e.keyGen.FileKey(origName, folderKey)
 	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
 		return nil, err
@@ -242,15 +246,15 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 	return bs[:origSize], nil
 }
 
-func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	if _, ok := e.folderKeys.get(folder); !ok {
-		e.conn.DownloadProgress(ctx, folder, updates)
+func (e encryptedConnection) DownloadProgress(ctx context.Context, dp *DownloadProgress) {
+	if _, ok := e.folderKeys.get(dp.Folder); !ok {
+		e.conn.DownloadProgress(ctx, dp)
 	}
 
 	// No need to send these
 }
 
-func (e encryptedConnection) ClusterConfig(config ClusterConfig) {
+func (e encryptedConnection) ClusterConfig(config *ClusterConfig) {
 	e.conn.ClusterConfig(config)
 }
 
