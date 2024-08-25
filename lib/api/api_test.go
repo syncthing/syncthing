@@ -36,6 +36,7 @@ import (
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
 	"github.com/go-webauthn/webauthn/protocol/webauthncose"
+	"github.com/google/go-cmp/cmp"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -2812,6 +2813,10 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 	})
 }
 
+func guiConfigEqual(a config.GUIConfiguration, b config.GUIConfiguration) bool {
+	return cmp.Equal(a, b)
+}
+
 func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
@@ -2899,7 +2904,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				testutil.AssertTrue(
 					t,
 					t.Errorf,
-					(guiCfg != initialGuiCfg) && verify(guiCfg),
+					!guiConfigEqual(guiCfg, initialGuiCfg) && verify(guiCfg),
 					"Expected to be able to edit GUIConfiguration.%s. Updated config: %v", propName, guiCfg)
 			}
 		})
