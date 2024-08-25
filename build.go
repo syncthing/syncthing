@@ -352,7 +352,6 @@ func runCommand(cmd string, target target) {
 
 	case "deb":
 		buildDeb(target)
-		writeCompatJSON()
 
 	case "vet":
 		metalintShort()
