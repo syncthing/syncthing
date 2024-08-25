@@ -155,7 +155,9 @@ angular.module('syncthing.core')
         };
 
         $scope.isLocationInsecure = function() {
-            return $location.protocol() !== 'https';
+            // localhost is a special case that is considered a "secure context" even without TLS
+            // See: https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
+            return $location.protocol() !== 'https' && $location.host() !== 'localhost';
         };
 
         var ipv4Pattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}(:.*)?$/;

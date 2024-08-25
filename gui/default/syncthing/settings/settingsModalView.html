@@ -224,9 +224,9 @@
                   <tr>
                     <td colspan="4">
                       <p class="text-info" ng-if="webauthnAvailable() && !config.gui.user" translate>Set a username and save to enable WebAuthn.</p>
-                      <p class="text-info" ng-if="!tmpGUI.useTLS" translate>WebAuthn requires HTTPS.</p>
+                      <p class="text-info" ng-if="!tmpGUI.useTLS && tmpGUI.webauthnRpId !== 'localhost'" translate>WebAuthn requires HTTPS on non-localhost domains.</p>
 
-                      <p class="text-success" ng-if="tmpGUI.useTLS && webauthnAvailable() && isLocationInsecure()" translate>Save and reload in HTTPS to enable WebAuthn.</p>
+                      <p class="text-success" ng-if="tmpGUI.useTLS && tmpGUI.webauthnRpId !== 'localhost' && webauthnAvailable() && isLocationInsecure()" translate>Save and reload in HTTPS to enable WebAuthn.</p>
 
                       <p class="text-danger" ng-if="webauthn.errors.alreadyRegistered" translate>This device or security key is already registered. Please use a different one.</p>
 
