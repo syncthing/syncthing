@@ -235,7 +235,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
 		if len(fs) == 0 {
 			// can't happen, flush is not called with an empty batch
-			return nil
+			panic("bug: flush called with empty batch (race condition?)")
 		}
 		if batchError != nil {
 			// can't happen, once an error is returned the index sender exits
