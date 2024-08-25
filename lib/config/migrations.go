@@ -121,18 +121,17 @@ func migrateToConfigV38(cfg *Configuration) {
 			}
 			port = defaultPort
 		}
-		port = ":" + port
-		if port == ":443" {
-			cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, "https://"+cfg.GUI.WebauthnRpId)
-		} else {
-			cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, "https://"+cfg.GUI.WebauthnRpId+port)
+		secure_origin := "https://" + cfg.GUI.WebauthnRpId
+		if port != "443" {
+			secure_origin += ":" + port
 		}
+		cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, secure_origin)
 		if !cfg.GUI.RawUseTLS {
-			if port == ":80" {
-				cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, "http://"+cfg.GUI.WebauthnRpId)
-			} else {
-				cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, "http://"+cfg.GUI.WebauthnRpId+port)
+			origin := "http://" + cfg.GUI.WebauthnRpId
+			if port != ":80" {
+				origin += ":" + port
 			}
+			cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, origin)
 		}
 	}
 }
