@@ -1764,6 +1764,71 @@ angular.module('syncthing.core')
             return !angular.equals($scope.webauthn.uneditedState, $scope.webauthn.state);
         };
 
+        $scope.locationDoesNotMatchWebauthnRpId = function () {
+            if ($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId) {
+                var exactMatch = $location.host() === $scope.webauthn.request.publicKey.rpId;
+                var subdomainMatch = $location.host().endsWith('.' + $scope.webauthn.request.publicKey.rpId);
+                return !(exactMatch || subdomainMatch);
+            }
+            // If we don't know, don't show an error message.
+            return false;
+        };
+
+        $scope.inferWebauthnAddress = function () {
+            // This isn't guaranteed to match the "WebAuthn Origin" config setting,
+            // but it's the best we can do with the public information (only the rpId property in the WebAuthn parameter object).
+            // The exact WebAuthn Origin setting is a private security property, so we should not disclose it without authentication.
+
+            if (!($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId)) {
+                return false;
+            }
+
+            var portPart = $location.port() ? ':' + $location.port() : '';
+            return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
+        };
+
+        $scope.reloadLoginAtWebauthnAddress = function () {
+            var address = $scope.inferWebauthnAddress();
+            if (address) {
+                location.assign(address);
+            }
+        };
+
+        $scope.getWebauthnOrigin = function () {
+            var cfg = $scope.config.gui;
+            return cfg && cfg.webauthnOrigins[0];
+        };
+
+        $scope.locationMatchesWebauthnOrigin = function () {
+            var cfg = $scope.config.gui;
+            if (cfg) {
+                for (var i = 0; i < (cfg.webauthnOrigins || []).length; ++i) {
+                    if ($location.absUrl().startsWith(cfg.webauthnOrigins[i])) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        $scope.reloadSettingsAtWebauthnAddress = function (save) {
+            (save
+                ? $scope.saveSettings()
+                : Promise.resolve()
+            ).then(function () {
+                location.assign($scope.getWebauthnOrigin());
+            });
+        };
+
+        $scope.webauthnReady = function () {
+            return $scope.config
+                && $scope.config.gui
+                && $scope.config.gui.user
+                && !$scope.isLocationInsecure()
+                && $scope.webauthnAvailable()
+                && $scope.locationMatchesWebauthnOrigin();
+        };
+
         if ($scope.webauthnAvailable()) {
             if ($scope.authenticated) {
                 // Functions for use in the settings dialog
@@ -1810,41 +1875,6 @@ angular.module('syncthing.core')
                     $scope.webauthn.state.credentials = $scope.webauthn.state.credentials.filter(function (cr) {
                         return cr.id !== cred.id;
                     });
-                };
-
-                $scope.getWebauthnOrigin = function () {
-                    var cfg = $scope.config.gui;
-                    return cfg && cfg.webauthnOrigins[0];
-                };
-
-                $scope.locationMatchesWebauthnOrigin = function () {
-                    var cfg = $scope.config.gui;
-                    if (cfg) {
-                        for (var i = 0; i < (cfg.webauthnOrigins || []).length; ++i) {
-                            if ($location.absUrl().startsWith(cfg.webauthnOrigins[i])) {
-                                return true;
-                            }
-                        }
-                    }
-                    return false;
-                };
-
-                $scope.reloadSettingsAtWebauthnAddress = function (save) {
-                    (save
-                        ? $scope.saveSettings()
-                        : Promise.resolve()
-                    ).then(function () {
-                        location.assign($scope.getWebauthnOrigin());
-                    });
-                };
-
-                $scope.webauthnReady = function () {
-                    return $scope.config
-                        && $scope.config.gui
-                        && $scope.config.gui.user
-                        && !$scope.isLocationInsecure()
-                        && $scope.webauthnAvailable()
-                        && $scope.locationMatchesWebauthnOrigin();
                 };
 
                 $scope.saveWebauthnState = function () {
@@ -1913,8 +1943,8 @@ angular.module('syncthing.core')
                                     $scope.webauthn.errors.aborted = true;
                                 } else if (e instanceof DOMException && e.name === "NotAllowedError") {
                                     $scope.webauthn.errors.notAllowed = true;
-                              } else if (e instanceof DOMException && e.name === "SecurityError") {
-                                  $scope.webauthn.errors.securityError = true;
+                                } else if (e instanceof DOMException && e.name === "SecurityError") {
+                                    $scope.webauthn.errors.securityError = true;
                                 } else if (e && e.status === 409) {
                                     $scope.webauthn.errors.uvRequired = true;
                                 } else {
@@ -1937,36 +1967,6 @@ angular.module('syncthing.core')
                         finish($scope.webauthn.request);
                     } else {
                         $scope.authenticateWebauthnStart().then(finish);
-                    }
-                };
-
-                $scope.locationDoesNotMatchWebauthnRpId = function () {
-                    if ($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId) {
-                        var exactMatch = $location.host() === $scope.webauthn.request.publicKey.rpId;
-                        var subdomainMatch = $location.host().endsWith('.' + $scope.webauthn.request.publicKey.rpId);
-                        return !(exactMatch || subdomainMatch);
-                    }
-                    // If we don't know, don't show an error message.
-                    return false;
-                };
-
-                $scope.inferWebauthnAddress = function () {
-                    // This isn't guaranteed to match the "WebAuthn Origin" config setting,
-                    // but it's the best we can do with the public information (only the rpId property in the WebAuthn parameter object).
-                    // The exact WebAuthn Origin setting is a private security property, so we should not disclose it without authentication.
-
-                    if (!($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId)) {
-                        return false;
-                    }
-
-                    var portPart = $location.port() ? ':' + $location.port() : '';
-                    return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
-                };
-
-                $scope.reloadLoginAtWebauthnAddress = function () {
-                    var address = $scope.inferWebauthnAddress();
-                    if (address) {
-                        location.assign(address);
                     }
                 };
 
