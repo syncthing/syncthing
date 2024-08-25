@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 	"golang.org/x/net/http2"
@@ -76,8 +77,12 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+var osVersion string
+
 func init() {
 	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+	osVersion, _ = host.KernelVersion()
+	osVersion = strings.TrimSpace(osVersion)
 }
 
 func insecureGet(url, version string) (*http.Response, error) {
@@ -87,6 +92,9 @@ func insecureGet(url, version string) (*http.Response, error) {
 	}
 
 	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	if osVersion != "" {
+		req.Header.Set("Syncthing-Os-Version", osVersion)
+	}
 	return insecureHTTP.Do(req)
 }
 
@@ -118,9 +126,11 @@ type SortByRelease []Release
 func (s SortByRelease) Len() int {
 	return len(s)
 }
+
 func (s SortByRelease) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
+
 func (s SortByRelease) Less(i, j int) bool {
 	return CompareVersions(s[i].Tag, s[j].Tag) > 0
 }
@@ -428,7 +438,7 @@ func writeBinary(dir string, inFile io.Reader) (filename string, err error) {
 		return "", err
 	}
 
-	err = os.Chmod(outFile.Name(), os.FileMode(0755))
+	err = os.Chmod(outFile.Name(), os.FileMode(0o755))
 	if err != nil {
 		os.Remove(outFile.Name())
 		return "", err
