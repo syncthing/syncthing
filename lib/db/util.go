@@ -26,7 +26,8 @@ type FileInfoBatch struct {
 // NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
 // to flush. Errors from the flush function are considered non-recoverable;
 // once an error is returned the flush function wil not be called again, and
-// any further calls to Flush will return the same error.
+// any further calls to Flush will return the same error (unless Reset is
+// called).
 func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
 	return &FileInfoBatch{flushFn: fn}
 }
@@ -77,6 +78,7 @@ func (b *FileInfoBatch) Flush() error {
 
 func (b *FileInfoBatch) Reset() {
 	b.infos = nil
+	b.error = nil
 	b.size = 0
 }
 
