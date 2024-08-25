@@ -8,6 +8,7 @@ package config
 
 import (
 	"encoding/base64"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -159,6 +160,30 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	default:
 		return false
 	}
+}
+
+func (c *GUIConfiguration) WebauthnOrigins() ([]string, error) {
+	origins := c.RawWebauthnOrigins
+	if len(origins) == 0 {
+		_, port, err := net.SplitHostPort(c.Address())
+		if err != nil {
+			return nil, err
+		}
+		port = ":" + port
+		if port == ":443" {
+			origins = append(origins, "https://"+c.WebauthnRpId)
+		} else {
+			origins = append(origins, "https://"+c.WebauthnRpId+port)
+		}
+		if !c.UseTLS() {
+			if port == ":80" {
+				origins = append(origins, "http://"+c.WebauthnRpId)
+			} else {
+				origins = append(origins, "http://"+c.WebauthnRpId+port)
+			}
+		}
+	}
+	return origins, nil
 }
 
 func (c *GUIConfiguration) prepare() error {

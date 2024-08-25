@@ -1808,12 +1808,19 @@ angular.module('syncthing.core')
 
                 $scope.getWebauthnOrigin = function () {
                     var cfg = $scope.config.gui;
-                    return cfg && cfg.webauthnOrigin;
+                    return cfg && cfg.webauthnOrigins[0];
                 };
 
                 $scope.locationMatchesWebauthnOrigin = function () {
                     var cfg = $scope.config.gui;
-                    return cfg && $location.absUrl().startsWith($scope.getWebauthnOrigin());
+                    if (cfg) {
+                        for (var i = 0; i < (cfg.webauthnOrigins || []).length; ++i) {
+                            if ($location.absUrl().startsWith(cfg.webauthnOrigins[i])) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
                 };
 
                 $scope.reloadSettingsAtWebauthnAddress = function (save) {
