@@ -318,13 +318,10 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if to.GUI.Password != cfg.GUI.Password {
-			if err := to.GUI.SetPassword(to.GUI.Password); err != nil {
-				l.Warnln("hashing password:", err)
-				errMsg = err.Error()
-				status = http.StatusInternalServerError
-				return
-			}
+		if err := postAdjustGui(&cfg.GUI, &to.GUI); err != nil {
+			errMsg = err.Error()
+			status = http.StatusInternalServerError
+			return
 		}
 		*cfg = to
 	})
@@ -391,7 +388,6 @@ func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request,
 }
 
 func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui config.GUIConfiguration) {
-	oldPassword := gui.Password
 	err := unmarshalTo(r.Body, &gui)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -400,13 +396,10 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	var errMsg string
 	var status int
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
-		if gui.Password != oldPassword {
-			if err := gui.SetPassword(gui.Password); err != nil {
-				l.Warnln("hashing password:", err)
-				errMsg = err.Error()
-				status = http.StatusInternalServerError
-				return
-			}
+		if err := postAdjustGui(&cfg.GUI, &gui); err != nil {
+			errMsg = err.Error()
+			status = http.StatusInternalServerError
+			return
 		}
 		cfg.GUI = gui
 	})
@@ -417,6 +410,17 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 		return
 	}
 	c.finish(w, waiter)
+}
+
+func postAdjustGui(from *config.GUIConfiguration, to *config.GUIConfiguration) error {
+	if to.Password != from.Password {
+		if err := to.SetPassword(to.Password); err != nil {
+			l.Warnln("hashing password:", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {
