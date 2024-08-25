@@ -493,6 +493,7 @@ func (*service) VerifyConfiguration(_, to config.Configuration) error {
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
+	from.GUI.WebauthnState = to.GUI.WebauthnState
 
 	if reflect.DeepEqual(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
