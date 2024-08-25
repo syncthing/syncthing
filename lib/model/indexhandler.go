@@ -370,7 +370,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	for i := range fs {
 		// Verify index in relation to the claimed sequence boundaries
 		if fs[i].Sequence < prevSequence {
-			l.Warnf("Bug: device %v folder %s sent file with sequence %d outside of claimed range %d-%d", deviceID.Short(), s.folder, fs[i].Sequence, prevSequence, lastSequence)
 			s.logSequenceAnomaly("file with sequence before prevSequence", map[string]any{
 				"prevSeq": prevSequence,
 				"lastSeq": lastSequence,
@@ -380,7 +379,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 			})
 		}
 		if lastSequence > 0 && fs[i].Sequence > lastSequence {
-			l.Warnf("Bug: device %v folder %s sent file with sequence %d outside of claimed range %d-%d", deviceID.Short(), s.folder, fs[i].Sequence, prevSequence, lastSequence)
 			s.logSequenceAnomaly("file with sequence after lastSequence", map[string]any{
 				"prevSeq": prevSequence,
 				"lastSeq": lastSequence,
