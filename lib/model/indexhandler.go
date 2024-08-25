@@ -428,10 +428,10 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	return nil
 }
 
-var warnSequenceAnomalyOne sync.Once
+var warnSequenceAnomalyOnce sync.Once
 
 func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
-	warnSequenceAnomalyOne.Do(func() {
+	warnSequenceAnomalyOnce.Do(func() {
 		l.Warnf("Index sequence anomaly detected (please report at https://forum.syncthing.net/t/22660): %s (%v)", msg, extra)
 	})
 
