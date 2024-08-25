@@ -31,7 +31,6 @@ import (
 	"unicode"
 
 	"github.com/calmh/incontainer"
-	"github.com/google/go-cmp/cmp"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
@@ -498,7 +497,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if cmp.Equal(to.GUI, from.GUI) {
+	if reflect.DeepEqual(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
 		return true
 	}
