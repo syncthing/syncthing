@@ -411,14 +411,14 @@
                   </button>
                 </div>
 
-                <p class="text-info" ng-if="!webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
+                <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
                 <div ng-if="locationDoesNotMatchWebauthnRpId()">
                   <p class="text-info" translate>Current domain does not match WebAuthn configuration.</p>
                   <p>
                     <a href="{{docsURL('users/webauthn#webauthn-custom-gui-address')}}" translate>Syncthing Documentation: Customizing the GUI address</a>
                   </p>
                 </div>
-                <p class="text-info" ng-if="isLocationInsecure()" translate>WebAuthn requires HTTPS.</p>
+                <p class="text-info" ng-if="isLocationInsecure()" translate>WebAuthn requires HTTPS on non-localhost domains.</p>
                 <p class="text-danger" ng-if="webauthn.errors.notRegistered" translate>This device or security key is not registered. Please try a different one.</p>
                 <p class="text-info" ng-if="webauthn.errors.aborted" translate>Authentication aborted by user.</p>
                 <p class="text-danger" ng-if="webauthn.errors.notAllowed" translate>Authentication failed, please try again.</p>
@@ -433,7 +433,7 @@
                 <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>No WebAuthn credentials configured.</p>
                 <p class="text-danger" ng-if="webauthn.errors.uvRequired" translate>User verification is required, but was not performed.</p>
 
-                <button ng-if="inferWebauthnAddress() && (isLocationInsecure() || locationDoesNotMatchWebauthnRpId())" type="button" class="btn btn-primary" ng-click="reloadLoginAtWebauthnAddress()" translate translate-value-webauthn-address="{{ inferWebauthnAddress() }}">Reload page at {%webauthnAddress%}</button>
+                <button ng-if="isLocationInsecure() || locationDoesNotMatchWebauthnRpId()" type="button" class="btn btn-primary" ng-click="reloadLoginAtWebauthnAddress()" translate translate-value-webauthn-address="{{ inferWebauthnAddress() }}">Reload page at {%webauthnAddress%}</button>
               </div>
             </div>
           </div>

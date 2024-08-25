@@ -224,9 +224,7 @@
                   <tr>
                     <td colspan="4">
                       <p class="text-info" ng-if="webauthnAvailable() && !config.gui.user" translate>Set a username and save to enable WebAuthn.</p>
-                      <p class="text-info" ng-if="!tmpGUI.useTLS && tmpGUI.webauthnRpId !== 'localhost'" translate>WebAuthn requires HTTPS on non-localhost domains.</p>
-
-                      <p class="text-success" ng-if="tmpGUI.useTLS && tmpGUI.webauthnRpId !== 'localhost' && webauthnAvailable() && isLocationInsecure()" translate>Save and reload in HTTPS to enable WebAuthn.</p>
+                      <p class="text-info" ng-if="isLocationInsecure()" translate>WebAuthn requires HTTPS on non-localhost domains.</p>
 
                       <p class="text-danger" ng-if="webauthn.errors.alreadyRegistered" translate>This device or security key is already registered. Please use a different one.</p>
 
@@ -243,11 +241,11 @@
 
                       <p class="text-info" ng-if="webauthnAvailable() && isRawIpAddress()" translate>WebAuthn is not supported on raw IP address hosts.</p>
 
-                      <p class="text-info" ng-if="!webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
+                      <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
 
-                      <p class="text-warning" ng-if="webauthnAvailable() && !locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Reload page at {%webauthnOrigin%} to enable WebAuthn.</p>
+                      <p class="text-warning" ng-if="isLocationInsecure() || !locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Reload page at {%webauthnOrigin%} to enable WebAuthn.</p>
 
-                      <p ng-if="webauthnAvailable() && !locationMatchesWebauthnOrigin()">
+                      <p ng-if="isLocationInsecure() || !locationMatchesWebauthnOrigin()">
                         <button ng-if="tmpGUI && settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)"><span class="fas fa-check"></span>&nbsp;<span translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Save settings and reload page at {%webauthnOrigin%}</span>
                         </button>
 

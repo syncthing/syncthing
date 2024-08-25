@@ -1775,16 +1775,13 @@ angular.module('syncthing.core')
         };
 
         $scope.inferWebauthnAddress = function () {
-            // This isn't guaranteed to match the "WebAuthn Origin" config setting,
+            // This isn't guaranteed to match the "WebAuthn Origins" config setting,
             // but it's the best we can do with the public information (only the rpId property in the WebAuthn parameter object).
-            // The exact WebAuthn Origin setting is a private security property, so we should not disclose it without authentication.
-
-            if (!($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId)) {
-                return false;
-            }
-
+            // The exact WebAuthn Origins setting is a private security property, so we should not disclose it without authentication.
+            var scheme = ($scope.isLocationInsecure() ? 'https://' : '//');
+            var rpId = ((($scope.webauthn || {}).request || {}).publicKey || {}).rpId || $location.host();
             var portPart = $location.port() ? ':' + $location.port() : '';
-            return 'https://' + $scope.webauthn.request.publicKey.rpId + portPart;
+            return scheme + rpId + portPart;
         };
 
         $scope.reloadLoginAtWebauthnAddress = function () {
