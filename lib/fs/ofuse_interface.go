@@ -7,6 +7,7 @@ package fs
 import (
 	"context"
 	"os"
+	"path"
 	"path/filepath"
 	"syscall"
 
@@ -181,6 +182,10 @@ var _ = (ffs.NodeUnlinker)((*LoopbackNode)(nil))
 func (n *LoopbackNode) Unlink(ctx context.Context, name string) syscall.Errno {
 	p := filepath.Join(n.path(), name)
 	err := syscall.Unlink(p)
+
+	from_rel_path := path.Join(n.Path(n.Root()), name)
+	n.RootData.changeChan <- Event{from_rel_path, Remove}
+
 	return ffs.ToErrno(err)
 }
 
@@ -195,6 +200,12 @@ func (n *LoopbackNode) Rename(ctx context.Context, name string, newParent ffs.In
 	p2 := filepath.Join(n.RootData.Path, newParent.EmbeddedInode().Path(nil), newName)
 
 	err := syscall.Rename(p1, p2)
+
+	from_rel_path := path.Join(n.Path(n.Root()), name)
+	to_rel_path := path.Join(newParent.EmbeddedInode().Path(nil), newName)
+	n.RootData.changeChan <- Event{from_rel_path, Remove}
+	n.RootData.changeChan <- Event{to_rel_path, NonRemove}
+
 	return ffs.ToErrno(err)
 }
 
@@ -221,6 +232,7 @@ func (n *LoopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 	lf := NewLoopbackFile(relative_path, fd, n.RootData.changeChan)
 
 	out.FromStat(&st)
+	n.RootData.changeChan <- Event{relative_path, NonRemove}
 	return ch, lf, 0, 0
 }
 
@@ -256,7 +268,14 @@ func (n *LoopbackNode) renameExchange(name string, newparent ffs.InodeEmbedder, 
 		return syscall.EBUSY
 	}
 
-	return ffs.ToErrno(unix.Renameat2(fd1, name, fd2, newName, unix.RENAME_EXCHANGE))
+	result := ffs.ToErrno(unix.Renameat2(fd1, name, fd2, newName, unix.RENAME_EXCHANGE))
+
+	from_rel_path := path.Join(n.Path(n.Root()), name)
+	to_rel_path := path.Join(newparent.EmbeddedInode().Path(nil), name)
+	n.RootData.changeChan <- Event{from_rel_path, NonRemove}
+	n.RootData.changeChan <- Event{to_rel_path, NonRemove}
+
+	return result
 }
 
 var _ = (ffs.NodeSymlinker)((*LoopbackNode)(nil))
