@@ -15,6 +15,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.8
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang/protobuf v1.5.3
 	github.com/greatroar/blobloom v0.8.0
 	github.com/hanwen/go-fuse/v2 v2.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -48,7 +49,6 @@ require (
 	golang.org/x/text v0.15.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.21.0
-	google.golang.org/protobuf v1.34.1
 )
 
 require (
@@ -89,6 +89,7 @@ require (
 	golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
+	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

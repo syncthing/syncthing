@@ -75,7 +75,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 	fcfg := newCfg.Defaults.Folder.Copy()
 	fcfg.ID = "default"
 	fcfg.Label = "Default Folder"
-	fcfg.FilesystemType = fs.FilesystemTypeRealFuse
+	fcfg.FilesystemType = fs.FilesystemTypeOwnFuse
 	fcfg.Path = locations.Get(locations.DefFolder)
 	newCfg.Folders = append(newCfg.Folders, fcfg)
 	l.Infoln("Default folder created and/or linked to new config")
