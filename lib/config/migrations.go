@@ -128,7 +128,7 @@ func migrateToConfigV38(cfg *Configuration) {
 		cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, secure_origin)
 		if !cfg.GUI.RawUseTLS {
 			origin := "http://" + cfg.GUI.WebauthnRpId
-			if port != ":80" {
+			if port != "80" {
 				origin += ":" + port
 			}
 			cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, origin)
