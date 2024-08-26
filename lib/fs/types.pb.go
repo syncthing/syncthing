@@ -26,7 +26,8 @@ type FilesystemType int32
 const (
 	FilesystemTypeBasic   FilesystemType = 0
 	FilesystemTypeFake    FilesystemType = 1
-	FilesystemTypeOwnFuse FilesystemType = 2
+	FilesystemTypeOwnFuse FilesystemType = 2 // loopback filesystem
+	FilesystemTypeRealFuse               = 3 // real fuse filesystem, with block-database as backend
 )
 
 var FilesystemType_name = map[int32]string{
