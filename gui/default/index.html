@@ -860,6 +860,12 @@
                           </a>
                         </td>
                       </tr>
+                      <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
+                        <th><span class="fas fa-fw fa-hourglass-half"></span>&nbsp;<span translate>Time Remaining</span></th>
+                        <td class="text-right">
+                          <span>{{syncRemaining(deviceCfg.deviceID)}}</span>
+                        </td>
+                      </tr>
                       <tr ng-if="completion[deviceCfg.deviceID]._needItems">
                         <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                         <td class="text-right">
