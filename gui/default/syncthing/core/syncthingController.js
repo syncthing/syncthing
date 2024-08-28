@@ -1070,6 +1070,20 @@ angular.module('syncthing.core')
             return $scope.scanProgress[folder].rate;
         };
 
+        $scope.syncRemaining = function (folder) {
+            if (!$scope.completion[folder]) {
+                return "";
+            }
+
+            var remainingBytes = $scope.completion[folder]._needBytes;
+            var uploadSpeed = $scope.connections[folder].outbps*8
+
+            var seconds = remainingBytes / uploadSpeed;
+            seconds = Math.ceil(seconds / 10) * 10;
+            
+            return getTimeRemaining(seconds)
+        }
+
         $scope.scanRemaining = function (folder) {
             // Formats the remaining scan time as a string. Includes days and
             // hours only when relevant, resulting in time stamps like:
@@ -1094,6 +1108,10 @@ angular.module('syncthing.core')
 
             seconds = Math.ceil(seconds / 10) * 10;
 
+            return getTimeRemaining(seconds)
+        };
+
+        function getTimeRemaining(seconds){
             // Separate out the number of days.
             var days = 0;
             var res = [];
@@ -1129,7 +1147,7 @@ angular.module('syncthing.core')
             }
 
             return res.join(' ');
-        };
+        }
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
