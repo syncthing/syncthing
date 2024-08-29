@@ -87,7 +87,7 @@ angular.module('syncthing.core')
                                 }
                             });
 
-                            // Only look for a prefixed or suffixed match when no exact match exists.
+                            // Only look for a suffixed match when no exact match exists.
                             if (!matching[0]) {
                                 matching = _availableLocales.filter(function (possibleLang) {
                                     possibleLang = possibleLang.toLowerCase();
