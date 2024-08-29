@@ -45,6 +45,7 @@ angular.module('syncthing.core')
 
             function autoConfigLocale() {
                 var params = $location.search();
+                var exactMatch;
                 var savedLang;
                 if (_localStorage) {
                     savedLang = _localStorage[_SYNLANG];
@@ -52,14 +53,15 @@ angular.module('syncthing.core')
 
                 if (params.lang) {
                     useLocale(params.lang, true);
-                } else if (savedLang) {
-                    useLocale(savedLang);
+                // } else if (savedLang) {
+                    // useLocale(savedLang);
                 } else {
                     readBrowserLocales().success(function (langs) {
-                        // Find the first language in the list provided by the user's browser
-                        // that is a prefix of a language we have available. That is, "en"
-                        // sent by the browser will match "en" or "en-US", while "zh-TW" will
-                        // match only "zh-TW" and not "zh-CN".
+                        // Find the exact language in the list provided by the user's browser.
+                        // Otherwise, find the first version of the language with a hyphenated
+                        // suffix. That is, "en-US" sent by the browser will match "en-US" first,
+                        // then "en", then "en-GB". Similarly, "en" will match "en" first, then
+                        // "en-GB", then "en-US".
 
                         var i,
                             lang,
@@ -74,20 +76,29 @@ angular.module('syncthing.core')
                                 continue;
                             }
 
+                            // The langs returned by the /rest/langs call will be in lower
+                            // case. We compare to the lowercase version of the language
+                            // code we have as well.
+
+                            // Try to find the exact match first.
                             matching = _availableLocales.filter(function (possibleLang) {
-                                // The langs returned by the /rest/langs call will be in lower
-                                // case. We compare to the lowercase version of the language
-                                // code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
-                                // Match "en" with "en-US" but not "fi" with "fil", and vice versa.
-                                if (possibleLang !== lang) {
-                                    lang = lang.replace(pattern, '');
-                                    possibleLang = possibleLang.replace(pattern, '');
+                                if (possibleLang === lang) {
+                                    return lang === possibleLang;
                                 }
-                                return lang === possibleLang;
                             });
 
-                            if (matching) {
+                            // Only look for a prefixed or suffixed match when no exact match exists.
+                            if (!matching[0]) {
+                                matching = _availableLocales.filter(function (possibleLang) {
+                                    possibleLang = possibleLang.toLowerCase();
+                                    lang = lang.replace(pattern, '');
+                                    possibleLang = possibleLang.replace(pattern, '');
+                                    return lang === possibleLang;
+                                })
+                            };
+
+                            if (matching[0]) {
                                 locale = matching[0];
                                 break;
                             }
