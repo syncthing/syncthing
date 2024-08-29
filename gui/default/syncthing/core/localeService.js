@@ -45,7 +45,6 @@ angular.module('syncthing.core')
 
             function autoConfigLocale() {
                 var params = $location.search();
-                var exactMatch;
                 var savedLang;
                 if (_localStorage) {
                     savedLang = _localStorage[_SYNLANG];
