@@ -64,6 +64,7 @@ angular.module('syncthing.core')
                         var i,
                             lang,
                             matching,
+                            character,
                             locale = _defaultLocale;
 
                         for (i = 0; i < langs.length; i++) {
@@ -79,7 +80,17 @@ angular.module('syncthing.core')
                                 // code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
                                 if (possibleLang.length > lang.length) {
-                                    return possibleLang.indexOf(lang) === 0;
+                                    // Match "en" with "en-US" but not "fi" with "fil".
+                                    character = possibleLang.slice(0, possibleLang.length - lang.length).slice(-1);
+                                    if (character === '-') {
+                                        return possibleLang.indexOf(lang) === 0;
+                                    }
+                                } if (possibleLang.length < lang.length) {
+                                    // Match "en-US" with "en" but not "fil" with "fi".
+                                    character = lang.slice(0, lang.length - possibleLang.length).slice(-1);
+                                    if (character === '-') {
+                                        return lang.indexOf(possibleLang) === 0;
+                                    }
                                 } else {
                                     return lang.indexOf(possibleLang) === 0;
                                 }
