@@ -85,7 +85,7 @@ angular.module('syncthing.core')
                                     if (character === '-') {
                                         return possibleLang.indexOf(lang) === 0;
                                     }
-                                } if (possibleLang.length < lang.length) {
+                                } else if (possibleLang.length < lang.length) {
                                     // Match "en-US" with "en" but not "fil" with "fi".
                                     character = lang.slice(0, lang.length - possibleLang.length).slice(-1);
                                     if (character === '-') {
