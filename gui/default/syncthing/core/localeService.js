@@ -79,8 +79,7 @@ angular.module('syncthing.core')
                                 // case. We compare to the lowercase version of the language
                                 // code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
-                                // Match "en" with "en-US" but not "fi" with "fil",
-                                // and match "en-US" with "en" but not "fil" with "fi".
+                                // Match "en" with "en-US" but not "fi" with "fil", and vice versa.
                                 if (possibleLang !== lang) {
                                     lang = lang.replace(pattern, '');
                                     possibleLang = possibleLang.replace(pattern, '');
