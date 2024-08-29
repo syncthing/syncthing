@@ -1070,13 +1070,52 @@ angular.module('syncthing.core')
             return $scope.scanProgress[folder].rate;
         };
 
-        $scope.syncRemaining = function (folder) {
-            if (!$scope.completion[folder]) {
+        $scope.getTotalSyncTimeRemaining = function () {
+            // "Syncing (16%, 3.8 GiB, 1m 50s)"
+            var folderList = $scope.folderList();
+
+            var totalSize = 0;
+            var totalSeconds = "";
+            var totalTimeRemaining = "";
+            var folderCount = 0;
+
+            folderList.forEach((folder) => {
+                if (folderCount != $scope.folderList().length)
+                {
+                        console.log("CURRENT FOLDER");
+                        console.log(folder);
+                        var currentFolderID = folder.id;
+                        
+                        var remainingBytes = $scope.model[currentFolderID].needBytes;
+                        var downloadSpeed = $scope.connectionsTotal.inbps*8;
+                        var seconds = remainingBytes / downloadSpeed;
+
+                        console.log("CURRENT FOLDER size: " + totalSize);
+                        console.log("CURRENT FOLDER seconds: " + seconds);
+                        // seconds = Math.ceil(seconds / 10) * 10;
+                        
+                        totalSize += remainingBytes;
+                        totalSeconds += seconds;
+                        folderCount ++;
+                }
+            })
+
+
+            totalTimeRemaining = getTimeRemaining(totalSeconds);
+            var finalSize = totalSize;
+            var syncMessage = "Syncing (" + finalSize  + "B, " + totalTimeRemaining + ")";
+            return syncMessage;
+
+            
+        }
+
+        $scope.syncRemaining = function (deviceID) {
+            if (!$scope.completion[deviceID]) {
                 return "";
             }
 
-            var remainingBytes = $scope.completion[folder]._needBytes;
-            var uploadSpeed = $scope.connections[folder].outbps*8
+            var remainingBytes = $scope.completion[deviceID]._needBytes;
+            var uploadSpeed = $scope.connections[deviceID].outbps*8;
 
             var seconds = remainingBytes / uploadSpeed;
             seconds = Math.ceil(seconds / 10) * 10;
