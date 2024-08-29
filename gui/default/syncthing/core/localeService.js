@@ -64,7 +64,7 @@ angular.module('syncthing.core')
                         var i,
                             lang,
                             matching,
-                            character,
+                            pattern = /-.*$/,
                             locale = _defaultLocale;
 
                         for (i = 0; i < langs.length; i++) {
@@ -79,24 +79,16 @@ angular.module('syncthing.core')
                                 // case. We compare to the lowercase version of the language
                                 // code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
-                                if (possibleLang.length > lang.length) {
-                                    // Match "en" with "en-US" but not "fi" with "fil".
-                                    character = possibleLang.slice(0, possibleLang.length - lang.length).slice(-1);
-                                    if (character === '-') {
-                                        return possibleLang.indexOf(lang) === 0;
-                                    }
-                                } else if (possibleLang.length < lang.length) {
-                                    // Match "en-US" with "en" but not "fil" with "fi".
-                                    character = lang.slice(0, lang.length - possibleLang.length).slice(-1);
-                                    if (character === '-') {
-                                        return lang.indexOf(possibleLang) === 0;
-                                    }
-                                } else {
-                                    return lang.indexOf(possibleLang) === 0;
+                                // Match "en" with "en-US" but not "fi" with "fil",
+                                // and match "en-US" with "en" but not "fil" with "fi".
+                                if (possibleLang !== lang) {
+                                    lang = lang.replace(pattern, '');
+                                    possibleLang = possibleLang.replace(pattern, '');
                                 }
+                                return lang === possibleLang;
                             });
 
-                            if (matching.length >= 1) {
+                            if (matching) {
                                 locale = matching[0];
                                 break;
                             }
