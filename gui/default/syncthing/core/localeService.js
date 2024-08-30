@@ -62,6 +62,12 @@ angular.module('syncthing.core')
                         // match only "zh-TW" and not "zh" or "zh-CN".
 
                         var i,
+                            // We need to reverse the order, so that "zh" matches with "zh-CN"
+                            // and not zh-TW". This is because if no exact matches are found,
+                            // the last match wins. The order needs to be reversed here and not
+                            // later in the matching loop, as the browser may request multiple
+                            // languages, and all of them should match in the reversed order.
+                            guiLangs = _availableLocales.reverse(),
                             browserLang,
                             possibleLang,
                             matchingLang,
@@ -73,13 +79,10 @@ angular.module('syncthing.core')
                             if (browserLang.length < 2) {
                                 continue;
                             }
-
-                            _availableLocales.reverse().filter(function (guiLang) {
+                            guiLangs.filter(function (guiLang) {
                                 // The langs returned by the /rest/langs call will be in lower
                                 // case. We compare to the lowercase version of the language
-                                // code we have as well. If no exact match found, the last match
-                                // wins, so we need reverse the order to make "zh" match with
-                                // "zh-CN" and not "zh-TW".
+                                // code we have as well.
                                 possibleLang = guiLang.toLowerCase();
                                 if (possibleLang === browserLang) {
                                     // Skip further checking if exact match found.
