@@ -52,53 +52,51 @@ angular.module('syncthing.core')
 
                 if (params.lang) {
                     useLocale(params.lang, true);
-                } else if (savedLang) {
-                    useLocale(savedLang);
+                // } else if (savedLang) {
+                    // useLocale(savedLang);
                 } else {
                     readBrowserLocales().success(function (langs) {
-                        // Find the exact language in the list provided by the user's browser.
-                        // Otherwise, find the first version of the language with a hyphenated
-                        // suffix. That is, "en-US" sent by the browser will match "en-US" first,
-                        // then "en", then "en-GB". Similarly, "en" will match "en" first, then
-                        // "en-GB", then "en-US".
+                        // Find the first language in the list provided by the user's browser
+                        // that is a prefix of a language we have available. That is, "en"
+                        // sent by the browser will match "en" or "en-US", while "zh-TW" will
+                        // match only "zh-TW" and not "zh" or "zh-CN".
 
                         var i,
-                            lang,
-                            matching,
+                            browserLang,
+                            possibleLang,
+                            matchingLang,
                             pattern = /-.*$/,
                             locale = _defaultLocale;
 
                         for (i = 0; i < langs.length; i++) {
-                            lang = langs[i];
-
-                            if (lang.length < 2) {
+                            browserLang = langs[i];
+                            if (browserLang.length < 2) {
                                 continue;
                             }
 
-                            // The langs returned by the /rest/langs call will be in lower
-                            // case. We compare to the lowercase version of the language
-                            // code we have as well.
-
-                            // Try to find the exact match first.
-                            matching = _availableLocales.filter(function (possibleLang) {
-                                possibleLang = possibleLang.toLowerCase();
-                                if (possibleLang === lang) {
-                                    return lang === possibleLang;
+                            _availableLocales.reverse().filter(function (guiLang) {
+                                // The langs returned by the /rest/langs call will be in lower
+                                // case. We compare to the lowercase version of the language
+                                // code we have as well. If no exact match found, the last match
+                                // wins, so we need reverse the order to make "zh" match with
+                                // "zh-CN" and not "zh-TW".
+                                possibleLang = guiLang.toLowerCase();
+                                if (possibleLang === browserLang) {
+                                    // Skip further checking if exact match found.
+                                    return matchingLang = guiLang;
+                                } else if (possibleLang.length > browserLang.length) {
+                                    // Match "en-GB" with "en" but not "en" with "en-GB". Keep
+                                    // checking even if found already, as exact match may still
+                                    // be found later.
+                                    possibleLang = possibleLang.replace(pattern, '');
+                                    if (possibleLang === browserLang) {
+                                        matchingLang = guiLang;
+                                    }
                                 }
                             });
 
-                            // Only look for a suffixed match when no exact match exists.
-                            if (!matching[0]) {
-                                matching = _availableLocales.filter(function (possibleLang) {
-                                    possibleLang = possibleLang.toLowerCase();
-                                    lang = lang.replace(pattern, '');
-                                    possibleLang = possibleLang.replace(pattern, '');
-                                    return lang === possibleLang;
-                                })
-                            };
-
-                            if (matching[0]) {
-                                locale = matching[0];
+                            if (matchingLang) {
+                                locale = matchingLang;
                                 break;
                             }
                         }
