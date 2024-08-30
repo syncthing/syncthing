@@ -52,8 +52,8 @@ angular.module('syncthing.core')
 
                 if (params.lang) {
                     useLocale(params.lang, true);
-                // } else if (savedLang) {
-                    // useLocale(savedLang);
+                } else if (savedLang) {
+                    useLocale(savedLang);
                 } else {
                     readBrowserLocales().success(function (langs) {
                         // Find the first language in the list provided by the user's browser
