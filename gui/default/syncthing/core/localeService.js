@@ -85,7 +85,7 @@ angular.module('syncthing.core')
                                     // Skip further checking if exact match found.
                                     return matchingLang = guiLang;
                                 } else if (possibleLang.length > browserLang.length) {
-                                    // Match "en-GB" with "en" but not "en" with "en-GB". Keep
+                                    // Match "en" with "en-GB" but not "en-GB" with "en". Keep
                                     // checking even if found already, as exact match may still
                                     // be found later.
                                     possibleLang = possibleLang.replace(pattern, '');
