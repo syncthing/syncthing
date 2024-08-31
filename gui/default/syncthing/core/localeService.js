@@ -62,16 +62,8 @@ angular.module('syncthing.core')
                         // match only "zh-TW" and not "zh" or "zh-CN".
 
                         var i,
-                            // We need to reverse the order, so that "zh" matches with "zh-CN"
-                            // and not zh-TW". This is because if no exact matches are found,
-                            // the last match wins. The order needs to be reversed here and not
-                            // later in the matching loop, as the browser may request multiple
-                            // languages, and all of them should match in the reversed order.
-                            guiLangs = _availableLocales.reverse(),
                             browserLang,
-                            possibleLang,
-                            matchingLang,
-                            pattern = /-.*$/,
+                            matching,
                             locale = _defaultLocale;
 
                         for (i = 0; i < langs.length; i++) {
@@ -79,27 +71,29 @@ angular.module('syncthing.core')
                             if (browserLang.length < 2) {
                                 continue;
                             }
-                            guiLangs.filter(function (guiLang) {
+                            matching = _availableLocales.filter(function (possibleLang) {
                                 // The langs returned by the /rest/langs call will be in lower
                                 // case. We compare to the lowercase version of the language
                                 // code we have as well.
-                                possibleLang = guiLang.toLowerCase();
-                                if (possibleLang === browserLang) {
-                                    // Skip further checking if exact match found.
-                                    return matchingLang = guiLang;
-                                } else if (possibleLang.length > browserLang.length) {
-                                    // Match "en" with "en-GB" but not "en-GB" with "en". Keep
-                                    // checking even if found already, as exact match may still
-                                    // be found later. Otherwise, the last match will be used.
-                                    possibleLang = possibleLang.replace(pattern, '');
-                                    if (possibleLang === browserLang) {
-                                        matchingLang = guiLang;
-                                    }
+                                possibleLang = possibleLang.toLowerCase();
+                                if (possibleLang.indexOf(browserLang) !== 0) {
+                                    // Prefix does not match.
+                                    return false;
                                 }
+                                console.log("compare", browserLang, possibleLang);
+                                if (possibleLang.length > browserLang.length) {
+                                    // Must match up to the next hyphen separator.
+                                    return possibleLang[browserLang.length] === '-';
+                                    console.log("same length, exact match");
+                                }
+                                console.log("same length, exact match");
+                                // Same length, exact match.
+                                return true;
                             });
 
-                            if (matchingLang) {
-                                locale = matchingLang;
+                            if (matching[0]) {
+                                console.log("matching", browserLang, matching[0]);
+                                locale = matching[0];
                                 break;
                             }
                         }
