@@ -82,7 +82,6 @@ angular.module('syncthing.core')
                                     // Prefix does not match.
                                     return false;
                                 }
-                                console.log("compare", browserLang, possibleLang);
                                 if (possibleLang.length > browserLang.length) {
                                     // Must match up to the next hyphen separator.
                                     return possibleLang[browserLang.length] === '-';
