@@ -91,7 +91,7 @@ angular.module('syncthing.core')
                                 return true;
                             });
 
-                            if (matching[0]) {
+                            if (matching.length >= 1) {
                                 locale = matching[0];
                                 break;
                             }
