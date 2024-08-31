@@ -68,9 +68,11 @@ angular.module('syncthing.core')
 
                         for (i = 0; i < langs.length; i++) {
                             browserLang = langs[i];
+
                             if (browserLang.length < 2) {
                                 continue;
                             }
+
                             matching = _availableLocales.filter(function (possibleLang) {
                                 // The langs returned by the /rest/langs call will be in lower
                                 // case. We compare to the lowercase version of the language
