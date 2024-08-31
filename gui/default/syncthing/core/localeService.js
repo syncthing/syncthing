@@ -64,7 +64,7 @@ angular.module('syncthing.core')
                         var i,
                             browserLang,
                             matching,
-                            locale = _defaultLocale;
+                            locale = _defaultLocale; // Fallback if nothing matched
 
                         for (i = 0; i < langs.length; i++) {
                             browserLang = langs[i];
@@ -74,19 +74,19 @@ angular.module('syncthing.core')
                             }
 
                             matching = _availableLocales.filter(function (possibleLang) {
-                                // The langs returned by the /rest/langs call will be in lower
+                                // The langs returned by the /svc/langs call will be in lower
                                 // case. We compare to the lowercase version of the language
                                 // code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
                                 if (possibleLang.indexOf(browserLang) !== 0) {
-                                    // Prefix does not match.
+                                    // Prefix does not match
                                     return false;
                                 }
                                 if (possibleLang.length > browserLang.length) {
-                                    // Must match up to the next hyphen separator.
+                                    // Must match up to the next hyphen separator
                                     return possibleLang[browserLang.length] === '-';
                                 }
-                                // Same length, exact match.
+                                // Same length, exact match
                                 return true;
                             });
 
@@ -95,7 +95,6 @@ angular.module('syncthing.core')
                                 break;
                             }
                         }
-                        // Fallback if nothing matched
                         useLocale(locale);
                     });
                 }
