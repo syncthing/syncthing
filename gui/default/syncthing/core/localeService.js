@@ -84,15 +84,12 @@ angular.module('syncthing.core')
                                 if (possibleLang.length > browserLang.length) {
                                     // Must match up to the next hyphen separator.
                                     return possibleLang[browserLang.length] === '-';
-                                    console.log("same length, exact match");
                                 }
-                                console.log("same length, exact match");
                                 // Same length, exact match.
                                 return true;
                             });
 
                             if (matching[0]) {
-                                console.log("matching", browserLang, matching[0]);
                                 locale = matching[0];
                                 break;
                             }
