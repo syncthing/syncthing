@@ -1483,12 +1483,33 @@ func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 
 func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
-	var langs []string
+	var langs = make(map[string]float64)
 	for _, l := range strings.Split(lang, ",") {
 		parts := strings.SplitN(l, ";", 2)
-		langs = append(langs, strings.ToLower(strings.TrimSpace(parts[0])))
+		code := strings.ToLower(strings.TrimSpace(parts[0]))
+		langs[code] = 1.0
+		if len(parts) < 2 {
+			continue
+		}
+		weight := strings.ToLower(strings.TrimSpace(parts[1]))
+		if weight[:2] == "q=" {
+			if q, err := strconv.ParseFloat(weight[2:], 32); err != nil {
+				// Completely dismiss entries with invalid weight
+				delete(langs, code)
+			} else {
+				langs[code] = q
+			}
+		}
 	}
-	sendJSON(w, langs)
+	var orderedLangs = make([]string, 0, len(langs))
+	for code := range langs {
+		orderedLangs = append(orderedLangs, code)
+	}
+	// Reorder by descending q value
+	sort.SliceStable(orderedLangs, func(i, j int) bool {
+		return langs[orderedLangs[i]] > langs[orderedLangs[j]]
+	})
+	sendJSON(w, orderedLangs)
 }
 
 func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
