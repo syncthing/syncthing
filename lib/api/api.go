@@ -1492,13 +1492,14 @@ func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		weight := strings.ToLower(strings.TrimSpace(parts[1]))
-		if weight[:2] == "q=" {
-			if q, err := strconv.ParseFloat(weight[2:], 32); err != nil {
-				// Completely dismiss entries with invalid weight
-				delete(langs, code)
-			} else {
-				langs[code] = q
-			}
+		if weight[:2] != "q=" {
+			continue
+		}
+		if q, err := strconv.ParseFloat(weight[2:], 32); err != nil {
+			// Completely dismiss entries with invalid weight
+			delete(langs, code)
+		} else {
+			langs[code] = q
 		}
 	}
 	var orderedLangs = make([]string, 0, len(langs))
