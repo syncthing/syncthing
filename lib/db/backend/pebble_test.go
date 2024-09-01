@@ -16,7 +16,7 @@ func TestPebbleBackendBehavior(t *testing.T) {
 	next := 0
 	opener := func() Backend {
 		next++
-		be, err := OpenPebbleDB(path.Join(t.TempDir(), fmt.Sprintf("db%d", next)))
+		be, err := OpenPebble(path.Join(t.TempDir(), fmt.Sprintf("db%d", next)))
 		if err != nil {
 			t.Fatal(err)
 		}

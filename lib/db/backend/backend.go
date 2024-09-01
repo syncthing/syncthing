@@ -128,7 +128,7 @@ const (
 
 func Open(path string, tuning Tuning) (Backend, error) {
 	if os.Getenv("SYNCTHING_USE_PEBBLE") != "" {
-		return OpenPebbleDB(path)
+		return OpenPebble(path)
 	}
 	return OpenLevelDB(path, tuning)
 }

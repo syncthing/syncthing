@@ -10,6 +10,14 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
+func OpenPebble(location string) (Backend, error) {
+	db, err := pebble.Open(location, nil)
+	if err != nil {
+		return nil, err
+	}
+	return newPebbleBackend(db, location), nil
+}
+
 // pebbleBackend implements Backend on top of a pebble
 type pebbleBackend struct {
 	db       *pebble.DB
