@@ -46,11 +46,19 @@ const (
 	// User's home directory, *not* --home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
-	LevelDBDir          = "index-v0.14.0.db"
+	levelDBDir          = "index-v0.14.0.db"
+	pebbleDir           = "index.pebble"
 	configFileName      = "config.xml"
 	defaultStateDir     = ".local/state/syncthing"
 	oldDefaultConfigDir = ".config/syncthing"
 )
+
+func dbDir() string {
+	if os.Getenv("SYNCTHING_USE_PEBBLE") != "" {
+		return pebbleDir
+	}
+	return levelDBDir
+}
 
 // Platform dependent directories
 var baseDirs = make(map[BaseDirEnum]string, 3)
@@ -118,7 +126,7 @@ var locationTemplates = map[LocationEnum]string{
 	KeyFile:       "${config}/key.pem",
 	HTTPSCertFile: "${config}/https-cert.pem",
 	HTTPSKeyFile:  "${config}/https-key.pem",
-	Database:      "${data}/" + LevelDBDir,
+	Database:      "${data}/" + dbDir(),
 	LogFile:       "${data}/syncthing.log", // --logfile on Windows
 	PanicLog:      "${data}/panic-%{timestamp}.log",
 	AuditLog:      "${data}/audit-%{timestamp}.log",
@@ -242,7 +250,7 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// If a database exists at the config location, use that. This is the
 	// most common case for both legacy (~/.config/syncthing) and current
 	// (~/.local/state/syncthing) setups.
-	if fileExists(filepath.Join(configDir, LevelDBDir)) {
+	if fileExists(filepath.Join(configDir, dbDir())) {
 		return configDir
 	}
 
@@ -251,14 +259,14 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// but that's not what we did previously, so we retain the old behavior.
 	if xdgDataHome != "" {
 		candidate := filepath.Join(xdgDataHome, "syncthing")
-		if fileExists(filepath.Join(candidate, LevelDBDir)) {
+		if fileExists(filepath.Join(candidate, dbDir())) {
 			return candidate
 		}
 	}
 
 	// Legacy: if a database exists under ~/.config/syncthing, use that
 	candidate := filepath.Join(userHome, oldDefaultConfigDir)
-	if fileExists(filepath.Join(candidate, LevelDBDir)) {
+	if fileExists(filepath.Join(candidate, dbDir())) {
 		return candidate
 	}
 
