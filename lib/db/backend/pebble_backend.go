@@ -7,6 +7,8 @@
 package backend
 
 import (
+	"errors"
+
 	"github.com/cockroachdb/pebble"
 )
 
@@ -23,7 +25,6 @@ type pebbleBackend struct {
 	db       *pebble.DB
 	closeWG  *closeWaitGroup
 	location string
-	closed   chan struct{}
 }
 
 func newPebbleBackend(db *pebble.DB, location string) *pebbleBackend {
@@ -31,7 +32,6 @@ func newPebbleBackend(db *pebble.DB, location string) *pebbleBackend {
 		db:       db,
 		closeWG:  &closeWaitGroup{},
 		location: location,
-		closed:   make(chan struct{}),
 	}
 }
 
@@ -72,22 +72,12 @@ func (b *pebbleBackend) NewWriteTransaction(hooks ...CommitHook) (WriteTransacti
 }
 
 func (b *pebbleBackend) Close() error {
-	select {
-	case <-b.closed:
-		return errClosed
-	default:
-		close(b.closed)
-	}
 	b.closeWG.CloseWait()
 	return wrappebbleErr(b.db.Close())
 }
 
-func (b *pebbleBackend) Get(key []byte) ([]byte, error) {
-	select {
-	case <-b.closed:
-		return nil, errClosed
-	default:
-	}
+func (b *pebbleBackend) Get(key []byte) (_ []byte, err error) {
+	defer handleErrClosed(&err)
 
 	val, clo, err := b.db.Get(key)
 	if err != nil {
@@ -99,12 +89,8 @@ func (b *pebbleBackend) Get(key []byte) ([]byte, error) {
 	return cp, nil
 }
 
-func (b *pebbleBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
-	select {
-	case <-b.closed:
-		return nil, errClosed
-	default:
-	}
+func (b *pebbleBackend) NewPrefixIterator(prefix []byte) (_ Iterator, err error) {
+	defer handleErrClosed(&err)
 
 	if len(prefix) == 0 {
 		it, err := b.db.NewIter(nil)
@@ -114,23 +100,11 @@ func (b *pebbleBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 		return &pebbleIterator{Iterator: it}, nil
 	}
 
-	last := make([]byte, len(prefix))
-	copy(last, prefix)
-	for i := len(last) - 1; i >= 0; i-- {
-		if last[i] < 0xff {
-			last[i]++
-			break
-		}
-	}
-	return b.NewRangeIterator(prefix, last)
+	return b.NewRangeIterator(prefix, rangeEndFromPrefix(prefix))
 }
 
-func (b *pebbleBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
-	select {
-	case <-b.closed:
-		return nil, errClosed
-	default:
-	}
+func (b *pebbleBackend) NewRangeIterator(first, last []byte) (_ Iterator, err error) {
+	defer handleErrClosed(&err)
 
 	it, err := b.db.NewIter(&pebble.IterOptions{LowerBound: first, UpperBound: last})
 	if err != nil {
@@ -139,23 +113,13 @@ func (b *pebbleBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 	return &pebbleIterator{Iterator: it}, nil
 }
 
-func (b *pebbleBackend) Put(key, val []byte) error {
-	select {
-	case <-b.closed:
-		return errClosed
-	default:
-	}
-
+func (b *pebbleBackend) Put(key, val []byte) (err error) {
+	defer handleErrClosed(&err)
 	return wrappebbleErr(b.db.Set(key, val, nil))
 }
 
-func (b *pebbleBackend) Delete(key []byte) error {
-	select {
-	case <-b.closed:
-		return errClosed
-	default:
-	}
-
+func (b *pebbleBackend) Delete(key []byte) (err error) {
+	defer handleErrClosed(&err)
 	return wrappebbleErr(b.db.Delete(key, nil))
 }
 
@@ -169,12 +133,13 @@ func (b *pebbleBackend) Location() string {
 
 // pebbleSnapshot implements backend.ReadTransaction
 type pebbleSnapshot struct {
-	snap   *pebble.Snapshot
-	rel    *releaser
-	closed bool
+	snap *pebble.Snapshot
+	rel  *releaser
 }
 
-func (l pebbleSnapshot) Get(key []byte) ([]byte, error) {
+func (l pebbleSnapshot) Get(key []byte) (_ []byte, err error) {
+	defer handleErrClosed(&err)
+
 	val, clo, err := l.snap.Get(key)
 	if err != nil {
 		return nil, wrappebbleErr(err)
@@ -185,7 +150,9 @@ func (l pebbleSnapshot) Get(key []byte) ([]byte, error) {
 	return cp, nil
 }
 
-func (l pebbleSnapshot) NewPrefixIterator(prefix []byte) (Iterator, error) {
+func (l pebbleSnapshot) NewPrefixIterator(prefix []byte) (_ Iterator, err error) {
+	defer handleErrClosed(&err)
+
 	if len(prefix) == 0 {
 		it, err := l.snap.NewIter(nil)
 		if err != nil {
@@ -194,6 +161,10 @@ func (l pebbleSnapshot) NewPrefixIterator(prefix []byte) (Iterator, error) {
 		return &pebbleIterator{Iterator: it}, nil
 	}
 
+	return l.NewRangeIterator(prefix, rangeEndFromPrefix(prefix))
+}
+
+func rangeEndFromPrefix(prefix []byte) []byte {
 	last := make([]byte, len(prefix))
 	copy(last, prefix)
 	for i := len(last) - 1; i >= 0; i-- {
@@ -202,10 +173,12 @@ func (l pebbleSnapshot) NewPrefixIterator(prefix []byte) (Iterator, error) {
 			break
 		}
 	}
-	return l.NewRangeIterator(prefix, last)
+	return last
 }
 
-func (l pebbleSnapshot) NewRangeIterator(first, last []byte) (Iterator, error) {
+func (l pebbleSnapshot) NewRangeIterator(first, last []byte) (_ Iterator, err error) {
+	defer handleErrClosed(&err)
+
 	it, err := l.snap.NewIter(&pebble.IterOptions{LowerBound: first, UpperBound: last})
 	if err != nil {
 		return nil, err
@@ -214,10 +187,6 @@ func (l pebbleSnapshot) NewRangeIterator(first, last []byte) (Iterator, error) {
 }
 
 func (l *pebbleSnapshot) Release() {
-	if l.closed {
-		return
-	}
-	l.closed = true
 	l.snap.Close()
 	l.rel.Release()
 }
@@ -256,10 +225,8 @@ func (t *pebbleTransaction) Commit() error {
 }
 
 func (t *pebbleTransaction) Release() {
-	if t.closed {
-		return
-	}
-	t.closed = true
+	var ignored error
+	defer handleErrClosed(&ignored)
 	t.pebbleSnapshot.Release()
 	t.rel.Release()
 }
@@ -275,7 +242,9 @@ func (t *pebbleTransaction) checkFlush(size int) error {
 	return t.flush()
 }
 
-func (t *pebbleTransaction) flush() error {
+func (t *pebbleTransaction) flush() (err error) {
+	defer handleErrClosed(&err)
+
 	t.inFlush = true
 	defer func() { t.inFlush = false }()
 
@@ -297,7 +266,6 @@ func (t *pebbleTransaction) flush() error {
 type pebbleIterator struct {
 	*pebble.Iterator
 	firstDone bool
-	closed    bool
 }
 
 func (it *pebbleIterator) Next() bool {
@@ -313,10 +281,6 @@ func (it *pebbleIterator) Error() error {
 }
 
 func (it *pebbleIterator) Release() {
-	if it.closed {
-		return
-	}
-	it.closed = true
 	it.Iterator.Close()
 }
 
@@ -329,4 +293,12 @@ func wrappebbleErr(err error) error {
 		return errNotFound
 	}
 	return err
+}
+
+func handleErrClosed(err *error) {
+	if r, ok := recover().(error); ok {
+		if errors.Is(r, pebble.ErrClosed) {
+			*err = errClosed
+		}
+	}
 }
