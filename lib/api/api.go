@@ -1492,7 +1492,7 @@ func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		weight := strings.ToLower(strings.TrimSpace(parts[1]))
-		if weight[:2] != "q=" {
+		if !strings.HasPrefix(weight, "q=") {
 			continue
 		}
 		if q, err := strconv.ParseFloat(weight[2:], 32); err != nil {
