@@ -9,7 +9,7 @@ require (
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.1.5
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
-	github.com/cockroachdb/pebble v0.0.0-20240830133401-2801a3eab3d8
+	github.com/cockroachdb/pebble v1.1.2
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.4.8
@@ -60,7 +60,6 @@ require (
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
-	github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
