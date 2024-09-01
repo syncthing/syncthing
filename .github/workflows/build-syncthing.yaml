@@ -227,7 +227,7 @@ jobs:
 
       - name: Create packages
         run: |
-          archs=$(go tool dist list | grep linux | sed 's#linux/##')
+          archs=$(go tool dist list | grep linux | grep -v mips | sed 's#linux/##')
           for goarch in $archs ; do
             go run build.go -goarch "$goarch" tar
           done
