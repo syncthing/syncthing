@@ -229,6 +229,7 @@ jobs:
         run: |
           archs=$(go tool dist list | grep linux | sed 's#linux/##')
           for goarch in $archs ; do
+            echo "Building for linux/$goarch"
             go run build.go -goarch "$goarch" tar
           done
         env:
