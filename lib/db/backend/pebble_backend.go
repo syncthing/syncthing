@@ -39,13 +39,13 @@ func (b *pebbleBackend) NewReadTransaction() (ReadTransaction, error) {
 	return b.newSnapshot()
 }
 
-func (b *pebbleBackend) newSnapshot() (*pebbleSnapshot, error) {
+func (b *pebbleBackend) newSnapshot() (pebbleSnapshot, error) {
 	rel, err := newReleaser(b.closeWG)
 	if err != nil {
-		return nil, err
+		return pebbleSnapshot{}, err
 	}
 	snap := b.db.NewSnapshot()
-	return &pebbleSnapshot{
+	return pebbleSnapshot{
 		snap: snap,
 		rel:  rel,
 	}, nil
@@ -123,7 +123,8 @@ func (b *pebbleBackend) Delete(key []byte) (err error) {
 	return wrappebbleErr(b.db.Delete(key, nil))
 }
 
-func (b *pebbleBackend) Compact() error {
+func (*pebbleBackend) Compact() error {
+	// XXX: not implemented
 	return nil
 }
 
@@ -186,7 +187,7 @@ func (l pebbleSnapshot) NewRangeIterator(first, last []byte) (_ Iterator, err er
 	return &pebbleIterator{Iterator: it}, nil
 }
 
-func (l *pebbleSnapshot) Release() {
+func (l pebbleSnapshot) Release() {
 	l.snap.Close()
 	l.rel.Release()
 }
@@ -194,13 +195,12 @@ func (l *pebbleSnapshot) Release() {
 // pebbleTransaction implements backend.WriteTransaction using a batch (not
 // an actual pebble transaction)
 type pebbleTransaction struct {
-	*pebbleSnapshot
+	pebbleSnapshot
 	ldb         *pebble.DB
 	batch       *pebble.Batch
 	rel         *releaser
 	commitHooks []CommitHook
 	inFlush     bool
-	closed      bool
 }
 
 func (t *pebbleTransaction) Delete(key []byte) error {
