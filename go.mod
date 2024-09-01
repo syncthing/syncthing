@@ -108,4 +108,5 @@ require (
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
-replace github.com/cockroachdb/pebble v1.1.2 => github.com/calmh/pebble v0.0.0-20240901200127-ac8e7c76f74b
+// build for mips
+replace github.com/cockroachdb/pebble v1.1.2 => github.com/calmh/pebble v0.0.0-20240901202437-9c81237ebca0
