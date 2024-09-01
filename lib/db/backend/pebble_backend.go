@@ -15,6 +15,7 @@ type pebbleBackend struct {
 	db       *pebble.DB
 	closeWG  *closeWaitGroup
 	location string
+	closed   chan struct{}
 }
 
 func newPebbleBackend(db *pebble.DB, location string) *pebbleBackend {
@@ -22,6 +23,7 @@ func newPebbleBackend(db *pebble.DB, location string) *pebbleBackend {
 		db:       db,
 		closeWG:  &closeWaitGroup{},
 		location: location,
+		closed:   make(chan struct{}),
 	}
 }
 
@@ -62,11 +64,23 @@ func (b *pebbleBackend) NewWriteTransaction(hooks ...CommitHook) (WriteTransacti
 }
 
 func (b *pebbleBackend) Close() error {
+	select {
+	case <-b.closed:
+		return errClosed
+	default:
+		close(b.closed)
+	}
 	b.closeWG.CloseWait()
 	return wrappebbleErr(b.db.Close())
 }
 
 func (b *pebbleBackend) Get(key []byte) ([]byte, error) {
+	select {
+	case <-b.closed:
+		return nil, errClosed
+	default:
+	}
+
 	val, clo, err := b.db.Get(key)
 	if err != nil {
 		return nil, wrappebbleErr(err)
@@ -78,6 +92,12 @@ func (b *pebbleBackend) Get(key []byte) ([]byte, error) {
 }
 
 func (b *pebbleBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
+	select {
+	case <-b.closed:
+		return nil, errClosed
+	default:
+	}
+
 	if len(prefix) == 0 {
 		it, err := b.db.NewIter(nil)
 		if err != nil {
@@ -98,6 +118,12 @@ func (b *pebbleBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 }
 
 func (b *pebbleBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
+	select {
+	case <-b.closed:
+		return nil, errClosed
+	default:
+	}
+
 	it, err := b.db.NewIter(&pebble.IterOptions{LowerBound: first, UpperBound: last})
 	if err != nil {
 		return nil, err
@@ -106,10 +132,22 @@ func (b *pebbleBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 }
 
 func (b *pebbleBackend) Put(key, val []byte) error {
+	select {
+	case <-b.closed:
+		return errClosed
+	default:
+	}
+
 	return wrappebbleErr(b.db.Set(key, val, nil))
 }
 
 func (b *pebbleBackend) Delete(key []byte) error {
+	select {
+	case <-b.closed:
+		return errClosed
+	default:
+	}
+
 	return wrappebbleErr(b.db.Delete(key, nil))
 }
 

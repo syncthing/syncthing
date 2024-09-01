@@ -8,6 +8,7 @@ package backend
 
 import (
 	"errors"
+	"os"
 	"sync"
 )
 
@@ -126,7 +127,10 @@ const (
 )
 
 func Open(path string, tuning Tuning) (Backend, error) {
-	return OpenPebbleDB(path)
+	if os.Getenv("SYNCTHING_USE_PEBBLE") != "" {
+		return OpenPebbleDB(path)
+	}
+	return OpenLevelDB(path, tuning)
 }
 
 func OpenMemory() Backend {
