@@ -36,7 +36,7 @@ const (
 // OpenLevelDB attempts to open the database at the given location, and runs
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
-func OpenLevelDB(location string, tuning Tuning) (Backend, error) {
+func _OpenLevelDB(location string, tuning Tuning) (Backend, error) {
 	opts := optsFor(location, tuning)
 	ldb, err := open(location, opts)
 	if err != nil {
@@ -46,8 +46,8 @@ func OpenLevelDB(location string, tuning Tuning) (Backend, error) {
 }
 
 // OpenLevelDBAuto is OpenLevelDB with TuningAuto tuning.
-func OpenLevelDBAuto(location string) (Backend, error) {
-	return OpenLevelDB(location, TuningAuto)
+func _OpenLevelDBAuto(location string) (Backend, error) {
+	return _OpenLevelDB(location, TuningAuto)
 }
 
 // OpenLevelDBRO attempts to open the database at the given location, read

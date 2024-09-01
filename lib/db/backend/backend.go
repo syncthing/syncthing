@@ -126,7 +126,7 @@ const (
 )
 
 func Open(path string, tuning Tuning) (Backend, error) {
-	return OpenLevelDB(path, tuning)
+	return OpenPebbleDB(path)
 }
 
 func OpenMemory() Backend {
