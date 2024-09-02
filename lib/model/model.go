@@ -3266,7 +3266,7 @@ func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingF
 	return m.db.PendingFoldersForDevice(device)
 }
 
-// DismissPendingDevices removes the record of a specific pending device.
+// DismissPendingDevice removes the record of a specific pending device.
 func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	l.Debugf("Discarding pending device %v", device)
 	err := m.db.RemovePendingDevice(device)
@@ -3282,7 +3282,7 @@ func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	return nil
 }
 
-// DismissPendingFolders removes records of pending folders.  Either a specific folder /
+// DismissPendingFolder removes records of pending folders.  Either a specific folder /
 // device combination, or all matching a specific folder ID if the device argument is
 // specified as EmptyDeviceID.
 func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) error {

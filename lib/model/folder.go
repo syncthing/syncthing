@@ -1325,7 +1325,7 @@ func (f *folder) handleForcedRescans() error {
 	return f.scanSubdirs(paths)
 }
 
-// dbSnapshots gets a snapshot from the fileset, and wraps any error
+// dbSnapshot gets a snapshot from the fileset, and wraps any error
 // in a svcutil.FatalErr.
 func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 	snap, err := f.fset.Snapshot()
