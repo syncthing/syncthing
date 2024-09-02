@@ -14,7 +14,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,26 +60,18 @@ const (
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
-// This is an HTTP/HTTPS client that does *not* perform certificate
-// validation. We do this because some systems where Syncthing runs have
-// issues with old or missing CA roots. It doesn't actually matter that we
-// load the upgrade insecurely as we verify an ECDSA signature of the actual
-// binary contents before accepting the upgrade.
-var insecureHTTP = &http.Client{
+var upgradeClient = &http.Client{
 	Timeout: readTimeout,
 	Transport: &http.Transport{
 		DialContext: dialer.DialContext,
 		Proxy:       http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
 	},
 }
 
 var osVersion string
 
 func init() {
-	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+	_ = http2.ConfigureTransport(upgradeClient.Transport.(*http.Transport))
 	osVersion, _ = host.KernelVersion()
 	osVersion = strings.TrimSpace(osVersion)
 }
@@ -95,7 +86,7 @@ func insecureGet(url, version string) (*http.Response, error) {
 	if osVersion != "" {
 		req.Header.Set("Syncthing-Os-Version", osVersion)
 	}
-	return insecureHTTP.Do(req)
+	return upgradeClient.Do(req)
 }
 
 // FetchLatestReleases returns the latest releases. The "current" parameter
@@ -233,7 +224,7 @@ func readRelease(archiveName, dir, url string) (string, error) {
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
-	resp, err := insecureHTTP.Do(req)
+	resp, err := upgradeClient.Do(req)
 	if err != nil {
 		return "", err
 	}
