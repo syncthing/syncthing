@@ -7,219 +7,190 @@
 package model
 
 import (
-	"sort"
+	"context"
+	"io"
+	"log"
+	"os"
+	"path"
+	"syscall"
 	"time"
 
+	ffs "github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
+	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 func init() {
-	folderFactories[config.FolderTypeVirtual] = newVirtualOnlyFolder
+	folderFactories[config.FolderTypeVirtual] = newVirtualFolder
+	log.SetFlags(log.Lmicroseconds)
+	log.Default().SetOutput(os.Stdout)
+	log.Default().SetPrefix("TESTLOG ")
 }
 
-/*
-virtualFolder is a folder that does not propagate local changes outward.
-It does this by the following general mechanism (not all of which is
-implemented in this file):
-
-  - Local changes are scanned and versioned as usual, but get the
-    FlagLocalReceiveOnly bit set.
-
-  - When changes are sent to the cluster this bit gets converted to the
-    Invalid bit (like all other local flags, currently) and also the Version
-    gets set to the empty version. The reason for clearing the Version is to
-    ensure that other devices will not consider themselves out of date due to
-    our change.
-
-  - The database layer accounts sizes per flag bit, so we can know how many
-    files have been changed locally. We use this to trigger a "Revert" option
-    on the folder when the amount of locally changed data is nonzero.
-
-  - To revert we take the files which have changed and reset their version
-    counter down to zero. The next pull will replace our changed version with
-    the globally latest. As this is a user-initiated operation we do not cause
-    conflict copies when reverting.
-
-  - When pulling normally (i.e., not in the revert case) with local changes,
-    normal conflict resolution will apply. Conflict copies will be created,
-    but not propagated outwards (because receive only, right).
-
-Implementation wise a virtualFolder is just a sendReceiveFolder that
-sets an extra bit on local changes and has a Revert method.
-*/
-type virtualFolder struct {
-	*sendReceiveFolder
+type virtualFolderSyncthingService struct {
+	*folderBase
+	mountService io.Closer
 }
 
-func newVirtualOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)
-	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
-	return &virtualFolder{sr}
+type syncthingVirtualFolderFuseAdapter struct {
+	folderID string
+	model    *model
+	fset     *db.FileSet
+
+	// ino mapping
+	ino_mu      sync.Mutex
+	next_ino_nr uint64
+	ino_mapping map[string]uint64
 }
 
-func (f *virtualFolder) Revert() {
-	f.doInSync(f.revert)
-}
-
-func (f *virtualFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description())
-
-	f.setState(FolderScanning)
-	defer f.setState(FolderIdle)
-
-	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
-	defer close(scanChan)
-
-	delQueue := &virtualDeleteQueue{
-		handler:  f, // for the deleteItemOnDisk and deleteDirOnDisk methods
-		ignores:  f.ignores,
-		scanChan: scanChan,
+func (r *syncthingVirtualFolderFuseAdapter) getInoOf(path string) uint64 {
+	r.ino_mu.Lock()
+	defer r.ino_mu.Unlock()
+	ino, ok := r.ino_mapping[path]
+	if !ok {
+		ino = r.next_ino_nr
 	}
+	return ino
+}
 
-	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
-		f.updateLocalsFromScanning(files)
-		return nil
-	})
-	snap, err := f.dbSnapshot()
+func (stf *syncthingVirtualFolderFuseAdapter) lookupFile(path string) (info *db.FileInfoTruncated, eno syscall.Errno) {
+	snap, err := stf.fset.Snapshot()
 	if err != nil {
-		return err
+		//stf..log()
+		return nil, syscall.EFAULT
 	}
-	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
-		fi := intf.(protocol.FileInfo)
-		if !fi.IsReceiveOnlyChanged() {
-			// We're only interested in files that have changed locally in
-			// receive only mode.
-			return true
+
+	fi, ok := snap.GetGlobalTruncated(path)
+	if !ok {
+		return nil, syscall.ENOENT
+	}
+
+	return &fi, 0
+}
+
+func newVirtualFolder(
+	model *model,
+	fset *db.FileSet,
+	ignores *ignore.Matcher,
+	cfg config.FolderConfiguration,
+	ver versioner.Versioner,
+	evLogger events.Logger,
+	ioLimiter *semaphore.Semaphore,
+) service {
+	return &virtualFolderSyncthingService{
+		folderBase: newFolderBase(cfg, evLogger, model, fset),
+	}
+}
+
+func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
+	f.model.foldersRunning.Add(1)
+	defer f.model.foldersRunning.Add(-1)
+
+	if f.mountService == nil {
+		stVF := &syncthingVirtualFolderFuseAdapter{
+			folderID:    f.ID,
+			model:       f.model,
+			fset:        f.fset,
+			ino_mu:      sync.NewMutex(),
+			next_ino_nr: 1,
+			ino_mapping: make(map[string]uint64),
+		}
+		mount, err := NewVirtualFolderMount(f.Path, f.ID, f.Label, stVF)
+		if err != nil {
+			return err
 		}
 
-		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
+		f.mountService = mount
+	}
 
-		switch gf, ok := snap.GetGlobal(fi.Name); {
-		case !ok:
-			msg := "Unexpected global file that we have locally"
-			l.Debugf("%v revert: %v: %v", f, msg, fi.Name)
-			f.evLogger.Log(events.Failure, msg)
-			return true
-		case gf.IsReceiveOnlyChanged():
-			// The global file is our own. A revert then means to delete it.
-			// We'll delete files directly, directories get queued and
-			// handled below.
-			if fi.Deleted {
-				fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-				break
-			}
-			handled, err := delQueue.handle(fi, snap)
-			if err != nil {
-				l.Infof("Revert: deleting %s: %v\n", fi.Name, err)
-				return true // continue
-			}
-			if !handled {
-				return true // continue
-			}
-			fi.SetDeleted(f.shortID)
-			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-		case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-			ModTimeWindow:   f.modTimeWindow,
-			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-			IgnoreOwnership: !f.SyncOwnership,
-			IgnoreXattrs:    !f.SyncXattrs,
-		}):
-			// What we have locally is equivalent to the global file.
-			fi = gf
-		default:
-			// Revert means to throw away our local changes. We reset the
-			// version to the empty vector, which is strictly older than any
-			// other existing version. It is not in conflict with anything,
-			// either, so we will not create a conflict copy of our local
-			// changes.
-			fi.Version = protocol.Vector{}
+	for {
+		select {
+		case <-ctx.Done():
+			f.mountService.Close()
+			return nil
+
+		case <-f.pullScheduled:
+			continue
 		}
+	}
+}
 
-		batch.Append(fi)
-		_ = batch.FlushIfFull()
+func (f *virtualFolderSyncthingService) BringToFront(string)       {}
+func (f *virtualFolderSyncthingService) Override()                 {}
+func (f *virtualFolderSyncthingService) Revert()                   {}
+func (f *virtualFolderSyncthingService) DelayScan(d time.Duration) {}
+func (f *virtualFolderSyncthingService) ScheduleScan()             {}
+func (f *virtualFolderSyncthingService) Jobs(page, perpage int) ([]string, []string, int) {
+	return []string{}, []string{}, 0
+}
+func (f *virtualFolderSyncthingService) Scan(subs []string) error        { return nil }
+func (f *virtualFolderSyncthingService) Errors() []FileError             { return []FileError{} }
+func (f *virtualFolderSyncthingService) WatchError() error               { return nil }
+func (f *virtualFolderSyncthingService) ScheduleForceRescan(path string) {}
+func (f *virtualFolderSyncthingService) GetStatistics() (stats.FolderStatistics, error) {
+	return stats.FolderStatistics{}, nil
+}
 
-		return true
-	})
-	_ = batch.Flush()
+type VirtualFolderDirStream struct {
+	root     *syncthingVirtualFolderFuseAdapter
+	dirPath  string
+	children []*TreeEntry
+	i        int
+}
 
-	// Handle any queued directories
-	deleted, err := delQueue.flush(snap)
+func (s *VirtualFolderDirStream) HasNext() bool {
+	return s.i < len(s.children)
+}
+func (s *VirtualFolderDirStream) Next() (fuse.DirEntry, syscall.Errno) {
+	if !s.HasNext() {
+		return fuse.DirEntry{}, syscall.ENOENT
+	}
+
+	child := s.children[s.i]
+	s.i += 1
+
+	return fuse.DirEntry{
+		Name: child.Name,
+		Ino:  s.root.getInoOf(path.Join(s.dirPath, child.Name)),
+	}, 0
+}
+func (s *VirtualFolderDirStream) Close() {}
+
+func (f *syncthingVirtualFolderFuseAdapter) readDir(path string) (stream ffs.DirStream, eno syscall.Errno) {
+
+	//	snap, err := f.fset.Snapshot()
+	//	if err != nil {
+	//		return nil, syscall.EFAULT
+	//	}
+	//
+	//	if path == "" {
+	//		f.model.GlobalDirectoryTree()
+	//	}
+	//
+	//	fi, ok := snap.GetGlobalTruncated(path)
+	//	if !ok {
+	//		return nil, syscall.ENOENT
+	//	}
+	//
+	//	if !fi.IsDirectory() {
+	//		return nil, syscall.ENOTDIR
+	//	}
+
+	children, err := f.model.GlobalDirectoryTree(f.folderID, path, 1, false)
 	if err != nil {
-		l.Infoln("Revert:", err)
-	}
-	now := time.Now()
-	for _, dir := range deleted {
-		batch.Append(protocol.FileInfo{
-			Name:       dir,
-			Type:       protocol.FileInfoTypeDirectory,
-			ModifiedS:  now.Unix(),
-			ModifiedBy: f.shortID,
-			Deleted:    true,
-			Version:    protocol.Vector{},
-		})
-	}
-	_ = batch.Flush()
-
-	// We will likely have changed our local index, but that won't trigger a
-	// pull by itself. Make sure we schedule one so that we start
-	// downloading files.
-	f.SchedulePull()
-
-	return nil
-}
-
-// virtualDeleteQueue handles deletes by delegating to a handler and queuing
-// directories for last.
-type virtualDeleteQueue struct {
-	handler interface {
-		deleteItemOnDisk(item protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) error
-		deleteDirOnDisk(dir string, snap *db.Snapshot, scanChan chan<- string) error
-	}
-	ignores  *ignore.Matcher
-	dirs     []string
-	scanChan chan<- string
-}
-
-func (q *virtualDeleteQueue) handle(fi protocol.FileInfo, snap *db.Snapshot) (bool, error) {
-	// Things that are ignored but not marked deletable are not processed.
-	ign := q.ignores.Match(fi.Name)
-	if ign.IsIgnored() && !ign.IsDeletable() {
-		return false, nil
+		return nil, syscall.EFAULT
 	}
 
-	// Directories are queued for later processing.
-	if fi.IsDirectory() {
-		q.dirs = append(q.dirs, fi.Name)
-		return false, nil
-	}
-
-	// Kill it.
-	err := q.handler.deleteItemOnDisk(fi, snap, q.scanChan)
-	return true, err
-}
-
-func (q *virtualDeleteQueue) flush(snap *db.Snapshot) ([]string, error) {
-	// Process directories from the leaves inward.
-	sort.Sort(sort.Reverse(sort.StringSlice(q.dirs)))
-
-	var firstError error
-	var deleted []string
-
-	for _, dir := range q.dirs {
-		if err := q.handler.deleteDirOnDisk(dir, snap, q.scanChan); err == nil {
-			deleted = append(deleted, dir)
-		} else if err != nil && firstError == nil {
-			firstError = err
-		}
-	}
-
-	return deleted, firstError
+	return &VirtualFolderDirStream{
+		root:     f,
+		dirPath:  path,
+		children: children,
+	}, 0
 }

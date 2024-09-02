@@ -36,17 +36,41 @@ import (
 // Arbitrary limit that triggers a warning on kqueue systems
 const kqueueItemCountThreshold = 10000
 
-type folder struct {
+type folderBase struct {
 	stateTracker
 	config.FolderConfiguration
+
+	evLogger events.Logger
+	model    *model
+	fset     *db.FileSet
+
+	pullScheduled chan struct{}
+}
+
+func newFolderBase(
+	cfg config.FolderConfiguration,
+	evLogger events.Logger,
+	model *model,
+	fset *db.FileSet,
+) *folderBase {
+	return &folderBase{
+		stateTracker:        newStateTracker(cfg.ID, evLogger),
+		FolderConfiguration: cfg,
+		evLogger:            evLogger,
+		model:               model,
+		fset:                fset,
+		pullScheduled:       make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+	}
+}
+
+type folder struct {
+	*folderBase
 	*stats.FolderStatisticsReference
 	ioLimiter *semaphore.Semaphore
 
 	localFlags uint32
 
-	model         *model
 	shortID       protocol.ShortID
-	fset          *db.FileSet
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
@@ -61,7 +85,6 @@ type folder struct {
 	versionCleanupInterval time.Duration
 	versionCleanupTimer    *time.Timer
 
-	pullScheduled chan struct{}
 	pullPause     time.Duration
 	pullFailTimer *time.Timer
 
@@ -98,14 +121,11 @@ type puller interface {
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
-		stateTracker:              newStateTracker(cfg.ID, evLogger),
-		FolderConfiguration:       cfg,
+		folderBase:                newFolderBase(cfg, evLogger, model, fset),
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 		ioLimiter:                 ioLimiter,
 
-		model:         model,
 		shortID:       model.shortID,
-		fset:          fset,
 		ignores:       ignores,
 		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
@@ -118,8 +138,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanScheduled:          make(chan struct{}, 1),
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
 		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
-
-		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		errorsMut: sync.NewMutex(),
 
@@ -266,7 +284,7 @@ func (f *folder) ignoresUpdated() {
 	}
 }
 
-func (f *folder) SchedulePull() {
+func (f *folderBase) SchedulePull() {
 	select {
 	case f.pullScheduled <- struct{}{}:
 	default:
