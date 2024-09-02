@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
@@ -162,26 +163,28 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
-func (c *GUIConfiguration) WebauthnOrigins() ([]string, error) {
-	origins := c.RawWebauthnOrigins
-	if len(origins) == 0 {
-		_, port, err := net.SplitHostPort(c.Address())
+func (c *GUIConfiguration) defaultWebauthnOrigins() ([]string, error) {
+	origins := make([]string, 0)
+	_, port, err := net.SplitHostPort(c.Address())
+	if err != nil {
+		defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+		_, defaultPort, err := net.SplitHostPort(defaultGuiCfg.Address())
 		if err != nil {
 			return nil, err
 		}
-		port = ":" + port
-		if port == ":443" {
-			origins = append(origins, "https://"+c.WebauthnRpId)
-		} else {
-			origins = append(origins, "https://"+c.WebauthnRpId+port)
+		port = defaultPort
+	}
+	secure_origin := "https://" + c.WebauthnRpId
+	if port != "443" {
+		secure_origin += ":" + port
+	}
+	origins = append(origins, secure_origin)
+	if !c.UseTLS() {
+		origin := "http://" + c.WebauthnRpId
+		if port != "80" {
+			origin += ":" + port
 		}
-		if !c.UseTLS() {
-			if port == ":80" {
-				origins = append(origins, "http://"+c.WebauthnRpId)
-			} else {
-				origins = append(origins, "http://"+c.WebauthnRpId+port)
-			}
-		}
+		origins = append(origins, origin)
 	}
 	return origins, nil
 }
@@ -198,6 +201,18 @@ func (c *GUIConfiguration) prepare() error {
 			return err
 		}
 		c.WebauthnUserId = base64.URLEncoding.EncodeToString(newUserId)
+	}
+
+	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+	if c.WebauthnRpId == "" {
+		c.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+	}
+	if len(c.WebauthnOrigins) == 0 {
+		origins, err := c.defaultWebauthnOrigins()
+		if err != nil {
+			return err
+		}
+		c.WebauthnOrigins = origins
 	}
 
 	return nil
