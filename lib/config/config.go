@@ -127,7 +127,7 @@ func (cfg *Configuration) ProbeFreePorts() error {
 	if err != nil {
 		return fmt.Errorf("get free port (GUI): %w", err)
 	}
-	cfg.GUI.RawAddress = fmt.Sprintf("%s:%d", guiHost, port)
+	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
