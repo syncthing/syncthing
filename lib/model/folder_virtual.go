@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -156,7 +157,16 @@ func (s *VirtualFolderDirStream) Next() (fuse.DirEntry, syscall.Errno) {
 	child := s.children[s.i]
 	s.i += 1
 
+	mode := syscall.S_IFREG
+	switch child.Type {
+	case protocol.FileInfoTypeDirectory:
+		mode = syscall.S_IFDIR
+	default:
+		break
+	}
+
 	return fuse.DirEntry{
+		Mode: uint32(mode),
 		Name: child.Name,
 		Ino:  s.root.getInoOf(path.Join(s.dirPath, child.Name)),
 	}, 0

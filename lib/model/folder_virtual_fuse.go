@@ -11,6 +11,7 @@ import (
 	ffs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type SyncthingVirtualFolderI interface {
@@ -101,6 +102,10 @@ func (n *VirtualNode) Lookup(ctx context.Context, name string, out *fuse.EntryOu
 			return nil, err
 		}
 		st.Size = info.Size
+		isDir = info.Type == protocol.FileInfoTypeDirectory
+		if isDir {
+			st.Mode = syscall.S_IFDIR
+		}
 	} else {
 		st.Size = 1
 		st.Mode = syscall.S_IFDIR
@@ -429,10 +434,14 @@ func (n *VirtualNode) Getattr(ctx context.Context, f ffs.FileHandle, out *fuse.A
 			return eno
 		}
 		out.Size = uint64(info.Size)
+		n.isDir = info.Type == protocol.FileInfoTypeDirectory
+		mtime := info.ModTime()
+		ctime := info.InodeChangeTime()
+		out.SetTimes(&mtime, &mtime, &ctime)
 	}
 
 	if n.isDir {
-		out.Mode = syscall.S_IFDIR
+		out.Mode = syscall.S_IFDIR | 0777
 	} else {
 		out.Mode = syscall.S_IFREG
 	}
