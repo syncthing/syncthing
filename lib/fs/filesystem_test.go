@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -204,4 +205,114 @@ func TestCaseFSMtimeFSInteraction(t *testing.T) {
 	if !info.ModTime().Equal(testTime) {
 		t.Errorf("Expected mtime %v for %v, got %v", testTime, nameLower, info.ModTime())
 	}
+}
+
+func newOldFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
+	var caseOpt Option
+	var mtimeOpt Option
+	i := 0
+	for _, opt := range opts {
+		if caseOpt != nil && mtimeOpt != nil {
+			break
+		}
+		switch opt.(type) {
+		case *OptionDetectCaseConflicts:
+			caseOpt = opt
+		case *optionMtime:
+			mtimeOpt = opt
+		default:
+			opts[i] = opt
+			i++
+		}
+	}
+	opts = opts[:i]
+
+	var fs Filesystem
+	switch fsType {
+	case FilesystemTypeBasic:
+		fs = newBasicFilesystem(uri, opts...)
+	case FilesystemTypeFake:
+		fs = newFakeFilesystem(uri, opts...)
+	default:
+		l.Debugln("Unknown filesystem", fsType, uri)
+		fs = &errorFilesystem{
+			fsType: fsType,
+			uri:    uri,
+			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
+		}
+	}
+
+	// Case handling is the innermost, as any filesystem calls by wrappers should be case-resolved
+	if caseOpt != nil {
+		fs = caseOpt.apply(fs)
+	}
+
+	// mtime handling should happen inside walking, as filesystem calls while
+	// walking should be mtime-resolved too
+	if mtimeOpt != nil {
+		fs = mtimeOpt.apply(fs)
+	}
+
+	fs = &metricsFS{next: fs}
+
+	if l.ShouldDebug("walkfs") {
+		return NewWalkFilesystem(newLogFilesystem(fs, 1))
+	}
+
+	if l.ShouldDebug("fs") {
+		return newLogFilesystem(NewWalkFilesystem(fs), 1)
+	}
+
+	return fs
+}
+
+func TestRepro9677(t *testing.T) {
+	mtimeDB := make(mapStore)
+	name := "Testfile"
+	nameLower := UnicodeLowercaseNormalized(name)
+	testTime := time.Unix(1723491493, 123456789)
+
+	// Start with a "fs-wrapping" as it was before moving case-fs to the
+	// outermost layer:
+	oldFS := newOldFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+
+	// Create a file, set it's mtime and check that we get the expected mtime when stat-ing.
+	file, err := oldFS.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	err = oldFS.Chtimes(name, testTime, testTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkMtime := func(fs Filesystem) {
+		t.Helper()
+		info, err := fs.Lstat(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !info.ModTime().Equal(testTime) {
+			t.Errorf("Expected mtime %v for %v, got %v", testTime, name, info.ModTime())
+		}
+		info, err = fs.Lstat(nameLower)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !info.ModTime().Equal(testTime) {
+			t.Errorf("Expected mtime %v for %v, got %v", testTime, nameLower, info.ModTime())
+		}
+	}
+
+	checkMtime(oldFS)
+
+	// Now we switch to the new filesystem, basically simulating an upgrade. We
+	// use the same backing map for the mtime DB, which is equivalent (hopefully
+	// equivalent enough) to reality where this info is persisted in the main
+	// DB.
+	// outermost layer:
+	newFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+
+	checkMtime(newFS)
 }
