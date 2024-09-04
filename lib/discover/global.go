@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -36,6 +37,7 @@ type globalClient struct {
 	noAnnounce     bool
 	noLookup       bool
 	evLogger       events.Logger
+	connFailures   int
 	errorHolder
 }
 
@@ -179,7 +181,11 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 	resp, err := c.queryClient.Get(ctx, qURL.String())
 	if err != nil {
 		l.Debugln("globalClient.Lookup", qURL, err)
-		return nil, err
+		return nil, c.connFailureBackoff(err)
+	}
+	if resp.StatusCode >= 500 {
+		l.Debugln("globalClient.Lookup", qURL, resp.Status)
+		return nil, c.connFailureBackoff(errors.New(resp.Status))
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
@@ -196,13 +202,29 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 
 	bs, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, c.connFailureBackoff(err)
 	}
 	resp.Body.Close()
 
+	c.connFailures = 0
 	var ann announcement
 	err = json.Unmarshal(bs, &ann)
 	return ann.Addresses, err
+}
+
+func (c *globalClient) connFailureBackoff(err error) error {
+	c.connFailures++
+	// Wait a backoff time before retrying after connection failure,
+	// starting at between six and twelve minutes randomly and increasing up
+	// to an hour.
+	backoff := time.Duration(5+c.connFailures+rand.Intn(5+c.connFailures)) * time.Minute
+	if backoff > time.Hour {
+		backoff = time.Hour
+	}
+	return &lookupError{
+		msg:      err.Error(),
+		cacheFor: backoff,
+	}
 }
 
 func (c *globalClient) String() string {
