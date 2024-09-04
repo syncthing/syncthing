@@ -11,6 +11,7 @@ import (
 	ffs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -18,6 +19,7 @@ type SyncthingVirtualFolderI interface {
 	getInoOf(path string) uint64
 	lookupFile(path string) (info *db.FileInfoTruncated, eno syscall.Errno)
 	readDir(path string) (stream ffs.DirStream, eno syscall.Errno)
+	readFile(path string, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno)
 }
 
 type FuseVirtualFolderRoot struct {
@@ -385,7 +387,9 @@ func (n *VirtualNode) Open(ctx context.Context, flags uint32) (fh ffs.FileHandle
 		return nil, 0, syscall.EISDIR
 	}
 
-	return nil, 0, syscall.EACCES
+	logger.DefaultLogger.Infof("VirtualNode Open(file, flags): %s, %v", n.fullPath(), flags)
+
+	return NewVirtualFile(n.fullPath(), n.RootData.st_folder), 0, ffs.OK
 }
 
 var _ = (ffs.NodeOpendirer)((*VirtualNode)(nil))
@@ -443,7 +447,7 @@ func (n *VirtualNode) Getattr(ctx context.Context, f ffs.FileHandle, out *fuse.A
 	if n.isDir {
 		out.Mode = syscall.S_IFDIR | 0777
 	} else {
-		out.Mode = syscall.S_IFREG
+		out.Mode = syscall.S_IFREG | 0666
 	}
 
 	return ffs.OK

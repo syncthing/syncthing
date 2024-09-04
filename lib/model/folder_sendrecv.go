@@ -28,7 +28,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/semaphore"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -1478,19 +1477,6 @@ func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash
 	return weakHashFinder, file
 }
 
-func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
-	if len(buf) != int(block.Size) {
-		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
-	}
-
-	hash := sha256.Sum256(buf)
-	if !bytes.Equal(hash[:], block.Hash) {
-		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
-	}
-
-	return nil
-}
-
 func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	requestLimiter := semaphore.New(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
@@ -1546,60 +1532,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 		return
 	}
 
-	var lastError error
-	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
-loop:
-	for {
-		select {
-		case <-f.ctx.Done():
-			state.fail(fmt.Errorf("folder stopped: %w", f.ctx.Err()))
-			break loop
-		default:
-		}
-
-		// Select the least busy device to pull the block from. If we found no
-		// feasible device at all, fail the block (and in the long run, the
-		// file).
-		found := activity.leastBusy(candidates)
-		if found == -1 {
-			if lastError != nil {
-				state.fail(fmt.Errorf("pull: %w", lastError))
-			} else {
-				state.fail(fmt.Errorf("pull: %w", errNoDevice))
-			}
-			break
-		}
-
-		selected := candidates[found]
-		candidates[found] = candidates[len(candidates)-1]
-		candidates = candidates[:len(candidates)-1]
-
-		// Fetch the block, while marking the selected device as in use so that
-		// leastBusy can select another device when someone else asks.
-		activity.using(selected)
-		var buf []byte
-		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
-		buf, lastError = f.model.requestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
-		activity.done(selected)
-		if lastError != nil {
-			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)
-			continue
-		}
-
-		// Verify that the received block matches the desired hash, if not
-		// try pulling it from another device.
-		// For receive-only folders, the hash is not SHA256 as it's an
-		// encrypted hash token. In that case we can't verify the block
-		// integrity so we'll take it on trust. (The other side can and
-		// will verify.)
-		if f.Type != config.FolderTypeReceiveEncrypted {
-			lastError = f.verifyBuffer(buf, state.block)
-		}
-		if lastError != nil {
-			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
-			continue
-		}
-
+	err = f.pullBlockBase(func(buf []byte) {
 		// Save the block data we got from the cluster
 		err = f.limitedWriteAt(fd, buf, state.block.Offset)
 		if err != nil {
@@ -1607,8 +1540,12 @@ loop:
 		} else {
 			state.pullDone(state.block)
 		}
-		break
+	}, snap, state.file, state.block)
+
+	if err != nil {
+		state.fail(err)
 	}
+
 	out <- state.sharedPullerState
 }
 

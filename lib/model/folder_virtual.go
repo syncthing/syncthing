@@ -21,11 +21,13 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
+	"golang.org/x/exp/constraints"
 )
 
 func init() {
@@ -41,6 +43,7 @@ type virtualFolderSyncthingService struct {
 }
 
 type syncthingVirtualFolderFuseAdapter struct {
+	vFSS     *virtualFolderSyncthingService
 	folderID string
 	model    *model
 	fset     *db.FileSet
@@ -94,8 +97,11 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 	f.model.foldersRunning.Add(1)
 	defer f.model.foldersRunning.Add(-1)
 
+	f.ctx = ctx
+
 	if f.mountService == nil {
 		stVF := &syncthingVirtualFolderFuseAdapter{
+			vFSS:        f,
 			folderID:    f.ID,
 			model:       f.model,
 			fset:        f.fset,
@@ -202,5 +208,84 @@ func (f *syncthingVirtualFolderFuseAdapter) readDir(path string) (stream ffs.Dir
 		root:     f,
 		dirPath:  path,
 		children: children,
+	}, 0
+}
+
+type VirtualFileReadResult struct {
+	f           *syncthingVirtualFolderFuseAdapter
+	fi          *protocol.FileInfo
+	offset      uint64
+	maxToBeRead int
+}
+
+func clamp[T constraints.Ordered](a, min, max T) T {
+	if min > max {
+		panic("clamp: min > max is not allowed")
+	}
+	if a > max {
+		return max
+	}
+	if a < min {
+		return min
+	}
+	return a
+}
+
+func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
+
+	logger.DefaultLogger.Infof("VirtualFileReadResult Bytes(len): %v", len(buf))
+
+	blockIndex := int(vf.offset / uint64(vf.fi.BlockSize()))
+	if blockIndex >= len(vf.fi.Blocks) {
+		return buf[:0], 0
+	}
+
+	block := vf.fi.Blocks[blockIndex]
+
+	rel_pos := int64(vf.offset) - block.Offset
+	if rel_pos < 0 {
+		return buf[:0], 0
+	}
+
+	snap, err := vf.f.fset.Snapshot()
+	if err != nil {
+		return nil, fuse.Status(syscall.EAGAIN)
+	}
+
+	var data []byte = nil
+	err = vf.f.vFSS.pullBlockBase(func(blockData []byte) {
+		data = blockData
+	}, snap, *vf.fi, block)
+
+	if err != nil {
+		return nil, fuse.Status(syscall.EAGAIN)
+	}
+
+	return data[rel_pos:], 0
+}
+func (vf *VirtualFileReadResult) Size() int {
+	return clamp(vf.maxToBeRead, 0, int(vf.fi.Size))
+}
+func (vf *VirtualFileReadResult) Done() {}
+
+func (f *syncthingVirtualFolderFuseAdapter) readFile(
+	path string, buf []byte, off int64,
+) (res fuse.ReadResult, errno syscall.Errno) {
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		//stf..log()
+		return nil, syscall.EFAULT
+	}
+
+	fi, ok := snap.GetGlobal(path)
+	if !ok {
+		return nil, syscall.ENOENT
+	}
+
+	return &VirtualFileReadResult{
+		f:           f,
+		fi:          &fi,
+		offset:      uint64(off),
+		maxToBeRead: len(buf),
 	}, 0
 }

@@ -14,6 +14,7 @@ import (
 
 	ffs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/syncthing/syncthing/lib/logger"
 	"golang.org/x/sys/unix"
 )
 
@@ -49,6 +50,7 @@ var _ = (ffs.FileAllocater)((*loopbackFile)(nil))
 func (f *loopbackFile) Read(ctx context.Context, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	logger.DefaultLogger.Infof("loopbackFile Read(len, off): %v, %v", len(buf), off)
 	r := fuse.ReadResultFd(uintptr(f.fd), off, len(buf))
 	return r, ffs.OK
 }
