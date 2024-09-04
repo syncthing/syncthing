@@ -174,34 +174,55 @@ func TestIsParent(t *testing.T) {
 	}
 }
 
-func TestCaseFSMtimeFSInteraction(t *testing.T) {
-	fs := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(make(mapStore)))
-
+func TestRepro9677(t *testing.T) {
+	mtimeDB := make(mapStore)
 	name := "Testfile"
 	nameLower := UnicodeLowercaseNormalized(name)
+	testTime := time.Unix(1723491493, 123456789)
 
-	file, err := fs.Create(name)
+	// Create a file with an mtime FS entry
+	firstFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+
+	// Create a file, set its mtime and check that we get the expected mtime when stat-ing.
+	file, err := firstFS.Create(name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	file.Close()
-	testTime := time.Unix(1723491493, 123456789)
-	err = fs.Chtimes(name, testTime, testTime)
+	err = firstFS.Chtimes(name, testTime, testTime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := fs.Lstat(name)
-	if err != nil {
-		t.Fatal(err)
+
+	checkMtime := func(fs Filesystem) {
+		t.Helper()
+		info, err := fs.Lstat(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !info.ModTime().Equal(testTime) {
+			t.Errorf("Expected mtime %v for %v, got %v", testTime, name, info.ModTime())
+		}
+		info, err = fs.Lstat(nameLower)
+		if !IsErrCaseConflict(err) {
+			t.Errorf("Expected case-conflict error, got %v", err)
+		}
 	}
-	if !info.ModTime().Equal(testTime) {
-		t.Errorf("Expected mtime %v for %v, got %v", testTime, name, info.ModTime())
-	}
-	info, err = fs.Lstat(nameLower)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !info.ModTime().Equal(testTime) {
-		t.Errorf("Expected mtime %v for %v, got %v", testTime, nameLower, info.ModTime())
-	}
+
+	checkMtime(firstFS)
+
+	// Now syncthing gets upgraded (or even just restarted), which resets the
+	// case FS registry as it lives in memory.
+	globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*caseFilesystem)}
+
+	// This time we first create some filesystem without a database and thus no
+	// mtime-FS, which is used in various places outside of the folder code. We
+	// aren't actually going to do anything, this just adds an entry to the
+	// caseFS cache. And that's the crucial bit: In the broken case this test is
+	// reproducing, it will add the FS without mtime-FS, so all future FSes will
+	// be without mtime, even if requested:
+	NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{})
+
+	newFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+	checkMtime(newFS)
 }
