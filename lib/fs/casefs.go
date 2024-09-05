@@ -20,7 +20,7 @@ import (
 
 const (
 	// How long to consider cached dirnames valid
-	caseCacheTimeout   = time.Second
+	caseCacheTimeout   = 15 * time.Second
 	caseCacheItemLimit = 4 << 10
 )
 
@@ -39,89 +39,13 @@ func IsErrCaseConflict(err error) bool {
 
 type realCaser interface {
 	realCase(name string) (string, error)
-	dropCache()
+	dropCache(paths ...string)
 }
 
 type fskey struct {
 	fstype    FilesystemType
 	uri, opts string
 }
-
-// caseFilesystemRegistry caches caseFilesystems and runs a routine to drop
-// their cache every now and then.
-type caseFilesystemRegistry struct {
-	fss          map[fskey]*caseFilesystem
-	mut          sync.RWMutex
-	startCleaner sync.Once
-}
-
-func newFSKey(fs Filesystem) fskey {
-	k := fskey{
-		fstype: fs.Type(),
-		uri:    fs.URI(),
-	}
-	if opts := fs.Options(); len(opts) > 0 {
-		k.opts = opts[0].String()
-		for _, o := range opts[1:] {
-			k.opts += "&" + o.String()
-		}
-	}
-	return k
-}
-
-func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
-	k := newFSKey(fs)
-
-	// Use double locking when getting a caseFs. In the common case it will
-	// already exist and we take the read lock fast path. If it doesn't, we
-	// take a write lock and try again.
-
-	r.mut.RLock()
-	caseFs, ok := r.fss[k]
-	r.mut.RUnlock()
-
-	if !ok {
-		r.mut.Lock()
-		caseFs, ok = r.fss[k]
-		if !ok {
-			caseFs = &caseFilesystem{
-				Filesystem: fs,
-				realCaser:  newDefaultRealCaser(fs),
-			}
-			r.fss[k] = caseFs
-			r.startCleaner.Do(func() {
-				go r.cleaner()
-			})
-		}
-		r.mut.Unlock()
-	}
-
-	return caseFs
-}
-
-func (r *caseFilesystemRegistry) cleaner() {
-	for range time.NewTicker(time.Minute).C {
-		// We need to not hold this lock for a long time, as it blocks
-		// creating new filesystems in get(), which is needed to do things
-		// like add new folders. The (*caseFs).dropCache() method can take
-		// an arbitrarily long time to kick in because it in turn waits for
-		// locks held by things performing I/O. So we can't call that from
-		// within the loop.
-
-		r.mut.RLock()
-		toProcess := make([]*caseFilesystem, 0, len(r.fss))
-		for _, caseFs := range r.fss {
-			toProcess = append(toProcess, caseFs)
-		}
-		r.mut.RUnlock()
-
-		for _, caseFs := range toProcess {
-			caseFs.dropCache()
-		}
-	}
-}
-
-var globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*caseFilesystem)}
 
 // OptionDetectCaseConflicts ensures that the potentially case-insensitive filesystem
 // behaves like a case-sensitive filesystem. Meaning that it takes into account
@@ -132,7 +56,7 @@ var globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*c
 type OptionDetectCaseConflicts struct{}
 
 func (*OptionDetectCaseConflicts) apply(fs Filesystem) Filesystem {
-	return globalCaseFilesystemRegistry.get(fs)
+	return newCaseFilesystem(fs)
 }
 
 func (*OptionDetectCaseConflicts) String() string {
@@ -144,6 +68,13 @@ func (*OptionDetectCaseConflicts) String() string {
 type caseFilesystem struct {
 	Filesystem
 	realCaser
+}
+
+func newCaseFilesystem(fs Filesystem) *caseFilesystem {
+	return &caseFilesystem{
+		Filesystem: fs,
+		realCaser:  newDefaultRealCaser(fs),
+	}
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
@@ -227,6 +158,7 @@ func (f *caseFilesystem) RemoveAll(name string) error {
 }
 
 func (f *caseFilesystem) Rename(oldpath, newpath string) error {
+	f.dropCache(oldpath, newpath)
 	if err := f.checkCase(oldpath); err != nil {
 		return err
 	}
@@ -436,8 +368,8 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	return realName, nil
 }
 
-func (r *defaultRealCaser) dropCache() {
-	r.cache.Purge()
+func (r *defaultRealCaser) dropCache(paths ...string) {
+	r.cache.Purge(paths...)
 }
 
 type caseCache struct {

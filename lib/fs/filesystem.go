@@ -297,6 +297,21 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		fs = caseOpt.apply(fs)
 	}
 
+	if l.ShouldDebug("fs") {
+		l.Debugln(fs.URI(), fs.Options())
+		pfs := fs
+		indent := ""
+		for {
+			l.Debugf("%s %T(%p)", indent, pfs, pfs)
+			var ok bool
+			pfs, ok = pfs.underlying()
+			if !ok {
+				break
+			}
+			indent += "  "
+		}
+	}
+
 	return fs
 }
 
