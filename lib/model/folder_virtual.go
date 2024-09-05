@@ -17,6 +17,7 @@ import (
 
 	ffs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/syncthing/syncthing/lib/blockstorage"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -39,6 +40,7 @@ func init() {
 
 type virtualFolderSyncthingService struct {
 	*folderBase
+	blockCache   blockstorage.HashBlockStorageI
 	mountService io.Closer
 }
 
@@ -90,6 +92,7 @@ func newVirtualFolder(
 ) service {
 	return &virtualFolderSyncthingService{
 		folderBase: newFolderBase(cfg, evLogger, model, fset),
+		blockCache: nil,
 	}
 }
 
@@ -98,6 +101,14 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 	defer f.model.foldersRunning.Add(-1)
 
 	f.ctx = ctx
+	//f.blockCache = blockstorage.NewGoCloudUrlStorage(ctx, "mem://")
+
+	myDir := f.Path + "Blobs"
+	if err := os.MkdirAll(myDir, 0o777); err != nil {
+		log.Fatal(err)
+	}
+
+	f.blockCache = blockstorage.NewGoCloudUrlStorage(ctx, "file://"+myDir+"?no_tmp_dir=yes")
 
 	if f.mountService == nil {
 		stVF := &syncthingVirtualFolderFuseAdapter{
@@ -252,13 +263,17 @@ func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 		return nil, fuse.Status(syscall.EAGAIN)
 	}
 
-	var data []byte = nil
-	err = vf.f.vFSS.pullBlockBase(func(blockData []byte) {
-		data = blockData
-	}, snap, *vf.fi, block)
+	data, ok := vf.f.vFSS.blockCache.Get(block.Hash)
+	if !ok {
+		err = vf.f.vFSS.pullBlockBase(func(blockData []byte) {
+			data = blockData
+		}, snap, *vf.fi, block)
 
-	if err != nil {
-		return nil, fuse.Status(syscall.EAGAIN)
+		if err != nil {
+			return nil, fuse.Status(syscall.EAGAIN)
+		}
+
+		vf.f.vFSS.blockCache.Set(block.Hash, data)
 	}
 
 	return data[rel_pos:], 0
