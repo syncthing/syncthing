@@ -276,10 +276,18 @@ func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 		vf.f.vFSS.blockCache.Set(block.Hash, data)
 	}
 
-	return data[rel_pos:], 0
+	remainingInBlock := clamp(len(data)-int(rel_pos), 0, len(data))
+	maxToBeRead := clamp(len(buf), 0, vf.maxToBeRead)
+	readAmount := clamp(remainingInBlock, 0, maxToBeRead)
+
+	if readAmount != 0 {
+		return data[rel_pos : rel_pos+int64(readAmount)], 0
+	} else {
+		return nil, 0
+	}
 }
 func (vf *VirtualFileReadResult) Size() int {
-	return clamp(vf.maxToBeRead, 0, int(vf.fi.Size))
+	return clamp(vf.maxToBeRead, 0, int(vf.fi.Size-int64(vf.offset)))
 }
 func (vf *VirtualFileReadResult) Done() {}
 
