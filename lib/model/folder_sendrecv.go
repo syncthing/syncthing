@@ -2178,3 +2178,61 @@ func existingConflicts(name string, fs fs.Filesystem) []string {
 	}
 	return matches
 }
+
+var _ = (filesystemFolderServiceI)((*sendReceiveFolder)(nil))
+
+func (cfg *sendReceiveFolder) GetFileData(deviceID protocol.DeviceID, req *protocol.Request, response_data []byte) (int, error) {
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
+
+	m := cfg.model
+	folderFs := cfg.Filesystem(nil)
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	}
+
+	// Only check temp files if the flag is set, and if we are set to advertise
+	// the temp indexes.
+	if req.FromTemporary && !cfg.DisableTempIndexes {
+		tempFn := fs.TempName(req.Name)
+
+		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
+			// Reject reads for anything that doesn't exist or is something
+			// other than a regular file.
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+			return 0, protocol.ErrNoSuchFile
+		}
+		n, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, response_data)
+		if err == nil && scanner.Validate(response_data[:n], req.Hash, req.WeakHash) {
+			return n, nil
+		}
+		// Fall through to reading from a non-temp file, just in case the temp
+		// file has finished downloading.
+	}
+
+	if info, err := folderFs.Lstat(req.Name); err != nil || !info.IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	}
+
+	n, err := readOffsetIntoBuf(folderFs, req.Name, req.Offset, response_data)
+	if fs.IsNotExist(err) {
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	} else if err == io.EOF {
+		// Read beyond end of file. This might indicate a problem, or it
+		// might be a short block that gets padded when read for encrypted
+		// folders. We ignore the error and let the hash validation in the
+		// next step take care of it, by only hashing the part we actually
+		// managed to read.
+	} else if err != nil {
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrGeneric
+	}
+
+	return n, nil
+}

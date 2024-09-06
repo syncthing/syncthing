@@ -312,3 +312,14 @@ func (f *syncthingVirtualFolderFuseAdapter) readFile(
 		maxToBeRead: len(buf),
 	}, 0
 }
+
+var _ = (virtualFolderServiceI)((*virtualFolderSyncthingService)(nil))
+
+func (vf *virtualFolderSyncthingService) GetHashBlockData(hash []byte, response_data []byte) (int, error) {
+	data, ok := vf.blockCache.Get(hash)
+	if !ok {
+		return 0, protocol.ErrNoSuchFile
+	}
+	n := copy(response_data, data)
+	return n, nil
+}
