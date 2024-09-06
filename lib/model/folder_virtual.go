@@ -42,6 +42,30 @@ type virtualFolderSyncthingService struct {
 	*folderBase
 	blockCache   blockstorage.HashBlockStorageI
 	mountService io.Closer
+
+	backgroundDownload       chan string
+	checkFileForCompleteness chan string
+}
+
+func (vFSS *virtualFolderSyncthingService) GetBlockDataFromCacheOrDownload(
+	snap *db.Snapshot,
+	file protocol.FileInfo,
+	block protocol.BlockInfo,
+) ([]byte, bool) {
+	data, ok := vFSS.blockCache.Get(block.Hash)
+	if !ok {
+		err := vFSS.pullBlockBase(func(blockData []byte) {
+			data = blockData
+		}, snap, file, block)
+
+		if err != nil {
+			return nil, false
+		}
+
+		vFSS.blockCache.Set(block.Hash, data)
+	}
+
+	return data, true
 }
 
 type syncthingVirtualFolderFuseAdapter struct {
@@ -91,8 +115,10 @@ func newVirtualFolder(
 	ioLimiter *semaphore.Semaphore,
 ) service {
 	return &virtualFolderSyncthingService{
-		folderBase: newFolderBase(cfg, evLogger, model, fset),
-		blockCache: nil,
+		folderBase:               newFolderBase(cfg, evLogger, model, fset),
+		blockCache:               nil,
+		backgroundDownload:       make(chan string, 100),
+		checkFileForCompleteness: make(chan string, 100),
 	}
 }
 
@@ -128,6 +154,31 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 		f.mountService = mount
 	}
 
+	// background download task
+	go func() {
+		for job := range f.backgroundDownload {
+			snap, err := f.fset.Snapshot()
+			if err != nil {
+				continue
+			}
+			fi, ok := snap.GetGlobal(job)
+			if !ok {
+				continue
+			}
+
+			all_ok := true
+			for _, bi := range fi.Blocks {
+				_, ok := f.GetBlockDataFromCacheOrDownload(snap, fi, bi)
+				all_ok = all_ok && ok
+			}
+
+			if all_ok {
+				fs := append([]protocol.FileInfo(nil), fi)
+				f.fset.Update(protocol.LocalDeviceID, fs)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -136,6 +187,7 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 
 		case <-f.pullScheduled:
 			continue
+
 		}
 	}
 }
@@ -263,17 +315,9 @@ func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 		return nil, fuse.Status(syscall.EAGAIN)
 	}
 
-	data, ok := vf.f.vFSS.blockCache.Get(block.Hash)
+	data, ok := vf.f.vFSS.GetBlockDataFromCacheOrDownload(snap, *vf.fi, block)
 	if !ok {
-		err = vf.f.vFSS.pullBlockBase(func(blockData []byte) {
-			data = blockData
-		}, snap, *vf.fi, block)
-
-		if err != nil {
-			return nil, fuse.Status(syscall.EAGAIN)
-		}
-
-		vf.f.vFSS.blockCache.Set(block.Hash, data)
+		return nil, fuse.Status(syscall.EAGAIN)
 	}
 
 	remainingInBlock := clamp(len(data)-int(rel_pos), 0, len(data))
@@ -281,6 +325,7 @@ func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 	readAmount := clamp(remainingInBlock, 0, maxToBeRead)
 
 	if readAmount != 0 {
+		vf.f.vFSS.backgroundDownload <- vf.fi.Name
 		return data[rel_pos : rel_pos+int64(readAmount)], 0
 	} else {
 		return nil, 0
