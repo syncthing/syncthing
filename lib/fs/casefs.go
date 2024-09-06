@@ -369,7 +369,13 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 }
 
 func (r *defaultRealCaser) dropCache(paths ...string) {
-	r.cache.Purge(paths...)
+	if len(paths) == 0 {
+		r.cache.Purge()
+		return
+	}
+	for _, path := range paths {
+		r.cache.Remove(path)
+	}
 }
 
 type caseCache struct {
