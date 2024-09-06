@@ -11,28 +11,24 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestDatabaseGetSet(t *testing.T) {
-	db, err := newMemoryLevelDBStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := newInMemoryStore(t.TempDir(), 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	go db.Serve(ctx)
 	defer cancel()
 
 	// Check missing record
 
-	rec, err := db.get("abcd")
+	rec, err := db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Error("not found should not be an error")
 	}
 	if len(rec.Addresses) != 0 {
 		t.Error("addresses should be empty")
-	}
-	if rec.Misses != 0 {
-		t.Error("missing should be zero")
 	}
 
 	// Set up a clock
@@ -46,13 +42,13 @@ func TestDatabaseGetSet(t *testing.T) {
 	rec.Addresses = []DatabaseAddress{
 		{Address: "tcp://1.2.3.4:5", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.put("abcd", rec); err != nil {
+	if err := db.put(&protocol.EmptyDeviceID, rec); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,13 +68,13 @@ func TestDatabaseGetSet(t *testing.T) {
 	addrs := []DatabaseAddress{
 		{Address: "tcp://6.7.8.9:0", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.merge("abcd", addrs, tc.Now().UnixNano()); err != nil {
+	if err := db.merge(&protocol.EmptyDeviceID, addrs, tc.Now().UnixNano()); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +97,7 @@ func TestDatabaseGetSet(t *testing.T) {
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,50 +110,24 @@ func TestDatabaseGetSet(t *testing.T) {
 		t.Error("incorrect address")
 	}
 
-	// Put a record with misses
-
-	rec = DatabaseRecord{Misses: 42, Missed: tc.Now().UnixNano()}
-	if err := db.put("efgh", rec); err != nil {
-		t.Fatal(err)
-	}
-
-	// Verify it
-
-	rec, err = db.get("efgh")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rec.Addresses) != 0 {
-		t.Log(rec.Addresses)
-		t.Fatal("should have no addresses")
-	}
-	if rec.Misses != 42 {
-		t.Log(rec.Misses)
-		t.Error("incorrect misses")
-	}
-
 	// Set an address
 
 	addrs = []DatabaseAddress{
 		{Address: "tcp://6.7.8.9:0", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.merge("efgh", addrs, tc.Now().UnixNano()); err != nil {
+	if err := db.merge(&protocol.GlobalDeviceID, addrs, tc.Now().UnixNano()); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("efgh")
+	rec, err = db.get(&protocol.GlobalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rec.Addresses) != 1 {
 		t.Log(rec.Addresses)
 		t.Fatal("should have one address")
-	}
-	if rec.Misses != 0 {
-		t.Log(rec.Misses)
-		t.Error("should have no misses")
 	}
 }
 

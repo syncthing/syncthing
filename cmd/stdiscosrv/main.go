@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"strings"
 	"time"
@@ -24,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -39,17 +39,12 @@ const (
 	errorRetryAfterSeconds = 1500
 	errorRetryFuzzSeconds  = 300
 
-	// Retry for not found is minSeconds + failures * incSeconds +
-	// random(fuzz), where failures is the number of consecutive lookups
-	// with no answer, up to maxSeconds. The fuzz is applied after capping
-	// to maxSeconds.
-	notFoundRetryMinSeconds  = 60
-	notFoundRetryMaxSeconds  = 3540
-	notFoundRetryIncSeconds  = 10
-	notFoundRetryFuzzSeconds = 60
-
-	// How often (in requests) we serialize the missed counter to database.
-	notFoundMissesWriteInterval = 10
+	// Retry for not found is notFoundRetrySeenSeconds for records we have
+	// seen an announcement for (but it's not active right now) and
+	// notFoundRetryUnknownSeconds for records we have never seen (or not
+	// seen within the last week).
+	notFoundRetryUnknownMinSeconds = 60
+	notFoundRetryUnknownMaxSeconds = 3600
 
 	httpReadTimeout    = 5 * time.Second
 	httpWriteTimeout   = 5 * time.Second
@@ -58,14 +53,6 @@ const (
 	// Size of the replication outbox channel
 	replicationOutboxSize = 10000
 )
-
-// These options make the database a little more optimized for writes, at
-// the expense of some memory usage and risk of losing writes in a (system)
-// crash.
-var levelDBOptions = &opt.Options{
-	NoSync:      true,
-	WriteBuffer: 32 << 20, // default 4<<20
-}
 
 var debug = false
 
@@ -81,16 +68,15 @@ func main() {
 	var replKeyFile string
 	var useHTTP bool
 	var compression bool
-	var largeDB bool
 	var amqpAddress string
-	missesIncrease := 1
+	var flushInterval time.Duration
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
 	flag.StringVar(&certFile, "cert", "./cert.pem", "Certificate file")
 	flag.StringVar(&keyFile, "key", "./key.pem", "Key file")
-	flag.StringVar(&dir, "db-dir", "./discovery.db", "Database directory")
+	flag.StringVar(&dir, "db-dir", ".", "Database directory")
 	flag.BoolVar(&debug, "debug", false, "Print debug output")
 	flag.BoolVar(&useHTTP, "http", false, "Listen on HTTP (behind an HTTPS proxy)")
 	flag.BoolVar(&compression, "compression", true, "Enable GZIP compression of responses")
@@ -100,9 +86,8 @@ func main() {
 	flag.StringVar(&replicationListen, "replication-listen", ":19200", "Replication listen address")
 	flag.StringVar(&replCertFile, "replication-cert", "", "Certificate file for replication")
 	flag.StringVar(&replKeyFile, "replication-key", "", "Key file for replication")
-	flag.BoolVar(&largeDB, "large-db", false, "Use larger database settings")
 	flag.StringVar(&amqpAddress, "amqp-address", "", "Address to AMQP broker")
-	flag.IntVar(&missesIncrease, "misses-increase", 1, "How many times to increase the misses counter on each miss")
+	flag.DurationVar(&flushInterval, "flush-interval", 5*time.Minute, "Interval between database flushes")
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
@@ -112,15 +97,6 @@ func main() {
 	}
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
-
-	if largeDB {
-		levelDBOptions.BlockCacheCapacity = 64 << 20
-		levelDBOptions.BlockSize = 64 << 10
-		levelDBOptions.CompactionTableSize = 16 << 20
-		levelDBOptions.CompactionTableSizeMultiplier = 2.0
-		levelDBOptions.WriteBuffer = 64 << 20
-		levelDBOptions.CompactionL0Trigger = 8
-	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if os.IsNotExist(err) {
@@ -190,10 +166,7 @@ func main() {
 	})
 
 	// Start the database.
-	db, err := newLevelDBStore(dir)
-	if err != nil {
-		log.Fatalln("Open database:", err)
-	}
+	db := newInMemoryStore(dir, flushInterval)
 	main.Add(db)
 
 	// Start any replication senders.
@@ -218,16 +191,8 @@ func main() {
 		main.Add(kr)
 	}
 
-	go func() {
-		for range time.NewTicker(time.Second).C {
-			for _, r := range repl {
-				r.send("<heartbeat>", nil, time.Now().UnixNano())
-			}
-		}
-	}()
-
 	// Start the main API server.
-	qs := newAPISrv(listen, cert, db, repl, useHTTP, compression, missesIncrease)
+	qs := newAPISrv(listen, cert, db, repl, useHTTP, compression)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.
@@ -239,6 +204,18 @@ func main() {
 		}()
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Cancel on signal
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		sig := <-signalChan
+		log.Printf("Received signal %s; shutting down", sig)
+		cancel()
+	}()
+
 	// Engage!
-	main.Serve(context.Background())
+	main.Serve(ctx)
 }

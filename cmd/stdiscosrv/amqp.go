@@ -7,11 +7,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -49,7 +52,7 @@ func newAMQPReplicator(broker, clientID string, db database) *amqpReplicator {
 	}
 }
 
-func (s *amqpReplicator) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *amqpReplicator) send(key *protocol.DeviceID, ps []DatabaseAddress, seen int64) {
 	s.sender.send(key, ps, seen)
 }
 
@@ -109,9 +112,9 @@ func (s *amqpSender) String() string {
 	return fmt.Sprintf("amqpSender(%q)", s.broker)
 }
 
-func (s *amqpSender) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *amqpSender) send(key *protocol.DeviceID, ps []DatabaseAddress, seen int64) {
 	item := ReplicationRecord{
-		Key:       key,
+		Key:       key[:],
 		Addresses: ps,
 		Seen:      seen,
 	}
@@ -161,8 +164,20 @@ func (s *amqpReceiver) Serve(ctx context.Context) error {
 				replicationRecvsTotal.WithLabelValues("error").Inc()
 				return fmt.Errorf("replication unmarshal: %w", err)
 			}
+			if bytes.Equal(rec.Key, []byte("<heartbeat>")) {
+				continue
+			}
+			id, err := protocol.DeviceIDFromBytes(rec.Key)
+			if err != nil {
+				id, err = protocol.DeviceIDFromString(string(rec.Key))
+			}
+			if err != nil {
+				log.Println("Replication device ID:", err)
+				replicationRecvsTotal.WithLabelValues("error").Inc()
+				continue
+			}
 
-			if err := s.db.merge(rec.Key, rec.Addresses, rec.Seen); err != nil {
+			if err := s.db.merge(&id, rec.Addresses, rec.Seen); err != nil {
 				return fmt.Errorf("replication database merge: %w", err)
 			}
 

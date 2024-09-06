@@ -46,11 +46,9 @@ type apiSrv struct {
 	repl           replicator // optional
 	useHTTP        bool
 	compression    bool
-	missesIncrease int
 	gzipWriters    sync.Pool
-
-	mapsMut sync.Mutex
-	misses  map[string]int32
+	seenTracker    *retryAfterTracker
+	notSeenTracker *retryAfterTracker
 }
 
 type requestID int64
@@ -63,20 +61,30 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, missesIncrease int) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool) *apiSrv {
 	return &apiSrv{
-		addr:           addr,
-		cert:           cert,
-		db:             db,
-		repl:           repl,
-		useHTTP:        useHTTP,
-		compression:    compression,
-		misses:         make(map[string]int32),
-		missesIncrease: missesIncrease,
+		addr:        addr,
+		cert:        cert,
+		db:          db,
+		repl:        repl,
+		useHTTP:     useHTTP,
+		compression: compression,
+		seenTracker: &retryAfterTracker{
+			name:         "seenTracker",
+			bucketStarts: time.Now(),
+			desiredRate:  250,
+			currentDelay: notFoundRetryUnknownMinSeconds,
+		},
+		notSeenTracker: &retryAfterTracker{
+			name:         "notSeenTracker",
+			bucketStarts: time.Now(),
+			desiredRate:  250,
+			currentDelay: notFoundRetryUnknownMaxSeconds / 2,
+		},
 	}
 }
 
-func (s *apiSrv) Serve(_ context.Context) error {
+func (s *apiSrv) Serve(ctx context.Context) error {
 	if s.useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
@@ -109,6 +117,11 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		MaxHeaderBytes: httpMaxHeaderBytes,
 		ErrorLog:       log.New(io.Discard, "", 0),
 	}
+
+	go func() {
+		<-ctx.Done()
+		srv.Shutdown(context.Background())
+	}()
 
 	err := srv.Serve(s.listener)
 	if err != nil {
@@ -186,8 +199,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	key := deviceID.String()
-	rec, err := s.db.get(key)
+	rec, err := s.db.get(&deviceID)
 	if err != nil {
 		// some sort of internal error
 		lookupRequestsTotal.WithLabelValues("internal_error").Inc()
@@ -197,27 +209,14 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if len(rec.Addresses) == 0 {
-		lookupRequestsTotal.WithLabelValues("not_found").Inc()
-
-		s.mapsMut.Lock()
-		misses := s.misses[key]
-		if misses < rec.Misses {
-			misses = rec.Misses
+		var afterS int
+		if rec.Seen == 0 {
+			afterS = s.notSeenTracker.retryAfterS()
+			lookupRequestsTotal.WithLabelValues("not_found_ever").Inc()
+		} else {
+			afterS = s.seenTracker.retryAfterS()
+			lookupRequestsTotal.WithLabelValues("not_found_recent").Inc()
 		}
-		misses += int32(s.missesIncrease)
-		s.misses[key] = misses
-		s.mapsMut.Unlock()
-
-		if misses >= notFoundMissesWriteInterval {
-			rec.Misses = misses
-			rec.Missed = time.Now().UnixNano()
-			rec.Addresses = nil
-			// rec.Seen retained from get
-			s.db.put(key, rec)
-		}
-
-		afterS := notFoundRetryAfterSeconds(int(misses))
-		retryAfterHistogram.Observe(float64(afterS))
 		w.Header().Set("Retry-After", strconv.Itoa(afterS))
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
@@ -301,7 +300,6 @@ func (s *apiSrv) Stop() {
 }
 
 func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) error {
-	key := deviceID.String()
 	now := time.Now()
 	expire := now.Add(addressExpiryTime).UnixNano()
 
@@ -317,9 +315,9 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 
 	seen := now.UnixNano()
 	if s.repl != nil {
-		s.repl.send(key, dbAddrs, seen)
+		s.repl.send(&deviceID, dbAddrs, seen)
 	}
-	return s.db.merge(key, dbAddrs, seen)
+	return s.db.merge(&deviceID, dbAddrs, seen)
 }
 
 func handlePing(w http.ResponseWriter, _ *http.Request) {
@@ -503,15 +501,44 @@ func errorRetryAfterString() string {
 	return strconv.Itoa(errorRetryAfterSeconds + rand.Intn(errorRetryFuzzSeconds))
 }
 
-func notFoundRetryAfterSeconds(misses int) int {
-	retryAfterS := notFoundRetryMinSeconds + notFoundRetryIncSeconds*misses
-	if retryAfterS > notFoundRetryMaxSeconds {
-		retryAfterS = notFoundRetryMaxSeconds
-	}
-	retryAfterS += rand.Intn(notFoundRetryFuzzSeconds)
-	return retryAfterS
-}
-
 func reannounceAfterString() string {
 	return strconv.Itoa(reannounceAfterSeconds + rand.Intn(reannounzeFuzzSeconds))
+}
+
+type retryAfterTracker struct {
+	name        string
+	desiredRate float64 // requests per second
+
+	mut          sync.Mutex
+	lastCount    int       // requests in the last bucket
+	curCount     int       // requests in the current bucket
+	bucketStarts time.Time // start of the current bucket
+	currentDelay int       // current delay in seconds
+}
+
+func (t *retryAfterTracker) retryAfterS() int {
+	now := time.Now()
+	t.mut.Lock()
+	if durS := now.Sub(t.bucketStarts).Seconds(); durS > float64(t.currentDelay) {
+		t.bucketStarts = now
+		t.lastCount = t.curCount
+		lastRate := float64(t.lastCount) / durS
+
+		switch {
+		case t.currentDelay > notFoundRetryUnknownMinSeconds &&
+			lastRate < 0.75*t.desiredRate:
+			t.currentDelay = max(8*t.currentDelay/10, notFoundRetryUnknownMinSeconds)
+		case t.currentDelay < notFoundRetryUnknownMaxSeconds &&
+			lastRate > 1.25*t.desiredRate:
+			t.currentDelay = min(3*t.currentDelay/2, notFoundRetryUnknownMaxSeconds)
+		}
+
+		t.curCount = 0
+	}
+	if t.curCount == 0 {
+		retryAfterLevel.WithLabelValues(t.name).Set(float64(t.currentDelay))
+	}
+	t.curCount++
+	t.mut.Unlock()
+	return t.currentDelay + rand.Intn(t.currentDelay/4)
 }

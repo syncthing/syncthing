@@ -26,7 +26,7 @@ const (
 )
 
 type replicator interface {
-	send(key string, addrs []DatabaseAddress, seen int64)
+	send(key *protocol.DeviceID, addrs []DatabaseAddress, seen int64)
 }
 
 // a replicationSender tries to connect to the remote address and provide
@@ -144,9 +144,9 @@ func (s *replicationSender) String() string {
 	return fmt.Sprintf("replicationSender(%q)", s.dst)
 }
 
-func (s *replicationSender) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *replicationSender) send(key *protocol.DeviceID, ps []DatabaseAddress, seen int64) {
 	item := ReplicationRecord{
-		Key:       key,
+		Key:       key[:],
 		Addresses: ps,
 		Seen:      seen,
 	}
@@ -163,7 +163,7 @@ func (s *replicationSender) send(key string, ps []DatabaseAddress, seen int64) {
 // a replicationMultiplexer sends to multiple replicators
 type replicationMultiplexer []replicator
 
-func (m replicationMultiplexer) send(key string, ps []DatabaseAddress, seen int64) {
+func (m replicationMultiplexer) send(key *protocol.DeviceID, ps []DatabaseAddress, seen int64) {
 	for _, s := range m {
 		// each send is nonblocking
 		s.send(key, ps, seen)
@@ -290,9 +290,18 @@ func (l *replicationListener) handle(ctx context.Context, conn net.Conn) {
 			replicationRecvsTotal.WithLabelValues("error").Inc()
 			continue
 		}
+		id, err := protocol.DeviceIDFromBytes(rec.Key)
+		if err != nil {
+			id, err = protocol.DeviceIDFromString(string(rec.Key))
+		}
+		if err != nil {
+			log.Println("Replication device ID:", err)
+			replicationRecvsTotal.WithLabelValues("error").Inc()
+			continue
+		}
 
 		// Store
-		l.db.merge(rec.Key, rec.Addresses, rec.Seen)
+		l.db.merge(&id, rec.Addresses, rec.Seen)
 		replicationRecvsTotal.WithLabelValues("success").Inc()
 	}
 }
