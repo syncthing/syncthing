@@ -23,6 +23,8 @@ type SyncthingVirtualFolderI interface {
 	createFile(Permissions *uint32, path string) (info *db.FileInfoTruncated, eno syscall.Errno)
 	writeFile(ctx context.Context, path string, offset uint64, inputData []byte) syscall.Errno
 	deleteFile(ctx context.Context, path string) syscall.Errno
+	createDir(ctx context.Context, path string) syscall.Errno
+	deleteDir(ctx context.Context, path string) syscall.Errno
 }
 
 type FuseVirtualFolderRoot struct {
@@ -175,36 +177,19 @@ func (n *VirtualNode) Mknod(ctx context.Context, name string, mode, rdev uint32,
 var _ = (ffs.NodeMkdirer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*ffs.Inode, syscall.Errno) {
-	//p := filepath.Join(n.fullPath(), name)
-	//err := os.Mkdir(p, os.FileMode(mode))
-	//if err != nil {
-	//	return nil, ffs.ToErrno(err)
-	//}
-	//n.preserveOwner(ctx, p)
-	//st := syscall.Stat_t{}
-	//if err := syscall.Lstat(p, &st); err != nil {
-	//	syscall.Rmdir(p)
-	//	return nil, ffs.ToErrno(err)
-	//}
-	//
-	//out.Attr.FromStat(&st)
-	//
-	//node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
-	//ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
-	//
-	//return ch, 0
-
-	return nil, syscall.ENOSYS
+	p := filepath.Join(n.fullPath(), name)
+	eno := n.RootData.st_folder.createDir(ctx, p)
+	if eno != 0 {
+		return nil, eno
+	}
+	return n.Lookup(ctx, name, out)
 }
 
 var _ = (ffs.NodeRmdirer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Rmdir(ctx context.Context, name string) syscall.Errno {
-	//p := filepath.Join(n.fullPath(), name)
-	//err := syscall.Rmdir(p)
-	//return ffs.ToErrno(err)
-
-	return syscall.ENOSYS
+	p := filepath.Join(n.fullPath(), name)
+	return n.RootData.st_folder.deleteDir(ctx, p)
 }
 
 var _ = (ffs.NodeUnlinker)((*VirtualNode)(nil))
@@ -423,7 +408,10 @@ var _ = (ffs.NodeGetattrer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Getattr(ctx context.Context, f ffs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	if f != nil {
-		return f.(ffs.FileGetattrer).Getattr(ctx, out)
+		ga, ok := f.(ffs.FileGetattrer)
+		if ok {
+			return ga.Getattr(ctx, out)
+		}
 	}
 
 	//p := n.fullPath()
