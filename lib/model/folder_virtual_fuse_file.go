@@ -7,6 +7,7 @@ package model
 import (
 	"context"
 	"sync"
+	"time"
 
 	//	"time"
 
@@ -14,22 +15,35 @@ import (
 
 	ffs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-func NewVirtualFile(rel_name string, sVF SyncthingVirtualFolderI) ffs.FileHandle {
-	return &virtualFuseFile{sVF: sVF, rel_name: rel_name}
+func NewVirtualFile(rel_name string, ino uint64, sVF SyncthingVirtualFolderI) ffs.FileHandle {
+	return &virtualFuseFile{sVF: sVF, rel_name: rel_name, ino: ino}
 }
 
 type virtualFuseFile struct {
 	sVF      SyncthingVirtualFolderI
+	ino      uint64
 	mu       sync.Mutex
 	rel_name string // relative filepath
+	fileInfo *db.FileInfoTruncated
+}
+
+func (f *virtualFuseFile) getFileInfo() (*db.FileInfoTruncated, syscall.Errno) {
+	if f.fileInfo == nil {
+		var eno syscall.Errno
+		f.fileInfo, eno = f.sVF.lookupFile(f.rel_name)
+		if eno != 0 {
+			return nil, eno
+		}
+	}
+	return f.fileInfo, 0
 }
 
 var _ = (ffs.FileHandle)((*virtualFuseFile)(nil))
 var _ = (ffs.FileReleaser)((*virtualFuseFile)(nil))
-var _ = (ffs.FileGetattrer)((*virtualFuseFile)(nil))
 var _ = (ffs.FileReader)((*virtualFuseFile)(nil))
 var _ = (ffs.FileWriter)((*virtualFuseFile)(nil))
 var _ = (ffs.FileGetlker)((*virtualFuseFile)(nil))
@@ -38,7 +52,6 @@ var _ = (ffs.FileSetlkwer)((*virtualFuseFile)(nil))
 var _ = (ffs.FileLseeker)((*virtualFuseFile)(nil))
 var _ = (ffs.FileFlusher)((*virtualFuseFile)(nil))
 var _ = (ffs.FileFsyncer)((*virtualFuseFile)(nil))
-var _ = (ffs.FileSetattrer)((*virtualFuseFile)(nil))
 var _ = (ffs.FileAllocater)((*virtualFuseFile)(nil))
 
 func (f *virtualFuseFile) Read(ctx context.Context, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno) {
@@ -55,11 +68,17 @@ func (f *virtualFuseFile) Read(ctx context.Context, buf []byte, off int64) (res 
 func (f *virtualFuseFile) Write(ctx context.Context, data []byte, off int64) (uint32, syscall.Errno) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	//willBeChangedFd(f.fd)
-	//n, err := syscall.Pwrite(f.fd, data, off)
-	//f.changeChan <- Event{f.rel_name, NonRemove}
-	//return uint32(n), ffs.ToErrno(err)
-	return 0, syscall.EACCES
+
+	if off < 0 {
+		return 0, syscall.EINVAL
+	}
+
+	eno := f.sVF.writeFile(ctx, f.rel_name, uint64(off), data)
+	if eno != 0 {
+		return 0, eno
+	}
+
+	return uint32(len(data)), 0
 }
 
 func (f *virtualFuseFile) Release(ctx context.Context) syscall.Errno {
@@ -163,14 +182,15 @@ func (f *virtualFuseFile) setLock(ctx context.Context, owner uint64, lk *fuse.Fi
 	return syscall.ENOSYS
 }
 
+var _ = (ffs.FileSetattrer)((*virtualFuseFile)(nil))
+
 func (f *virtualFuseFile) Setattr(ctx context.Context, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
-	//willBeChangedFd(f.fd)
-	//if errno := f.setAttr(ctx, in); errno != 0 {
-	//	return errno
-	//}
-	//
-	//return f.Getattr(ctx, out)
-	return syscall.ENOSYS
+
+	logger.DefaultLogger.Infof("virtualFuseFile Setattr(in,out): %+v, %+v", in, out)
+
+	f.Getattr(ctx, out)
+
+	return 0
 }
 
 func (f *virtualFuseFile) fchmod(mode uint32) syscall.Errno {
@@ -253,6 +273,31 @@ func (f *virtualFuseFile) setAttr(ctx context.Context, in *fuse.SetAttrIn) sysca
 	return syscall.ENOSYS
 }
 
+var _ = (ffs.FileGetattrer)((*virtualFuseFile)(nil))
+
+func FileInfoToFuseAttrOut(fi *db.FileInfoTruncated, ino uint64, a *fuse.AttrOut) syscall.Errno {
+
+	a.SetTimeout(time.Second)
+	a.Blksize = uint32(fi.BlockSize())
+	a.Blocks = uint64(fi.Size) / 512
+	unix := fi.PlatformData().Unix
+	if unix != nil {
+		a.Gid = uint32(unix.GID)
+		a.Uid = uint32(unix.UID)
+	}
+	a.Ino = ino
+	a.Mode = syscall.S_IFREG | 0666
+	a.Nlink = 1
+	//a.Rdev
+	a.Size = uint64(fi.Size)
+
+	mtime := fi.ModTime()
+	ctime := fi.InodeChangeTime()
+	a.SetTimes(&mtime, &mtime, &ctime)
+
+	return ffs.OK
+}
+
 func (f *virtualFuseFile) Getattr(ctx context.Context, a *fuse.AttrOut) syscall.Errno {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -264,7 +309,15 @@ func (f *virtualFuseFile) Getattr(ctx context.Context, a *fuse.AttrOut) syscall.
 	//a.FromStat(&st)
 	//
 	//return ffs.OK
-	return syscall.ENOSYS
+
+	fi, eno := f.getFileInfo()
+	if eno != 0 {
+		return eno
+	}
+
+	FileInfoToFuseAttrOut(fi, f.ino, a)
+
+	return ffs.OK
 }
 
 func (f *virtualFuseFile) Lseek(ctx context.Context, off uint64, whence uint32) (uint64, syscall.Errno) {

@@ -35,7 +35,7 @@ type LoopbackRoot struct {
 	changeChan chan<- Event
 }
 
-func (r *LoopbackRoot) newNode(parent *ffs.Inode, name string, st *syscall.Stat_t) ffs.InodeEmbedder {
+func (r *LoopbackRoot) newNodeWithParent(parent *ffs.Inode, name string, st *syscall.Stat_t) ffs.InodeEmbedder {
 	if r.NewNode != nil {
 		return r.NewNode(r, parent, name, st)
 	}
@@ -105,7 +105,7 @@ func (n *LoopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryO
 	}
 
 	out.Attr.FromStat(&st)
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 	return ch, 0
 }
@@ -140,7 +140,7 @@ func (n *LoopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 
 	out.Attr.FromStat(&st)
 
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 
 	return ch, 0
@@ -163,7 +163,7 @@ func (n *LoopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 
 	out.Attr.FromStat(&st)
 
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 
 	return ch, 0
@@ -226,7 +226,7 @@ func (n *LoopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 		return nil, nil, 0, ffs.ToErrno(err)
 	}
 
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 	relative_path := filepath.Join(n.Path(n.Root()), name)
 	lf := NewLoopbackFile(relative_path, fd, n.RootData.changeChan)
@@ -292,7 +292,7 @@ func (n *LoopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 		syscall.Unlink(p)
 		return nil, ffs.ToErrno(err)
 	}
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 
 	out.Attr.FromStat(&st)
@@ -313,7 +313,7 @@ func (n *LoopbackNode) Link(ctx context.Context, target ffs.InodeEmbedder, name 
 		syscall.Unlink(p)
 		return nil, ffs.ToErrno(err)
 	}
-	node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
+	node := n.RootData.newNodeWithParent(n.EmbeddedInode(), name, &st)
 	ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
 
 	out.Attr.FromStat(&st)
@@ -532,5 +532,5 @@ func NewLoopbackRoot(rootPath string, changeChan chan<- Event) (ffs.InodeEmbedde
 		changeChan: changeChan,
 	}
 
-	return root.newNode(nil, "", &st), nil
+	return root.newNodeWithParent(nil, "", &st), nil
 }

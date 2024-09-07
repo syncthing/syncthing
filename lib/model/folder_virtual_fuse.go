@@ -20,6 +20,8 @@ type SyncthingVirtualFolderI interface {
 	lookupFile(path string) (info *db.FileInfoTruncated, eno syscall.Errno)
 	readDir(path string) (stream ffs.DirStream, eno syscall.Errno)
 	readFile(path string, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno)
+	createFile(Permissions *uint32, name string) (info *db.FileInfoTruncated, eno syscall.Errno)
+	writeFile(ctx context.Context, name string, offset uint64, inputData []byte) syscall.Errno
 }
 
 type FuseVirtualFolderRoot struct {
@@ -38,14 +40,6 @@ func (m *VirtualFolderMount) Close() error {
 	}
 	m.fuseServer.Wait()
 	return nil
-}
-
-func (r *FuseVirtualFolderRoot) newNode(parent *ffs.Inode, name string, isDir bool) ffs.InodeEmbedder {
-	node := &VirtualNode{
-		RootData: r,
-		isDir:    isDir,
-	}
-	return node
 }
 
 type VirtualNode struct {
@@ -89,20 +83,14 @@ func (n *VirtualNode) fullPath() string {
 	return filepath.Join("", relative_path)
 }
 
-var _ = (ffs.NodeLookuper)((*VirtualNode)(nil))
-
-func (n *VirtualNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*ffs.Inode, syscall.Errno) {
-
+func dbInfoToFuseEntryOut(
+	info *db.FileInfoTruncated, ino uint64, name string, out *fuse.EntryOut, ctx context.Context,
+) {
 	isDir := false
 	st := syscall.Stat_t{}
 	st.Mode = syscall.S_IFREG
 
-	p := filepath.Join(n.fullPath(), name)
-	if p != "" {
-		info, err := n.RootData.st_folder.lookupFile(p)
-		if err != 0 {
-			return nil, err
-		}
+	if info != nil {
 		st.Size = info.Size
 		isDir = info.Type == protocol.FileInfoTypeDirectory
 		if isDir {
@@ -115,13 +103,35 @@ func (n *VirtualNode) Lookup(ctx context.Context, name string, out *fuse.EntryOu
 	}
 
 	out.Attr.FromStat(&st)
-	node := n.RootData.newNode(n.EmbeddedInode(), name, isDir)
-	ch := n.NewInode(ctx, node, ffs.StableAttr{
-		Ino:  n.RootData.st_folder.getInoOf(p),
-		Mode: st.Mode,
+	out.Ino = ino
+}
+
+var _ = (ffs.NodeLookuper)((*VirtualNode)(nil))
+
+func (n *VirtualNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*ffs.Inode, syscall.Errno) {
+
+	var eno syscall.Errno = 0
+	var info *db.FileInfoTruncated = nil
+	p := filepath.Join(n.fullPath(), name)
+	if p != "" {
+		info, eno = n.RootData.st_folder.lookupFile(p)
+		if eno != ffs.OK {
+			return nil, eno
+		}
+	}
+
+	dbInfoToFuseEntryOut(info, n.RootData.st_folder.getInoOf(p), name, out, ctx)
+
+	child := &VirtualNode{
+		RootData: n.RootData,
+		isDir:    out.IsDir(),
+	}
+
+	return n.NewInode(ctx, child, ffs.StableAttr{
+		Mode: out.Mode,
+		Ino:  out.Ino,
 		Gen:  1,
-	})
-	return ch, 0
+	}), 0
 }
 
 // preserveOwner sets uid and gid of `path` according to the caller information
@@ -235,29 +245,34 @@ var _ = (ffs.NodeCreater)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut,
 ) (inode *ffs.Inode, fh ffs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	//abs_path := filepath.Join(n.fullPath(), name)
-	//flags = flags &^ syscall.O_APPEND
-	//fd, err := syscall.Open(abs_path, int(flags)|os.O_CREATE, mode)
-	//if err != nil {
-	//	return nil, nil, 0, ffs.ToErrno(err)
-	//}
-	//n.preserveOwner(ctx, abs_path)
-	//st := syscall.Stat_t{}
-	//if err := syscall.Fstat(fd, &st); err != nil {
-	//	syscall.Close(fd)
-	//	return nil, nil, 0, ffs.ToErrno(err)
-	//}
-	//
-	//node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
-	//ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
-	//relative_path := filepath.Join(n.Path(n.Root()), name)
-	//lf := NewLoopbackFile(relative_path, fd, n.RootData.changeChan)
-	//
-	//out.FromStat(&st)
-	//n.RootData.changeChan <- Event{relative_path, NonRemove}
-	//return ch, lf, 0, 0
 
-	return nil, nil, 0, syscall.EACCES
+	logger.DefaultLogger.Infof("VirtualNode Create(parent, file, flags, mode): %s, %v", n.fullPath(), name, flags, mode)
+
+	if !n.isDir {
+		return nil, 0, 0, syscall.ENOTDIR
+	}
+
+	abs_path := filepath.Join(n.fullPath(), name)
+
+	db_fi, eno := n.RootData.st_folder.createFile(nil, abs_path)
+	if eno != 0 {
+		return nil, 0, 0, eno
+	}
+
+	dbInfoToFuseEntryOut(db_fi, n.RootData.st_folder.getInoOf(abs_path), name, out, ctx)
+
+	child := &VirtualNode{
+		RootData: n.RootData,
+		isDir:    false,
+	}
+
+	ch := n.NewInode(ctx, child, ffs.StableAttr{
+		Mode: out.Mode,
+		Ino:  out.Ino,
+		Gen:  1,
+	})
+
+	return ch, child, 0, 0
 }
 
 func (n *VirtualNode) renameExchange(name string, newparent ffs.InodeEmbedder, newName string) syscall.Errno {
@@ -387,9 +402,10 @@ func (n *VirtualNode) Open(ctx context.Context, flags uint32) (fh ffs.FileHandle
 		return nil, 0, syscall.EISDIR
 	}
 
-	logger.DefaultLogger.Infof("VirtualNode Open(file, flags): %s, %v", n.fullPath(), flags)
+	path := n.fullPath()
+	logger.DefaultLogger.Infof("VirtualNode Open(file, flags): %s, %v", path, flags)
 
-	return NewVirtualFile(n.fullPath(), n.RootData.st_folder), 0, ffs.OK
+	return NewVirtualFile(path, n.RootData.st_folder.getInoOf(path), n.RootData.st_folder), 0, ffs.OK
 }
 
 var _ = (ffs.NodeOpendirer)((*VirtualNode)(nil))
@@ -411,10 +427,10 @@ func (n *VirtualNode) Readdir(ctx context.Context) (ffs.DirStream, syscall.Errno
 var _ = (ffs.NodeGetattrer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Getattr(ctx context.Context, f ffs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	//if f != nil {
-	//	return f.(ffs.FileGetattrer).Getattr(ctx, out)
-	//}
-	//
+	if f != nil {
+		return f.(ffs.FileGetattrer).Getattr(ctx, out)
+	}
+
 	//p := n.fullPath()
 	//
 	//var err error
@@ -437,11 +453,11 @@ func (n *VirtualNode) Getattr(ctx context.Context, f ffs.FileHandle, out *fuse.A
 		if eno != ffs.OK {
 			return eno
 		}
+
+		FileInfoToFuseAttrOut(info, n.RootData.st_folder.getInoOf(p), out)
+
 		out.Size = uint64(info.Size)
 		n.isDir = info.Type == protocol.FileInfoTypeDirectory
-		mtime := info.ModTime()
-		ctime := info.InodeChangeTime()
-		out.SetTimes(&mtime, &mtime, &ctime)
 	}
 
 	if n.isDir {
@@ -457,78 +473,21 @@ var _ = (ffs.NodeSetattrer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Setattr(ctx context.Context, f ffs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
 	//p := n.fullPath()
-	//fsa, ok := f.(ffs.FileSetattrer)
-	//if ok && fsa != nil {
-	//	fsa.Setattr(ctx, in, out)
-	//} else {
-	//	if m, ok := in.GetMode(); ok {
-	//		if err := syscall.Chmod(p, m); err != nil {
-	//			return ffs.ToErrno(err)
-	//		}
-	//	}
-	//
-	//	uid, uok := in.GetUID()
-	//	gid, gok := in.GetGID()
-	//	if uok || gok {
-	//		suid := -1
-	//		sgid := -1
-	//		if uok {
-	//			suid = int(uid)
-	//		}
-	//		if gok {
-	//			sgid = int(gid)
-	//		}
-	//		if err := syscall.Chown(p, suid, sgid); err != nil {
-	//			return ffs.ToErrno(err)
-	//		}
-	//	}
-	//
-	//	mtime, mok := in.GetMTime()
-	//	atime, aok := in.GetATime()
-	//
-	//	if mok || aok {
-	//		ta := unix.Timespec{Nsec: unix.UTIME_OMIT}
-	//		tm := unix.Timespec{Nsec: unix.UTIME_OMIT}
-	//		var err error
-	//		if aok {
-	//			ta, err = unix.TimeToTimespec(atime)
-	//			if err != nil {
-	//				return ffs.ToErrno(err)
-	//			}
-	//		}
-	//		if mok {
-	//			tm, err = unix.TimeToTimespec(mtime)
-	//			if err != nil {
-	//				return ffs.ToErrno(err)
-	//			}
-	//		}
-	//		ts := []unix.Timespec{ta, tm}
-	//		if err := unix.UtimesNanoAt(unix.AT_FDCWD, p, ts, unix.AT_SYMLINK_NOFOLLOW); err != nil {
-	//			return ffs.ToErrno(err)
-	//		}
-	//	}
-	//
-	//	if sz, ok := in.GetSize(); ok {
-	//		if err := syscall.Truncate(p, int64(sz)); err != nil {
-	//			return ffs.ToErrno(err)
-	//		}
-	//	}
-	//}
-	//
-	//fga, ok := f.(ffs.FileGetattrer)
-	//if ok && fga != nil {
-	//	fga.Getattr(ctx, out)
-	//} else {
-	//	st := syscall.Stat_t{}
-	//	err := syscall.Lstat(p, &st)
-	//	if err != nil {
-	//		return ffs.ToErrno(err)
-	//	}
-	//	out.FromStat(&st)
-	//}
-	// return ffs.OK
+	fsa, ok := f.(ffs.FileSetattrer)
+	if ok && fsa != nil {
+		fsa.Setattr(ctx, in, out)
+	} else {
+		logger.DefaultLogger.Infof("VirtualNode Setattr(in,out): %+v, %+v", in, out)
+	}
 
-	return syscall.ENOSYS
+	fga, ok := f.(ffs.FileGetattrer)
+	if ok && fga != nil {
+		fga.Getattr(ctx, out)
+	} else {
+		n.Getattr(ctx, f, out)
+	}
+
+	return ffs.OK
 }
 
 var _ = (ffs.NodeGetxattrer)((*VirtualNode)(nil))
@@ -588,7 +547,10 @@ func NewVirtualFolderMount(mountPath string, folderId, folderLabel string, stFol
 		return nil, err
 	}
 
-	rootNode := root.newNode(nil, "", true)
+	rootNode := &VirtualNode{
+		RootData: root,
+		isDir:    true,
+	}
 
 	fuseServer, err := ffs.Mount(mountPath+"R", rootNode, &ffs.Options{
 		MountOptions: fuse.MountOptions{
