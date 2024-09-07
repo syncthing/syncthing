@@ -86,6 +86,8 @@ func (r *syncthingVirtualFolderFuseAdapter) getInoOf(path string) uint64 {
 	ino, ok := r.ino_mapping[path]
 	if !ok {
 		ino = r.next_ino_nr
+		r.next_ino_nr += 1
+		r.ino_mapping[path] = ino
 	}
 	return ino
 }
