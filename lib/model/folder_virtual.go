@@ -517,6 +517,7 @@ func (f *syncthingVirtualFolderFuseAdapter) readDir(path string) (stream ffs.Dir
 
 type VirtualFileReadResult struct {
 	f           *syncthingVirtualFolderFuseAdapter
+	snap        *db.Snapshot
 	fi          *protocol.FileInfo
 	offset      uint64
 	maxToBeRead int
@@ -535,39 +536,80 @@ func clamp[T constraints.Ordered](a, min, max T) T {
 	return a
 }
 
-func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
+func (vf *VirtualFileReadResult) readOneBlock(offset uint64, remainingToRead int) ([]byte, fuse.Status) {
 
-	logger.DefaultLogger.Infof("VirtualFileReadResult Bytes(len): %v", len(buf))
+	blockSize := vf.fi.BlockSize()
+	blockIndex := int(offset / uint64(blockSize))
 
-	blockIndex := int(vf.offset / uint64(vf.fi.BlockSize()))
+	logger.DefaultLogger.Infof(
+		"VirtualFileReadResult readOneBlock(offset, len): %v, %v. bSize, bIdx: %v, %v",
+		offset, remainingToRead, blockSize, blockIndex)
+
 	if blockIndex >= len(vf.fi.Blocks) {
-		return buf[:0], 0
+		return nil, 0
 	}
 
 	block := vf.fi.Blocks[blockIndex]
 
-	rel_pos := int64(vf.offset) - block.Offset
+	rel_pos := int64(offset) - block.Offset
 	if rel_pos < 0 {
-		return buf[:0], 0
+		return nil, 0
 	}
 
-	snap, err := vf.f.fset.Snapshot()
-	if err != nil {
-		return nil, fuse.Status(syscall.EAGAIN)
-	}
-
-	inputData, ok := vf.f.vFSS.GetBlockDataFromCacheOrDownload(snap, *vf.fi, block)
+	inputData, ok := vf.f.vFSS.GetBlockDataFromCacheOrDownload(vf.snap, *vf.fi, block)
 	if !ok {
 		return nil, fuse.Status(syscall.EAGAIN)
 	}
 
 	remainingInBlock := clamp(len(inputData)-int(rel_pos), 0, len(inputData))
-	maxToBeRead := clamp(len(buf), 0, vf.maxToBeRead)
+	maxToBeRead := clamp(remainingToRead, 0, vf.maxToBeRead)
 	readAmount := clamp(remainingInBlock, 0, maxToBeRead)
 
 	if readAmount != 0 {
-		vf.f.vFSS.RequestBackgroundDownload(vf.fi.Name, vf.fi.Size, vf.fi.ModTime())
 		return inputData[rel_pos : rel_pos+int64(readAmount)], 0
+	} else {
+		return nil, 0
+	}
+}
+
+func (vf *VirtualFileReadResult) Bytes(outBuf []byte) ([]byte, fuse.Status) {
+
+	logger.DefaultLogger.Infof("VirtualFileReadResult Bytes(len): %v", len(outBuf))
+
+	outBufSize := len(outBuf)
+	initialReadData, status := vf.readOneBlock(vf.offset, outBufSize)
+	if status != 0 {
+		return nil, status
+	}
+
+	nextOutBufWriteBegin := len(initialReadData)
+	if nextOutBufWriteBegin >= outBufSize {
+		// done in one step
+		return initialReadData, 0
+	}
+
+	copy(outBuf, initialReadData)
+
+	for nextOutBufWriteBegin < outBufSize {
+		remainingToBeRead := outBufSize - nextOutBufWriteBegin
+		nextReadData, status := vf.readOneBlock(vf.offset+uint64(nextOutBufWriteBegin), remainingToBeRead)
+		if status != 0 {
+			return nil, status
+		}
+		if len(nextReadData) == 0 {
+			break
+		}
+		readLen := copy(outBuf[nextOutBufWriteBegin:], nextReadData)
+		nextOutBufWriteBegin += readLen
+	}
+
+	if nextOutBufWriteBegin != outBufSize {
+		logger.DefaultLogger.Infof("Read incomplete: %d/%d", nextOutBufWriteBegin, len(outBuf))
+	}
+
+	if nextOutBufWriteBegin != 0 {
+		vf.f.vFSS.RequestBackgroundDownload(vf.fi.Name, vf.fi.Size, vf.fi.ModTime())
+		return outBuf[:nextOutBufWriteBegin], 0
 	} else {
 		return nil, 0
 	}
@@ -593,6 +635,7 @@ func (f *syncthingVirtualFolderFuseAdapter) readFile(
 
 	return &VirtualFileReadResult{
 		f:           f,
+		snap:        snap,
 		fi:          &fi,
 		offset:      uint64(off),
 		maxToBeRead: len(buf),
