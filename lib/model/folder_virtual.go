@@ -217,7 +217,10 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 		f.mountService = mount
 	}
 
-	go f.Serve_backgroundDownloadTask()
+	backgroundDownloadTasks := 4
+	for i := 0; i < backgroundDownloadTasks; i++ {
+		go f.Serve_backgroundDownloadTask()
+	}
 
 	for {
 		select {
@@ -235,7 +238,9 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 func (f *virtualFolderSyncthingService) Override()                 {}
 func (f *virtualFolderSyncthingService) Revert()                   {}
 func (f *virtualFolderSyncthingService) DelayScan(d time.Duration) {}
-func (f *virtualFolderSyncthingService) ScheduleScan()             {}
+func (vf *virtualFolderSyncthingService) ScheduleScan() {
+	vf.Scan([]string{})
+}
 func (f *virtualFolderSyncthingService) Jobs(page, per_page int) ([]string, []string, int) {
 	return f.backgroundDownloadQueue.Jobs(page, per_page)
 }
@@ -243,7 +248,28 @@ func (f *virtualFolderSyncthingService) BringToFront(filename string) {
 	f.backgroundDownloadQueue.BringToFront(filename)
 }
 
-func (f *virtualFolderSyncthingService) Scan(subs []string) error        { return nil }
+func (vf *virtualFolderSyncthingService) Scan(subs []string) error {
+	snap, err := vf.fset.Snapshot()
+	if err != nil {
+		return err
+	}
+
+	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool /* true to continue */ {
+		if f.IsDirectory() {
+			// no work to do for directories. directly take over:
+			fi, ok := snap.GetGlobal(f.FileName())
+			if ok {
+				fs := append([]protocol.FileInfo(nil), fi)
+				vf.fset.Update(protocol.LocalDeviceID, fs)
+			}
+		} else {
+			vf.RequestBackgroundDownload(f.FileName(), f.FileSize(), f.ModTime())
+		}
+		return true
+	})
+
+	return nil
+}
 func (f *virtualFolderSyncthingService) Errors() []FileError             { return []FileError{} }
 func (f *virtualFolderSyncthingService) WatchError() error               { return nil }
 func (f *virtualFolderSyncthingService) ScheduleForceRescan(path string) {}
