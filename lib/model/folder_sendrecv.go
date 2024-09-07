@@ -433,21 +433,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	}
 
 	// Now do the file queue. Reorder it according to configuration.
-
-	switch f.Order {
-	case config.PullOrderRandom:
-		f.queue.Shuffle()
-	case config.PullOrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.PullOrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.PullOrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.PullOrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.PullOrderNewestFirst:
-		f.queue.SortNewestFirst()
-	}
+	f.queue.SortAccordingToConfig(f.Order)
 
 	// Process the file queue.
 

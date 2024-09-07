@@ -43,8 +43,8 @@ type virtualFolderSyncthingService struct {
 	blockCache   blockstorage.HashBlockStorageI
 	mountService io.Closer
 
-	backgroundDownload       chan string
-	checkFileForCompleteness chan string
+	backgroundDownloadPending chan struct{}
+	backgroundDownloadQueue   jobQueue
 }
 
 func (vFSS *virtualFolderSyncthingService) GetBlockDataFromCacheOrDownload(
@@ -115,10 +115,71 @@ func newVirtualFolder(
 	ioLimiter *semaphore.Semaphore,
 ) service {
 	return &virtualFolderSyncthingService{
-		folderBase:               newFolderBase(cfg, evLogger, model, fset),
-		blockCache:               nil,
-		backgroundDownload:       make(chan string, 100),
-		checkFileForCompleteness: make(chan string, 100),
+		folderBase:                newFolderBase(cfg, evLogger, model, fset),
+		blockCache:                nil,
+		backgroundDownloadPending: make(chan struct{}, 1),
+		backgroundDownloadQueue:   *newJobQueue(),
+	}
+}
+
+func (f *virtualFolderSyncthingService) RequestBackgroundDownload(filename string, size int64, modified time.Time) {
+	wasNew := f.backgroundDownloadQueue.PushIfNew(filename, size, modified)
+	if !wasNew {
+		return
+	}
+
+	f.backgroundDownloadQueue.SortAccordingToConfig(f.Order)
+	select {
+	case f.backgroundDownloadPending <- struct{}{}:
+	default:
+	}
+}
+
+func (f *virtualFolderSyncthingService) Serve_backgroundDownloadTask() {
+	for {
+
+		select {
+		case <-f.ctx.Done():
+			return
+		case <-f.backgroundDownloadPending:
+		}
+
+		for job, ok := f.backgroundDownloadQueue.Pop(); ok; job, ok = f.backgroundDownloadQueue.Pop() {
+			func() {
+				defer f.backgroundDownloadQueue.Done(job)
+
+				snap, err := f.fset.Snapshot()
+				if err != nil {
+					return
+				}
+				fi, ok := snap.GetGlobal(job)
+				if !ok {
+					return
+				}
+
+				all_ok := true
+				for _, bi := range fi.Blocks {
+					_, ok := f.GetBlockDataFromCacheOrDownload(snap, fi, bi)
+					all_ok = all_ok && ok
+				}
+
+				if !all_ok {
+					return
+				}
+
+				fs := append([]protocol.FileInfo(nil), fi)
+				f.fset.Update(protocol.LocalDeviceID, fs)
+
+				seq := f.fset.Sequence(protocol.LocalDeviceID)
+				f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
+					"folder":    f.ID,
+					"items":     len(fs),
+					"filenames": append([]string(nil), fi.Name),
+					"sequence":  seq,
+					"version":   seq, // legacy for sequence
+				})
+			}()
+		}
 	}
 }
 
@@ -154,39 +215,7 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 		f.mountService = mount
 	}
 
-	// background download task
-	go func() {
-		for job := range f.backgroundDownload {
-			snap, err := f.fset.Snapshot()
-			if err != nil {
-				continue
-			}
-			fi, ok := snap.GetGlobal(job)
-			if !ok {
-				continue
-			}
-
-			all_ok := true
-			for _, bi := range fi.Blocks {
-				_, ok := f.GetBlockDataFromCacheOrDownload(snap, fi, bi)
-				all_ok = all_ok && ok
-			}
-
-			if all_ok {
-				fs := append([]protocol.FileInfo(nil), fi)
-				f.fset.Update(protocol.LocalDeviceID, fs)
-
-				seq := f.fset.Sequence(protocol.LocalDeviceID)
-				f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
-					"folder":    f.ID,
-					"items":     len(fs),
-					"filenames": append([]string(nil), fi.Name),
-					"sequence":  seq,
-					"version":   seq, // legacy for sequence
-				})
-			}
-		}
-	}()
+	go f.Serve_backgroundDownloadTask()
 
 	for {
 		select {
@@ -201,14 +230,17 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 	}
 }
 
-func (f *virtualFolderSyncthingService) BringToFront(string)       {}
 func (f *virtualFolderSyncthingService) Override()                 {}
 func (f *virtualFolderSyncthingService) Revert()                   {}
 func (f *virtualFolderSyncthingService) DelayScan(d time.Duration) {}
 func (f *virtualFolderSyncthingService) ScheduleScan()             {}
-func (f *virtualFolderSyncthingService) Jobs(page, perpage int) ([]string, []string, int) {
-	return []string{}, []string{}, 0
+func (f *virtualFolderSyncthingService) Jobs(page, per_page int) ([]string, []string, int) {
+	return f.backgroundDownloadQueue.Jobs(page, per_page)
 }
+func (f *virtualFolderSyncthingService) BringToFront(filename string) {
+	f.backgroundDownloadQueue.BringToFront(filename)
+}
+
 func (f *virtualFolderSyncthingService) Scan(subs []string) error        { return nil }
 func (f *virtualFolderSyncthingService) Errors() []FileError             { return []FileError{} }
 func (f *virtualFolderSyncthingService) WatchError() error               { return nil }
@@ -334,7 +366,7 @@ func (vf *VirtualFileReadResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 	readAmount := clamp(remainingInBlock, 0, maxToBeRead)
 
 	if readAmount != 0 {
-		vf.f.vFSS.backgroundDownload <- vf.fi.Name
+		vf.f.vFSS.RequestBackgroundDownload(vf.fi.Name, vf.fi.Size, vf.fi.ModTime())
 		return data[rel_pos : rel_pos+int64(readAmount)], 0
 	} else {
 		return nil, 0
