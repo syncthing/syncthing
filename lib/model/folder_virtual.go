@@ -175,6 +175,15 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 			if all_ok {
 				fs := append([]protocol.FileInfo(nil), fi)
 				f.fset.Update(protocol.LocalDeviceID, fs)
+
+				seq := f.fset.Sequence(protocol.LocalDeviceID)
+				f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
+					"folder":    f.ID,
+					"items":     len(fs),
+					"filenames": append([]string(nil), fi.Name),
+					"sequence":  seq,
+					"version":   seq, // legacy for sequence
+				})
 			}
 		}
 	}()
