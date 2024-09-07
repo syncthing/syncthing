@@ -175,7 +175,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		// Construct the casefs manually or it will get cached and the benchmark is invalid.
 		casefs := &caseFilesystem{
 			Filesystem: fsys,
-			realCaser:  newDefaultRealCaser(fsys),
+			realCaser: &defaultRealCaser{
+				fs:    fsys,
+				cache: newCaseCache(),
+			},
 		}
 		var fakefs *fakeFS
 		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {
@@ -201,7 +204,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		// Construct the casefs manually or it will get cached and the benchmark is invalid.
 		casefs := &caseFilesystem{
 			Filesystem: fsys,
-			realCaser:  newDefaultRealCaser(fsys),
+			realCaser: &defaultRealCaser{
+				fs:    fsys,
+				cache: newCaseCache(),
+			},
 		}
 		var fakefs *fakeFS
 		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {

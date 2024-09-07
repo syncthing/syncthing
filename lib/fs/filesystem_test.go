@@ -213,7 +213,7 @@ func TestRepro9677(t *testing.T) {
 
 	// Now syncthing gets upgraded (or even just restarted), which resets the
 	// case FS registry as it lives in memory.
-	globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*caseFilesystem)}
+	globalCaseFilesystemRegistry = caseFilesystemRegistry{caseCaches: make(map[fskey]caseCache)}
 
 	// This time we first create some filesystem without a database and thus no
 	// mtime-FS, which is used in various places outside of the folder code. We
