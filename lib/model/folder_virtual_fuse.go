@@ -239,20 +239,23 @@ func (n *VirtualNode) Create(ctx context.Context, name string, flags uint32, mod
 		return nil, 0, 0, eno
 	}
 
-	dbInfoToFuseEntryOut(db_fi, n.RootData.st_folder.getInoOf(abs_path), name, out, ctx)
+	ino := n.RootData.st_folder.getInoOf(abs_path)
+	dbInfoToFuseEntryOut(db_fi, ino, name, out, ctx)
 
-	child := &VirtualNode{
+	childHandle := NewVirtualFile(abs_path, ino, n.RootData.st_folder)
+
+	childNode := &VirtualNode{
 		RootData: n.RootData,
 		isDir:    false,
 	}
 
-	ch := n.NewInode(ctx, child, ffs.StableAttr{
+	ch := n.NewInode(ctx, childNode, ffs.StableAttr{
 		Mode: out.Mode,
-		Ino:  out.Ino,
+		Ino:  ino,
 		Gen:  1,
 	})
 
-	return ch, child, 0, 0
+	return ch, childHandle, 0, 0
 }
 
 func (n *VirtualNode) renameExchange(name string, newparent ffs.InodeEmbedder, newName string) syscall.Errno {
@@ -463,14 +466,15 @@ func (n *VirtualNode) Setattr(ctx context.Context, f ffs.FileHandle, in *fuse.Se
 		logger.DefaultLogger.Infof("VirtualNode Setattr(in,out): %+v, %+v", in, out)
 	}
 
+	eno := syscall.EACCES
 	fga, ok := f.(ffs.FileGetattrer)
 	if ok && fga != nil {
-		fga.Getattr(ctx, out)
+		eno = fga.Getattr(ctx, out)
 	} else {
-		n.Getattr(ctx, f, out)
+		eno = n.Getattr(ctx, f, out)
 	}
 
-	return ffs.OK
+	return eno
 }
 
 var _ = (ffs.NodeGetxattrer)((*VirtualNode)(nil))

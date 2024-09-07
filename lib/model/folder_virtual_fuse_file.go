@@ -73,6 +73,8 @@ func (f *virtualFuseFile) Write(ctx context.Context, data []byte, off int64) (ui
 		return 0, syscall.EINVAL
 	}
 
+	logger.DefaultLogger.Infof("virtualFile Write(len, off): %v, %v", len(data), off)
+
 	eno := f.sVF.writeFile(ctx, f.rel_name, uint64(off), data)
 	if eno != 0 {
 		return 0, eno
