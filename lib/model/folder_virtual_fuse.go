@@ -20,8 +20,9 @@ type SyncthingVirtualFolderI interface {
 	lookupFile(path string) (info *db.FileInfoTruncated, eno syscall.Errno)
 	readDir(path string) (stream ffs.DirStream, eno syscall.Errno)
 	readFile(path string, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno)
-	createFile(Permissions *uint32, name string) (info *db.FileInfoTruncated, eno syscall.Errno)
-	writeFile(ctx context.Context, name string, offset uint64, inputData []byte) syscall.Errno
+	createFile(Permissions *uint32, path string) (info *db.FileInfoTruncated, eno syscall.Errno)
+	writeFile(ctx context.Context, path string, offset uint64, inputData []byte) syscall.Errno
+	deleteFile(ctx context.Context, path string) syscall.Errno
 }
 
 type FuseVirtualFolderRoot struct {
@@ -209,14 +210,8 @@ func (n *VirtualNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 var _ = (ffs.NodeUnlinker)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Unlink(ctx context.Context, name string) syscall.Errno {
-	//p := filepath.Join(n.fullPath(), name)
-	//err := syscall.Unlink(p)
-
-	//from_rel_path := path.Join(n.Path(n.Root()), name)
-	//n.RootData.changeChan <- Event{from_rel_path, Remove}
-
-	//return ffs.ToErrno(err)
-	return syscall.ENOSYS
+	p := filepath.Join(n.fullPath(), name)
+	return n.RootData.st_folder.deleteFile(ctx, p)
 }
 
 var _ = (ffs.NodeRenamer)((*VirtualNode)(nil))

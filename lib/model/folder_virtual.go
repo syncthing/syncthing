@@ -258,6 +258,29 @@ func (stf *syncthingVirtualFolderFuseAdapter) writeFile(
 	}
 }
 
+func (stf *syncthingVirtualFolderFuseAdapter) deleteFile(ctx context.Context, path string) syscall.Errno {
+
+	snap, err := stf.fset.Snapshot()
+	if err != nil {
+		//stf..log()
+		return syscall.EFAULT
+	}
+
+	fi, ok := snap.GetGlobal(path)
+	if !ok {
+		return syscall.ENOENT
+	}
+
+	fi.ModifiedBy = stf.model.shortID
+	fi.Deleted = true
+	fi.Size = 0
+	fi.Blocks = []protocol.BlockInfo{}
+	fi.Version = fi.Version.Update(stf.model.shortID)
+	stf.fset.UpdateOne(protocol.LocalDeviceID, &fi)
+
+	return 0
+}
+
 func newVirtualFolder(
 	model *model,
 	fset *db.FileSet,
