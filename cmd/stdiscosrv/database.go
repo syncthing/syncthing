@@ -350,7 +350,7 @@ func merge(a, b DatabaseRecord) DatabaseRecord {
 	}
 
 	res := DatabaseRecord{
-		Addresses: make([]DatabaseAddress, 0, len(a.Addresses)+len(b.Addresses)),
+		Addresses: make([]DatabaseAddress, 0, max(len(a.Addresses), len(b.Addresses))),
 		Seen:      a.Seen,
 	}
 	if b.Seen > a.Seen {
