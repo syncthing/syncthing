@@ -274,7 +274,7 @@ func (stf *syncthingVirtualFolderFuseAdapter) deleteFile(ctx context.Context, pa
 	fi.ModifiedBy = stf.model.shortID
 	fi.Deleted = true
 	fi.Size = 0
-	fi.Blocks = []protocol.BlockInfo{}
+	fi.Blocks = nil
 	fi.Version = fi.Version.Update(stf.model.shortID)
 	stf.fset.UpdateOne(protocol.LocalDeviceID, &fi)
 
@@ -318,6 +318,70 @@ func (stf *syncthingVirtualFolderFuseAdapter) deleteDir(ctx context.Context, pat
 	fi.Blocks = []protocol.BlockInfo{}
 	fi.Version = fi.Version.Update(stf.model.shortID)
 	stf.fset.UpdateOne(protocol.LocalDeviceID, &fi)
+
+	return 0
+}
+
+func (stf *syncthingVirtualFolderFuseAdapter) renameFileOrDir(
+	ctx context.Context, existingPath string, newPath string,
+) syscall.Errno {
+	snap, err := stf.fset.Snapshot()
+	if err != nil {
+		//stf..log()
+		return syscall.EFAULT
+	}
+
+	fi, ok := snap.GetGlobal(existingPath)
+	if !ok {
+		return syscall.ENOENT
+	}
+
+	_, ok = snap.GetGlobalTruncated(newPath)
+	if ok {
+		return syscall.EEXIST
+	}
+
+	fi.ModifiedBy = stf.model.shortID
+	fi.Name = newPath
+	fi.Version = fi.Version.Update(stf.model.shortID)
+	stf.fset.UpdateOne(protocol.LocalDeviceID, &fi)
+
+	return stf.deleteFile(ctx, existingPath)
+}
+
+func (stf *syncthingVirtualFolderFuseAdapter) renameExchangeFileOrDir(
+	ctx context.Context, path1 string, path2 string,
+) syscall.Errno {
+	snap, err := stf.fset.Snapshot()
+	if err != nil {
+		//stf..log()
+		return syscall.EFAULT
+	}
+
+	fi1, ok := snap.GetGlobal(path1)
+	if !ok {
+		return syscall.ENOENT
+	}
+
+	fi2, ok := snap.GetGlobal(path2)
+	if !ok {
+		return syscall.ENOENT
+	}
+
+	fi1.ModifiedBy = stf.model.shortID
+	fi2.ModifiedBy = stf.model.shortID
+
+	origFi1Name := fi1.Name
+	fi1.Name = fi2.Name
+	fi2.Name = origFi1Name
+
+	origFi1Version := fi1.Version
+	fi1.Version = fi2.Version.Update(stf.model.shortID)
+	fi2.Version = origFi1Version.Update(stf.model.shortID)
+
+	fiList := append([]protocol.FileInfo{}, fi1, fi2)
+
+	stf.fset.Update(protocol.LocalDeviceID, fiList)
 
 	return 0
 }

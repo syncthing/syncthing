@@ -25,6 +25,8 @@ type SyncthingVirtualFolderI interface {
 	deleteFile(ctx context.Context, path string) syscall.Errno
 	createDir(ctx context.Context, path string) syscall.Errno
 	deleteDir(ctx context.Context, path string) syscall.Errno
+	renameFileOrDir(ctx context.Context, existingPath string, newPath string) syscall.Errno
+	renameExchangeFileOrDir(ctx context.Context, path1 string, path2 string) syscall.Errno
 }
 
 type FuseVirtualFolderRoot struct {
@@ -202,23 +204,18 @@ func (n *VirtualNode) Unlink(ctx context.Context, name string) syscall.Errno {
 var _ = (ffs.NodeRenamer)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Rename(ctx context.Context, name string, newParent ffs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
-	//if flags&ffs.RENAME_EXCHANGE != 0 {
-	//	return n.renameExchange(name, newParent, newName)
-	//}
-	//
-	//p1 := filepath.Join(n.fullPath(), name)
-	//p2 := filepath.Join(n.RootData.Path, newParent.EmbeddedInode().Path(nil), newName)
-	//
-	//err := syscall.Rename(p1, p2)
-	//
-	//from_rel_path := path.Join(n.Path(n.Root()), name)
-	//to_rel_path := path.Join(newParent.EmbeddedInode().Path(nil), newName)
-	//n.RootData.changeChan <- Event{from_rel_path, Remove}
-	//n.RootData.changeChan <- Event{to_rel_path, NonRemove}
-	//
-	//return ffs.ToErrno(err)
+	doRenameExchange := flags&ffs.RENAME_EXCHANGE != 0
+	p1 := filepath.Join(n.fullPath(), name)
+	p2 := filepath.Join(newParent.EmbeddedInode().Path(nil), newName)
 
-	return syscall.ENOSYS
+	var eno syscall.Errno
+	if doRenameExchange {
+		eno = n.RootData.st_folder.renameExchangeFileOrDir(ctx, p1, p2)
+	} else {
+		eno = n.RootData.st_folder.renameFileOrDir(ctx, p1, p2)
+	}
+
+	return eno
 }
 
 var _ = (ffs.NodeCreater)((*VirtualNode)(nil))
@@ -256,50 +253,6 @@ func (n *VirtualNode) Create(ctx context.Context, name string, flags uint32, mod
 	})
 
 	return ch, childHandle, 0, 0
-}
-
-func (n *VirtualNode) renameExchange(name string, newparent ffs.InodeEmbedder, newName string) syscall.Errno {
-	//fd1, err := syscall.Open(n.fullPath(), syscall.O_DIRECTORY, 0)
-	//if err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//defer syscall.Close(fd1)
-	//p2 := filepath.Join(n.RootData.Path, newparent.EmbeddedInode().Path(nil))
-	//fd2, err := syscall.Open(p2, syscall.O_DIRECTORY, 0)
-	//defer syscall.Close(fd2)
-	//if err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//
-	//var st syscall.Stat_t
-	//if err := syscall.Fstat(fd1, &st); err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//
-	//// Double check that nodes didn't change from under us.
-	//inode := &n.Inode
-	//if inode.Root() != inode && inode.StableAttr().Ino != n.RootData.idFromStat(&st).Ino {
-	//	return syscall.EBUSY
-	//}
-	//if err := syscall.Fstat(fd2, &st); err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//
-	//newinode := newparent.EmbeddedInode()
-	//if newinode.Root() != newinode && newinode.StableAttr().Ino != n.RootData.idFromStat(&st).Ino {
-	//	return syscall.EBUSY
-	//}
-	//
-	//result := ffs.ToErrno(unix.Renameat2(fd1, name, fd2, newName, unix.RENAME_EXCHANGE))
-	//
-	//from_rel_path := path.Join(n.Path(n.Root()), name)
-	//to_rel_path := path.Join(newparent.EmbeddedInode().Path(nil), name)
-	//n.RootData.changeChan <- Event{from_rel_path, NonRemove}
-	//n.RootData.changeChan <- Event{to_rel_path, NonRemove}
-	//
-	//return result
-
-	return syscall.ENOSYS
 }
 
 var _ = (ffs.NodeSymlinker)((*VirtualNode)(nil))
