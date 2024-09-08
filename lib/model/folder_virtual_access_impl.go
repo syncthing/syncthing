@@ -398,7 +398,7 @@ func (s *VirtualFolderDirStream) Close() {}
 
 func (f *syncthingVirtualFolderFuseAdapter) readDir(path string) (stream ffs.DirStream, eno syscall.Errno) {
 
-	children, err := f.model.GlobalDirectoryTree(f.folderID, path, 1, false)
+	children, err := f.model.GlobalDirectoryTree(f.folderID, path, 0, false)
 	if err != nil {
 		return nil, syscall.EFAULT
 	}
