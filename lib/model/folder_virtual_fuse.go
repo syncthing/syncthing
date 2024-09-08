@@ -27,6 +27,7 @@ type SyncthingVirtualFolderI interface {
 	deleteDir(ctx context.Context, path string) syscall.Errno
 	renameFileOrDir(ctx context.Context, existingPath string, newPath string) syscall.Errno
 	renameExchangeFileOrDir(ctx context.Context, path1 string, path2 string) syscall.Errno
+	createSymlink(ctx context.Context, path, target string) syscall.Errno
 }
 
 type FuseVirtualFolderRoot struct {
@@ -91,20 +92,23 @@ func (n *VirtualNode) fullPath() string {
 func dbInfoToFuseEntryOut(
 	info *db.FileInfoTruncated, ino uint64, name string, out *fuse.EntryOut, ctx context.Context,
 ) {
-	isDir := false
 	st := syscall.Stat_t{}
 	st.Mode = syscall.S_IFREG
 
 	if info != nil {
 		st.Size = info.Size
-		isDir = info.Type == protocol.FileInfoTypeDirectory
-		if isDir {
+		switch info.Type {
+		case protocol.FileInfoTypeDirectory:
 			st.Mode = syscall.S_IFDIR
+		case protocol.FileInfoTypeSymlink:
+			st.Mode = syscall.S_IFLNK
+		case protocol.FileInfoTypeFile:
+			fallthrough
+		default:
 		}
 	} else {
 		st.Size = 1
 		st.Mode = syscall.S_IFDIR
-		isDir = true
 	}
 
 	out.Attr.FromStat(&st)
@@ -258,24 +262,12 @@ func (n *VirtualNode) Create(ctx context.Context, name string, flags uint32, mod
 var _ = (ffs.NodeSymlinker)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (*ffs.Inode, syscall.Errno) {
-	//p := filepath.Join(n.fullPath(), name)
-	//err := syscall.Symlink(target, p)
-	//if err != nil {
-	//	return nil, ffs.ToErrno(err)
-	//}
-	//n.preserveOwner(ctx, p)
-	//st := syscall.Stat_t{}
-	//if err := syscall.Lstat(p, &st); err != nil {
-	//	syscall.Unlink(p)
-	//	return nil, ffs.ToErrno(err)
-	//}
-	//node := n.RootData.newNode(n.EmbeddedInode(), name, &st)
-	//ch := n.NewInode(ctx, node, n.RootData.idFromStat(&st))
-	//
-	//out.Attr.FromStat(&st)
-	//return ch, 0
-
-	return nil, syscall.ENOSYS
+	p := filepath.Join(n.fullPath(), name)
+	eno := n.RootData.st_folder.createSymlink(ctx, p, target)
+	if eno != 0 {
+		return nil, eno
+	}
+	return n.Lookup(ctx, name, out)
 }
 
 var _ = (ffs.NodeLinker)((*VirtualNode)(nil))
@@ -304,21 +296,17 @@ func (n *VirtualNode) Link(ctx context.Context, target ffs.InodeEmbedder, name s
 var _ = (ffs.NodeReadlinker)((*VirtualNode)(nil))
 
 func (n *VirtualNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
-	//p := n.fullPath()
-	//
-	//for l := 256; ; l *= 2 {
-	//	buf := make([]byte, l)
-	//	sz, err := syscall.Readlink(p, buf)
-	//	if err != nil {
-	//		return nil, ffs.ToErrno(err)
-	//	}
-	//
-	//	if sz < len(buf) {
-	//		return buf[:sz], 0
-	//	}
-	//}
+	p := n.fullPath()
+	info, eno := n.RootData.st_folder.lookupFile(p)
+	if eno != ffs.OK {
+		return nil, eno
+	}
 
-	return nil, syscall.ENOSYS
+	if info.Type != protocol.FileInfoTypeSymlink {
+		return nil, syscall.ENOLINK
+	}
+
+	return []byte(info.SymlinkTarget), 0
 }
 
 var _ = (ffs.NodeOpener)((*VirtualNode)(nil))

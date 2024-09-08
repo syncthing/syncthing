@@ -386,6 +386,23 @@ func (stf *syncthingVirtualFolderFuseAdapter) renameExchangeFileOrDir(
 	return 0
 }
 
+func (stf *syncthingVirtualFolderFuseAdapter) createSymlink(
+	ctx context.Context, path, target string,
+) syscall.Errno {
+
+	_, eno := stf.lookupFile(path)
+	if eno == 0 {
+		return syscall.EEXIST
+	}
+
+	fi := createNewVirtualFileInfo(stf.model.shortID, nil, path)
+	fi.Type = protocol.FileInfoTypeSymlink
+	fi.Blocks = nil
+	fi.SymlinkTarget = target
+	stf.fset.UpdateOne(protocol.LocalDeviceID, &fi)
+	return 0
+}
+
 func newVirtualFolder(
 	model *model,
 	fset *db.FileSet,
@@ -576,6 +593,10 @@ func (s *VirtualFolderDirStream) Next() (fuse.DirEntry, syscall.Errno) {
 	switch child.Type {
 	case protocol.FileInfoTypeDirectory:
 		mode = syscall.S_IFDIR
+	case protocol.FileInfoTypeSymlink:
+		mode = syscall.S_IFLNK
+	case protocol.FileInfoTypeFile:
+		fallthrough
 	default:
 		break
 	}
@@ -589,24 +610,6 @@ func (s *VirtualFolderDirStream) Next() (fuse.DirEntry, syscall.Errno) {
 func (s *VirtualFolderDirStream) Close() {}
 
 func (f *syncthingVirtualFolderFuseAdapter) readDir(path string) (stream ffs.DirStream, eno syscall.Errno) {
-
-	//	snap, err := f.fset.Snapshot()
-	//	if err != nil {
-	//		return nil, syscall.EFAULT
-	//	}
-	//
-	//	if path == "" {
-	//		f.model.GlobalDirectoryTree()
-	//	}
-	//
-	//	fi, ok := snap.GetGlobalTruncated(path)
-	//	if !ok {
-	//		return nil, syscall.ENOENT
-	//	}
-	//
-	//	if !fi.IsDirectory() {
-	//		return nil, syscall.ENOTDIR
-	//	}
 
 	children, err := f.model.GlobalDirectoryTree(f.folderID, path, 1, false)
 	if err != nil {
