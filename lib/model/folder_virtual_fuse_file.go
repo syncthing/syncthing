@@ -26,12 +26,16 @@ func NewVirtualFile(rel_name string, ino uint64, sVF SyncthingVirtualFolderAcces
 type virtualFuseFile struct {
 	sVF      SyncthingVirtualFolderAccessI
 	ino      uint64
-	mu       sync.Mutex
 	rel_name string // relative filepath
-	fileInfo *db.FileInfoTruncated
+
+	fileInfo_mu sync.Mutex
+	fileInfo    *db.FileInfoTruncated
 }
 
 func (f *virtualFuseFile) getFileInfo() (*db.FileInfoTruncated, syscall.Errno) {
+	f.fileInfo_mu.Lock()
+	defer f.fileInfo_mu.Unlock()
+
 	if f.fileInfo == nil {
 		var eno syscall.Errno
 		f.fileInfo, eno = f.sVF.lookupFile(f.rel_name)
@@ -55,26 +59,16 @@ var _ = (ffs.FileFsyncer)((*virtualFuseFile)(nil))
 var _ = (ffs.FileAllocater)((*virtualFuseFile)(nil))
 
 func (f *virtualFuseFile) Read(ctx context.Context, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//r := fuse.ReadResultFd(uintptr(f.fd), off, len(buf))
-	//return r, ffs.OK
-
 	logger.DefaultLogger.Infof("virtualFile Read(len, off): %v, %v", len(buf), off)
-
 	return f.sVF.readFile(f.rel_name, buf, off)
 }
 
 func (f *virtualFuseFile) Write(ctx context.Context, data []byte, off int64) (uint32, syscall.Errno) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	if off < 0 {
 		return 0, syscall.EINVAL
 	}
 
 	logger.DefaultLogger.Infof("virtualFile Write(len, off): %v, %v", len(data), off)
-
 	eno := f.sVF.writeFile(ctx, f.rel_name, uint64(off), data)
 	if eno != 0 {
 		return 0, eno
@@ -84,42 +78,15 @@ func (f *virtualFuseFile) Write(ctx context.Context, data []byte, off int64) (ui
 }
 
 func (f *virtualFuseFile) Release(ctx context.Context) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//if f.fd != -1 {
-	//	err := syscall.Close(f.fd)
-	//	f.fd = -1
-	//	return ffs.ToErrno(err)
-	//}
-	//return syscall.EBADF
 	return ffs.OK
 }
 
 func (f *virtualFuseFile) Flush(ctx context.Context) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//// Since Flush() may be called for each dup'd fd, we don't
-	//// want to really close the file, we just want to flush. This
-	//// is achieved by closing a dup'd fd.
-	//newFd, err := syscall.Dup(f.fd)
-	//
-	//if err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//err = syscall.Close(newFd)
-	//return ffs.ToErrno(err)
-
 	logger.DefaultLogger.Infof("virtualFile Flush(file): %s", f.rel_name)
-
 	return ffs.OK
 }
 
 func (f *virtualFuseFile) Fsync(ctx context.Context, flags uint32) (errno syscall.Errno) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//r := ffs.ToErrno(syscall.Fsync(f.fd))
-	//
-	//return r
 	logger.DefaultLogger.Infof("virtualFile Fsync(file, flags): %s, %v", f.rel_name, flags)
 	return ffs.OK
 }
@@ -152,8 +119,6 @@ func (f *virtualFuseFile) Setlkw(ctx context.Context, owner uint64, lk *fuse.Fil
 }
 
 func (f *virtualFuseFile) setLock(ctx context.Context, owner uint64, lk *fuse.FileLock, flags uint32, blocking bool) (errno syscall.Errno) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	//if (flags & fuse.FUSE_LK_FLOCK) != 0 {
 	//	var op int
 	//	switch lk.Typ {
@@ -187,41 +152,28 @@ func (f *virtualFuseFile) setLock(ctx context.Context, owner uint64, lk *fuse.Fi
 var _ = (ffs.FileSetattrer)((*virtualFuseFile)(nil))
 
 func (f *virtualFuseFile) Setattr(ctx context.Context, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
-
 	logger.DefaultLogger.Infof("virtualFuseFile Setattr(in,out): %+v, %+v", in, out)
-
 	f.Getattr(ctx, out)
-
 	return 0
 }
 
 func (f *virtualFuseFile) fchmod(mode uint32) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//willBeChangedFd(f.fd)
-	//err := syscall.Fchmod(f.fd, mode)
-	//return ffs.ToErrno(err)
+	// TODO
 	return syscall.ENOSYS
 }
 
 func (f *virtualFuseFile) fchown(uid, gid int) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//willBeChangedFd(f.fd)
-	//err := syscall.Fchown(f.fd, uid, gid)
-	//return ffs.ToErrno(err)
+	// TODO
 	return syscall.ENOSYS
 }
 
 func (f *virtualFuseFile) ftruncate(sz uint64) syscall.Errno {
-	//willBeChangedFd(f.fd)
-	//err := syscall.Ftruncate(f.fd, int64(sz))
-	//return ffs.ToErrno(err)
+	// TODO
 	return syscall.ENOSYS
 }
 
 func (f *virtualFuseFile) setAttr(ctx context.Context, in *fuse.SetAttrIn) syscall.Errno {
-
+	// TODO
 	//willBeChangedFd(f.fd)
 	//var errno syscall.Errno
 	//if mode, ok := in.GetMode(); ok {
@@ -301,43 +253,20 @@ func FileInfoToFuseAttrOut(fi *db.FileInfoTruncated, ino uint64, a *fuse.AttrOut
 }
 
 func (f *virtualFuseFile) Getattr(ctx context.Context, a *fuse.AttrOut) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//st := syscall.Stat_t{}
-	//err := syscall.Fstat(f.fd, &st)
-	//if err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//a.FromStat(&st)
-	//
-	//return ffs.OK
-
 	fi, eno := f.getFileInfo()
 	if eno != 0 {
 		return eno
 	}
-
 	FileInfoToFuseAttrOut(fi, f.ino, a)
-
 	return ffs.OK
 }
 
 func (f *virtualFuseFile) Lseek(ctx context.Context, off uint64, whence uint32) (uint64, syscall.Errno) {
-	//f.mu.Lock()
-	//defer f.mu.Unlock()
-	//n, err := unix.Seek(f.fd, int64(off), int(whence))
-	//return uint64(n), ffs.ToErrno(err)
+	// TODO: does implementing this bring any significant advantage?
 	return 0, syscall.ENOSYS
 }
 
 func (f *virtualFuseFile) Allocate(ctx context.Context, off uint64, sz uint64, mode uint32) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	//willBeChangedFd(f.fd)
-	//err := unix.Fallocate(f.fd, mode, int64(off), int64(sz))
-	//if err != nil {
-	//	return ffs.ToErrno(err)
-	//}
-	//return ffs.OK
+	// TODO
 	return syscall.ENOSYS
 }

@@ -465,7 +465,7 @@ func NewVirtualFolderMount(mountPath string, folderId, folderLabel string, stFol
 		isDir:    true,
 	}
 
-	fuseServer, err := ffs.Mount(mountPath+"R", rootNode, &ffs.Options{
+	fuseServer, err := ffs.Mount(mountPath, rootNode, &ffs.Options{
 		MountOptions: fuse.MountOptions{
 			FsName: "syncthing/" + folderId,
 			Name:   "syncthing",

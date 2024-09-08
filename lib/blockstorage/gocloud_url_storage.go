@@ -45,6 +45,10 @@ func NewGoCloudUrlStorage(ctx context.Context, url string) *GoCloudUrlStorage {
 }
 
 func (hm *GoCloudUrlStorage) Get(hash []byte) (data []byte, ok bool) {
+	if len(hash) == 0 {
+		return nil, false
+	}
+
 	data, err := hm.bucket.ReadAll(hm.ctx, hashToStringMapKey(hash))
 	if gcerrors.Code(err) == gcerrors.NotFound {
 		return nil, false
@@ -59,10 +63,19 @@ func (hm *GoCloudUrlStorage) Get(hash []byte) (data []byte, ok bool) {
 }
 
 func (hm *GoCloudUrlStorage) Set(hash []byte, data []byte) {
-	err := hm.bucket.WriteAll(hm.ctx, hashToStringMapKey(hash), data, nil)
+	stringKey := hashToStringMapKey(hash)
+	//existsAlready, err := hm.bucket.Exists(hm.ctx, stringKey)
+	//if err != nil {
+	//	log.Fatal(err)
+	//	panic("writing to block storage failed! Pre-Check.")
+	//}
+	//if existsAlready {
+	//	return // skip upload
+	//}
+	err := hm.bucket.WriteAll(hm.ctx, stringKey, data, nil)
 	if err != nil {
 		log.Fatal(err)
-		panic("writing to block storage failed!")
+		panic("writing to block storage failed! Write.")
 	}
 }
 
