@@ -15,23 +15,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type SyncthingVirtualFolderI interface {
-	getInoOf(path string) uint64
-	lookupFile(path string) (info *db.FileInfoTruncated, eno syscall.Errno)
-	readDir(path string) (stream ffs.DirStream, eno syscall.Errno)
-	readFile(path string, buf []byte, off int64) (res fuse.ReadResult, errno syscall.Errno)
-	createFile(Permissions *uint32, path string) (info *db.FileInfoTruncated, eno syscall.Errno)
-	writeFile(ctx context.Context, path string, offset uint64, inputData []byte) syscall.Errno
-	deleteFile(ctx context.Context, path string) syscall.Errno
-	createDir(ctx context.Context, path string) syscall.Errno
-	deleteDir(ctx context.Context, path string) syscall.Errno
-	renameFileOrDir(ctx context.Context, existingPath string, newPath string) syscall.Errno
-	renameExchangeFileOrDir(ctx context.Context, path1 string, path2 string) syscall.Errno
-	createSymlink(ctx context.Context, path, target string) syscall.Errno
-}
-
 type FuseVirtualFolderRoot struct {
-	st_folder SyncthingVirtualFolderI
+	st_folder SyncthingVirtualFolderAccessI
 }
 
 type VirtualFolderMount struct {
@@ -464,7 +449,7 @@ func (n *VirtualNode) CopyFileRange(ctx context.Context, fhIn ffs.FileHandle,
 	return 0, syscall.ENOSYS
 }
 
-func NewVirtualFolderMount(mountPath string, folderId, folderLabel string, stFolder SyncthingVirtualFolderI) (io.Closer, error) {
+func NewVirtualFolderMount(mountPath string, folderId, folderLabel string, stFolder SyncthingVirtualFolderAccessI) (io.Closer, error) {
 
 	root := &FuseVirtualFolderRoot{
 		st_folder: stFolder,

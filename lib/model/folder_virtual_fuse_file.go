@@ -19,12 +19,12 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-func NewVirtualFile(rel_name string, ino uint64, sVF SyncthingVirtualFolderI) ffs.FileHandle {
+func NewVirtualFile(rel_name string, ino uint64, sVF SyncthingVirtualFolderAccessI) ffs.FileHandle {
 	return &virtualFuseFile{sVF: sVF, rel_name: rel_name, ino: ino}
 }
 
 type virtualFuseFile struct {
-	sVF      SyncthingVirtualFolderI
+	sVF      SyncthingVirtualFolderAccessI
 	ino      uint64
 	mu       sync.Mutex
 	rel_name string // relative filepath
