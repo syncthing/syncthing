@@ -151,7 +151,10 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 		log.Fatal(err)
 	}
 
-	f.blockCache = blockstorage.NewGoCloudUrlStorage(ctx, "file://"+myDir+"?no_tmp_dir=yes")
+	// url := "file://"+myDir+"?no_tmp_dir=yes"
+	url := "s3://bucket-syncthing-uli-virtual-folder-test1/" + myDir
+
+	f.blockCache = blockstorage.NewGoCloudUrlStorage(ctx, url)
 
 	if f.mountService == nil {
 		stVF := &syncthingVirtualFolderFuseAdapter{
