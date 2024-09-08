@@ -80,6 +80,7 @@ func main() {
 	var replCertFile string
 	var replKeyFile string
 	var useHTTP bool
+	var compression bool
 	var largeDB bool
 	var amqpAddress string
 	missesIncrease := 1
@@ -92,6 +93,7 @@ func main() {
 	flag.StringVar(&dir, "db-dir", "./discovery.db", "Database directory")
 	flag.BoolVar(&debug, "debug", false, "Print debug output")
 	flag.BoolVar(&useHTTP, "http", false, "Listen on HTTP (behind an HTTPS proxy)")
+	flag.BoolVar(&compression, "compression", true, "Enable GZIP compression of responses")
 	flag.StringVar(&listen, "listen", ":8443", "Listen address")
 	flag.StringVar(&metricsListen, "metrics-listen", "", "Metrics listen address")
 	flag.StringVar(&replicationPeers, "replicate", "", "Replication peers, id@address, comma separated")
@@ -225,7 +227,7 @@ func main() {
 	}()
 
 	// Start the main API server.
-	qs := newAPISrv(listen, cert, db, repl, useHTTP, missesIncrease)
+	qs := newAPISrv(listen, cert, db, repl, useHTTP, compression, missesIncrease)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.

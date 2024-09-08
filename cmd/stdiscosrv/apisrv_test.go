@@ -7,9 +7,19 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
 func TestFixupAddresses(t *testing.T) {
@@ -93,4 +103,82 @@ func addr(host string, port int) *net.TCPAddr {
 		IP:   net.ParseIP(host),
 		Port: port,
 	}
+}
+
+func BenchmarkAPIRequests(b *testing.B) {
+	db, err := newLevelDBStore(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go db.Serve(ctx)
+	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, true, true, 1)
+	srv := httptest.NewServer(http.HandlerFunc(api.handler))
+
+	kf := b.TempDir() + "/cert"
+	crt, err := tlsutil.NewCertificate(kf+".crt", kf+".key", "localhost", 7)
+	if err != nil {
+		b.Fatal(err)
+	}
+	certBs, err := os.ReadFile(kf + ".crt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	certString := string(strings.ReplaceAll(string(certBs), "\n", " "))
+
+	devID := protocol.NewDeviceID(crt.Certificate[0])
+	devIDString := devID.String()
+
+	b.Run("Announce", func(b *testing.B) {
+		b.ReportAllocs()
+		url := srv.URL + "/v2/?device=" + devIDString
+		for i := 0; i < b.N; i++ {
+			req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(`{"addresses":["tcp://10.10.10.10:42000"]}`))
+			req.Header.Set("X-Ssl-Cert", certString)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				b.Fatal(err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusNoContent {
+				b.Fatalf("unexpected status %s", resp.Status)
+			}
+		}
+	})
+
+	b.Run("Lookup", func(b *testing.B) {
+		b.ReportAllocs()
+		url := srv.URL + "/v2/?device=" + devIDString
+		for i := 0; i < b.N; i++ {
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				b.Fatal(err)
+			}
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				b.Fatalf("unexpected status %s", resp.Status)
+			}
+		}
+	})
+
+	b.Run("LookupNoCompression", func(b *testing.B) {
+		b.ReportAllocs()
+		url := srv.URL + "/v2/?device=" + devIDString
+		for i := 0; i < b.N; i++ {
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
+			req.Header.Set("Accept-Encoding", "identity") // disable compression
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				b.Fatal(err)
+			}
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				b.Fatalf("unexpected status %s", resp.Status)
+			}
+		}
+	})
 }

@@ -45,7 +45,9 @@ type apiSrv struct {
 	listener       net.Listener
 	repl           replicator // optional
 	useHTTP        bool
+	compression    bool
 	missesIncrease int
+	gzipWriters    sync.Pool
 
 	mapsMut sync.Mutex
 	misses  map[string]int32
@@ -61,13 +63,14 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP bool, missesIncrease int) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, missesIncrease int) *apiSrv {
 	return &apiSrv{
 		addr:           addr,
 		cert:           cert,
 		db:             db,
 		repl:           repl,
 		useHTTP:        useHTTP,
+		compression:    compression,
 		misses:         make(map[string]int32),
 		missesIncrease: missesIncrease,
 	}
@@ -226,10 +229,16 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	var bw io.Writer = w
 
 	// Use compression if the client asks for it
-	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+	if s.compression && strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		gw, ok := s.gzipWriters.Get().(*gzip.Writer)
+		if ok {
+			gw.Reset(w)
+		} else {
+			gw = gzip.NewWriter(w)
+		}
 		w.Header().Set("Content-Encoding", "gzip")
-		gw := gzip.NewWriter(bw)
 		defer gw.Close()
+		defer s.gzipWriters.Put(gw)
 		bw = gw
 	}
 
