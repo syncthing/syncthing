@@ -28,7 +28,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/pierrec/lz4/v4 v4.1.21
 	github.com/prometheus/client_golang v1.19.1
-	github.com/quic-go/quic-go v0.46.0
+	github.com/quic-go/quic-go v0.47.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/shirou/gopsutil/v4 v4.24.7
