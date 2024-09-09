@@ -37,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -77,7 +76,9 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
-	Model             model.Model
+
+	// Access to internals for direct users of this package. Note that the interface in Internals is unstable!
+	Internals *Internals
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
@@ -152,11 +153,6 @@ func (a *App) startup() error {
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 	l.Infoln("My ID:", a.myID)
-
-	// Select SHA256 implementation and report. Affected by the
-	// STHASHING environment variable.
-	sha256.SelectAlgo()
-	sha256.Report()
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -250,7 +246,7 @@ func (a *App) startup() error {
 
 	keyGen := protocol.NewKeyGenerator()
 	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
-	a.Model = m
+	a.Internals = newInternals(m)
 
 	a.mainService.Add(m)
 

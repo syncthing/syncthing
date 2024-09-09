@@ -39,7 +39,7 @@ type progressUpdate struct {
 }
 
 func (p progressUpdate) send(ctx context.Context) {
-	p.conn.DownloadProgress(ctx, p.folder, p.updates)
+	p.conn.DownloadProgress(ctx, &protocol.DownloadProgress{Folder: p.folder, Updates: p.updates})
 }
 
 // NewProgressEmitter creates a new progress emitter which emits
@@ -334,7 +334,7 @@ func (t *ProgressEmitter) clearLocked() {
 		}
 		for _, folder := range state.folders() {
 			if updates := state.cleanup(folder); len(updates) > 0 {
-				conn.DownloadProgress(context.Background(), folder, updates)
+				conn.DownloadProgress(context.Background(), &protocol.DownloadProgress{Folder: folder, Updates: updates})
 			}
 		}
 	}

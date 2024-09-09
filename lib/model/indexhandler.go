@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/ur"
 )
 
 type indexHandler struct {
@@ -222,15 +223,49 @@ func (s *indexHandler) pause() {
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
 func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error {
+	// Keep track of the previous sequence we sent. This is separate from
+	// s.prevSequence because the latter will skip over holes in the
+	// sequence numberings, while sentPrevSequence should always be
+	// precisely the highest previously sent sequence.
+	sentPrevSequence := s.prevSequence
+
 	initial := s.prevSequence == 0
 	batch := db.NewFileInfoBatch(nil)
+	var batchError error
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
+		if len(fs) == 0 {
+			// can't happen, flush is not called with an empty batch
+			panic("bug: flush called with empty batch (race condition?)")
+		}
+		if batchError != nil {
+			// can't happen, once an error is returned the index sender exits
+			panic(fmt.Sprintf("bug: once failed it should stay failed (%v)", batchError))
+		}
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
+
+		lastSequence := fs[len(fs)-1].Sequence
+		var err error
 		if initial {
 			initial = false
-			return s.conn.Index(ctx, s.folder, fs)
+			err = s.conn.Index(ctx, &protocol.Index{
+				Folder:       s.folder,
+				Files:        fs,
+				LastSequence: lastSequence,
+			})
+		} else {
+			err = s.conn.IndexUpdate(ctx, &protocol.IndexUpdate{
+				Folder:       s.folder,
+				Files:        fs,
+				PrevSequence: sentPrevSequence,
+				LastSequence: lastSequence,
+			})
 		}
-		return s.conn.IndexUpdate(ctx, s.folder, fs)
+		if err != nil {
+			batchError = err
+			return err
+		}
+		sentPrevSequence = lastSequence
+		return nil
 	})
 
 	var err error
@@ -251,14 +286,19 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 			}
 		}
 
-		if shouldDebug() {
-			if fi.SequenceNo() < s.prevSequence+1 {
-				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
-			}
+		if fi.SequenceNo() < s.prevSequence+1 {
+			s.logSequenceAnomaly("database returned sequence lower than requested", map[string]any{
+				"sequence": fi.SequenceNo(),
+				"start":    s.prevSequence + 1,
+			})
 		}
 
 		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
+			s.logSequenceAnomaly("database returned non-increasing sequence", map[string]any{
+				"sequence": fi.SequenceNo(),
+				"start":    s.prevSequence + 1,
+				"previous": f.Sequence,
+			})
 			// Abort this round of index sending - the next one will pick
 			// up from the last successful one with the repeaired db.
 			defer func() {
@@ -307,7 +347,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	return nil
 }
 
-func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) error {
+func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, prevSequence, lastSequence int64) error {
 	deviceID := s.conn.DeviceID()
 
 	s.cond.L.Lock()
@@ -328,12 +368,66 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) e
 	if !update {
 		fset.Drop(deviceID)
 	}
+
+	l.Debugf("Received %d files for %s from %s, prevSeq=%d, lastSeq=%d", len(fs), s.folder, deviceID.Short(), prevSequence, lastSequence)
+
+	// Verify that the previous sequence number matches what we expected
+	if exp := fset.Sequence(deviceID); prevSequence > 0 && prevSequence != exp {
+		s.logSequenceAnomaly("index update with unexpected sequence", map[string]any{
+			"prevSeq":      prevSequence,
+			"lastSeq":      lastSequence,
+			"batch":        len(fs),
+			"expectedPrev": exp,
+		})
+	}
+
 	for i := range fs {
+		// Verify index in relation to the claimed sequence boundaries
+		if fs[i].Sequence < prevSequence {
+			s.logSequenceAnomaly("file with sequence before prevSequence", map[string]any{
+				"prevSeq": prevSequence,
+				"lastSeq": lastSequence,
+				"batch":   len(fs),
+				"seenSeq": fs[i].Sequence,
+				"atIndex": i,
+			})
+		}
+		if lastSequence > 0 && fs[i].Sequence > lastSequence {
+			s.logSequenceAnomaly("file with sequence after lastSequence", map[string]any{
+				"prevSeq": prevSequence,
+				"lastSeq": lastSequence,
+				"batch":   len(fs),
+				"seenSeq": fs[i].Sequence,
+				"atIndex": i,
+			})
+		}
+		if i > 0 && fs[i].Sequence <= fs[i-1].Sequence {
+			s.logSequenceAnomaly("index update with non-increasing sequence", map[string]any{
+				"prevSeq":      prevSequence,
+				"lastSeq":      lastSequence,
+				"batch":        len(fs),
+				"seenSeq":      fs[i].Sequence,
+				"atIndex":      i,
+				"precedingSeq": fs[i-1].Sequence,
+			})
+		}
+
 		// The local attributes should never be transmitted over the wire.
 		// Make sure they look like they weren't.
 		fs[i].LocalFlags = 0
 		fs[i].VersionHash = nil
 	}
+
+	// Verify the claimed last sequence number
+	if lastSequence > 0 && len(fs) > 0 && lastSequence != fs[len(fs)-1].Sequence {
+		s.logSequenceAnomaly("index update with unexpected last sequence", map[string]any{
+			"prevSeq": prevSequence,
+			"lastSeq": lastSequence,
+			"batch":   len(fs),
+			"seenSeq": fs[len(fs)-1].Sequence,
+		})
+	}
+
 	fset.Update(deviceID, fs)
 
 	seq := fset.Sequence(deviceID)
@@ -346,6 +440,24 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string) e
 	})
 
 	return nil
+}
+
+var warnSequenceAnomalyOnce sync.Once
+
+func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
+	warnSequenceAnomalyOnce.Do(func() {
+		l.Warnf("Index sequence anomaly detected (please report at https://forum.syncthing.net/t/22660): %s (%v)", msg, extra)
+	})
+
+	extraStrs := make(map[string]string, len(extra))
+	for k, v := range extra {
+		extraStrs[k] = fmt.Sprint(v)
+	}
+
+	s.evLogger.Log(events.Failure, ur.FailureData{
+		Description: msg,
+		Extra:       extraStrs,
+	})
 }
 
 func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
@@ -534,7 +646,7 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 	}
 }
 
-func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInfo, update bool, op string) error {
+func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInfo, update bool, op string, prevSequence, lastSequence int64) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	is, isOk := r.indexHandlers.Get(folder)
@@ -542,7 +654,7 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 		l.Infof("%v for nonexistent or paused folder %q", op, folder)
 		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	}
-	return is.receive(fs, update, op)
+	return is.receive(fs, update, op, prevSequence, lastSequence)
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update
