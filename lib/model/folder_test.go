@@ -180,10 +180,8 @@ func TestSetPlatformData(t *testing.T) {
 	// Minimum required to support setPlatformData
 	sr := &sendReceiveFolder{
 		folder: folder{
-			folderBase: &folderBase{
-				FolderConfiguration: config.FolderConfiguration{
-					SyncXattrs: true,
-				},
+			FolderConfiguration: config.FolderConfiguration{
+				SyncXattrs: true,
 			},
 			mtimefs: fs,
 		},

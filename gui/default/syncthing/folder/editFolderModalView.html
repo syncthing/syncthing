@@ -231,12 +231,10 @@
                 <option value="sendonly" translate>Send Only</option>
                 <option value="receiveonly" translate>Receive Only</option>
                 <option value="receiveencrypted" ng-disabled="editingFolderExisting()" translate>Receive Encrypted</option>
-                <option value="virtual" ng-disabled="editingFolderExisting()" translate>Virtual</option>
               </select>
               <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
               <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
               <p ng-if="currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type "{%receiveEncrypted%}" too.</p>
-              <p ng-if="currentFolder.type == 'virtual'" translate class="help-block" translate-value-receive-encrypted="{{'Virtual' | translate}}">Virtual folders are not directly placed on the filesystem. Instead the content of the folder is accessible via mounted fuse filesystem.</p>
               <p ng-if="editingFolderExisting() && currentFolder.type == 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
               <p ng-if="editingFolderExisting() && currentFolder.type != 'receiveencrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" can only be set when adding a new folder.</p>
             </div>

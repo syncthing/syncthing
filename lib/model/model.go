@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -62,14 +63,6 @@ type service interface {
 	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
-}
-
-type filesystemFolderServiceI interface {
-	GetFileData(deviceID protocol.DeviceID, req *protocol.Request, response_data []byte) (int, error)
-}
-
-type virtualFolderServiceI interface {
-	GetHashBlockData(hash []byte, response_data []byte) (int, error)
 }
 
 type Availability struct {
@@ -233,7 +226,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
-		folderFiles:                    make(map[string]*db.FileSet), // gives access to database
+		folderFiles:                    make(map[string]*db.FileSet),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
 		folderRunners:                  newServiceMap[string, service](evLogger),
@@ -1963,9 +1956,8 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	m.mut.RLock()
 	folderCfg, ok := m.folderCfgs[req.Folder]
 	folderIgnores := m.folderIgnores[req.Folder]
-	folderRunner, ok2 := m.folderRunners.Get(req.Folder)
 	m.mut.RUnlock()
-	if !(ok && ok2) {
+	if !ok {
 		// The folder might be already unpaused in the config, but not yet
 		// in the model.
 		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID.Short(), req.Name, req.Folder)
@@ -2020,21 +2012,55 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		}
 	}()
 
-	// Grab the FS after limiting
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
 
-	n := 0
-	virtualFolder, ok := folderRunner.(virtualFolderServiceI)
-	if ok {
-		n, err = virtualFolder.GetHashBlockData(req.Hash, res.data)
-		l.Debugf("%v REQ(in) get block from virtual folder: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
-	} else {
-		filesystemFolder, ok := folderRunner.(filesystemFolderServiceI)
-		if !ok {
-			l.Debugf("%v REQ(in) get block FAILED - unknown folder type. %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
-			return nil, protocol.ErrGeneric
+	folderFs := folderCfg.Filesystem(nil)
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return nil, protocol.ErrNoSuchFile
+	}
+
+	// Only check temp files if the flag is set, and if we are set to advertise
+	// the temp indexes.
+	if req.FromTemporary && !folderCfg.DisableTempIndexes {
+		tempFn := fs.TempName(req.Name)
+
+		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
+			// Reject reads for anything that doesn't exist or is something
+			// other than a regular file.
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+			return nil, protocol.ErrNoSuchFile
 		}
+		_, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, res.data)
+		if err == nil && scanner.Validate(res.data, req.Hash, req.WeakHash) {
+			return res, nil
+		}
+		// Fall through to reading from a non-temp file, just in case the temp
+		// file has finished downloading.
+	}
 
-		n, err = filesystemFolder.GetFileData(deviceID, req, res.data)
+	if info, err := folderFs.Lstat(req.Name); err != nil || !info.IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return nil, protocol.ErrNoSuchFile
+	}
+
+	n, err := readOffsetIntoBuf(folderFs, req.Name, req.Offset, res.data)
+	if fs.IsNotExist(err) {
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return nil, protocol.ErrNoSuchFile
+	} else if err == io.EOF {
+		// Read beyond end of file. This might indicate a problem, or it
+		// might be a short block that gets padded when read for encrypted
+		// folders. We ignore the error and let the hash validation in the
+		// next step take care of it, by only hashing the part we actually
+		// managed to read.
+	} else if err != nil {
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return nil, protocol.ErrGeneric
 	}
 
 	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {

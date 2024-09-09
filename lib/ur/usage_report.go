@@ -129,8 +129,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			report.FolderUses.SendReceive++
 		case config.FolderTypeReceiveOnly:
 			report.FolderUses.ReceiveOnly++
-		case config.FolderTypeVirtual:
-			report.FolderUses.ReceiveOnly++ // TODO
 		}
 		if cfg.IgnorePerms {
 			report.FolderUses.IgnorePerms++
