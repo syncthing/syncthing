@@ -104,7 +104,7 @@ func (f *folderBase) pullBlockBase(
 		activity.using(selected)
 		var buf []byte
 		blockNo := int(block.Offset / int64(file.BlockSize()))
-		buf, lastError = f.model.requestGlobal(f.ctx, selected.ID, f.folderID, file.Name, blockNo, block.Offset, int(block.Size), block.Hash, block.WeakHash, selected.FromTemporary)
+		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, file.Name, blockNo, block.Offset, int(block.Size), block.Hash, block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, file.Name, block.Offset, block.Size, selected.ID.Short(), "returned error:", lastError)

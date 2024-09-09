@@ -359,7 +359,7 @@
     "Start Browser": "啟動瀏覽器",
     "Statistics": "統計",
     "Stopped": "已停止",
-    "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "僅存儲和同步加密數據。所有連接設備上的文件夾都需要設置相同的密碼或類型為 「{%receiveEncrypted%}」。",
+    "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "僅存儲和同步加密數據。所有連接設備上的文件夾都需要設置相同的密碼或類型為 「{{receiveEncrypted}}」。",
     "Subject:": "主題：",
     "Support": "支持",
     "Support Bundle": "支持捆綁包",
@@ -498,6 +498,6 @@
     "items": "條目",
     "seconds": "秒",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想將 「{{folder}}」 文件夾共享給您。",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享「{{device}}」（{{folderlabel}}）文件夾給您。",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享「{{folderlabel}}」（{{folder}}）文件夾給您。",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} 可能會重新引入此設備。"
 }

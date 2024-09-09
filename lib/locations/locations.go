@@ -180,7 +180,7 @@ func defaultConfigDir(userHome string) string {
 	case build.IsWindows:
 		return windowsConfigDataDir()
 
-	case build.IsDarwin:
+	case build.IsDarwin, build.IsIOS:
 		return darwinConfigDataDir(userHome)
 
 	default:
@@ -191,7 +191,7 @@ func defaultConfigDir(userHome string) string {
 // defaultDataDir returns the default data directory, where we store the
 // database, log files, etc.
 func defaultDataDir(userHome, configDir string) string {
-	if build.IsWindows || build.IsDarwin {
+	if build.IsWindows || build.IsDarwin || build.IsIOS {
 		return configDir
 	}
 

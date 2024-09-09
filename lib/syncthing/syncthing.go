@@ -77,6 +77,7 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
+	Model             model.Model
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
@@ -249,6 +250,7 @@ func (a *App) startup() error {
 
 	keyGen := protocol.NewKeyGenerator()
 	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
+	a.Model = m
 
 	a.mainService.Add(m)
 
