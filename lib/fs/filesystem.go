@@ -252,10 +252,6 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		fs = newBasicFilesystem(uri, opts...)
 	case FilesystemTypeFake:
 		fs = newFakeFilesystem(uri, opts...)
-	case FilesystemTypeOwnFuse:
-		fs = NewOwnFuseFilesystem(uri, opts...)
-	case FilesystemTypeRealFuse:
-		fs = NewRealFuseFilesystem(uri, opts...)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{

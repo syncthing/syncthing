@@ -335,7 +335,7 @@ func (*BasicFilesystem) wrapperType() filesystemWrapperType {
 // basicFile implements the fs.File interface on top of an os.File
 type basicFile struct {
 	*os.File
-	name string // relative filepath
+	name string
 }
 
 func (f basicFile) Name() string {

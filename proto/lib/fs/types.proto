@@ -7,8 +7,6 @@ import "repos/protobuf/gogoproto/gogo.proto";
 enum FilesystemType {
     option (gogoproto.goproto_enum_stringer) = false;
 
-    FILESYSTEM_TYPE_BASIC     = 0;
-    FILESYSTEM_TYPE_FAKE      = 1;
-    FILESYSTEM_TYPE_OWN_FUSE  = 2;
-    FILESYSTEM_TYPE_REAL_FUSE = 3;
+    FILESYSTEM_TYPE_BASIC = 0;
+    FILESYSTEM_TYPE_FAKE  = 1;
 }
