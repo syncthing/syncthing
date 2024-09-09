@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -122,6 +123,7 @@ func BenchmarkAPIRequests(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	certBs = regexp.MustCompile(`---[^\n]+---\n`).ReplaceAll(certBs, nil)
 	certString := string(strings.ReplaceAll(string(certBs), "\n", " "))
 
 	devID := protocol.NewDeviceID(crt.Certificate[0])
@@ -132,7 +134,7 @@ func BenchmarkAPIRequests(b *testing.B) {
 		url := srv.URL + "/v2/?device=" + devIDString
 		for i := 0; i < b.N; i++ {
 			req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(`{"addresses":["tcp://10.10.10.10:42000"]}`))
-			req.Header.Set("X-Ssl-Cert", certString)
+			req.Header.Set("X-Forwarded-Tls-Client-Cert", certString)
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				b.Fatal(err)
