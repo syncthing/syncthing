@@ -14,12 +14,14 @@ import (
 	"cmp"
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"path"
+	"runtime"
 	"slices"
 	"time"
 
@@ -159,7 +161,13 @@ func (s *inMemoryStore) calculateStatistics() {
 	cutoff1w := t0.Add(-7 * 24 * time.Hour).UnixNano()
 	current, currentIPv4, currentIPv6, last24h, last1w, errors := 0, 0, 0, 0, 0, 0
 
+	n := 0
 	s.m.Range(func(key protocol.DeviceID, rec DatabaseRecord) bool {
+		if n%1000 == 0 {
+			runtime.Gosched()
+		}
+		n++
+
 		// If there are addresses that have not expired it's a current
 		// record, otherwise account it based on when it was last seen
 		// (last 24 hours or last week) or finally as inactice.
@@ -234,7 +242,13 @@ func (s *inMemoryStore) write() (err error) {
 	var rangeErr error
 	now := s.clock.Now().UnixNano()
 	cutoff1w := s.clock.Now().Add(-7 * 24 * time.Hour).UnixNano()
+	n := 0
 	s.m.Range(func(key protocol.DeviceID, value DatabaseRecord) bool {
+		if n%1000 == 0 {
+			runtime.Gosched()
+		}
+		n++
+
 		if value.Seen < cutoff1w {
 			// drop the record if it's older than a week
 			return true
@@ -306,7 +320,7 @@ func (s *inMemoryStore) read() error {
 	for {
 		var n uint32
 		if err := binary.Read(br, binary.BigEndian, &n); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err

@@ -74,7 +74,7 @@ func main() {
 	var flushInterval time.Duration
 
 	log.SetOutput(os.Stdout)
-	log.SetFlags(0)
+	// log.SetFlags(0)
 
 	flag.StringVar(&certFile, "cert", "./cert.pem", "Certificate file")
 	flag.StringVar(&keyFile, "key", "./key.pem", "Key file")
