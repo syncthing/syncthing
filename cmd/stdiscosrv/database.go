@@ -29,7 +29,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sliceutil"
 )
 
 type clock interface {
@@ -405,12 +404,14 @@ loop:
 
 // expire returns the list of addresses after removing expired entries.
 // Expiration happen in place, so the slice given as the parameter is
-// destroyed. Internal order is not preserved.
+// destroyed. Internal order is preserved.
 func expire(addrs []DatabaseAddress, now int64) []DatabaseAddress {
 	i := 0
 	for i < len(addrs) {
 		if addrs[i].Expires < now {
-			addrs = sliceutil.RemoveAndZero(addrs, i)
+			copy(addrs[i:], addrs[i+1:])
+			addrs[len(addrs)-1] = DatabaseAddress{}
+			addrs = addrs[:len(addrs)-1]
 			continue
 		}
 		i++
