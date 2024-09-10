@@ -214,7 +214,9 @@ func (s *inMemoryStore) calculateStatistics() {
 
 func (s *inMemoryStore) write() (err error) {
 	t0 := time.Now()
+	log.Println("Writing database")
 	defer func() {
+		log.Println("Finished writing database")
 		if err == nil {
 			databaseWriteSeconds.Set(time.Since(t0).Seconds())
 			databaseLastWritten.Set(float64(t0.Unix()))
@@ -276,6 +278,7 @@ func (s *inMemoryStore) write() (err error) {
 
 	if os.Getenv("PODINDEX") == "0" {
 		// Upload to S3
+		log.Println("Uploading database")
 		fd, err = os.Open(dbf)
 		if err != nil {
 			log.Printf("Error uploading database to S3: %v", err)
@@ -285,6 +288,7 @@ func (s *inMemoryStore) write() (err error) {
 		if err := s3Upload(fd); err != nil {
 			log.Printf("Error uploading database to S3: %v", err)
 		}
+		log.Println("Finished uploading database")
 	}
 
 	return nil
