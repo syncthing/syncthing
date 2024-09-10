@@ -22,7 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -311,7 +311,7 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 
 	// The address slice must always be sorted for database merges to work
 	// properly.
-	sort.Sort(databaseAddressOrder(dbAddrs))
+	slices.SortFunc(dbAddrs, DatabaseAddress.Cmp)
 
 	seen := now.UnixNano()
 	if s.repl != nil {
