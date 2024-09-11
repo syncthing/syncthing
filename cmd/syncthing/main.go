@@ -457,8 +457,6 @@ func (e *errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	return upgrade.Release{}, &errNoUpgrade{"ofuse", "ofuse"}
-
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
 		return upgrade.Release{}, err
