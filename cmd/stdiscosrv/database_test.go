@@ -16,7 +16,7 @@ import (
 )
 
 func TestDatabaseGetSet(t *testing.T) {
-	db := newInMemoryStore(t.TempDir(), 0)
+	db := newInMemoryStore(t.TempDir(), 0, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go db.Serve(ctx)
 	defer cancel()

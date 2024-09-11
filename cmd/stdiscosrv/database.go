@@ -24,10 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -52,25 +48,27 @@ type inMemoryStore struct {
 	m             *xsync.MapOf[protocol.DeviceID, DatabaseRecord]
 	dir           string
 	flushInterval time.Duration
+	s3            *s3Copier
 	clock         clock
 }
 
-func newInMemoryStore(dir string, flushInterval time.Duration) *inMemoryStore {
+func newInMemoryStore(dir string, flushInterval time.Duration, s3 *s3Copier) *inMemoryStore {
 	s := &inMemoryStore{
 		m:             xsync.NewMapOf[protocol.DeviceID, DatabaseRecord](),
 		dir:           dir,
 		flushInterval: flushInterval,
+		s3:            s3,
 		clock:         defaultClock{},
 	}
 	nr, err := s.read()
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) && s3 != nil {
 		// Try to read from AWS
 		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
 		if cerr != nil {
 			log.Println("Error creating database file:", err)
 			return s
 		}
-		if err := s3Download(fd); err != nil {
+		if err := s3.downloadLatest(fd); err != nil {
 			log.Printf("Error reading database from S3: %v", err)
 		}
 		_ = fd.Close()
@@ -278,16 +276,15 @@ func (s *inMemoryStore) write() (err error) {
 		return err
 	}
 
-	if os.Getenv("PODINDEX") == "0" {
-		// Upload to S3
-		log.Println("Uploading database")
+	// Upload to S3
+	if s.s3 != nil {
 		fd, err = os.Open(dbf)
 		if err != nil {
 			log.Printf("Error uploading database to S3: %v", err)
 			return nil
 		}
 		defer fd.Close()
-		if err := s3Upload(fd); err != nil {
+		if err := s.s3.upload(fd); err != nil {
 			log.Printf("Error uploading database to S3: %v", err)
 		}
 		log.Println("Finished uploading database")
@@ -422,39 +419,6 @@ func expire(addrs []DatabaseAddress, now time.Time) []DatabaseAddress {
 		}
 	}
 	return naddrs
-}
-
-func s3Upload(r io.Reader) error {
-	sess, err := session.NewSession(&aws.Config{
-		Region:   aws.String("fr-par"),
-		Endpoint: aws.String("s3.fr-par.scw.cloud"),
-	})
-	if err != nil {
-		return err
-	}
-	uploader := s3manager.NewUploader(sess)
-	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String("syncthing-discovery"),
-		Key:    aws.String("discovery.db"),
-		Body:   r,
-	})
-	return err
-}
-
-func s3Download(w io.WriterAt) error {
-	sess, err := session.NewSession(&aws.Config{
-		Region:   aws.String("fr-par"),
-		Endpoint: aws.String("s3.fr-par.scw.cloud"),
-	})
-	if err != nil {
-		return err
-	}
-	downloader := s3manager.NewDownloader(sess)
-	_, err = downloader.Download(w, &s3.GetObjectInput{
-		Bucket: aws.String("syncthing-discovery"),
-		Key:    aws.String("discovery.db"),
-	})
-	return err
 }
 
 func (d DatabaseAddress) Cmp(other DatabaseAddress) (n int) {

@@ -9,7 +9,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
@@ -58,52 +58,52 @@ const (
 
 var debug = false
 
+type CLI struct {
+	Cert          string `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
+	Key           string `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
+	HTTP          bool   `group:"Listen" help:"Listen on HTTP (behind an HTTPS proxy)" env:"DISCOVERY_HTTP"`
+	Compression   bool   `group:"Listen" help:"Enable GZIP compression of responses" env:"DISCOVERY_COMPRESSION"`
+	Listen        string `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
+	MetricsListen string `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
+
+	Replicate         []string `group:"Legacy replication" help:"Replication peers, id@address, comma separated" env:"DISCOVERY_REPLICATE"`
+	ReplicationListen string   `group:"Legacy replication" help:"Replication listen address" default:":19200" env:"DISCOVERY_REPLICATION_LISTEN"`
+	ReplicationCert   string   `group:"Legacy replication" help:"Certificate file for replication" env:"DISCOVERY_REPLICATION_CERT_FILE"`
+	ReplicationKey    string   `group:"Legacy replication" help:"Key file for replication" env:"DISCOVERY_REPLICATION_KEY_FILE"`
+
+	AMQPAddress string `group:"AMQP replication" help:"Address to AMQP broker" env:"DISCOVERY_AMQP_ADDRESS"`
+
+	DBDir           string        `group:"Database" help:"Database directory" default:"." env:"DISCOVERY_DB_DIR"`
+	DBFlushInterval time.Duration `group:"Database" help:"Interval between database flushes" default:"5m" env:"DISCOVERY_DB_FLUSH_INTERVAL"`
+
+	DBS3Endpoint    string `name:"db-s3-endpoint" group:"Database (S3 backup)" help:"S3 endpoint for database" env:"DISCOVERY_DB_S3_ENDPOINT"`
+	DBS3Region      string `name:"db-s3-region" group:"Database (S3 backup)" help:"S3 region for database" env:"DISCOVERY_DB_S3_REGION"`
+	DBS3Bucket      string `name:"db-s3-bucket" group:"Database (S3 backup)" help:"S3 bucket for database" env:"DISCOVERY_DB_S3_BUCKET"`
+	DBS3AccessKeyID string `name:"db-s3-access-key-id" group:"Database (S3 backup)" help:"S3 access key ID for database" env:"DISCOVERY_DB_S3_ACCESS_KEY_ID"`
+	DBS3SecretKey   string `name:"db-s3-secret-key" group:"Database (S3 backup)" help:"S3 secret key for database" env:"DISCOVERY_DB_S3_SECRET_KEY"`
+
+	Debug   bool `short:"d" help:"Print debug output" env:"DISCOVERY_DEBUG"`
+	Version bool `short:"v" help:"Print version and exit"`
+}
+
 func main() {
-	var listen string
-	var dir string
-	var metricsListen string
-	var replicationListen string
-	var replicationPeers string
-	var certFile string
-	var keyFile string
-	var replCertFile string
-	var replKeyFile string
-	var useHTTP bool
-	var compression bool
-	var amqpAddress string
-	var flushInterval time.Duration
-
 	log.SetOutput(os.Stdout)
-	// log.SetFlags(0)
 
-	flag.StringVar(&certFile, "cert", "./cert.pem", "Certificate file")
-	flag.StringVar(&keyFile, "key", "./key.pem", "Key file")
-	flag.StringVar(&dir, "db-dir", ".", "Database directory")
-	flag.BoolVar(&debug, "debug", false, "Print debug output")
-	flag.BoolVar(&useHTTP, "http", false, "Listen on HTTP (behind an HTTPS proxy)")
-	flag.BoolVar(&compression, "compression", true, "Enable GZIP compression of responses")
-	flag.StringVar(&listen, "listen", ":8443", "Listen address")
-	flag.StringVar(&metricsListen, "metrics-listen", "", "Metrics listen address")
-	flag.StringVar(&replicationPeers, "replicate", "", "Replication peers, id@address, comma separated")
-	flag.StringVar(&replicationListen, "replication-listen", ":19200", "Replication listen address")
-	flag.StringVar(&replCertFile, "replication-cert", "", "Certificate file for replication")
-	flag.StringVar(&replKeyFile, "replication-key", "", "Key file for replication")
-	flag.StringVar(&amqpAddress, "amqp-address", "", "Address to AMQP broker")
-	flag.DurationVar(&flushInterval, "flush-interval", 5*time.Minute, "Interval between database flushes")
-	showVersion := flag.Bool("version", false, "Show version")
-	flag.Parse()
+	var cli CLI
+	kong.Parse(&cli)
+	debug = cli.Debug
 
 	log.Println(build.LongVersionFor("stdiscosrv"))
-	if *showVersion {
+	if cli.Version {
 		return
 	}
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := tls.LoadX509KeyPair(cli.Cert, cli.Key)
 	if os.IsNotExist(err) {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
+		cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
@@ -114,8 +114,8 @@ func main() {
 	log.Println("Server device ID is", devID)
 
 	replCert := cert
-	if replCertFile != "" && replKeyFile != "" {
-		replCert, err = tls.LoadX509KeyPair(replCertFile, replKeyFile)
+	if cli.ReplicationCert != "" && cli.ReplicationKey != "" {
+		replCert, err = tls.LoadX509KeyPair(cli.ReplicationCert, cli.ReplicationKey)
 		if err != nil {
 			log.Fatalln("Failed to load replication keypair:", err)
 		}
@@ -126,8 +126,7 @@ func main() {
 	// Parse the replication specs, if any.
 	var allowedReplicationPeers []protocol.DeviceID
 	var replicationDestinations []string
-	parts := strings.Split(replicationPeers, ",")
-	for _, part := range parts {
+	for _, part := range cli.Replicate {
 		if part == "" {
 			continue
 		}
@@ -165,10 +164,22 @@ func main() {
 	// Root of the service tree.
 	main := suture.New("main", suture.Spec{
 		PassThroughPanics: true,
+		Timeout:           2 * time.Minute,
 	})
 
+	// If configured, use S3 for database backups.
+	var s3c *s3Copier
+	if cli.DBS3Endpoint != "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Fatalf("Failed to get hostname: %v", err)
+		}
+		key := hostname + ".db"
+		s3c = newS3Copier(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, key, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
+	}
+
 	// Start the database.
-	db := newInMemoryStore(dir, flushInterval)
+	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, s3c)
 	main.Add(db)
 
 	// Start any replication senders.
@@ -181,28 +192,28 @@ func main() {
 
 	// If we have replication configured, start the replication listener.
 	if len(allowedReplicationPeers) > 0 {
-		rl := newReplicationListener(replicationListen, replCert, allowedReplicationPeers, db)
+		rl := newReplicationListener(cli.ReplicationListen, replCert, allowedReplicationPeers, db)
 		main.Add(rl)
 	}
 
 	// If we have an AMQP broker, start that
-	if amqpAddress != "" {
+	if cli.AMQPAddress != "" {
 		clientID := rand.String(10)
-		kr := newAMQPReplicator(amqpAddress, clientID, db)
+		kr := newAMQPReplicator(cli.AMQPAddress, clientID, db)
 		repl = append(repl, kr)
 		main.Add(kr)
 	}
 
 	// Start the main API server.
-	qs := newAPISrv(listen, cert, db, repl, useHTTP, compression)
+	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.
-	if metricsListen != "" {
+	if cli.MetricsListen != "" {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			log.Fatal(http.ListenAndServe(metricsListen, mux))
+			log.Fatal(http.ListenAndServe(cli.MetricsListen, mux))
 		}()
 	}
 

@@ -107,7 +107,7 @@ func addr(host string, port int) *net.TCPAddr {
 }
 
 func BenchmarkAPIRequests(b *testing.B) {
-	db := newInMemoryStore(b.TempDir(), 0)
+	db := newInMemoryStore(b.TempDir(), 0, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go db.Serve(ctx)
