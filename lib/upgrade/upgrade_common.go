@@ -26,8 +26,7 @@ type Release struct {
 
 	// The HTML URL is needed for human readable links in the output created
 	// by cmd/stupgrades.
-	HTMLURL     string      `json:"html_url"`
-	RuntimeReqs RuntimeReqs `json:"runtime_requirements"`
+	HTMLURL string `json:"html_url"`
 }
 
 type Asset struct {
@@ -39,9 +38,9 @@ type Asset struct {
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
-// RuntimeReqs defines the structure of compat.json, which is included
-// with each elease.
-type RuntimeReqs struct {
+// ReleaseCompatibility defines the structure of compat.json, which is
+// included with each elease.
+type ReleaseCompatibility struct {
 	Runtime      string            `json:"runtime,omitempty"`
 	Requirements map[string]string `json:"requirements,omitempty"`
 }

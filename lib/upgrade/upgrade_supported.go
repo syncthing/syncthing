@@ -118,29 +118,6 @@ func FetchLatestReleases(releasesURL, current string) []Release {
 	}
 	resp.Body.Close()
 
-	for i, rel := range rels {
-		if len(rel.RuntimeReqs.Requirements) > 0 {
-			continue // requirements already filled in
-		}
-
-		// see if a compat.json is available, if so fill out the
-		// requirements
-		for _, asset := range rel.Assets {
-			if asset.Name == "compat.json" {
-				resp, err := insecureGet(asset.BrowserURL, current)
-				if err != nil {
-					l.Infoln("Fetching compat.json:", err)
-					continue
-				}
-				defer resp.Body.Close()
-				if err := json.NewDecoder(resp.Body).Decode(&rels[i].RuntimeReqs); err != nil {
-					l.Infoln("Unmarshalling compat.json:", err)
-				}
-				break
-			}
-		}
-	}
-
 	return rels
 }
 
@@ -173,11 +150,6 @@ func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bo
 
 	var selected Release
 	for _, rel := range rels {
-		if err := verifyRuntimeRequirements(rel.RuntimeReqs); err != nil {
-			l.Debugf("skipping release %s due to %v", rel.Tag, err)
-			continue
-		}
-
 		if CompareVersions(rel.Tag, current) == MajorNewer {
 			// We've found a new major version. That's fine, but if we've
 			// already found a minor upgrade that is acceptable we should go

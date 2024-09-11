@@ -1568,7 +1568,7 @@ func writeCompatJSON() {
 		log.Fatal("Reading compat.yaml:", err)
 	}
 
-	var entries []upgrade.RuntimeReqs
+	var entries []upgrade.ReleaseCompatibility
 	if err := yaml.Unmarshal(bs, &entries); err != nil {
 		log.Fatal("Parsing compat.yaml:", err)
 	}
