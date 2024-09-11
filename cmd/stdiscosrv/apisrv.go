@@ -51,6 +51,10 @@ type apiSrv struct {
 	notSeenTracker *retryAfterTracker
 }
 
+type replicator interface {
+	send(key *protocol.DeviceID, addrs []DatabaseAddress, seen int64)
+}
+
 type requestID int64
 
 func (i requestID) String() string {

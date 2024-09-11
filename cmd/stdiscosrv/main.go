@@ -10,12 +10,10 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"time"
 
 	_ "net/http/pprof"
@@ -66,11 +64,6 @@ type CLI struct {
 	Listen        string `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
 	MetricsListen string `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
 
-	Replicate         []string `group:"Legacy replication" help:"Replication peers, id@address, comma separated" env:"DISCOVERY_REPLICATE"`
-	ReplicationListen string   `group:"Legacy replication" help:"Replication listen address" default:":19200" env:"DISCOVERY_REPLICATION_LISTEN"`
-	ReplicationCert   string   `group:"Legacy replication" help:"Certificate file for replication" env:"DISCOVERY_REPLICATION_CERT_FILE"`
-	ReplicationKey    string   `group:"Legacy replication" help:"Key file for replication" env:"DISCOVERY_REPLICATION_KEY_FILE"`
-
 	AMQPAddress string `group:"AMQP replication" help:"Address to AMQP broker" env:"DISCOVERY_AMQP_ADDRESS"`
 
 	DBDir           string        `group:"Database" help:"Database directory" default:"." env:"DISCOVERY_DB_DIR"`
@@ -100,65 +93,21 @@ func main() {
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
-	cert, err := tls.LoadX509KeyPair(cli.Cert, cli.Key)
-	if os.IsNotExist(err) {
-		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365)
-		if err != nil {
-			log.Fatalln("Failed to generate X509 key pair:", err)
-		}
-	} else if err != nil {
-		log.Fatalln("Failed to load keypair:", err)
-	}
-	devID := protocol.NewDeviceID(cert.Certificate[0])
-	log.Println("Server device ID is", devID)
-
-	replCert := cert
-	if cli.ReplicationCert != "" && cli.ReplicationKey != "" {
-		replCert, err = tls.LoadX509KeyPair(cli.ReplicationCert, cli.ReplicationKey)
-		if err != nil {
-			log.Fatalln("Failed to load replication keypair:", err)
-		}
-	}
-	replDevID := protocol.NewDeviceID(replCert.Certificate[0])
-	log.Println("Replication device ID is", replDevID)
-
-	// Parse the replication specs, if any.
-	var allowedReplicationPeers []protocol.DeviceID
-	var replicationDestinations []string
-	for _, part := range cli.Replicate {
-		if part == "" {
-			continue
-		}
-
-		fields := strings.Split(part, "@")
-		switch len(fields) {
-		case 2:
-			// This is an id@address specification. Grab the address for the
-			// destination list. Try to resolve it once to catch obvious
-			// syntax errors here rather than having the sender service fail
-			// repeatedly later.
-			_, err := net.ResolveTCPAddr("tcp", fields[1])
+	var cert tls.Certificate
+	if !cli.HTTP {
+		var err error
+		cert, err = tls.LoadX509KeyPair(cli.Cert, cli.Key)
+		if os.IsNotExist(err) {
+			log.Println("Failed to load keypair. Generating one, this might take a while...")
+			cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365)
 			if err != nil {
-				log.Fatalln("Resolving address:", err)
+				log.Fatalln("Failed to generate X509 key pair:", err)
 			}
-			replicationDestinations = append(replicationDestinations, fields[1])
-			fallthrough // N.B.
-
-		case 1:
-			// The first part is always a device ID.
-			id, err := protocol.DeviceIDFromString(fields[0])
-			if err != nil {
-				log.Fatalln("Parsing device ID:", err)
-			}
-			if id == protocol.EmptyDeviceID {
-				log.Fatalf("Missing device ID for peer in %q", part)
-			}
-			allowedReplicationPeers = append(allowedReplicationPeers, id)
-
-		default:
-			log.Fatalln("Unrecognized replication spec:", part)
+		} else if err != nil {
+			log.Fatalln("Failed to load keypair:", err)
 		}
+		devID := protocol.NewDeviceID(cert.Certificate[0])
+		log.Println("Server device ID is", devID)
 	}
 
 	// Root of the service tree.
@@ -182,26 +131,13 @@ func main() {
 	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, s3c)
 	main.Add(db)
 
-	// Start any replication senders.
-	var repl replicationMultiplexer
-	for _, dst := range replicationDestinations {
-		rs := newReplicationSender(dst, replCert, allowedReplicationPeers)
-		main.Add(rs)
-		repl = append(repl, rs)
-	}
-
-	// If we have replication configured, start the replication listener.
-	if len(allowedReplicationPeers) > 0 {
-		rl := newReplicationListener(cli.ReplicationListen, replCert, allowedReplicationPeers, db)
-		main.Add(rl)
-	}
-
-	// If we have an AMQP broker, start that
+	// If we have an AMQP broker for replication, start that
+	var repl replicator
 	if cli.AMQPAddress != "" {
 		clientID := rand.String(10)
 		kr := newAMQPReplicator(cli.AMQPAddress, clientID, db)
-		repl = append(repl, kr)
 		main.Add(kr)
+		repl = kr
 	}
 
 	// Start the main API server.

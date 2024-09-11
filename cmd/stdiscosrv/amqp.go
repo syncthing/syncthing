@@ -7,7 +7,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -163,9 +162,6 @@ func (s *amqpReceiver) Serve(ctx context.Context) error {
 			if err := rec.Unmarshal(msg.Body); err != nil {
 				replicationRecvsTotal.WithLabelValues("error").Inc()
 				return fmt.Errorf("replication unmarshal: %w", err)
-			}
-			if bytes.Equal(rec.Key, []byte("<heartbeat>")) {
-				continue
 			}
 			id, err := protocol.DeviceIDFromBytes(rec.Key)
 			if err != nil {
