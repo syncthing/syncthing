@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build ignore
-// +build ignore
+//go:build tools
+// +build tools
 
 package main
 
@@ -35,7 +35,7 @@ import (
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 var (
