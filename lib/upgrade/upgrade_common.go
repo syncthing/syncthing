@@ -38,6 +38,13 @@ type Asset struct {
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
+// ReleaseCompatibility defines the structure of compat.json, which is
+// included with each elease.
+type ReleaseCompatibility struct {
+	Runtime      string            `json:"runtime,omitempty"`
+	Requirements map[string]string `json:"requirements,omitempty"`
+}
+
 var (
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
 	ErrNoVersionToSelect  = errors.New("no version to select")
