@@ -30,7 +30,7 @@ type configCommand struct {
 
 func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
 	app := cli.NewApp()
-	app.Name = "syncthing_ofuse"
+	app.Name = "syncthing"
 	app.Author = "The Syncthing Authors"
 	app.Metadata = map[string]interface{}{
 		"clientFactory": ctx.clientFactory,

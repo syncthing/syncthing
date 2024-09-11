@@ -48,8 +48,8 @@ const (
 
 	LevelDBDir          = "index-v0.14.0.db"
 	configFileName      = "config.xml"
-	defaultStateDir     = ".local/state/syncthing_ofuse"
-	oldDefaultConfigDir = ".config/syncthing_ofuse"
+	defaultStateDir     = ".local/state/syncthing"
+	oldDefaultConfigDir = ".config/syncthing"
 )
 
 // Platform dependent directories
@@ -200,13 +200,13 @@ func defaultDataDir(userHome, configDir string) string {
 
 func windowsConfigDataDir() string {
 	if p := os.Getenv("LocalAppData"); p != "" {
-		return filepath.Join(p, "Syncthing_ofuse")
+		return filepath.Join(p, "Syncthing")
 	}
-	return filepath.Join(os.Getenv("AppData"), "Syncthing_ofuse")
+	return filepath.Join(os.Getenv("AppData"), "Syncthing")
 }
 
 func darwinConfigDataDir(userHome string) string {
-	return filepath.Join(userHome, "Library/Application Support/Syncthing_ofuse")
+	return filepath.Join(userHome, "Library/Application Support/Syncthing")
 }
 
 func unixConfigDir(userHome, xdgConfigHome, xdgStateHome string, fileExists func(string) bool) string {
@@ -215,7 +215,7 @@ func unixConfigDir(userHome, xdgConfigHome, xdgStateHome string, fileExists func
 	// ignored, but that's not what we did previously, so we retain the
 	// old behavior.
 	if xdgConfigHome != "" {
-		candidate := filepath.Join(xdgConfigHome, "syncthing_ofuse")
+		candidate := filepath.Join(xdgConfigHome, "syncthing")
 		if fileExists(filepath.Join(candidate, configFileName)) {
 			return candidate
 		}
@@ -229,7 +229,7 @@ func unixConfigDir(userHome, xdgConfigHome, xdgStateHome string, fileExists func
 
 	// If XDG_STATE_HOME is set to an absolute path, use that
 	if filepath.IsAbs(xdgStateHome) {
-		return filepath.Join(xdgStateHome, "syncthing_ofuse")
+		return filepath.Join(xdgStateHome, "syncthing")
 	}
 
 	// Use our default
@@ -250,7 +250,7 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// that. The variable should be set to an absolute path or be ignored,
 	// but that's not what we did previously, so we retain the old behavior.
 	if xdgDataHome != "" {
-		candidate := filepath.Join(xdgDataHome, "syncthing_ofuse")
+		candidate := filepath.Join(xdgDataHome, "syncthing")
 		if fileExists(filepath.Join(candidate, LevelDBDir)) {
 			return candidate
 		}
@@ -264,7 +264,7 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 
 	// If XDG_STATE_HOME is set to an absolute path, use that
 	if filepath.IsAbs(xdgStateHome) {
-		return filepath.Join(xdgStateHome, "syncthing_ofuse")
+		return filepath.Join(xdgStateHome, "syncthing")
 	}
 
 	// Use our default
