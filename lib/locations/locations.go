@@ -123,7 +123,7 @@ var locationTemplates = map[LocationEnum]string{
 	PanicLog:      "${data}/panic-%{timestamp}.log",
 	AuditLog:      "${data}/audit-%{timestamp}.log",
 	GUIAssets:     "${config}/gui",
-	DefFolder:     "${userHome}/SyncOFuse",
+	DefFolder:     "${userHome}/Sync",
 }
 
 var locations = make(map[LocationEnum]string)
