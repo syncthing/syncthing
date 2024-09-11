@@ -1447,7 +1447,7 @@ angular.module('syncthing.core')
             // Assume hasRemoteGUIAddress is true or we would not be here
             var conn = $scope.connections[deviceCfg.deviceID];
             // Use regex to filter out scope ID from IPv6 addresses.
-            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace('%.*?\]:', ']:');
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace(/%.*?\]:/, ']:');
         };
 
         function replaceAddressPort(address, newPort) {

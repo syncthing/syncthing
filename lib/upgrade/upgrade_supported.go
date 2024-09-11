@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 	"golang.org/x/net/http2"
@@ -76,8 +77,12 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+var osVersion string
+
 func init() {
 	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+	osVersion, _ = host.KernelVersion()
+	osVersion = strings.TrimSpace(osVersion)
 }
 
 func insecureGet(url, version string) (*http.Response, error) {
@@ -87,6 +92,9 @@ func insecureGet(url, version string) (*http.Response, error) {
 	}
 
 	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	if osVersion != "" {
+		req.Header.Set("Syncthing-Os-Version", osVersion)
+	}
 	return insecureHTTP.Do(req)
 }
 
