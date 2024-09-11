@@ -17,12 +17,11 @@ import (
 	"errors"
 	"io"
 	"log"
-	"net"
-	"net/url"
 	"os"
 	"path"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -140,13 +139,13 @@ loop:
 	for {
 		select {
 		case <-t.C:
+			log.Println("Calculating statistics")
+			s.calculateStatistics()
 			log.Println("Flushing database")
 			if err := s.write(); err != nil {
 				log.Println("Error writing database:", err)
 			}
-			log.Println("Calculating statistics")
-			s.calculateStatistics()
-			log.Println("Finished calculating statistics")
+			log.Println("Finished flushing database")
 			t.Reset(s.flushInterval)
 
 		case <-ctx.Done():
@@ -162,7 +161,7 @@ func (s *inMemoryStore) calculateStatistics() {
 	now := s.clock.Now()
 	cutoff24h := now.Add(-24 * time.Hour).UnixNano()
 	cutoff1w := now.Add(-7 * 24 * time.Hour).UnixNano()
-	current, currentIPv4, currentIPv6, last24h, last1w, errors := 0, 0, 0, 0, 0, 0
+	current, currentIPv4, currentIPv6, last24h, last1w := 0, 0, 0, 0, 0
 
 	n := 0
 	s.m.Range(func(key protocol.DeviceID, rec DatabaseRecord) bool {
@@ -171,23 +170,16 @@ func (s *inMemoryStore) calculateStatistics() {
 		}
 		n++
 
+		addresses := expire(rec.Addresses, now)
 		switch {
-		case len(rec.Addresses) > 0:
+		case len(addresses) > 0:
 			current++
 			seenIPv4, seenIPv6 := false, false
 			for _, addr := range rec.Addresses {
-				uri, err := url.Parse(addr.Address)
-				if err != nil {
-					continue
-				}
-				host, _, err := net.SplitHostPort(uri.Host)
-				if err != nil {
-					continue
-				}
-				if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
-					seenIPv4 = true
-				} else if ip != nil {
+				if strings.Contains(addr.Address, "[") {
 					seenIPv6 = true
+				} else {
+					seenIPv4 = true
 				}
 				if seenIPv4 && seenIPv6 {
 					break
@@ -215,15 +207,12 @@ func (s *inMemoryStore) calculateStatistics() {
 	databaseKeys.WithLabelValues("currentIPv6").Set(float64(currentIPv6))
 	databaseKeys.WithLabelValues("last24h").Set(float64(last24h))
 	databaseKeys.WithLabelValues("last1w").Set(float64(last1w))
-	databaseKeys.WithLabelValues("error").Set(float64(errors))
 	databaseStatisticsSeconds.Set(time.Since(now).Seconds())
 }
 
 func (s *inMemoryStore) write() (err error) {
 	t0 := time.Now()
-	log.Println("Writing database")
 	defer func() {
-		log.Println("Finished writing database")
 		if err == nil {
 			databaseWriteSeconds.Set(time.Since(t0).Seconds())
 			databaseLastWritten.Set(float64(t0.Unix()))
@@ -254,7 +243,7 @@ func (s *inMemoryStore) write() (err error) {
 		}
 		rec := ReplicationRecord{
 			Key:       key[:],
-			Addresses: expire(value.Addresses, now),
+			Addresses: value.Addresses,
 			Seen:      value.Seen,
 		}
 		s := rec.Size()
@@ -346,7 +335,7 @@ func (s *inMemoryStore) read() (int, error) {
 
 		slices.SortFunc(rec.Addresses, DatabaseAddress.Cmp)
 		s.m.Store(key, DatabaseRecord{
-			Addresses: rec.Addresses,
+			Addresses: expire(rec.Addresses, s.clock.Now()),
 			Seen:      rec.Seen,
 		})
 		nr++
