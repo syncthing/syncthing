@@ -8,8 +8,6 @@ package model
 
 import (
 	"context"
-	"errors"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -23,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -36,9 +33,7 @@ func init() {
 
 type virtualFolderSyncthingService struct {
 	*folderBase
-	blockCache   blockstorage.HashBlockStorageI
-	mountPath    string
-	mountService io.Closer
+	blockCache blockstorage.HashBlockStorageI
 
 	backgroundDownloadPending chan struct{}
 	backgroundDownloadQueue   jobQueue
@@ -154,41 +149,17 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 		blobUrl := ""
 		virtual_descriptor, hasVirtualDescriptor := strings.CutPrefix(f.Path, ":virtual:")
 		if hasVirtualDescriptor {
-			parts := strings.Split(virtual_descriptor, ":mount_at:")
-			if len(parts) != 2 {
-				return errors.New("missing \":mount_at:\" in virtual descriptor")
-			}
 			//url := "s3://bucket-syncthing-uli-virtual-folder-test1/" + myDir
-			blobUrl = parts[0]
-			f.mountPath = parts[1]
+			blobUrl = virtual_descriptor
 		} else {
 			myDir := f.Path + "_BlobStorage"
 			if err := os.MkdirAll(myDir, 0o777); err != nil {
 				log.Fatal(err)
 			}
 			blobUrl = "file://" + myDir + "?no_tmp_dir=yes"
-			f.mountPath = f.Path + "R"
 		}
 
 		f.blockCache = blockstorage.NewGoCloudUrlStorage(ctx, blobUrl)
-	}
-
-	if f.mountService == nil {
-		stVF := &syncthingVirtualFolderFuseAdapter{
-			vFSS:        f,
-			folderID:    f.ID,
-			model:       f.model,
-			fset:        f.fset,
-			ino_mu:      sync.NewMutex(),
-			next_ino_nr: 1,
-			ino_mapping: make(map[string]uint64),
-		}
-		mount, err := NewVirtualFolderMount(f.mountPath, f.ID, f.Label, stVF)
-		if err != nil {
-			return err
-		}
-
-		f.mountService = mount
 	}
 
 	backgroundDownloadTasks := 4
@@ -199,7 +170,6 @@ func (f *virtualFolderSyncthingService) Serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			f.mountService.Close()
 			return nil
 
 		case <-f.pullScheduled:
