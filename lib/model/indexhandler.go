@@ -233,6 +233,12 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	batch := db.NewFileInfoBatch(nil)
 	var batchError error
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if len(fs) == 0 {
 			// can't happen, flush is not called with an empty batch
 			panic("bug: flush called with empty batch (race condition?)")
