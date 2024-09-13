@@ -63,6 +63,12 @@ implementations][11] for Windows, Mac, and Linux.
 
 To run Syncthing in Docker, see [the Docker README][16].
 
+## Self-Hosting Syncthing
+
+### Elestio
+
+[![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/syncthing)
+
 ## Getting in Touch
 
 The first and best point of contact is the [Forum][8].
