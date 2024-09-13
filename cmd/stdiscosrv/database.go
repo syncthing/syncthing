@@ -10,17 +10,22 @@
 package main
 
 import (
+	"bufio"
+	"cmp"
 	"context"
+	"encoding/binary"
+	"errors"
+	"io"
 	"log"
-	"net"
-	"net/url"
-	"sort"
+	"os"
+	"path"
+	"runtime"
+	"slices"
+	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/sliceutil"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type clock interface {
@@ -34,270 +39,305 @@ func (defaultClock) Now() time.Time {
 }
 
 type database interface {
-	put(key string, rec DatabaseRecord) error
-	merge(key string, addrs []DatabaseAddress, seen int64) error
-	get(key string) (DatabaseRecord, error)
+	put(key *protocol.DeviceID, rec DatabaseRecord) error
+	merge(key *protocol.DeviceID, addrs []DatabaseAddress, seen int64) error
+	get(key *protocol.DeviceID) (DatabaseRecord, error)
 }
 
-type levelDBStore struct {
-	db         *leveldb.DB
-	inbox      chan func()
-	clock      clock
-	marshalBuf []byte
+type inMemoryStore struct {
+	m             *xsync.MapOf[protocol.DeviceID, DatabaseRecord]
+	dir           string
+	flushInterval time.Duration
+	s3            *s3Copier
+	clock         clock
 }
 
-func newLevelDBStore(dir string) (*levelDBStore, error) {
-	db, err := leveldb.OpenFile(dir, levelDBOptions)
-	if err != nil {
-		return nil, err
+func newInMemoryStore(dir string, flushInterval time.Duration, s3 *s3Copier) *inMemoryStore {
+	s := &inMemoryStore{
+		m:             xsync.NewMapOf[protocol.DeviceID, DatabaseRecord](),
+		dir:           dir,
+		flushInterval: flushInterval,
+		s3:            s3,
+		clock:         defaultClock{},
 	}
-	return &levelDBStore{
-		db:    db,
-		inbox: make(chan func(), 16),
-		clock: defaultClock{},
-	}, nil
-}
-
-func newMemoryLevelDBStore() (*levelDBStore, error) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return &levelDBStore{
-		db:    db,
-		inbox: make(chan func(), 16),
-		clock: defaultClock{},
-	}, nil
-}
-
-func (s *levelDBStore) put(key string, rec DatabaseRecord) error {
-	t0 := time.Now()
-	defer func() {
-		databaseOperationSeconds.WithLabelValues(dbOpPut).Observe(time.Since(t0).Seconds())
-	}()
-
-	rc := make(chan error)
-
-	s.inbox <- func() {
-		size := rec.Size()
-		if len(s.marshalBuf) < size {
-			s.marshalBuf = make([]byte, size)
+	nr, err := s.read()
+	if os.IsNotExist(err) && s3 != nil {
+		// Try to read from AWS
+		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
+		if cerr != nil {
+			log.Println("Error creating database file:", err)
+			return s
 		}
-		n, _ := rec.MarshalTo(s.marshalBuf)
-		rc <- s.db.Put([]byte(key), s.marshalBuf[:n], nil)
+		if err := s3.downloadLatest(fd); err != nil {
+			log.Printf("Error reading database from S3: %v", err)
+		}
+		_ = fd.Close()
+		nr, err = s.read()
 	}
-
-	err := <-rc
 	if err != nil {
-		databaseOperations.WithLabelValues(dbOpPut, dbResError).Inc()
-	} else {
-		databaseOperations.WithLabelValues(dbOpPut, dbResSuccess).Inc()
+		log.Println("Error reading database:", err)
 	}
-
-	return err
+	log.Printf("Read %d records from database", nr)
+	s.calculateStatistics()
+	return s
 }
 
-func (s *levelDBStore) merge(key string, addrs []DatabaseAddress, seen int64) error {
+func (s *inMemoryStore) put(key *protocol.DeviceID, rec DatabaseRecord) error {
 	t0 := time.Now()
-	defer func() {
-		databaseOperationSeconds.WithLabelValues(dbOpMerge).Observe(time.Since(t0).Seconds())
-	}()
+	s.m.Store(*key, rec)
+	databaseOperations.WithLabelValues(dbOpPut, dbResSuccess).Inc()
+	databaseOperationSeconds.WithLabelValues(dbOpPut).Observe(time.Since(t0).Seconds())
+	return nil
+}
 
-	rc := make(chan error)
+func (s *inMemoryStore) merge(key *protocol.DeviceID, addrs []DatabaseAddress, seen int64) error {
+	t0 := time.Now()
+
 	newRec := DatabaseRecord{
 		Addresses: addrs,
 		Seen:      seen,
 	}
 
-	s.inbox <- func() {
-		// grab the existing record
-		oldRec, err := s.get(key)
-		if err != nil {
-			// "not found" is not an error from get, so this is serious
-			// stuff only
-			rc <- err
-			return
-		}
-		newRec = merge(newRec, oldRec)
+	oldRec, _ := s.m.Load(*key)
+	newRec = merge(newRec, oldRec)
+	s.m.Store(*key, newRec)
 
-		// We replicate s.put() functionality here ourselves instead of
-		// calling it because we want to serialize our get above together
-		// with the put in the same function.
-		size := newRec.Size()
-		if len(s.marshalBuf) < size {
-			s.marshalBuf = make([]byte, size)
-		}
-		n, _ := newRec.MarshalTo(s.marshalBuf)
-		rc <- s.db.Put([]byte(key), s.marshalBuf[:n], nil)
-	}
+	databaseOperations.WithLabelValues(dbOpMerge, dbResSuccess).Inc()
+	databaseOperationSeconds.WithLabelValues(dbOpMerge).Observe(time.Since(t0).Seconds())
 
-	err := <-rc
-	if err != nil {
-		databaseOperations.WithLabelValues(dbOpMerge, dbResError).Inc()
-	} else {
-		databaseOperations.WithLabelValues(dbOpMerge, dbResSuccess).Inc()
-	}
-
-	return err
+	return nil
 }
 
-func (s *levelDBStore) get(key string) (DatabaseRecord, error) {
+func (s *inMemoryStore) get(key *protocol.DeviceID) (DatabaseRecord, error) {
 	t0 := time.Now()
 	defer func() {
 		databaseOperationSeconds.WithLabelValues(dbOpGet).Observe(time.Since(t0).Seconds())
 	}()
 
-	keyBs := []byte(key)
-	val, err := s.db.Get(keyBs, nil)
-	if err == leveldb.ErrNotFound {
+	rec, ok := s.m.Load(*key)
+	if !ok {
 		databaseOperations.WithLabelValues(dbOpGet, dbResNotFound).Inc()
 		return DatabaseRecord{}, nil
 	}
-	if err != nil {
-		databaseOperations.WithLabelValues(dbOpGet, dbResError).Inc()
-		return DatabaseRecord{}, err
-	}
 
-	var rec DatabaseRecord
-
-	if err := rec.Unmarshal(val); err != nil {
-		databaseOperations.WithLabelValues(dbOpGet, dbResUnmarshalError).Inc()
-		return DatabaseRecord{}, nil
-	}
-
-	rec.Addresses = expire(rec.Addresses, s.clock.Now().UnixNano())
+	rec.Addresses = expire(rec.Addresses, s.clock.Now())
 	databaseOperations.WithLabelValues(dbOpGet, dbResSuccess).Inc()
 	return rec, nil
 }
 
-func (s *levelDBStore) Serve(ctx context.Context) error {
-	t := time.NewTimer(0)
+func (s *inMemoryStore) Serve(ctx context.Context) error {
+	t := time.NewTimer(s.flushInterval)
 	defer t.Stop()
-	defer s.db.Close()
 
-	// Start the statistics serve routine. It will exit with us when
-	// statisticsTrigger is closed.
-	statisticsTrigger := make(chan struct{})
-	statisticsDone := make(chan struct{})
-	go s.statisticsServe(statisticsTrigger, statisticsDone)
+	if s.flushInterval <= 0 {
+		t.Stop()
+	}
 
 loop:
 	for {
 		select {
-		case fn := <-s.inbox:
-			// Run function in serialized order.
-			fn()
-
 		case <-t.C:
-			// Trigger the statistics routine to do its thing in the
-			// background.
-			statisticsTrigger <- struct{}{}
-
-		case <-statisticsDone:
-			// The statistics routine is done with one iteratation, schedule
-			// the next.
-			t.Reset(databaseStatisticsInterval)
+			log.Println("Calculating statistics")
+			s.calculateStatistics()
+			log.Println("Flushing database")
+			if err := s.write(); err != nil {
+				log.Println("Error writing database:", err)
+			}
+			log.Println("Finished flushing database")
+			t.Reset(s.flushInterval)
 
 		case <-ctx.Done():
 			// We're done.
-			close(statisticsTrigger)
 			break loop
 		}
 	}
 
-	// Also wait for statisticsServe to return
-	<-statisticsDone
+	return s.write()
+}
+
+func (s *inMemoryStore) calculateStatistics() {
+	now := s.clock.Now()
+	cutoff24h := now.Add(-24 * time.Hour).UnixNano()
+	cutoff1w := now.Add(-7 * 24 * time.Hour).UnixNano()
+	current, currentIPv4, currentIPv6, last24h, last1w := 0, 0, 0, 0, 0
+
+	n := 0
+	s.m.Range(func(key protocol.DeviceID, rec DatabaseRecord) bool {
+		if n%1000 == 0 {
+			runtime.Gosched()
+		}
+		n++
+
+		addresses := expire(rec.Addresses, now)
+		switch {
+		case len(addresses) > 0:
+			current++
+			seenIPv4, seenIPv6 := false, false
+			for _, addr := range rec.Addresses {
+				if strings.Contains(addr.Address, "[") {
+					seenIPv6 = true
+				} else {
+					seenIPv4 = true
+				}
+				if seenIPv4 && seenIPv6 {
+					break
+				}
+			}
+			if seenIPv4 {
+				currentIPv4++
+			}
+			if seenIPv6 {
+				currentIPv6++
+			}
+		case rec.Seen > cutoff24h:
+			last24h++
+		case rec.Seen > cutoff1w:
+			last1w++
+		default:
+			// drop the record if it's older than a week
+			s.m.Delete(key)
+		}
+		return true
+	})
+
+	databaseKeys.WithLabelValues("current").Set(float64(current))
+	databaseKeys.WithLabelValues("currentIPv4").Set(float64(currentIPv4))
+	databaseKeys.WithLabelValues("currentIPv6").Set(float64(currentIPv6))
+	databaseKeys.WithLabelValues("last24h").Set(float64(last24h))
+	databaseKeys.WithLabelValues("last1w").Set(float64(last1w))
+	databaseStatisticsSeconds.Set(time.Since(now).Seconds())
+}
+
+func (s *inMemoryStore) write() (err error) {
+	t0 := time.Now()
+	defer func() {
+		if err == nil {
+			databaseWriteSeconds.Set(time.Since(t0).Seconds())
+			databaseLastWritten.Set(float64(t0.Unix()))
+		}
+	}()
+
+	dbf := path.Join(s.dir, "records.db")
+	fd, err := os.Create(dbf + ".tmp")
+	if err != nil {
+		return err
+	}
+	bw := bufio.NewWriter(fd)
+
+	var buf []byte
+	var rangeErr error
+	now := s.clock.Now()
+	cutoff1w := now.Add(-7 * 24 * time.Hour).UnixNano()
+	n := 0
+	s.m.Range(func(key protocol.DeviceID, value DatabaseRecord) bool {
+		if n%1000 == 0 {
+			runtime.Gosched()
+		}
+		n++
+
+		if value.Seen < cutoff1w {
+			// drop the record if it's older than a week
+			return true
+		}
+		rec := ReplicationRecord{
+			Key:       key[:],
+			Addresses: value.Addresses,
+			Seen:      value.Seen,
+		}
+		s := rec.Size()
+		if s+4 > len(buf) {
+			buf = make([]byte, s+4)
+		}
+		n, err := rec.MarshalTo(buf[4:])
+		if err != nil {
+			rangeErr = err
+			return false
+		}
+		binary.BigEndian.PutUint32(buf, uint32(n))
+		if _, err := bw.Write(buf[:n+4]); err != nil {
+			rangeErr = err
+			return false
+		}
+		return true
+	})
+	if rangeErr != nil {
+		_ = fd.Close()
+		return rangeErr
+	}
+
+	if err := bw.Flush(); err != nil {
+		_ = fd.Close
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(dbf+".tmp", dbf); err != nil {
+		return err
+	}
+
+	// Upload to S3
+	if s.s3 != nil {
+		fd, err = os.Open(dbf)
+		if err != nil {
+			log.Printf("Error uploading database to S3: %v", err)
+			return nil
+		}
+		defer fd.Close()
+		if err := s.s3.upload(fd); err != nil {
+			log.Printf("Error uploading database to S3: %v", err)
+		}
+		log.Println("Finished uploading database")
+	}
 
 	return nil
 }
 
-func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- struct{}) {
-	defer close(done)
+func (s *inMemoryStore) read() (int, error) {
+	fd, err := os.Open(path.Join(s.dir, "records.db"))
+	if err != nil {
+		return 0, err
+	}
+	defer fd.Close()
 
-	for range trigger {
-		t0 := time.Now()
-		nowNanos := t0.UnixNano()
-		cutoff24h := t0.Add(-24 * time.Hour).UnixNano()
-		cutoff1w := t0.Add(-7 * 24 * time.Hour).UnixNano()
-		cutoff2Mon := t0.Add(-60 * 24 * time.Hour).UnixNano()
-		current, currentIPv4, currentIPv6, last24h, last1w, inactive, errors := 0, 0, 0, 0, 0, 0, 0
-
-		iter := s.db.NewIterator(&util.Range{}, nil)
-		for iter.Next() {
-			// Attempt to unmarshal the record and count the
-			// failure if there's something wrong with it.
-			var rec DatabaseRecord
-			if err := rec.Unmarshal(iter.Value()); err != nil {
-				errors++
-				continue
+	br := bufio.NewReader(fd)
+	var buf []byte
+	nr := 0
+	for {
+		var n uint32
+		if err := binary.Read(br, binary.BigEndian, &n); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
 			}
-
-			// If there are addresses that have not expired it's a current
-			// record, otherwise account it based on when it was last seen
-			// (last 24 hours or last week) or finally as inactice.
-			addrs := expire(rec.Addresses, nowNanos)
-			switch {
-			case len(addrs) > 0:
-				current++
-				seenIPv4, seenIPv6 := false, false
-				for _, addr := range addrs {
-					uri, err := url.Parse(addr.Address)
-					if err != nil {
-						continue
-					}
-					host, _, err := net.SplitHostPort(uri.Host)
-					if err != nil {
-						continue
-					}
-					if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
-						seenIPv4 = true
-					} else if ip != nil {
-						seenIPv6 = true
-					}
-					if seenIPv4 && seenIPv6 {
-						break
-					}
-				}
-				if seenIPv4 {
-					currentIPv4++
-				}
-				if seenIPv6 {
-					currentIPv6++
-				}
-			case rec.Seen > cutoff24h:
-				last24h++
-			case rec.Seen > cutoff1w:
-				last1w++
-			case rec.Seen > cutoff2Mon:
-				inactive++
-			case rec.Missed < cutoff2Mon:
-				// It hasn't been seen lately and we haven't recorded
-				// someone asking for this device in a long time either;
-				// delete the record.
-				if err := s.db.Delete(iter.Key(), nil); err != nil {
-					databaseOperations.WithLabelValues(dbOpDelete, dbResError).Inc()
-				} else {
-					databaseOperations.WithLabelValues(dbOpDelete, dbResSuccess).Inc()
-				}
-			default:
-				inactive++
-			}
+			return nr, err
+		}
+		if int(n) > len(buf) {
+			buf = make([]byte, n)
+		}
+		if _, err := io.ReadFull(br, buf[:n]); err != nil {
+			return nr, err
+		}
+		rec := ReplicationRecord{}
+		if err := rec.Unmarshal(buf[:n]); err != nil {
+			return nr, err
+		}
+		key, err := protocol.DeviceIDFromBytes(rec.Key)
+		if err != nil {
+			key, err = protocol.DeviceIDFromString(string(rec.Key))
+		}
+		if err != nil {
+			log.Println("Bad device ID:", err)
+			continue
 		}
 
-		iter.Release()
-
-		databaseKeys.WithLabelValues("current").Set(float64(current))
-		databaseKeys.WithLabelValues("currentIPv4").Set(float64(currentIPv4))
-		databaseKeys.WithLabelValues("currentIPv6").Set(float64(currentIPv6))
-		databaseKeys.WithLabelValues("last24h").Set(float64(last24h))
-		databaseKeys.WithLabelValues("last1w").Set(float64(last1w))
-		databaseKeys.WithLabelValues("inactive").Set(float64(inactive))
-		databaseKeys.WithLabelValues("error").Set(float64(errors))
-		databaseStatisticsSeconds.Set(time.Since(t0).Seconds())
-
-		// Signal that we are done and can be scheduled again.
-		done <- struct{}{}
+		slices.SortFunc(rec.Addresses, DatabaseAddress.Cmp)
+		s.m.Store(key, DatabaseRecord{
+			Addresses: expire(rec.Addresses, s.clock.Now()),
+			Seen:      rec.Seen,
+		})
+		nr++
 	}
+	return nr, nil
 }
 
 // merge returns the merged result of the two database records a and b. The
@@ -305,18 +345,9 @@ func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- stru
 // chosen for any duplicates.
 func merge(a, b DatabaseRecord) DatabaseRecord {
 	// Both lists must be sorted for this to work.
-	if !sort.IsSorted(databaseAddressOrder(a.Addresses)) {
-		log.Println("Warning: bug: addresses not correctly sorted in merge")
-		a.Addresses = sortedAddressCopy(a.Addresses)
-	}
-	if !sort.IsSorted(databaseAddressOrder(b.Addresses)) {
-		// no warning because this is the side we read from disk and it may
-		// legitimately predate correct sorting.
-		b.Addresses = sortedAddressCopy(b.Addresses)
-	}
 
 	res := DatabaseRecord{
-		Addresses: make([]DatabaseAddress, 0, len(a.Addresses)+len(b.Addresses)),
+		Addresses: make([]DatabaseAddress, 0, max(len(a.Addresses), len(b.Addresses))),
 		Seen:      a.Seen,
 	}
 	if b.Seen > a.Seen {
@@ -378,36 +409,21 @@ loop:
 
 // expire returns the list of addresses after removing expired entries.
 // Expiration happen in place, so the slice given as the parameter is
-// destroyed. Internal order is not preserved.
-func expire(addrs []DatabaseAddress, now int64) []DatabaseAddress {
-	i := 0
-	for i < len(addrs) {
-		if addrs[i].Expires < now {
-			addrs = sliceutil.RemoveAndZero(addrs, i)
-			continue
+// destroyed. Internal order is preserved.
+func expire(addrs []DatabaseAddress, now time.Time) []DatabaseAddress {
+	cutoff := now.UnixNano()
+	naddrs := addrs[:0]
+	for i := range addrs {
+		if addrs[i].Expires >= cutoff {
+			naddrs = append(naddrs, addrs[i])
 		}
-		i++
 	}
-	return addrs
+	return naddrs
 }
 
-func sortedAddressCopy(addrs []DatabaseAddress) []DatabaseAddress {
-	sorted := make([]DatabaseAddress, len(addrs))
-	copy(sorted, addrs)
-	sort.Sort(databaseAddressOrder(sorted))
-	return sorted
-}
-
-type databaseAddressOrder []DatabaseAddress
-
-func (s databaseAddressOrder) Less(a, b int) bool {
-	return s[a].Address < s[b].Address
-}
-
-func (s databaseAddressOrder) Swap(a, b int) {
-	s[a], s[b] = s[b], s[a]
-}
-
-func (s databaseAddressOrder) Len() int {
-	return len(s)
+func (d DatabaseAddress) Cmp(other DatabaseAddress) (n int) {
+	if c := cmp.Compare(d.Address, other.Address); c != 0 {
+		return c
+	}
+	return cmp.Compare(d.Expires, other.Expires)
 }
