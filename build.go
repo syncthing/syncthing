@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build ignore
-// +build ignore
+//go:build tools
+// +build tools
 
 package main
 
@@ -34,6 +34,8 @@ import (
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/upgrade"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -342,9 +344,11 @@ func runCommand(cmd string, target target) {
 
 	case "tar":
 		buildTar(target, tags)
+		writeCompatJSON()
 
 	case "zip":
 		buildZip(target, tags)
+		writeCompatJSON()
 
 	case "deb":
 		buildDeb(target)
@@ -1556,4 +1560,30 @@ func nextPatchVersion(ver string) string {
 	n, _ := strconv.Atoi(digits[len(digits)-1])
 	digits[len(digits)-1] = strconv.Itoa(n + 1)
 	return strings.Join(digits, ".")
+}
+
+func writeCompatJSON() {
+	bs, err := os.ReadFile("compat.yaml")
+	if err != nil {
+		log.Fatal("Reading compat.yaml:", err)
+	}
+
+	var entries []upgrade.ReleaseCompatibility
+	if err := yaml.Unmarshal(bs, &entries); err != nil {
+		log.Fatal("Parsing compat.yaml:", err)
+	}
+
+	rt := runtime.Version()
+	for _, e := range entries {
+		if !strings.HasPrefix(rt, e.Runtime) {
+			continue
+		}
+		bs, _ := json.MarshalIndent(e, "", "  ")
+		if err := os.WriteFile("compat.json", bs, 0o644); err != nil {
+			log.Fatal("Writing compat.json:", err)
+		}
+		return
+	}
+
+	log.Fatalf("runtime %v not found in compat.yaml", rt)
 }
