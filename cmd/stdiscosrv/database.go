@@ -350,6 +350,7 @@ func (s *inMemoryStore) read() (int, error) {
 		}
 
 		slices.SortFunc(rec.Addresses, DatabaseAddress.Cmp)
+		rec.Addresses = slices.CompactFunc(rec.Addresses, DatabaseAddress.Equal)
 		s.m.Store(key, DatabaseRecord{
 			Addresses: expire(rec.Addresses, s.clock.Now()),
 			Seen:      rec.Seen,
@@ -419,4 +420,8 @@ func (d DatabaseAddress) Cmp(other DatabaseAddress) (n int) {
 		return c
 	}
 	return cmp.Compare(d.Expires, other.Expires)
+}
+
+func (d DatabaseAddress) Equal(other DatabaseAddress) bool {
+	return d.Address == other.Address
 }

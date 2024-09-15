@@ -307,15 +307,16 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 	now := time.Now()
 	expire := now.Add(addressExpiryTime).UnixNano()
 
+	// The address slice must always be sorted for database merges to work
+	// properly.
+	slices.Sort(addresses)
+	addresses = slices.Compact(addresses)
+
 	dbAddrs := make([]DatabaseAddress, len(addresses))
 	for i := range addresses {
 		dbAddrs[i].Address = addresses[i]
 		dbAddrs[i].Expires = expire
 	}
-
-	// The address slice must always be sorted for database merges to work
-	// properly.
-	slices.SortFunc(dbAddrs, DatabaseAddress.Cmp)
 
 	seen := now.UnixNano()
 	if s.repl != nil {
