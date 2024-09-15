@@ -79,6 +79,7 @@ angular.module('syncthing.core')
         $scope.webauthn = {
             errors: {},
             request: false,
+            state: false,
             editingCredentialIds: {},
         };
         resetRemoteNeed();
@@ -202,6 +203,7 @@ angular.module('syncthing.core')
                 refreshSystem(),
                 refreshDiscoveryCache(),
                 refreshConfig(),
+                refreshWebauthnState(),
                 refreshCluster(),
                 refreshConnectionStats(),
             ]).then(function() {
@@ -788,6 +790,12 @@ angular.module('syncthing.core')
                     $scope.configInSync = data.configInSync;
                 }),
             ]);
+        }
+
+        function refreshWebauthnState() {
+            return $http.get(urlbase + '/webauthn/state').success(function (data) {
+                $scope.webauthn.state = data;
+            });
         }
 
         $scope.refreshNeed = function (page, perpage) {

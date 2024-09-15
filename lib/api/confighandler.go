@@ -310,7 +310,7 @@ func (c *configMuxBuilder) registerGUI(path string) {
 
 func (c *configMuxBuilder) registerWebauthnConfig(path string) {
 	c.HandlerFunc(http.MethodPost, path+"/register-start", c.webauthnService.startWebauthnRegistration(c.cfg, c.cfg.GUI()))
-	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration(c.cfg, c.cfg.GUI()))
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration(c.cfg))
 }
 
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {

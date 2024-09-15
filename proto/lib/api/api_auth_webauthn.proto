@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package api;
+
+import "google/protobuf/timestamp.proto";
+
+message WebauthnDynState {
+    map<string, WebauthnCredentialDynState> credentials = 1; // Keys are base64.RawURLEncoding.EncodeToString(credential ID)
+}
+
+message WebauthnCredentialDynState {
+    uint32                    sign_count    = 1;
+    google.protobuf.Timestamp last_use_time = 2;
+}
