@@ -167,13 +167,13 @@ func (c *GUIConfiguration) prepare() error {
 	}
 
 	if len(c.WebauthnUserId) == 0 {
-		// Spec recommends 64 random bytes, we use 32 and hex-encoding inflates to 64
+		// Spec recommends 64 random bytes; 32 is enough and fits hex-encoded in the max of 64 bytes
 		newUserId := make([]byte, 32)
 		_, err := rand.Read(newUserId)
 		if err != nil {
 			return err
 		}
-		// Hex-encode the ID so that the raw binary values look nice in config.xml
+		// Hex-encode the random bytes so that the ID is printable ASCII, for config.xml etc.
 		c.WebauthnUserId = []byte(hex.EncodeToString(newUserId))
 	}
 
