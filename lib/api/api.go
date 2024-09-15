@@ -514,11 +514,12 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 func isAuthEnabled(webauthnService *webauthnService, guiCfg config.GUIConfiguration) bool {
 	// This function should match isAuthEnabled() in syncthingController.js
-	webauthnReady, err := webauthnService.IsAuthReady(guiCfg)
+	webauthnConfigured, err := webauthnService.IsAuthConfigured()
 	if err != nil {
-		webauthnReady = false
+		// Better to lock user out than let the world in if loading WebAuthn state fails
+		webauthnConfigured = true
 	}
-	return guiCfg.IsPasswordAuthEnabled() || webauthnReady
+	return guiCfg.IsPasswordAuthEnabled() || webauthnConfigured
 }
 
 func (s *service) fatal(err *svcutil.FatalErr) {

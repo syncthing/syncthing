@@ -145,7 +145,7 @@ func (webauthnLibUser) WebAuthnIcon() string {
 }
 func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
-	eligibleCredentials, err := u.service.EligibleWebAuthnCredentials(u.guiCfg)
+	eligibleCredentials, err := u.service.eligibleWebAuthnCredentials(u.guiCfg)
 	if err != nil {
 		return make([]webauthnLib.Credential, 0)
 	}
@@ -180,15 +180,16 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-func (s *webauthnService) IsAuthReady(guiCfg config.GUIConfiguration) (bool, error) {
-	eligibleCredentials, err := s.EligibleWebAuthnCredentials(guiCfg)
+func (s *webauthnService) IsAuthConfigured() (bool, error) {
+	state, err := s.loadState()
 	if err != nil {
 		return false, err
 	}
-	return guiCfg.UseTLS() && len(eligibleCredentials) > 0, nil
+
+	return len(state.Credentials) > 0, nil
 }
 
-func (s *webauthnService) EligibleWebAuthnCredentials(guiCfg config.GUIConfiguration) ([]WebauthnCredential, error) {
+func (s *webauthnService) eligibleWebAuthnCredentials(guiCfg config.GUIConfiguration) ([]WebauthnCredential, error) {
 	state, err := s.loadState()
 	if err != nil {
 		return nil, err
