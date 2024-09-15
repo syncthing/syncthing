@@ -382,8 +382,8 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(s.cfg))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, s.cfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(s.cfg.GUI()))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, s.cfg.GUI()))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
@@ -494,7 +494,6 @@ func (*service) VerifyConfiguration(_, to config.Configuration) error {
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
-	from.GUI.WebauthnState = to.GUI.WebauthnState
 
 	if reflect.DeepEqual(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.

@@ -123,9 +123,9 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-func (s *webauthnService) startWebauthnRegistration(cfg config.Wrapper, guiCfg config.GUIConfiguration) http.HandlerFunc {
+func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		options, sessionData, err := s.engine.BeginRegistration(s.user(cfg.GUI()))
+		options, sessionData, err := s.engine.BeginRegistration(s.user(guiCfg))
 		if err != nil {
 			l.Warnln("Failed to initiate WebAuthn registration:", err)
 			internalServerError(w)
@@ -138,19 +138,19 @@ func (s *webauthnService) startWebauthnRegistration(cfg config.Wrapper, guiCfg c
 	}
 }
 
-func (s *webauthnService) finishWebauthnRegistration(cfg config.Wrapper) http.HandlerFunc {
+func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		state := s.registrationState
 		s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
 
-		credential, err := s.engine.FinishRegistration(s.user(cfg.GUI()), state, r)
+		credential, err := s.engine.FinishRegistration(s.user(guiCfg), state, r)
 		if err != nil {
 			l.Infoln("Failed to register WebAuthn credential:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		for _, existingCred := range cfg.GUI().WebauthnState.Credentials {
+		for _, existingCred := range guiCfg.WebauthnState.Credentials {
 			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
@@ -196,11 +196,11 @@ func (s *webauthnService) finishWebauthnRegistration(cfg config.Wrapper) http.Ha
 	}
 }
 
-func (s *webauthnService) startWebauthnAuthentication(cfg config.Wrapper) http.HandlerFunc {
+func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		allRequireUv := true
 		someRequiresUv := false
-		for _, cred := range cfg.GUI().WebauthnState.Credentials {
+		for _, cred := range guiCfg.WebauthnState.Credentials {
 			if cred.RequireUv {
 				someRequiresUv = true
 			} else {
@@ -214,7 +214,7 @@ func (s *webauthnService) startWebauthnAuthentication(cfg config.Wrapper) http.H
 			uv = webauthnProtocol.VerificationPreferred
 		}
 
-		options, sessionData, err := s.engine.BeginLogin(s.user(cfg.GUI()), webauthnLib.WithUserVerification(uv))
+		options, sessionData, err := s.engine.BeginLogin(s.user(guiCfg), webauthnLib.WithUserVerification(uv))
 		if err != nil {
 			badRequest, ok := err.(*webauthnProtocol.Error)
 			if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
@@ -231,7 +231,7 @@ func (s *webauthnService) startWebauthnAuthentication(cfg config.Wrapper) http.H
 	}
 }
 
-func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, cfg config.Wrapper) http.HandlerFunc {
+func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		state := s.authenticationState
 		s.authenticationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
@@ -254,7 +254,6 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		guiCfg := cfg.GUI()
 		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state, parsedResponse)
 		if err != nil {
 			l.Infoln("WebAuthn authentication failed", err)

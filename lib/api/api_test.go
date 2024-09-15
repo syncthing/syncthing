@@ -2950,13 +2950,14 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	t.Run("Editing WebAuthn credential ID results in deleting the existing credential", func(t *testing.T) {
 		t.Parallel()
 		w := initConfig(t)
-		get, mod := startHttpServer(t, w)
 		{
+			_, mod := startHttpServer(t, w)
 			cfg := w.RawCopy()
 			cfg.GUI.WebauthnState.Credentials[0].ID = "ZZZZ"
 			mod(http.MethodPut, cfgPath, cfg)
 		}
 		{
+			get, _ := startHttpServer(t, w)
 			resp := get(cfgPath)
 			var cfg config.Configuration
 			testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
