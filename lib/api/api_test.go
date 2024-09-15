@@ -2840,7 +2840,7 @@ func webauthnStateEqual(a config.WebauthnState, b config.WebauthnState) bool {
 	return cmp.Equal(a, b)
 }
 
-func TestWebauthnStateChanges(t *testing.T) {
+func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
 	// This test needs a longer-than-default shutdown timeout when running on GitHub Actions
@@ -2860,7 +2860,7 @@ func TestWebauthnStateChanges(t *testing.T) {
 		},
 	}
 
-	startHttpServer := func(t *testing.T) (config.Configuration, func(string) *http.Response, func(string, string, any)) {
+	initConfig := func(t *testing.T) config.Wrapper {
 		const testAPIKey = "foobarbaz"
 		cfg := config.Configuration{
 			GUI: withTestDefaults(config.GUIConfiguration{
@@ -2881,7 +2881,10 @@ func TestWebauthnStateChanges(t *testing.T) {
 			os.Remove(tmpFile.Name())
 			cfgCancel()
 		})
+		return w
+	}
 
+	startHttpServer := func(t *testing.T, w config.Wrapper) (func(string) *http.Response, func(string, string, any)) {
 		baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 		t.Cleanup(cancel)
 		testutil.FatalIfErr(t, err)
@@ -2913,16 +2916,17 @@ func TestWebauthnStateChanges(t *testing.T) {
 			return do(req, http.StatusOK)
 		}
 
-		return cfg, get, mod
+		return get, mod
 	}
 
 	cfgPath := "/rest/config"
 
 	t.Run("Cannot add WebAuthn credential through just config", func(t *testing.T) {
 		t.Parallel()
-		cfg, get, mod := startHttpServer(t)
+		w := initConfig(t)
+		get, mod := startHttpServer(t, w)
 		{
-			cfg := cfg.Copy()
+			cfg := w.RawCopy()
 			cfg.GUI.WebauthnState.Credentials = append(
 				cfg.GUI.WebauthnState.Credentials,
 				config.WebauthnCredential{
@@ -2945,9 +2949,10 @@ func TestWebauthnStateChanges(t *testing.T) {
 
 	t.Run("Editing WebAuthn credential ID results in deleting the existing credential", func(t *testing.T) {
 		t.Parallel()
-		cfg, get, mod := startHttpServer(t)
+		w := initConfig(t)
+		get, mod := startHttpServer(t, w)
 		{
-			cfg := cfg.Copy()
+			cfg := w.RawCopy()
 			cfg.GUI.WebauthnState.Credentials[0].ID = "ZZZZ"
 			mod(http.MethodPut, cfgPath, cfg)
 		}
@@ -2963,9 +2968,10 @@ func TestWebauthnStateChanges(t *testing.T) {
 	testCannotEditCredential := func(propName string, modify func(*config.WebauthnState)) {
 		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
 			t.Parallel()
-			cfg, get, mod := startHttpServer(t)
+			w := initConfig(t)
+			get, mod := startHttpServer(t, w)
 			{
-				cfg := cfg.Copy()
+				cfg := w.RawCopy()
 				modify(&cfg.GUI.WebauthnState)
 				mod(http.MethodPut, cfgPath, cfg)
 			}
@@ -2995,13 +3001,15 @@ func TestWebauthnStateChanges(t *testing.T) {
 	testCanEditCredential := func(propName string, modify func(*config.WebauthnState), verify func(config.WebauthnState) bool) {
 		t.Run(fmt.Sprintf("Can edit WebauthnCredential.%s", propName), func(t *testing.T) {
 			t.Parallel()
-			cfg, get, mod := startHttpServer(t)
+			w := initConfig(t)
 			{
-				cfg := cfg.Copy()
+				_, mod := startHttpServer(t, w)
+				cfg := w.RawCopy()
 				modify(&cfg.GUI.WebauthnState)
 				mod(http.MethodPut, cfgPath, cfg)
 			}
 			{
+				get, _ := startHttpServer(t, w)
 				resp := get(cfgPath)
 				var cfg config.Configuration
 				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
