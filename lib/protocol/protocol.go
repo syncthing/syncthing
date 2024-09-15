@@ -466,6 +466,11 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 	state := stateInitial
 	for {
 		select {
+		case <-c.closed:
+			return ErrClosed
+		default:
+		}
+		select {
 		case msg = <-c.inbox:
 		case <-c.closed:
 			return ErrClosed
@@ -758,6 +763,17 @@ func (c *rawConnection) writerLoop() {
 		return
 	}
 	for {
+		// When the connection is closing or closed, that should happen
+		// immediately, not compete with the (potentially very busy) outbox.
+		select {
+		case hm := <-c.closeBox:
+			_ = c.writeMessage(hm.msg)
+			close(hm.done)
+			return
+		case <-c.closed:
+			return
+		default:
+		}
 		select {
 		case cc := <-c.clusterConfigBox:
 			err := c.writeMessage(cc)
