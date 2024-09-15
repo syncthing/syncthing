@@ -159,7 +159,7 @@ func (s *inMemoryStore) calculateStatistics() {
 	now := s.clock.Now()
 	cutoff24h := now.Add(-24 * time.Hour).UnixNano()
 	cutoff1w := now.Add(-7 * 24 * time.Hour).UnixNano()
-	current, currentIPv4, currentIPv6, last24h, last1w := 0, 0, 0, 0, 0
+	current, currentIPv4, currentIPv6, currentIPv6GUA, last24h, last1w := 0, 0, 0, 0, 0, 0
 
 	n := 0
 	s.m.Range(func(key protocol.DeviceID, rec DatabaseRecord) bool {
@@ -172,14 +172,20 @@ func (s *inMemoryStore) calculateStatistics() {
 		switch {
 		case len(addresses) > 0:
 			current++
-			seenIPv4, seenIPv6 := false, false
+			seenIPv4, seenIPv6, seenIPv6GUA := false, false, false
 			for _, addr := range rec.Addresses {
+				// We do fast and loose matching on strings here instead of
+				// parsing the address and the IP and doing "proper" checks,
+				// to keep things fast and generate less garbage.
 				if strings.Contains(addr.Address, "[") {
 					seenIPv6 = true
+					if strings.Contains(addr.Address, "[2") {
+						seenIPv6GUA = true
+					}
 				} else {
 					seenIPv4 = true
 				}
-				if seenIPv4 && seenIPv6 {
+				if seenIPv4 && seenIPv6 && seenIPv6GUA {
 					break
 				}
 			}
@@ -188,6 +194,9 @@ func (s *inMemoryStore) calculateStatistics() {
 			}
 			if seenIPv6 {
 				currentIPv6++
+			}
+			if seenIPv6GUA {
+				currentIPv6GUA++
 			}
 		case rec.Seen > cutoff24h:
 			last24h++
@@ -203,6 +212,7 @@ func (s *inMemoryStore) calculateStatistics() {
 	databaseKeys.WithLabelValues("current").Set(float64(current))
 	databaseKeys.WithLabelValues("currentIPv4").Set(float64(currentIPv4))
 	databaseKeys.WithLabelValues("currentIPv6").Set(float64(currentIPv6))
+	databaseKeys.WithLabelValues("currentIPv6GUA").Set(float64(currentIPv6GUA))
 	databaseKeys.WithLabelValues("last24h").Set(float64(last24h))
 	databaseKeys.WithLabelValues("last1w").Set(float64(last1w))
 	databaseStatisticsSeconds.Set(time.Since(now).Seconds())
