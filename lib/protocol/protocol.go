@@ -354,6 +354,8 @@ func (c *rawConnection) Index(ctx context.Context, idx *Index) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
 	}
 	c.idxMut.Lock()
@@ -367,6 +369,8 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) err
 	select {
 	case <-c.closed:
 		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
 	}
 	c.idxMut.Lock()
@@ -377,6 +381,14 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) err
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *rawConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
+	select {
+	case <-c.closed:
+		return nil, ErrClosed
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	rc := make(chan asyncResult, 1)
 
 	c.awaitingMut.Lock()
