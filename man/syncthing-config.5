@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 18, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Sep 04, 2024" "v1.27.11" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -206,7 +206,7 @@ may no longer correspond to the defaults.
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
-        <unackedNotificationID>guiAuthentication</unackedNotificationID>
+        <unackedNotificationID>authenticationUserAndPassword</unackedNotificationID>
         <trafficClass>0</trafficClass>
         <setLowPriority>true</setLowPriority>
         <maxFolderConcurrency>0</maxFolderConcurrency>
@@ -1175,7 +1175,7 @@ Search filter for user searches.
     <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
     <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
     <tempIndexMinBlocks>10</tempIndexMinBlocks>
-    <unackedNotificationID>guiAuthentication</unackedNotificationID>
+    <unackedNotificationID>authenticationUserAndPassword</unackedNotificationID>
     <trafficClass>0</trafficClass>
     <setLowPriority>true</setLowPriority>
     <maxFolderConcurrency>0</maxFolderConcurrency>

@@ -59,30 +59,35 @@ angular.module('syncthing.core')
                         // Find the first language in the list provided by the user's browser
                         // that is a prefix of a language we have available. That is, "en"
                         // sent by the browser will match "en" or "en-US", while "zh-TW" will
-                        // match only "zh-TW" and not "zh-CN".
+                        // match only "zh-TW" and not "zh" or "zh-CN".
 
                         var i,
-                            lang,
+                            browserLang,
                             matching,
-                            locale = _defaultLocale;
+                            locale = _defaultLocale; // Fallback if nothing matched
 
                         for (i = 0; i < langs.length; i++) {
-                            lang = langs[i];
+                            browserLang = langs[i];
 
-                            if (lang.length < 2) {
+                            if (browserLang.length < 2) {
                                 continue;
                             }
 
                             matching = _availableLocales.filter(function (possibleLang) {
-                                // The langs returned by the /rest/langs call will be in lower
-                                // case. We compare to the lowercase version of the language
-                                // code we have as well.
+                                // The langs returned by the /rest/svc/langs call will be in
+                                // lower case. We compare to the lowercase version of the
+                                // language code we have as well.
                                 possibleLang = possibleLang.toLowerCase();
-                                if (possibleLang.length > lang.length) {
-                                    return possibleLang.indexOf(lang) === 0;
-                                } else {
-                                    return lang.indexOf(possibleLang) === 0;
+                                if (possibleLang.indexOf(browserLang) !== 0) {
+                                    // Prefix does not match
+                                    return false;
                                 }
+                                if (possibleLang.length > browserLang.length) {
+                                    // Must match up to the next hyphen separator
+                                    return possibleLang[browserLang.length] === '-';
+                                }
+                                // Same length, exact match
+                                return true;
                             });
 
                             if (matching.length >= 1) {
@@ -90,7 +95,6 @@ angular.module('syncthing.core')
                                 break;
                             }
                         }
-                        // Fallback if nothing matched
                         useLocale(locale);
                     });
                 }

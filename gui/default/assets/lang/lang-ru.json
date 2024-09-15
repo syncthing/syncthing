@@ -1,6 +1,6 @@
 {
     "A device with that ID is already added.": "Устройство с таким ID уже добавлено.",
-    "A negative number of days doesn't make sense.": "Отрицательное число дней не имеет значения.",
+    "A negative number of days doesn't make sense.": "Число дней не может быть отрицательным.",
     "A new major version may not be compatible with previous versions.": "Новое обновление основной версии может быть несовместимо с предыдущими версиями.",
     "API Key": "Ключ API",
     "About": "О программе",

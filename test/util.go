@@ -11,6 +11,7 @@ package integration
 
 import (
 	cr "crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rc"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 func init() {

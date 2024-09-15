@@ -39,7 +39,7 @@ type progressUpdate struct {
 }
 
 func (p progressUpdate) send(ctx context.Context) {
-	p.conn.DownloadProgress(ctx, p.folder, p.updates)
+	p.conn.DownloadProgress(ctx, &protocol.DownloadProgress{Folder: p.folder, Updates: p.updates})
 }
 
 // NewProgressEmitter creates a new progress emitter which emits
@@ -118,12 +118,12 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 }
 
 func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
-	output := make(map[string]map[string]*pullerProgress)
+	output := make(map[string]map[string]*PullerProgress)
 	for folder, pullers := range t.registry {
 		if len(pullers) == 0 {
 			continue
 		}
-		output[folder] = make(map[string]*pullerProgress)
+		output[folder] = make(map[string]*PullerProgress)
 		for name, puller := range pullers {
 			output[folder][name] = puller.Progress()
 		}
@@ -334,7 +334,7 @@ func (t *ProgressEmitter) clearLocked() {
 		}
 		for _, folder := range state.folders() {
 			if updates := state.cleanup(folder); len(updates) > 0 {
-				conn.DownloadProgress(context.Background(), folder, updates)
+				conn.DownloadProgress(context.Background(), &protocol.DownloadProgress{Folder: folder, Updates: updates})
 			}
 		}
 	}
