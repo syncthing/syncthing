@@ -169,8 +169,16 @@ func (s *inMemoryStore) calculateStatistics() {
 		n++
 
 		addresses := expire(rec.Addresses, now)
+		if len(addresses) == 0 {
+			rec.Addresses = nil
+			s.m.Store(key, rec)
+		} else if len(addresses) != len(rec.Addresses) {
+			rec.Addresses = addresses
+			s.m.Store(key, rec)
+		}
+
 		switch {
-		case len(addresses) > 0:
+		case len(rec.Addresses) > 0:
 			current++
 			seenIPv4, seenIPv6, seenIPv6GUA := false, false, false
 			for _, addr := range rec.Addresses {
@@ -427,6 +435,9 @@ func expire(addrs []DatabaseAddress, now time.Time) []DatabaseAddress {
 		if addrs[i].Expires >= cutoff {
 			naddrs = append(naddrs, addrs[i])
 		}
+	}
+	if len(naddrs) == 0 {
+		return nil
 	}
 	return naddrs
 }
