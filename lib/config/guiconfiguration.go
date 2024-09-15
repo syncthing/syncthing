@@ -7,7 +7,7 @@
 package config
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"net"
 	"net/url"
 	"os"
@@ -191,13 +191,15 @@ func (c *GUIConfiguration) prepare() error {
 		c.APIKey = rand.String(32)
 	}
 
-	if c.WebauthnUserId == "" {
-		newUserId := make([]byte, 64)
+	if len(c.WebauthnUserId) == 0 {
+		// Spec recommends 64 random bytes; 32 is enough and fits hex-encoded in the max of 64 bytes
+		newUserId := make([]byte, 32)
 		_, err := rand.Read(newUserId)
 		if err != nil {
 			return err
 		}
-		c.WebauthnUserId = base64.URLEncoding.EncodeToString(newUserId)
+		// Hex-encode the random bytes so that the ID is printable ASCII, for config.xml etc.
+		c.WebauthnUserId = []byte(hex.EncodeToString(newUserId))
 	}
 
 	return nil
