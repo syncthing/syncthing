@@ -2047,7 +2047,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		var pendingCred config.WebauthnCredential
 		testutil.FatalIfErr(t, unmarshalTo(finishResp.Body, &pendingCred))
 
-		testutil.AssertEqual(t, t.Errorf, pendingCred.ID, base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+		testutil.AssertEqual(t, t.Errorf, pendingCred.ID, base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 			"Wrong credential ID in registration success response")
 
 		testutil.AssertEqual(t, t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
@@ -2139,9 +2139,9 @@ func TestWebauthnRegistration(t *testing.T) {
 		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t,
 			[]config.WebauthnCredential{
 				{
-					ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+					ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 					RpId:          "localhost",
-					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 				},
 			},
 		)
@@ -2281,9 +2281,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 				RpId:          "localhost",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 				SignCount:     0,
 				RequireUv:     false,
 			},
@@ -2306,9 +2306,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			_, httpPost, getAssertionOptions := startServer(t, "", nil, []config.WebauthnCredential{
 				credentials[0],
 				{
-					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					ID:            base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 					RpId:          "localhost",
-					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 					SignCount:     0,
 					RequireUv:     true,
 				},
@@ -2339,9 +2339,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 				RpId:          "localhost",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 				SignCount:     0,
 				RequireUv:     true,
 			},
@@ -2364,9 +2364,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			_, httpPost, getAssertionOptions := startServer(t, "", nil, []config.WebauthnCredential{
 				credentials[0],
 				{
-					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					ID:            base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 					RpId:          "localhost",
-					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 					SignCount:     0,
 					RequireUv:     false,
 				},
@@ -2397,9 +2397,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 				RpId:          "custom-host",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 			},
 		}
 
@@ -2445,9 +2445,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 				RpId:          "localhost",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 				SignCount:     17,
 				RequireUv:     false,
 			},
@@ -2469,9 +2469,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			t.Parallel()
 			_, httpPost, getAssertionOptions := startServer(t, "localhost", nil, append(credentials,
 				config.WebauthnCredential{
-					ID:            base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					ID:            base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 					RpId:          "localhost",
-					PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 					SignCount:     17,
 					RequireUv:     false,
 				}))
@@ -2547,9 +2547,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Parallel()
 		credentials := []config.WebauthnCredential{
 			{
-				ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 				RpId:          "localhost",
-				PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 				SignCount:     17,
 				RequireUv:     false,
 			},
@@ -2571,12 +2571,12 @@ func TestWebauthnAuthentication(t *testing.T) {
 		credsWithRequireUv := func(aRequiresUv, bRequiresUv bool) []config.WebauthnCredential {
 			return []config.WebauthnCredential{
 				{
-					ID:        base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+					ID:        base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 					RpId:      "localhost",
 					RequireUv: aRequiresUv,
 				},
 				{
-					ID:        base64.URLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+					ID:        base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
 					RpId:      "localhost",
 					RequireUv: bRequiresUv,
 				},
@@ -2701,9 +2701,9 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			WebauthnState: config.WebauthnState{
 				Credentials: []config.WebauthnCredential{
 					{
-						ID:            base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+						ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 						RpId:          "localhost",
-						PublicKeyCose: base64.URLEncoding.EncodeToString(publicKeyCose),
+						PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
 						SignCount:     0,
 						RequireUv:     false,
 					},
@@ -2924,7 +2924,7 @@ func TestWebauthnStateChanges(t *testing.T) {
 				ID:            "AAAA",
 				RpId:          "localhost",
 				Nickname:      "Credential A",
-				PublicKeyCose: base64.URLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 				SignCount:     0,
 				Transports:    []string{"transportA"},
 				RequireUv:     false,
@@ -3002,7 +3002,7 @@ func TestWebauthnStateChanges(t *testing.T) {
 				config.WebauthnCredential{
 					ID:            "BBBB",
 					RpId:          "localhost",
-					PublicKeyCose: base64.URLEncoding.EncodeToString([]byte{}),
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString([]byte{}),
 					SignCount:     0,
 					RequireUv:     false,
 				},

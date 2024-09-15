@@ -89,13 +89,13 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	eligibleCredentials := u.guiCfg.WebauthnState.EligibleWebAuthnCredentials(u.guiCfg)
 
 	for _, cred := range eligibleCredentials {
-		id, err := base64.URLEncoding.DecodeString(cred.ID)
+		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
 		if err != nil {
 			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID), err)
 			continue
 		}
 
-		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
+		pubkey, err := base64.RawURLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
 			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID), err)
 			continue
@@ -146,7 +146,7 @@ func (s *webauthnService) finishWebauthnRegistration(cfg config.Wrapper, guiCfg 
 		}
 
 		for _, existingCred := range cfg.GUI().WebauthnState.Credentials {
-			existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
 				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
@@ -154,7 +154,7 @@ func (s *webauthnService) finishWebauthnRegistration(cfg config.Wrapper, guiCfg 
 			}
 		}
 		for _, existingCred := range s.credentialsPendingRegistration {
-			existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
 				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
@@ -169,9 +169,9 @@ func (s *webauthnService) finishWebauthnRegistration(cfg config.Wrapper, guiCfg 
 
 		now := time.Now().Truncate(time.Second).UTC()
 		configCred := config.WebauthnCredential{
-			ID:            base64.URLEncoding.EncodeToString(credential.ID),
+			ID:            base64.RawURLEncoding.EncodeToString(credential.ID),
 			RpId:          s.engine.Config.RPID,
-			PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
+			PublicKeyCose: base64.RawURLEncoding.EncodeToString(credential.PublicKey),
 			SignCount:     credential.Authenticator.SignCount,
 			Transports:    transports,
 			CreateTime:    now,
@@ -256,7 +256,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
+		authenticatedCredId := base64.RawURLEncoding.EncodeToString(updatedCred.ID)
 		persistentState := guiCfg.WebauthnState
 
 		for _, cred := range persistentState.Credentials {
