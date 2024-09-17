@@ -31,7 +31,6 @@ import (
 	"unicode"
 
 	"github.com/calmh/incontainer"
-	"github.com/google/go-cmp/cmp"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
@@ -498,7 +497,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if cmp.Equal(to.GUI, from.GUI) {
+	if reflect.DeepEqual(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
 		return true
 	}
@@ -1506,11 +1505,33 @@ func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 
 func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
-	var langs []string
+	var weights = make(map[string]float64)
 	for _, l := range strings.Split(lang, ",") {
 		parts := strings.SplitN(l, ";", 2)
-		langs = append(langs, strings.ToLower(strings.TrimSpace(parts[0])))
+		code := strings.ToLower(strings.TrimSpace(parts[0]))
+		weights[code] = 1.0
+		if len(parts) < 2 {
+			continue
+		}
+		weight := strings.ToLower(strings.TrimSpace(parts[1]))
+		if !strings.HasPrefix(weight, "q=") {
+			continue
+		}
+		if q, err := strconv.ParseFloat(weight[2:], 32); err != nil {
+			// Completely dismiss entries with invalid weight
+			delete(weights, code)
+		} else {
+			weights[code] = q
+		}
 	}
+	var langs = make([]string, 0, len(weights))
+	for code := range weights {
+		langs = append(langs, code)
+	}
+	// Reorder by descending q value
+	sort.SliceStable(langs, func(i, j int) bool {
+		return weights[langs[i]] > weights[langs[j]]
+	})
 	sendJSON(w, langs)
 }
 

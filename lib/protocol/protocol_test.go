@@ -38,8 +38,8 @@ func TestPing(t *testing.T) {
 	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(ClusterConfig{})
-	c1.ClusterConfig(ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{})
+	c1.ClusterConfig(&ClusterConfig{})
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -64,8 +64,8 @@ func TestClose(t *testing.T) {
 	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(ClusterConfig{})
-	c1.ClusterConfig(ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{})
+	c1.ClusterConfig(&ClusterConfig{})
 
 	c0.internalClose(errManual)
 
@@ -82,10 +82,10 @@ func TestClose(t *testing.T) {
 
 	ctx := context.Background()
 
-	c0.Index(ctx, "default", nil)
-	c0.Index(ctx, "default", nil)
+	c0.Index(ctx, &Index{Folder: "default"})
+	c0.Index(ctx, &Index{Folder: "default"})
 
-	if _, err := c0.Request(ctx, "default", "foo", 0, 0, 0, nil, 0, false); err == nil {
+	if _, err := c0.Request(ctx, &Request{Folder: "default", Name: "foo"}); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -111,7 +111,7 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		c.ClusterConfig(ClusterConfig{})
+		c.ClusterConfig(&ClusterConfig{})
 		wg.Done()
 	}()
 
@@ -160,10 +160,10 @@ func TestCloseRace(t *testing.T) {
 	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, nil, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(ClusterConfig{})
-	c1.ClusterConfig(ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{})
+	c1.ClusterConfig(&ClusterConfig{})
 
-	c1.Index(context.Background(), "default", nil)
+	c1.Index(context.Background(), &Index{Folder: "default"})
 	select {
 	case <-indexReceived:
 	case <-time.After(time.Second):
@@ -205,7 +205,7 @@ func TestClusterConfigFirst(t *testing.T) {
 		// Allow some time for c.writerLoop to setup after c.Start
 	}
 
-	c.ClusterConfig(ClusterConfig{})
+	c.ClusterConfig(&ClusterConfig{})
 
 	done := make(chan struct{})
 	if ok := c.send(context.Background(), &Ping{}, done); !ok {
@@ -907,7 +907,7 @@ func TestClusterConfigAfterClose(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		c.ClusterConfig(ClusterConfig{})
+		c.ClusterConfig(&ClusterConfig{})
 		close(done)
 	}()
 

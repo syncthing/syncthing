@@ -1699,7 +1699,7 @@ func TestConfigChanges(t *testing.T) {
 			APIKey:     testAPIKey,
 
 			// Needed because GUIConfiguration.prepare() assigns this a random value if empty
-			WebauthnUserId: "AAAA",
+			WebauthnUserId: []byte{0, 0, 0},
 		}),
 	}
 
@@ -2824,7 +2824,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		RawAddress:     "127.0.0.1:0",
 		RawUseTLS:      false,
 		APIKey:         testAPIKey,
-		WebauthnUserId: "AAAA",
+		WebauthnUserId: []byte{0, 0, 0},
 	})
 
 	initTest := func(t *testing.T) (config.GUIConfiguration, func(*testing.T) (func(string) *http.Response, func(string, string, any))) {
@@ -2907,9 +2907,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	}
 
 	testCanEditConfig("WebauthnUserId", func(guiCfg *config.GUIConfiguration) {
-		guiCfg.WebauthnUserId = "ABCDEFGH"
+		guiCfg.WebauthnUserId = []byte{1, 2, 3, 4, 5, 6}
 	}, func(guiCfg config.GUIConfiguration) bool {
-		return guiCfg.WebauthnUserId == "ABCDEFGH"
+		return cmp.Equal(guiCfg.WebauthnUserId, []byte{1, 2, 3, 4, 5, 6})
 	})
 	testCanEditConfig("WebauthnRpId", func(guiCfg *config.GUIConfiguration) {
 		guiCfg.WebauthnRpId = "no-longer-localhost"
@@ -2934,7 +2934,7 @@ func TestWebauthnStateChanges(t *testing.T) {
 				RawAddress:     "127.0.0.1:0",
 				RawUseTLS:      false,
 				APIKey:         testAPIKey,
-				WebauthnUserId: "AAAA",
+				WebauthnUserId: []byte{0, 0, 0},
 			}),
 		}
 
