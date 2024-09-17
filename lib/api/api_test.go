@@ -76,8 +76,8 @@ func withTestDefaults(guiCfg config.GUIConfiguration) config.GUIConfiguration {
 	if guiCfg.WebauthnRpId == "" {
 		guiCfg.WebauthnRpId = defaultGuiCfg.WebauthnRpId
 	}
-	if len(guiCfg.RawWebauthnOrigins) == 0 {
-		guiCfg.RawWebauthnOrigins = []string{"https://" + defaultGuiCfg.WebauthnRpId + ":8384"}
+	if len(guiCfg.WebauthnOrigins) == 0 {
+		guiCfg.WebauthnOrigins = []string{"https://" + defaultGuiCfg.WebauthnRpId + ":8384"}
 	}
 
 	return guiCfg
@@ -2203,11 +2203,11 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Helper()
 		cfg := newMockedConfig()
 		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
-			User:               "user",
-			RawAddress:         "localhost:0",
-			WebauthnRpId:       rpId,
-			RawWebauthnOrigins: origins,
-			RawUseTLS:          true,
+			User:            "user",
+			RawAddress:      "localhost:0",
+			WebauthnRpId:    rpId,
+			WebauthnOrigins: origins,
+			RawUseTLS:       true,
 		}))
 		baseURL, cancel, _, err := startHTTPWithWebauthnState(cfg, &WebauthnState{Credentials: credentials})
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
@@ -2916,10 +2916,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	}, func(guiCfg config.GUIConfiguration) bool {
 		return guiCfg.WebauthnRpId == "no-longer-localhost"
 	})
-	testCanEditConfig("RawWebauthnOrigins", func(guiCfg *config.GUIConfiguration) {
-		guiCfg.RawWebauthnOrigins = []string{"https://no-longer-localhost:8888", "http://other-origin-without-port"}
+	testCanEditConfig("WebauthnOrigins", func(guiCfg *config.GUIConfiguration) {
+		guiCfg.WebauthnOrigins = []string{"https://no-longer-localhost:8888", "http://other-origin-without-port"}
 	}, func(guiCfg config.GUIConfiguration) bool {
-		return cmp.Equal(guiCfg.RawWebauthnOrigins, []string{"https://no-longer-localhost:8888", "http://other-origin-without-port"})
+		return cmp.Equal(guiCfg.WebauthnOrigins, []string{"https://no-longer-localhost:8888", "http://other-origin-without-port"})
 	})
 }
 
