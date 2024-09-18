@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"golang.org/x/text/unicode/norm"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -387,6 +389,14 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 }
 
 func parseLine(line string) ([]Pattern, error) {
+	// We use native normalization internally, thus the patterns must match
+	// that to avoid false negative matches.
+	if build.IsDarwin || build.IsIOS {
+		line = norm.NFD.String(line)
+	} else {
+		line = norm.NFC.String(line)
+	}
+
 	pattern := Pattern{
 		result: ignoreresult.Ignored,
 	}

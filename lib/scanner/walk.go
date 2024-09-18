@@ -293,6 +293,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
+		// Just in case the filesystem doesn't produce the normalization the OS
+		// uses, and we use internally.
+		nonNormPath := path
+		path = normalizePath(path)
+
 		if m := w.Matcher.Match(path); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
@@ -317,6 +322,20 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if path == "." {
 			return nil
+		}
+
+		if path != nonNormPath {
+			if !w.AutoNormalize {
+				// We're not authorized to do anything about it, so complain and skip.
+				handleError(ctx, "normalizing path", nonNormPath, errUTF8Normalization, finishedChan)
+				return skip
+			}
+
+			path, err = w.applyNormalization(nonNormPath, path, info)
+			if err != nil {
+				handleError(ctx, "normalizing path", nonNormPath, err, finishedChan)
+				return skip
+			}
 		}
 
 		if ignoredParent == "" {
@@ -356,13 +375,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 }
 
 func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult, skip error) error {
-	oldPath := path
-	path, err := w.normalizePath(path, info)
-	if err != nil {
-		handleError(ctx, "normalizing path", oldPath, err, finishedChan)
-		return skip
-	}
-
 	switch {
 	case info.IsSymlink():
 		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {
@@ -375,13 +387,13 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 		return nil
 
 	case info.IsDir():
-		err = w.walkDir(ctx, path, info, finishedChan)
+		return w.walkDir(ctx, path, info, finishedChan)
 
 	case info.IsRegular():
-		err = w.walkRegular(ctx, path, info, toHashChan)
+		return w.walkRegular(ctx, path, info, toHashChan)
 	}
 
-	return err
+	return fmt.Errorf("bug: file info for %v is neither symlink, dir nor regular", path)
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
@@ -550,30 +562,21 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	return nil
 }
 
-// normalizePath returns the normalized relative path (possibly after fixing
-// it on disk), or skip is true.
-func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, err error) {
+func normalizePath(path string) string {
 	if build.IsDarwin || build.IsIOS {
 		// Mac OS X file names should always be NFD normalized.
-		normPath = norm.NFD.String(path)
-	} else {
-		// Every other OS in the known universe uses NFC or just plain
-		// doesn't bother to define an encoding. In our case *we* do care,
-		// so we enforce NFC regardless.
-		normPath = norm.NFC.String(path)
+		return norm.NFD.String(path)
 	}
+	// Every other OS in the known universe uses NFC or just plain
+	// doesn't bother to define an encoding. In our case *we* do care,
+	// so we enforce NFC regardless.
+	return norm.NFC.String(path)
+}
 
-	if path == normPath {
-		// The file name is already normalized: nothing to do
-		return path, nil
-	}
-
-	if !w.AutoNormalize {
-		// We're not authorized to do anything about it, so complain and skip.
-
-		return "", errUTF8Normalization
-	}
-
+// applyNormalization fixes the normalization of the file on disk, i.e. ensures
+// the file at path ends up named normPath. It shouldn't but may happen that the
+// file ends up with a different name, in which case that one should be scanned.
+func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (string, error) {
 	// We will attempt to normalize it.
 	normInfo, err := w.Filesystem.Lstat(normPath)
 	if fs.IsNotExist(err) {
