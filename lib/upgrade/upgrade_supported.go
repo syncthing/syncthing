@@ -30,6 +30,7 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"golang.org/x/net/http2"
 )
 
@@ -63,8 +64,9 @@ const (
 var upgradeClient = &http.Client{
 	Timeout: readTimeout,
 	Transport: &http.Transport{
-		DialContext: dialer.DialContext,
-		Proxy:       http.ProxyFromEnvironment,
+		DialContext:     dialer.DialContext,
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
 	},
 }
 
