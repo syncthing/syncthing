@@ -168,7 +168,7 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	}
 	res.NeedFiles, res.NeedDirectories, res.NeedSymlinks, res.NeedDeletes, res.NeedBytes, res.NeedTotalItems = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type == config.FolderTypeReceiveEncrypted) {
+	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type.IsReceiveEncrypted()) {
 		// Add statistics for things that have changed locally in a receive
 		// only or receive encrypted folder.
 		res.ReceiveOnlyChangedFiles = ro.Files

@@ -254,7 +254,7 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.MaxConcurrentWrites = maxConcurrentWritesLimit
 	}
 
-	if f.Type == FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		f.DisableTempIndexes = true
 		f.IgnorePerms = true
 	}

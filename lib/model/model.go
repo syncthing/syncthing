@@ -336,7 +336,7 @@ func (m *model) fatal(err error) {
 // Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
-	if cfg.Type != config.FolderTypeReceiveEncrypted {
+	if !cfg.Type.IsReceiveEncrypted() {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			l.Warnln("Loading ignores:", err)
 		}
@@ -390,7 +390,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	if cfg.Type == config.FolderTypeReceiveEncrypted {
+	if cfg.Type.IsReceiveEncrypted() {
 		if encryptionToken, err := readEncryptionToken(cfg); err == nil {
 			m.folderEncryptionPasswordTokens[folder] = encryptionToken
 		} else if !fs.IsNotExist(err) {
@@ -1520,7 +1520,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	hasTokenRemote := len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0
 	hasTokenLocal := len(ccDeviceInfos.local.EncryptionPasswordToken) > 0
 	isEncryptedRemote := folderDevice.EncryptionPassword != ""
-	isEncryptedLocal := fcfg.Type == config.FolderTypeReceiveEncrypted
+	isEncryptedLocal := fcfg.Type.IsReceiveEncrypted()
 
 	if !isEncryptedRemote && !isEncryptedLocal && deviceUntrusted {
 		return errEncryptionNotEncryptedUntrusted
@@ -1678,7 +1678,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 				continue
 			}
 
-			if fcfg.Type != config.FolderTypeReceiveEncrypted && device.EncryptionPasswordToken != nil {
+			if !fcfg.Type.IsReceiveEncrypted() && device.EncryptionPasswordToken != nil {
 				l.Infof("Cannot share folder %s with %v because the introducer %v encrypts data, which requires a password", folder.Description(), device.ID, introducerCfg.DeviceID)
 				continue
 			}
@@ -1818,7 +1818,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				return config.FolderConfiguration{}, false
 			}
 		}
-		if cfg.Type == config.FolderTypeReceiveEncrypted {
+		if cfg.Type.IsReceiveEncrypted() {
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) == 0 && len(ccDeviceInfos.local.EncryptionPasswordToken) == 0 {
 				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us unencrypted data, but the folder type is receive-encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
@@ -2040,7 +2040,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		n, err = filesystemFolder.GetFileData(deviceID, req, res.data)
 	}
 
-	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {
+	if !folderCfg.Type.IsReceiveEncrypted() && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {
 		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
@@ -2184,7 +2184,7 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if cfg.Type == config.FolderTypeReceiveEncrypted {
+	if cfg.Type.IsReceiveEncrypted() {
 		return nil, nil, nil
 	}
 
@@ -2577,7 +2577,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 		}
 
 		encryptionToken, hasEncryptionToken := m.folderEncryptionPasswordTokens[folderCfg.ID]
-		if folderCfg.Type == config.FolderTypeReceiveEncrypted && !hasEncryptionToken {
+		if folderCfg.Type.IsReceiveEncrypted() && !hasEncryptionToken {
 			// We haven't gotten a token for us yet and without one the other
 			// side can't validate us - pretend we don't have the folder yet.
 			continue
@@ -2920,8 +2920,13 @@ func (*model) VerifyConfiguration(from, to config.Configuration) error {
 	toFolders := to.FolderMap()
 	for _, from := range from.Folders {
 		to, ok := toFolders[from.ID]
-		if ok && from.Type != to.Type && (from.Type == config.FolderTypeReceiveEncrypted || to.Type == config.FolderTypeReceiveEncrypted) {
-			return errors.New("folder type must not be changed from/to receive-encrypted")
+		if ok && from.Type != to.Type {
+			if from.Type.IsReceiveEncrypted() || to.Type.IsReceiveEncrypted() {
+				return errors.New("folder type must not be changed from/to receive-encrypted")
+			}
+			if from.Type.IsVirtualFolder() || to.Type.IsVirtualFolder() {
+				return errors.New("folder type must not be changed from/to virtual folder")
+			}
 		}
 	}
 
@@ -2990,7 +2995,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				return true
 			}
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
-			if toCfg.Type != config.FolderTypeReceiveEncrypted {
+			if !toCfg.Type.IsReceiveEncrypted() {
 				clusterConfigDevices.add(toCfg.DeviceIDs())
 			} else {
 				// If we don't have the encryption token yet, we need to drop

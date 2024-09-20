@@ -117,7 +117,7 @@ func (f *folderBase) pullBlockBase(
 		// encrypted hash token. In that case we can't verify the block
 		// integrity so we'll take it on trust. (The other side can and
 		// will verify.)
-		if f.Type != config.FolderTypeReceiveEncrypted {
+		if !f.Type.IsReceiveEncrypted() {
 			lastError = f.verifyBuffer(buf, block)
 		}
 		if lastError != nil {
@@ -414,7 +414,7 @@ func (f *folder) getHealthErrorAndLoadIgnores() error {
 	if err := f.getHealthErrorWithoutIgnores(); err != nil {
 		return err
 	}
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			return fmt.Errorf("loading ignores: %w", err)
 		}
@@ -691,7 +691,7 @@ func (b *scanBatch) FlushIfFull() error {
 func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	// Check for a "virtual" parent directory of encrypted files. We don't track
 	// it, but check if anything still exists within and delete it otherwise.
-	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
+	if b.f.Type.IsReceiveEncrypted() && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
 		if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
 			b.f.mtimefs.Remove(fi.Name)
 		}
@@ -708,7 +708,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			b.Remove(fi.Name)
 			return true
 		}
-	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
+	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type.IsReceiveEncrypted()) &&
 		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
 			ModTimeWindow:   b.f.modTimeWindow,
 			IgnorePerms:     b.f.IgnorePerms,
@@ -758,7 +758,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
 	} else {
 		fchan = scanner.Walk(scanCtx, scanConfig)

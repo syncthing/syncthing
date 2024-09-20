@@ -26,6 +26,7 @@ import (
 
 func init() {
 	folderFactories[config.FolderTypeVirtual] = newVirtualFolder
+	folderFactories[config.FolderTypeVirtualEncrypted] = newVirtualFolder
 	log.SetFlags(log.Lmicroseconds)
 	log.Default().SetOutput(os.Stdout)
 	log.Default().SetPrefix("TESTLOG ")
@@ -223,6 +224,9 @@ func (f *virtualFolderSyncthingService) GetStatistics() (stats.FolderStatistics,
 var _ = (virtualFolderServiceI)((*virtualFolderSyncthingService)(nil))
 
 func (vf *virtualFolderSyncthingService) GetHashBlockData(hash []byte, response_data []byte) (int, error) {
+	if vf.blockCache == nil {
+		return 0, protocol.ErrGeneric
+	}
 	data, ok := vf.blockCache.Get(hash)
 	if !ok {
 		return 0, protocol.ErrNoSuchFile

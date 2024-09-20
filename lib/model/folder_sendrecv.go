@@ -699,7 +699,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		scanChan <- parent
 	}
 	return true
@@ -1088,7 +1088,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
 	reused := make([]int, 0, len(file.Blocks))
 
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		blocks, reused = f.reuseBlocks(blocks, reused, file, tempName)
 	}
 
@@ -1237,7 +1237,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	// Still need to re-write the trailer with the new encrypted fileinfo.
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		err = inWritableDir(func(path string) error {
 			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0o666)
 			if err != nil {
@@ -1296,7 +1296,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			continue
 		}
 
-		if f.Type != config.FolderTypeReceiveEncrypted {
+		if !f.Type.IsReceiveEncrypted() {
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
@@ -1327,7 +1327,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			var found bool
-			if f.Type != config.FolderTypeReceiveEncrypted {
+			if !f.Type.IsReceiveEncrypted() {
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 					if f.verifyBuffer(buf, block) != nil {
 						return true
@@ -1368,7 +1368,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					// Hash is not SHA256 as it's an encrypted hash token. In that
 					// case we can't verify the block integrity so we'll take it on
 					// trust. (The other side can and will verify.)
-					if f.Type != config.FolderTypeReceiveEncrypted {
+					if !f.Type.IsReceiveEncrypted() {
 						if err := f.verifyBuffer(buf, block); err != nil {
 							l.Debugln("Finder failed to verify buffer", err)
 							return false
@@ -1422,7 +1422,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 }
 
 func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		l.Debugln("not weak hashing due to folder type", f.Type)
 		return nil, nil
 	}
@@ -1616,7 +1616,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 				blockStatsMut.Unlock()
 			}
 
-			if f.Type != config.FolderTypeReceiveEncrypted {
+			if !f.Type.IsReceiveEncrypted() {
 				f.model.progressEmitter.Deregister(state)
 			}
 

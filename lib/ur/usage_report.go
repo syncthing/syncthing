@@ -130,6 +130,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		case config.FolderTypeReceiveOnly:
 			report.FolderUses.ReceiveOnly++
 		case config.FolderTypeVirtual:
+			report.FolderUses.SendReceive++ // TODO
+		case config.FolderTypeVirtualEncrypted:
 			report.FolderUses.ReceiveOnly++ // TODO
 		}
 		if cfg.IgnorePerms {
@@ -273,7 +275,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.CaseSensitiveFS {
 				report.FolderUsesV3.CaseSensitiveFS++
 			}
-			if cfg.Type == config.FolderTypeReceiveEncrypted {
+			if cfg.Type.IsReceiveEncrypted() {
 				report.FolderUsesV3.ReceiveEncrypted++
 			}
 		}
