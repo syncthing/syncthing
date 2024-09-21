@@ -283,7 +283,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
-			if err == errDeviceAlreadyConnected {
+			if errors.Is(err, errDeviceAlreadyConnected) {
 				l.Debugf("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
 			} else {
 				l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
