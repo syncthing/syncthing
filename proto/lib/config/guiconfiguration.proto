@@ -25,7 +25,7 @@ message GUIConfiguration {
     bytes           webauthn_user_id             = 15 [(ext.xml) = "webauthnUserId"];
     string          webauthn_rp_id               = 17 [(ext.xml) = "webauthnRpId", (ext.default) = "localhost"];
     repeated string webauthn_origins             = 18 [(ext.goname) = "RawWebauthnOrigins", (ext.xml) = "webauthnOrigin"];
-    WebauthnState   webauthn_state               = 19[(ext.xml) = "webauthnState"];
+    WebauthnState   webauthn_state               = 19 [(ext.xml) = "webauthnState"];
 }
 
 message WebauthnState {
@@ -35,9 +35,9 @@ message WebauthnState {
 message WebauthnCredential {
     string                    id              = 1 [(ext.goname) = "ID", (ext.xml) = "id"];
     string                    rp_id           = 2 [(ext.xml) = "rpId"];
-    string                    nickname        = 3[(ext.xml) = "nickname"];
-    string                    public_key_cose = 4[(ext.xml) = "publicKeyCose"];
-    repeated string           transports      = 5[(ext.xml) = "transports"];
-    bool                      require_uv      = 6[(ext.xml) = "requireUv"];
-    google.protobuf.Timestamp create_time     = 7[(ext.xml) = "createTime"];
+    string                    nickname        = 3 [(ext.xml) = "nickname"];
+    string                    public_key_cose = 4 [(ext.xml) = "publicKeyCose"];
+    repeated string           transports      = 5 [(ext.xml) = "transports"];
+    bool                      require_uv      = 6 [(ext.xml) = "requireUv"];
+    google.protobuf.Timestamp create_time     = 7 [(ext.xml) = "createTime"];
 }
