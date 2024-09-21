@@ -7,7 +7,6 @@
 package config
 
 import (
-	"net"
 	"net/url"
 	"os"
 	"path"
@@ -112,26 +111,9 @@ func migrateToConfigV38(cfg *Configuration) {
 	if cfg.GUI.WebauthnRpId == "" {
 		cfg.GUI.WebauthnRpId = defaultGuiCfg.WebauthnRpId
 	}
-	if len(cfg.GUI.RawWebauthnOrigins) == 0 {
-		_, port, err := net.SplitHostPort(cfg.GUI.RawAddress)
-		if err != nil {
-			_, defaultPort, err := net.SplitHostPort(defaultGuiCfg.RawAddress)
-			if err != nil {
-				defaultPort = ""
-			}
-			port = defaultPort
-		}
-		secure_origin := "https://" + cfg.GUI.WebauthnRpId
-		if port != "443" {
-			secure_origin += ":" + port
-		}
-		cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, secure_origin)
-		if !cfg.GUI.RawUseTLS {
-			origin := "http://" + cfg.GUI.WebauthnRpId
-			if port != "80" {
-				origin += ":" + port
-			}
-			cfg.GUI.RawWebauthnOrigins = append(cfg.GUI.RawWebauthnOrigins, origin)
+	if len(cfg.GUI.WebauthnOrigins) == 0 {
+		if origins, err := cfg.GUI.defaultWebauthnOrigins(); err == nil {
+			cfg.GUI.WebauthnOrigins = origins
 		}
 	}
 }

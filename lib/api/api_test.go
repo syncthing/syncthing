@@ -75,8 +75,8 @@ func withTestDefaults(guiCfg config.GUIConfiguration) config.GUIConfiguration {
 	if guiCfg.WebauthnRpId == "" {
 		guiCfg.WebauthnRpId = defaultGuiCfg.WebauthnRpId
 	}
-	if len(guiCfg.RawWebauthnOrigins) == 0 {
-		guiCfg.RawWebauthnOrigins = []string{"https://" + defaultGuiCfg.WebauthnRpId + ":8384"}
+	if len(guiCfg.WebauthnOrigins) == 0 {
+		guiCfg.WebauthnOrigins = []string{"https://" + defaultGuiCfg.WebauthnRpId + ":8384"}
 	}
 
 	return guiCfg
@@ -2213,12 +2213,12 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Helper()
 		cfg := newMockedConfig()
 		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
-			User:               "user",
-			RawAddress:         "localhost:0",
-			APIKey:             testAPIKey,
-			WebauthnRpId:       rpId,
-			RawWebauthnOrigins: origins,
-			WebauthnState:      config.WebauthnState{Credentials: credentials},
+			User:            "user",
+			RawAddress:      "localhost:0",
+			APIKey:          testAPIKey,
+			WebauthnRpId:    rpId,
+			WebauthnOrigins: origins,
+			WebauthnState:   config.WebauthnState{Credentials: credentials},
 		}))
 		baseURL, cancel, _, err := startHTTPWithWebauthnDynState(cfg, dynState)
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")

@@ -26,15 +26,10 @@ func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*weba
 		displayName = "Syncthing @ " + deviceName
 	}
 
-	origins, err := guiCfg.WebauthnOrigins()
-	if err != nil {
-		return nil, err
-	}
-
 	return webauthnLib.New(&webauthnLib.Config{
 		RPDisplayName: displayName,
 		RPID:          guiCfg.WebauthnRpId,
-		RPOrigins:     origins,
+		RPOrigins:     guiCfg.WebauthnOrigins,
 	})
 }
 

@@ -56,7 +56,7 @@ func TestMigration38(t *testing.T) {
 		if cfg.GUI.WebauthnRpId != "localhost" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"localhost\"")
 		}
-		if !cmp.Equal(cfg.GUI.RawWebauthnOrigins, []string{"https://localhost:8384", "http://localhost:8384"}) {
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8384", "http://localhost:8384"}) {
 			t.Error("Expected GUI.WebauthnRpId to be set to default values")
 		}
 	}
@@ -69,7 +69,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.RawWebauthnOrigins, []string{"https://localhost:8888"}) {
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8888"}) {
 			t.Error("Expected GUI.WebauthnRpId to be set to default values with port 8888 and HTTPS only")
 		}
 	}
@@ -82,7 +82,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.RawWebauthnOrigins, []string{"https://localhost"}) {
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost"}) {
 			t.Error("Expected GUI.WebauthnRpId to be set to default values with implicit HTTPS port and HTTPS only")
 		}
 	}
@@ -95,7 +95,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.RawWebauthnOrigins, []string{"https://localhost:80", "http://localhost"}) {
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:80", "http://localhost"}) {
 			t.Error("Expected GUI.WebauthnRpId to be set to default values with implicit HTTP port")
 		}
 	}
