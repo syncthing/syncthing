@@ -356,8 +356,8 @@
               </h4>
             </button>
             <div id="login-option-password" class="panel-collapse collapse {{isDefaultLoginOption('password') ? 'in' : ''}}">
-              <div class="panel-body">
-                <form ng-submit="authenticatePassword()">
+              <form ng-submit="authenticatePassword()">
+                <div class="panel-body">
                   <div class="form-group">
                     <label for="user" translate>User</label>
                     <input id="user" class="form-control" type="text" name="user" ng-model="login.username" autofocus required autocomplete="username" />
@@ -366,14 +366,6 @@
                   <div class="form-group">
                     <label for="password" translate>Password</label>
                     <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
-                  </div>
-
-                  <label class="stay-logged-in">
-                    <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
-                  </label>
-
-                  <div class="form-group text-right">
-                    <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>Log In</button>
                   </div>
 
                   <div class="row">
@@ -386,8 +378,15 @@
                       </p>
                     </div>
                   </div>
-                </form>
-              </div>
+                </div>
+                <div class="panel-footer clearfix">
+                  <label class="stay-logged-in">
+                    <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
+                  </label>
+
+                  <button type="submit" id="submit" class="btn btn-primary pull-right" ng-disabled="login.inProgress" translate>Log In</button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -401,16 +400,7 @@
             </button>
             <div id="login-option-webauthn" class="panel-collapse collapse {{isDefaultLoginOption('webauthn') ? 'in' : ''}}">
               <div class="panel-body">
-                <label class="stay-logged-in">
-                  <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
-                </label>
-
-                <div class="form-group text-right">
-                  <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
-                    <span translate>Log in with WebAuthn</span>
-                  </button>
-                </div>
-
+                <p><span translate>Passkeys are a modern alternative to passwords that is both more secure and often easier to use. Set it up in GUI settings to use it.</span> <a href="{{docsURL('users/webauthn')}}" translate>Learn more</a></p>
                 <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
                 <div ng-if="locationDoesNotMatchWebauthnRpId()">
                   <p class="text-info" translate>Current domain does not match WebAuthn configuration.</p>
@@ -432,8 +422,17 @@
                 <p class="text-danger" ng-if="webauthn.errors.authenticationFailed" translate>Authentication failed, see Syncthing logs for details.</p>
                 <p class="text-info" ng-if="webauthn.errors.noCredentials" translate>No WebAuthn credentials configured.</p>
                 <p class="text-danger" ng-if="webauthn.errors.uvRequired" translate>User verification is required, but was not performed.</p>
+              </div>
+              <div class="panel-footer clearfix">
+                <label class="stay-logged-in">
+                  <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
+                </label>
 
                 <button ng-if="isLocationInsecure() || locationDoesNotMatchWebauthnRpId()" type="button" class="btn btn-primary" ng-click="reloadLoginAtWebauthnAddress()" translate translate-value-webauthn-address="{{ inferWebauthnAddress() }}">Reload page at {%webauthnAddress%}</button>
+
+                <button type="button" class="btn btn-primary pull-right" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
+                  <span translate>Log in</span>
+                </button>
               </div>
             </div>
           </div>
