@@ -11,21 +11,26 @@ import (
 )
 
 func GetLans() ([]*net.IPNet, error) {
-	ifs, err := net.Interfaces()
+	intfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
 	var addrs []net.Addr
 
-	for _, currentIf := range ifs {
-		if currentIf.Flags&net.FlagRunning == 0 {
+	for _, intf := range intfs {
+		if intf.Flags&net.FlagRunning == 0 {
 			continue
 		}
-		currentAddrs, err := currentIf.Addrs()
+		if intf.Flags&net.FlagPointToPoint != 0 {
+			// Point-to-point interfaces are typically VPNs and similar
+			// which, for our purposes, do not qualify as LANs.
+			continue
+		}
+		intfAddrs, err := intf.Addrs()
 		if err != nil {
 			return nil, err
 		}
-		addrs = append(addrs, currentAddrs...)
+		addrs = append(addrs, intfAddrs...)
 	}
 
 	nets := make([]*net.IPNet, 0, len(addrs))
