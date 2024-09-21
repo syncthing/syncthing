@@ -23,5 +23,5 @@ message GUIConfiguration {
     bool            send_basic_auth_prompt       = 14 [(ext.xml) = "sendBasicAuthPrompt,attr"];
     bytes           webauthn_user_id             = 15 [(ext.xml) = "webauthnUserId"];
     string          webauthn_rp_id               = 16 [(ext.xml) = "webauthnRpId", (ext.default) = "localhost"];
-    repeated string webauthn_origins             = 17 [(ext.goname) = "RawWebauthnOrigins", (ext.xml) = "webauthnOrigin"];
+    repeated string webauthn_origins             = 17 [(ext.xml) = "webauthnOrigin"];
 }
