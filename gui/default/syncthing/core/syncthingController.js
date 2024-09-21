@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate, versionService) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -3288,10 +3288,10 @@ angular.module('syncthing.core')
         };
 
         $scope.versionBase = function () {
-            var version = $scope.version.version || versionService.version;
-            if (!version) {
+            if (!$scope.version.version) {
                 return '';
             }
+            var version = $scope.version.version;
             var pos = version.indexOf('-');
             if (pos > 0) {
                 version = version.slice(0, pos);
