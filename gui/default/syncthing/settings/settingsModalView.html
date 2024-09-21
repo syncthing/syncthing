@@ -243,7 +243,7 @@
 
                       <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
 
-                      <p class="text-warning" ng-if="isLocationInsecure() || !locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Reload page at {%webauthnOrigin%} to enable WebAuthn.</p>
+                      <p class="text-info" ng-if="!locationMatchesWebauthnOrigin()" translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Reload page at {%webauthnOrigin%} to enable WebAuthn.</p>
 
                       <p ng-if="isLocationInsecure() || !locationMatchesWebauthnOrigin()">
                         <button ng-if="tmpGUI && settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)"><span class="fas fa-check"></span>&nbsp;<span translate translate-value-webauthn-origin="{{ getWebauthnOrigin() }}">Save settings and reload page at {%webauthnOrigin%}</span>
