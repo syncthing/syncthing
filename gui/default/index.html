@@ -384,9 +384,7 @@
                     <input type="checkbox" ng-model="login.stayLoggedIn" ng-disabled="login.inProgress">&nbsp;<span translate>Stay logged in</span>
                   </label>
 
-                  <div class="pull-right">
-                    <button type="submit" id="submit" class="btn btn-primary" ng-disabled="login.inProgress" translate>Log In</button>
-                  </div>
+                  <button type="submit" id="submit" class="btn btn-primary pull-right" ng-disabled="login.inProgress" translate>Log In</button>
                 </div>
               </form>
             </div>
@@ -431,11 +429,9 @@
 
                 <button ng-if="isLocationInsecure() || locationDoesNotMatchWebauthnRpId()" type="button" class="btn btn-primary" ng-click="reloadLoginAtWebauthnAddress()" translate translate-value-webauthn-address="{{ inferWebauthnAddress() }}">Reload page at {%webauthnAddress%}</button>
 
-                <div class="pull-right">
-                  <button type="button" class="btn btn-primary" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
-                    <span translate>Log in with WebAuthn</span>
-                  </button>
-                </div>
+                <button type="button" class="btn btn-primary pull-right" ng-click="authenticateWebauthnFinish()" ng-disabled="login.inProgress || webauthn.errors.noCredentials || webauthn.errors.initFailed || locationDoesNotMatchWebauthnRpId() || isLocationInsecure()" tabindex="3">
+                  <span translate>Log in with WebAuthn</span>
+                </button>
               </div>
             </div>
           </div>
