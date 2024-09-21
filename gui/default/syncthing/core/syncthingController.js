@@ -613,9 +613,7 @@ angular.module('syncthing.core')
             if (guiCfg) {
                 return (guiCfg.authMode === 'ldap'
                     || (guiCfg.user && guiCfg.password)
-                    || ((($scope.webauthn || {}).state || {}).credentials || []).some(function (c) {
-                        return c.rpId === guiCfg.webauthnRpId;
-                    })
+                    || (((($scope.webauthn || {}).state || {}).credentials || []).length > 0)
                 );
             }
             return false;
