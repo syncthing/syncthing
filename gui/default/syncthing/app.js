@@ -21,6 +21,24 @@ var authUrlbase = urlbase + '/noauth/auth';
 // keep consistent with ShortIDStringLength in lib/protocol/deviceid.go
 var shortIDStringLength = 7;
 
+
+angular.module('syncthing.core')
+    .factory('versionService', function () {
+        'use strict';
+        return { version: null };
+    })
+    .factory('versionHeaderInterceptor', function (versionService) {
+        return {
+            response: function (response) {
+                var ver = response.headers('X-Syncthing-Version');
+                if (ver) {
+                    versionService.version = ver;
+                }
+                return response;
+            },
+        };
+    });
+
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
     // language and localisation
 
@@ -35,6 +53,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
     LocaleServiceProvider.setDefaultLocale('en');
 
     $httpProvider.useApplyAsync(true);
+    $httpProvider.interceptors.push('versionHeaderInterceptor');
 
     if (!window.metadata) {
         // Most likely we're not authenticated yet, in which case we can't proceed with the rest of the setup.
