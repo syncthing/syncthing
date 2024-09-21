@@ -86,7 +86,7 @@ func (webauthnLibUser) WebAuthnIcon() string {
 func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
 	eligibleCredentials := u.guiCfg.WebauthnState.EligibleWebAuthnCredentials(u.guiCfg)
-	credentialDynState := u.service.loadDynamicState()
+	credentialVolState := u.service.loadVolatileState()
 
 	for _, cred := range eligibleCredentials {
 		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
@@ -110,7 +110,7 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 			ID:        id,
 			PublicKey: pubkey,
 			Authenticator: webauthnLib.Authenticator{
-				SignCount: credentialDynState.Credentials[cred.ID].SignCount,
+				SignCount: credentialVolState.Credentials[cred.ID].SignCount,
 			},
 			Transport: transports,
 		})
@@ -177,12 +177,12 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 		s.credentialsPendingRegistration = append(s.credentialsPendingRegistration, configCred)
 
-		credentialDynState := s.loadDynamicState()
-		credentialDynState.Credentials[configCred.ID] = WebauthnCredentialDynState{
+		credentialVolState := s.loadVolatileState()
+		credentialVolState.Credentials[configCred.ID] = WebauthnCredentialVolatileState{
 			SignCount:   credential.Authenticator.SignCount,
 			LastUseTime: now,
 		}
-		err = s.storeDynamicState(credentialDynState)
+		err = s.storeVolatileState(credentialVolState)
 		if err != nil {
 			l.Warnln("Failed to save WebAuthn dynamic state", err)
 		}
@@ -279,16 +279,16 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		var signCountBefore uint32 = 0
 
-		dynState := s.loadDynamicState()
-		dynCredState, ok := dynState.Credentials[authenticatedCredId]
+		volState := s.loadVolatileState()
+		dynCredState, ok := volState.Credentials[authenticatedCredId]
 		if !ok {
-			dynCredState = WebauthnCredentialDynState{}
+			dynCredState = WebauthnCredentialVolatileState{}
 		}
 		signCountBefore = dynCredState.SignCount
 		dynCredState.SignCount = updatedCred.Authenticator.SignCount
 		dynCredState.LastUseTime = time.Now().Truncate(time.Second).UTC()
-		dynState.Credentials[authenticatedCredId] = dynCredState
-		err = s.storeDynamicState(dynState)
+		volState.Credentials[authenticatedCredId] = dynCredState
+		err = s.storeVolatileState(volState)
 		if err != nil {
 			l.Warnln("Failed to update authenticated WebAuthn credential", err)
 		}
@@ -302,39 +302,39 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 	}
 }
 
-func emptyDynState() WebauthnDynState {
-	dynState := WebauthnDynState{}
-	dynState.init()
-	return dynState
+func emptyVolState() WebauthnVolatileState {
+	s := WebauthnVolatileState{}
+	s.init()
+	return s
 }
 
-func (s *WebauthnDynState) init() {
+func (s *WebauthnVolatileState) init() {
 	if s.Credentials == nil {
-		s.Credentials = make(map[string]WebauthnCredentialDynState, 1)
+		s.Credentials = make(map[string]WebauthnCredentialVolatileState, 1)
 	}
 }
 
-func (s *webauthnService) loadDynamicState() WebauthnDynState {
+func (s *webauthnService) loadVolatileState() WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnln("Failed to load WebAuthn dynamic state", err)
-		return emptyDynState()
+		return emptyVolState()
 	}
 	if !ok {
-		return emptyDynState()
+		return emptyVolState()
 	}
 
-	var state WebauthnDynState
+	var state WebauthnVolatileState
 	err = state.Unmarshal(stateBytes)
 	if err != nil {
 		l.Warnln("Failed to unmarshal WebAuthn dynamic state", err)
-		return emptyDynState()
+		return emptyVolState()
 	}
 	state.init()
 	return state
 }
 
-func (s *webauthnService) storeDynamicState(state WebauthnDynState) error {
+func (s *webauthnService) storeVolatileState(state WebauthnVolatileState) error {
 	stateBytes, err := state.Marshal()
 	if err != nil {
 		return err
@@ -343,8 +343,8 @@ func (s *webauthnService) storeDynamicState(state WebauthnDynState) error {
 	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
 }
 
-func (s *webauthnService) getDynamicState(w http.ResponseWriter, _ *http.Request) {
-	dynState := s.loadDynamicState()
+func (s *webauthnService) getVolatileState(w http.ResponseWriter, _ *http.Request) {
+	st := s.loadVolatileState()
 	w.WriteHeader(http.StatusOK)
-	sendJSON(w, dynState)
+	sendJSON(w, st)
 }

@@ -974,18 +974,18 @@ func TestApiCache(t *testing.T) {
 }
 
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, *webauthnService, error) {
-	return startHTTPWithWebauthnDynStateAndShutdownTimeout(cfg, nil, 0)
+	return startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg, nil, 0)
 }
 
-func startHTTPWithWebauthnDynState(cfg config.Wrapper, webauthnDynState *WebauthnDynState) (string, context.CancelFunc, *webauthnService, error) {
-	return startHTTPWithWebauthnDynStateAndShutdownTimeout(cfg, webauthnDynState, 0)
+func startHTTPWithWebauthnVolState(cfg config.Wrapper, webauthnVolState *WebauthnVolatileState) (string, context.CancelFunc, *webauthnService, error) {
+	return startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg, webauthnVolState, 0)
 }
 
 func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
-	return startHTTPWithWebauthnDynStateAndShutdownTimeout(cfg, nil, shutdownTimeout)
+	return startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg, nil, shutdownTimeout)
 }
 
-func startHTTPWithWebauthnDynStateAndShutdownTimeout(cfg config.Wrapper, webauthnDynState *WebauthnDynState, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
+func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauthnVolState *WebauthnVolatileState, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
 	eventSub := new(eventmocks.BufferedSubscription)
@@ -1017,8 +1017,8 @@ func startHTTPWithWebauthnDynStateAndShutdownTimeout(cfg config.Wrapper, webauth
 	if err != nil {
 		return "", nil, nil, err
 	}
-	if webauthnDynState != nil {
-		webauthnService.storeDynamicState(*webauthnDynState)
+	if webauthnVolState != nil {
+		webauthnService.storeVolatileState(*webauthnVolState)
 	}
 
 	svc.started = addrChan
@@ -2069,12 +2069,12 @@ func TestWebauthnRegistration(t *testing.T) {
 		testutil.AssertEqual(t, t.Errorf, false, pendingCred.RequireUv, "Wrong RequireUv in registration success response")
 		testutil.AssertEqual(t, t.Errorf, "", pendingCred.Nickname, "Wrong Nickname in registration success response")
 
-		var dynState WebauthnDynState
-		getDynStateResp := httpGetCsrf(baseURL+"/rest/webauthn/state", csrfTokenName, csrfTokenValue, t)
-		testutil.FatalIfErr(t, unmarshalTo(getDynStateResp.Body, &dynState))
-		credDynState := dynState.Credentials[pendingCred.ID]
-		testutil.AssertLessThan(t, t.Errorf, time.Since(credDynState.LastUseTime), 10*time.Second, "Wrong LastUseTime after registration success")
-		testutil.AssertEqual(t, t.Errorf, 42, credDynState.SignCount, "Wrong SignCount after registration success")
+		var volState WebauthnVolatileState
+		getVolStateResp := httpGetCsrf(baseURL+"/rest/webauthn/state", csrfTokenName, csrfTokenValue, t)
+		testutil.FatalIfErr(t, unmarshalTo(getVolStateResp.Body, &volState))
+		credVolState := volState.Credentials[pendingCred.ID]
+		testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after registration success")
+		testutil.AssertEqual(t, t.Errorf, 42, credVolState.SignCount, "Wrong SignCount after registration success")
 
 		var conf config.Configuration
 		getConfResp := httpGetCsrf(baseURL+"/rest/config", csrfTokenName, csrfTokenValue, t)
@@ -2209,7 +2209,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
 	testutil.FatalIfErr(t, err)
 
-	startServer := func(t *testing.T, rpId string, origins []string, credentials []config.WebauthnCredential, dynState *WebauthnDynState) (func(string, string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
+	startServer := func(t *testing.T, rpId string, origins []string, credentials []config.WebauthnCredential, volState *WebauthnVolatileState) (func(string, string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
 		t.Helper()
 		cfg := newMockedConfig()
 		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
@@ -2220,7 +2220,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			WebauthnOrigins: origins,
 			WebauthnState:   config.WebauthnState{Credentials: credentials},
 		}))
-		baseURL, cancel, _, err := startHTTPWithWebauthnDynState(cfg, dynState)
+		baseURL, cancel, _, err := startHTTPWithWebauthnVolState(cfg, volState)
 		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
 		t.Cleanup(cancel)
 
@@ -2307,8 +2307,8 @@ func TestWebauthnAuthentication(t *testing.T) {
 				RequireUv:     false,
 			},
 		}
-		initDynState := &WebauthnDynState{
-			Credentials: map[string]WebauthnCredentialDynState{
+		initVolState := &WebauthnVolatileState{
+			Credentials: map[string]WebauthnCredentialVolatileState{
 				credentials[0].ID: {
 					SignCount: 0,
 				},
@@ -2317,7 +2317,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 		t.Run("can authenticate without UV", func(t *testing.T) {
 			t.Parallel()
-			httpGet, httpPost, getAssertionOptions := startServer(t, "", nil, credentials, initDynState)
+			httpGet, httpPost, getAssertionOptions := startServer(t, "", nil, credentials, initVolState)
 			options := getAssertionOptions()
 
 			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 42, t)
@@ -2335,13 +2335,13 @@ func TestWebauthnAuthentication(t *testing.T) {
 				}
 			}
 
-			var dynState WebauthnDynState
-			getDynStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
-			testutil.FatalIfErr(t, unmarshalTo(getDynStateResp.Body, &dynState))
-			credDynState, ok := dynState.Credentials[cred.ID]
+			var volState WebauthnVolatileState
+			getVolStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
+			testutil.FatalIfErr(t, unmarshalTo(getVolStateResp.Body, &volState))
+			credVolState, ok := volState.Credentials[cred.ID]
 			testutil.AssertTrue(t, t.Fatalf, ok, "Failed to get credential state")
-			testutil.AssertLessThan(t, t.Errorf, time.Since(credDynState.LastUseTime), 10*time.Second, "Wrong LastUseTime after authentication success")
-			testutil.AssertEqual(t, t.Errorf, 42, credDynState.SignCount, "Wrong SignCount after authentication success")
+			testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after authentication success")
+			testutil.AssertEqual(t, t.Errorf, 42, credVolState.SignCount, "Wrong SignCount after authentication success")
 		})
 
 		t.Run("can authenticate without UV even if a different credential requires UV", func(t *testing.T) {

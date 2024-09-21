@@ -288,7 +288,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
-	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", webauthnService.getDynamicState)
+	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", webauthnService.getVolatileState)
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
