@@ -2338,9 +2338,8 @@ func TestWebauthnAuthentication(t *testing.T) {
 			var dynState WebauthnDynState
 			getDynStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
 			testutil.FatalIfErr(t, unmarshalTo(getDynStateResp.Body, &dynState))
-			l.Warnln("got dynState", dynState)
 			credDynState, ok := dynState.Credentials[cred.ID]
-			l.Warnln("credDynState", credDynState, ok, cred.ID)
+			testutil.AssertTrue(t, t.Fatalf, ok, "Failed to get credential state")
 			testutil.AssertLessThan(t, t.Errorf, time.Since(credDynState.LastUseTime), 10*time.Second, "Wrong LastUseTime after authentication success")
 			testutil.AssertEqual(t, t.Errorf, 42, credDynState.SignCount, "Wrong SignCount after authentication success")
 		})
