@@ -3308,12 +3308,14 @@ angular.module('syncthing.core')
                 // Undefined or null should become a valid string.
                 path = '';
             }
-            var hashIndex = path.indexOf('#');
-            url += '/' + (hashIndex === -1 ? path : path.slice(0, hashIndex));
-            url += '?version=' + $scope.versionBase();
-            var hash = hashIndex === -1 ? '' : path.slice(hashIndex);
-            if (hash) {
-                url += hash;
+            var hash = path.indexOf('#');
+            if (hash != -1) {
+                url += '/' + path.slice(0, hash);
+                url += '?version=' + $scope.versionBase();
+                url += path.slice(hash);
+            } else {
+                url += '/' + path;
+                url += '?version=' + $scope.versionBase();
             }
             return url;
         };
