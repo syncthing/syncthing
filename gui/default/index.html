@@ -400,6 +400,7 @@
             </button>
             <div id="login-option-webauthn" class="panel-collapse collapse {{isDefaultLoginOption('webauthn') ? 'in' : ''}}">
               <div class="panel-body">
+                <p><span translate>Passkeys are a modern alternative to passwords that is both more secure and often easier to use. Set it up in GUI settings to use it.</span> <a href="{{docsURL('users/webauthn')}}" translate>Learn more</a></p>
                 <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
                 <div ng-if="locationDoesNotMatchWebauthnRpId()">
                   <p class="text-info" translate>Current domain does not match WebAuthn configuration.</p>
