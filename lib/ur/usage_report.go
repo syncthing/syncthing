@@ -274,12 +274,30 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.Type == config.FolderTypeReceiveEncrypted {
 				report.FolderUsesV3.ReceiveEncrypted++
 			}
+			if cfg.SendXattrs {
+				report.FolderUsesV3.SendXattrs++
+			}
+			if cfg.SyncXattrs {
+				report.FolderUsesV3.SyncXattrs++
+			}
+			if cfg.SendOwnership {
+				report.FolderUsesV3.SendOwnership++
+			}
+			if cfg.SyncOwnership {
+				report.FolderUsesV3.SyncOwnership++
+			}
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
 		for _, cfg := range s.cfg.Devices() {
 			if cfg.Untrusted {
 				report.DeviceUsesV3.Untrusted++
+			}
+			if cfg.MaxRecvKbps > 0 || cfg.MaxSendKbps > 0 {
+				report.DeviceUsesV3.UsesRateLimit++
+			}
+			if cfg.RawNumConnections > 1 {
+				report.DeviceUsesV3.MultipleConnections++
 			}
 		}
 

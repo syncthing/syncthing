@@ -8,22 +8,22 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/syncthing/syncthing/cmd/infra/ursrv/aggregate"
 	"github.com/syncthing/syncthing/cmd/infra/ursrv/serve"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 type CLI struct {
-	Serve     serve.CLI     `cmd:"" default:""`
-	Aggregate aggregate.CLI `cmd:""`
+	Serve serve.CLI `cmd:"" default:""`
 }
 
 func main() {
-	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
-	log.SetOutput(os.Stdout)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
 
 	var cli CLI
 	ctx := kong.Parse(&cli)

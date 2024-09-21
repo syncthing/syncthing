@@ -21,4 +21,3 @@ See `relaypoolsrv -help` for configuration options.
 
 [oschwald/geoip2-golang](https://github.com/oschwald/geoip2-golang), [oschwald/maxminddb-golang](https://github.com/oschwald/maxminddb-golang), Copyright (C) 2015 [Gregory J. Oschwald](mailto:oschwald@gmail.com).
 
-[lib/pq](https://github.com/lib/pq)</a>, Copyright (C) 2011-2013 'pq' Contributors Portions Copyright (C) 2011 Blake Mizerany.
