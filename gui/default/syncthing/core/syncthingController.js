@@ -3301,16 +3301,16 @@ angular.module('syncthing.core')
 
         $scope.docsURL = function (path) {
             var url = 'https://docs.syncthing.net';
+            if (!$scope.versionBase()) {
+                return url;
+            }
             if (!path) {
                 // Undefined or null should become a valid string.
                 path = '';
             }
             var hashIndex = path.indexOf('#');
             url += '/' + (hashIndex === -1 ? path : path.slice(0, hashIndex));
-            var ver = $scope.versionBase();
-            if (ver) {
-                url += '?version=' + ver;
-            }
+            url += '?version=' + $scope.versionBase();
             var hash = hashIndex === -1 ? '' : path.slice(hashIndex);
             if (hash) {
                 url += hash;
