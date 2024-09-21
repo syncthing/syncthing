@@ -25,7 +25,7 @@ type Release struct {
 	Assets     []Asset `json:"assets"`
 
 	// The HTML URL is needed for human readable links in the output created
-	// by cmd/stupgrades.
+	// by cmd/infra/stupgrades.
 	HTMLURL string `json:"html_url"`
 }
 
@@ -34,7 +34,7 @@ type Asset struct {
 	Name string `json:"name"`
 
 	// The browser URL is needed for human readable links in the output created
-	// by cmd/stupgrades.
+	// by cmd/infra/stupgrades.
 	BrowserURL string `json:"browser_download_url,omitempty"`
 }
 
