@@ -538,7 +538,7 @@
     "Watching for Changes": "Watching for Changes",
     "Watching for changes discovers most changes without periodic scanning.": "Watching for changes discovers most changes without periodic scanning.",
     "WebAuthn (Passkey)": "WebAuthn (Passkey)",
-    "WebAuthn Credentials": "WebAuthn Credentials",
+    "WebAuthn Credentials (Passkeys)": "WebAuthn Credentials (Passkeys)",
     "WebAuthn is not supported on raw IP address hosts.": "WebAuthn is not supported on raw IP address hosts.",
     "WebAuthn requires HTTPS on non-localhost domains.": "WebAuthn requires HTTPS on non-localhost domains.",
     "When adding a new device, keep in mind that this device must be added on the other side too.": "When adding a new device, keep in mind that this device must be added on the other side too.",
