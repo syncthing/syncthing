@@ -108,6 +108,8 @@ func (f *virtualFolderSyncthingService) Serve_backgroundDownloadTask() {
 				if err != nil {
 					return
 				}
+				defer snap.Release()
+
 				fi, ok := snap.GetGlobal(job)
 				if !ok {
 					return
@@ -198,6 +200,7 @@ func (vf *virtualFolderSyncthingService) Scan(subs []string) error {
 	if err != nil {
 		return err
 	}
+	defer snap.Release()
 
 	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool /* true to continue */ {
 		if f.IsDirectory() {
