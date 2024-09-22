@@ -81,6 +81,7 @@ var (
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
+		{regexp.MustCompile(`\snix@nix`), "NixOS (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )
