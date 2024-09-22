@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -116,7 +117,8 @@ func (f *virtualFolderSyncthingService) Serve_backgroundDownloadTask() {
 				}
 
 				all_ok := true
-				for _, bi := range fi.Blocks {
+				for i, bi := range fi.Blocks {
+					logger.DefaultLogger.Infof("check block info #%v: %+v", i, bi)
 					_, ok := f.GetBlockDataFromCacheOrDownload(snap, fi, bi)
 					all_ok = all_ok && ok
 				}

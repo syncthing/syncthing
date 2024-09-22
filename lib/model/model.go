@@ -2028,12 +2028,37 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	n := 0
 	virtualFolder, ok := folderRunner.(virtualFolderServiceI)
 	if ok {
+		if len(req.Hash) == 0 { // this happens for virtual encrypted folders
+			l.Infof("%v REQ(in) get hash of req. block from virtual folder: %s - %s: %q / %q o=%d s=%d, blockNo=%v, hash=%v",
+				m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size, req.BlockNo, req.Hash)
+			// lookup hash:
+			folderFiles := m.folderFiles[req.Folder]
+			if folderFiles == nil {
+				l.Infof("failed m.folderFiles[req.Folder], result nil")
+			}
+			snap, err := folderFiles.Snapshot()
+			if err != nil {
+				l.Infof("failed folderFiles.Snapshot()")
+				return nil, err
+			}
+			defer snap.Release()
+
+			fi, ok := snap.Get(protocol.LocalDeviceID, req.Name)
+			if !ok {
+				l.Infof("failed snap.Get()")
+				return nil, protocol.ErrNoSuchFile
+			}
+
+			req.Hash = fi.Blocks[req.BlockNo].Hash
+		}
 		n, err = virtualFolder.GetHashBlockData(req.Hash, res.data)
-		l.Debugf("%v REQ(in) get block from virtual folder: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		l.Infof("%v REQ(in) get block from virtual folder: %s - %s: %q / %q o=%d s=%d, blockNo=%v, hash=%v",
+			m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size, req.BlockNo, req.Hash)
 	} else {
 		filesystemFolder, ok := folderRunner.(filesystemFolderServiceI)
 		if !ok {
-			l.Debugf("%v REQ(in) get block FAILED - unknown folder type. %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+			l.Debugf("%v REQ(in) get block FAILED - unknown folder type. %s - %s: %q / %q o=%d s=%d, blockNo=%v, hash=%v",
+				m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size, req.BlockNo, req.Hash)
 			return nil, protocol.ErrGeneric
 		}
 
