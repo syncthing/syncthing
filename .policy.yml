@@ -78,10 +78,14 @@ approval_rules:
 
   # If the change is small and the label "trivial" is added, we accept that
   # on trust. These PRs can be audited after the fact as appropriate.
+  # Features are not trivial.
   - name: is a trivial change by a contributor
     if:
       modified_lines:
         total: "< 25"
+      title:
+        not_matches:
+          - '^feat'
       has_labels:
         - trivial
       has_author_in:
