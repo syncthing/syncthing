@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -1430,6 +1431,39 @@ func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 	return snap, nil
+}
+
+func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
+	fd, err := cfg.Filesystem(nil).Open(encryptionTokenPath(cfg))
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	var stored storedEncryptionToken
+	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
+		return nil, err
+	}
+	return stored.Token, nil
+}
+
+func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
+	tokenName := encryptionTokenPath(cfg)
+	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	return json.NewEncoder(fd).Encode(storedEncryptionToken{
+		FolderID: cfg.ID,
+		Token:    token,
+	})
+}
+
+func (f *folder) ReadEncryptionToken() ([]byte, error) {
+	return readEncryptionToken(f.FolderConfiguration)
+}
+func (f *folder) WriteEncryptionToken(token []byte) error {
+	return writeEncryptionToken(token, f.FolderConfiguration)
 }
 
 // The exists function is expected to return true for all known paths

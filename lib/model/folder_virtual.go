@@ -239,3 +239,15 @@ func (vf *virtualFolderSyncthingService) GetHashBlockData(hash []byte, response_
 	n := copy(response_data, data)
 	return n, nil
 }
+
+func (f *virtualFolderSyncthingService) ReadEncryptionToken() ([]byte, error) {
+	data, ok := f.blockCache.GetMeta(config.EncryptionTokenName)
+	if !ok {
+		return nil, protocol.ErrNoSuchFile
+	}
+	return data, nil
+}
+func (f *virtualFolderSyncthingService) WriteEncryptionToken(token []byte) error {
+	f.blockCache.SetMeta(config.EncryptionTokenName, token)
+	return nil
+}

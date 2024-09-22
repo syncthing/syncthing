@@ -12,7 +12,6 @@ package model
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -60,6 +59,8 @@ type service interface {
 	WatchError() error
 	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
+	ReadEncryptionToken() ([]byte, error)
+	WriteEncryptionToken([]byte) error
 
 	getState() (folderState, time.Time, error)
 }
@@ -351,7 +352,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	m.folderFiles[cfg.ID] = fset
 	m.folderIgnores[cfg.ID] = ignores
 
-	_, ok := m.folderRunners.Get(cfg.ID)
+	folderRunner, ok := m.folderRunners.Get(cfg.ID)
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
 		panic("cannot start already running folder")
@@ -376,7 +377,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
-	if !indexHasFiles {
+	if !indexHasFiles && !cfg.Type.IsVirtualFolder() {
 		// It's a blank folder, so this may the first time we're looking at
 		// it. Attempt to create and tag with our marker as appropriate. We
 		// don't really do anything with errors at this point except warn -
@@ -391,7 +392,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	if cfg.Type.IsReceiveEncrypted() {
-		if encryptionToken, err := readEncryptionToken(cfg); err == nil {
+		if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
 			m.folderEncryptionPasswordTokens[folder] = encryptionToken
 		} else if !fs.IsNotExist(err) {
 			l.Warnf("Failed to read encryption token: %v", err)
@@ -1580,8 +1581,12 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	token, ok := m.folderEncryptionPasswordTokens[fcfg.ID]
 	m.mut.RUnlock()
 	if !ok {
+		runner, ok := m.folderRunners.Get(fcfg.ID)
+		if !ok {
+			return errEncryptionPassword
+		}
 		var err error
-		token, err = readEncryptionToken(fcfg)
+		token, err = runner.ReadEncryptionToken()
 		if err != nil && !fs.IsNotExist(err) {
 			if rerr, ok := redactPathError(err); ok {
 				return rerr
@@ -1596,7 +1601,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.folderEncryptionPasswordTokens[fcfg.ID] = token
 			m.mut.Unlock()
 		} else {
-			if err := writeEncryptionToken(ccToken, fcfg); err != nil {
+			if err := runner.WriteEncryptionToken(ccToken); err != nil {
 				if rerr, ok := redactPathError(err); ok {
 					return rerr
 				} else {
@@ -3428,32 +3433,6 @@ func encryptionTokenPath(cfg config.FolderConfiguration) string {
 type storedEncryptionToken struct {
 	FolderID string
 	Token    []byte
-}
-
-func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
-	fd, err := cfg.Filesystem(nil).Open(encryptionTokenPath(cfg))
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-	var stored storedEncryptionToken
-	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
-		return nil, err
-	}
-	return stored.Token, nil
-}
-
-func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
-	tokenName := encryptionTokenPath(cfg)
-	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	return json.NewEncoder(fd).Encode(storedEncryptionToken{
-		FolderID: cfg.ID,
-		Token:    token,
-	})
 }
 
 func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {

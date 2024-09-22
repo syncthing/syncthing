@@ -10,4 +10,7 @@ type HashBlockStorageI interface {
 	Get(hash []byte) (data []byte, ok bool)
 	Set(hash []byte, data []byte)
 	Delete(hash []byte)
+	GetMeta(name string) (data []byte, ok bool)
+	SetMeta(name string, data []byte)
+	DeleteMeta(name string)
 }

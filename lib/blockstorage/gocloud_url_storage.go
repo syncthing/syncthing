@@ -22,6 +22,9 @@ import (
 	_ "gocloud.dev/blob/s3blob"
 )
 
+const BlockDataSubFolder = "blocks"
+const MetaDataSubFolder = "meta"
+
 type GoCloudUrlStorage struct {
 	io.Closer
 
@@ -50,12 +53,20 @@ func NewGoCloudUrlStorage(ctx context.Context, url string) *GoCloudUrlStorage {
 	}
 }
 
+func getBlockStringKey(hash []byte) string {
+	return BlockDataSubFolder + "/" + hashToStringMapKey(hash)
+}
+
+func getMetadataStringKey(name string) string {
+	return MetaDataSubFolder + "/" + name
+}
 func (hm *GoCloudUrlStorage) Get(hash []byte) (data []byte, ok bool) {
 	if len(hash) == 0 {
 		return nil, false
 	}
 
-	data, err := hm.bucket.ReadAll(hm.ctx, hashToStringMapKey(hash))
+	stringKey := getBlockStringKey(hash)
+	data, err := hm.bucket.ReadAll(hm.ctx, stringKey)
 	if gcerrors.Code(err) == gcerrors.NotFound {
 		return nil, false
 	}
@@ -69,7 +80,7 @@ func (hm *GoCloudUrlStorage) Get(hash []byte) (data []byte, ok bool) {
 }
 
 func (hm *GoCloudUrlStorage) Set(hash []byte, data []byte) {
-	stringKey := hashToStringMapKey(hash)
+	stringKey := getBlockStringKey(hash)
 	//existsAlready, err := hm.bucket.Exists(hm.ctx, stringKey)
 	//if err != nil {
 	//	log.Fatal(err)
@@ -86,11 +97,25 @@ func (hm *GoCloudUrlStorage) Set(hash []byte, data []byte) {
 }
 
 func (hm *GoCloudUrlStorage) Delete(hash []byte) {
-	err := hm.bucket.Delete(hm.ctx, hashToStringMapKey(hash))
+	err := hm.bucket.Delete(hm.ctx, getBlockStringKey(hash))
 	if err != nil {
 		log.Fatal(err)
 		panic("writing to block storage failed!")
 	}
+}
+
+func (hm *GoCloudUrlStorage) GetMeta(name string) (data []byte, ok bool) {
+	data, err := hm.bucket.ReadAll(hm.ctx, getMetadataStringKey(name))
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+func (hm *GoCloudUrlStorage) SetMeta(name string, data []byte) {
+	hm.bucket.WriteAll(hm.ctx, getMetadataStringKey(name), data, nil)
+}
+func (hm *GoCloudUrlStorage) DeleteMeta(name string) {
+	hm.bucket.Delete(hm.ctx, getMetadataStringKey(name))
 }
 
 func (hm *GoCloudUrlStorage) Close() {

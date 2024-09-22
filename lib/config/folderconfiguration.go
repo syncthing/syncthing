@@ -82,6 +82,9 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
+	if f.Type.IsVirtualFolder() {
+		return nil
+	}
 	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
@@ -119,6 +122,9 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) RemoveMarker() error {
+	if f.Type.IsVirtualFolder() {
+		return nil
+	}
 	ffs := f.Filesystem(nil)
 	_ = ffs.Remove(filepath.Join(DefaultMarkerName, f.markerFilename()))
 	return ffs.Remove(DefaultMarkerName)
@@ -139,6 +145,9 @@ func (f *FolderConfiguration) markerContents() []byte {
 
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
+	if f.Type.IsVirtualFolder() {
+		return nil
+	}
 	return f.checkFilesystemPath(f.Filesystem(nil), ".")
 }
 
@@ -173,6 +182,11 @@ func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
+
+	if f.Type.IsVirtualFolder() {
+		return nil
+	}
+
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := fs.FileMode(0o777)
