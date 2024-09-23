@@ -10,7 +10,9 @@ import (
 	"net"
 )
 
-func GetLans() ([]*net.IPNet, error) {
+// GetInterfaceAddrs returns the IP networks of all interfaces that are up.
+// Point-to-point interfaces are exluded unless includePtP is true.
+func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 	intfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -21,7 +23,7 @@ func GetLans() ([]*net.IPNet, error) {
 		if intf.Flags&net.FlagRunning == 0 {
 			continue
 		}
-		if intf.Flags&net.FlagPointToPoint != 0 {
+		if !includePtP && intf.Flags&net.FlagPointToPoint != 0 {
 			// Point-to-point interfaces are typically VPNs and similar
 			// which, for our purposes, do not qualify as LANs.
 			continue
