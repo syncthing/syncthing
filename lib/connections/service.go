@@ -799,7 +799,7 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 		}
 	}
 
-	lans, err := osutil.GetLans()
+	lans, err := osutil.GetInterfaceAddrs(false)
 	if err != nil {
 		l.Debugln("Failed to retrieve interface IPs:", err)
 		priv := ip.IsPrivate()
