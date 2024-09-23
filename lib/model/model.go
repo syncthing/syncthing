@@ -352,7 +352,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	m.folderFiles[cfg.ID] = fset
 	m.folderIgnores[cfg.ID] = ignores
 
-	folderRunner, ok := m.folderRunners.Get(cfg.ID)
+	_, ok := m.folderRunners.Get(cfg.ID)
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
 		panic("cannot start already running folder")
@@ -391,13 +391,15 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	if cfg.Type.IsReceiveEncrypted() {
-		if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
-			m.folderEncryptionPasswordTokens[folder] = encryptionToken
-		} else if !fs.IsNotExist(err) {
-			l.Warnf("Failed to read encryption token: %v", err)
-		}
-	}
+	// As the folderRunner is not yet created here, we can't read the encryption token here.
+	// This seems to be redundant anyway. So why not skip it in general?
+	//if cfg.Type.IsReceiveEncrypted() {
+	//	if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
+	//		m.folderEncryptionPasswordTokens[folder] = encryptionToken
+	//	} else if !fs.IsNotExist(err) {
+	//		l.Warnf("Failed to read encryption token: %v", err)
+	//	}
+	//}
 
 	// These are our metadata files, and they should always be hidden.
 	ffs := cfg.Filesystem(nil)

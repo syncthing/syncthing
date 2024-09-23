@@ -7,7 +7,9 @@
 package model
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"strings"
@@ -245,9 +247,22 @@ func (f *virtualFolderSyncthingService) ReadEncryptionToken() ([]byte, error) {
 	if !ok {
 		return nil, protocol.ErrNoSuchFile
 	}
-	return data, nil
+	dataBuf := bytes.NewBuffer(data)
+	var stored storedEncryptionToken
+	if err := json.NewDecoder(dataBuf).Decode(&stored); err != nil {
+		return nil, err
+	}
+	return stored.Token, nil
 }
 func (f *virtualFolderSyncthingService) WriteEncryptionToken(token []byte) error {
-	f.blockCache.SetMeta(config.EncryptionTokenName, token)
+	data := bytes.Buffer{}
+	err := json.NewEncoder(&data).Encode(storedEncryptionToken{
+		FolderID: f.ID,
+		Token:    token,
+	})
+	if err != nil {
+		return err
+	}
+	f.blockCache.SetMeta(config.EncryptionTokenName, data.Bytes())
 	return nil
 }
