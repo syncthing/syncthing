@@ -352,6 +352,8 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
+				MinVersion:         tls.VersionTLS12,
+				ClientSessionCache: tls.NewLRUClientSessionCache(0),
 			},
 		},
 	}
