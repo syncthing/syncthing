@@ -78,7 +78,7 @@ func init() {
 	osVersion = strings.TrimSpace(osVersion)
 }
 
-func insecureGet(url, version string) (*http.Response, error) {
+func upgradeClientGet(url, version string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func insecureGet(url, version string) (*http.Response, error) {
 // FetchLatestReleases returns the latest releases. The "current" parameter
 // is used for setting the User-Agent only.
 func FetchLatestReleases(releasesURL, current string) []Release {
-	resp, err := insecureGet(releasesURL, current)
+	resp, err := upgradeClientGet(releasesURL, current)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
 		return nil
