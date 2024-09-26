@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
+	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -383,6 +384,20 @@ func (s *Service) Serve(ctx context.Context) error {
 			t.Reset(0)
 		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
+				if s.cfg.Options().URUniqueID == "" {
+					// Set a unique ID if this is the first time we're
+					// sending a report
+					w, err := s.cfg.Modify(func(cfg *config.Configuration) {
+						cfg.Options.URUniqueID = srand.String(8)
+					})
+					if err != nil {
+						// Hope for better luck next time, no need to try to
+						// send a report without a unique ID
+						continue
+					}
+					w.Wait()
+				}
+
 				err := s.sendUsageReport(ctx)
 				if err != nil {
 					l.Infoln("Usage report:", err)
@@ -396,7 +411,7 @@ func (s *Service) Serve(ctx context.Context) error {
 }
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
-	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
+	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URURL != to.Options.URURL {
 		select {
 		case s.forceRun <- struct{}{}:
 		default:
