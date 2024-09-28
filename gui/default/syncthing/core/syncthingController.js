@@ -1814,130 +1814,123 @@ angular.module('syncthing.core')
                 && $scope.locationMatchesWebauthnOrigin();
         };
 
-        if ($scope.webauthnAvailable()) {
-            if ($scope.authenticated) {
-                // Functions for use in the settings dialog
-
-                $scope.registerWebauthnCredential = function () {
-                    $scope.webauthn.errors = {};
-                    $http.post(urlbase + '/config/webauthn/register-start')
-                        .then(function (resp) {
-                            // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                            resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
-                                return { type: "public-key", id: cred.id };
-                            });
-                            return webauthnJSON.create(resp.data);
-                        })
-                        .then(function (pkc) {
-                            return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
-                        })
-                        .then(function (resp) {
-                            $scope.tmpGUI.webauthnState.credentials.push(resp.data);
-                        })
-                        .catch(function (e) {
-                            if (e instanceof DOMException && e.name === "InvalidStateError") {
-                                $scope.webauthn.errors.alreadyRegistered = true;
-                            } else if (e instanceof DOMException && e.name === "AbortError") {
-                                $scope.webauthn.errors.aborted = true;
-                            } else if (e instanceof DOMException && e.name === "NotAllowedError") {
-                                $scope.webauthn.errors.notAllowed = true;
-                            } else if (e instanceof DOMException && e.name === "SecurityError") {
-                                $scope.webauthn.errors.securityError = true;
-                            } else {
-                                $scope.webauthn.errors.registrationFailed = true;
-                                console.log('Credential creation failed:', e);
-                            }
-                        });
-                };
-
-                $scope.deleteWebauthnCredential = function (cred) {
-                    $scope.tmpGUI.webauthnState.credentials = $scope.tmpGUI.webauthnState.credentials.filter(function (cr) {
-                        return cr.id !== cred.id;
+        $scope.registerWebauthnCredential = function () {
+            $scope.webauthn.errors = {};
+            $http.post(urlbase + '/config/webauthn/register-start')
+                .then(function (resp) {
+                    // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
+                    resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
+                        return { type: "public-key", id: cred.id };
                     });
-                };
-
-            } else {
-                // Functions for use on the login page
-
-                $scope.authenticateWebauthnStart = function () {
-                    $scope.webauthn.errors = {};
-                    return $http.post(authUrlbase + '/webauthn-start')
-                        .then(function (resp) {
-                            if (resp && resp.data && resp.data.publicKey) {
-                                $scope.webauthn.request = resp.data;
-                                return resp.data;
-                            } else {
-                                return Promise.reject('noCredentials');
-                            }
-                        })
-                        .catch(function (e) {
-                            if (e === 'noCredentials') {
-                                $scope.webauthn.errors.noCredentials = true;
-                            } else {
-                                $scope.webauthn.errors.initFailed = true;
-                                console.log('WebAuthn initialization failed:', e);
-                            }
-
-                            // Re-reject the Promise, otherwise consumers of the Promise will consider it succeeded
-                            return Promise.reject(e);
-                        });
-                };
-
-                $scope.authenticateWebauthnFinish = function () {
-                    var finish = function (request) {
-                        $scope.login.inProgress = true;
-                        return webauthnJSON.get(request)
-                            .then(function (pkc) {
-                                return $http.post(
-                                    authUrlbase + '/webauthn-finish',
-                                    {
-                                        credential: pkc,
-                                        stayLoggedIn: $scope.login.stayLoggedIn,
-                                    },
-                                );
-                            })
-                            .then(function () {
-                                saveDefaultLoginOption('webauthn');
-                                location.reload();
-                            })
-                            .catch(function (e) {
-                                console.log("WebAuthn failed", e);
-
-                                if (e instanceof DOMException && e.name === "InvalidStateError") {
-                                    $scope.webauthn.errors.notRegistered = true;
-                                } else if (e instanceof DOMException && e.name === "AbortError") {
-                                    $scope.webauthn.errors.aborted = true;
-                                } else if (e instanceof DOMException && e.name === "NotAllowedError") {
-                                    $scope.webauthn.errors.notAllowed = true;
-                                } else if (e instanceof DOMException && e.name === "SecurityError") {
-                                    $scope.webauthn.errors.securityError = true;
-                                } else if (e && e.status === 409) {
-                                    $scope.webauthn.errors.uvRequired = true;
-                                } else {
-                                    $scope.webauthn.errors.authenticationFailed = true;
-                                    console.log('WebAuthn authentication failed:', typeof e, e);
-                                }
-
-                                $scope.webauthn.request = false;
-
-                            }).finally(function () {
-                                $scope.login.inProgress = false;
-
-                                // Explicit apply needed here because webauthnJSON is outside the Angular framework
-                                $scope.$apply();
-                            });
-                    };
-
-                    $scope.webauthn.errors = {};
-                    if ($scope.webauthn.request) {
-                        finish($scope.webauthn.request);
+                    return webauthnJSON.create(resp.data);
+                })
+                .then(function (pkc) {
+                    return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
+                })
+                .then(function (resp) {
+                    $scope.tmpGUI.webauthnState.credentials.push(resp.data);
+                })
+                .catch(function (e) {
+                    if (e instanceof DOMException && e.name === "InvalidStateError") {
+                        $scope.webauthn.errors.alreadyRegistered = true;
+                    } else if (e instanceof DOMException && e.name === "AbortError") {
+                        $scope.webauthn.errors.aborted = true;
+                    } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                        $scope.webauthn.errors.notAllowed = true;
+                    } else if (e instanceof DOMException && e.name === "SecurityError") {
+                        $scope.webauthn.errors.securityError = true;
                     } else {
-                        $scope.authenticateWebauthnStart().then(finish);
+                        $scope.webauthn.errors.registrationFailed = true;
+                        console.log('Credential creation failed:', e);
                     }
-                };
+                });
+        };
 
-                $scope.authenticateWebauthnStart();
+        $scope.deleteWebauthnCredential = function (cred) {
+            $scope.tmpGUI.webauthnState.credentials = $scope.tmpGUI.webauthnState.credentials.filter(function (cr) {
+                return cr.id !== cred.id;
+            });
+        };
+
+        $scope.authenticateWebauthnStart = function () {
+            $scope.webauthn.errors = {};
+            return $http.post(authUrlbase + '/webauthn-start')
+                .then(function (resp) {
+                    if (resp && resp.data && resp.data.publicKey) {
+                        $scope.webauthn.request = resp.data;
+                        return resp.data;
+                    } else {
+                        return Promise.reject('noCredentials');
+                    }
+                })
+                .catch(function (e) {
+                    if (e === 'noCredentials') {
+                        $scope.webauthn.errors.noCredentials = true;
+                    } else {
+                        $scope.webauthn.errors.initFailed = true;
+                        console.log('WebAuthn initialization failed:', e);
+                    }
+
+                    // Re-reject the Promise, otherwise consumers of the Promise will consider it succeeded
+                    return Promise.reject(e);
+                });
+        };
+
+        $scope.authenticateWebauthnFinish = function () {
+            var finish = function (request) {
+                $scope.login.inProgress = true;
+                return webauthnJSON.get(request)
+                    .then(function (pkc) {
+                        return $http.post(
+                            authUrlbase + '/webauthn-finish',
+                            {
+                                credential: pkc,
+                                stayLoggedIn: $scope.login.stayLoggedIn,
+                            },
+                        );
+                    })
+                    .then(function () {
+                        saveDefaultLoginOption('webauthn');
+                        location.reload();
+                    })
+                    .catch(function (e) {
+                        console.log("WebAuthn failed", e);
+
+                        if (e instanceof DOMException && e.name === "InvalidStateError") {
+                            $scope.webauthn.errors.notRegistered = true;
+                        } else if (e instanceof DOMException && e.name === "AbortError") {
+                            $scope.webauthn.errors.aborted = true;
+                        } else if (e instanceof DOMException && e.name === "NotAllowedError") {
+                            $scope.webauthn.errors.notAllowed = true;
+                        } else if (e instanceof DOMException && e.name === "SecurityError") {
+                            $scope.webauthn.errors.securityError = true;
+                        } else if (e && e.status === 409) {
+                            $scope.webauthn.errors.uvRequired = true;
+                        } else {
+                            $scope.webauthn.errors.authenticationFailed = true;
+                            console.log('WebAuthn authentication failed:', typeof e, e);
+                        }
+
+                        $scope.webauthn.request = false;
+
+                    }).finally(function () {
+                        $scope.login.inProgress = false;
+
+                        // Explicit apply needed here because webauthnJSON is outside the Angular framework
+                        $scope.$apply();
+                    });
+            };
+
+            $scope.webauthn.errors = {};
+            if ($scope.webauthn.request) {
+                finish($scope.webauthn.request);
+            } else {
+                $scope.authenticateWebauthnStart().then(finish);
             }
+        };
+
+        if ($scope.webauthnAvailable() && !$scope.authenticated) {
+            $scope.authenticateWebauthnStart();
         }
 
         $scope.saveConfig = function () {
