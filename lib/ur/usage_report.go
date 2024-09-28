@@ -396,7 +396,7 @@ func (s *Service) Serve(ctx context.Context) error {
 }
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
-	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URURL != to.Options.URURL {
+	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
 		select {
 		case s.forceRun <- struct{}{}:
 		default:
