@@ -149,10 +149,6 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.getLocationHost = function () {
-            return $location.host();
-        };
-
         $scope.isLocationInsecure = function() {
             // localhost is a special case that is considered a "secure context" even without TLS
             // See: https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
