@@ -243,13 +243,13 @@
 
                       <p class="text-info" ng-if="!isLocationInsecure() && !webauthnAvailable()" translate>Your browser does not support WebAuthn.</p>
 
-                      <p class="text-info" ng-if="!locationMatchesWebauthnOrigin()" translate translate-value-webauthn-address="{{ getWebauthnOrigin() }}">Reload page at {%webauthnAddress%} to enable WebAuthn.</p>
+                      <p class="text-info" ng-if="!locationMatchesWebauthnOrigin()" translate translate-value-address="{{ getWebauthnOrigin() }}">Reload page at {%address%} to enable WebAuthn.</p>
 
                       <p ng-if="isLocationInsecure() || !locationMatchesWebauthnOrigin()">
-                        <button ng-if="tmpGUI && settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)"><span class="fas fa-check"></span>&nbsp;<span translate translate-value-webauthn-address="{{ getWebauthnOrigin() }}">Save settings and reload page at {%webauthnAddress%}</span>
+                        <button ng-if="tmpGUI && settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(true)"><span class="fas fa-check"></span>&nbsp;<span translate translate-value-address="{{ getWebauthnOrigin() }}">Save settings and reload page at {%address%}</span>
                         </button>
 
-                        <button ng-if="tmpGUI && !settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-webauthn-address="{{ getWebauthnOrigin() }}">Reload page at {%webauthnAddress%}</button>
+                        <button ng-if="tmpGUI && !settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-address="{{ getWebauthnOrigin() }}">Reload page at {%address%}</button>
                       </p>
                     </td>
 
