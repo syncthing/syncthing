@@ -2038,8 +2038,9 @@ func TestWebauthnRegistration(t *testing.T) {
 				break
 			}
 		}
-		testutil.AssertNotEqual(t, t.Fatalf, csrfTokenValue, "",
-			"Failed to initialize test: no CSRF cookie returned from %v", baseURL)
+		if csrfTokenValue == "" {
+			t.Fatalf("Failed to initialize test: no CSRF cookie returned from %v", baseURL)
+		}
 
 		getCreateOptions := func(t *testing.T) webauthnProtocol.CredentialCreation {
 			startResp := httpPostCsrfAuth(baseURL+"/rest/config/webauthn/register-start", nil, testAPIKey, csrfTokenName, csrfTokenValue, t)
