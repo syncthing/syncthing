@@ -2048,8 +2048,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			if startResp.StatusCode != http.StatusOK {
 				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
 			}
-			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
-				"Expected no session cookie when starting WebAuthn registration")
+			if hasSessionCookie(startResp.Cookies()) {
+				t.Errorf("Expected no session cookie when starting WebAuthn registration")
+			}
 
 			var options webauthnProtocol.CredentialCreation
 			err := unmarshalTo(startResp.Body, &options)
@@ -2343,8 +2344,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			if startResp.StatusCode != http.StatusOK {
 				t.Fatalf("Failed to start WebAuthn authentication: status %d", startResp.StatusCode)
 			}
-			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
-				"Expected no session cookie when starting WebAuthn authentication")
+			if hasSessionCookie(startResp.Cookies()) {
+				t.Errorf("Expected no session cookie when starting WebAuthn authentication")
+			}
 
 			var options webauthnProtocol.CredentialAssertion
 			err := unmarshalTo(startResp.Body, &options)
@@ -2909,8 +2911,9 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			if startResp.StatusCode != http.StatusOK {
 				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
 			}
-			testutil.AssertFalse(t, t.Errorf, hasSessionCookie(startResp.Cookies()),
-				"Expected no session cookie when starting WebAuthn registration")
+			if hasSessionCookie(startResp.Cookies()) {
+				t.Errorf("Expected no session cookie when starting WebAuthn registration")
+			}
 
 			var options webauthnProtocol.CredentialAssertion
 			err := unmarshalTo(startResp.Body, &options)

@@ -82,8 +82,3 @@ func AssertTrue(t *testing.T, testFailFunc func(string, ...any), a bool, sprintf
 		}
 	}
 }
-
-func AssertFalse(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
-	t.Helper()
-	AssertTrue(t, testFailFunc, !a, sprintfArgs)
-}
