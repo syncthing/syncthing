@@ -9,6 +9,7 @@ package testutil
 import (
 	"errors"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 
@@ -72,23 +73,6 @@ func IfNotCI[T any](notCiValue T, ciValue T) T {
 	}
 }
 
-func ConcatSlices[T any](slices ...[]T) []T {
-	// TODO when go >= 1.22.0: Replace with slices.Concat
-	concatLen := 0
-	for _, s := range slices {
-		concatLen += len(s)
-	}
-	var concat []T = make([]T, concatLen)
-	i := 0
-	for _, s := range slices {
-		for _, el := range s {
-			concat[i] = el
-			i += 1
-		}
-	}
-	return concat
-}
-
 func IfExpr[T any](expr bool, then T, els T) T {
 	if expr {
 		return then
@@ -123,7 +107,7 @@ func AssertEqual[T comparable](t *testing.T, testFailFunc func(string, ...any), 
 		} else if len(sprintfArgs) == 1 {
 			testFailFunc("Assertion failed: %v == %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
+			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
@@ -136,7 +120,7 @@ func AssertNotEqual[T comparable](t *testing.T, testFailFunc func(string, ...any
 		} else if len(sprintfArgs) == 1 {
 			testFailFunc("Assertion failed: %v != %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
+			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
@@ -149,7 +133,7 @@ func AssertLessThan[T constraints.Ordered](t *testing.T, testFailFunc func(strin
 		} else if len(sprintfArgs) == 1 {
 			testFailFunc("Assertion failed: %v < %v: %s", a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %v < %v: "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
+			testFailFunc("Assertion failed: %v < %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
@@ -162,7 +146,7 @@ func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), pre
 		} else if len(sprintfArgs) == 1 {
 			testFailFunc("Assertion failed: %s(%v, %v) == true: %s", predicate, a, b, sprintfArgs[0])
 		} else {
-			testFailFunc("Assertion failed: %s(%v, %v) == true: "+sprintfArgs[0].(string), ConcatSlices([]any{predicate, a, b}, sprintfArgs[1:])...)
+			testFailFunc("Assertion failed: %s(%v, %v) == true: "+sprintfArgs[0].(string), slices.Concat([]any{predicate, a, b}, sprintfArgs[1:])...)
 		}
 	}
 }
