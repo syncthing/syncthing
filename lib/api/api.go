@@ -382,8 +382,8 @@ func (s *service) Serve(ctx context.Context) error {
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(s.cfg.GUI()))
-		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, s.cfg.GUI()))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, guiCfg))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
