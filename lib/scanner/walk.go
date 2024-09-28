@@ -340,7 +340,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan, skip)
+			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -349,7 +349,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan, skip)
+			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
 		}
 
 		// The previously ignored parent directories of the current, not
@@ -364,7 +364,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				handleError(ctx, "scan", ignoredParent, err, finishedChan)
 				return skip
 			}
-			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan, skip); err != nil {
+			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan); err != nil {
 				return err
 			}
 		}
@@ -374,7 +374,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	}
 }
 
-func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult, skip error) error {
+func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	switch {
 	case info.IsSymlink():
 		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {
