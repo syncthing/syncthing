@@ -2082,8 +2082,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			"Wrong credential ID in registration success response")
 
 		testutil.AssertEqual(t, t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
-		testutil.AssertLessThan(t, t.Errorf, time.Since(pendingCred.CreateTime), 10*time.Second,
-			"Wrong CreateTime in registration success response")
+		if !(time.Since(pendingCred.CreateTime) < 10*time.Second) {
+			t.Errorf("Wrong CreateTime in registration success response")
+		}
 		if !slices.Equal(pendingCred.Transports, transports) {
 			t.Errorf("Wrong Transports in registration success response: %v != %v", transports, pendingCred.Transports)
 		}
@@ -2097,7 +2098,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			t.Fatal(err)
 		}
 		credVolState := volState.Credentials[pendingCred.ID]
-		testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after registration success")
+		if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
+			t.Errorf("Wrong LastUseTime after registration success")
+		}
 		testutil.AssertEqual(t, t.Errorf, 42, credVolState.SignCount, "Wrong SignCount after registration success")
 
 		var conf config.Configuration
@@ -2387,7 +2390,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			}
 			credVolState, ok := volState.Credentials[cred.ID]
 			testutil.AssertTrue(t, t.Fatalf, ok, "Failed to get credential state")
-			testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after authentication success")
+			if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
+				t.Errorf("Wrong LastUseTime after authentication success")
+			}
 			testutil.AssertEqual(t, t.Errorf, 42, credVolState.SignCount, "Wrong SignCount after authentication success")
 		})
 
