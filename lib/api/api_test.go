@@ -1909,14 +1909,18 @@ func createWebauthnRegistrationResponse(
 		Origin:    origin,
 	}
 	clientDataJSON, err := json.Marshal(clientData)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	attObj, err := webauthncbor.Marshal(map[string]any{
 		"fmt":      "none",
 		"attStmt":  map[string]any{},
 		"authData": authData,
 	})
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return webauthnProtocol.CredentialCreationResponse{
 		PublicKeyCredential: webauthnProtocol.PublicKeyCredential{
@@ -1960,13 +1964,17 @@ func createWebauthnAssertionResponse(
 		Origin:    origin,
 	}
 	clientDataJSON, err := json.Marshal(clientData)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	clientDataJSONHash := sha256.Sum256(clientDataJSON)
 	signedData := slices.Concat(authData, clientDataJSONHash[:])
 	signedDataDigest := sha256.Sum256(signedData)
 
 	sig, err := privateKey.Sign(cryptoRand.Reader, signedDataDigest[:], crypto.SHA256)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return webauthnProtocol.CredentialAssertionResponse{
 		PublicKeyCredential: webauthnProtocol.PublicKeyCredential{
@@ -1990,9 +1998,13 @@ func TestWebauthnRegistration(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *webauthnService, func(t *testing.T) webauthnProtocol.CredentialCreation, config.Wrapper) {
 		cfg := newMockedConfig()
@@ -2012,7 +2024,9 @@ func TestWebauthnRegistration(t *testing.T) {
 			Timeout: 15 * time.Second,
 		}
 		resp, err := cli.Get(baseURL)
-		testutil.FatalIfErr(t, err)
+		if err != nil {
+			t.Fatal(err)
+		}
 		testutil.AssertEqual(t, t.Fatalf, resp.StatusCode, http.StatusOK,
 			"Unexpected status while getting CSRF token: %v", resp.Status)
 		resp.Body.Close()
@@ -2035,7 +2049,10 @@ func TestWebauthnRegistration(t *testing.T) {
 				"Expected no session cookie when starting WebAuthn registration")
 
 			var options webauthnProtocol.CredentialCreation
-			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options))
+			err := unmarshalTo(startResp.Body, &options)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			return options
 		}
@@ -2056,7 +2073,10 @@ func TestWebauthnRegistration(t *testing.T) {
 			"Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
 
 		var pendingCred config.WebauthnCredential
-		testutil.FatalIfErr(t, unmarshalTo(finishResp.Body, &pendingCred))
+		err := unmarshalTo(finishResp.Body, &pendingCred)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		testutil.AssertEqual(t, t.Errorf, pendingCred.ID, base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
 			"Wrong credential ID in registration success response")
@@ -2071,7 +2091,10 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		var volState WebauthnVolatileState
 		getVolStateResp := httpGetCsrf(baseURL+"/rest/webauthn/state", csrfTokenName, csrfTokenValue, t)
-		testutil.FatalIfErr(t, unmarshalTo(getVolStateResp.Body, &volState))
+		err = unmarshalTo(getVolStateResp.Body, &volState)
+		if err != nil {
+			t.Fatal(err)
+		}
 		credVolState := volState.Credentials[pendingCred.ID]
 		testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after registration success")
 		testutil.AssertEqual(t, t.Errorf, 42, credVolState.SignCount, "Wrong SignCount after registration success")
@@ -2080,9 +2103,14 @@ func TestWebauthnRegistration(t *testing.T) {
 		getConfResp := httpGetCsrf(baseURL+"/rest/config", csrfTokenName, csrfTokenValue, t)
 		testutil.AssertEqual(t, t.Fatalf, getConfResp.StatusCode, http.StatusOK,
 			"Failed to fetch config after WebAuthn registration: status %d", getConfResp.StatusCode)
-		testutil.FatalIfErr(t, unmarshalTo(getConfResp.Body, &conf))
+		err = unmarshalTo(getConfResp.Body, &conf)
+		if err != nil {
+			t.Fatal(err)
+		}
 		eligibleCredentials := cfg.GUI().WebauthnState.EligibleWebAuthnCredentials(cfg.GUI())
-		testutil.FatalIfErr(t, err, "Failed to retrieve registered WebAuthn credentials")
+		if err != nil {
+			t.Fatal(err, "Failed to retrieve registered WebAuthn credentials")
+		}
 		testutil.AssertEqual(t, t.Errorf, 0, len(eligibleCredentials),
 			"Expected newly registered WebAuthn credential to not yet be committed to config")
 	})
@@ -2205,9 +2233,13 @@ func TestWebauthnAuthentication(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	startServer := func(t *testing.T, rpId string, origins []string, credentials []config.WebauthnCredential, volState *WebauthnVolatileState) (func(string, string, string, string) *http.Response, func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
 		t.Helper()
@@ -2221,7 +2253,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			WebauthnState:   config.WebauthnState{Credentials: credentials},
 		}))
 		baseURL, cancel, _, err := startHTTPWithWebauthnVolState(cfg, volState)
-		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
+		if err != nil {
+			t.Fatal(err, "Failed to start HTTP server")
+		}
 		t.Cleanup(cancel)
 
 		httpRequest := func(method string, url string, body any, xapikeyHeader, csrfTokenName, csrfTokenValue string) *http.Response {
@@ -2229,12 +2263,16 @@ func TestWebauthnAuthentication(t *testing.T) {
 			var bodyReader io.Reader = nil
 			if body != nil {
 				bodyBytes, err := json.Marshal(body)
-				testutil.FatalIfErr(t, err, "Failed to marshal HTTP request body")
+				if err != nil {
+					t.Fatal(err, "Failed to marshal HTTP request body")
+				}
 				bodyReader = bytes.NewReader(bodyBytes)
 			}
 
 			req, err := http.NewRequest(method, baseURL+url, bodyReader)
-			testutil.FatalIfErr(t, err, "Failed to construct HttpRequest")
+			if err != nil {
+				t.Fatal(err, "Failed to construct HttpRequest")
+			}
 
 			if csrfTokenName != "" && csrfTokenValue != "" {
 				req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
@@ -2254,7 +2292,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 				},
 			}
 			resp, err := client.Do(req)
-			testutil.FatalIfErr(t, err, "Failed to execute HTTP request")
+			if err != nil {
+				t.Fatal(err, "Failed to execute HTTP request")
+			}
 
 			return resp
 		}
@@ -2278,7 +2318,10 @@ func TestWebauthnAuthentication(t *testing.T) {
 				"Expected no session cookie when starting WebAuthn authentication")
 
 			var options webauthnProtocol.CredentialAssertion
-			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options), "Failed to unmarshal CredentialAssertion")
+			err := unmarshalTo(startResp.Body, &options)
+			if err != nil {
+				t.Fatal(err, "Failed to unmarshal CredentialAssertion")
+			}
 
 			return options
 		}
@@ -2337,7 +2380,10 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			var volState WebauthnVolatileState
 			getVolStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
-			testutil.FatalIfErr(t, unmarshalTo(getVolStateResp.Body, &volState))
+			err := unmarshalTo(getVolStateResp.Body, &volState)
+			if err != nil {
+				t.Fatal(err)
+			}
 			credVolState, ok := volState.Credentials[cred.ID]
 			testutil.AssertTrue(t, t.Fatalf, ok, "Failed to get credential state")
 			testutil.AssertLessThan(t, t.Errorf, time.Since(credVolState.LastUseTime), 10*time.Second, "Wrong LastUseTime after authentication success")
@@ -2551,7 +2597,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 			options := getAssertionOptions()
 
 			wrongPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
-			testutil.FatalIfErr(t, err)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			cred := createWebauthnAssertionResponse(options, []byte{1, 2, 3, 4}, wrongPrivateKey, "https://localhost:8384", false, 18, t)
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred))
@@ -2721,9 +2769,13 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	publicKeyCose, err := encodeCosePublicKey((privateKey.Public()).(*ecdsa.PublicKey))
-	testutil.FatalIfErr(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	startServer := func(t *testing.T) (func(string, any) *http.Response, func() webauthnProtocol.CredentialAssertion) {
 		t.Helper()
@@ -2747,7 +2799,9 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			},
 		}))
 		baseURL, cancel, _, err := startHTTP(cfg)
-		testutil.FatalIfErr(t, err, "Failed to start HTTP server")
+		if err != nil {
+			t.Fatal(err, "Failed to start HTTP server")
+		}
 		t.Cleanup(cancel)
 
 		httpRequest := func(method string, url string, body any) *http.Response {
@@ -2755,18 +2809,24 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			var bodyReader io.Reader = nil
 			if body != nil {
 				bodyBytes, err := json.Marshal(body)
-				testutil.FatalIfErr(t, err, "Failed to marshal HTTP request body")
+				if err != nil {
+					t.Fatal(err, "Failed to marshal HTTP request body")
+				}
 				bodyReader = bytes.NewReader(bodyBytes)
 			}
 
 			req, err := http.NewRequest(method, baseURL+url, bodyReader)
-			testutil.FatalIfErr(t, err, "Failed to construct HttpRequest")
+			if err != nil {
+				t.Fatal(err, "Failed to construct HttpRequest")
+			}
 
 			client := http.Client{
 				Timeout: 15 * time.Second,
 			}
 			resp, err := client.Do(req)
-			testutil.FatalIfErr(t, err, "Failed to execute HTTP request")
+			if err != nil {
+				t.Fatal(err, "Failed to execute HTTP request")
+			}
 
 			return resp
 		}
@@ -2784,7 +2844,10 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 				"Expected no session cookie when starting WebAuthn registration")
 
 			var options webauthnProtocol.CredentialAssertion
-			testutil.FatalIfErr(t, unmarshalTo(startResp.Body, &options), "Failed to unmarshal CredentialAssertion")
+			err := unmarshalTo(startResp.Body, &options)
+			if err != nil {
+				t.Fatal(err, "Failed to unmarshal CredentialAssertion")
+			}
 
 			return options
 		}
@@ -2871,7 +2934,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
-		testutil.FatalIfErr(t, err, "Failed to create tmpfile for test")
+		if err != nil {
+			t.Fatal(err, "Failed to create tmpfile for test")
+		}
 		w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
 		tmpFile.Close()
 		cfgCtx, cfgCancel := context.WithCancel(context.Background())
@@ -2886,7 +2951,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	startHttpServer := func(t *testing.T, w config.Wrapper) (func(string) *http.Response, func(string, string, any)) {
 		baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 		t.Cleanup(cancel)
-		testutil.FatalIfErr(t, err)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cli := &http.Client{
 			Timeout: 60 * time.Second,
@@ -2896,7 +2963,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			t.Helper()
 			req.Header.Set("X-API-Key", testAPIKey)
 			resp, err := cli.Do(req)
-			testutil.FatalIfErr(t, err)
+			if err != nil {
+				t.Fatal(err)
+			}
 			testutil.AssertEqual(t, t.Errorf, status, resp.StatusCode, "Expected status %v, got %v", status, resp.StatusCode)
 			return resp
 		}
@@ -2904,7 +2973,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		mod := func(method, path string, data interface{}) {
 			t.Helper()
 			bs, err := json.Marshal(data)
-			testutil.FatalIfErr(t, err)
+			if err != nil {
+				t.Fatal(err)
+			}
 			req, _ := http.NewRequest(method, baseURL+path, bytes.NewReader(bs))
 			do(req, http.StatusOK).Body.Close()
 		}
@@ -2940,7 +3011,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		{
 			resp := get(cfgPath)
 			var cfg config.Configuration
-			testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
+			err := unmarshalTo(resp.Body, &cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 			testutil.AssertPredicate(t, t.Errorf, webauthnStateEqual, cfg.GUI.WebauthnState, initialWebauthnCfg,
 				"Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", cfg.GUI.WebauthnState)
 		}
@@ -2959,7 +3033,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			get, _ := startHttpServer(t, w)
 			resp := get(cfgPath)
 			var cfg config.Configuration
-			testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
+			err := unmarshalTo(resp.Body, &cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 			testutil.AssertEqual(t, t.Errorf, 0, len(cfg.GUI.WebauthnState.Credentials),
 				"Expected attempt to edit WebAuthn credential ID to result in deleting the existing credential. Updated config: %v", cfg.GUI.WebauthnState)
 		}
@@ -2978,7 +3055,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			{
 				resp := get(cfgPath)
 				var cfg config.Configuration
-				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
+				err := unmarshalTo(resp.Body, &cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
 				testutil.AssertPredicate(t, t.Errorf, webauthnStateEqual, cfg.GUI.WebauthnState, initialWebauthnCfg,
 					"Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
 			}
@@ -3012,7 +3092,10 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				get, _ := startHttpServer(t, w)
 				resp := get(cfgPath)
 				var cfg config.Configuration
-				testutil.FatalIfErr(t, unmarshalTo(resp.Body, &cfg))
+				err := unmarshalTo(resp.Body, &cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
 				testutil.AssertTrue(t, t.Errorf,
 					!webauthnStateEqual(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState),
 					"Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
