@@ -26,9 +26,7 @@ import (
 
 var (
 	ErrIdentificationFailed = errors.New("failed to identify socket type")
-)
 
-var (
 	// The list of cipher suites we will use / suggest for TLS 1.2 connections.
 	cipherSuites = []uint16{
 		// Suites that are good and fast on hardware *without* AES-NI.
@@ -64,7 +62,8 @@ var (
 func SecureDefaultTLS13() *tls.Config {
 	return &tls.Config{
 		// TLS 1.3 is the minimum we accept
-		MinVersion: tls.VersionTLS13,
+		MinVersion:         tls.VersionTLS13,
+		ClientSessionCache: tls.NewLRUClientSessionCache(0),
 	}
 }
 
@@ -83,6 +82,8 @@ func SecureDefaultWithTLS12() *tls.Config {
 		// We've put some thought into this choice and would like it to
 		// matter.
 		PreferServerCipherSuites: true,
+
+		ClientSessionCache: tls.NewLRUClientSessionCache(0),
 	}
 }
 
@@ -147,7 +148,7 @@ func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays in
 		return tls.Certificate{}, fmt.Errorf("save cert: %w", err)
 	}
 
-	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %w", err)
 	}

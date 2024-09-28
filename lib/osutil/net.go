@@ -10,22 +10,29 @@ import (
 	"net"
 )
 
-func GetLans() ([]*net.IPNet, error) {
-	ifs, err := net.Interfaces()
+// GetInterfaceAddrs returns the IP networks of all interfaces that are up.
+// Point-to-point interfaces are exluded unless includePtP is true.
+func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
+	intfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
 	var addrs []net.Addr
 
-	for _, currentIf := range ifs {
-		if currentIf.Flags&net.FlagRunning == 0 {
+	for _, intf := range intfs {
+		if intf.Flags&net.FlagRunning == 0 {
 			continue
 		}
-		currentAddrs, err := currentIf.Addrs()
+		if !includePtP && intf.Flags&net.FlagPointToPoint != 0 {
+			// Point-to-point interfaces are typically VPNs and similar
+			// which, for our purposes, do not qualify as LANs.
+			continue
+		}
+		intfAddrs, err := intf.Addrs()
 		if err != nil {
 			return nil, err
 		}
-		addrs = append(addrs, currentAddrs...)
+		addrs = append(addrs, intfAddrs...)
 	}
 
 	nets := make([]*net.IPNet, 0, len(addrs))

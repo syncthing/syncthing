@@ -35,7 +35,7 @@ func TestForbiddenWords(t *testing.T) {
 
 			bs, err := os.ReadFile(path)
 			if err != nil {
-				return nil
+				return err
 			}
 
 			for _, word := range forbiddenWords {

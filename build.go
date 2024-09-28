@@ -193,37 +193,37 @@ var targets = map[string]target{
 		debname:     "syncthing-relaypoolsrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaypoolsrv"},
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv"},
 		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "cmd/infra/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/infra/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
+			{src: "cmd/infra/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0644},
+			{src: "cmd/infra/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 	"stupgrades": {
 		name:        "stupgrades",
 		description: "Syncthing Upgrade Check Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stupgrades"},
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/stupgrades"},
 		binaryName:  "stupgrades",
 	},
 	"stcrashreceiver": {
 		name:        "stcrashreceiver",
 		description: "Syncthing Crash Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stcrashreceiver"},
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/stcrashreceiver"},
 		binaryName:  "stcrashreceiver",
 	},
 	"ursrv": {
 		name:        "ursrv",
 		description: "Syncthing Usage Reporting Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/ursrv"},
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/ursrv"},
 		binaryName:  "ursrv",
 	},
 }
@@ -232,15 +232,11 @@ func initTargets() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
 	for _, pkg := range pkgs {
-		pkg = filepath.Base(pkg)
-		if strings.HasPrefix(pkg, ".") {
-			// ignore dotfiles
+		if files, err := filepath.Glob(pkg + "/*.go"); err != nil || len(files) == 0 {
+			// No go files in the directory
 			continue
 		}
-		if noupgrade && pkg == "stupgrades" {
-			continue
-		}
-		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
+		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/%s", pkg))
 	}
 	targets["all"] = all
 
@@ -838,12 +834,12 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/api/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/api/auto", "github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv/auto")
 }
 
 func lazyRebuildAssets() {
 	shouldRebuild := shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") ||
-		shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui")
+		shouldRebuildAssets("cmd/infra/strelaypoolsrv/auto/gui.files.go", "cmd/infra/strelaypoolsrv/gui")
 
 	if withNextGenGUI {
 		shouldRebuild = buildNextGenGUI() || shouldRebuild

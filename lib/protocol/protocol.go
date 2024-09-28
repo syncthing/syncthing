@@ -354,6 +354,8 @@ func (c *rawConnection) Index(ctx context.Context, idx *Index) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
 	}
 	c.idxMut.Lock()
@@ -367,6 +369,8 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) err
 	select {
 	case <-c.closed:
 		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
 	}
 	c.idxMut.Lock()
@@ -377,6 +381,14 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) err
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
 func (c *rawConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
+	select {
+	case <-c.closed:
+		return nil, ErrClosed
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	rc := make(chan asyncResult, 1)
 
 	c.awaitingMut.Lock()
@@ -453,6 +465,11 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 	var msg message
 	state := stateInitial
 	for {
+		select {
+		case <-c.closed:
+			return ErrClosed
+		default:
+		}
 		select {
 		case msg = <-c.inbox:
 		case <-c.closed:
@@ -746,6 +763,17 @@ func (c *rawConnection) writerLoop() {
 		return
 	}
 	for {
+		// When the connection is closing or closed, that should happen
+		// immediately, not compete with the (potentially very busy) outbox.
+		select {
+		case hm := <-c.closeBox:
+			_ = c.writeMessage(hm.msg)
+			close(hm.done)
+			return
+		case <-c.closed:
+			return
+		default:
+		}
 		select {
 		case cc := <-c.clusterConfigBox:
 			err := c.writeMessage(cc)
