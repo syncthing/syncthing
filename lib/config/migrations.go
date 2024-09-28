@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
-	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 )
 
@@ -107,9 +106,8 @@ func migrateToConfigV38(cfg *Configuration) {
 	}
 
 	// New required settings
-	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
 	if cfg.GUI.WebauthnRpId == "" {
-		cfg.GUI.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+		cfg.GUI.WebauthnRpId = cfg.GUI.defaultWebauthnRpId()
 	}
 	if len(cfg.GUI.WebauthnOrigins) == 0 {
 		if origins, err := cfg.GUI.defaultWebauthnOrigins(); err == nil {

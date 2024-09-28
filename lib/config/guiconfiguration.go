@@ -168,6 +168,22 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
+func (c *GUIConfiguration) defaultWebauthnRpId() string {
+	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+	host, _, err := net.SplitHostPort(c.Address())
+	if err != nil {
+		defaultHost, _, err := net.SplitHostPort(defaultGuiCfg.Address())
+		if err != nil {
+			return defaultGuiCfg.WebauthnRpId
+		}
+		host = defaultHost
+	}
+	if net.ParseIP(host) != nil {
+		return defaultGuiCfg.WebauthnRpId
+	}
+	return host
+}
+
 func (c *GUIConfiguration) defaultWebauthnOrigins() ([]string, error) {
 	origins := make([]string, 0)
 	_, port, err := net.SplitHostPort(c.Address())
