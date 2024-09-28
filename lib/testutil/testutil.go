@@ -8,7 +8,6 @@ package testutil
 
 import (
 	"errors"
-	"slices"
 	"sync"
 	"testing"
 )
@@ -87,17 +86,4 @@ func AssertTrue(t *testing.T, testFailFunc func(string, ...any), a bool, sprintf
 func AssertFalse(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
 	t.Helper()
 	AssertTrue(t, testFailFunc, !a, sprintfArgs)
-}
-
-func AssertEqual[T comparable](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
-	t.Helper()
-	if a != b {
-		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed: %v == %v", a, b)
-		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: %v == %v: %s", a, b, sprintfArgs[0])
-		} else {
-			testFailFunc("Assertion failed: %v == %v: "+sprintfArgs[0].(string), slices.Concat([]any{a, b}, sprintfArgs[1:])...)
-		}
-	}
 }
