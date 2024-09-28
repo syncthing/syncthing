@@ -2843,7 +2843,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
 	// This test needs a longer-than-default shutdown timeout when running on GitHub Actions
-	shutdownTimeout := testutil.IfNotCI(0, 1000*time.Millisecond)
+	shutdownTimeout := testutil.IfExpr(os.Getenv("CI") == "true", 1000*time.Millisecond, 0)
 
 	initialWebauthnCfg := config.WebauthnState{
 		Credentials: []config.WebauthnCredential{

@@ -8,7 +8,6 @@ package testutil
 
 import (
 	"errors"
-	"os"
 	"slices"
 	"sync"
 	"testing"
@@ -63,14 +62,6 @@ type NoopCloser struct{}
 
 func (NoopCloser) Close() error {
 	return nil
-}
-
-func IfNotCI[T any](notCiValue T, ciValue T) T {
-	if os.Getenv("CI") == "true" {
-		return ciValue
-	} else {
-		return notCiValue
-	}
 }
 
 // Conditional expression: returns the `then` argument iff `expr` is `true`, otherwise returns the `els` argument.
