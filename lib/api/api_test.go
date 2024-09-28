@@ -1018,7 +1018,7 @@ func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauth
 		return "", nil, nil, err
 	}
 	if webauthnVolState != nil {
-		webauthnService.storeVolatileState(*webauthnVolState)
+		webauthnService.storeVolatileState(webauthnVolState)
 	}
 
 	svc.started = addrChan

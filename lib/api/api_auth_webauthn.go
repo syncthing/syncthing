@@ -302,10 +302,10 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 	}
 }
 
-func emptyVolState() WebauthnVolatileState {
+func emptyVolState() *WebauthnVolatileState {
 	s := WebauthnVolatileState{}
 	s.init()
-	return s
+	return &s
 }
 
 func (s *WebauthnVolatileState) init() {
@@ -314,7 +314,7 @@ func (s *WebauthnVolatileState) init() {
 	}
 }
 
-func (s *webauthnService) loadVolatileState() WebauthnVolatileState {
+func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnln("Failed to load WebAuthn dynamic state:", err)
@@ -331,10 +331,10 @@ func (s *webauthnService) loadVolatileState() WebauthnVolatileState {
 		return emptyVolState()
 	}
 	state.init()
-	return state
+	return &state
 }
 
-func (s *webauthnService) storeVolatileState(state WebauthnVolatileState) error {
+func (s *webauthnService) storeVolatileState(state *WebauthnVolatileState) error {
 	stateBytes, err := state.Marshal()
 	if err != nil {
 		return err
