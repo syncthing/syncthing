@@ -435,8 +435,19 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	}
 
 	fset.Update(deviceID, fs)
-
 	seq := fset.Sequence(deviceID)
+
+	// Check that the sequence we get back is what we put in...
+	if lastSequence > 0 && seq != lastSequence {
+		s.logSequenceAnomaly("unexpected sequence after update", map[string]any{
+			"prevSeq":     prevSequence,
+			"lastSeq":     lastSequence,
+			"batch":       len(fs),
+			"seenSeq":     fs[len(fs)-1].Sequence,
+			"returnedSeq": seq,
+		})
+	}
+
 	s.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":   deviceID.String(),
 		"folder":   s.folder,
