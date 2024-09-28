@@ -185,7 +185,6 @@ func (c *GUIConfiguration) defaultWebauthnRpId() string {
 }
 
 func (c *GUIConfiguration) defaultWebauthnOrigins() ([]string, error) {
-	origins := make([]string, 0)
 	_, port, err := net.SplitHostPort(c.Address())
 	if err != nil {
 		defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
@@ -199,15 +198,7 @@ func (c *GUIConfiguration) defaultWebauthnOrigins() ([]string, error) {
 	if port != "443" {
 		secure_origin += ":" + port
 	}
-	origins = append(origins, secure_origin)
-	if !c.UseTLS() {
-		origin := "http://" + c.WebauthnRpId
-		if port != "80" {
-			origin += ":" + port
-		}
-		origins = append(origins, origin)
-	}
-	return origins, nil
+	return []string{secure_origin}, nil
 }
 
 func (c *GUIConfiguration) prepare() error {

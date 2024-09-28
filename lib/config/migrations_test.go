@@ -56,8 +56,8 @@ func TestMigration38(t *testing.T) {
 		if cfg.GUI.WebauthnRpId != "localhost" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"localhost\"")
 		}
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8384", "http://localhost:8384"}) {
-			t.Error("Expected GUI.WebauthnOrigins to be set to default values")
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8384"}) {
+			t.Error("Expected GUI.WebauthnOrigins to be set to default value")
 		}
 	}
 
@@ -70,7 +70,7 @@ func TestMigration38(t *testing.T) {
 		}
 		migrateToConfigV38(&cfg)
 		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8888"}) {
-			t.Error("Expected GUI.WebauthnOrigins to be set to default values with port 8888 and HTTPS only")
+			t.Error("Expected GUI.WebauthnOrigins to be set to default value with port 8888")
 		}
 	}
 
@@ -83,20 +83,7 @@ func TestMigration38(t *testing.T) {
 		}
 		migrateToConfigV38(&cfg)
 		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost"}) {
-			t.Error("Expected GUI.WebauthnOrigins to be set to default values with implicit HTTPS port and HTTPS only")
-		}
-	}
-
-	{
-		cfg := Configuration{
-			GUI: GUIConfiguration{
-				RawAddress: "127.0.0.1:80",
-				RawUseTLS:  false,
-			},
-		}
-		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:80", "http://localhost"}) {
-			t.Error("Expected GUI.WebauthnOrigins to be set to default values with implicit HTTP port")
+			t.Error("Expected GUI.WebauthnOrigins to be set to default value with implicit HTTPS port")
 		}
 	}
 
@@ -110,7 +97,7 @@ func TestMigration38(t *testing.T) {
 		if cfg.GUI.WebauthnRpId != "mymachine" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"mymachine\"")
 		}
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine:8888", "http://mymachine:8888"}) {
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine:8888"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
 		}
 	}
