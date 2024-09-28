@@ -64,7 +64,6 @@ func (NoopCloser) Close() error {
 func IfExpr[T any](expr bool, then T, els T) T {
 	if expr {
 		return then
-	} else {
-		return els
 	}
+	return els
 }

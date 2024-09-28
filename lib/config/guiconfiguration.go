@@ -264,9 +264,8 @@ func (orig *WebauthnCredential) Copy() WebauthnCredential {
 func (c *WebauthnCredential) NicknameOrID() string {
 	if c.Nickname != "" {
 		return c.Nickname
-	} else {
-		return c.ID
 	}
+	return c.ID
 }
 
 func SanitizeWebauthnStateChanges(from *WebauthnState, to *WebauthnState, pendingRegistrations []WebauthnCredential) {
