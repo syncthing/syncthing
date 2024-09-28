@@ -65,6 +65,11 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 		l.Warnln("Connection priority number for TCP over WAN must be worse (higher) than TCP over LAN. Correcting.")
 		opts.ConnectionPriorityTCPWAN = opts.ConnectionPriorityTCPLAN + 1
 	}
+
+	// If usage reporting is enabled we must have a unique ID.
+	if opts.URAccepted > 0 && opts.URUniqueID == "" {
+		opts.URUniqueID = rand.String(8)
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
