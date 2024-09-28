@@ -7,9 +7,8 @@
 package config
 
 import (
+	"reflect"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestMigrateCrashReporting(t *testing.T) {
@@ -50,13 +49,13 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.Options.UnackedNotificationIDs, []string{"foo", "guiAuthentication", "bar"}) {
+		if !reflect.DeepEqual(cfg.Options.UnackedNotificationIDs, []string{"foo", "guiAuthentication", "bar"}) {
 			t.Error("Expected notification \"authenticationUserAndPassword\" to be renamed to \"guiAuthentication\"")
 		}
 		if cfg.GUI.WebauthnRpId != "localhost" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"localhost\"")
 		}
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8384"}) {
+		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8384"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default value")
 		}
 	}
@@ -69,7 +68,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8888"}) {
+		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8888"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default value with port 8888")
 		}
 	}
@@ -82,7 +81,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://localhost"}) {
+		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://localhost"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default value with implicit HTTPS port")
 		}
 	}
@@ -97,7 +96,7 @@ func TestMigration38(t *testing.T) {
 		if cfg.GUI.WebauthnRpId != "mymachine" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"mymachine\"")
 		}
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine:8888"}) {
+		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://mymachine:8888"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
 		}
 	}
@@ -110,7 +109,7 @@ func TestMigration38(t *testing.T) {
 			},
 		}
 		migrateToConfigV38(&cfg)
-		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine"}) {
+		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://mymachine"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
 		}
 	}
