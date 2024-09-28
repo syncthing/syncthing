@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
@@ -19,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/sliceutil"
 )
 
 func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*webauthnLib.WebAuthn, error) {
@@ -43,7 +41,7 @@ type webauthnService struct {
 	userHandle                     []byte
 	registrationState              webauthnLib.SessionData
 	authenticationState            webauthnLib.SessionData
-	credentialsPendingRegistration []WebauthnCredential
+	credentialsPendingRegistration []config.WebauthnCredential
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
@@ -59,59 +57,6 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 		evLogger:   evLogger,
 		userHandle: guiCfg.WebauthnUserId,
 	}, nil
-}
-
-func (s *webauthnService) loadState() (WebauthnState, error) {
-	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
-	if err != nil {
-		return WebauthnState{}, err
-	}
-	if !ok {
-		return WebauthnState{}, nil
-	}
-
-	var state WebauthnState
-	err = state.Unmarshal(stateBytes)
-	if err != nil {
-		return WebauthnState{}, err
-	}
-
-	return state, nil
-}
-
-func (s *webauthnService) storeState(state WebauthnState) error {
-	stateBytes, err := state.Marshal()
-	if err != nil {
-		return err
-	}
-
-	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
-}
-
-func (s *WebauthnState) Copy() WebauthnState {
-	c := *s
-	c.Credentials = make([]WebauthnCredential, len(s.Credentials))
-	for i := range s.Credentials {
-		c.Credentials[i] = s.Credentials[i].Copy()
-	}
-	return c
-}
-
-func (g *WebauthnCredential) Copy() WebauthnCredential {
-	c := *g
-	if c.Transports != nil {
-		c.Transports = make([]string, len(c.Transports))
-		copy(c.Transports, g.Transports)
-	}
-	return c
-}
-
-func (c *WebauthnCredential) NicknameOrID() string {
-	if c.Nickname != "" {
-		return c.Nickname
-	} else {
-		return c.ID
-	}
 }
 
 func (s *webauthnService) user(guiCfg config.GUIConfiguration) webauthnLibUser {
@@ -140,19 +85,17 @@ func (webauthnLibUser) WebAuthnIcon() string {
 }
 func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
-	eligibleCredentials, err := u.service.eligibleWebAuthnCredentials(u.guiCfg)
-	if err != nil {
-		return make([]webauthnLib.Credential, 0)
-	}
+	eligibleCredentials := u.guiCfg.WebauthnState.EligibleWebAuthnCredentials(u.guiCfg)
+	credentialVolState := u.service.loadVolatileState()
 
 	for _, cred := range eligibleCredentials {
-		id, err := base64.URLEncoding.DecodeString(cred.ID)
+		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
 		if err != nil {
 			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID), err)
 			continue
 		}
 
-		pubkey, err := base64.URLEncoding.DecodeString(cred.PublicKeyCose)
+		pubkey, err := base64.RawURLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
 			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID), err)
 			continue
@@ -167,36 +110,12 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 			ID:        id,
 			PublicKey: pubkey,
 			Authenticator: webauthnLib.Authenticator{
-				SignCount: cred.SignCount,
+				SignCount: credentialVolState.Credentials[cred.ID].SignCount,
 			},
 			Transport: transports,
 		})
 	}
 	return result
-}
-
-func (s *webauthnService) IsAuthConfigured() (bool, error) {
-	state, err := s.loadState()
-	if err != nil {
-		return false, err
-	}
-
-	return len(state.Credentials) > 0, nil
-}
-
-func (s *webauthnService) eligibleWebAuthnCredentials(guiCfg config.GUIConfiguration) ([]WebauthnCredential, error) {
-	state, err := s.loadState()
-	if err != nil {
-		return nil, err
-	}
-
-	var result []WebauthnCredential
-	for _, cred := range state.Credentials {
-		if cred.RpId == guiCfg.WebauthnRpId {
-			result = append(result, cred)
-		}
-	}
-	return result, nil
 }
 
 func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
@@ -226,15 +145,8 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			return
 		}
 
-		persistentState, err := s.loadState()
-		if err != nil {
-			l.Warnln("Failed to load persistent WebAuthn state", err)
-			http.Error(w, "Failed to load persistent WebAuthn state", http.StatusInternalServerError)
-			return
-		}
-
-		for _, existingCred := range persistentState.Credentials {
-			existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+		for _, existingCred := range guiCfg.WebauthnState.Credentials {
+			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
 				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
@@ -242,7 +154,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			}
 		}
 		for _, existingCred := range s.credentialsPendingRegistration {
-			existId, err := base64.URLEncoding.DecodeString(existingCred.ID)
+			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
 				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
@@ -256,16 +168,24 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 
 		now := time.Now().Truncate(time.Second).UTC()
-		configCred := WebauthnCredential{
-			ID:            base64.URLEncoding.EncodeToString(credential.ID),
+		configCred := config.WebauthnCredential{
+			ID:            base64.RawURLEncoding.EncodeToString(credential.ID),
 			RpId:          s.engine.Config.RPID,
-			PublicKeyCose: base64.URLEncoding.EncodeToString(credential.PublicKey),
-			SignCount:     credential.Authenticator.SignCount,
+			PublicKeyCose: base64.RawURLEncoding.EncodeToString(credential.PublicKey),
 			Transports:    transports,
 			CreateTime:    now,
-			LastUseTime:   now,
 		}
 		s.credentialsPendingRegistration = append(s.credentialsPendingRegistration, configCred)
+
+		credentialVolState := s.loadVolatileState()
+		credentialVolState.Credentials[configCred.ID] = WebauthnCredentialVolatileState{
+			SignCount:   credential.Authenticator.SignCount,
+			LastUseTime: now,
+		}
+		err = s.storeVolatileState(credentialVolState)
+		if err != nil {
+			l.Warnln("Failed to save WebAuthn dynamic state", err)
+		}
 
 		sendJSON(w, configCred)
 	}
@@ -273,16 +193,9 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 
 func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		persistentState, err := s.loadState()
-		if err != nil {
-			l.Warnln("Failed to load persistent WebAuthn state", err)
-			http.Error(w, "Failed to load persistent WebAuthn state", http.StatusInternalServerError)
-			return
-		}
-
 		allRequireUv := true
 		someRequiresUv := false
-		for _, cred := range persistentState.Credentials {
+		for _, cred := range guiCfg.WebauthnState.Credentials {
 			if cred.RequireUv {
 				someRequiresUv = true
 			} else {
@@ -350,14 +263,8 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		authenticatedCredId := base64.URLEncoding.EncodeToString(updatedCred.ID)
-
-		persistentState, err := s.loadState()
-		if err != nil {
-			l.Warnln("Failed to load persistent WebAuthn state", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
+		authenticatedCredId := base64.RawURLEncoding.EncodeToString(updatedCred.ID)
+		persistentState := guiCfg.WebauthnState
 
 		for _, cred := range persistentState.Credentials {
 			if cred.ID == authenticatedCredId {
@@ -370,26 +277,24 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			}
 		}
 
-		authenticatedCredName := authenticatedCredId
 		var signCountBefore uint32 = 0
 
-		updateCredIndex := slices.IndexFunc(persistentState.Credentials, func(cred WebauthnCredential) bool { return cred.ID == authenticatedCredId })
-		if updateCredIndex != -1 {
-			updateCred := &persistentState.Credentials[updateCredIndex]
-			signCountBefore = updateCred.SignCount
-			authenticatedCredName = updateCred.NicknameOrID()
-			updateCred.SignCount = updatedCred.Authenticator.SignCount
-			updateCred.LastUseTime = time.Now().Truncate(time.Second).UTC()
-			err = s.storeState(persistentState)
-			if err != nil {
-				l.Warnln("Failed to update authenticated WebAuthn credential", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
+		volState := s.loadVolatileState()
+		dynCredState, ok := volState.Credentials[authenticatedCredId]
+		if !ok {
+			dynCredState = WebauthnCredentialVolatileState{}
+		}
+		signCountBefore = dynCredState.SignCount
+		dynCredState.SignCount = updatedCred.Authenticator.SignCount
+		dynCredState.LastUseTime = time.Now().Truncate(time.Second).UTC()
+		volState.Credentials[authenticatedCredId] = dynCredState
+		err = s.storeVolatileState(volState)
+		if err != nil {
+			l.Warnln("Failed to update authenticated WebAuthn credential", err)
 		}
 
 		if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
-			l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredName, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
+			l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredId, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
 		}
 
 		tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
@@ -397,71 +302,49 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 	}
 }
 
-func (s *webauthnService) getConfigLikeState(w http.ResponseWriter, _ *http.Request) {
-	persistentState, err := s.loadState()
-	if err != nil {
-		l.Warnln("Failed to load persistent WebAuthn state", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	sendJSON(w, persistentState)
+func emptyVolState() WebauthnVolatileState {
+	s := WebauthnVolatileState{}
+	s.init()
+	return s
 }
 
-func (s *webauthnService) updateConfigLikeState(w http.ResponseWriter, r *http.Request) {
-	// Don't allow adding new WebAuthn credentials without passing a registration challenge,
-	// and only allow updating the Nickname and RequireUv fields
+func (s *WebauthnVolatileState) init() {
+	if s.Credentials == nil {
+		s.Credentials = make(map[string]WebauthnCredentialVolatileState, 1)
+	}
+}
 
-	persistentState, err := s.loadState()
+func (s *webauthnService) loadVolatileState() WebauthnVolatileState {
+	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
-		l.Warnln("Failed to load persistent WebAuthn state", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		l.Warnln("Failed to load WebAuthn dynamic state", err)
+		return emptyVolState()
+	}
+	if !ok {
+		return emptyVolState()
 	}
 
-	var newState WebauthnState
-	if err := unmarshalTo(r.Body, &newState); err != nil {
-		l.Debugln("Failed to parse response:", err)
-		http.Error(w, "Failed to parse response.", http.StatusBadRequest)
-		return
-	}
-
-	existingCredentials := make(map[string]WebauthnCredential)
-	for _, cred := range persistentState.Credentials {
-		existingCredentials[cred.ID] = cred
-	}
-	for _, cred := range s.credentialsPendingRegistration {
-		existingCredentials[cred.ID] = cred
-	}
-
-	var updatedCredentials []WebauthnCredential
-	updatedCredentialsMap := make(map[string]WebauthnCredential)
-	for _, newCred := range newState.Credentials {
-		if exCred, ok := existingCredentials[newCred.ID]; ok {
-			exCred.Nickname = newCred.Nickname
-			exCred.RequireUv = newCred.RequireUv
-			updatedCredentials = append(updatedCredentials, exCred)
-			updatedCredentialsMap[newCred.ID] = exCred
-		}
-	}
-
-	persistentState.Credentials = updatedCredentials
-	err = s.storeState(persistentState)
+	var state WebauthnVolatileState
+	err = state.Unmarshal(stateBytes)
 	if err != nil {
-		l.Warnln("Failed to update WebAuthn credentials", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		l.Warnln("Failed to unmarshal WebAuthn dynamic state", err)
+		return emptyVolState()
+	}
+	state.init()
+	return state
+}
+
+func (s *webauthnService) storeVolatileState(state WebauthnVolatileState) error {
+	stateBytes, err := state.Marshal()
+	if err != nil {
+		return err
 	}
 
-	s.credentialsPendingRegistration = sliceutil.Filter(
-		s.credentialsPendingRegistration,
-		func(pendCred *WebauthnCredential) bool {
-			_, ok := updatedCredentialsMap[pendCred.ID]
-			return !ok
-		},
-	)
+	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
+}
 
+func (s *webauthnService) getVolatileState(w http.ResponseWriter, _ *http.Request) {
+	st := s.loadVolatileState()
 	w.WriteHeader(http.StatusOK)
-	sendJSON(w, persistentState)
+	sendJSON(w, st)
 }

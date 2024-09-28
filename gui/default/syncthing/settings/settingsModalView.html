@@ -191,7 +191,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="cred in webauthn.state.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
+                  <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
                     <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
                       {{ cred.nickname || (cred.id | limitTo: 20) }}
                     </td>
@@ -202,8 +202,8 @@
                     <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
                       {{cred.createTime | date:'yyyy-MM-dd'}}
                     </td>
-                    <td class="small-data" title="{{ cred.lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">
-                      {{ cred.lastUseTime | date:'yyyy-MM-dd' }}
+                    <td class="small-data" title="{{ webauthn.state.lastUseTime[cred.id] | date:'yyyy-MM-dd HH:mm:ss' }}">
+                      {{ webauthn.state.lastUseTime[cred.id] | date:'yyyy-MM-dd' }}
                     </td>
 
                     <td class="small-data text-center">
@@ -264,7 +264,7 @@
             </div>
 
             <div class="table-responsive webauthn-credentials">
-              <table class="table-striped table" ng-repeat="_ in webauthn.state.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+              <table class="table-striped table" ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
                 <thead>
                   <tr>
                     <th colspan="1000"><label translate>Ineligible WebAuthn Credentials</label></th>
@@ -282,7 +282,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="cred in webauthn.state.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
+                  <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
                     <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch text-warning">
                       <span class="fas fa-exclamation-triangle"></span>
                       {{ cred.nickname || (cred.id | limitTo: 20) }}

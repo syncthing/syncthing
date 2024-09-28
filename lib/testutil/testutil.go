@@ -9,7 +9,6 @@ package testutil
 import (
 	"errors"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -138,32 +137,6 @@ func AssertNotEqual[T comparable](t *testing.T, testFailFunc func(string, ...any
 			testFailFunc("Assertion failed: %v != %v: %s", a, b, sprintfArgs[0])
 		} else {
 			testFailFunc("Assertion failed: %v != %v: "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
-		}
-	}
-}
-
-func AssertDeepEqual[T any](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
-	t.Helper()
-	if !reflect.DeepEqual(a, b) {
-		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed: DeepEqual(%v, %v)", a, b)
-		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: DeepEqual(%v, %v): %s", a, b, sprintfArgs[0])
-		} else {
-			testFailFunc("Assertion failed: DeepEqual(%v, %v): "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
-		}
-	}
-}
-
-func AssertNotDeepEqual[T any](t *testing.T, testFailFunc func(string, ...any), a T, b T, sprintfArgs ...any) {
-	t.Helper()
-	if reflect.DeepEqual(a, b) {
-		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed: !DeepEqual(%v, %v)", a, b)
-		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: !DeepEqual(%v, %v): %s", a, b, sprintfArgs[0])
-		} else {
-			testFailFunc("Assertion failed: !DeepEqual(%v, %v): "+sprintfArgs[0].(string), ConcatSlices([]any{a, b}, sprintfArgs[1:])...)
 		}
 	}
 }

@@ -18,11 +18,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
+}
+
+func (c GUIConfiguration) IsWebauthnAuthEnabled() bool {
+	return len(c.WebauthnState.Credentials) > 0
 }
 
 func (GUIConfiguration) IsOverridden() bool {
@@ -221,5 +226,60 @@ func (c *GUIConfiguration) prepare() error {
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
+	c.WebauthnState = c.WebauthnState.Copy()
 	return c
+}
+
+func (s WebauthnState) EligibleWebAuthnCredentials(guiCfg GUIConfiguration) []WebauthnCredential {
+	return sliceutil.Filter(s.Credentials, func(cred *WebauthnCredential) bool {
+		return cred.RpId == guiCfg.WebauthnRpId
+	})
+}
+
+func (orig *WebauthnState) Copy() WebauthnState {
+	c := *orig
+	c.Credentials = make([]WebauthnCredential, len(orig.Credentials))
+	for i := range orig.Credentials {
+		c.Credentials[i] = orig.Credentials[i].Copy()
+	}
+	return c
+}
+
+func (orig *WebauthnCredential) Copy() WebauthnCredential {
+	c := *orig
+	if c.Transports != nil {
+		c.Transports = make([]string, len(c.Transports))
+		copy(c.Transports, orig.Transports)
+	}
+	return c
+}
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	} else {
+		return c.ID
+	}
+}
+
+func SanitizeWebauthnStateChanges(from *WebauthnState, to *WebauthnState, pendingRegistrations []WebauthnCredential) {
+	// Don't allow adding new WebAuthn credentials without passing a registration challenge,
+	// and only allow updating the Nickname and RequireUv fields
+	existingCredentials := make(map[string]WebauthnCredential)
+	for _, cred := range from.Credentials {
+		existingCredentials[cred.ID] = cred
+	}
+	for _, cred := range pendingRegistrations {
+		existingCredentials[cred.ID] = cred
+	}
+
+	var updatedCredentials []WebauthnCredential
+	for _, newCred := range to.Credentials {
+		if exCred, ok := existingCredentials[newCred.ID]; ok {
+			exCred.Nickname = newCred.Nickname
+			exCred.RequireUv = newCred.RequireUv
+			updatedCredentials = append(updatedCredentials, exCred)
+		}
+	}
+	to.Credentials = updatedCredentials
 }

@@ -4,18 +4,13 @@ package api;
 
 import "google/protobuf/timestamp.proto";
 
-message WebauthnState {
-    repeated WebauthnCredential credentials = 1;
+// State that changes often but also is not security-critical,
+// and therefore can be wiped and overwritten without much consequence if needed.
+message WebauthnVolatileState {
+    map<string, WebauthnCredentialVolatileState> credentials = 1; // Keys are base64.RawURLEncoding.EncodeToString(credential ID)
 }
 
-message WebauthnCredential {
-    string                    ID              = 1;
-    string                    rp_id           = 2;
-    string                    nickname        = 3;
-    string                    public_key_cose = 4;
-    uint32                    sign_count      = 5;
-    repeated string           transports      = 6;
-    bool                      require_uv      = 7;
-    google.protobuf.Timestamp create_time     = 8;
-    google.protobuf.Timestamp last_use_time   = 9;
+message WebauthnCredentialVolatileState {
+    uint32                    sign_count    = 1;
+    google.protobuf.Timestamp last_use_time = 2;
 }

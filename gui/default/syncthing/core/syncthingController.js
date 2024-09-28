@@ -81,7 +81,6 @@ angular.module('syncthing.core')
             request: false,
             state: false,
             editingCredentialIds: {},
-            uneditedState: false,
         };
         resetRemoteNeed();
 
@@ -609,15 +608,19 @@ angular.module('syncthing.core')
 
         $scope.isAuthEnabled = function () {
             // This function should match IsAuthEnabled() in guiconfiguration.go
-            var guiCfg = $scope.config && $scope.config.gui;
-            if (guiCfg) {
-                return (guiCfg.authMode === 'ldap'
-                    || (guiCfg.user && guiCfg.password)
-                    || (((($scope.webauthn || {}).state || {}).credentials || []).length > 0)
-                );
-            }
-            return false;
+            return isPasswordAuthConfigured() || isWebauthnAuthConfigured();
         };
+
+        function isPasswordAuthConfigured() {
+            var guiCfg = ($scope.config || {}).gui || {};
+            return guiCfg.authMode === 'ldap' || (guiCfg.user && guiCfg.password);
+        }
+
+        /** At least one WebAuthn credential is configured */
+        function isWebauthnAuthConfigured() {
+            var guiCfg = ($scope.config || {}).gui || {};
+            return ((guiCfg.webauthnState || {}).credentials || []).length > 0;
+        }
 
         function refreshNoAuthWarning() {
             if (!$scope.system || !$scope.config || !$scope.config.gui) {
@@ -791,11 +794,7 @@ angular.module('syncthing.core')
 
         function refreshWebauthnState() {
             return $http.get(urlbase + '/webauthn/state').success(function (data) {
-                $scope.webauthn.uneditedState = deepCopy(data);
-                if (!$scope.webauthn.state) {
-                    $scope.webauthn.state = deepCopy(data);
-                }
-                console.log("refreshWebauthnState", data);
+                $scope.webauthn.state = data;
             });
         }
 
@@ -1721,8 +1720,6 @@ angular.module('syncthing.core')
             hideModal('#discard-changes-confirmation');
             $('#settings').off('hide.bs.modal')
             hideModal('#settings');
-            $scope.webauthn.state = deepCopy($scope.webauthn.uneditedState);
-            $scope.webauthn.editingCredentialIds = {};
         };
 
         $scope.showSettings = function () {
@@ -1742,7 +1739,7 @@ angular.module('syncthing.core')
             $('#settings').one('shown.bs.modal', function () {
                 $("#settings a[href='#settings-general']").tab("show");
             }).on('hide.bs.modal', function (event) {
-                if ($scope.settingsModified() || $scope.webauthnStateChanged()) {
+                if ($scope.settingsModified()) {
                     event.preventDefault();
                     $("#discard-changes-confirmation").modal("show");
                 } else {
@@ -1751,15 +1748,12 @@ angular.module('syncthing.core')
             });
             showModal('#settings');
 
+            $scope.webauthn.editingCredentialIds = {};
             $scope.webauthn.errors = {};
         };
 
         $scope.webauthnAvailable = function () {
             return window['PublicKeyCredential'] !== undefined;
-        };
-
-        $scope.webauthnStateChanged = function () {
-            return !angular.equals($scope.webauthn.uneditedState, $scope.webauthn.state);
         };
 
         $scope.locationDoesNotMatchWebauthnRpId = function () {
@@ -1830,25 +1824,19 @@ angular.module('syncthing.core')
 
                 $scope.registerWebauthnCredential = function () {
                     $scope.webauthn.errors = {};
-                    $http.post(urlbase + '/webauthn/register-start')
+                    $http.post(urlbase + '/config/webauthn/register-start')
                         .then(function (resp) {
                             // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                            resp.data.publicKey.excludeCredentials = (($scope.webauthn.state || {}).credentials || []).map(function (cred) {
+                            resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
                                 return { type: "public-key", id: cred.id };
                             });
                             return webauthnJSON.create(resp.data);
                         })
                         .then(function (pkc) {
-                            return $http.post(urlbase + '/webauthn/register-finish', pkc);
+                            return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
                         })
                         .then(function (resp) {
-                            if (!$scope.webauthn.state) {
-                                $scope.webauthn.state = {};
-                            }
-                            if (!$scope.webauthn.state.credentials) {
-                                $scope.webauthn.state.credentials = [];
-                            }
-                            $scope.webauthn.state.credentials.push(resp.data);
+                            $scope.tmpGUI.webauthnState.credentials.push(resp.data);
                         })
                         .catch(function (e) {
                             if (e instanceof DOMException && e.name === "InvalidStateError") {
@@ -1867,21 +1855,8 @@ angular.module('syncthing.core')
                 };
 
                 $scope.deleteWebauthnCredential = function (cred) {
-                    $scope.webauthn.state.credentials = $scope.webauthn.state.credentials.filter(function (cr) {
+                    $scope.tmpGUI.webauthnState.credentials = $scope.tmpGUI.webauthnState.credentials.filter(function (cr) {
                         return cr.id !== cred.id;
-                    });
-                };
-
-                $scope.saveWebauthnState = function () {
-                    return $http.post(
-                        urlbase + '/webauthn/state',
-                        $scope.webauthn.state,
-                        { headers: { 'Content-Type': 'application/json' } }
-                    ).then(function() {
-                        $scope.webauthn.editingCredentialIds = {};
-                    }).finally(function () {
-                        console.log('saveWebauthnState', $scope.webauthn.state);
-                        refreshWebauthnState();
                     });
                 };
 
@@ -1969,7 +1944,7 @@ angular.module('syncthing.core')
             }
         }
 
-        function showSavingChangesModal() {
+        $scope.saveConfig = function () {
             // Use "$scope.saveConfig().then" when hiding modals after saving
             // changes, or otherwise the background modal will be hidden before
             // the #savingChanges modal, causing the right body margin increase
@@ -1978,17 +1953,6 @@ angular.module('syncthing.core')
                 // Only block the UI when there is a significant delay.
                 showModal('#savingChanges');
             }, 200);
-            return function() {
-                clearTimeout(timeout);
-                hideModal('#savingChanges');
-            };
-        };
-
-        $scope.saveConfig = function (saveConfigOptions) {
-            var hideSavingChangesModal = (
-                (saveConfigOptions || {}).inhibitSaveChangesModal
-                    ? null
-                    : showSavingChangesModal());
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1998,9 +1962,8 @@ angular.module('syncthing.core')
             return $http.put(urlbase + '/config', cfg, opts).finally(function () {
                 console.log('saveConfig', $scope.config);
                 refreshConfig();
-                if (hideSavingChangesModal) {
-                    hideSavingChangesModal();
-                }
+                clearTimeout(timeout);
+                hideModal('#savingChanges');
             }).catch($scope.emitHTTPError);
         };
 
@@ -2035,9 +1998,7 @@ angular.module('syncthing.core')
         };
 
         $scope.saveSettings = function () {
-            var hideSavingChangesModal;
             var savePromise = null;
-            var saveWebauthnPromise = null;
 
             // Make sure something changed
             if ($scope.settingsModified()) {
@@ -2085,39 +2046,21 @@ angular.module('syncthing.core')
                 // here as well...
                 $scope.devices = deviceMap($scope.config.devices);
 
-                if (!hideSavingChangesModal) {
-                    hideSavingChangesModal = showSavingChangesModal();
-                }
-
-                savePromise = $scope.saveConfig({ inhibitSaveChangesModal: true }).then(function () {
+                savePromise = $scope.saveConfig().then(function () {
                     if (themeChanged) {
                         document.location.reload(true);
+                    } else {
+                        $('#settings').off('hide.bs.modal')
+                        hideModal('#settings');
                     }
                 });
             } else {
-                savePromise = Promise.resolve();
-            }
-
-            if ($scope.webauthnStateChanged()) {
-                if (!hideSavingChangesModal) {
-                    hideSavingChangesModal = showSavingChangesModal();
-                }
-                saveWebauthnPromise = $scope.saveWebauthnState();
-            } else {
-                saveWebauthnPromise = Promise.resolve();
+                $('#settings').off('hide.bs.modal')
+                hideModal('#settings');
             }
 
             // Return a Promise so callers can wait for save completion
-            return $q.all([savePromise, saveWebauthnPromise])
-                .then(function () {
-                    $('#settings').off('hide.bs.modal');
-                    hideModal('#settings');
-                })
-                .finally(function() {
-                    if (hideSavingChangesModal) {
-                        hideSavingChangesModal();
-                    }
-                });
+            return savePromise || Promise.resolve();
         };
 
         $scope.saveAdvanced = function () {
@@ -3985,14 +3928,6 @@ angular.module('syncthing.core')
                     }).modal(modalState);
             }
         };
-
-        function jsonStringifyNoAngularHashKey(data) {
-            return JSON.stringify(data, function (key, value) { return key === "$$hashKey" ? undefined : value; });
-        }
-
-        function deepCopy(data) {
-            return JSON.parse(jsonStringifyNoAngularHashKey(data));
-        }
     })
     .directive('shareTemplate', function () {
         return {
