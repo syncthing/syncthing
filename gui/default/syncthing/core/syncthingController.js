@@ -104,11 +104,11 @@ angular.module('syncthing.core')
         };
 
         $scope.isDefaultLoginOption = function (loginOption) {
+            var defaultSetting = 'password';
             if (window.localStorage) {
-                return (window.localStorage.getItem("syncthing-default-login-option") || 'password') === loginOption;
-            } else {
-                return loginOption === 'password';
+                defaultSetting = window.localStorage.getItem("syncthing-default-login-option") || defaultSetting;
             }
+            return loginOption === defaultSetting;
         };
 
         function saveDefaultLoginOption(loginOption) {
