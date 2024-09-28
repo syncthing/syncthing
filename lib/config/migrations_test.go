@@ -99,4 +99,32 @@ func TestMigration38(t *testing.T) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default values with implicit HTTP port")
 		}
 	}
+
+	{
+		cfg := Configuration{
+			GUI: GUIConfiguration{
+				RawAddress: "mymachine:8888",
+			},
+		}
+		migrateToConfigV38(&cfg)
+		if cfg.GUI.WebauthnRpId != "mymachine" {
+			t.Error("Expected GUI.WebauthnRpId to be set to \"mymachine\"")
+		}
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine:8888", "http://mymachine:8888"}) {
+			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
+		}
+	}
+
+	{
+		cfg := Configuration{
+			GUI: GUIConfiguration{
+				RawAddress: "mymachine:443",
+				RawUseTLS:  true,
+			},
+		}
+		migrateToConfigV38(&cfg)
+		if !cmp.Equal(cfg.GUI.WebauthnOrigins, []string{"https://mymachine"}) {
+			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
+		}
+	}
 }
