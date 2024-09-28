@@ -2417,7 +2417,9 @@ func TestWebauthnAuthentication(t *testing.T) {
 				t.Fatal(err)
 			}
 			credVolState, ok := volState.Credentials[cred.ID]
-			testutil.AssertTrue(t, t.Fatalf, ok, "Failed to get credential state")
+			if !ok {
+				t.Fatalf("Failed to get credential state")
+			}
 			if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
 				t.Errorf("Wrong LastUseTime after authentication success")
 			}
@@ -3175,9 +3177,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				testutil.AssertTrue(t, t.Errorf,
-					!webauthnStateEqual(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState),
-					"Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				if !(!webauthnStateEqual(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState)) {
+					t.Errorf("Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				}
 			}
 		})
 	}

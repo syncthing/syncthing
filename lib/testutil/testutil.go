@@ -9,7 +9,6 @@ package testutil
 import (
 	"errors"
 	"sync"
-	"testing"
 )
 
 var ErrClosed = errors.New("closed")
@@ -67,18 +66,5 @@ func IfExpr[T any](expr bool, then T, els T) T {
 		return then
 	} else {
 		return els
-	}
-}
-
-func AssertTrue(t *testing.T, testFailFunc func(string, ...any), a bool, sprintfArgs ...any) {
-	t.Helper()
-	if !a {
-		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed")
-		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: %s", sprintfArgs[0])
-		} else {
-			testFailFunc("Assertion failed: "+sprintfArgs[0].(string), sprintfArgs[1:]...)
-		}
 	}
 }
