@@ -2084,8 +2084,9 @@ func TestWebauthnRegistration(t *testing.T) {
 		testutil.AssertEqual(t, t.Errorf, pendingCred.RpId, "localhost", "Wrong RP ID in registration success response")
 		testutil.AssertLessThan(t, t.Errorf, time.Since(pendingCred.CreateTime), 10*time.Second,
 			"Wrong CreateTime in registration success response")
-		testutil.AssertPredicate(t, t.Errorf, slices.Equal, transports, pendingCred.Transports,
-			"Wrong Transports in registration success response")
+		if !slices.Equal(pendingCred.Transports, transports) {
+			t.Errorf("Wrong Transports in registration success response: %v != %v", transports, pendingCred.Transports)
+		}
 		testutil.AssertEqual(t, t.Errorf, false, pendingCred.RequireUv, "Wrong RequireUv in registration success response")
 		testutil.AssertEqual(t, t.Errorf, "", pendingCred.Nickname, "Wrong Nickname in registration success response")
 
@@ -3015,8 +3016,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			testutil.AssertPredicate(t, t.Errorf, webauthnStateEqual, cfg.GUI.WebauthnState, initialWebauthnCfg,
-				"Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", cfg.GUI.WebauthnState)
+			if !cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) {
+				t.Errorf("Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", cfg.GUI.WebauthnState)
+			}
 		}
 	})
 
@@ -3059,8 +3061,9 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				testutil.AssertPredicate(t, t.Errorf, webauthnStateEqual, cfg.GUI.WebauthnState, initialWebauthnCfg,
-					"Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				if !cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) {
+					t.Errorf("Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				}
 			}
 		})
 	}

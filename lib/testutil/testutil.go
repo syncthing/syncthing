@@ -129,16 +129,3 @@ func AssertLessThan[T constraints.Ordered](t *testing.T, testFailFunc func(strin
 		}
 	}
 }
-
-func AssertPredicate[T any](t *testing.T, testFailFunc func(string, ...any), predicate func(T, T) bool, a T, b T, sprintfArgs ...any) {
-	t.Helper()
-	if !predicate(a, b) {
-		if len(sprintfArgs) == 0 {
-			testFailFunc("Assertion failed: %s(%v, %v) == true", predicate, a, b)
-		} else if len(sprintfArgs) == 1 {
-			testFailFunc("Assertion failed: %s(%v, %v) == true: %s", predicate, a, b, sprintfArgs[0])
-		} else {
-			testFailFunc("Assertion failed: %s(%v, %v) == true: "+sprintfArgs[0].(string), slices.Concat([]any{predicate, a, b}, sprintfArgs[1:])...)
-		}
-	}
-}
