@@ -2974,10 +2974,6 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 	})
 }
 
-func webauthnStateEqual(a config.WebauthnState, b config.WebauthnState) bool {
-	return cmp.Equal(a, b)
-}
-
 func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
@@ -3177,7 +3173,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !(!webauthnStateEqual(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState)) {
+				if !(!cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState)) {
 					t.Errorf("Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
 				}
 			}
