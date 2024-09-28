@@ -574,6 +574,7 @@
                 "columnHeading": {
                     "createTime": "Created",
                     "lastUseTime": "Last used",
+                    "name": "Name",
                     "require2fa": "2FA"
                 }
             }
