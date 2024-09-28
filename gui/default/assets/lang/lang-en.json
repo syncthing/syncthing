@@ -214,7 +214,7 @@
     "Incoming Rate Limit (KiB/s)": "Incoming Rate Limit (KiB/s)",
     "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "Incorrect configuration may damage your folder contents and render Syncthing inoperable.",
     "Incorrect user name or password.": "Incorrect user name or password.",
-    "Ineligible WebAuthn Credentials": "Ineligible WebAuthn Credentials",
+    "Ineligible WebAuthn Credentials (Passkeys)": "Ineligible WebAuthn Credentials (Passkeys)",
     "Initialization blocked by browser. Please make sure Syncthing is correctly configured.": "Initialization blocked by browser. Please make sure Syncthing is correctly configured.",
     "Initialization failed, see Syncthing logs for details.": "Initialization failed, see Syncthing logs for details.",
     "Internally used paths:": "Internally used paths:",
