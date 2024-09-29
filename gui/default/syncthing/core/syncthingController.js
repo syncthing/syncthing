@@ -1815,10 +1815,7 @@ angular.module('syncthing.core')
         };
 
         $scope.webauthnReady = function () {
-            return $scope.config
-                && $scope.config.gui
-                && $scope.config.gui.user
-                && !$scope.isLocationInsecure()
+            return !$scope.isLocationInsecure()
                 && $scope.webauthnAvailable()
                 && $scope.locationMatchesWebauthnOrigin();
         };

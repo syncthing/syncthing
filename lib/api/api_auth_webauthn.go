@@ -42,6 +42,7 @@ type webauthnService struct {
 	registrationState              webauthnLib.SessionData
 	authenticationState            webauthnLib.SessionData
 	credentialsPendingRegistration []config.WebauthnCredential
+	deviceName                     string
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
@@ -56,6 +57,7 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 		engine:     engine,
 		evLogger:   evLogger,
 		userHandle: guiCfg.WebauthnUserId,
+		deviceName: deviceName,
 	}, nil
 }
 
@@ -75,10 +77,16 @@ func (u webauthnLibUser) WebAuthnID() []byte {
 	return u.service.userHandle
 }
 func (u webauthnLibUser) WebAuthnName() string {
-	return u.guiCfg.User
+	if u.guiCfg.User != "" {
+		return u.guiCfg.User
+	}
+	if u.service.deviceName != "" {
+		return "Syncthing @ " + u.service.deviceName
+	}
+	return "Syncthing"
 }
 func (u webauthnLibUser) WebAuthnDisplayName() string {
-	return u.guiCfg.User
+	return u.WebAuthnName()
 }
 func (webauthnLibUser) WebAuthnIcon() string {
 	return ""
