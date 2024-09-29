@@ -28,7 +28,7 @@ type indexHandler struct {
 	evLogger                 events.Logger
 
 	// We track the latest / highest sequence number in two ways for two
-	// different reasons. Initially the are the same -- the highest seen
+	// different reasons. Initially they are the same -- the highest seen
 	// sequence number reported by the other side (or zero).
 	//
 	// One is the highest number we've seen when iterating the database,
