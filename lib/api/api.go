@@ -69,6 +69,11 @@ const (
 	httpsCertLifetimeDays = 820
 )
 
+type startedTestMsg struct {
+	address         string
+	webauthnService *webauthnService
+}
+
 type service struct {
 	suture.Service
 
@@ -85,9 +90,9 @@ type service struct {
 	urService            *ur.Service
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	configChanged        chan struct{} // signals intentional listener close due to config change
-	started              chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce          chan struct{} // the service has started successfully at least once
+	configChanged        chan struct{}       // signals intentional listener close due to config change
+	started              chan startedTestMsg // signals startup complete by sending internal state, for testing only
+	startedOnce          chan struct{}       // the service has started successfully at least once
 	startupErr           error
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
@@ -425,7 +430,10 @@ func (s *service) Serve(ctx context.Context) error {
 		// only set when run by the tests
 		select {
 		case <-ctx.Done(): // Shouldn't return directly due to cleanup below
-		case s.started <- listener.Addr().String():
+		case s.started <- startedTestMsg{
+			address:         listener.Addr().String(),
+			webauthnService: &webauthnService,
+		}:
 		}
 	}
 

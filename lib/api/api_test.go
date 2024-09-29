@@ -114,7 +114,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	srvAbstract := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
 	srv := srvAbstract.(*service)
 
-	srv.started = make(chan string)
+	srv.started = make(chan startedTestMsg)
 
 	sup := suture.New("test", svcutil.SpecWithDebugLogger(l))
 	sup.Add(srv)
@@ -1007,7 +1007,7 @@ func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauth
 			},
 		})
 	}
-	addrChan := make(chan string)
+	startedChan := make(chan startedTestMsg)
 	mockedSummary := &modelmocks.FolderSummaryService{}
 	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
 
@@ -1018,15 +1018,7 @@ func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauth
 	svcAbstract := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
 	svc := svcAbstract.(*service)
 
-	webauthnService, err := newWebauthnService(cfg.GUI(), "test", events.NoopLogger, kdb, "webauthn")
-	if err != nil {
-		return "", nil, nil, err
-	}
-	if webauthnVolState != nil {
-		webauthnService.storeVolatileState(webauthnVolState)
-	}
-
-	svc.started = addrChan
+	svc.started = startedChan
 
 	if shutdownTimeout > 0*time.Millisecond {
 		svc.shutdownTimeout = shutdownTimeout
@@ -1041,11 +1033,16 @@ func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauth
 	supervisor.ServeBackground(ctx)
 
 	// Make sure the API service is listening, and get the URL to use.
-	addr := <-addrChan
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	startedMsg := <-startedChan
+	webauthnService := startedMsg.webauthnService
+	tcpAddr, err := net.ResolveTCPAddr("tcp", startedMsg.address)
 	if err != nil {
 		cancel()
-		return "", cancel, &webauthnService, fmt.Errorf("weird address from API service: %w", err)
+		return "", cancel, webauthnService, fmt.Errorf("weird address from API service: %w", err)
+	}
+
+	if webauthnVolState != nil {
+		webauthnService.storeVolatileState(webauthnVolState)
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.GUI().RawAddress)
@@ -1054,7 +1051,7 @@ func startHTTPWithWebauthnVolStateAndShutdownTimeout(cfg config.Wrapper, webauth
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
 
-	return baseURL, cancel, &webauthnService, nil
+	return baseURL, cancel, webauthnService, nil
 }
 
 func TestCSRFRequired(t *testing.T) {
