@@ -518,13 +518,18 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
-func hasSessionCookie(cookies []*http.Cookie) bool {
+func getSessionCookie(cookies []*http.Cookie) (*http.Cookie, bool) {
 	for _, cookie := range cookies {
 		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
-			return true
+			return cookie, true
 		}
 	}
-	return false
+	return nil, false
+}
+
+func hasSessionCookie(cookies []*http.Cookie) bool {
+	_, ok := getSessionCookie(cookies)
+	return ok
 }
 
 func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
@@ -2733,6 +2738,64 @@ func TestWebauthnAuthentication(t *testing.T) {
 		finishResp2 := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred2))
 		if finishResp2.StatusCode != http.StatusForbidden {
 			t.Fatalf("Expected status 403, was: %v", finishResp2.StatusCode)
+		}
+	})
+
+	t.Run("Can authenticate two sessions concurrently", func(t *testing.T) {
+		t.Parallel()
+		credentials := []config.WebauthnCredential{
+			{
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
+				RequireUv:     false,
+			},
+			{
+				ID:            base64.RawURLEncoding.EncodeToString([]byte{5, 6, 7, 8}),
+				RpId:          "localhost",
+				PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
+				RequireUv:     false,
+			},
+		}
+		_, httpPost, getAssertionOptions := startServer(t, "", nil, credentials, nil)
+		options1 := getAssertionOptions()
+		options2 := getAssertionOptions()
+
+		cred1 := createWebauthnAssertionResponse(options1, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+		cred2 := createWebauthnAssertionResponse(options2, []byte{5, 6, 7, 8}, privateKey, "https://localhost:8384", false, 1, t)
+		delayedFatal := false
+
+		finishResp1 := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred1))
+		if finishResp1.StatusCode != http.StatusNoContent {
+			t.Errorf("Failed 1st concurrent WebAuthn authentication. Status: %v", finishResp1.StatusCode)
+			delayedFatal = true
+		}
+
+		finishResp2 := httpPost("/rest/noauth/auth/webauthn-finish", webauthnAuthResponse(false, cred2))
+		if finishResp2.StatusCode != http.StatusNoContent {
+			t.Errorf("Failed 2nd concurrent WebAuthn authentication. Status: %v", finishResp2.StatusCode)
+			delayedFatal = true
+		}
+		if delayedFatal {
+			t.Fatal("Test failed")
+		}
+
+		sessionCookie1, ok := getSessionCookie(finishResp1.Cookies())
+		if !ok {
+			t.Error("Expected session cookie after 1st WebAuthn authentication success")
+			delayedFatal = true
+		}
+		sessionCookie2, ok := getSessionCookie(finishResp2.Cookies())
+		if !ok {
+			t.Error("Expected session cookie after 2nd WebAuthn authentication success")
+			delayedFatal = true
+		}
+		if delayedFatal {
+			t.Fatal("Test failed")
+		}
+
+		if sessionCookie1.Value == sessionCookie2.Value {
+			t.Fatal("Expected concurrent WebAuthn authentications to result in separate sessions")
 		}
 	})
 
