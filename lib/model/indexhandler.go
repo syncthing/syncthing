@@ -445,8 +445,19 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	}
 
 	fset.Update(deviceID, fs)
-
 	seq := fset.Sequence(deviceID)
+
+	// Check that the sequence we get back is what we put in...
+	if lastSequence > 0 && seq != lastSequence {
+		s.logSequenceAnomaly("unexpected sequence after update", map[string]any{
+			"prevSeq":     prevSequence,
+			"lastSeq":     lastSequence,
+			"batch":       len(fs),
+			"seenSeq":     fs[len(fs)-1].Sequence,
+			"returnedSeq": seq,
+		})
+	}
+
 	s.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":   deviceID.String(),
 		"folder":   s.folder,
@@ -458,13 +469,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	return nil
 }
 
-var warnSequenceAnomalyOnce sync.Once
-
 func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
-	warnSequenceAnomalyOnce.Do(func() {
-		l.Warnf("Index sequence anomaly detected (please report at https://forum.syncthing.net/t/22660): %s (%v)", msg, extra)
-	})
-
 	extraStrs := make(map[string]string, len(extra))
 	for k, v := range extra {
 		extraStrs[k] = fmt.Sprint(v)

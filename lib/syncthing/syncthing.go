@@ -36,7 +36,6 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -290,11 +289,6 @@ func (a *App) startup() error {
 				cfg.Options.URAccepted = ur.Version
 				// Unique ID will be set and config saved below if necessary.
 			}
-		}
-
-		// If we are going to do usage reporting, ensure we have a valid unique ID.
-		if cfg.Options.URAccepted > 0 && cfg.Options.URUniqueID == "" {
-			cfg.Options.URUniqueID = rand.String(8)
 		}
 	})
 
