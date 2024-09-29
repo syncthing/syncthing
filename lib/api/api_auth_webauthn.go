@@ -15,6 +15,7 @@ import (
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
+	"github.com/google/uuid"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -39,8 +40,8 @@ type webauthnService struct {
 	engine                         *webauthnLib.WebAuthn
 	evLogger                       events.Logger
 	userHandle                     []byte
-	registrationState              webauthnLib.SessionData
-	authenticationState            webauthnLib.SessionData
+	registrationStates             map[string]webauthnLib.SessionData
+	authenticationStates           map[string]webauthnLib.SessionData
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
 }
@@ -52,12 +53,14 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 	}
 
 	return webauthnService{
-		miscDB:     miscDB,
-		miscDBKey:  miscDBKey,
-		engine:     engine,
-		evLogger:   evLogger,
-		userHandle: guiCfg.WebauthnUserId,
-		deviceName: deviceName,
+		miscDB:               miscDB,
+		miscDBKey:            miscDBKey,
+		engine:               engine,
+		evLogger:             evLogger,
+		userHandle:           guiCfg.WebauthnUserId,
+		deviceName:           deviceName,
+		registrationStates:   make(map[string]webauthnLib.SessionData, 1),
+		authenticationStates: make(map[string]webauthnLib.SessionData, 1),
 	}, nil
 }
 
@@ -126,6 +129,27 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
+type startWebauthnRegistrationResponse struct {
+	RequestID string                              `json:"requestId"`
+	Options   webauthnProtocol.CredentialCreation `json:"options"`
+}
+
+type finishWebauthnRegistrationRequest struct {
+	RequestID  string                                      `json:"requestId"`
+	Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
+}
+
+type startWebauthnAuthenticationResponse struct {
+	RequestID string                               `json:"requestId"`
+	Options   webauthnProtocol.CredentialAssertion `json:"options"`
+}
+
+type finishWebauthnAuthenticationRequest struct {
+	StayLoggedIn bool                                         `json:"stayLoggedIn"`
+	RequestID    string                                       `json:"requestId"`
+	Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
+}
+
 func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		options, sessionData, err := s.engine.BeginRegistration(s.user(guiCfg))
@@ -135,18 +159,40 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 			return
 		}
 
-		s.registrationState = *sessionData
+		var req startWebauthnRegistrationResponse
+		req.Options = *options
+		req.RequestID = uuid.New().String()
+		s.registrationStates[req.RequestID] = *sessionData
 
-		sendJSON(w, options)
+		sendJSON(w, req)
 	}
 }
 
 func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := s.registrationState
-		s.registrationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
+		var req finishWebauthnRegistrationRequest
+		if err := unmarshalTo(r.Body, &req); err != nil {
+			l.Debugln("Failed to parse response:", err)
+			http.Error(w, "Failed to parse response.", http.StatusBadRequest)
+			return
+		}
 
-		credential, err := s.engine.FinishRegistration(s.user(guiCfg), state, r)
+		state, ok := s.registrationStates[req.RequestID]
+		if !ok {
+			l.Debugf("Unknown request ID: %s", req.RequestID)
+			badRequest(w)
+			return
+		}
+		delete(s.registrationStates, req.RequestID) // Allow only one attempt per challenge
+
+		parsedResponse, err := req.Credential.Parse()
+		if err != nil {
+			l.Debugln("Failed to parse WebAuthn registration response", err)
+			badRequest(w)
+			return
+		}
+
+		credential, err := s.engine.CreateCredential(s.user(guiCfg), state, parsedResponse)
 		if err != nil {
 			l.Infoln("Failed to register WebAuthn credential:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -228,27 +274,33 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 			return
 		}
 
-		s.authenticationState = *sessionData
+		var req startWebauthnAuthenticationResponse
+		req.Options = *options
+		req.RequestID = uuid.New().String()
+		s.authenticationStates[req.RequestID] = *sessionData
 
-		sendJSON(w, options)
+		sendJSON(w, req)
 	}
 }
 
 func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := s.authenticationState
-		s.authenticationState = webauthnLib.SessionData{} // Allow only one attempt per challenge
-
-		var req struct {
-			StayLoggedIn bool
-			Credential   webauthnProtocol.CredentialAssertionResponse
-		}
+		var req finishWebauthnAuthenticationRequest
 
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse response:", err)
 			http.Error(w, "Failed to parse response.", http.StatusBadRequest)
 			return
 		}
+
+		state, ok := s.authenticationStates[req.RequestID]
+		if !ok {
+			l.Debugf("Unknown request ID: %s", req.RequestID)
+			badRequest(w)
+			return
+		}
+
+		delete(s.authenticationStates, req.RequestID) // Allow only one attempt per challenge
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {

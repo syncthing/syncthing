@@ -1762,9 +1762,9 @@ angular.module('syncthing.core')
         };
 
         $scope.locationDoesNotMatchWebauthnRpId = function () {
-            if ($scope.webauthn.request && $scope.webauthn.request.publicKey.rpId) {
-                var exactMatch = $location.host() === $scope.webauthn.request.publicKey.rpId;
-                var subdomainMatch = $location.host().endsWith('.' + $scope.webauthn.request.publicKey.rpId);
+            if ($scope.webauthn.request && $scope.webauthn.request.options.publicKey.rpId) {
+                var exactMatch = $location.host() === $scope.webauthn.request.options.publicKey.rpId;
+                var subdomainMatch = $location.host().endsWith('.' + $scope.webauthn.request.options.publicKey.rpId);
                 return !(exactMatch || subdomainMatch);
             }
             // If we don't know, don't show an error message.
@@ -1825,16 +1825,20 @@ angular.module('syncthing.core')
             $http.post(urlbase + '/config/webauthn/register-start')
                 .then(function (resp) {
                     // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                    resp.data.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
+                    resp.data.options.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
                         return { type: "public-key", id: cred.id };
                     });
-                    return webauthnJSON.create(resp.data);
-                })
-                .then(function (pkc) {
-                    return $http.post(urlbase + '/config/webauthn/register-finish', pkc);
-                })
-                .then(function (resp) {
-                    $scope.tmpGUI.webauthnState.credentials.push(resp.data);
+                    return webauthnJSON.create(resp.data.options)
+                        .then(function (pkc) {
+                            var body = {
+                                requestId: resp.data.requestId,
+                                credential: pkc,
+                            };
+                            return $http.post(urlbase + '/config/webauthn/register-finish', body);
+                        })
+                        .then(function (resp) {
+                            $scope.tmpGUI.webauthnState.credentials.push(resp.data);
+                        });
                 })
                 .catch(function (e) {
                     if (e instanceof DOMException && e.name === "InvalidStateError") {
@@ -1862,7 +1866,7 @@ angular.module('syncthing.core')
             $scope.webauthn.errors = {};
             return $http.post(authUrlbase + '/webauthn-start')
                 .then(function (resp) {
-                    if (resp && resp.data && resp.data.publicKey) {
+                    if (resp && resp.data && resp.data.options.publicKey) {
                         $scope.webauthn.request = resp.data;
                         return resp.data;
                     } else {
@@ -1885,11 +1889,12 @@ angular.module('syncthing.core')
         $scope.authenticateWebauthnFinish = function () {
             var finish = function (request) {
                 $scope.login.inProgress = true;
-                return webauthnJSON.get(request)
+                return webauthnJSON.get(request.options)
                     .then(function (pkc) {
                         return $http.post(
                             authUrlbase + '/webauthn-finish',
                             {
+                                requestId: request.requestId,
                                 credential: pkc,
                                 stayLoggedIn: $scope.login.stayLoggedIn,
                             },
