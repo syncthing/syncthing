@@ -1849,6 +1849,8 @@ angular.module('syncthing.core')
                         $scope.webauthn.errors.notAllowed = true;
                     } else if (e instanceof DOMException && e.name === "SecurityError") {
                         $scope.webauthn.errors.securityError = true;
+                    } else if (e && e.status === 408) {
+                        $scope.webauthn.errors.registrationTimedOut = true;
                     } else {
                         $scope.webauthn.errors.registrationFailed = true;
                         console.log('Credential creation failed:', e);
@@ -1915,6 +1917,8 @@ angular.module('syncthing.core')
                             $scope.webauthn.errors.notAllowed = true;
                         } else if (e instanceof DOMException && e.name === "SecurityError") {
                             $scope.webauthn.errors.securityError = true;
+                        } else if (e && e.status === 408) {
+                            $scope.webauthn.errors.authenticationTimedOut = true;
                         } else if (e && e.status === 409) {
                             $scope.webauthn.errors.uvRequired = true;
                         } else {

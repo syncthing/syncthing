@@ -237,6 +237,7 @@
                       </div>
 
                       <p class="text-danger" ng-if="webauthn.errors.registrationFailed" translate>Failed to create credential, see Syncthing logs for details.</p>
+                      <p class="text-danger" ng-if="webauthn.errors.registrationTimedOut" translate>Registration timed out. Please try again.</p>
 
                       <p class="text-info" ng-if="webauthnAvailable() && isRawIpAddress()" translate>WebAuthn is not supported on raw IP address hosts.</p>
 

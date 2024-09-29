@@ -21,17 +21,44 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
+const ceremonyTimeout time.Duration = time.Minute * 10
+
 func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*webauthnLib.WebAuthn, error) {
 	displayName := "Syncthing"
 	if deviceName != "" {
 		displayName = "Syncthing @ " + deviceName
 	}
 
+	timeoutConfig := webauthnLib.TimeoutConfig{
+		Enforce:    true,
+		Timeout:    ceremonyTimeout,
+		TimeoutUVD: ceremonyTimeout,
+	}
 	return webauthnLib.New(&webauthnLib.Config{
 		RPDisplayName: displayName,
 		RPID:          guiCfg.WebauthnRpId,
 		RPOrigins:     guiCfg.WebauthnOrigins,
+		Timeouts: webauthnLib.TimeoutsConfig{
+			Login:        timeoutConfig,
+			Registration: timeoutConfig,
+		},
 	})
+}
+
+type timedSessionData struct {
+	startTime   time.Time
+	sessionData webauthnLib.SessionData
+}
+
+func (s *webauthnService) startTimedSessionData(sessionData *webauthnLib.SessionData) timedSessionData {
+	return timedSessionData{
+		startTime:   s.timeNow().UTC(),
+		sessionData: *sessionData,
+	}
+}
+
+func (s *webauthnService) expired(t *timedSessionData) bool {
+	return s.timeNow().After(t.startTime.Add(ceremonyTimeout))
 }
 
 type webauthnService struct {
@@ -40,10 +67,11 @@ type webauthnService struct {
 	engine                         *webauthnLib.WebAuthn
 	evLogger                       events.Logger
 	userHandle                     []byte
-	registrationStates             map[string]webauthnLib.SessionData
-	authenticationStates           map[string]webauthnLib.SessionData
+	registrationStates             map[string]timedSessionData
+	authenticationStates           map[string]timedSessionData
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
+	timeNow                        func() time.Time // can be overridden for testing
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
@@ -59,8 +87,9 @@ func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLog
 		evLogger:             evLogger,
 		userHandle:           guiCfg.WebauthnUserId,
 		deviceName:           deviceName,
-		registrationStates:   make(map[string]webauthnLib.SessionData, 1),
-		authenticationStates: make(map[string]webauthnLib.SessionData, 1),
+		registrationStates:   make(map[string]timedSessionData, 1),
+		authenticationStates: make(map[string]timedSessionData, 1),
+		timeNow:              time.Now,
 	}, nil
 }
 
@@ -162,7 +191,7 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 		var req startWebauthnRegistrationResponse
 		req.Options = *options
 		req.RequestID = uuid.New().String()
-		s.registrationStates[req.RequestID] = *sessionData
+		s.registrationStates[req.RequestID] = s.startTimedSessionData(sessionData)
 
 		sendJSON(w, req)
 	}
@@ -170,6 +199,8 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 
 func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer s.deleteOldStates()
+
 		var req finishWebauthnRegistrationRequest
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Debugln("Failed to parse response:", err)
@@ -185,6 +216,12 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 		delete(s.registrationStates, req.RequestID) // Allow only one attempt per challenge
 
+		if s.expired(&state) {
+			l.Debugln("WebAuthn registration timed out: %v", state)
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
+			return
+		}
+
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
 			l.Debugln("Failed to parse WebAuthn registration response", err)
@@ -192,7 +229,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			return
 		}
 
-		credential, err := s.engine.CreateCredential(s.user(guiCfg), state, parsedResponse)
+		credential, err := s.engine.CreateCredential(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
 			l.Infoln("Failed to register WebAuthn credential:", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -221,7 +258,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			transports[i] = string(t)
 		}
 
-		now := time.Now().Truncate(time.Second).UTC()
+		now := s.timeNow().Truncate(time.Second).UTC()
 		configCred := config.WebauthnCredential{
 			ID:            base64.RawURLEncoding.EncodeToString(credential.ID),
 			RpId:          s.engine.Config.RPID,
@@ -277,7 +314,7 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 		var req startWebauthnAuthenticationResponse
 		req.Options = *options
 		req.RequestID = uuid.New().String()
-		s.authenticationStates[req.RequestID] = *sessionData
+		s.authenticationStates[req.RequestID] = s.startTimedSessionData(sessionData)
 
 		sendJSON(w, req)
 	}
@@ -285,6 +322,8 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 
 func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer s.deleteOldStates()
+
 		var req finishWebauthnAuthenticationRequest
 
 		if err := unmarshalTo(r.Body, &req); err != nil {
@@ -299,8 +338,13 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			badRequest(w)
 			return
 		}
-
 		delete(s.authenticationStates, req.RequestID) // Allow only one attempt per challenge
+
+		if s.expired(&state) {
+			l.Debugln("WebAuthn authentication timed out: %v", state)
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
+			return
+		}
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
@@ -309,11 +353,11 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state, parsedResponse)
+		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
 			l.Infoln("WebAuthn authentication failed", err)
 
-			if state.UserVerification == webauthnProtocol.VerificationRequired {
+			if state.sessionData.UserVerification == webauthnProtocol.VerificationRequired {
 				antiBruteForceSleep()
 				http.Error(w, "Conflict", http.StatusConflict)
 				return
@@ -346,7 +390,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		}
 		signCountBefore = dynCredState.SignCount
 		dynCredState.SignCount = updatedCred.Authenticator.SignCount
-		dynCredState.LastUseTime = time.Now().Truncate(time.Second).UTC()
+		dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
 		volState.Credentials[authenticatedCredId] = dynCredState
 		err = s.storeVolatileState(volState)
 		if err != nil {
@@ -359,6 +403,21 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (s *webauthnService) deleteOldStates() {
+	for requestId, state := range s.registrationStates {
+		if s.expired(&state) {
+			l.Debugln("WebAuthn registration expired: %v", state)
+			delete(s.registrationStates, requestId)
+		}
+	}
+	for requestId, state := range s.authenticationStates {
+		if s.expired(&state) {
+			l.Debugln("WebAuthn authentication expired: %v", state)
+			delete(s.authenticationStates, requestId)
+		}
 	}
 }
 
