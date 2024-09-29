@@ -2135,6 +2135,27 @@ func TestWebauthnRegistration(t *testing.T) {
 		}
 	})
 
+	t.Run("Can register two WebAuthn credentials concurrently.", func(t *testing.T) {
+		t.Parallel()
+		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
+		options1 := getCreateOptions(t)
+		options2 := getCreateOptions(t)
+
+		transports := []string{"transportA", "transportB"}
+		cred1 := createWebauthnRegistrationResponse(options1, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 42, transports, t)
+		cred2 := createWebauthnRegistrationResponse(options2, []byte{5, 6, 7, 8}, publicKeyCose, "https://localhost:8384", 37, transports, t)
+
+		finishResp1 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred1, csrfTokenName, csrfTokenValue, t)
+		if finishResp1.StatusCode != http.StatusOK {
+			t.Errorf("Failed to finish 1st concurrent WebAuthn registration: status %d", finishResp1.StatusCode)
+		}
+
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", cred2, csrfTokenName, csrfTokenValue, t)
+		if finishResp2.StatusCode != http.StatusOK {
+			t.Errorf("Failed to finish 2nd concurrent WebAuthn registration: status %d", finishResp2.StatusCode)
+		}
+	})
+
 	t.Run("WebAuthn registration fails with wrong challenge", func(t *testing.T) {
 		t.Parallel()
 		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
