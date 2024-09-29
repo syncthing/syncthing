@@ -30,7 +30,10 @@ func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*weba
 	}
 
 	timeoutConfig := webauthnLib.TimeoutConfig{
-		Enforce:    true,
+		// go-webauthn can enforce timeouts, but we also add our own enforcement
+		// layer on top to clean up stale state and to make it testable
+		Enforce: true,
+		// These properties also set the timeout option sent to the browser in the front-end
 		Timeout:    ceremonyTimeout,
 		TimeoutUVD: ceremonyTimeout,
 	}
