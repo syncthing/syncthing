@@ -516,7 +516,7 @@ jobs:
 
       - name: Install signing tool
         run: |
-          go install ./cmd/stsigtool
+          go install ./cmd/dev/stsigtool
 
       - name: Sign archives
         run: |

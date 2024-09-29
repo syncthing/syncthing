@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/syncthing/syncthing/cmd/ursrv/aggregate"
-	"github.com/syncthing/syncthing/cmd/ursrv/serve"
+	"github.com/syncthing/syncthing/cmd/infra/ursrv/aggregate"
+	"github.com/syncthing/syncthing/cmd/infra/ursrv/serve"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 

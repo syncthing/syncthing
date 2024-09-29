@@ -85,7 +85,7 @@ func (t *writeTrackingTracer) loggingTracer() *logging.Tracer {
 		SentPacket: func(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
 			t.lastWrite.Store(time.Now().UnixNano())
 		},
-		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.VersionNumber) {
+		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.Version) {
 			t.lastWrite.Store(time.Now().UnixNano())
 		},
 	}

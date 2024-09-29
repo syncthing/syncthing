@@ -72,6 +72,7 @@ var (
 		{regexp.MustCompile(`\sandroid-builder@github\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`\sandroid-.*teamcity@build\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
+		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
@@ -80,6 +81,7 @@ var (
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
+		{regexp.MustCompile(`\snix@nix`), "Nix (3rd party)"},
 		{regexp.MustCompile(`.`), "Others"},
 	}
 )

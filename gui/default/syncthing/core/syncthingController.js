@@ -16,6 +16,15 @@ angular.module('syncthing.core')
             LocaleService.autoConfigLocale();
 
             if (!$scope.authenticated) {
+                function setVersionFromHeader(_data, _status, headers) {
+                    var version = headers('X-Syncthing-Version');
+                    if (version) {
+                        $scope.version = { version: version };
+                    }
+                }
+                // Get index.html again (likely cached) to retrieve the version header
+                $http.get('').success(setVersionFromHeader).error(setVersionFromHeader);
+
                 // Can't proceed yet - wait for the page reload after successful login.
                 return;
             }

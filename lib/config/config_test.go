@@ -305,6 +305,11 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
+	if cfg.Options().URUniqueID == "" {
+		t.Error("expected usage reporting unique ID to be set since usage reporting is enabled")
+	}
+	expected.URUniqueID = cfg.Options().URUniqueID // it's random
+
 	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options()); !equal {
 		t.Errorf("Overridden config differs. Diff:\n%s", diff)
 	}
