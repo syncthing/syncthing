@@ -39,7 +39,7 @@ require (
 	github.com/urfave/cli v1.22.15
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
-	go.uber.org/automaxprocs v1.5.3
+	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/net v0.29.0
 	golang.org/x/sys v0.25.0
