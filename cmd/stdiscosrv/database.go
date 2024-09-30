@@ -26,6 +26,8 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/s3"
 )
 
 type clock interface {
@@ -48,27 +50,38 @@ type inMemoryStore struct {
 	m             *xsync.MapOf[protocol.DeviceID, DatabaseRecord]
 	dir           string
 	flushInterval time.Duration
-	s3            *s3Copier
+	s3            *s3.Session
+	objKey        string
 	clock         clock
 }
 
-func newInMemoryStore(dir string, flushInterval time.Duration, s3 *s3Copier) *inMemoryStore {
+func newInMemoryStore(dir string, flushInterval time.Duration, s3sess *s3.Session) *inMemoryStore {
+	hn, err := os.Hostname()
+	if err != nil {
+		hn = rand.String(8)
+	}
 	s := &inMemoryStore{
 		m:             xsync.NewMapOf[protocol.DeviceID, DatabaseRecord](),
 		dir:           dir,
 		flushInterval: flushInterval,
-		s3:            s3,
+		s3:            s3sess,
+		objKey:        hn + ".db",
 		clock:         defaultClock{},
 	}
 	nr, err := s.read()
-	if os.IsNotExist(err) && s3 != nil {
+	if os.IsNotExist(err) && s3sess != nil {
 		// Try to read from AWS
+		latestKey, cerr := s3sess.LatestKey()
+		if cerr != nil {
+			log.Println("Error reading database from S3:", err)
+			return s
+		}
 		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
 		if cerr != nil {
 			log.Println("Error creating database file:", err)
 			return s
 		}
-		if err := s3.downloadLatest(fd); err != nil {
+		if cerr := s3sess.Download(fd, latestKey); cerr != nil {
 			log.Printf("Error reading database from S3: %v", err)
 		}
 		_ = fd.Close()
@@ -303,7 +316,7 @@ func (s *inMemoryStore) write() (err error) {
 			return nil
 		}
 		defer fd.Close()
-		if err := s.s3.upload(fd); err != nil {
+		if err := s.s3.Upload(fd, s.objKey); err != nil {
 			log.Printf("Error uploading database to S3: %v", err)
 		}
 		log.Println("Finished uploading database")

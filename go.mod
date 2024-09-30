@@ -21,7 +21,6 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/lib/pq v1.10.9
 	github.com/maruel/panicparse/v2 v2.3.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
 	github.com/maxmind/geoipupdate/v6 v6.1.0
