@@ -159,10 +159,6 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
-		if ok && unchanged(f, ef) {
-			l.Debugf("not inserting unchanged (remote); folder=%q device=%v %v", folder, devID, f)
-			continue
-		}
 
 		if ok {
 			meta.removeFile(devID, ef)
