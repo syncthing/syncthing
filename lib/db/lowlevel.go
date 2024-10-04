@@ -159,10 +159,6 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
-		if ok && unchanged(f, ef) {
-			l.Debugf("not inserting unchanged (remote); folder=%q device=%v %v", folder, devID, f)
-			continue
-		}
 
 		if ok {
 			meta.removeFile(devID, ef)
@@ -216,12 +212,8 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if err != nil {
 			return err
 		}
-		if ok && unchanged(f, ef) {
-			l.Debugf("not inserting unchanged (local); folder=%q %v", folder, f)
-			continue
-		}
-		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
+		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 		if ok {
 			keyBuf, err = db.removeLocalBlockAndSequenceInfo(keyBuf, folder, name, ef, !blocksHashSame, &t)
 			if err != nil {
@@ -1441,13 +1433,6 @@ func (db *Lowlevel) checkErrorForRepair(err error) {
 			}
 		}
 	}
-}
-
-// unchanged checks if two files are the same and thus don't need to be updated.
-// Local flags or the invalid bit might change without the version
-// being bumped.
-func unchanged(nf, ef protocol.FileIntf) bool {
-	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }
 
 func (db *Lowlevel) handleFailure(err error) {
