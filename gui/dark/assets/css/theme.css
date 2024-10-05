@@ -228,7 +228,6 @@ code.ng-binding{
 }
 
 .well, .form-control[readonly="readonly"], .popover { /* read-only fields*/
-    color: #666 !important;
     border-color: #424242 !important;
     background-color: #3B3B3B !important;
 }
