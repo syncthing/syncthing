@@ -3344,7 +3344,7 @@ angular.module('syncthing.core')
             }
             if (value instanceof Array) {
                 if (value.some(function (element) {
-                    return typeof element !== 'number' || typeof element !== 'string'
+                    return typeof element !== 'number' && typeof element !== 'string';
                 })) {
                     return 'skip';
                 }
