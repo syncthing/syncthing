@@ -202,8 +202,8 @@
                     <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
                       {{cred.createTime | date:'yyyy-MM-dd'}}
                     </td>
-                    <td class="small-data" title="{{ webauthn.state.lastUseTime[cred.id] | date:'yyyy-MM-dd HH:mm:ss' }}">
-                      {{ webauthn.state.lastUseTime[cred.id] | date:'yyyy-MM-dd' }}
+                    <td class="small-data" title="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">
+                      {{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd' }}
                     </td>
 
                     <td class="small-data text-center">
