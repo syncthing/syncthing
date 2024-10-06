@@ -262,54 +262,50 @@
               <button ng-if="tmpGUI && !settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-address="{{ getWebauthnOrigin() }}">Reload page at {%address%}</button>
             </p>
 
-            <div class="table-responsive webauthn-credentials">
-              <table class="table-striped table" ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
-                <thead>
-                  <tr>
-                    <th colspan="1000"><label translate>Ineligible WebAuthn Credentials (Passkeys)</label></th>
-                  </tr>
-                  <tr>
-                    <td colspan="1000">
-                      <p translate>The credentials below were created with a different setting of "Webauthn Rp Id" in advanced settings. They cannot be used without restoring this setting to the value shown as "RP ID" below. Note that doing so would make any credentials above ineligible instead.</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th><label translate="settings.webauthn.credentials.columnHeading.name">Name</label></th>
-                    <th><label translate>RP ID</label></th><!-- RP ID is the name of the WebAuthn setting, may not be translatable -->
-                    <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
-                    <th colspan="1000"><label translate>Actions</label></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
-                    <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch text-warning">
-                      <span class="fas fa-exclamation-triangle"></span>
-                      {{ cred.nickname || (cred.id | limitTo: 20) }}
-                    </td>
-                    <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
-                      <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
-                    </td>
+            <div ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+              <label translate>Ineligible WebAuthn Credentials (Passkeys)</label>
+              <p translate>The credentials below were created with a different setting of "Webauthn Rp Id" in advanced settings. They cannot be used without restoring this setting to the value shown as "RP ID" below. Note that doing so would make any credentials above ineligible instead.</p>
+              <div class="table-responsive webauthn-credentials">
+                <table class="table-striped table">
+                  <thead>
+                    <tr>
+                      <th><label translate="settings.webauthn.credentials.columnHeading.name">Name</label></th>
+                      <th><label translate>RP ID</label></th><!-- RP ID is the name of the WebAuthn setting, may not be translatable -->
+                      <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
+                      <th colspan="1000"><label translate>Actions</label></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
+                      <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch text-warning">
+                        <span class="fas fa-exclamation-triangle"></span>
+                        {{ cred.nickname || (cred.id | limitTo: 20) }}
+                      </td>
+                      <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
+                        <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
+                      </td>
 
-                    <td class="text-monospace text-nowrap">
-                      {{ cred.rpId }}
-                    </td>
-                    <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
-                      {{cred.createTime | date:'yyyy-MM-dd'}}
-                    </td>
+                      <td class="text-monospace text-nowrap">
+                        {{ cred.rpId }}
+                      </td>
+                      <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
+                        {{cred.createTime | date:'yyyy-MM-dd'}}
+                      </td>
 
-                    <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
-                        <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
-                      </button>
-                    </td>
-                    <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
-                        <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                      <td class="small-data button-cell">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
+                          <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
+                        </button>
+                      </td>
+                      <td class="small-data button-cell">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
+                          <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
