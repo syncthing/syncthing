@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/thejerf/suture/v4"
 )
@@ -117,14 +118,13 @@ func main() {
 	})
 
 	// If configured, use S3 for database backups.
-	var s3c *s3Copier
+	var s3c *s3.Session
 	if cli.DBS3Endpoint != "" {
-		hostname, err := os.Hostname()
+		var err error
+		s3c, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
 		if err != nil {
-			log.Fatalf("Failed to get hostname: %v", err)
+			log.Fatalf("Failed to create S3 session: %v", err)
 		}
-		key := hostname + ".db"
-		s3c = newS3Copier(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, key, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
 	}
 
 	// Start the database.

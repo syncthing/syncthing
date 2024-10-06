@@ -7,53 +7,50 @@
 package serve
 
 import (
-	"bytes"
+	"bufio"
+	"compress/gzip"
 	"context"
-	"database/sql"
-	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"regexp"
-	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
-	"unicode"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "net/http/pprof"
+
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"github.com/puzpuzpuz/xsync/v3"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
-	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 type CLI struct {
-	Debug           bool   `env:"UR_DEBUG"`
-	DBConn          string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
-	Listen          string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
-	GeoIPLicenseKey string `env:"UR_GEOIP_LICENSE_KEY"`
-	GeoIPAccountID  int    `env:"UR_GEOIP_ACCOUNT_ID"`
+	Listen          string        `env:"UR_LISTEN" help:"Usage reporting & metrics endpoint listen address" default:"0.0.0.0:8080"`
+	ListenInternal  string        `env:"UR_LISTEN_INTERNAL" help:"Internal metrics endpoint listen address" default:"0.0.0.0:8082"`
+	GeoIPLicenseKey string        `env:"UR_GEOIP_LICENSE_KEY"`
+	GeoIPAccountID  int           `env:"UR_GEOIP_ACCOUNT_ID"`
+	DumpFile        string        `env:"UR_DUMP_FILE" default:"reports.jsons.gz"`
+	DumpInterval    time.Duration `env:"UR_DUMP_INTERVAL" default:"5m"`
+
+	S3Endpoint    string `name:"s3-endpoint" hidden:"true" env:"UR_S3_ENDPOINT"`
+	S3Region      string `name:"s3-region" hidden:"true" env:"UR_S3_REGION"`
+	S3Bucket      string `name:"s3-bucket" hidden:"true" env:"UR_S3_BUCKET"`
+	S3AccessKeyID string `name:"s3-access-key-id" hidden:"true" env:"UR_S3_ACCESS_KEY_ID"`
+	S3SecretKey   string `name:"s3-secret-key" hidden:"true" env:"UR_S3_SECRET_KEY"`
 }
 
-//go:embed static
-var statics embed.FS
-
 var (
-	tpl                *template.Template
 	compilerRe         = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	progressBarClass   = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
-	featureOrder       = []string{"Various", "Folder", "Device", "Connection", "GUI"}
-	knownVersions      = []string{"v2", "v3"}
 	knownDistributions = []distributionMatch{
 		// Maps well known builders to the official distribution method that
 		// they represent
@@ -71,9 +68,13 @@ var (
 
 		{regexp.MustCompile(`\sandroid-builder@github\.syncthing\.net`), "Google Play"},
 		{regexp.MustCompile(`\sandroid-.*teamcity@build\.syncthing\.net`), "Google Play"},
+
 		{regexp.MustCompile(`\sandroid-.*vagrant@basebox-stretch64`), "F-Droid"},
-		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
+		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
+
+		{regexp.MustCompile(`Anwender@NET2017`), "Syncthing-Fork (3rd party)"},
+
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
@@ -91,227 +92,187 @@ type distributionMatch struct {
 	distribution string
 }
 
-var funcs = map[string]interface{}{
-	"commatize":  commatize,
-	"number":     number,
-	"proportion": proportion,
-	"counter": func() *counter {
-		return &counter{}
-	},
-	"progressBarClassByIndex": func(a int) string {
-		return progressBarClass[a%len(progressBarClass)]
-	},
-	"slice": func(numParts, whichPart int, input []feature) []feature {
-		var part []feature
-		perPart := (len(input) / numParts) + len(input)%2
-
-		parts := make([][]feature, 0, numParts)
-		for len(input) >= perPart {
-			part, input = input[:perPart], input[perPart:]
-			parts = append(parts, part)
-		}
-		if len(input) > 0 {
-			parts = append(parts, input)
-		}
-		return parts[whichPart-1]
-	},
-}
-
-func setupDB(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS ReportsJson (
-		Received TIMESTAMP NOT NULL,
-		Report JSONB NOT NULL
-	)`)
-	if err != nil {
-		return err
-	}
-
-	var t string
-	if err := db.QueryRow(`SELECT 'UniqueIDJsonIndex'::regclass`).Scan(&t); err != nil {
-		if _, err = db.Exec(`CREATE UNIQUE INDEX UniqueIDJsonIndex ON ReportsJson ((Report->>'date'), (Report->>'uniqueID'))`); err != nil {
-			return err
-		}
-	}
-
-	if err := db.QueryRow(`SELECT 'ReceivedJsonIndex'::regclass`).Scan(&t); err != nil {
-		if _, err = db.Exec(`CREATE INDEX ReceivedJsonIndex ON ReportsJson (Received)`); err != nil {
-			return err
-		}
-	}
-
-	if err := db.QueryRow(`SELECT 'ReportVersionJsonIndex'::regclass`).Scan(&t); err != nil {
-		if _, err = db.Exec(`CREATE INDEX ReportVersionJsonIndex ON ReportsJson (cast((Report->>'urVersion') as numeric))`); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func insertReport(db *sql.DB, r contract.Report) error {
-	_, err := db.Exec("INSERT INTO ReportsJson (Report, Received) VALUES ($1, $2)", r, time.Now().UTC())
-
-	return err
-}
-
-type withDBFunc func(*sql.DB, http.ResponseWriter, *http.Request)
-
-func withDB(db *sql.DB, f withDBFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		f(db, w, r)
-	}
-}
-
 func (cli *CLI) Run() error {
-	// Template
-
-	fd, err := statics.Open("static/index.html")
-	if err != nil {
-		log.Fatalln("template:", err)
-	}
-	bs, err := io.ReadAll(fd)
-	if err != nil {
-		log.Fatalln("template:", err)
-	}
-	fd.Close()
-	tpl = template.Must(template.New("index.html").Funcs(funcs).Parse(string(bs)))
-
-	// DB
-
-	db, err := sql.Open("postgres", cli.DBConn)
-	if err != nil {
-		log.Fatalln("database:", err)
-	}
-	err = setupDB(db)
-	if err != nil {
-		log.Fatalln("database:", err)
-	}
+	slog.Info("Starting", "version", build.Version)
 
 	// Listening
 
-	listener, err := net.Listen("tcp", cli.Listen)
+	urListener, err := net.Listen("tcp", cli.Listen)
 	if err != nil {
-		log.Fatalln("listen:", err)
+		slog.Error("Failed to listen (usage reports)", "error", err)
+		return err
+	}
+	slog.Info("Listening (usage reports)", "address", urListener.Addr())
+
+	internalListener, err := net.Listen("tcp", cli.ListenInternal)
+	if err != nil {
+		slog.Error("Failed to listen (internal)", "error", err)
+		return err
+	}
+	slog.Info("Listening (internal)", "address", internalListener.Addr())
+
+	var geo *geoip.Provider
+	if cli.GeoIPAccountID != 0 && cli.GeoIPLicenseKey != "" {
+		geo, err = geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+		if err != nil {
+			slog.Error("Failed to load GeoIP", "error", err)
+			return err
+		}
+		go geo.Serve(context.TODO())
 	}
 
-	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
-	if err != nil {
-		log.Fatalln("geoip:", err)
+	// s3
+
+	var s3sess *s3.Session
+	if cli.S3Endpoint != "" {
+		s3sess, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
+		if err != nil {
+			slog.Error("Failed to create S3 session", "error", err)
+			return err
+		}
 	}
-	go geoip.Serve(context.TODO())
+
+	if _, err := os.Stat(cli.DumpFile); err != nil && s3sess != nil {
+		if err := cli.downloadDumpFile(s3sess); err != nil {
+			slog.Error("Failed to download dump file", "error", err)
+		}
+	}
+
+	// server
 
 	srv := &server{
-		db:    db,
-		debug: cli.Debug,
-		geoip: geoip,
+		geo:     geo,
+		reports: xsync.NewMapOf[string, *contract.Report](),
 	}
-	http.HandleFunc("/", srv.rootHandler)
-	http.HandleFunc("/newdata", srv.newDataHandler)
-	http.HandleFunc("/summary.json", srv.summaryHandler)
-	http.HandleFunc("/performance.json", srv.performanceHandler)
-	http.HandleFunc("/blockstats.json", srv.blockStatsHandler)
-	http.HandleFunc("/locations.json", srv.locationsHandler)
+
+	if fd, err := os.Open(cli.DumpFile); err == nil {
+		gr, err := gzip.NewReader(fd)
+		if err == nil {
+			srv.load(gr)
+		}
+		fd.Close()
+	}
+
+	go func() {
+		for range time.Tick(cli.DumpInterval) {
+			if err := cli.saveDumpFile(srv, s3sess); err != nil {
+				slog.Error("Failed to write dump file", "error", err)
+			}
+		}
+	}()
+
+	// The internal metrics endpoint just serves metrics about what the
+	// server is doing.
+
 	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/static/", http.FileServer(http.FS(statics)))
 
-	go srv.cacheRefresher()
-
-	httpSrv := http.Server{
+	internalSrv := http.Server{
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
-	return httpSrv.Serve(listener)
-}
+	go internalSrv.Serve(internalListener)
 
-type server struct {
-	debug bool
-	db    *sql.DB
-	geoip *geoip.Provider
+	// New external metrics endpoint accepts reports from clients and serves
+	// aggregated usage reporting metrics.
 
-	cacheMut        sync.Mutex
-	cachedIndex     []byte
-	cachedLocations []byte
-	cacheTime       time.Time
-}
+	ms := newMetricsSet(srv)
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(ms)
 
-const maxCacheTime = 15 * time.Minute
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/newdata", srv.handleNewData)
+	mux.HandleFunc("/ping", srv.handlePing)
 
-func (s *server) cacheRefresher() {
-	ticker := time.NewTicker(maxCacheTime - time.Minute)
-	defer ticker.Stop()
-	for ; true; <-ticker.C {
-		s.cacheMut.Lock()
-		if err := s.refreshCacheLocked(); err != nil {
-			log.Println(err)
-		}
-		s.cacheMut.Unlock()
+	metricsSrv := http.Server{
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		Handler:      mux,
 	}
+
+	slog.Info("Ready to serve")
+	return metricsSrv.Serve(urListener)
 }
 
-func (s *server) refreshCacheLocked() error {
-	rep := getReport(s.db, s.geoip)
-	buf := new(bytes.Buffer)
-	err := tpl.Execute(buf, rep)
+func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
+	latestKey, err := s3sess.LatestKey()
 	if err != nil {
-		return err
+		return fmt.Errorf("list latest S3 key: %w", err)
 	}
-	s.cachedIndex = buf.Bytes()
-	s.cacheTime = time.Now()
-
-	locs := rep["locations"].(map[location]int)
-	wlocs := make([]weightedLocation, 0, len(locs))
-	for loc, w := range locs {
-		wlocs = append(wlocs, weightedLocation{loc, w})
+	fd, err := os.Create(cli.DumpFile)
+	if err != nil {
+		return fmt.Errorf("create dump file: %w", err)
 	}
-	s.cachedLocations, _ = json.Marshal(wlocs)
+	if err := s3sess.Download(fd, latestKey); err != nil {
+		_ = fd.Close()
+		return fmt.Errorf("download dump file: %w", err)
+	}
+	if err := fd.Close(); err != nil {
+		return fmt.Errorf("close dump file: %w", err)
+	}
+	slog.Info("Dump file downloaded", "key", latestKey)
 	return nil
 }
 
-func (s *server) rootHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-		s.cacheMut.Lock()
-		defer s.cacheMut.Unlock()
-
-		if time.Since(s.cacheTime) > maxCacheTime {
-			if err := s.refreshCacheLocked(); err != nil {
-				log.Println(err)
-				http.Error(w, "Template Error", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(s.cachedIndex)
-	} else {
-		http.Error(w, "Not found", 404)
-		return
+func (cli *CLI) saveDumpFile(srv *server, s3sess *s3.Session) error {
+	fd, err := os.Create(cli.DumpFile + ".tmp")
+	if err != nil {
+		return fmt.Errorf("creating dump file: %w", err)
 	}
+	gw := gzip.NewWriter(fd)
+	if err := srv.save(gw); err != nil {
+		return fmt.Errorf("saving dump file: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		fd.Close()
+		return fmt.Errorf("closing gzip writer: %w", err)
+	}
+	if err := fd.Close(); err != nil {
+		return fmt.Errorf("closing dump file: %w", err)
+	}
+	if err := os.Rename(cli.DumpFile+".tmp", cli.DumpFile); err != nil {
+		return fmt.Errorf("renaming dump file: %w", err)
+	}
+	slog.Info("Dump file saved")
+
+	if s3sess != nil {
+		key := fmt.Sprintf("reports-%s.jsons.gz", time.Now().UTC().Format("2006-01-02"))
+		fd, err := os.Open(cli.DumpFile)
+		if err != nil {
+			return fmt.Errorf("opening dump file: %w", err)
+		}
+		if err := s3sess.Upload(fd, key); err != nil {
+			return fmt.Errorf("uploading dump file: %w", err)
+		}
+		_ = fd.Close()
+		slog.Info("Dump file uploaded")
+	}
+
+	return nil
 }
 
-func (s *server) locationsHandler(w http.ResponseWriter, _ *http.Request) {
-	s.cacheMut.Lock()
-	defer s.cacheMut.Unlock()
-
-	if time.Since(s.cacheTime) > maxCacheTime {
-		if err := s.refreshCacheLocked(); err != nil {
-			log.Println(err)
-			http.Error(w, "Template Error", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write(s.cachedLocations)
+type server struct {
+	geo     *geoip.Provider
+	reports *xsync.MapOf[string, *contract.Report]
 }
 
-func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
-	version := "fail"
+func (s *server) handlePing(w http.ResponseWriter, r *http.Request) {
+}
+
+func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
+	result := "fail"
 	defer func() {
-		// Version is "fail", "duplicate", "v2", "v3", ...
-		metricReportsTotal.WithLabelValues(version).Inc()
+		// result is "accept" (new report), "replace" (existing report) or
+		// "fail"
+		metricReportsTotal.WithLabelValues(result).Inc()
 	}()
 
 	defer r.Body.Close()
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
 	addr := r.Header.Get("X-Forwarded-For")
 	if addr != "" {
@@ -324,576 +285,112 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 		addr = host
 	}
 
+	log := slog.With("addr", addr)
+
 	if net.ParseIP(addr) == nil {
 		addr = ""
 	}
 
 	var rep contract.Report
-	rep.Date = time.Now().UTC().Format("20060102")
-	rep.Address = addr
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
 	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
-		log.Println("decode:", err)
-		if s.debug {
-			log.Printf("%s", bs)
-		}
+		log.Error("Failed to decode JSON", "error", err)
 		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
 		return
 	}
 
+	rep.Received = time.Now()
+	rep.Date = rep.Received.UTC().Format("20060102")
+	rep.Address = addr
+
 	if err := rep.Validate(); err != nil {
-		log.Println("validate:", err)
-		if s.debug {
-			log.Printf("%#v", rep)
-		}
+		log.Error("Failed to validate report", "error", err)
 		http.Error(w, "Validation Error", http.StatusInternalServerError)
 		return
 	}
 
-	if err := insertReport(s.db, rep); err != nil {
-		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidjsonindex"` {
-			// We already have a report today for the same unique ID; drop
-			// this one without complaining.
-			version = "duplicate"
-			return
-		}
-		log.Println("insert:", err)
-		if s.debug {
-			log.Printf("%#v", rep)
-		}
-		http.Error(w, "Database Error", http.StatusInternalServerError)
-		return
+	if s.addReport(&rep) {
+		result = "replace"
+	} else {
+		result = "accept"
 	}
-
-	version = fmt.Sprintf("v%d", rep.URVersion)
 }
 
-func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
-	min, _ := strconv.Atoi(r.URL.Query().Get("min"))
-	sum, err := getSummary(s.db, min)
+func (s *server) addReport(rep *contract.Report) bool {
+	if s.geo != nil {
+		if ip := net.ParseIP(rep.Address); ip != nil {
+			if city, err := s.geo.City(ip); err == nil {
+				rep.Country = city.Country.Names["en"]
+				rep.CountryCode = city.Country.IsoCode
+			}
+		}
+	}
+	if rep.Country == "" {
+		rep.Country = "Unknown"
+	}
+	if rep.CountryCode == "" {
+		rep.CountryCode = "ZZ"
+	}
+
+	rep.Version = transformVersion(rep.Version)
+	if strings.Contains(rep.Version, ".") {
+		split := strings.SplitN(rep.Version, ".", 3)
+		if len(split) == 3 {
+			rep.MajorVersion = strings.Join(split[:2], ".")
+		}
+	}
+	rep.OS, rep.Arch, _ = strings.Cut(rep.Platform, "-")
+
+	if m := compilerRe.FindStringSubmatch(rep.LongVersion); len(m) == 3 {
+		rep.Compiler = m[1]
+		rep.Builder = m[2]
+	}
+	for _, d := range knownDistributions {
+		if d.matcher.MatchString(rep.LongVersion) {
+			rep.Distribution = d.distribution
+			break
+		}
+	}
+
+	_, loaded := s.reports.LoadAndStore(rep.UniqueID, rep)
+	return loaded
+}
+
+func (s *server) save(w io.Writer) error {
+	bw := bufio.NewWriter(w)
+	enc := json.NewEncoder(bw)
+	var err error
+	s.reports.Range(func(k string, v *contract.Report) bool {
+		err = enc.Encode(v)
+		return err == nil
+	})
 	if err != nil {
-		log.Println("summaryHandler:", err)
-		http.Error(w, "Database Error", http.StatusInternalServerError)
-		return
+		return err
 	}
-
-	bs, err := sum.MarshalJSON()
-	if err != nil {
-		log.Println("summaryHandler:", err)
-		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
+	return bw.Flush()
 }
 
-func (s *server) performanceHandler(w http.ResponseWriter, _ *http.Request) {
-	perf, err := getPerformance(s.db)
-	if err != nil {
-		log.Println("performanceHandler:", err)
-		http.Error(w, "Database Error", http.StatusInternalServerError)
-		return
+func (s *server) load(r io.Reader) {
+	dec := json.NewDecoder(r)
+	s.reports.Clear()
+	for {
+		var rep contract.Report
+		if err := dec.Decode(&rep); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			slog.Error("Failed to load record", "error", err)
+			break
+		}
+		s.addReport(&rep)
 	}
-
-	bs, err := json.Marshal(perf)
-	if err != nil {
-		log.Println("performanceHandler:", err)
-		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
-}
-
-func (s *server) blockStatsHandler(w http.ResponseWriter, _ *http.Request) {
-	blocks, err := getBlockStats(s.db)
-	if err != nil {
-		log.Println("blockStatsHandler:", err)
-		http.Error(w, "Database Error", http.StatusInternalServerError)
-		return
-	}
-
-	bs, err := json.Marshal(blocks)
-	if err != nil {
-		log.Println("blockStatsHandler:", err)
-		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(bs)
-}
-
-type category struct {
-	Values [4]float64
-	Key    string
-	Descr  string
-	Unit   string
-	Type   NumberType
-}
-
-type feature struct {
-	Key     string
-	Version string
-	Count   int
-	Pct     float64
-}
-
-type featureGroup struct {
-	Key     string
-	Version string
-	Counts  map[string]int
-}
-
-// Used in the templates
-type counter struct {
-	n int
-}
-
-func (c *counter) Current() int {
-	return c.n
-}
-
-func (c *counter) Increment() string {
-	c.n++
-	return ""
-}
-
-func (c *counter) DrawTwoDivider() bool {
-	return c.n != 0 && c.n%2 == 0
-}
-
-// add sets a key in a nested map, initializing things if needed as we go.
-func add(storage map[string]map[string]int, parent, child string, value int) {
-	n, ok := storage[parent]
-	if !ok {
-		n = make(map[string]int)
-		storage[parent] = n
-	}
-	n[child] += value
-}
-
-// inc makes sure that even for unused features, we initialize them in the
-// feature map. Furthermore, this acts as a helper that accepts booleans
-// to increment by one, or integers to increment by that integer.
-func inc(storage map[string]int, key string, i interface{}) {
-	cv := storage[key]
-	switch v := i.(type) {
-	case bool:
-		if v {
-			cv++
-		}
-	case int:
-		cv += v
-	}
-	storage[key] = cv
-}
-
-type location struct {
-	Latitude  float64 `json:"lat"`
-	Longitude float64 `json:"lon"`
-}
-
-type weightedLocation struct {
-	location
-	Weight int `json:"weight"`
-}
-
-func getReport(db *sql.DB, geoip *geoip.Provider) map[string]interface{} {
-	nodes := 0
-	countriesTotal := 0
-	var versions []string
-	var platforms []string
-	var numFolders []int
-	var numDevices []int
-	var totFiles []int
-	var maxFiles []int
-	var totMiB []int64
-	var maxMiB []int64
-	var memoryUsage []int64
-	var sha256Perf []float64
-	var memorySize []int64
-	var uptime []int
-	var compilers []string
-	var builders []string
-	var distributions []string
-	locations := make(map[location]int)
-	countries := make(map[string]int)
-
-	reports := make(map[string]int)
-	totals := make(map[string]int)
-
-	// category -> version -> feature -> count
-	features := make(map[string]map[string]map[string]int)
-	// category -> version -> feature -> group -> count
-	featureGroups := make(map[string]map[string]map[string]map[string]int)
-	for _, category := range featureOrder {
-		features[category] = make(map[string]map[string]int)
-		featureGroups[category] = make(map[string]map[string]map[string]int)
-		for _, version := range knownVersions {
-			features[category][version] = make(map[string]int)
-			featureGroups[category][version] = make(map[string]map[string]int)
-		}
-	}
-
-	// Initialize some features that hide behind if conditions, and might not
-	// be initialized.
-	add(featureGroups["Various"]["v2"], "Upgrades", "Pre-release", 0)
-	add(featureGroups["Various"]["v2"], "Upgrades", "Automatic", 0)
-	add(featureGroups["Various"]["v2"], "Upgrades", "Manual", 0)
-	add(featureGroups["Various"]["v2"], "Upgrades", "Disabled", 0)
-	add(featureGroups["Various"]["v3"], "Temporary Retention", "Disabled", 0)
-	add(featureGroups["Various"]["v3"], "Temporary Retention", "Custom", 0)
-	add(featureGroups["Various"]["v3"], "Temporary Retention", "Default", 0)
-	add(featureGroups["Connection"]["v3"], "IP version", "IPv4", 0)
-	add(featureGroups["Connection"]["v3"], "IP version", "IPv6", 0)
-	add(featureGroups["Connection"]["v3"], "IP version", "Unknown", 0)
-
-	var numCPU []int
-
-	var rep contract.Report
-
-	rows, err := db.Query(`SELECT Received, Report FROM ReportsJson WHERE Received > now() - '1 day'::INTERVAL`)
-	if err != nil {
-		log.Println("sql:", err)
-		return nil
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		err := rows.Scan(&rep.Received, &rep)
-		if err != nil {
-			log.Println("sql:", err)
-			return nil
-		}
-
-		if geoip != nil && rep.Address != "" {
-			if addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(rep.Address, "0")); err == nil {
-				city, err := geoip.City(addr.IP)
-				if err == nil {
-					loc := location{
-						Latitude:  city.Location.Latitude,
-						Longitude: city.Location.Longitude,
-					}
-					locations[loc]++
-					countries[city.Country.Names["en"]]++
-					countriesTotal++
-				}
-			}
-		}
-
-		nodes++
-		versions = append(versions, transformVersion(rep.Version))
-		platforms = append(platforms, rep.Platform)
-
-		if m := compilerRe.FindStringSubmatch(rep.LongVersion); len(m) == 3 {
-			compilers = append(compilers, m[1])
-			builders = append(builders, m[2])
-		loop:
-			for _, d := range knownDistributions {
-				if d.matcher.MatchString(rep.LongVersion) {
-					distributions = append(distributions, d.distribution)
-					break loop
-				}
-			}
-		}
-
-		if rep.NumFolders > 0 {
-			numFolders = append(numFolders, rep.NumFolders)
-		}
-		if rep.NumDevices > 0 {
-			numDevices = append(numDevices, rep.NumDevices)
-		}
-		if rep.TotFiles > 0 {
-			totFiles = append(totFiles, rep.TotFiles)
-		}
-		if rep.FolderMaxFiles > 0 {
-			maxFiles = append(maxFiles, rep.FolderMaxFiles)
-		}
-		if rep.TotMiB > 0 {
-			totMiB = append(totMiB, int64(rep.TotMiB)*(1<<20))
-		}
-		if rep.FolderMaxMiB > 0 {
-			maxMiB = append(maxMiB, int64(rep.FolderMaxMiB)*(1<<20))
-		}
-		if rep.MemoryUsageMiB > 0 {
-			memoryUsage = append(memoryUsage, int64(rep.MemoryUsageMiB)*(1<<20))
-		}
-		if rep.SHA256Perf > 0 {
-			sha256Perf = append(sha256Perf, rep.SHA256Perf*(1<<20))
-		}
-		if rep.MemorySize > 0 {
-			memorySize = append(memorySize, int64(rep.MemorySize)*(1<<20))
-		}
-		if rep.Uptime > 0 {
-			uptime = append(uptime, rep.Uptime)
-		}
-
-		totals["Device"] += rep.NumDevices
-		totals["Folder"] += rep.NumFolders
-
-		if rep.URVersion >= 2 {
-			reports["v2"]++
-			numCPU = append(numCPU, rep.NumCPU)
-
-			// Various
-			inc(features["Various"]["v2"], "Rate limiting", rep.UsesRateLimit)
-
-			if rep.UpgradeAllowedPre {
-				add(featureGroups["Various"]["v2"], "Upgrades", "Pre-release", 1)
-			} else if rep.UpgradeAllowedAuto {
-				add(featureGroups["Various"]["v2"], "Upgrades", "Automatic", 1)
-			} else if rep.UpgradeAllowedManual {
-				add(featureGroups["Various"]["v2"], "Upgrades", "Manual", 1)
-			} else {
-				add(featureGroups["Various"]["v2"], "Upgrades", "Disabled", 1)
-			}
-
-			// Folders
-			inc(features["Folder"]["v2"], "Automatic normalization", rep.FolderUses.AutoNormalize)
-			inc(features["Folder"]["v2"], "Ignore deletes", rep.FolderUses.IgnoreDelete)
-			inc(features["Folder"]["v2"], "Ignore permissions", rep.FolderUses.IgnorePerms)
-			inc(features["Folder"]["v2"], "Mode, send only", rep.FolderUses.SendOnly)
-			inc(features["Folder"]["v2"], "Mode, receive only", rep.FolderUses.ReceiveOnly)
-
-			add(featureGroups["Folder"]["v2"], "Versioning", "Simple", rep.FolderUses.SimpleVersioning)
-			add(featureGroups["Folder"]["v2"], "Versioning", "External", rep.FolderUses.ExternalVersioning)
-			add(featureGroups["Folder"]["v2"], "Versioning", "Staggered", rep.FolderUses.StaggeredVersioning)
-			add(featureGroups["Folder"]["v2"], "Versioning", "Trashcan", rep.FolderUses.TrashcanVersioning)
-			add(featureGroups["Folder"]["v2"], "Versioning", "Disabled", rep.NumFolders-rep.FolderUses.SimpleVersioning-rep.FolderUses.ExternalVersioning-rep.FolderUses.StaggeredVersioning-rep.FolderUses.TrashcanVersioning)
-
-			// Device
-			inc(features["Device"]["v2"], "Custom certificate", rep.DeviceUses.CustomCertName)
-			inc(features["Device"]["v2"], "Introducer", rep.DeviceUses.Introducer)
-
-			add(featureGroups["Device"]["v2"], "Compress", "Always", rep.DeviceUses.CompressAlways)
-			add(featureGroups["Device"]["v2"], "Compress", "Metadata", rep.DeviceUses.CompressMetadata)
-			add(featureGroups["Device"]["v2"], "Compress", "Nothing", rep.DeviceUses.CompressNever)
-
-			add(featureGroups["Device"]["v2"], "Addresses", "Dynamic", rep.DeviceUses.DynamicAddr)
-			add(featureGroups["Device"]["v2"], "Addresses", "Static", rep.DeviceUses.StaticAddr)
-
-			// Connections
-			inc(features["Connection"]["v2"], "Relaying, enabled", rep.Relays.Enabled)
-			inc(features["Connection"]["v2"], "Discovery, global enabled", rep.Announce.GlobalEnabled)
-			inc(features["Connection"]["v2"], "Discovery, local enabled", rep.Announce.LocalEnabled)
-
-			add(featureGroups["Connection"]["v2"], "Discovery", "Default servers (using DNS)", rep.Announce.DefaultServersDNS)
-			add(featureGroups["Connection"]["v2"], "Discovery", "Default servers (using IP)", rep.Announce.DefaultServersIP)
-			add(featureGroups["Connection"]["v2"], "Discovery", "Other servers", rep.Announce.DefaultServersIP)
-
-			add(featureGroups["Connection"]["v2"], "Relaying", "Default relays", rep.Relays.DefaultServers)
-			add(featureGroups["Connection"]["v2"], "Relaying", "Other relays", rep.Relays.OtherServers)
-		}
-
-		if rep.URVersion >= 3 {
-			reports["v3"]++
-
-			inc(features["Various"]["v3"], "Custom LAN classification", rep.AlwaysLocalNets)
-			inc(features["Various"]["v3"], "Ignore caching", rep.CacheIgnoredFiles)
-			inc(features["Various"]["v3"], "Overwrite device names", rep.OverwriteRemoteDeviceNames)
-			inc(features["Various"]["v3"], "Download progress disabled", !rep.ProgressEmitterEnabled)
-			inc(features["Various"]["v3"], "Custom default path", rep.CustomDefaultFolderPath)
-			inc(features["Various"]["v3"], "Custom traffic class", rep.CustomTrafficClass)
-			inc(features["Various"]["v3"], "Custom temporary index threshold", rep.CustomTempIndexMinBlocks)
-			inc(features["Various"]["v3"], "Weak hash enabled", rep.WeakHashEnabled)
-			inc(features["Various"]["v3"], "LAN rate limiting", rep.LimitBandwidthInLan)
-			inc(features["Various"]["v3"], "Custom release server", rep.CustomReleaseURL)
-			inc(features["Various"]["v3"], "Restart after suspend", rep.RestartOnWakeup)
-			inc(features["Various"]["v3"], "Custom stun servers", rep.CustomStunServers)
-			inc(features["Various"]["v3"], "Ignore patterns", rep.IgnoreStats.Lines > 0)
-
-			if rep.NATType != "" {
-				natType := rep.NATType
-				natType = strings.ReplaceAll(natType, "unknown", "Unknown")
-				natType = strings.ReplaceAll(natType, "Symetric", "Symmetric")
-				add(featureGroups["Various"]["v3"], "NAT Type", natType, 1)
-			}
-
-			if rep.TemporariesDisabled {
-				add(featureGroups["Various"]["v3"], "Temporary Retention", "Disabled", 1)
-			} else if rep.TemporariesCustom {
-				add(featureGroups["Various"]["v3"], "Temporary Retention", "Custom", 1)
-			} else {
-				add(featureGroups["Various"]["v3"], "Temporary Retention", "Default", 1)
-			}
-
-			inc(features["Folder"]["v3"], "Scan progress disabled", rep.FolderUsesV3.ScanProgressDisabled)
-			inc(features["Folder"]["v3"], "Disable sharing of partial files", rep.FolderUsesV3.DisableTempIndexes)
-			inc(features["Folder"]["v3"], "Disable sparse files", rep.FolderUsesV3.DisableSparseFiles)
-			inc(features["Folder"]["v3"], "Weak hash, always", rep.FolderUsesV3.AlwaysWeakHash)
-			inc(features["Folder"]["v3"], "Weak hash, custom threshold", rep.FolderUsesV3.CustomWeakHashThreshold)
-			inc(features["Folder"]["v3"], "Filesystem watcher", rep.FolderUsesV3.FsWatcherEnabled)
-			inc(features["Folder"]["v3"], "Case sensitive FS", rep.FolderUsesV3.CaseSensitiveFS)
-			inc(features["Folder"]["v3"], "Mode, receive encrypted", rep.FolderUsesV3.ReceiveEncrypted)
-
-			add(featureGroups["Folder"]["v3"], "Conflicts", "Disabled", rep.FolderUsesV3.ConflictsDisabled)
-			add(featureGroups["Folder"]["v3"], "Conflicts", "Unlimited", rep.FolderUsesV3.ConflictsUnlimited)
-			add(featureGroups["Folder"]["v3"], "Conflicts", "Limited", rep.FolderUsesV3.ConflictsOther)
-
-			for key, value := range rep.FolderUsesV3.PullOrder {
-				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
-			}
-
-			for key, value := range rep.FolderUsesV3.CopyRangeMethod {
-				add(featureGroups["Folder"]["v3"], "Copy Range Method", prettyCase(key), value)
-			}
-
-			inc(features["Device"]["v3"], "Untrusted", rep.DeviceUsesV3.Untrusted)
-
-			totals["GUI"] += rep.GUIStats.Enabled
-
-			inc(features["GUI"]["v3"], "Auth Enabled", rep.GUIStats.UseAuth)
-			inc(features["GUI"]["v3"], "TLS Enabled", rep.GUIStats.UseTLS)
-			inc(features["GUI"]["v3"], "Insecure Admin Access", rep.GUIStats.InsecureAdminAccess)
-			inc(features["GUI"]["v3"], "Skip Host check", rep.GUIStats.InsecureSkipHostCheck)
-			inc(features["GUI"]["v3"], "Allow Frame loading", rep.GUIStats.InsecureAllowFrameLoading)
-
-			add(featureGroups["GUI"]["v3"], "Listen address", "Local", rep.GUIStats.ListenLocal)
-			add(featureGroups["GUI"]["v3"], "Listen address", "Unspecified", rep.GUIStats.ListenUnspecified)
-			add(featureGroups["GUI"]["v3"], "Listen address", "Other", rep.GUIStats.Enabled-rep.GUIStats.ListenLocal-rep.GUIStats.ListenUnspecified)
-
-			for theme, count := range rep.GUIStats.Theme {
-				add(featureGroups["GUI"]["v3"], "Theme", prettyCase(theme), count)
-			}
-
-			for transport, count := range rep.TransportStats {
-				add(featureGroups["Connection"]["v3"], "Transport", cases.Title(language.English).String(transport), count)
-				if strings.HasSuffix(transport, "4") {
-					add(featureGroups["Connection"]["v3"], "IP version", "IPv4", count)
-				} else if strings.HasSuffix(transport, "6") {
-					add(featureGroups["Connection"]["v3"], "IP version", "IPv6", count)
-				} else {
-					add(featureGroups["Connection"]["v3"], "IP version", "Unknown", count)
-				}
-			}
-		}
-	}
-
-	categories := []category{
-		{
-			Values: statsForInts(totFiles),
-			Descr:  "Files Managed per Device",
-		}, {
-			Values: statsForInts(maxFiles),
-			Descr:  "Files in Largest Folder",
-		}, {
-			Values: statsForInt64s(totMiB),
-			Descr:  "Data Managed per Device",
-			Unit:   "B",
-			Type:   NumberBinary,
-		}, {
-			Values: statsForInt64s(maxMiB),
-			Descr:  "Data in Largest Folder",
-			Unit:   "B",
-			Type:   NumberBinary,
-		}, {
-			Values: statsForInts(numDevices),
-			Descr:  "Number of Devices in Cluster",
-		}, {
-			Values: statsForInts(numFolders),
-			Descr:  "Number of Folders Configured",
-		}, {
-			Values: statsForInt64s(memoryUsage),
-			Descr:  "Memory Usage",
-			Unit:   "B",
-			Type:   NumberBinary,
-		}, {
-			Values: statsForInt64s(memorySize),
-			Descr:  "System Memory",
-			Unit:   "B",
-			Type:   NumberBinary,
-		}, {
-			Values: statsForFloats(sha256Perf),
-			Descr:  "SHA-256 Hashing Performance",
-			Unit:   "B/s",
-			Type:   NumberBinary,
-		}, {
-			Values: statsForInts(numCPU),
-			Descr:  "Number of CPU cores",
-		}, {
-			Values: statsForInts(uptime),
-			Descr:  "Uptime (v3)",
-			Type:   NumberDuration,
-		},
-	}
-
-	reportFeatures := make(map[string][]feature)
-	for featureType, versions := range features {
-		var featureList []feature
-		for version, featureMap := range versions {
-			// We count totals of the given feature type, for example number of
-			// folders or devices, if that doesn't exist, we work out percentage
-			// against the total of the version reports. Things like "Various"
-			// never have counts.
-			total, ok := totals[featureType]
-			if !ok {
-				total = reports[version]
-			}
-			for key, count := range featureMap {
-				featureList = append(featureList, feature{
-					Key:     key,
-					Version: version,
-					Count:   count,
-					Pct:     (100 * float64(count)) / float64(total),
-				})
-			}
-		}
-		sort.Sort(sort.Reverse(sortableFeatureList(featureList)))
-		reportFeatures[featureType] = featureList
-	}
-
-	reportFeatureGroups := make(map[string][]featureGroup)
-	for featureType, versions := range featureGroups {
-		var featureList []featureGroup
-		for version, featureMap := range versions {
-			for key, counts := range featureMap {
-				featureList = append(featureList, featureGroup{
-					Key:     key,
-					Version: version,
-					Counts:  counts,
-				})
-			}
-		}
-		reportFeatureGroups[featureType] = featureList
-	}
-
-	var countryList []feature
-	for country, count := range countries {
-		countryList = append(countryList, feature{
-			Key:   country,
-			Count: count,
-			Pct:   (100 * float64(count)) / float64(countriesTotal),
-		})
-		sort.Sort(sort.Reverse(sortableFeatureList(countryList)))
-	}
-
-	r := make(map[string]interface{})
-	r["features"] = reportFeatures
-	r["featureGroups"] = reportFeatureGroups
-	r["nodes"] = nodes
-	r["versionNodes"] = reports
-	r["categories"] = categories
-	r["versions"] = group(byVersion, analyticsFor(versions, 2000), 5, 1.0)
-	r["versionPenetrations"] = penetrationLevels(analyticsFor(versions, 2000), []float64{50, 75, 90, 95})
-	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 10, 0.0)
-	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 5, 1.0)
-	r["builders"] = analyticsFor(builders, 12)
-	r["distributions"] = analyticsFor(distributions, len(knownDistributions))
-	r["featureOrder"] = featureOrder
-	r["locations"] = locations
-	r["countries"] = countryList
-
-	return r
+	slog.Info("Loaded reports", "count", s.reports.Size())
 }
 
 var (
-	plusRe  = regexp.MustCompile(`(\+.*|\.dev\..*)$`)
-	plusStr = "(+dev)"
+	plusRe  = regexp.MustCompile(`(\+.*|[.-]dev\..*)$`)
+	plusStr = "-dev"
 )
 
 // transformVersion returns a version number formatted correctly, with all
@@ -905,234 +402,7 @@ func transformVersion(v string) string {
 	if !strings.HasPrefix(v, "v") {
 		v = "v" + v
 	}
-	v = plusRe.ReplaceAllString(v, " "+plusStr)
+	v = plusRe.ReplaceAllString(v, plusStr)
 
 	return v
-}
-
-type summary struct {
-	versions map[string]int   // version string to count index
-	max      map[string]int   // version string to max users per day
-	rows     map[string][]int // date to list of counts
-}
-
-func newSummary() summary {
-	return summary{
-		versions: make(map[string]int),
-		max:      make(map[string]int),
-		rows:     make(map[string][]int),
-	}
-}
-
-func (s *summary) setCount(date, version string, count int) {
-	idx, ok := s.versions[version]
-	if !ok {
-		idx = len(s.versions)
-		s.versions[version] = idx
-	}
-
-	if s.max[version] < count {
-		s.max[version] = count
-	}
-
-	row := s.rows[date]
-	if len(row) <= idx {
-		old := row
-		row = make([]int, idx+1)
-		copy(row, old)
-		s.rows[date] = row
-	}
-
-	row[idx] = count
-}
-
-func (s *summary) MarshalJSON() ([]byte, error) {
-	var versions []string
-	for v := range s.versions {
-		versions = append(versions, v)
-	}
-	sort.Slice(versions, func(a, b int) bool {
-		return upgrade.CompareVersions(versions[a], versions[b]) < 0
-	})
-
-	var filtered []string
-	for _, v := range versions {
-		if s.max[v] > 50 {
-			filtered = append(filtered, v)
-		}
-	}
-	versions = filtered
-
-	headerRow := []interface{}{"Day"}
-	for _, v := range versions {
-		headerRow = append(headerRow, v)
-	}
-
-	var table [][]interface{}
-	table = append(table, headerRow)
-
-	var dates []string
-	for k := range s.rows {
-		dates = append(dates, k)
-	}
-	sort.Strings(dates)
-
-	for _, date := range dates {
-		row := []interface{}{date}
-		for _, ver := range versions {
-			idx := s.versions[ver]
-			if len(s.rows[date]) > idx && s.rows[date][idx] > 0 {
-				row = append(row, s.rows[date][idx])
-			} else {
-				row = append(row, nil)
-			}
-		}
-		table = append(table, row)
-	}
-
-	return json.Marshal(table)
-}
-
-// filter removes versions that never reach the specified min count.
-func (s *summary) filter(min int) {
-	// We cheat and just remove the versions from the "index" and leave the
-	// data points alone. The version index is used to build the table when
-	// we do the serialization, so at that point the data points are
-	// filtered out as well.
-	for ver := range s.versions {
-		if s.max[ver] < min {
-			delete(s.versions, ver)
-			delete(s.max, ver)
-		}
-	}
-}
-
-func getSummary(db *sql.DB, min int) (summary, error) {
-	s := newSummary()
-
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '3 year'::INTERVAL;`)
-	if err != nil {
-		return summary{}, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var day time.Time
-		var ver string
-		var num int
-		err := rows.Scan(&day, &ver, &num)
-		if err != nil {
-			return summary{}, err
-		}
-
-		if ver == "v0.0" {
-			// ?
-			continue
-		}
-
-		// SUPER UGLY HACK to avoid having to do sorting properly
-		if len(ver) == 4 && strings.HasPrefix(ver, "v0.") { // v0.x
-			ver = ver[:3] + "0" + ver[3:] // now v0.0x
-		}
-
-		s.setCount(day.Format(time.DateOnly), ver, num)
-	}
-
-	s.filter(min)
-	return s, nil
-}
-
-func getPerformance(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > now() - '5 year'::INTERVAL ORDER BY Day`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	res := [][]interface{}{
-		{"Day", "TotFiles", "TotMiB", "SHA256Perf", "MemorySize", "MemoryUsageMiB"},
-	}
-
-	for rows.Next() {
-		var day time.Time
-		var sha256Perf float64
-		var totFiles, totMiB, memorySize, memoryUsage int
-		err := rows.Scan(&day, &totFiles, &totMiB, &sha256Perf, &memorySize, &memoryUsage)
-		if err != nil {
-			return nil, err
-		}
-
-		row := []interface{}{day.Format(time.DateOnly), totFiles, totMiB, float64(int(sha256Perf*10)) / 10, memorySize, memoryUsage}
-		res = append(res, row)
-	}
-
-	return res, nil
-}
-
-func getBlockStats(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > now() - '3 year'::INTERVAL ORDER BY Day`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	res := [][]interface{}{
-		{"Day", "Number of Reports", "Transferred (GiB)", "Saved by renaming files (GiB)", "Saved by resuming transfer (GiB)", "Saved by reusing data from old file (GiB)", "Saved by reusing shifted data from old file (GiB)", "Saved by reusing data from other files (GiB)"},
-	}
-	blocksToGb := float64(8 * 1024)
-	for rows.Next() {
-		var day time.Time
-		var reports, pulled, renamed, reused, copyOrigin, copyOriginShifted, copyElsewhere float64
-		err := rows.Scan(&day, &reports, &pulled, &renamed, &reused, &copyOrigin, &copyOriginShifted, &copyElsewhere)
-		if err != nil {
-			return nil, err
-		}
-		// Legacy bad data on certain days
-		if reports <= 0 || pulled < 0 || renamed < 0 || reused < 0 || copyOrigin < 0 || copyOriginShifted < 0 || copyElsewhere < 0 {
-			continue
-		}
-		row := []interface{}{
-			day.Format(time.DateOnly),
-			reports,
-			pulled / blocksToGb,
-			renamed / blocksToGb,
-			reused / blocksToGb,
-			copyOrigin / blocksToGb,
-			copyOriginShifted / blocksToGb,
-			copyElsewhere / blocksToGb,
-		}
-		res = append(res, row)
-	}
-
-	return res, nil
-}
-
-type sortableFeatureList []feature
-
-func (l sortableFeatureList) Len() int {
-	return len(l)
-}
-
-func (l sortableFeatureList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l sortableFeatureList) Less(a, b int) bool {
-	if l[a].Pct != l[b].Pct {
-		return l[a].Pct < l[b].Pct
-	}
-	return l[a].Key > l[b].Key
-}
-
-func prettyCase(input string) string {
-	output := ""
-	for i, runeValue := range input {
-		if i == 0 {
-			runeValue = unicode.ToUpper(runeValue)
-		} else if unicode.IsUpper(runeValue) {
-			output += " "
-		}
-		output += string(runeValue)
-	}
-	return output
 }

@@ -227,7 +227,7 @@ func filterForCompabitility(rels []upgrade.Release, ua, osv string) []upgrade.Re
 	}
 	os := osArch[1]
 
-	filtered := rels[:0]
+	var filtered []upgrade.Release
 	for _, rel := range rels {
 		if rel.Compatibility == nil {
 			// No requirements means it's compatible with everything.
