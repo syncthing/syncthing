@@ -568,3 +568,7 @@ html[lang|="ko"] i {
 .webauthn-credentials table.table > tbody > tr > td {
   vertical-align: middle;
 }
+
+.webauthn-credentials .webauthn-credential-card {
+  margin-bottom: 1em;
+}

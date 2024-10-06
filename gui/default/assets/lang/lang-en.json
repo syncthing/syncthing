@@ -80,6 +80,7 @@
     "Copied!": "Copied!",
     "Copy": "Copy",
     "Copy failed! Try to select and copy manually.": "Copy failed! Try to select and copy manually.",
+    "Created: {%createTime%}": "Created: {{createTime}}",
     "Current domain does not match WebAuthn configuration.": "Current domain does not match WebAuthn configuration.",
     "Currently Shared With Devices": "Currently Shared With Devices",
     "Custom Range": "Custom Range",
@@ -231,6 +232,7 @@
     "Last Month": "Last Month",
     "Last Scan": "Last Scan",
     "Last seen": "Last seen",
+    "Last used: {%lastUseTime%}": "Last used: {{lastUseTime}}",
     "Latest Change": "Latest Change",
     "Learn more": "Learn more",
     "Learn more at {%url%}": "Learn more at {{url}}",
@@ -343,6 +345,7 @@
     "Remove Folder": "Remove Folder",
     "Rename": "Rename",
     "Required identifier for the folder. Must be the same on all cluster devices.": "Required identifier for the folder. Must be the same on all cluster devices.",
+    "Requires 2FA": "Requires 2FA",
     "Rescan": "Rescan",
     "Rescan All": "Rescan All",
     "Rescans": "Rescans",
@@ -578,6 +581,11 @@
                     "lastUseTime": "Last used",
                     "name": "Name",
                     "require2fa": "2FA"
+                }
+            },
+            "ineligibleCredentials": {
+                "label": {
+                    "rpId": "RP ID:"
                 }
             }
         }

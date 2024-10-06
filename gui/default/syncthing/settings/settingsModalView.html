@@ -163,70 +163,128 @@
           <!-- WebAuthn settings -->
           <div class="form-group">
 
-            <!-- WebAuthn credentials -->
-            <label translate>WebAuthn Credentials (Passkeys)</label>
-            <a href="{{docsURL('users/webauthn')}}" target="_blank">
-              <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
-            </a>
-            <div class="table-responsive webauthn-credentials">
-              <table class="table-striped table">
-                <thead>
-                  <tr>
-                    <th><label translate="settings.webauthn.credentials.columnHeading.name">Name</label></th>
-                    <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
-                    <th><label translate="settings.webauthn.credentials.columnHeading.lastUseTime">Last used</label></th>
-                    <th>
-                      <label>
-                        <span translate="settings.webauthn.credentials.columnHeading.require2fa">2FA</span>
+            <!-- WebAuthn credentials: >xs devices -->
+            <div class="webauthn-credentials hidden-xs">
+              <label translate>WebAuthn Credentials (Passkeys)</label>
+              <a href="{{docsURL('users/webauthn')}}" target="_blank">
+                <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
+              </a>
+              <div class="table-responsive">
+                <table class="table-striped table">
+                  <thead>
+                    <tr>
+                      <th><label translate="settings.webauthn.credentials.columnHeading.name">Name</label></th>
+                      <th><label translate="settings.webauthn.credentials.columnHeading.createTime">Created</label></th>
+                      <th><label translate="settings.webauthn.credentials.columnHeading.lastUseTime">Last used</label></th>
+                      <th>
+                        <label>
+                          <span translate="settings.webauthn.credentials.columnHeading.require2fa">2FA</span>
+                          <a href="{{docsURL('users/webauthn#webauthn-require2fa')}}">
+                            <span class="fa fa-question-circle" title="Open help: 2FA setting for WebAuthn credentials" />
+                          </a>
+                        </label>
+                      </th>
+                      <th colspan="1000"><label translate>Actions</label></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
+                      <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
+                        {{ cred.nickname || (cred.id | limitTo: 20) }}
+                      </td>
+                      <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
+                        <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
+                      </td>
+
+                      <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
+                        {{cred.createTime | date:'yyyy-MM-dd'}}
+                      </td>
+                      <td class="small-data" title="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">
+                        {{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd' }}
+                      </td>
+
+                      <td class="small-data text-center">
+                        <input type="checkbox" ng-model="cred.requireUv" />
+                      </td>
+                      <td class="small-data button-cell">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
+                          <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
+                        </button>
+                      </td>
+                      <td class="small-data button-cell">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
+                          <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="1000">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
+                          <span class="fas fa-plus"></span>&nbsp;<span translate>Add passkey</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div class="visible-xs-block">
+              <!-- WebAuthn credentials: xs devices -->
+              <label translate>WebAuthn Credentials (Passkeys)</label>
+              <a href="{{docsURL('users/webauthn')}}" target="_blank">
+                <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
+              </a>
+              <div class="webauthn-credentials">
+                <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
+                  <div class="panel-heading" ng-if="!webauthn.editingCredentialIds[cred.id]">
+                    {{ cred.nickname || (cred.id | limitTo: 20) }}
+                  </div>
+                  <div class="panel-heading" ng-if="webauthn.editingCredentialIds[cred.id]">
+                    <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
+                  </div>
+
+                  <div class="panel-body">
+                    <div class="row">
+                      <div class="col-md-12">
+                        <label for="webauthn-credential-2fa-{{cred.id}}" translate>Requires 2FA</label>
+                        <input type="checkbox" ng-model="cred.requireUv" id="webauthn-credential-2fa-{{cred.id}}" />
                         <a href="{{docsURL('users/webauthn#webauthn-require2fa')}}">
                           <span class="fa fa-question-circle" title="Open help: 2FA setting for WebAuthn credentials" />
                         </a>
-                      </label>
-                    </th>
-                    <th colspan="1000"><label translate>Actions</label></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
-                    <td ng-if="!webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
-                      {{ cred.nickname || (cred.id | limitTo: 20) }}
-                    </td>
-                    <td ng-if="webauthn.editingCredentialIds[cred.id]" class="no-overflow-ellipse stretch">
-                      <input class="form-control" type="text" ng-model="cred.nickname" placeholder="{{ cred.id }}" />
-                    </td>
+                      </div>
+                    </div>
 
-                    <td class="small-data" title="{{cred.createTime | date:'yyyy-MM-dd HH:mm:ss'}}">
-                      {{cred.createTime | date:'yyyy-MM-dd'}}
-                    </td>
-                    <td class="small-data" title="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">
-                      {{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd' }}
-                    </td>
+                    <div class="row">
+                      <div class="col-md-12"translate translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
+                    </div>
+                    <div class="row">
+                      <div class="col-md-12" translate translate-value-last-use-time="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">Last used: {%lastUseTime%}</div>
+                    </div>
 
-                    <td class="small-data text-center">
-                      <input type="checkbox" ng-model="cred.requireUv" />
-                    </td>
-                    <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
-                        <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
-                      </button>
-                    </td>
-                    <td class="small-data button-cell">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
-                        <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colspan="1000">
-                      <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
-                        <span class="fas fa-plus"></span>&nbsp;<span translate>Add passkey</span>
-                      </button>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                    <div class="row">
+                      <div class="col-md-12">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="webauthn.editingCredentialIds[cred.id] = true" ng-disabled="webauthn.editingCredentialIds[cred.id]">
+                          <span class="fas fa-edit"></span>&nbsp;<span translate>Rename</span>
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
+                          <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="webauthn-credential-card panel">
+                  <div class="panel-body text-center">
+                    <button type="button" class="btn btn-link btn-sm" ng-click="registerWebauthnCredential()" ng-disabled="!webauthnReady()">
+                      <span class="fas fa-plus"></span>&nbsp;<span translate>Add passkey</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <p class="text-info" ng-if="isLocationInsecure()" translate>WebAuthn requires HTTPS on non-localhost domains.</p>
@@ -258,10 +316,11 @@
               <button ng-if="tmpGUI && !settingsModified()" type="button" class="btn btn-primary" ng-click="reloadSettingsAtWebauthnAddress(false)" translate translate-value-address="{{ getWebauthnOrigin() }}">Reload page at {%address%}</button>
             </p>
 
-            <div ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+            <!-- Ineligible WebAuthn credentials: >xs devices -->
+            <div class="webauthn-credentials hidden-xs" ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
               <label translate>Ineligible WebAuthn Credentials (Passkeys)</label>
               <p translate>The credentials below were created with a different setting of "Webauthn Rp Id" in advanced settings. They cannot be used without restoring this setting to the value shown as "RP ID" below. Note that doing so would make any credentials above ineligible instead.</p>
-              <div class="table-responsive webauthn-credentials">
+              <div class="table-responsive">
                 <table class="table-striped table">
                   <thead>
                     <tr>
@@ -301,6 +360,42 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <!-- Ineligible WebAuthn credentials: xs devices -->
+            <div class="visible-xs-block" ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+              <label translate>Ineligible WebAuthn Credentials (Passkeys)</label>
+              <p translate>The credentials below were created with a different setting of "Webauthn Rp Id" in advanced settings. They cannot be used without restoring this setting to the value shown as "RP ID" below. Note that doing so would make any credentials above ineligible instead.</p>
+              <div class="webauthn-credentials">
+                <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
+                  <div class="panel-heading">
+                    <span class="text-warning">
+                      <span class="fas fa-exclamation-triangle"></span>
+                      {{ cred.nickname || (cred.id | limitTo: 20) }}
+                    </span>
+                  </div>
+
+                  <div class="panel-body">
+                    <div class="row">
+                      <div class="col-md-12">
+                        <span translate="settings.webauthn.ineligibleCredentials.label.rpId">RP ID:</span>
+                        <span class="text-monospace">{{ cred.rpId }}</span>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="col-md-12"translate translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-12">
+                        <button type="button" class="btn btn-link btn-sm" ng-click="deleteWebauthnCredential(cred)">
+                          <span class="fas fa-trash"></span>&nbsp;<span translate>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
