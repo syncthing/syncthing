@@ -25,8 +25,11 @@ type Release struct {
 	Assets     []Asset `json:"assets"`
 
 	// The HTML URL is needed for human readable links in the output created
-	// by cmd/stupgrades.
+	// by cmd/infra/stupgrades.
 	HTMLURL string `json:"html_url"`
+
+	// The compatibility information is included with each current release.
+	Compatibility *ReleaseCompatibility `json:"compatibility,omitempty"`
 }
 
 type Asset struct {
@@ -34,8 +37,15 @@ type Asset struct {
 	Name string `json:"name"`
 
 	// The browser URL is needed for human readable links in the output created
-	// by cmd/stupgrades.
+	// by cmd/infra/stupgrades.
 	BrowserURL string `json:"browser_download_url,omitempty"`
+}
+
+// ReleaseCompatibility defines the structure of compat.json, which is
+// included with each release.
+type ReleaseCompatibility struct {
+	Runtime      string            `json:"runtime,omitempty"`
+	Requirements map[string]string `json:"requirements,omitempty"`
 }
 
 var (

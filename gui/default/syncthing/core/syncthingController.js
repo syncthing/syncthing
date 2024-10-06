@@ -16,6 +16,15 @@ angular.module('syncthing.core')
             LocaleService.autoConfigLocale();
 
             if (!$scope.authenticated) {
+                function setVersionFromHeader(_data, _status, headers) {
+                    var version = headers('X-Syncthing-Version');
+                    if (version) {
+                        $scope.version = { version: version };
+                    }
+                }
+                // Get index.html again (likely cached) to retrieve the version header
+                $http.get('').success(setVersionFromHeader).error(setVersionFromHeader);
+
                 // Can't proceed yet - wait for the page reload after successful login.
                 return;
             }
@@ -1447,7 +1456,7 @@ angular.module('syncthing.core')
             // Assume hasRemoteGUIAddress is true or we would not be here
             var conn = $scope.connections[deviceCfg.deviceID];
             // Use regex to filter out scope ID from IPv6 addresses.
-            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace('%.*?\]:', ']:');
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace(/%.*?\]:/, ']:');
         };
 
         function replaceAddressPort(address, newPort) {

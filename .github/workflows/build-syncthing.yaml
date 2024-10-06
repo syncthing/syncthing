@@ -238,7 +238,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-linux
-          path: syncthing-linux-*.tar.gz
+          path: |
+            syncthing-linux-*.tar.gz
+            compat.json
 
   #
   # macOS
@@ -514,7 +516,7 @@ jobs:
 
       - name: Install signing tool
         run: |
-          go install ./cmd/stsigtool
+          go install ./cmd/dev/stsigtool
 
       - name: Sign archives
         run: |

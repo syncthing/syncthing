@@ -1,0 +1,93 @@
+# This is the policy-bot configuration for this repository. It controls
+# which approvals are required for any given pull request. The format is
+# described at https://github.com/palantir/policy-bot. The syntax of the
+# policy can be verified by the bot:
+# curl https://pb.syncthing.net/api/validate -X PUT -T .policy.yml
+
+# The policy below is what is required for any pull request.
+policy:
+  approval:
+    - subject is conventional commit
+    - project metadata requires maintainer approval
+    - or:
+      - is approved by a syncthing contributor
+      - is a translation or dependency update by a contributor
+      - is a trivial change by a contributor
+
+  # Additionally, contributors can disapprove of a PR
+  disapproval:
+    requires:
+      teams:
+        - syncthing/contributors
+
+# The rules for the policy are described below.
+
+approval_rules:
+
+  # All commits (PRs before squashing) should have a valid conventional
+  # commit type subject.
+  - name: subject is conventional commit
+    requires:
+      conditions:
+        title:
+          matches:
+            - '^(feat|fix|docs|chore|refactor|build): [a-z].+'
+            - '^(feat|fix|docs|chore|refactor|build)\(\w+(, \w+)*\): [a-z].+'
+
+  # Changes to important project metadata and documentation, including this
+  # policy, require signoff by a maintainer
+  - name: project metadata requires maintainer approval
+    if:
+      changed_files:
+        paths:
+          - ^[^/]+\.md
+          - ^\.policy\.yml
+          - ^\.github/
+          - ^LICENSE
+    requires:
+      count: 1
+      teams:
+        - syncthing/maintainers
+
+  # Regular pull requests require approval by an active contributor
+  - name: is approved by a syncthing contributor
+    requires:
+      count: 1
+      teams:
+        - syncthing/contributors
+
+  # Changes to some files (translations, dependencies, compatibility) do not
+  # require approval if they were proposed by a contributor and have a
+  # matching commit subject
+  - name: is a translation or dependency update by a contributor
+    if:
+      only_changed_files:
+        paths:
+          - ^gui/default/assets/lang/
+          - ^go\.mod$
+          - ^go\.sum$
+          - ^compat\.yaml$
+      title:
+        matches:
+          - '^chore\(gui\):'
+          - '^build\(deps\):'
+          - '^build\(compat\):'
+      has_author_in:
+        teams:
+          - syncthing/contributors
+
+  # If the change is small and the label "trivial" is added, we accept that
+  # on trust. These PRs can be audited after the fact as appropriate.
+  # Features are not trivial.
+  - name: is a trivial change by a contributor
+    if:
+      modified_lines:
+        total: "< 25"
+      title:
+        not_matches:
+          - '^feat'
+      has_labels:
+        - trivial
+      has_author_in:
+        teams:
+          - syncthing/contributors

@@ -2561,7 +2561,7 @@ func (m *model) DelayScan(folder string, next time.Duration) {
 func (m *model) numHashers(folder string) int {
 	m.mut.RLock()
 	folderCfg := m.folderCfgs[folder]
-	numFolders := len(m.folderCfgs)
+	numFolders := max(1, len(m.folderCfgs))
 	m.mut.RUnlock()
 
 	if folderCfg.Hashers > 0 {
