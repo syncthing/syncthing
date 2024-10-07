@@ -75,6 +75,9 @@ type folder struct {
 	forcedRescanPaths     map[string]struct{}
 	forcedRescanPathsMut  sync.Mutex
 
+	conflictFiles    map[string]struct{}
+	conflictFilesMut sync.Mutex
+
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
 	restartWatchChan chan struct{}
@@ -128,6 +131,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		forcedRescanRequested: make(chan struct{}, 1),
 		forcedRescanPaths:     make(map[string]struct{}),
 		forcedRescanPathsMut:  sync.NewMutex(),
+
+		conflictFiles:    make(map[string]struct{}),
+		conflictFilesMut: sync.NewMutex(),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -723,6 +729,8 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 
 			file := fi.(db.FileInfoTruncated)
 
+			f.handleConflictFileChange(file)
+
 			if err := batch.FlushIfFull(); err != nil {
 				iterError = err
 				return false
@@ -1250,6 +1258,17 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	})
 }
 
+func (f *folder) GetConflicts() []string {
+	f.conflictFilesMut.Lock()
+	defer f.conflictFilesMut.Unlock()
+
+	sCopy := make([]string, 0, len(f.conflictFiles))
+	for k := range f.conflictFiles {
+		sCopy = append(sCopy, k)
+	}
+	return sCopy
+}
+
 func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events.EventType) {
 	for _, file := range fs {
 		if file.IsInvalid() {
@@ -1333,6 +1352,21 @@ func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 	return snap, nil
+}
+
+func (f *folder) handleConflictFileChange(file protocol.FileIntf) {
+	if isConflict(file.FileName()) {
+		f.conflictFilesMut.Lock()
+		defer f.conflictFilesMut.Unlock()
+		if !file.IsDeleted() {
+			l.Debugln("Adding conflicting file: ", file)
+			f.conflictFiles[file.FileName()] = struct{}{}
+		} else {
+			l.Debugln("Deleting conflicting file: ", file)
+			delete(f.conflictFiles, file.FileName())
+		}
+		// TODO: emit event
+	}
 }
 
 // The exists function is expected to return true for all known paths
