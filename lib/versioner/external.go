@@ -87,6 +87,12 @@ func (v external) Archive(filePath string) error {
 		words[i] = word
 	}
 
+	if expanded, err := fs.ExpandTilde(words[0]); err == nil {
+		words[0] = expanded
+	}
+
+	l.Debugf("executing command \"%s\" with arguments: %v", words[0], words[1:])
+
 	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
