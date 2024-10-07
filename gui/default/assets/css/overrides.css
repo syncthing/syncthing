@@ -448,7 +448,6 @@ ul.three-columns li, ul.two-columns li {
 }
 
 @media (max-width:479px) {
-
     nav .dropdown-toggle {
         font-size: 1em;
     }
@@ -456,13 +455,7 @@ ul.three-columns li, ul.two-columns li {
     .navbar-nav .open .dropdown-menu > li > a {
         padding: 12px 15px 12px 25px;
     }
-}
 
-.tab-content {
-    padding-top: 10px;
-}
-
-@media (max-width: 419px) {
     /* The selectors are build to target only the content of folder and device
        panels as it would "destroy" e.g. out of sync or recent changes listings.
        The !important is needed to override .visible-xs that sets display to a
@@ -511,6 +504,10 @@ ul.three-columns li, ul.two-columns li {
     #shareDeviceIdButtons {
         display: inline-block;
     }
+}
+
+.tab-content {
+    padding-top: 10px;
 }
 
 .form-horizontal .form-group {
