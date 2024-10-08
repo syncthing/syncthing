@@ -123,13 +123,13 @@ func (cfg *Configuration) ProbeFreePorts() error {
 	if err != nil {
 		return fmt.Errorf("convert default port (GUI): %w", err)
 	}
-	port, err = getFreePort(guiHost, port)
+	port, err = GetFreePort(guiHost, port)
 	if err != nil {
 		return fmt.Errorf("get free port (GUI): %w", err)
 	}
 	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
-	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	port, err = GetFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
 		return fmt.Errorf("get free port (BEP): %w", err)
 	}
@@ -615,9 +615,12 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 	return addrs
 }
 
+// Variable function reference, for overriding in tests
+var GetFreePort = getFreePortInternal
+
 // tried in succession and the first to succeed is returned. If none succeed,
 // a random high port is returned.
-func getFreePort(host string, ports ...int) (int, error) {
+func getFreePortInternal(host string, ports ...int) (int, error) {
 	for _, port := range ports {
 		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
