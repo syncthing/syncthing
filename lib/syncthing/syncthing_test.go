@@ -164,9 +164,7 @@ func subtestDefaultConfig(t *testing.T, c defaultConfigCase) {
 		t.Logf(`Simulating blocked ports %v (using %d) on "%v"`, ports, freePort, host)
 		return freePort, nil
 	}
-	defer func() {
-		config.GetFreePort = oldGetFreePort
-	}()
+	defer func() { config.GetFreePort = oldGetFreePort }()
 
 	if c.portBusy || c.portProbing {
 		address := c.guiAddressEnv
