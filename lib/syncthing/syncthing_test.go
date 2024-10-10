@@ -154,8 +154,8 @@ func subtestDefaultConfig(t *testing.T, c defaultConfigCase) {
 		os.Unsetenv("STGUIADDRESS")
 	}
 
-	oldGetFreePort := config.GetFreePort
-	config.GetFreePort = func(host string, ports ...int) (int, error) {
+	oldGetFreePort := getFreePortFunc
+	getFreePortFunc = func(host string, ports ...int) (int, error) {
 		if !c.portBusy {
 			t.Logf(`Simulating non-blocked port %d on "%v"`, ports[0], host)
 			return ports[0], nil
@@ -164,7 +164,7 @@ func subtestDefaultConfig(t *testing.T, c defaultConfigCase) {
 		t.Logf(`Simulating blocked ports %v (using %d) on "%v"`, ports, freePort, host)
 		return freePort, nil
 	}
-	defer func() { config.GetFreePort = oldGetFreePort }()
+	defer func() { getFreePortFunc = oldGetFreePort }()
 
 	if c.portBusy || c.portProbing {
 		address := c.guiAddressEnv

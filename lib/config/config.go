@@ -114,7 +114,9 @@ func New(myID protocol.DeviceID) Configuration {
 	return cfg
 }
 
-func (cfg *Configuration) ProbeFreePorts() error {
+type probeFreePortFunc func (host string, ports ...int) (int, error)
+
+func (cfg *Configuration) ProbeFreePorts(probe probeFreePortFunc) error {
 	guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
 	if err != nil {
 		return fmt.Errorf("get default port (GUI): %w", err)
@@ -123,13 +125,13 @@ func (cfg *Configuration) ProbeFreePorts() error {
 	if err != nil {
 		return fmt.Errorf("convert default port (GUI): %w", err)
 	}
-	port, err = GetFreePort(guiHost, port)
+	port, err = probe(guiHost, port)
 	if err != nil {
 		return fmt.Errorf("get free port (GUI): %w", err)
 	}
 	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
-	port, err = GetFreePort("0.0.0.0", DefaultTCPPort)
+	port, err = probe("0.0.0.0", DefaultTCPPort)
 	if err != nil {
 		return fmt.Errorf("get free port (BEP): %w", err)
 	}
@@ -613,29 +615,6 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 		}
 	}
 	return addrs
-}
-
-// Variable function reference, for overriding in tests
-var GetFreePort = getFreePortInternal
-
-// tried in succession and the first to succeed is returned. If none succeed,
-// a random high port is returned.
-func getFreePortInternal(host string, ports ...int) (int, error) {
-	for _, port := range ports {
-		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
-		if err == nil {
-			c.Close()
-			return port, nil
-		}
-	}
-
-	c, err := net.Listen("tcp", host+":0")
-	if err != nil {
-		return 0, err
-	}
-	addr := c.Addr().(*net.TCPAddr)
-	c.Close()
-	return addr.Port, nil
 }
 
 func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) {

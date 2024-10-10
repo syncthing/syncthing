@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
@@ -58,6 +59,9 @@ func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
 }
 
+// Variable function reference, for overriding in tests
+var getFreePortFunc = netutil.GetFreePort
+
 func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
 	newCfg := config.New(myID)
 
@@ -65,7 +69,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 		l.Infoln("Using default network port numbers instead of probing for free ports")
 		// Record address override initially
 		newCfg.GUI.RawAddress = newCfg.GUI.Address()
-	} else if err := newCfg.ProbeFreePorts(); err != nil {
+	} else if err := newCfg.ProbeFreePorts(getFreePortFunc); err != nil {
 		return nil, err
 	}
 
