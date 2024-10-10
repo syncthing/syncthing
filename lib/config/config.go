@@ -49,7 +49,6 @@ var (
 		"dynamic+https://relays.syncthing.net/endpoint",
 		netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
-	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -115,14 +114,24 @@ func New(myID protocol.DeviceID) Configuration {
 	return cfg
 }
 
-func (cfg *Configuration) ProbeFreePorts() error {
-	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
+type probeFreePortFunc func(host string, ports ...int) (int, error)
+
+func (cfg *Configuration) ProbeFreePorts(probe probeFreePortFunc) error {
+	guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
+	if err != nil {
+		return fmt.Errorf("get default port (GUI): %w", err)
+	}
+	port, err := strconv.Atoi(guiPort)
+	if err != nil {
+		return fmt.Errorf("convert default port (GUI): %w", err)
+	}
+	port, err = probe(guiHost, port)
 	if err != nil {
 		return fmt.Errorf("get free port (GUI): %w", err)
 	}
-	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
-	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	port, err = probe("0.0.0.0", DefaultTCPPort)
 	if err != nil {
 		return fmt.Errorf("get free port (BEP): %w", err)
 	}
@@ -606,26 +615,6 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 		}
 	}
 	return addrs
-}
-
-// tried in succession and the first to succeed is returned. If none succeed,
-// a random high port is returned.
-func getFreePort(host string, ports ...int) (int, error) {
-	for _, port := range ports {
-		c, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
-		if err == nil {
-			c.Close()
-			return port, nil
-		}
-	}
-
-	c, err := net.Listen("tcp", host+":0")
-	if err != nil {
-		return 0, err
-	}
-	addr := c.Addr().(*net.TCPAddr)
-	c.Close()
-	return addr.Port, nil
 }
 
 func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]*DeviceConfiguration) {
