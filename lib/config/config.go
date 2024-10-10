@@ -114,7 +114,7 @@ func New(myID protocol.DeviceID) Configuration {
 	return cfg
 }
 
-type probeFreePortFunc func (host string, ports ...int) (int, error)
+type probeFreePortFunc func(host string, ports ...int) (int, error)
 
 func (cfg *Configuration) ProbeFreePorts(probe probeFreePortFunc) error {
 	guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
