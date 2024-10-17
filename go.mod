@@ -1,6 +1,7 @@
 module github.com/syncthing/syncthing
 
 go 1.22.0
+toolchain go1.23.2
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
@@ -22,7 +23,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.3.1
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.10.0
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.11.0
