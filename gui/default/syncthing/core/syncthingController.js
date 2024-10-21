@@ -1079,6 +1079,59 @@ angular.module('syncthing.core')
             return $scope.scanProgress[folder].rate;
         };
 
+        $scope.getTotalSyncTimeRemaining = function () {
+            // "Syncing (16%, 3.8 GiB, 1m 50s)"
+            var folderList = $scope.folderList();
+
+            var totalSize = 0;
+            var totalSeconds = "";
+            var totalTimeRemaining = "";
+            var folderCount = 0;
+
+            folderList.forEach((folder) => {
+                if (folderCount != $scope.folderList().length)
+                {
+                        console.log("CURRENT FOLDER");
+                        console.log(folder);
+                        var currentFolderID = folder.id;
+                        
+                        var remainingBytes = $scope.model[currentFolderID].needBytes;
+                        var downloadSpeed = $scope.connectionsTotal.inbps*8;
+                        var seconds = remainingBytes / downloadSpeed;
+
+                        console.log("CURRENT FOLDER size: " + totalSize);
+                        console.log("CURRENT FOLDER seconds: " + seconds);
+                        // seconds = Math.ceil(seconds / 10) * 10;
+                        
+                        totalSize += remainingBytes;
+                        totalSeconds += seconds;
+                        folderCount ++;
+                }
+            })
+
+
+            totalTimeRemaining = getTimeRemaining(totalSeconds);
+            var finalSize = totalSize;
+            var syncMessage = "Syncing (" + finalSize  + "B, " + totalTimeRemaining + ")";
+            return syncMessage;
+
+            
+        }
+
+        $scope.syncRemaining = function (deviceID) {
+            if (!$scope.completion[deviceID]) {
+                return "";
+            }
+
+            var remainingBytes = $scope.completion[deviceID]._needBytes;
+            var uploadSpeed = $scope.connections[deviceID].outbps*8;
+
+            var seconds = remainingBytes / uploadSpeed;
+            seconds = Math.ceil(seconds / 10) * 10;
+            
+            return getTimeRemaining(seconds)
+        }
+
         $scope.scanRemaining = function (folder) {
             // Formats the remaining scan time as a string. Includes days and
             // hours only when relevant, resulting in time stamps like:
@@ -1103,6 +1156,10 @@ angular.module('syncthing.core')
 
             seconds = Math.ceil(seconds / 10) * 10;
 
+            return getTimeRemaining(seconds)
+        };
+
+        function getTimeRemaining(seconds){
             // Separate out the number of days.
             var days = 0;
             var res = [];
@@ -1138,7 +1195,7 @@ angular.module('syncthing.core')
             }
 
             return res.join(' ');
-        };
+        }
 
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
