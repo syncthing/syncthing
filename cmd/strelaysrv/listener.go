@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"log"
 	"net"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -82,7 +83,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 	}
 
 	state := conn.ConnectionState()
-	if debug && state.NegotiatedProtocol != protocol.ProtocolName {
+	if debug && !slices.Contains(config.NextProtos, state.NegotiatedProtocol) {
 		log.Println("Protocol negotiation error")
 	}
 
