@@ -10,6 +10,11 @@
 .fancytree-container {
     cursor: pointer;
     width: 100%;
+	list-style-type: none;
+}
+
+.fancytree-container ul {
+	list-style-type: none;
 }
 
 .fancytree-hide {
@@ -33,8 +38,13 @@
 .fancytree-expander,
 .fancytree-icon {
     margin-top: 4px;
+    margin-left: 10px;
     vertical-align: top;
     width: 16px;
+}
+
+.fancytree-helper-indeterminate-cb:before {
+  content: "\f14a";
 }
 
 .fancytree-childcounter {
