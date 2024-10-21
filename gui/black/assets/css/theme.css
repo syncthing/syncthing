@@ -277,3 +277,17 @@ code.ng-binding{
 .reception {
     filter: invert(77%) sepia(0%) saturate(724%) hue-rotate(146deg) brightness(91%) contrast(85%);
 }
+
+/* Disabled checkbox panels */
+
+.checkbox[disabled] {
+    background-color: #222222;
+}
+
+.checkbox[disabled] * {
+    color: #666666;
+}
+
+.checkbox[disabled] .help-block {
+    color: #666666 !important;
+}
