@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -364,6 +363,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.IsDeleted():
+			f.handleConflictFileChange(file)
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
@@ -483,6 +483,8 @@ nextFile:
 			f.queue.Done(fileName)
 			continue
 		}
+
+		f.handleConflictFileChange(fi)
 
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
@@ -2227,10 +2229,6 @@ func (l fileErrorList) Swap(a, b int) {
 func conflictName(name, lastModBy string) string {
 	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
-}
-
-func isConflict(name string) bool {
-	return strings.Contains(filepath.Base(name), ".sync-conflict-")
 }
 
 func existingConflicts(name string, fs fs.Filesystem) []string {
