@@ -18,8 +18,8 @@
               <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
                 <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}&nbsp;<a href="{{docsURL('users/config#config-option-gui.')}}{{key | lowercase}}" target="_blank"><span class="fas fa-question-circle"></span></a></label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="guiInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="guiInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.gui[key]" />
+                  <input ng-if="type == 'list'" id="guiInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list />
+                  <input ng-if="type != 'list'" id="guiInput{{$index}}" class="form-control" type="{{type}}" ng-model="advancedConfig.gui[key]" />
                 </div>
               </div>
             </form>
