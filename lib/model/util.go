@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -89,4 +90,8 @@ func addTimeUntilCancelled(ctx context.Context, counter prometheus.Counter) {
 			return
 		}
 	}
+}
+
+func isConflict(name string) bool {
+	return strings.Contains(filepath.Base(name), ".sync-conflict-")
 }
