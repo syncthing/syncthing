@@ -269,6 +269,11 @@ func main() {
 
 	initTargets()
 
+	if version != "unknown-dev" && !buildpkg.AllowedVersionExp.MatchString(version) {
+		// app with unallowed versions shouldn't be built because it won't run
+		log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", version, buildpkg.AllowedVersionExp)
+	}
+
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
