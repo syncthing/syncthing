@@ -508,15 +508,20 @@ nextFile:
 		devices := snap.Availability(fileName)
 		for _, dev := range devices {
 			if f.model.ConnectedTo(dev) {
-				// Handle the file normally, by copying and pulling, etc.
-				f.handleFile(fi, snap, copyChan)
-				continue nextFile
+				// Check if the remote folder state is valid on connected device (i.e. not paused)
+				if state, ok := f.model.remoteFolderStates[dev][f.folderID]; ok {
+					if state == remoteFolderValid {
+					// Handle the file normally, by copying and pulling, etc.
+					f.handleFile(fi, snap, copyChan)
+					continue nextFile
+					}
+				}
 			}
 		}
 		f.newPullError(fileName, errNotAvailable)
 		f.queue.Done(fileName)
 	}
-
+		
 	return changed, fileDeletions, dirDeletions, nil
 }
 
@@ -1092,6 +1097,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
+	
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
