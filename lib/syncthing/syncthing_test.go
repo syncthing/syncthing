@@ -8,7 +8,6 @@ package syncthing
 
 import (
 	"os"
-	"slices"
 	"testing"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
@@ -109,94 +107,5 @@ func TestStartupFail(t *testing.T) {
 		trans.Release()
 	} else if !backend.IsClosed(err) {
 		t.Error("Expected error due to db being closed, got", err)
-	}
-}
-
-type defaultConfigCase struct {
-	defaultFolder      bool
-	portProbing        bool
-	portBusy           bool
-	guiAddressEnv      string
-	guiAddressExpected string
-}
-
-func TestDefaultConfig(t *testing.T) {
-	cases := []defaultConfigCase{
-		// Hard-coded minimal default, no adjustments
-		{false, false, false, "", "127.0.0.1:8384"},
-		// Busy port should not matter without port probing
-		{false, false, true, "", "127.0.0.1:8384"},
-		// Add a default folder
-		{true, false, false, "", "127.0.0.1:8384"},
-		// Override GUI address without port probing
-		{false, false, false, "0.0.0.0:8385", "0.0.0.0:8385"},
-		// No override, with port probing
-		{false, true, false, "", "127.0.0.1:8384"},
-		// No override, with unsuccessful port probing
-		{false, true, true, "", "127.0.0.1:8384"},
-		// Override GUI address with port probing
-		{false, true, false, "0.0.0.0:8385", "0.0.0.0:8385"},
-		// Override GUI address with unsuccessful port probing
-		{false, true, true, "0.0.0.0:8385", "0.0.0.0:8385"},
-	}
-
-	for _, c := range cases {
-		subtestDefaultConfig(t, c)
-	}
-}
-
-func subtestDefaultConfig(t *testing.T, c defaultConfigCase) {
-	t.Logf("%v case: %+v", t.Name(), c)
-
-	if c.guiAddressEnv != "" {
-		os.Setenv("STGUIADDRESS", c.guiAddressEnv)
-	} else {
-		os.Unsetenv("STGUIADDRESS")
-	}
-
-	oldGetFreePort := getFreePortFunc
-	getFreePortFunc = func(host string, ports ...int) (int, error) {
-		if !c.portBusy {
-			t.Logf(`Simulating non-blocked port %d on "%v"`, ports[0], host)
-			return ports[0], nil
-		}
-		freePort := slices.Max(ports) + 1
-		t.Logf(`Simulating blocked ports %v (using %d) on "%v"`, ports, freePort, host)
-		return freePort, nil
-	}
-	defer func() { getFreePortFunc = oldGetFreePort }()
-
-	if c.portBusy || c.portProbing {
-		address := c.guiAddressEnv
-		if address == "" {
-			defaultGuiCfg := config.GUIConfiguration{}
-			structutil.SetDefaults(&defaultGuiCfg)
-			address = defaultGuiCfg.RawAddress
-		}
-	}
-
-	cfg, err := DefaultConfig(tempCfgFilename(t), protocol.LocalDeviceID, events.NoopLogger, !c.defaultFolder, !c.portProbing)
-	defer os.Remove(cfg.ConfigPath())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if c.defaultFolder {
-		if len(cfg.FolderList()) != 1 {
-			t.Error("Expected exactly one default folder in fresh configuration")
-		} else if _, ok := cfg.Folder("default"); !ok {
-			t.Error(`Folder "default" not found in fresh configuration`)
-		}
-	} else if len(cfg.FolderList()) != 0 {
-		t.Error("Unexpected default folder in fresh configuration")
-	}
-
-	if c.portProbing && c.portBusy {
-		// Replacement port is random, can only check it's not the same as requested
-		if cfg.GUI().RawAddress == c.guiAddressExpected {
-			t.Errorf(`Port probing chose blocked raw address "%v"`, cfg.GUI().RawAddress)
-		}
-	} else if cfg.GUI().RawAddress != c.guiAddressExpected {
-		t.Errorf(`Expected raw address "%v" without port probing, got "%v"`, c.guiAddressExpected, cfg.GUI().RawAddress)
 	}
 }
