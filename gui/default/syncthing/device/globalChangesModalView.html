@@ -1,7 +1,9 @@
-<modal id="globalChanges" status="default" icon="fas fa-info-circle" heading="{{'Recent Changes' | translate}}" large="yes" closeable="yes">
-  <div class="modal-body">
+<modal id="globalChanges" status="default" icon="fas fa-info-circle" heading="{{'Recent Changes' | translate}}" large="yes" closeable="yes" style="resize: both; min-width: 300px; min-height: 200px; max-width: 90vw; max-height: 90vh; position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);">
+  <div class="modal-body" style="overflow: auto;">
+
+  <div class="modal-body" style="overflow: auto;">
     <div class="table-responsive">
-      <table class="table-condensed table-striped table" style="table-layout: auto;">
+      <table class="table-condensed table-striped table" style="table-layout: auto; width: 100%;">
         <thead>
           <tr>
             <th translate>Device</th>
