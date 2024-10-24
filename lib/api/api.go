@@ -1417,29 +1417,7 @@ func (*service) getEvents(w http.ResponseWriter, r *http.Request, eventSub event
 		evs = evs[len(evs)-limit:]
 	}
 
-	var filteredEvents []events.Event
-	var fileType string
-	for _, event := range evs {
-
-		if dataMap, ok := event.Data.(map[string]string); ok {
-
-			if eventType, found := dataMap["type"]; found {
-				fileType = eventType
-			} else {
-				fileType = ""
-			}
-		} else {
-			fileType = ""
-		}
-
-		if fileType == "symlink" {
-			continue
-		}
-
-		filteredEvents = append(filteredEvents, event)
-	}
-
-	sendJSON(w, filteredEvents)
+	sendJSON(w, evs)
 }
 
 func (*service) getEventMask(evs string) events.EventType {
