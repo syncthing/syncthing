@@ -78,7 +78,7 @@ var junctionPointModeMask os.FileMode
 
 func init() {
 	// Per https://tip.golang.org/doc/go1.23#minor_library_changes
-	// In go1.22 (and go1.23 when GODEBUG=winsymlink=0) Windows' directory 
+	// In go1.22 (and go1.23 when GODEBUG=winsymlink=0) Windows' directory
 	// junctions (aka "mount points") always have ModeSymlink set.
 	junctionPointModeMask = os.ModeSymlink
 	if version.Compare(runtime.Version(), "go1.23") >= 0 {
