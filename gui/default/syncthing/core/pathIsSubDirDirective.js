@@ -10,8 +10,8 @@ angular.module('syncthing.core')
                     // so that e.g. xdir = "home/a/", ydir = "~/b" will return true.
                     function isSubDir(xdir, ydir) {
                         var tildeExpansionRegex = new RegExp("^~\/");
-                        xdir = xdir.replace(tildeExpansionRegex, `${scope.system.tilde}/`);
-                        ydir = ydir.replace(tildeExpansionRegex, `${scope.system.tilde}/`);
+                        xdir = xdir.replace(tildeExpansionRegex, `${scope.system.tilde}${scope.system.pathSeparator}`);
+                        ydir = ydir.replace(tildeExpansionRegex, `${scope.system.tilde}${scope.system.pathSeperator}`);
                         var xdirArr = xdir.split(scope.system.pathSeparator);
                         var ydirArr = ydir.split(scope.system.pathSeparator);
                         if (xdirArr.slice(-1).pop() === "") {
