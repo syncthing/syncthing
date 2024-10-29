@@ -505,16 +505,13 @@ nextFile:
 			continue nextFile
 		}
 
-		devices := snap.Availability(fileName)
-		for _, dev := range devices {
-			if f.model.ConnectedTo(dev) {
-				// Handle the file normally, by copying and pulling, etc.
-				f.handleFile(fi, snap, copyChan)
-				continue nextFile
-			}
+		devices := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, fi)
+		if len(devices) > 0 {
+			f.handleFile(fi, snap, copyChan)
+		} else {
+			f.newPullError(fileName, errNotAvailable)
+			f.queue.Done(fileName)
 		}
-		f.newPullError(fileName, errNotAvailable)
-		f.queue.Done(fileName)
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
@@ -1547,7 +1544,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 	}
 
 	var lastError error
-	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
+	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file)
 loop:
 	for {
 		select {

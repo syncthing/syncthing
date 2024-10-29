@@ -2882,16 +2882,30 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	}
 	defer snap.Release()
 
-	return m.availabilityInSnapshotRLocked(cfg, snap, file, block), nil
+	if devices := m.availabilityInSnapshot(cfg, snap, file); len(devices) > 0 {
+		return devices, nil
+	}
+
+	return m.availabilityFromTemporaryRLocked(cfg, file, block), nil
 }
 
-func (m *model) availabilityInSnapshot(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+func (m *model) availabilityInSnapshot(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo) []Availability {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
-	return m.availabilityInSnapshotRLocked(cfg, snap, file, block)
+	return m.availabilityInSnapshotRLocked(cfg, snap, file)
 }
 
-func (m *model) availabilityInSnapshotRLocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+func (m *model) availabilityFromTemporaryRLocked(cfg config.FolderConfiguration, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+	var availabilities []Availability
+	for _, device := range cfg.Devices {
+		if m.deviceDownloads[device.DeviceID].Has(cfg.ID, file.Name, file.Version, int(block.Offset/int64(file.BlockSize()))) {
+			availabilities = append(availabilities, Availability{ID: device.DeviceID, FromTemporary: true})
+		}
+	}
+	return availabilities
+}
+
+func (m *model) availabilityInSnapshotRLocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo) []Availability {
 	var availabilities []Availability
 	for _, device := range snap.Availability(file.Name) {
 		if _, ok := m.remoteFolderStates[device]; !ok {
@@ -2903,12 +2917,7 @@ func (m *model) availabilityInSnapshotRLocked(cfg config.FolderConfiguration, sn
 		_, ok := m.deviceConnIDs[device]
 		if ok {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
-		}
-	}
 
-	for _, device := range cfg.Devices {
-		if m.deviceDownloads[device.DeviceID].Has(cfg.ID, file.Name, file.Version, int(block.Offset/int64(file.BlockSize()))) {
-			availabilities = append(availabilities, Availability{ID: device.DeviceID, FromTemporary: true})
 		}
 	}
 
