@@ -87,10 +87,10 @@ func newVirtualFolder(
 
 	parts := strings.Split(virtual_descriptor, ":mount_at:")
 	blobUrl = parts[0]
-	if len(parts) >= 2 {
-		//url := "s3://bucket-syncthing-uli-virtual-folder-test1/" + myDir
-		f.mountPath = parts[1]
-	}
+	//if len(parts) >= 2 {
+	//	//url := "s3://bucket-syncthing-uli-virtual-folder-test1/" + myDir
+	//	f.mountPath = parts[1]
+	//}
 
 	f.blockCache = blockstorage.NewGoCloudUrlStorage(context.TODO(), blobUrl)
 
