@@ -346,6 +346,31 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db
 	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
 }
 
+func (m *model) startingFolder_createVersioner(cfg config.FolderConfiguration) versioner.Versioner {
+	var ver versioner.Versioner
+	if cfg.Versioning.Type != "" {
+		var err error
+		ver, err = versioner.New(cfg)
+		if err != nil {
+			panic(fmt.Errorf("creating versioner: %w", err))
+		}
+	}
+	m.folderVersioners[cfg.ID] = ver
+	return ver
+}
+
+func (m *model) startingFolder_filterNotSharedDevices(cfg config.FolderConfiguration, fset *db.FileSet) {
+	// Find any devices for which we hold the index in the db, but the folder
+	// is not shared, and drop it.
+	expected := mapDevices(cfg.DeviceIDs())
+	for _, available := range fset.ListDevices() {
+		if _, ok := expected[available]; !ok {
+			l.Debugln("dropping", cfg.ID, "state for", available)
+			fset.Drop(available)
+		}
+	}
+}
+
 // Only needed for testing, use addAndStartFolderLocked instead.
 func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, ignores *ignore.Matcher) {
 	m.folderCfgs[cfg.ID] = cfg
@@ -358,71 +383,61 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		panic("cannot start already running folder")
 	}
 
-	folderFactory, ok := folderFactories[cfg.Type]
-	if !ok {
-		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
-	}
+	ver := m.startingFolder_createVersioner(cfg)
 
-	folder := cfg.ID
+	m.startingFolder_filterNotSharedDevices(cfg, fset)
 
-	// Find any devices for which we hold the index in the db, but the folder
-	// is not shared, and drop it.
-	expected := mapDevices(cfg.DeviceIDs())
-	for _, available := range fset.ListDevices() {
-		if _, ok := expected[available]; !ok {
-			l.Debugln("dropping", folder, "state for", available)
-			fset.Drop(available)
+	url, isVirtual := strings.CutPrefix(cfg.Path, "virtual+")
+	cfg.Path = url
+
+	if isVirtual {
+		newVirtualFolder(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+	} else {
+		// traditional folder based on a native filesystem
+		folderFactory, ok := folderFactories[cfg.Type]
+		if !ok {
+			panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 		}
-	}
 
-	v, ok := fset.Sequence(protocol.LocalDeviceID), true
-	indexHasFiles := ok && v > 0
-	if !indexHasFiles && !cfg.Type.IsVirtualFolder() {
-		// It's a blank folder, so this may the first time we're looking at
-		// it. Attempt to create and tag with our marker as appropriate. We
-		// don't really do anything with errors at this point except warn -
-		// if these things don't work, we still want to start the folder and
-		// it'll show up as errored later.
+		v, ok := fset.Sequence(protocol.LocalDeviceID), true
+		indexHasFiles := ok && v > 0
+		if !indexHasFiles && !cfg.Type.IsVirtualFolder() {
+			// It's a blank folder, so this may the first time we're looking at
+			// it. Attempt to create and tag with our marker as appropriate. We
+			// don't really do anything with errors at this point except warn -
+			// if these things don't work, we still want to start the folder and
+			// it'll show up as errored later.
 
-		if err := cfg.CreateRoot(); err != nil {
-			l.Warnln("Failed to create folder root directory:", err)
-		} else if err = cfg.CreateMarker(); err != nil {
-			l.Warnln("Failed to create folder marker:", err)
+			if err := cfg.CreateRoot(); err != nil {
+				l.Warnln("Failed to create folder root directory:", err)
+			} else if err = cfg.CreateMarker(); err != nil {
+				l.Warnln("Failed to create folder marker:", err)
+			}
 		}
+
+		// As the folderRunner is not yet created here, we can't read the encryption token here.
+		// This seems to be redundant anyway. So why not skip it in general?
+		//if cfg.Type.IsReceiveEncrypted() {
+		//	if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
+		//		m.folderEncryptionPasswordTokens[folder] = encryptionToken
+		//	} else if !fs.IsNotExist(err) {
+		//		l.Warnf("Failed to read encryption token: %v", err)
+		//	}
+		//}
+
+		// These are our metadata files, and they should always be hidden.
+		ffs := cfg.Filesystem(nil)
+		_ = ffs.Hide(config.DefaultMarkerName)
+		_ = ffs.Hide(versioner.DefaultPath)
+		_ = ffs.Hide(".stignore")
+
+		m.warnAboutOverwritingProtectedFiles(cfg, ignores)
+
+		p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+		m.folderRunners.Add(cfg.ID, p)
+
+		l.Infof("Ready to synchronize filesystem based folder %s (%s)", cfg.Description(), cfg.Type)
 	}
-
-	// As the folderRunner is not yet created here, we can't read the encryption token here.
-	// This seems to be redundant anyway. So why not skip it in general?
-	//if cfg.Type.IsReceiveEncrypted() {
-	//	if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
-	//		m.folderEncryptionPasswordTokens[folder] = encryptionToken
-	//	} else if !fs.IsNotExist(err) {
-	//		l.Warnf("Failed to read encryption token: %v", err)
-	//	}
-	//}
-
-	// These are our metadata files, and they should always be hidden.
-	ffs := cfg.Filesystem(nil)
-	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(versioner.DefaultPath)
-	_ = ffs.Hide(".stignore")
-
-	var ver versioner.Versioner
-	if cfg.Versioning.Type != "" {
-		var err error
-		ver, err = versioner.New(cfg)
-		if err != nil {
-			panic(fmt.Errorf("creating versioner: %w", err))
-		}
-	}
-	m.folderVersioners[folder] = ver
-
-	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
-
-	p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
-	m.folderRunners.Add(folder, p)
-
-	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
