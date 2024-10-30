@@ -387,10 +387,9 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.startingFolder_filterNotSharedDevices(cfg, fset)
 
-	url, isVirtual := strings.CutPrefix(cfg.Path, "virtual+")
-	cfg.Path = url
-
+	isVirtual := strings.HasPrefix(cfg.Path, ":virtual:")
 	if isVirtual {
+		// new folder type based on a hash block storage instead of native filesystem
 		newVirtualFolder(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	} else {
 		// traditional folder based on a native filesystem
@@ -2970,9 +2969,6 @@ func (*model) VerifyConfiguration(from, to config.Configuration) error {
 		if ok && from.Type != to.Type {
 			if from.Type.IsReceiveEncrypted() || to.Type.IsReceiveEncrypted() {
 				return errors.New("folder type must not be changed from/to receive-encrypted")
-			}
-			if from.Type.IsVirtualFolder() || to.Type.IsVirtualFolder() {
-				return errors.New("folder type must not be changed from/to virtual folder")
 			}
 		}
 	}
