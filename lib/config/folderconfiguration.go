@@ -81,8 +81,13 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	return dur
 }
 
+func (cfg *FolderConfiguration) IsBasedOnNativeFileSystem() bool {
+	isVirtual := strings.HasPrefix(cfg.Path, ":virtual:")
+	return !isVirtual
+}
+
 func (f *FolderConfiguration) CreateMarker() error {
-	if f.Type.IsVirtualFolder() {
+	if !f.IsBasedOnNativeFileSystem() {
 		return nil
 	}
 	if err := f.CheckPath(); err != ErrMarkerMissing {
@@ -122,7 +127,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) RemoveMarker() error {
-	if f.Type.IsVirtualFolder() {
+	if !f.IsBasedOnNativeFileSystem() {
 		return nil
 	}
 	ffs := f.Filesystem(nil)
@@ -145,7 +150,7 @@ func (f *FolderConfiguration) markerContents() []byte {
 
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
-	if f.Type.IsVirtualFolder() {
+	if !f.IsBasedOnNativeFileSystem() {
 		return nil
 	}
 	return f.checkFilesystemPath(f.Filesystem(nil), ".")
@@ -183,7 +188,7 @@ func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
 
-	if f.Type.IsVirtualFolder() {
+	if !f.IsBasedOnNativeFileSystem() {
 		return nil
 	}
 

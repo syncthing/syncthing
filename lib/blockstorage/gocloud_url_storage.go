@@ -8,7 +8,6 @@ package blockstorage
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 
@@ -38,14 +37,6 @@ func NewGoCloudUrlStorage(ctx context.Context, url string) *GoCloudUrlStorage {
 		log.Fatal(err)
 	}
 
-	if err := bucket.WriteAll(ctx, "foo.txt", []byte("Go Cloud Development Kit"), nil); err != nil {
-		log.Fatal(err)
-	}
-	b, err := bucket.ReadAll(ctx, "foo.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(string(b))
 
 	return &GoCloudUrlStorage{
 		ctx:    ctx,

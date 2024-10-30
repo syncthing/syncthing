@@ -28,8 +28,6 @@ import (
 )
 
 func init() {
-	folderFactories[config.FolderTypeVirtual] = newVirtualFolder
-	folderFactories[config.FolderTypeVirtualEncrypted] = newVirtualFolder
 	log.SetFlags(log.Lmicroseconds)
 	log.Default().SetOutput(os.Stdout)
 	log.Default().SetPrefix("TESTLOG ")
@@ -73,12 +71,30 @@ func newVirtualFolder(
 	evLogger events.Logger,
 	ioLimiter *semaphore.Semaphore,
 ) service {
-	return &virtualFolderSyncthingService{
+
+	f := &virtualFolderSyncthingService{
 		folderBase:                newFolderBase(cfg, evLogger, model, fset),
 		blockCache:                nil,
 		backgroundDownloadPending: make(chan struct{}, 1),
 		backgroundDownloadQueue:   *newJobQueue(),
 	}
+
+	blobUrl := ""
+	virtual_descriptor, hasVirtualDescriptor := strings.CutPrefix(f.Path, ":virtual:")
+	if !hasVirtualDescriptor {
+		panic("missing :virtual:")
+	}
+
+	parts := strings.Split(virtual_descriptor, ":mount_at:")
+	blobUrl = parts[0]
+	if len(parts) >= 2 {
+		//url := "s3://bucket-syncthing-uli-virtual-folder-test1/" + myDir
+		f.mountPath = parts[1]
+	}
+
+	f.blockCache = blockstorage.NewGoCloudUrlStorage(context.TODO(), blobUrl)
+
+	return f
 }
 
 func (f *virtualFolderSyncthingService) RequestBackgroundDownload(filename string, size int64, modified time.Time) {

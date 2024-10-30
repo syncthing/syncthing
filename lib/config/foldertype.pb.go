@@ -28,8 +28,6 @@ const (
 	FolderTypeSendOnly         FolderType = 1
 	FolderTypeReceiveOnly      FolderType = 2
 	FolderTypeReceiveEncrypted FolderType = 3
-	FolderTypeVirtual          FolderType = 4
-	FolderTypeVirtualEncrypted FolderType = 5
 )
 
 var FolderType_name = map[int32]string{
@@ -37,8 +35,6 @@ var FolderType_name = map[int32]string{
 	1: "FOLDER_TYPE_SEND_ONLY",
 	2: "FOLDER_TYPE_RECEIVE_ONLY",
 	3: "FOLDER_TYPE_RECEIVE_ENCRYPTED",
-	4: "FOLDER_TYPE_VIRTUAL",
-	5: "FOLDER_TYPE_VIRTUAL_ENCRYPTED",
 }
 
 var FolderType_value = map[string]int32{
@@ -46,8 +42,6 @@ var FolderType_value = map[string]int32{
 	"FOLDER_TYPE_SEND_ONLY":         1,
 	"FOLDER_TYPE_RECEIVE_ONLY":      2,
 	"FOLDER_TYPE_RECEIVE_ENCRYPTED": 3,
-	"FOLDER_TYPE_VIRTUAL":           4,
-	"FOLDER_TYPE_VIRTUAL_ENCRYPTED": 5,
 }
 
 func (FolderType) EnumDescriptor() ([]byte, []int) {

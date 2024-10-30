@@ -102,19 +102,6 @@ func (ft FolderType) IsReceiveEncrypted() bool {
 	switch ft {
 	case FolderTypeReceiveEncrypted:
 		return true
-	case FolderTypeVirtualEncrypted:
-		return true
-	default:
-		return false
-	}
-}
-
-func (ft FolderType) IsVirtualFolder() bool {
-	switch ft {
-	case FolderTypeVirtual:
-		return true
-	case FolderTypeVirtualEncrypted:
-		return true
 	default:
 		return false
 	}

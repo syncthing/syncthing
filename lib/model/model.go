@@ -181,7 +181,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) NativeFilesystemFolderService
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -387,10 +387,11 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.startingFolder_filterNotSharedDevices(cfg, fset)
 
-	isVirtual := strings.HasPrefix(cfg.Path, ":virtual:")
+	var p service
+	isVirtual := !cfg.IsBasedOnNativeFileSystem()
 	if isVirtual {
 		// new folder type based on a hash block storage instead of native filesystem
-		newVirtualFolder(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+		p = newVirtualFolder(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	} else {
 		// traditional folder based on a native filesystem
 		folderFactory, ok := folderFactories[cfg.Type]
@@ -400,7 +401,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 		v, ok := fset.Sequence(protocol.LocalDeviceID), true
 		indexHasFiles := ok && v > 0
-		if !indexHasFiles && !cfg.Type.IsVirtualFolder() {
+		if !indexHasFiles {
 			// It's a blank folder, so this may the first time we're looking at
 			// it. Attempt to create and tag with our marker as appropriate. We
 			// don't really do anything with errors at this point except warn -
@@ -414,29 +415,30 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 			}
 		}
 
-		// As the folderRunner is not yet created here, we can't read the encryption token here.
-		// This seems to be redundant anyway. So why not skip it in general?
-		//if cfg.Type.IsReceiveEncrypted() {
-		//	if encryptionToken, err := folderRunner.ReadEncryptionToken(); err == nil {
-		//		m.folderEncryptionPasswordTokens[folder] = encryptionToken
-		//	} else if !fs.IsNotExist(err) {
-		//		l.Warnf("Failed to read encryption token: %v", err)
-		//	}
-		//}
+		folderService := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+		p = folderService
 
 		// These are our metadata files, and they should always be hidden.
-		ffs := cfg.Filesystem(nil)
+		ffs := folderService.getFilesystem()
+
 		_ = ffs.Hide(config.DefaultMarkerName)
 		_ = ffs.Hide(versioner.DefaultPath)
 		_ = ffs.Hide(".stignore")
 
 		m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-		p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
-		m.folderRunners.Add(cfg.ID, p)
-
 		l.Infof("Ready to synchronize filesystem based folder %s (%s)", cfg.Description(), cfg.Type)
 	}
+
+	if cfg.Type.IsReceiveEncrypted() {
+		if encryptionToken, err := p.ReadEncryptionToken(); err == nil {
+			m.folderEncryptionPasswordTokens[cfg.ID] = encryptionToken
+		} else if !fs.IsNotExist(err) {
+			l.Warnf("Failed to read encryption token: %v", err)
+		}
+	}
+
+	m.folderRunners.Add(cfg.ID, p)
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
@@ -2070,7 +2072,9 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 				return nil, protocol.ErrNoSuchFile
 			}
 
-			req.Hash = fi.Blocks[req.BlockNo].Hash
+			if req.BlockNo < len(fi.Blocks) {
+				req.Hash = fi.Blocks[req.BlockNo].Hash
+			}
 		}
 		n, err = virtualFolder.GetHashBlockData(req.Hash, res.data)
 		l.Infof("%v REQ(in) get block from virtual folder: %s - %s: %q / %q o=%d s=%d, blockNo=%v, hash=%v",

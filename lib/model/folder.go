@@ -144,6 +144,11 @@ func (*folderBase) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	return nil
 }
 
+type NativeFilesystemFolderService interface {
+	service
+	getFilesystem() fs.Filesystem
+}
+
 type folder struct {
 	*folderBase
 	*stats.FolderStatisticsReference
@@ -188,6 +193,10 @@ type folder struct {
 	versioner versioner.Versioner
 
 	warnedKqueue bool
+}
+
+func (f *folder) getFilesystem() fs.Filesystem {
+	return f.mtimefs
 }
 
 type syncRequest struct {
