@@ -187,11 +187,9 @@ func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
-
 	if !f.IsBasedOnNativeFileSystem() {
 		return nil
 	}
-
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := fs.FileMode(0o777)
