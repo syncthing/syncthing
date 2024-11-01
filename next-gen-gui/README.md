@@ -4,7 +4,7 @@
 
 This is a very bare bones read-only GUI for viewing the status of large
 setups. Download a [release
-zip](https://github.com/kastelo/syncthing-tech-ui/releases) and unpack it
+zip](https://github.com/syncthing/tech-ui/releases) and unpack it
 into the GUI override directory (assuming default Linux setup):
 
 ```
