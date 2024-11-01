@@ -50,6 +50,13 @@ $ syncthing
 The magic is symlink is because Syncthing will look for the GUI in the
 `default` subdirectory. Navigate to `http://localhost:8384/next-gen-gui/`.
 
+**NOTE**: You will need to enable the `sendBasicAuthPrompt` setting in the
+backend if authentication is configured, as this GUI doesn’t have an HTML
+login form yet. To do that, go to *Actions > Advanced > GUI* in the standard
+variant, and enable the *Send Basic Auth Prompt* checkbox, then
+save. Otherwise, you’ll always need to log into the standard GUI first before
+using this one.
+
 ## Code scaffolding
 
 Run `ng generate component component-name` to generate a new component. You
