@@ -856,7 +856,7 @@ func buildNextGenGUI() bool {
 	// time by the build process. This assumes the new GUI ends up in
 	// next-gen-gui/dist/next-gen-gui.
 
-	if !shouldRebuildAssets("gui/next-gen-gui/index.html", "next-gen-gui") {
+	if !shouldRebuildAssets("gui/default/next-gen-gui/index.html", "next-gen-gui") {
 		// The GUI is up to date.
 		return false
 	}
@@ -868,7 +868,7 @@ func buildNextGenGUI() bool {
 
 	for _, src := range listFiles("next-gen-gui/dist") {
 		rel, _ := filepath.Rel("next-gen-gui/dist", src)
-		dst := filepath.Join("gui", rel)
+		dst := filepath.Join("gui", "default", rel)
 		if err := copyFile(src, dst, 0644); err != nil {
 			fmt.Println("copy:", err)
 			os.Exit(1)
