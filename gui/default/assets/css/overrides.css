@@ -565,6 +565,24 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
-.webauthn-credentials table.table > tbody > tr > td {
-  vertical-align: middle;
+.two-column-flexbox {
+  align-items: flex-start;
+  column-gap: 1em; /* row-gap emulated by self > * margin-bottom to fallback gracefully in browsers without Flexbox */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.two-column-flexbox > * {
+  flex-grow: 1;
+  flex-shrink: 0;
+  margin-bottom: 1em;
+  min-width: 40%; /* Limit to two items per row */
+}
+
+@media (max-width: 768px) {
+  .two-column-flexbox > * {
+    min-width: 90%; /* Limit to one item per row on narrow screens */
+  }
 }

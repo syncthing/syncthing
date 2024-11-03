@@ -80,6 +80,7 @@
     "Copied!": "Copied!",
     "Copy": "Copy",
     "Copy failed! Try to select and copy manually.": "Copy failed! Try to select and copy manually.",
+    "Created: {%createTime%}": "Created: {{createTime}}",
     "Current domain does not match WebAuthn configuration.": "Current domain does not match WebAuthn configuration.",
     "Currently Shared With Devices": "Currently Shared With Devices",
     "Custom Range": "Custom Range",
@@ -231,6 +232,7 @@
     "Last Month": "Last Month",
     "Last Scan": "Last Scan",
     "Last seen": "Last seen",
+    "Last used: {%lastUseTime%}": "Last used: {{lastUseTime}}",
     "Latest Change": "Latest Change",
     "Learn more": "Learn more",
     "Learn more at {%url%}": "Learn more at {{url}}",
@@ -320,7 +322,6 @@
     "QUIC LAN": "QUIC LAN",
     "QUIC WAN": "QUIC WAN",
     "Quick guide to supported patterns": "Quick guide to supported patterns",
-    "RP ID": "RP ID",
     "Random": "Random",
     "Receive Encrypted": "Receive Encrypted",
     "Receive Only": "Receive Only",
@@ -343,6 +344,7 @@
     "Remove Folder": "Remove Folder",
     "Rename": "Rename",
     "Required identifier for the folder. Must be the same on all cluster devices.": "Required identifier for the folder. Must be the same on all cluster devices.",
+    "Requires 2FA": "Requires 2FA",
     "Rescan": "Rescan",
     "Rescan All": "Rescan All",
     "Rescans": "Rescans",
@@ -572,12 +574,9 @@
     "seconds": "seconds",
     "settings": {
         "webauthn": {
-            "credentials": {
-                "columnHeading": {
-                    "createTime": "Created",
-                    "lastUseTime": "Last used",
-                    "name": "Name",
-                    "require2fa": "2FA"
+            "ineligibleCredentials": {
+                "label": {
+                    "rpId": "RP ID:"
                 }
             }
         }
