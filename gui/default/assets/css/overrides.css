@@ -565,6 +565,24 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
+.webauthn-credentials {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: 1em; /* row-gap emulated by .webauthn-credential-card margin-bottom to fallback gracefully in browsers without Flexbox */
+  justify-content: space-between;
+}
+
 .webauthn-credentials .webauthn-credential-card {
+  flex-grow: 1;
+  flex-shrink: 0;
+  min-width: 40%; /* Limit to two cards per row */
   margin-bottom: 1em;
+}
+
+@media (max-width: 768px) {
+  .webauthn-credentials .webauthn-credential-card {
+    min-width: 90%; /* Limit to one card per row on narrow screens */
+  }
 }
