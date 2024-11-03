@@ -189,10 +189,10 @@
                   </div>
 
                   <div class="row">
-                    <div class="col-md-12" translate translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
+                    <div class="col-md-12" translate="passkey.createTime" translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
                   </div>
                   <div class="row">
-                    <div class="col-md-12" translate translate-value-last-use-time="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">Last used: {%lastUseTime%}</div>
+                    <div class="col-md-12" translate="passkey.lastUseTime" translate-value-last-use-time="{{ webauthn.state.credentials[cred.id].lastUseTime | date:'yyyy-MM-dd HH:mm:ss' }}">Last used: {%lastUseTime%}</div>
                   </div>
 
                   <div class="row">
@@ -267,7 +267,7 @@
                       </div>
                     </div>
                     <div class="row">
-                      <div class="col-md-12" translate translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
+                      <div class="col-md-12" translate="passkey.createTime" translate-value-create-time="{{cred.createTime | date:'yyyy-MM-dd'}}">Created: {%createTime%}</div>
                     </div>
 
                     <div class="row">

@@ -80,7 +80,6 @@
     "Copied!": "Copied!",
     "Copy": "Copy",
     "Copy failed! Try to select and copy manually.": "Copy failed! Try to select and copy manually.",
-    "Created: {%createTime%}": "Created: {{createTime}}",
     "Current domain does not match WebAuthn configuration.": "Current domain does not match WebAuthn configuration.",
     "Currently Shared With Devices": "Currently Shared With Devices",
     "Custom Range": "Custom Range",
@@ -232,7 +231,6 @@
     "Last Month": "Last Month",
     "Last Scan": "Last Scan",
     "Last seen": "Last seen",
-    "Last used: {%lastUseTime%}": "Last used: {{lastUseTime}}",
     "Latest Change": "Latest Change",
     "Learn more": "Learn more",
     "Learn more at {%url%}": "Learn more at {{url}}",
@@ -570,6 +568,10 @@
     "full documentation": "full documentation",
     "items": "items",
     "modified": "modified",
+    "passkey": {
+        "createTime": "Created: {{createTime}}",
+        "lastUseTime": "Last used: {{lastUseTime}}"
+    },
     "permit": "permit",
     "seconds": "seconds",
     "settings": {
