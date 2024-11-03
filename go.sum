@@ -66,8 +66,8 @@ github.com/go-ole/go-ole v1.3.0/go.mod h1:5LS6F96DhAwUc7C+1HLexzMXY1xGRSryjyPPKW
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig/v3 v3.0.0 h1:sUs3vkvUymDpBKi3qH1YSqBQk9+9D/8M2mN1vB6EwHI=
 github.com/go-task/slim-sprig/v3 v3.0.0/go.mod h1:W848ghGpv3Qj3dhTPRyJypKRiqCdHZiAzKg9hl15HA8=
-github.com/go-webauthn/webauthn v0.11.2 h1:Fgx0/wlmkClTKlnOsdOQ+K5HcHDsDcYIvtYmfhEOSUc=
-github.com/go-webauthn/webauthn v0.11.2/go.mod h1:aOtudaF94pM71g3jRwTYYwQTG1KyTILTcZqN1srkmD0=
+github.com/go-webauthn/webauthn v0.10.2 h1:OG7B+DyuTytrEPFmTX503K77fqs3HDK/0Iv+z8UYbq4=
+github.com/go-webauthn/webauthn v0.10.2/go.mod h1:Gd1IDsGAybuvK1NkwUTLbGmeksxuRJjVN2PE/xsPxHs=
 github.com/go-webauthn/x v0.1.14 h1:1wrB8jzXAofojJPAaRxnZhRgagvLGnLjhCAwg3kTpT0=
 github.com/go-webauthn/x v0.1.14/go.mod h1:UuVvFZ8/NbOnkDz3y1NaxtUN87pmtpC1PQ+/5BBQRdc=
 github.com/gofrs/flock v0.12.1 h1:MTLVXXHf8ekldpJk3AKicLij9MdwOWkZ+a/jHHZby9E=

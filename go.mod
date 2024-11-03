@@ -15,7 +15,7 @@ require (
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.4.8
-	github.com/go-webauthn/webauthn v0.11.2
+	github.com/go-webauthn/webauthn v0.10.2
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.6.0
