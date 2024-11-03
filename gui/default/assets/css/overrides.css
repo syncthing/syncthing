@@ -567,18 +567,18 @@ html[lang|="ko"] i {
 
 .two-column-flexbox {
   align-items: flex-start;
+  column-gap: 1em; /* row-gap emulated by self > * margin-bottom to fallback gracefully in browsers without Flexbox */
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  column-gap: 1em; /* row-gap emulated by self > * margin-bottom to fallback gracefully in browsers without Flexbox */
   justify-content: space-between;
 }
 
 .two-column-flexbox > * {
   flex-grow: 1;
   flex-shrink: 0;
-  min-width: 40%; /* Limit to two items per row */
   margin-bottom: 1em;
+  min-width: 40%; /* Limit to two items per row */
 }
 
 @media (max-width: 768px) {
