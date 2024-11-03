@@ -565,10 +565,6 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
-.webauthn-credentials table.table > tbody > tr > td {
-  vertical-align: middle;
-}
-
 .webauthn-credentials .webauthn-credential-card {
   margin-bottom: 1em;
 }
