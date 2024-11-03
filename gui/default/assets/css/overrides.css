@@ -565,24 +565,24 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
-.webauthn-credentials {
+.two-column-flexbox {
   align-items: flex-start;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  column-gap: 1em; /* row-gap emulated by .webauthn-credential-card margin-bottom to fallback gracefully in browsers without Flexbox */
+  column-gap: 1em; /* row-gap emulated by self > * margin-bottom to fallback gracefully in browsers without Flexbox */
   justify-content: space-between;
 }
 
-.webauthn-credentials .webauthn-credential-card {
+.two-column-flexbox > * {
   flex-grow: 1;
   flex-shrink: 0;
-  min-width: 40%; /* Limit to two cards per row */
+  min-width: 40%; /* Limit to two items per row */
   margin-bottom: 1em;
 }
 
 @media (max-width: 768px) {
-  .webauthn-credentials .webauthn-credential-card {
-    min-width: 90%; /* Limit to one card per row on narrow screens */
+  .two-column-flexbox > * {
+    min-width: 90%; /* Limit to one item per row on narrow screens */
   }
 }
