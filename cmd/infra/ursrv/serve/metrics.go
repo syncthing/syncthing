@@ -11,16 +11,36 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var metricReportsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-	Namespace: "syncthing",
-	Subsystem: "ursrv",
-	Name:      "reports_total",
-}, []string{"version"})
+var (
+	metricReportsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "incoming_reports_total",
+	}, []string{"result"})
+	metricsCollectsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "collects_total",
+	})
+	metricsCollectSecondsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "collect_seconds_total",
+	})
+	metricsCollectSecondsLast = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "collect_seconds_last",
+	})
+	metricsWriteSecondsLast = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "write_seconds_last",
+	})
+)
 
 func init() {
 	metricReportsTotal.WithLabelValues("fail")
-	metricReportsTotal.WithLabelValues("duplicate")
-	metricReportsTotal.WithLabelValues("v1")
-	metricReportsTotal.WithLabelValues("v2")
-	metricReportsTotal.WithLabelValues("v3")
+	metricReportsTotal.WithLabelValues("replace")
+	metricReportsTotal.WithLabelValues("accept")
 }

@@ -67,7 +67,7 @@ type dirJunctFileInfo struct {
 func (fi *dirJunctFileInfo) Mode() os.FileMode {
 	// Simulate a directory and not a symlink; also set the execute
 	// bits so the directory can be traversed Unix-side.
-	return fi.FileInfo.Mode() ^ junctionPointModeMask | os.ModeDir | 0111
+	return fi.FileInfo.Mode()&^junctionPointModeMask | os.ModeDir | 0111
 }
 
 func (fi *dirJunctFileInfo) IsDir() bool {
@@ -77,10 +77,13 @@ func (fi *dirJunctFileInfo) IsDir() bool {
 var junctionPointModeMask os.FileMode
 
 func init() {
+	// Per https://tip.golang.org/doc/go1.23#minor_library_changes
+	// In go1.22 (and go1.23 when GODEBUG=winsymlink=0) Windows' directory
+	// junctions (aka "mount points") always have ModeSymlink set.
 	junctionPointModeMask = os.ModeSymlink
 	if version.Compare(runtime.Version(), "go1.23") >= 0 {
-		// if GODEBUG=winsymlink=0, then we are in g1.22 mode so let's check for
-		// os.ModeSymlink as well, as it can't hurt.
+		// In go1.23 Windows' directory junctions always have ModeIrregular set
+		// (unless GODEBUG=winsymlink=0).
 		junctionPointModeMask |= os.ModeIrregular
 	}
 }
