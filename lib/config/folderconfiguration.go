@@ -81,7 +81,15 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	return dur
 }
 
+func (cfg *FolderConfiguration) IsBasedOnNativeFileSystem() bool {
+	isVirtual := strings.HasPrefix(cfg.Path, ":virtual:")
+	return !isVirtual
+}
+
 func (f *FolderConfiguration) CreateMarker() error {
+	if !f.IsBasedOnNativeFileSystem() {
+		return nil
+	}
 	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
@@ -119,6 +127,9 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) RemoveMarker() error {
+	if !f.IsBasedOnNativeFileSystem() {
+		return nil
+	}
 	ffs := f.Filesystem(nil)
 	_ = ffs.Remove(filepath.Join(DefaultMarkerName, f.markerFilename()))
 	return ffs.Remove(DefaultMarkerName)
@@ -139,6 +150,9 @@ func (f *FolderConfiguration) markerContents() []byte {
 
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
+	if !f.IsBasedOnNativeFileSystem() {
+		return nil
+	}
 	return f.checkFilesystemPath(f.Filesystem(nil), ".")
 }
 
@@ -173,6 +187,9 @@ func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
+	if !f.IsBasedOnNativeFileSystem() {
+		return nil
+	}
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := fs.FileMode(0o777)
@@ -254,7 +271,7 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.MaxConcurrentWrites = maxConcurrentWritesLimit
 	}
 
-	if f.Type == FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		f.DisableTempIndexes = true
 		f.IgnorePerms = true
 	}

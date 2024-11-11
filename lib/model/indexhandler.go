@@ -114,7 +114,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		conn:                     conn,
 		downloads:                downloads,
 		folder:                   folder.ID,
-		folderIsReceiveEncrypted: folder.Type == config.FolderTypeReceiveEncrypted,
+		folderIsReceiveEncrypted: folder.Type.IsReceiveEncrypted(),
 		localPrevSequence:        startSequence,
 		sentPrevSequence:         startSequence,
 		evLogger:                 evLogger,

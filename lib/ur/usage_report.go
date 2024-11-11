@@ -271,7 +271,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.CaseSensitiveFS {
 				report.FolderUsesV3.CaseSensitiveFS++
 			}
-			if cfg.Type == config.FolderTypeReceiveEncrypted {
+			if cfg.Type.IsReceiveEncrypted() {
 				report.FolderUsesV3.ReceiveEncrypted++
 			}
 			if cfg.SendXattrs {

@@ -9,7 +9,6 @@ package model
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -130,7 +129,7 @@ type sendReceiveFolder struct {
 	tempPullErrors map[string]string // pull errors that might be just transient
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) NativeFilesystemFolderService {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		queue:              newJobQueue(),
@@ -236,7 +235,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error) {
+func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error) { // files are received here
 	f.errorsMut.Lock()
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()
@@ -434,21 +433,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	}
 
 	// Now do the file queue. Reorder it according to configuration.
-
-	switch f.Order {
-	case config.PullOrderRandom:
-		f.queue.Shuffle()
-	case config.PullOrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.PullOrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.PullOrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.PullOrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.PullOrderNewestFirst:
-		f.queue.SortNewestFirst()
-	}
+	f.queue.SortAccordingToConfig(f.Order)
 
 	// Process the file queue.
 
@@ -714,7 +699,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		scanChan <- parent
 	}
 	return true
@@ -1103,7 +1088,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	blocks := append([]protocol.BlockInfo{}, file.Blocks...)
 	reused := make([]int, 0, len(file.Blocks))
 
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		blocks, reused = f.reuseBlocks(blocks, reused, file, tempName)
 	}
 
@@ -1252,7 +1237,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	// Still need to re-write the trailer with the new encrypted fileinfo.
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		err = inWritableDir(func(path string) error {
 			fd, err := f.mtimefs.OpenFile(path, fs.OptReadWrite, 0o666)
 			if err != nil {
@@ -1311,7 +1296,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			continue
 		}
 
-		if f.Type != config.FolderTypeReceiveEncrypted {
+		if !f.Type.IsReceiveEncrypted() {
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
@@ -1342,7 +1327,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			var found bool
-			if f.Type != config.FolderTypeReceiveEncrypted {
+			if !f.Type.IsReceiveEncrypted() {
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 					if f.verifyBuffer(buf, block) != nil {
 						return true
@@ -1383,7 +1368,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					// Hash is not SHA256 as it's an encrypted hash token. In that
 					// case we can't verify the block integrity so we'll take it on
 					// trust. (The other side can and will verify.)
-					if f.Type != config.FolderTypeReceiveEncrypted {
+					if !f.Type.IsReceiveEncrypted() {
 						if err := f.verifyBuffer(buf, block); err != nil {
 							l.Debugln("Finder failed to verify buffer", err)
 							return false
@@ -1437,7 +1422,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 }
 
 func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		l.Debugln("not weak hashing due to folder type", f.Type)
 		return nil, nil
 	}
@@ -1476,19 +1461,6 @@ func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash
 		return nil, file
 	}
 	return weakHashFinder, file
-}
-
-func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
-	if len(buf) != int(block.Size) {
-		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
-	}
-
-	hash := sha256.Sum256(buf)
-	if !bytes.Equal(hash[:], block.Hash) {
-		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
-	}
-
-	return nil
 }
 
 func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
@@ -1546,60 +1518,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 		return
 	}
 
-	var lastError error
-	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
-loop:
-	for {
-		select {
-		case <-f.ctx.Done():
-			state.fail(fmt.Errorf("folder stopped: %w", f.ctx.Err()))
-			break loop
-		default:
-		}
-
-		// Select the least busy device to pull the block from. If we found no
-		// feasible device at all, fail the block (and in the long run, the
-		// file).
-		found := activity.leastBusy(candidates)
-		if found == -1 {
-			if lastError != nil {
-				state.fail(fmt.Errorf("pull: %w", lastError))
-			} else {
-				state.fail(fmt.Errorf("pull: %w", errNoDevice))
-			}
-			break
-		}
-
-		selected := candidates[found]
-		candidates[found] = candidates[len(candidates)-1]
-		candidates = candidates[:len(candidates)-1]
-
-		// Fetch the block, while marking the selected device as in use so that
-		// leastBusy can select another device when someone else asks.
-		activity.using(selected)
-		var buf []byte
-		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
-		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
-		activity.done(selected)
-		if lastError != nil {
-			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)
-			continue
-		}
-
-		// Verify that the received block matches the desired hash, if not
-		// try pulling it from another device.
-		// For receive-only folders, the hash is not SHA256 as it's an
-		// encrypted hash token. In that case we can't verify the block
-		// integrity so we'll take it on trust. (The other side can and
-		// will verify.)
-		if f.Type != config.FolderTypeReceiveEncrypted {
-			lastError = f.verifyBuffer(buf, state.block)
-		}
-		if lastError != nil {
-			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
-			continue
-		}
-
+	err = f.pullBlockBase(func(buf []byte) {
 		// Save the block data we got from the cluster
 		err = f.limitedWriteAt(fd, buf, state.block.Offset)
 		if err != nil {
@@ -1607,8 +1526,12 @@ loop:
 		} else {
 			state.pullDone(state.block)
 		}
-		break
+	}, snap, state.file, state.block)
+
+	if err != nil {
+		state.fail(err)
 	}
+
 	out <- state.sharedPullerState
 }
 
@@ -1693,7 +1616,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 				blockStatsMut.Unlock()
 			}
 
-			if f.Type != config.FolderTypeReceiveEncrypted {
+			if !f.Type.IsReceiveEncrypted() {
 				f.model.progressEmitter.Deregister(state)
 			}
 
@@ -2240,4 +2163,62 @@ func existingConflicts(name string, fs fs.Filesystem) []string {
 		l.Debugln("globbing for conflicts", err)
 	}
 	return matches
+}
+
+var _ = (filesystemFolderServiceI)((*sendReceiveFolder)(nil))
+
+func (cfg *sendReceiveFolder) GetFileData(deviceID protocol.DeviceID, req *protocol.Request, response_data []byte) (int, error) {
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
+
+	m := cfg.model
+	folderFs := cfg.Filesystem(nil)
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	}
+
+	// Only check temp files if the flag is set, and if we are set to advertise
+	// the temp indexes.
+	if req.FromTemporary && !cfg.DisableTempIndexes {
+		tempFn := fs.TempName(req.Name)
+
+		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
+			// Reject reads for anything that doesn't exist or is something
+			// other than a regular file.
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+			return 0, protocol.ErrNoSuchFile
+		}
+		n, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, response_data)
+		if err == nil && scanner.Validate(response_data[:n], req.Hash, req.WeakHash) {
+			return n, nil
+		}
+		// Fall through to reading from a non-temp file, just in case the temp
+		// file has finished downloading.
+	}
+
+	if info, err := folderFs.Lstat(req.Name); err != nil || !info.IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	}
+
+	n, err := readOffsetIntoBuf(folderFs, req.Name, req.Offset, response_data)
+	if fs.IsNotExist(err) {
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrNoSuchFile
+	} else if err == io.EOF {
+		// Read beyond end of file. This might indicate a problem, or it
+		// might be a short block that gets padded when read for encrypted
+		// folders. We ignore the error and let the hash validation in the
+		// next step take care of it, by only hashing the part we actually
+		// managed to read.
+	} else if err != nil {
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
+		return 0, protocol.ErrGeneric
+	}
+
+	return n, nil
 }

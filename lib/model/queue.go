@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -32,11 +33,24 @@ func newJobQueue() *jobQueue {
 	}
 }
 
-func (q *jobQueue) Push(file string, size int64, modified time.Time) {
+func (q *jobQueue) PushIfNew(file string, size int64, modified time.Time) bool {
 	q.mut.Lock()
+	defer q.mut.Unlock()
+	for i := range q.queued {
+		if q.queued[i].name == file {
+			return false
+		}
+	}
 	// The range of UnixNano covers a range of reasonable timestamps.
 	q.queued = append(q.queued, jobQueueEntry{file, size, modified.UnixNano()})
-	q.mut.Unlock()
+	return true
+}
+
+func (q *jobQueue) Push(file string, size int64, modified time.Time) {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+	// The range of UnixNano covers a range of reasonable timestamps.
+	q.queued = append(q.queued, jobQueueEntry{file, size, modified.UnixNano()})
 }
 
 func (q *jobQueue) Pop() (string, bool) {
@@ -151,6 +165,23 @@ func (q *jobQueue) lenProgress() int {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 	return len(q.progress)
+}
+
+func (q *jobQueue) SortAccordingToConfig(Order config.PullOrder) {
+	switch Order {
+	case config.PullOrderRandom:
+		q.Shuffle()
+	case config.PullOrderAlphabetic:
+	// The queue is already in alphabetic order.
+	case config.PullOrderSmallestFirst:
+		q.SortSmallestFirst()
+	case config.PullOrderLargestFirst:
+		q.SortLargestFirst()
+	case config.PullOrderOldestFirst:
+		q.SortOldestFirst()
+	case config.PullOrderNewestFirst:
+		q.SortNewestFirst()
+	}
 }
 
 func (q *jobQueue) SortSmallestFirst() {

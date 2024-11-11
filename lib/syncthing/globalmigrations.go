@@ -44,7 +44,7 @@ func globalMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 func encryptionTrailerSizeMigration(ll *db.Lowlevel, cfg config.Wrapper) error {
 	encFolders := cfg.Folders()
 	for folderID, folderCfg := range cfg.Folders() {
-		if folderCfg.Type != config.FolderTypeReceiveEncrypted {
+		if !folderCfg.Type.IsReceiveEncrypted() {
 			delete(encFolders, folderID)
 		}
 	}

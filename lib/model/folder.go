@@ -7,7 +7,10 @@
 package model
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -36,22 +39,128 @@ import (
 // Arbitrary limit that triggers a warning on kqueue systems
 const kqueueItemCountThreshold = 10000
 
-type folder struct {
+type folderBase struct {
 	stateTracker
 	config.FolderConfiguration
+
+	evLogger events.Logger
+	model    *model
+	fset     *db.FileSet
+	ctx      context.Context // used internally, only accessible on serve lifetime
+
+	pullScheduled chan struct{}
+}
+
+func newFolderBase(
+	cfg config.FolderConfiguration,
+	evLogger events.Logger,
+	model *model,
+	fset *db.FileSet,
+) *folderBase {
+	return &folderBase{
+		stateTracker:        newStateTracker(cfg.ID, evLogger),
+		FolderConfiguration: cfg,
+		evLogger:            evLogger,
+		model:               model,
+		fset:                fset,
+		ctx:                 nil,                    // needs to be set at start of "serve"
+		pullScheduled:       make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+	}
+}
+
+func (f *folderBase) pullBlockBase(
+	handleBlockData func([]byte),
+	snap *db.Snapshot,
+	file protocol.FileInfo,
+	block protocol.BlockInfo,
+) error {
+	var lastError error
+	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, file, block)
+
+	for {
+		select {
+		case <-f.ctx.Done():
+			return fmt.Errorf("folder stopped: %w", f.ctx.Err())
+		default:
+		}
+
+		// Select the least busy device to pull the block from. If we found no
+		// feasible device at all, fail the block (and in the long run, the
+		// file).
+		found := activity.leastBusy(candidates)
+		if found == -1 {
+			if lastError != nil {
+				return fmt.Errorf("pull: %w", lastError)
+			} else {
+				return fmt.Errorf("pull: %w", errNoDevice)
+			}
+		}
+
+		selected := candidates[found]
+		candidates[found] = candidates[len(candidates)-1]
+		candidates = candidates[:len(candidates)-1]
+
+		// Fetch the block, while marking the selected device as in use so that
+		// leastBusy can select another device when someone else asks.
+		activity.using(selected)
+		var buf []byte
+		blockNo := int(block.Offset / int64(file.BlockSize()))
+		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, file.Name, blockNo, block.Offset, int(block.Size), block.Hash, block.WeakHash, selected.FromTemporary)
+		activity.done(selected)
+		if lastError != nil {
+			l.Debugln("request:", f.folderID, file.Name, block.Offset, block.Size, selected.ID.Short(), "returned error:", lastError)
+			continue
+		}
+
+		// Verify that the received block matches the desired hash, if not
+		// try pulling it from another device.
+		// For receive-only folders, the hash is not SHA256 as it's an
+		// encrypted hash token. In that case we can't verify the block
+		// integrity so we'll take it on trust. (The other side can and
+		// will verify.)
+		if !f.Type.IsReceiveEncrypted() {
+			lastError = f.verifyBuffer(buf, block)
+		}
+		if lastError != nil {
+			l.Debugln("request:", f.folderID, file.Name, block.Offset, block.Size, "hash mismatch")
+			continue
+		}
+
+		handleBlockData(buf)
+		return nil
+	}
+}
+
+func (*folderBase) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
+	if len(buf) != int(block.Size) {
+		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+	}
+
+	hash := sha256.Sum256(buf)
+	if !bytes.Equal(hash[:], block.Hash) {
+		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
+	}
+
+	return nil
+}
+
+type NativeFilesystemFolderService interface {
+	service
+	getFilesystem() fs.Filesystem
+}
+
+type folder struct {
+	*folderBase
 	*stats.FolderStatisticsReference
 	ioLimiter *semaphore.Semaphore
 
 	localFlags uint32
 
-	model         *model
 	shortID       protocol.ShortID
-	fset          *db.FileSet
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
-	ctx           context.Context // used internally, only accessible on serve lifetime
-	done          chan struct{}   // used externally, accessible regardless of serve
+	done          chan struct{} // used externally, accessible regardless of serve
 
 	scanInterval           time.Duration
 	scanTimer              *time.Timer
@@ -61,7 +170,6 @@ type folder struct {
 	versionCleanupInterval time.Duration
 	versionCleanupTimer    *time.Timer
 
-	pullScheduled chan struct{}
 	pullPause     time.Duration
 	pullFailTimer *time.Timer
 
@@ -87,6 +195,10 @@ type folder struct {
 	warnedKqueue bool
 }
 
+func (f *folder) getFilesystem() fs.Filesystem {
+	return f.mtimefs
+}
+
 type syncRequest struct {
 	fn  func() error
 	err chan error
@@ -98,14 +210,11 @@ type puller interface {
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
-		stateTracker:              newStateTracker(cfg.ID, evLogger),
-		FolderConfiguration:       cfg,
+		folderBase:                newFolderBase(cfg, evLogger, model, fset),
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 		ioLimiter:                 ioLimiter,
 
-		model:         model,
 		shortID:       model.shortID,
-		fset:          fset,
 		ignores:       ignores,
 		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
@@ -118,8 +227,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanScheduled:          make(chan struct{}, 1),
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
 		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
-
-		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		errorsMut: sync.NewMutex(),
 
@@ -144,7 +251,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	return f
 }
 
-func (f *folder) Serve(ctx context.Context) error {
+func (f *folder) Serve(ctx context.Context) error { // main loop for each shared folder
 	f.model.foldersRunning.Add(1)
 	defer f.model.foldersRunning.Add(-1)
 
@@ -266,7 +373,7 @@ func (f *folder) ignoresUpdated() {
 	}
 }
 
-func (f *folder) SchedulePull() {
+func (f *folderBase) SchedulePull() {
 	select {
 	case f.pullScheduled <- struct{}{}:
 	default:
@@ -317,7 +424,7 @@ func (f *folder) getHealthErrorAndLoadIgnores() error {
 	if err := f.getHealthErrorWithoutIgnores(); err != nil {
 		return err
 	}
-	if f.Type != config.FolderTypeReceiveEncrypted {
+	if !f.Type.IsReceiveEncrypted() {
 		if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			return fmt.Errorf("loading ignores: %w", err)
 		}
@@ -594,7 +701,7 @@ func (b *scanBatch) FlushIfFull() error {
 func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	// Check for a "virtual" parent directory of encrypted files. We don't track
 	// it, but check if anything still exists within and delete it otherwise.
-	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
+	if b.f.Type.IsReceiveEncrypted() && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
 		if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
 			b.f.mtimefs.Remove(fi.Name)
 		}
@@ -611,7 +718,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 			b.Remove(fi.Name)
 			return true
 		}
-	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
+	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type.IsReceiveEncrypted()) &&
 		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
 			ModTimeWindow:   b.f.modTimeWindow,
 			IgnorePerms:     b.f.IgnorePerms,
@@ -661,7 +768,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
-	if f.Type == config.FolderTypeReceiveEncrypted {
+	if f.Type.IsReceiveEncrypted() {
 		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
 	} else {
 		fchan = scanner.Walk(scanCtx, scanConfig)
@@ -1333,6 +1440,39 @@ func (f *folder) dbSnapshot() (*db.Snapshot, error) {
 		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 	return snap, nil
+}
+
+func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
+	fd, err := cfg.Filesystem(nil).Open(encryptionTokenPath(cfg))
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	var stored storedEncryptionToken
+	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
+		return nil, err
+	}
+	return stored.Token, nil
+}
+
+func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
+	tokenName := encryptionTokenPath(cfg)
+	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	return json.NewEncoder(fd).Encode(storedEncryptionToken{
+		FolderID: cfg.ID,
+		Token:    token,
+	})
+}
+
+func (f *folder) ReadEncryptionToken() ([]byte, error) {
+	return readEncryptionToken(f.FolderConfiguration)
+}
+func (f *folder) WriteEncryptionToken(token []byte) error {
+	return writeEncryptionToken(token, f.FolderConfiguration)
 }
 
 // The exists function is expected to return true for all known paths
