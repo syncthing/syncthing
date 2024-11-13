@@ -1,4 +1,8 @@
-// Copyright (C) 2014 The Protocol Authors.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
 
@@ -13,7 +17,6 @@ package protocol
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -25,6 +28,10 @@ import (
 	"time"
 
 	lz4 "github.com/pierrec/lz4/v4"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/internal/protoutil"
 )
 
 const (
@@ -46,68 +53,18 @@ const (
 
 	// DesiredPerFileBlocks is the number of blocks we aim for per file
 	DesiredPerFileBlocks = 2000
+
+	SyntheticDirectorySize = 128
+
+	// don't bother compressing messages smaller than this many bytes
+	compressionThreshold = 128
 )
 
-// BlockSizes is the list of valid block sizes, from min to max
-var BlockSizes []int
-
-// For each block size, the hash of a block of all zeroes
-var sha256OfEmptyBlock = map[int][sha256.Size]byte{
-	128 << KiB: {0xfa, 0x43, 0x23, 0x9b, 0xce, 0xe7, 0xb9, 0x7c, 0xa6, 0x2f, 0x0, 0x7c, 0xc6, 0x84, 0x87, 0x56, 0xa, 0x39, 0xe1, 0x9f, 0x74, 0xf3, 0xdd, 0xe7, 0x48, 0x6d, 0xb3, 0xf9, 0x8d, 0xf8, 0xe4, 0x71},
-	256 << KiB: {0x8a, 0x39, 0xd2, 0xab, 0xd3, 0x99, 0x9a, 0xb7, 0x3c, 0x34, 0xdb, 0x24, 0x76, 0x84, 0x9c, 0xdd, 0xf3, 0x3, 0xce, 0x38, 0x9b, 0x35, 0x82, 0x68, 0x50, 0xf9, 0xa7, 0x0, 0x58, 0x9b, 0x4a, 0x90},
-	512 << KiB: {0x7, 0x85, 0x4d, 0x2f, 0xef, 0x29, 0x7a, 0x6, 0xba, 0x81, 0x68, 0x5e, 0x66, 0xc, 0x33, 0x2d, 0xe3, 0x6d, 0x5d, 0x18, 0xd5, 0x46, 0x92, 0x7d, 0x30, 0xda, 0xad, 0x6d, 0x7f, 0xda, 0x15, 0x41},
-	1 << MiB:   {0x30, 0xe1, 0x49, 0x55, 0xeb, 0xf1, 0x35, 0x22, 0x66, 0xdc, 0x2f, 0xf8, 0x6, 0x7e, 0x68, 0x10, 0x46, 0x7, 0xe7, 0x50, 0xab, 0xb9, 0xd3, 0xb3, 0x65, 0x82, 0xb8, 0xaf, 0x90, 0x9f, 0xcb, 0x58},
-	2 << MiB:   {0x56, 0x47, 0xf0, 0x5e, 0xc1, 0x89, 0x58, 0x94, 0x7d, 0x32, 0x87, 0x4e, 0xeb, 0x78, 0x8f, 0xa3, 0x96, 0xa0, 0x5d, 0xb, 0xab, 0x7c, 0x1b, 0x71, 0xf1, 0x12, 0xce, 0xb7, 0xe9, 0xb3, 0x1e, 0xee},
-	4 << MiB:   {0xbb, 0x9f, 0x8d, 0xf6, 0x14, 0x74, 0xd2, 0x5e, 0x71, 0xfa, 0x0, 0x72, 0x23, 0x18, 0xcd, 0x38, 0x73, 0x96, 0xca, 0x17, 0x36, 0x60, 0x5e, 0x12, 0x48, 0x82, 0x1c, 0xc0, 0xde, 0x3d, 0x3a, 0xf8},
-	8 << MiB:   {0x2d, 0xae, 0xb1, 0xf3, 0x60, 0x95, 0xb4, 0x4b, 0x31, 0x84, 0x10, 0xb3, 0xf4, 0xe8, 0xb5, 0xd9, 0x89, 0xdc, 0xc7, 0xbb, 0x2, 0x3d, 0x14, 0x26, 0xc4, 0x92, 0xda, 0xb0, 0xa3, 0x5, 0x3e, 0x74},
-	16 << MiB:  {0x8, 0xa, 0xcf, 0x35, 0xa5, 0x7, 0xac, 0x98, 0x49, 0xcf, 0xcb, 0xa4, 0x7d, 0xc2, 0xad, 0x83, 0xe0, 0x1b, 0x75, 0x66, 0x3a, 0x51, 0x62, 0x79, 0xc8, 0xb9, 0xd2, 0x43, 0xb7, 0x19, 0x64, 0x3e},
-}
-
 var errNotCompressible = errors.New("not compressible")
-
-func init() {
-	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
-		BlockSizes = append(BlockSizes, blockSize)
-		if _, ok := sha256OfEmptyBlock[blockSize]; !ok {
-			panic("missing hard coded value for sha256 of empty block")
-		}
-	}
-	BufferPool = newBufferPool()
-}
-
-// BlockSize returns the block size to use for the given file size
-func BlockSize(fileSize int64) int {
-	var blockSize int
-	for _, blockSize = range BlockSizes {
-		if fileSize < DesiredPerFileBlocks*int64(blockSize) {
-			break
-		}
-	}
-
-	return blockSize
-}
 
 const (
 	stateInitial = iota
 	stateReady
-)
-
-// FileInfo.LocalFlags flags
-const (
-	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
-	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
-	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
-	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
-
-	// Flags that should result in the Invalid bit on outgoing updates
-	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
-
-	// Flags that should result in a file being in conflict with its
-	// successor, due to us not having an up to date picture of its state on
-	// disk.
-	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalReceiveOnly
-
-	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
 )
 
 var (
@@ -220,7 +177,7 @@ type rawConnection struct {
 
 	idxMut sync.Mutex // ensures serialization of Index calls
 
-	inbox                 chan message
+	inbox                 chan proto.Message
 	outbox                chan asyncMessage
 	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
@@ -239,15 +196,8 @@ type asyncResult struct {
 	err error
 }
 
-type message interface {
-	ProtoSize() int
-	Marshal() ([]byte, error)
-	MarshalTo([]byte) (int, error)
-	Unmarshal([]byte) error
-}
-
 type asyncMessage struct {
-	msg  message
+	msg  proto.Message
 	done chan struct{} // done closes when we're done sending the message
 }
 
@@ -303,7 +253,7 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 		cw:                    cw,
 		closer:                closer,
 		awaiting:              make(map[int]chan asyncResult),
-		inbox:                 make(chan message),
+		inbox:                 make(chan proto.Message),
 		outbox:                make(chan asyncMessage),
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
@@ -359,7 +309,7 @@ func (c *rawConnection) Index(ctx context.Context, idx *Index) error {
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(ctx, idx, nil)
+	c.send(ctx, idx.toWire(), nil)
 	c.idxMut.Unlock()
 	return nil
 }
@@ -374,7 +324,7 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) err
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(ctx, idxUp, nil)
+	c.send(ctx, idxUp.toWire(), nil)
 	c.idxMut.Unlock()
 	return nil
 }
@@ -402,7 +352,7 @@ func (c *rawConnection) Request(ctx context.Context, req *Request) ([]byte, erro
 	c.awaitingMut.Unlock()
 
 	req.ID = id
-	ok := c.send(ctx, req, nil)
+	ok := c.send(ctx, req.toWire(), nil)
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -432,11 +382,11 @@ func (c *rawConnection) Closed() <-chan struct{} {
 
 // DownloadProgress sends the progress updates for the files that are currently being downloaded.
 func (c *rawConnection) DownloadProgress(ctx context.Context, dp *DownloadProgress) {
-	c.send(ctx, dp, nil)
+	c.send(ctx, dp.toWire(), nil)
 }
 
 func (c *rawConnection) ping() bool {
-	return c.send(context.Background(), &Ping{}, nil)
+	return c.send(context.Background(), &bep.Ping{}, nil)
 }
 
 func (c *rawConnection) readerLoop() {
@@ -456,13 +406,12 @@ func (c *rawConnection) readerLoop() {
 		case <-c.closed:
 			return
 		}
-
 	}
 }
 
 func (c *rawConnection) dispatcherLoop() (err error) {
 	defer close(c.dispatcherLoopStopped)
-	var msg message
+	var msg proto.Message
 	state := stateInitial
 	for {
 		select {
@@ -485,11 +434,11 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		l.Debugf("handle %v message", msgContext)
 
 		switch msg := msg.(type) {
-		case *ClusterConfig:
+		case *bep.ClusterConfig:
 			if state == stateInitial {
 				state = stateReady
 			}
-		case *Close:
+		case *bep.Close:
 			return fmt.Errorf("closed by remote: %v", msg.Reason)
 		default:
 			if state != stateReady {
@@ -498,13 +447,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		}
 
 		switch msg := msg.(type) {
-		case *Index:
-			err = checkIndexConsistency(msg.Files)
-
-		case *IndexUpdate:
-			err = checkIndexConsistency(msg.Files)
-
-		case *Request:
+		case *bep.Request:
 			err = checkFilename(msg.Name)
 		}
 		if err != nil {
@@ -512,23 +455,31 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		}
 
 		switch msg := msg.(type) {
-		case *ClusterConfig:
-			err = c.model.ClusterConfig(msg)
+		case *bep.ClusterConfig:
+			err = c.model.ClusterConfig(clusterConfigFromWire(msg))
 
-		case *Index:
-			err = c.handleIndex(msg)
+		case *bep.Index:
+			idx := indexFromWire(msg)
+			if err := checkIndexConsistency(idx.Files); err != nil {
+				return newProtocolError(err, msgContext)
+			}
+			err = c.handleIndex(idx)
 
-		case *IndexUpdate:
-			err = c.handleIndexUpdate(msg)
+		case *bep.IndexUpdate:
+			idxUp := indexUpdateFromWire(msg)
+			if err := checkIndexConsistency(idxUp.Files); err != nil {
+				return newProtocolError(err, msgContext)
+			}
+			err = c.handleIndexUpdate(idxUp)
 
-		case *Request:
-			go c.handleRequest(msg)
+		case *bep.Request:
+			go c.handleRequest(requestFromWire(msg))
 
-		case *Response:
-			c.handleResponse(msg)
+		case *bep.Response:
+			c.handleResponse(responseFromWire(msg))
 
-		case *DownloadProgress:
-			err = c.model.DownloadProgress(msg)
+		case *bep.DownloadProgress:
+			err = c.model.DownloadProgress(downloadProgressFromWire(msg))
 		}
 		if err != nil {
 			return newHandleError(err, msgContext)
@@ -536,7 +487,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 	}
 }
 
-func (c *rawConnection) readMessage(fourByteBuf []byte) (message, error) {
+func (c *rawConnection) readMessage(fourByteBuf []byte) (proto.Message, error) {
 	hdr, err := c.readHeader(fourByteBuf)
 	if err != nil {
 		return nil, err
@@ -545,7 +496,7 @@ func (c *rawConnection) readMessage(fourByteBuf []byte) (message, error) {
 	return c.readMessageAfterHeader(hdr, fourByteBuf)
 }
 
-func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (message, error) {
+func (c *rawConnection) readMessageAfterHeader(hdr *bep.Header, fourByteBuf []byte) (proto.Message, error) {
 	// First comes a 4 byte message length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
@@ -569,10 +520,10 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	// ... which might be compressed
 
 	switch hdr.Compression {
-	case MessageCompressionNone:
+	case bep.MessageCompression_MESSAGE_COMPRESSION_NONE:
 		// Nothing
 
-	case MessageCompressionLZ4:
+	case bep.MessageCompression_MESSAGE_COMPRESSION_LZ4:
 		decomp, err := lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
@@ -593,7 +544,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		BufferPool.Put(buf)
 		return nil, err
 	}
-	if err := msg.Unmarshal(buf); err != nil {
+	if err := proto.Unmarshal(buf, msg); err != nil {
 		BufferPool.Put(buf)
 		return nil, fmt.Errorf("unmarshalling message: %w", err)
 	}
@@ -602,15 +553,15 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	return msg, nil
 }
 
-func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
+func (c *rawConnection) readHeader(fourByteBuf []byte) (*bep.Header, error) {
 	// First comes a 2 byte header length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
-		return Header{}, fmt.Errorf("reading length: %w", err)
+		return nil, fmt.Errorf("reading length: %w", err)
 	}
 	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
 	if hdrLen < 0 {
-		return Header{}, fmt.Errorf("negative header length %d", hdrLen)
+		return nil, fmt.Errorf("negative header length %d", hdrLen)
 	}
 
 	// Then comes the header
@@ -618,19 +569,19 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	buf := BufferPool.Get(int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		BufferPool.Put(buf)
-		return Header{}, fmt.Errorf("reading header: %w", err)
+		return nil, fmt.Errorf("reading header: %w", err)
 	}
 
-	var hdr Header
-	err := hdr.Unmarshal(buf)
+	var hdr bep.Header
+	err := proto.Unmarshal(buf, &hdr)
 	BufferPool.Put(buf)
 	if err != nil {
-		return Header{}, fmt.Errorf("unmarshalling header: %w", err)
+		return nil, fmt.Errorf("unmarshalling header: %w %x", err, buf)
 	}
 
 	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(2 + len(buf)))
 
-	return hdr, nil
+	return &hdr, nil
 }
 
 func (c *rawConnection) handleIndex(im *Index) error {
@@ -708,18 +659,20 @@ func checkFilename(name string) error {
 func (c *rawConnection) handleRequest(req *Request) {
 	res, err := c.model.Request(req)
 	if err != nil {
-		c.send(context.Background(), &Response{
+		resp := &Response{
 			ID:   req.ID,
 			Code: errorToCode(err),
-		}, nil)
+		}
+		c.send(context.Background(), resp.toWire(), nil)
 		return
 	}
 	done := make(chan struct{})
-	c.send(context.Background(), &Response{
+	resp := &Response{
 		ID:   req.ID,
 		Data: res.Data(),
 		Code: errorToCode(nil),
-	}, done)
+	}
+	c.send(context.Background(), resp.toWire(), done)
 	<-done
 	res.Close()
 }
@@ -734,7 +687,7 @@ func (c *rawConnection) handleResponse(resp *Response) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{}) bool {
+func (c *rawConnection) send(ctx context.Context, msg proto.Message, done chan struct{}) bool {
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
@@ -750,7 +703,7 @@ func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{
 func (c *rawConnection) writerLoop() {
 	select {
 	case cc := <-c.clusterConfigBox:
-		err := c.writeMessage(cc)
+		err := c.writeMessage(cc.toWire())
 		if err != nil {
 			c.internalClose(err)
 			return
@@ -776,7 +729,7 @@ func (c *rawConnection) writerLoop() {
 		}
 		select {
 		case cc := <-c.clusterConfigBox:
-			err := c.writeMessage(cc)
+			err := c.writeMessage(cc.toWire())
 			if err != nil {
 				c.internalClose(err)
 				return
@@ -802,7 +755,7 @@ func (c *rawConnection) writerLoop() {
 	}
 }
 
-func (c *rawConnection) writeMessage(msg message) error {
+func (c *rawConnection) writeMessage(msg proto.Message) error {
 	msgContext, _ := messageContext(msg)
 	l.Debugf("Writing %v", msgContext)
 
@@ -810,11 +763,11 @@ func (c *rawConnection) writeMessage(msg message) error {
 		metricDeviceSentMessages.WithLabelValues(c.idString).Inc()
 	}()
 
-	size := msg.ProtoSize()
-	hdr := Header{
+	size := proto.Size(msg)
+	hdr := &bep.Header{
 		Type: typeOf(msg),
 	}
-	hdrSize := hdr.ProtoSize()
+	hdrSize := proto.Size(hdr)
 	if hdrSize > 1<<16-1 {
 		panic("impossibly large header")
 	}
@@ -825,7 +778,8 @@ func (c *rawConnection) writeMessage(msg message) error {
 	defer BufferPool.Put(buf)
 
 	// Message
-	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
+
+	if _, err := protoutil.MarshalTo(buf[overhead:], msg); err != nil {
 		return fmt.Errorf("marshalling message: %w", err)
 	}
 
@@ -841,7 +795,7 @@ func (c *rawConnection) writeMessage(msg message) error {
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
-	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
+	if _, err := protoutil.MarshalTo(buf[2:], hdr); err != nil {
 		return fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
@@ -860,12 +814,12 @@ func (c *rawConnection) writeMessage(msg message) error {
 //
 // The first return value indicates whether compression succeeded.
 // If not, the caller should retry without compression.
-func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (ok bool, err error) {
-	hdr := Header{
+func (c *rawConnection) writeCompressedMessage(msg proto.Message, marshaled []byte) (ok bool, err error) {
+	hdr := &bep.Header{
 		Type:        typeOf(msg),
-		Compression: MessageCompressionLZ4,
+		Compression: bep.MessageCompression_MESSAGE_COMPRESSION_LZ4,
 	}
-	hdrSize := hdr.ProtoSize()
+	hdrSize := proto.Size(hdr)
 	if hdrSize > 1<<16-1 {
 		panic("impossibly large header")
 	}
@@ -890,7 +844,7 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
-	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
+	if _, err := protoutil.MarshalTo(buf[2:], hdr); err != nil {
 		return true, fmt.Errorf("marshalling header: %w", err)
 	}
 	// Message length
@@ -904,65 +858,65 @@ func (c *rawConnection) writeCompressedMessage(msg message, marshaled []byte) (o
 	return true, nil
 }
 
-func typeOf(msg message) MessageType {
+func typeOf(msg proto.Message) bep.MessageType {
 	switch msg.(type) {
-	case *ClusterConfig:
-		return MessageTypeClusterConfig
-	case *Index:
-		return MessageTypeIndex
-	case *IndexUpdate:
-		return MessageTypeIndexUpdate
-	case *Request:
-		return MessageTypeRequest
-	case *Response:
-		return MessageTypeResponse
-	case *DownloadProgress:
-		return MessageTypeDownloadProgress
-	case *Ping:
-		return MessageTypePing
-	case *Close:
-		return MessageTypeClose
+	case *bep.ClusterConfig:
+		return bep.MessageType_MESSAGE_TYPE_CLUSTER_CONFIG
+	case *bep.Index:
+		return bep.MessageType_MESSAGE_TYPE_INDEX
+	case *bep.IndexUpdate:
+		return bep.MessageType_MESSAGE_TYPE_INDEX_UPDATE
+	case *bep.Request:
+		return bep.MessageType_MESSAGE_TYPE_REQUEST
+	case *bep.Response:
+		return bep.MessageType_MESSAGE_TYPE_RESPONSE
+	case *bep.DownloadProgress:
+		return bep.MessageType_MESSAGE_TYPE_DOWNLOAD_PROGRESS
+	case *bep.Ping:
+		return bep.MessageType_MESSAGE_TYPE_PING
+	case *bep.Close:
+		return bep.MessageType_MESSAGE_TYPE_CLOSE
 	default:
 		panic("bug: unknown message type")
 	}
 }
 
-func newMessage(t MessageType) (message, error) {
+func newMessage(t bep.MessageType) (proto.Message, error) {
 	switch t {
-	case MessageTypeClusterConfig:
-		return new(ClusterConfig), nil
-	case MessageTypeIndex:
-		return new(Index), nil
-	case MessageTypeIndexUpdate:
-		return new(IndexUpdate), nil
-	case MessageTypeRequest:
-		return new(Request), nil
-	case MessageTypeResponse:
-		return new(Response), nil
-	case MessageTypeDownloadProgress:
-		return new(DownloadProgress), nil
-	case MessageTypePing:
-		return new(Ping), nil
-	case MessageTypeClose:
-		return new(Close), nil
+	case bep.MessageType_MESSAGE_TYPE_CLUSTER_CONFIG:
+		return new(bep.ClusterConfig), nil
+	case bep.MessageType_MESSAGE_TYPE_INDEX:
+		return new(bep.Index), nil
+	case bep.MessageType_MESSAGE_TYPE_INDEX_UPDATE:
+		return new(bep.IndexUpdate), nil
+	case bep.MessageType_MESSAGE_TYPE_REQUEST:
+		return new(bep.Request), nil
+	case bep.MessageType_MESSAGE_TYPE_RESPONSE:
+		return new(bep.Response), nil
+	case bep.MessageType_MESSAGE_TYPE_DOWNLOAD_PROGRESS:
+		return new(bep.DownloadProgress), nil
+	case bep.MessageType_MESSAGE_TYPE_PING:
+		return new(bep.Ping), nil
+	case bep.MessageType_MESSAGE_TYPE_CLOSE:
+		return new(bep.Close), nil
 	default:
 		return nil, errUnknownMessage
 	}
 }
 
-func (c *rawConnection) shouldCompressMessage(msg message) bool {
+func (c *rawConnection) shouldCompressMessage(msg proto.Message) bool {
 	switch c.compression {
 	case CompressionNever:
 		return false
 
 	case CompressionAlways:
 		// Use compression for large enough messages
-		return msg.ProtoSize() >= compressionThreshold
+		return proto.Size(msg) >= compressionThreshold
 
 	case CompressionMetadata:
-		_, isResponse := msg.(*Response)
+		_, isResponse := msg.(*bep.Response)
 		// Compress if it's large enough and not a response message
-		return !isResponse && msg.ProtoSize() >= compressionThreshold
+		return !isResponse && proto.Size(msg) >= compressionThreshold
 
 	default:
 		panic("unknown compression setting")
@@ -977,7 +931,7 @@ func (c *rawConnection) Close(err error) {
 		done := make(chan struct{})
 		timeout := time.NewTimer(CloseTimeout)
 		select {
-		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
+		case c.closeBox <- asyncMessage{&bep.Close{Reason: err.Error()}, done}:
 			select {
 			case <-done:
 			case <-timeout.C:
@@ -1127,23 +1081,23 @@ func newHandleError(err error, msgContext string) error {
 	return fmt.Errorf("handling %v: %w", msgContext, err)
 }
 
-func messageContext(msg message) (string, error) {
+func messageContext(msg proto.Message) (string, error) {
 	switch msg := msg.(type) {
-	case *ClusterConfig:
+	case *bep.ClusterConfig:
 		return "cluster-config", nil
-	case *Index:
+	case *bep.Index:
 		return fmt.Sprintf("index for %v", msg.Folder), nil
-	case *IndexUpdate:
+	case *bep.IndexUpdate:
 		return fmt.Sprintf("index-update for %v", msg.Folder), nil
-	case *Request:
+	case *bep.Request:
 		return fmt.Sprintf(`request for "%v" in %v`, msg.Name, msg.Folder), nil
-	case *Response:
+	case *bep.Response:
 		return "response", nil
-	case *DownloadProgress:
+	case *bep.DownloadProgress:
 		return fmt.Sprintf("download-progress for %v", msg.Folder), nil
-	case *Ping:
+	case *bep.Ping:
 		return "ping", nil
-	case *Close:
+	case *bep.Close:
 		return "close", nil
 	default:
 		return "", errors.New("unknown or empty message")

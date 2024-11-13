@@ -75,7 +75,7 @@ func init() {
 		},
 		Defaults: config.Defaults{
 			Folder: config.FolderConfiguration{
-				FilesystemType: fs.FilesystemTypeFake,
+				FilesystemType: config.FilesystemTypeFake,
 				Path:           rand.String(32),
 			},
 		},
@@ -102,7 +102,7 @@ func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context
 }
 
 func newFolderConfig() config.FolderConfiguration {
-	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", config.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg

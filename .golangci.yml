@@ -1,26 +1,39 @@
-linters-settings:
-  maligned:
-    suggest-new: true
-
 linters:
   enable-all: true
   disable:
-    - goimports
+    - cyclop
     - depguard
-    - lll
-    - gochecknoinits
-    - gochecknoglobals
-    - gofmt
-    - scopelint
-    - gocyclo
+    - exhaustive
+    - exhaustruct
     - funlen
-    - wsl
+    - gci
+    - gochecknoglobals
+    - gochecknoinits
     - gocognit
+    - goconst
+    - gocyclo
     - godox
+    - gofmt
+    - goimports
+    - gomoddirectives
+    - inamedparam
+    - interfacebloat
+    - ireturn
+    - lll
+    - maintidx
+    - nestif
+    - nonamedreturns
+    - paralleltest
+    - protogetter
+    - scopelint
+    - tagalign
+    - tagliatelle
+    - testpackage
+    - varnamelen
+    - wsl
 
-service:
-  golangci-lint-version: 1.21.x
-  prepare:
-    - rm -f go.sum # 1.12 -> 1.13 issues with QUIC-go
-    - GO111MODULE=on go mod vendor
-    - go run build.go assets
+issues:
+  exclude-dirs:
+    - internal/gen
+    - cmd/dev
+    - repos

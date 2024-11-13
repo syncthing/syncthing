@@ -1,0 +1,12 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/syncthing/syncthing/internal/gen
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.35.1
+    out: .
+    opt: module=github.com/syncthing/syncthing
+inputs:
+  - directory: proto

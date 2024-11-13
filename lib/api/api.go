@@ -1483,7 +1483,7 @@ func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 
 func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
-	var weights = make(map[string]float64)
+	weights := make(map[string]float64)
 	for _, l := range strings.Split(lang, ",") {
 		parts := strings.SplitN(l, ";", 2)
 		code := strings.ToLower(strings.TrimSpace(parts[0]))
@@ -1502,7 +1502,7 @@ func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 			weights[code] = q
 		}
 	}
-	var langs = make([]string, 0, len(weights))
+	langs := make([]string, 0, len(weights))
 	for code := range weights {
 		langs = append(langs, code)
 	}
@@ -1725,10 +1725,10 @@ func (*service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	current := qs.Get("current")
 
 	// Default value or in case of error unmarshalling ends up being basic fs.
-	var fsType fs.FilesystemType
+	var fsType config.FilesystemType
 	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
-	sendJSON(w, browse(fsType, current))
+	sendJSON(w, browse(fsType.ToFS(), current))
 }
 
 func browse(fsType fs.FilesystemType, current string) []string {
@@ -1847,10 +1847,10 @@ func (*service) getHeapProf(w http.ResponseWriter, _ *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
-	res := make([]jsonFileInfoTrunc, len(fs))
+func toJsonFileInfoSlice(fs []protocol.FileInfo) []jsonFileInfo {
+	res := make([]jsonFileInfo, len(fs))
 	for i, f := range fs {
-		res[i] = jsonFileInfoTrunc(f)
+		res[i] = jsonFileInfo(f)
 	}
 	return res
 }
@@ -1865,15 +1865,7 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-type jsonFileInfoTrunc db.FileInfoTruncated
-
-func (f jsonFileInfoTrunc) MarshalJSON() ([]byte, error) {
-	m := fileIntfJSONMap(db.FileInfoTruncated(f))
-	m["numBlocks"] = nil // explicitly unknown
-	return json.Marshal(m)
-}
-
-func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
+func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
 	out := map[string]interface{}{
 		"name":          f.FileName(),
 		"type":          f.FileType().String(),

@@ -33,7 +33,7 @@ func EnsureDir(dir string, mode fs.FileMode) error {
 		// Apparently the stat may fail even though the mkdirall passed. If it
 		// does, we'll just assume things are in order and let other things
 		// fail (like loading or creating the config...).
-		currentMode := fi.Mode() & 0777
+		currentMode := fi.Mode() & 0o777
 		if currentMode != mode {
 			err := fs.Chmod(".", mode)
 			// This can fail on crappy filesystems, nothing we can do about it.
@@ -75,7 +75,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 	fcfg := newCfg.Defaults.Folder.Copy()
 	fcfg.ID = "default"
 	fcfg.Label = "Default Folder"
-	fcfg.FilesystemType = fs.FilesystemTypeBasic
+	fcfg.FilesystemType = config.FilesystemTypeBasic
 	fcfg.Path = locations.Get(locations.DefFolder)
 	newCfg.Folders = append(newCfg.Folders, fcfg)
 	l.Infoln("Default folder created and/or linked to new config")
@@ -139,7 +139,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	if err := os.WriteFile(dst, bs, 0600); err != nil {
+	if err := os.WriteFile(dst, bs, 0o600); err != nil {
 		// Attempt to clean up
 		os.Remove(dst)
 		return err

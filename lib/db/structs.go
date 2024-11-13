@@ -10,172 +10,52 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (f FileInfoTruncated) String() string {
-	switch f.Type {
-	case protocol.FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
-	case protocol.FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize)
-	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeSymlinkDirectory, protocol.FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
-			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
-	default:
-		panic("mystery file type detected")
+type CountsSet struct {
+	Counts  []Counts
+	Created int64 // unix nanos
+}
+
+type Counts struct {
+	Files       int
+	Directories int
+	Symlinks    int
+	Deleted     int
+	Bytes       int64
+	Sequence    int64             // zero for the global state
+	DeviceID    protocol.DeviceID // device ID for remote devices, or special values for local/global
+	LocalFlags  uint32            // the local flag for this count bucket
+}
+
+func (c Counts) toWire() *dbproto.Counts {
+	return &dbproto.Counts{
+		Files:       int32(c.Files),
+		Directories: int32(c.Directories),
+		Symlinks:    int32(c.Symlinks),
+		Deleted:     int32(c.Deleted),
+		Bytes:       c.Bytes,
+		Sequence:    c.Sequence,
+		DeviceId:    c.DeviceID[:],
+		LocalFlags:  c.LocalFlags,
 	}
 }
 
-func (f FileInfoTruncated) IsDeleted() bool {
-	return f.Deleted
-}
-
-func (f FileInfoTruncated) IsInvalid() bool {
-	return f.RawInvalid || f.LocalFlags&protocol.LocalInvalidFlags != 0
-}
-
-func (f FileInfoTruncated) IsUnsupported() bool {
-	return f.LocalFlags&protocol.FlagLocalUnsupported != 0
-}
-
-func (f FileInfoTruncated) IsIgnored() bool {
-	return f.LocalFlags&protocol.FlagLocalIgnored != 0
-}
-
-func (f FileInfoTruncated) MustRescan() bool {
-	return f.LocalFlags&protocol.FlagLocalMustRescan != 0
-}
-
-func (f FileInfoTruncated) IsReceiveOnlyChanged() bool {
-	return f.LocalFlags&protocol.FlagLocalReceiveOnly != 0
-}
-
-func (f FileInfoTruncated) IsDirectory() bool {
-	return f.Type == protocol.FileInfoTypeDirectory
-}
-
-func (f FileInfoTruncated) IsSymlink() bool {
-	switch f.Type {
-	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeSymlinkDirectory, protocol.FileInfoTypeSymlinkFile:
-		return true
-	default:
-		return false
-	}
-}
-
-func (f FileInfoTruncated) ShouldConflict() bool {
-	return f.LocalFlags&protocol.LocalConflictFlags != 0
-}
-
-func (f FileInfoTruncated) HasPermissionBits() bool {
-	return !f.NoPermissions
-}
-
-func (f FileInfoTruncated) FileSize() int64 {
-	if f.Deleted {
-		return 0
-	}
-	if f.IsDirectory() || f.IsSymlink() {
-		return protocol.SyntheticDirectorySize
-	}
-	return f.Size
-}
-
-func (f FileInfoTruncated) BlockSize() int {
-	if f.RawBlockSize == 0 {
-		return protocol.MinBlockSize
-	}
-	return int(f.RawBlockSize)
-}
-
-func (f FileInfoTruncated) FileName() string {
-	return f.Name
-}
-
-func (f FileInfoTruncated) FileLocalFlags() uint32 {
-	return f.LocalFlags
-}
-
-func (f FileInfoTruncated) ModTime() time.Time {
-	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
-}
-
-func (f FileInfoTruncated) SequenceNo() int64 {
-	return f.Sequence
-}
-
-func (f FileInfoTruncated) FileVersion() protocol.Vector {
-	return f.Version
-}
-
-func (f FileInfoTruncated) FileType() protocol.FileInfoType {
-	return f.Type
-}
-
-func (f FileInfoTruncated) FilePermissions() uint32 {
-	return f.Permissions
-}
-
-func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
-	return f.ModifiedBy
-}
-
-func (f FileInfoTruncated) PlatformData() protocol.PlatformData {
-	return f.Platform
-}
-
-func (f FileInfoTruncated) InodeChangeTime() time.Time {
-	return time.Unix(0, f.InodeChangeNs)
-}
-
-func (f FileInfoTruncated) FileBlocksHash() []byte {
-	return f.BlocksHash
-}
-
-func (f FileInfoTruncated) ConvertToIgnoredFileInfo() protocol.FileInfo {
-	file := f.copyToFileInfo()
-	file.SetIgnored()
-	return file
-}
-
-func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protocol.FileInfo {
-	file := f.copyToFileInfo()
-	file.SetDeleted(by)
-	return file
-}
-
-// ConvertDeletedToFileInfo converts a deleted truncated file info to a regular file info
-func (f FileInfoTruncated) ConvertDeletedToFileInfo() protocol.FileInfo {
-	if !f.Deleted {
-		panic("ConvertDeletedToFileInfo must only be called on deleted items")
-	}
-	return f.copyToFileInfo()
-}
-
-// copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
-func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
-	return protocol.FileInfo{
-		Name:          f.Name,
-		Size:          f.Size,
-		ModifiedS:     f.ModifiedS,
-		ModifiedBy:    f.ModifiedBy,
-		Version:       f.Version,
-		Sequence:      f.Sequence,
-		SymlinkTarget: f.SymlinkTarget,
-		BlocksHash:    f.BlocksHash,
-		Type:          f.Type,
-		Permissions:   f.Permissions,
-		ModifiedNs:    f.ModifiedNs,
-		RawBlockSize:  f.RawBlockSize,
-		LocalFlags:    f.LocalFlags,
-		Deleted:       f.Deleted,
-		RawInvalid:    f.RawInvalid,
-		NoPermissions: f.NoPermissions,
+func countsFromWire(w *dbproto.Counts) Counts {
+	return Counts{
+		Files:       int(w.Files),
+		Directories: int(w.Directories),
+		Symlinks:    int(w.Symlinks),
+		Deleted:     int(w.Deleted),
+		Bytes:       w.Bytes,
+		Sequence:    w.Sequence,
+		DeviceID:    protocol.DeviceID(w.DeviceId),
+		LocalFlags:  w.LocalFlags,
 	}
 }
 
@@ -187,7 +67,7 @@ func (c Counts) Add(other Counts) Counts {
 		Deleted:     c.Deleted + other.Deleted,
 		Bytes:       c.Bytes + other.Bytes,
 		Sequence:    c.Sequence + other.Sequence,
-		DeviceID:    protocol.EmptyDeviceID[:],
+		DeviceID:    protocol.EmptyDeviceID,
 		LocalFlags:  c.LocalFlags | other.LocalFlags,
 	}
 }
@@ -197,7 +77,6 @@ func (c Counts) TotalItems() int {
 }
 
 func (c Counts) String() string {
-	dev, _ := protocol.DeviceIDFromBytes(c.DeviceID)
 	var flags strings.Builder
 	if c.LocalFlags&needFlag != 0 {
 		flags.WriteString("Need")
@@ -220,7 +99,7 @@ func (c Counts) String() string {
 	if flags.Len() == 0 {
 		flags.WriteString("---")
 	}
-	return fmt.Sprintf("{Device:%v, Files:%d, Dirs:%d, Symlinks:%d, Del:%d, Bytes:%d, Seq:%d, Flags:%s}", dev, c.Files, c.Directories, c.Symlinks, c.Deleted, c.Bytes, c.Sequence, flags.String())
+	return fmt.Sprintf("{Device:%v, Files:%d, Dirs:%d, Symlinks:%d, Del:%d, Bytes:%d, Seq:%d, Flags:%s}", c.DeviceID, c.Files, c.Directories, c.Symlinks, c.Deleted, c.Bytes, c.Sequence, flags.String())
 }
 
 // Equal compares the numbers only, not sequence/dev/flags.
@@ -228,80 +107,50 @@ func (c Counts) Equal(o Counts) bool {
 	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
 }
 
-func (vl VersionList) String() string {
-	var b bytes.Buffer
-	var id protocol.DeviceID
-	b.WriteString("{")
-	for i, v := range vl.RawVersions {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		fmt.Fprintf(&b, "{Version:%v, Deleted:%v, Devices:{", v.Version, v.Deleted)
-		for j, dev := range v.Devices {
-			if j > 0 {
-				b.WriteString(", ")
-			}
-			copy(id[:], dev)
-			fmt.Fprint(&b, id.Short())
-		}
-		b.WriteString("}, Invalid:{")
-		for j, dev := range v.InvalidDevices {
-			if j > 0 {
-				b.WriteString(", ")
-			}
-			copy(id[:], dev)
-			fmt.Fprint(&b, id.Short())
-		}
-		fmt.Fprint(&b, "}}")
-	}
-	b.WriteString("}")
-	return b.String()
-}
-
 // update brings the VersionList up to date with file. It returns the updated
 // VersionList, a device that has the global/newest version, a device that previously
 // had the global/newest version, a boolean indicating if the global version has
 // changed and if any error occurred (only possible in db interaction).
-func (vl *VersionList) update(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (FileVersion, FileVersion, FileVersion, bool, bool, bool, error) {
-	if len(vl.RawVersions) == 0 {
+func vlUpdate(vl *dbproto.VersionList, folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (*dbproto.FileVersion, *dbproto.FileVersion, *dbproto.FileVersion, bool, bool, bool, error) {
+	if len(vl.Versions) == 0 {
 		nv := newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted())
-		vl.RawVersions = append(vl.RawVersions, nv)
-		return nv, FileVersion{}, FileVersion{}, false, false, true, nil
+		vl.Versions = append(vl.Versions, nv)
+		return nv, nil, nil, false, false, true, nil
 	}
 
 	// Get the current global (before updating)
-	oldFV, haveOldGlobal := vl.GetGlobal()
-	oldFV = oldFV.copy()
+	oldFV, haveOldGlobal := vlGetGlobal(vl)
+	oldFV = fvCopy(oldFV)
 
 	// Remove ourselves first
-	removedFV, haveRemoved, _ := vl.pop(device)
+	removedFV, haveRemoved, _ := vlPop(vl, device)
 	// Find position and insert the file
-	err := vl.insert(folder, device, file, t)
+	err := vlInsert(vl, folder, device, file, t)
 	if err != nil {
-		return FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
+		return nil, nil, nil, false, false, false, err
 	}
 
-	newFV, _ := vl.GetGlobal() // We just inserted something above, can't be empty
+	newFV, _ := vlGetGlobal(vl) // We just inserted something above, can't be empty
 
 	if !haveOldGlobal {
-		return newFV, FileVersion{}, removedFV, false, haveRemoved, true, nil
+		return newFV, nil, removedFV, false, haveRemoved, true, nil
 	}
 
 	globalChanged := true
-	if oldFV.IsInvalid() == newFV.IsInvalid() && oldFV.Version.Equal(newFV.Version) {
+	if fvIsInvalid(oldFV) == fvIsInvalid(newFV) && protocol.VectorFromWire(oldFV.Version).Equal(protocol.VectorFromWire(newFV.Version)) {
 		globalChanged = false
 	}
 
 	return newFV, oldFV, removedFV, true, haveRemoved, globalChanged, nil
 }
 
-func (vl *VersionList) insert(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) error {
+func vlInsert(vl *dbproto.VersionList, folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) error {
 	var added bool
 	var err error
 	i := 0
-	for ; i < len(vl.RawVersions); i++ {
+	for ; i < len(vl.Versions); i++ {
 		// Insert our new version
-		added, err = vl.checkInsertAt(i, folder, device, file, t)
+		added, err = vlCheckInsertAt(vl, i, folder, device, file, t)
 		if err != nil {
 			return err
 		}
@@ -309,80 +158,76 @@ func (vl *VersionList) insert(folder, device []byte, file protocol.FileIntf, t r
 			break
 		}
 	}
-	if i == len(vl.RawVersions) {
+	if i == len(vl.Versions) {
 		// Append to the end
-		vl.RawVersions = append(vl.RawVersions, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
+		vl.Versions = append(vl.Versions, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
 	}
 	return nil
 }
 
-func (vl *VersionList) insertAt(i int, v FileVersion) {
-	vl.RawVersions = append(vl.RawVersions, FileVersion{})
-	copy(vl.RawVersions[i+1:], vl.RawVersions[i:])
-	vl.RawVersions[i] = v
+func vlInsertAt(vl *dbproto.VersionList, i int, v *dbproto.FileVersion) {
+	vl.Versions = append(vl.Versions, &dbproto.FileVersion{})
+	copy(vl.Versions[i+1:], vl.Versions[i:])
+	vl.Versions[i] = v
 }
 
 // pop removes the given device from the VersionList and returns the FileVersion
 // before removing the device, whether it was found/removed at all and whether
 // the global changed in the process.
-func (vl *VersionList) pop(device []byte) (FileVersion, bool, bool) {
-	invDevice, i, j, ok := vl.findDevice(device)
+func vlPop(vl *dbproto.VersionList, device []byte) (*dbproto.FileVersion, bool, bool) {
+	invDevice, i, j, ok := vlFindDevice(vl, device)
 	if !ok {
-		return FileVersion{}, false, false
+		return nil, false, false
 	}
-	globalPos := vl.findGlobal()
+	globalPos := vlFindGlobal(vl)
 
-	if vl.RawVersions[i].deviceCount() == 1 {
-		fv := vl.RawVersions[i]
-		vl.popVersionAt(i)
+	fv := vl.Versions[i]
+	if fvDeviceCount(fv) == 1 {
+		vlPopVersionAt(vl, i)
 		return fv, true, globalPos == i
 	}
 
-	oldFV := vl.RawVersions[i].copy()
+	oldFV := fvCopy(fv)
 	if invDevice {
-		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
+		vl.Versions[i].InvalidDevices = popDeviceAt(vl.Versions[i].InvalidDevices, j)
 		return oldFV, true, false
 	}
-	vl.RawVersions[i].Devices = popDeviceAt(vl.RawVersions[i].Devices, j)
+	vl.Versions[i].Devices = popDeviceAt(vl.Versions[i].Devices, j)
 	// If the last valid device of the previous global was removed above,
 	// the global changed.
-	return oldFV, true, len(vl.RawVersions[i].Devices) == 0 && globalPos == i
+	return oldFV, true, len(vl.Versions[i].Devices) == 0 && globalPos == i
 }
 
 // Get returns a FileVersion that contains the given device and whether it has
 // been found at all.
-func (vl *VersionList) Get(device []byte) (FileVersion, bool) {
-	_, i, _, ok := vl.findDevice(device)
+func vlGet(vl *dbproto.VersionList, device []byte) (*dbproto.FileVersion, bool) {
+	_, i, _, ok := vlFindDevice(vl, device)
 	if !ok {
-		return FileVersion{}, false
+		return &dbproto.FileVersion{}, false
 	}
-	return vl.RawVersions[i], true
+	return vl.Versions[i], true
 }
 
 // GetGlobal returns the current global FileVersion. The returned FileVersion
 // may be invalid, if all FileVersions are invalid. Returns false only if
 // VersionList is empty.
-func (vl *VersionList) GetGlobal() (FileVersion, bool) {
-	i := vl.findGlobal()
+func vlGetGlobal(vl *dbproto.VersionList) (*dbproto.FileVersion, bool) {
+	i := vlFindGlobal(vl)
 	if i == -1 {
-		return FileVersion{}, false
+		return nil, false
 	}
-	return vl.RawVersions[i], true
-}
-
-func (vl *VersionList) Empty() bool {
-	return len(vl.RawVersions) == 0
+	return vl.Versions[i], true
 }
 
 // findGlobal returns the first version that isn't invalid, or if all versions are
 // invalid just the first version (i.e. 0) or -1, if there's no versions at all.
-func (vl *VersionList) findGlobal() int {
-	for i, fv := range vl.RawVersions {
-		if !fv.IsInvalid() {
+func vlFindGlobal(vl *dbproto.VersionList) int {
+	for i := range vl.Versions {
+		if !fvIsInvalid(vl.Versions[i]) {
 			return i
 		}
 	}
-	if len(vl.RawVersions) == 0 {
+	if len(vl.Versions) == 0 {
 		return -1
 	}
 	return 0
@@ -391,8 +236,8 @@ func (vl *VersionList) findGlobal() int {
 // findDevice returns whether the device is in InvalidVersions or Versions and
 // in InvalidDevices or Devices (true for invalid), the positions in the version
 // and device slices and whether it has been found at all.
-func (vl *VersionList) findDevice(device []byte) (bool, int, int, bool) {
-	for i, v := range vl.RawVersions {
+func vlFindDevice(vl *dbproto.VersionList, device []byte) (bool, int, int, bool) {
+	for i, v := range vl.Versions {
 		if j := deviceIndex(v.Devices, device); j != -1 {
 			return false, i, j, true
 		}
@@ -403,30 +248,31 @@ func (vl *VersionList) findDevice(device []byte) (bool, int, int, bool) {
 	return false, -1, -1, false
 }
 
-func (vl *VersionList) popVersionAt(i int) {
-	vl.RawVersions = append(vl.RawVersions[:i], vl.RawVersions[i+1:]...)
+func vlPopVersionAt(vl *dbproto.VersionList, i int) {
+	vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
 }
 
 // checkInsertAt determines if the given device and associated file should be
 // inserted into the FileVersion at position i or into a new FileVersion at
 // position i.
-func (vl *VersionList) checkInsertAt(i int, folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (bool, error) {
-	ordering := vl.RawVersions[i].Version.Compare(file.FileVersion())
+func vlCheckInsertAt(vl *dbproto.VersionList, i int, folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (bool, error) {
+	fv := vl.Versions[i]
+	ordering := protocol.VectorFromWire(fv.Version).Compare(file.FileVersion())
 	if ordering == protocol.Equal {
 		if !file.IsInvalid() {
-			vl.RawVersions[i].Devices = append(vl.RawVersions[i].Devices, device)
+			fv.Devices = append(fv.Devices, device)
 		} else {
-			vl.RawVersions[i].InvalidDevices = append(vl.RawVersions[i].InvalidDevices, device)
+			fv.InvalidDevices = append(fv.InvalidDevices, device)
 		}
 		return true, nil
 	}
-	existingDevice, _ := vl.RawVersions[i].FirstDevice()
-	insert, err := shouldInsertBefore(ordering, folder, existingDevice, vl.RawVersions[i].IsInvalid(), file, t)
+	existingDevice, _ := fvFirstDevice(fv)
+	insert, err := shouldInsertBefore(ordering, folder, existingDevice, fvIsInvalid(fv), file, t)
 	if err != nil {
 		return false, err
 	}
 	if insert {
-		vl.insertAt(i, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
+		vlInsertAt(vl, i, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
 		return true, nil
 	}
 	return false, nil
@@ -435,7 +281,7 @@ func (vl *VersionList) checkInsertAt(i int, folder, device []byte, file protocol
 // shouldInsertBefore determines whether the file comes before an existing
 // entry, given the version ordering (existing compared to new one), existing
 // device and if the existing version is invalid.
-func shouldInsertBefore(ordering protocol.Ordering, folder, existingDevice []byte, existingInvalid bool, file protocol.FileIntf, t readOnlyTransaction) (bool, error) {
+func shouldInsertBefore(ordering protocol.Ordering, folder, existingDevice []byte, existingInvalid bool, file protocol.FileInfo, t readOnlyTransaction) (bool, error) {
 	switch ordering {
 	case protocol.Lesser:
 		// The version at this point in the list is lesser
@@ -461,10 +307,7 @@ func shouldInsertBefore(ordering protocol.Ordering, folder, existingDevice []byt
 		if !ok {
 			return true, nil
 		}
-		if err != nil {
-			return false, err
-		}
-		if protocol.WinsConflict(file, of) {
+		if file.WinsConflict(of) {
 			return true, nil
 		}
 	}
@@ -484,9 +327,9 @@ func popDeviceAt(devices [][]byte, i int) [][]byte {
 	return append(devices[:i], devices[i+1:]...)
 }
 
-func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) FileVersion {
-	fv := FileVersion{
-		Version: version,
+func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) *dbproto.FileVersion {
+	fv := &dbproto.FileVersion{
+		Version: version.ToWire(),
 		Deleted: deleted,
 	}
 	if invalid {
@@ -497,7 +340,7 @@ func newFileVersion(device []byte, version protocol.Vector, invalid, deleted boo
 	return fv
 }
 
-func (fv FileVersion) FirstDevice() ([]byte, bool) {
+func fvFirstDevice(fv *dbproto.FileVersion) ([]byte, bool) {
 	if len(fv.Devices) != 0 {
 		return fv.Devices[0], true
 	}
@@ -507,18 +350,14 @@ func (fv FileVersion) FirstDevice() ([]byte, bool) {
 	return nil, false
 }
 
-func (fv FileVersion) IsInvalid() bool {
-	return len(fv.Devices) == 0
+func fvIsInvalid(fv *dbproto.FileVersion) bool {
+	return fv == nil || len(fv.Devices) == 0
 }
 
-func (fv FileVersion) deviceCount() int {
+func fvDeviceCount(fv *dbproto.FileVersion) int {
 	return len(fv.Devices) + len(fv.InvalidDevices)
 }
 
-func (fv FileVersion) copy() FileVersion {
-	n := fv
-	n.Version = fv.Version.Copy()
-	n.Devices = append([][]byte{}, fv.Devices...)
-	n.InvalidDevices = append([][]byte{}, fv.InvalidDevices...)
-	return n
+func fvCopy(fv *dbproto.FileVersion) *dbproto.FileVersion {
+	return proto.Clone(fv).(*dbproto.FileVersion)
 }

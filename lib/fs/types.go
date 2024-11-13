@@ -6,6 +6,13 @@
 
 package fs
 
+type FilesystemType int32
+
+const (
+	FilesystemTypeBasic FilesystemType = 0
+	FilesystemTypeFake  FilesystemType = 1
+)
+
 func (t FilesystemType) String() string {
 	switch t {
 	case FilesystemTypeBasic:
@@ -15,20 +22,4 @@ func (t FilesystemType) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-func (t FilesystemType) MarshalText() ([]byte, error) {
-	return []byte(t.String()), nil
-}
-
-func (t *FilesystemType) UnmarshalText(bs []byte) error {
-	switch string(bs) {
-	case "basic":
-		*t = FilesystemTypeBasic
-	case "fake":
-		*t = FilesystemTypeFake
-	default:
-		*t = FilesystemTypeBasic
-	}
-	return nil
 }

@@ -185,7 +185,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -209,7 +209,7 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, fset)
-		snap.WithNeed(remoteDevice0, func(fi protocol.FileIntf) bool {
+		snap.WithNeed(remoteDevice0, func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -230,7 +230,7 @@ func BenchmarkHave(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+		snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -251,7 +251,7 @@ func BenchmarkGlobal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithGlobal(func(fi protocol.FileIntf) bool {
+		snap.WithGlobal(func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -272,7 +272,7 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -293,7 +293,7 @@ func BenchmarkHaveTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})
@@ -314,7 +314,7 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := snapshot(b, benchS)
-		snap.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
+		snap.WithGlobalTruncated(func(fi protocol.FileInfo) bool {
 			count++
 			return true
 		})

@@ -6,6 +6,17 @@
 
 package config
 
+type PullOrder int32
+
+const (
+	PullOrderRandom        PullOrder = 0
+	PullOrderAlphabetic    PullOrder = 1
+	PullOrderSmallestFirst PullOrder = 2
+	PullOrderLargestFirst  PullOrder = 3
+	PullOrderOldestFirst   PullOrder = 4
+	PullOrderNewestFirst   PullOrder = 5
+)
+
 func (o PullOrder) String() string {
 	switch o {
 	case PullOrderRandom:

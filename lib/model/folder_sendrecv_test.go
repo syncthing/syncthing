@@ -363,7 +363,7 @@ func TestWeakHash(t *testing.T) {
 		Blocks:     existing,
 		Size:       size,
 		ModifiedS:  info.ModTime().Unix(),
-		ModifiedNs: info.ModTime().Nanosecond(),
+		ModifiedNs: int32(info.ModTime().Nanosecond()),
 	}
 	desiredFile := protocol.FileInfo{
 		Name:      "weakhash",
@@ -812,7 +812,7 @@ func TestCopyOwner(t *testing.T) {
 
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
+	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, config.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
 	f.fset = newFileSet(t, f.ID, m.db)
@@ -1101,11 +1101,11 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	hasCur := false
 	snap := dbSnapshot(t, m, f.ID)
 	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = i.(protocol.FileInfo)
+		cur = i
 		hasCur = true
 		return true
 	})
@@ -1166,11 +1166,11 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	hasCur := false
 	snap := dbSnapshot(t, m, f.ID)
 	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = i.(protocol.FileInfo)
+		cur = i
 		hasCur = true
 		return true
 	})

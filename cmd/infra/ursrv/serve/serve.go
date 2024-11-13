@@ -17,17 +17,15 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	_ "net/http/pprof"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/puzpuzpuz/xsync/v3"
-
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/s3"

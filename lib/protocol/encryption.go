@@ -17,13 +17,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/miscreant/miscreant.go"
-	"github.com/syncthing/syncthing/lib/rand"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 const (
@@ -284,7 +286,7 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
 
-	bs, err := proto.Marshal(&fi)
+	bs, err := proto.Marshal(fi.ToWire())
 	if err != nil {
 		panic("impossible serialization mishap: " + err.Error())
 	}
@@ -368,7 +370,7 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	if typ == FileInfoTypeFile {
 		enc.Size = offset // new total file size
 		enc.Blocks = blocks
-		enc.RawBlockSize = fi.BlockSize() + blockOverhead
+		enc.RawBlockSize = int32(fi.BlockSize() + blockOverhead)
 	}
 
 	return enc
@@ -399,7 +401,7 @@ func DecryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 		return FileInfo{}, err
 	}
 
-	var decFI FileInfo
+	var decFI bep.FileInfo
 	if err := proto.Unmarshal(dec, &decFI); err != nil {
 		return FileInfo{}, err
 	}
@@ -407,7 +409,7 @@ func DecryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	// Preserve sequence, which is legitimately controlled by the untrusted device
 	decFI.Sequence = fi.Sequence
 
-	return decFI, nil
+	return FileInfoFromWire(&decFI), nil
 }
 
 var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
