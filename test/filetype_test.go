@@ -90,14 +90,14 @@ func testFileTypeChange(t *testing.T) {
 
 	// A directory that we will replace with a file later
 
-	err = os.Mkdir("s1/emptyDirToReplace", 0755)
+	err = os.Mkdir("s1/emptyDirToReplace", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// A directory with files that we will replace with a file later
 
-	err = os.Mkdir("s1/dirToReplace", 0755)
+	err = os.Mkdir("s1/dirToReplace", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func testFileTypeChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Mkdir("s1/fileToReplace", 0755)
+	err = os.Mkdir("s1/fileToReplace", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}

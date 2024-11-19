@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("config", "Configuration loading and saving")
-)
+var l = logger.DefaultLogger.NewFacility("config", "Configuration loading and saving")

@@ -34,7 +34,7 @@ func TestChmodFile(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
 
-	defer os.Chmod(path, 0666)
+	defer os.Chmod(path, 0o666)
 
 	fd, err := os.Create(path)
 	if err != nil {
@@ -42,19 +42,19 @@ func TestChmodFile(t *testing.T) {
 	}
 	fd.Close()
 
-	if err := os.Chmod(path, 0666); err != nil {
+	if err := os.Chmod(path, 0o666); err != nil {
 		t.Error(err)
 	}
 
-	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0666 {
+	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0o666 {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
 	}
 
-	if err := fs.Chmod("file", 0444); err != nil {
+	if err := fs.Chmod("file", 0o444); err != nil {
 		t.Error(err)
 	}
 
-	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0444 {
+	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0o444 {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
 	}
 }
@@ -74,7 +74,7 @@ func TestChownFile(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "file")
 
-	defer os.Chmod(path, 0666)
+	defer os.Chmod(path, 0o666)
 
 	fd, err := os.Create(path)
 	if err != nil {
@@ -110,9 +110,9 @@ func TestChmodDir(t *testing.T) {
 	fs, dir := setup(t)
 	path := filepath.Join(dir, "dir")
 
-	mode := os.FileMode(0755)
+	mode := os.FileMode(0o755)
 	if build.IsWindows {
-		mode = os.FileMode(0777)
+		mode = os.FileMode(0o777)
 	}
 
 	defer os.Chmod(path, mode)
@@ -129,11 +129,11 @@ func TestChmodDir(t *testing.T) {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
 	}
 
-	if err := fs.Chmod("dir", 0555); err != nil {
+	if err := fs.Chmod("dir", 0o555); err != nil {
 		t.Error(err)
 	}
 
-	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0555 {
+	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0o555 {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
 	}
 }
@@ -221,7 +221,7 @@ func TestDirNames(t *testing.T) {
 	sort.Strings(testCases)
 
 	for _, sub := range testCases {
-		if err := os.Mkdir(filepath.Join(dir, sub), 0777); err != nil {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0o777); err != nil {
 			t.Error(err)
 		}
 	}
@@ -256,7 +256,7 @@ func TestNames(t *testing.T) {
 		t.Errorf("incorrect %s != %s (%v)", stat.Name(), expected, err)
 	}
 
-	if err := fs.Mkdir("dir", 0777); err != nil {
+	if err := fs.Mkdir("dir", 0o777); err != nil {
 		t.Error(err)
 	}
 
@@ -286,7 +286,7 @@ func TestGlob(t *testing.T) {
 		filepath.Join("a", "best", "b"),
 		filepath.Join("a", "best", "c"),
 	} {
-		if err := fs.MkdirAll(dirToCreate, 0777); err != nil {
+		if err := fs.MkdirAll(dirToCreate, 0o777); err != nil {
 			t.Error(err)
 		}
 	}
@@ -572,7 +572,7 @@ func TestRel(t *testing.T) {
 
 func TestXattr(t *testing.T) {
 	tfs, _ := setup(t)
-	if err := tfs.Mkdir("/test", 0755); err != nil {
+	if err := tfs.Mkdir("/test", 0o755); err != nil {
 		t.Fatal(err)
 	}
 

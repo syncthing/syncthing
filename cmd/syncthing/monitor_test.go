@@ -140,7 +140,7 @@ func checkNotExist(t *testing.T, name string) {
 func TestAutoClosedFile(t *testing.T) {
 	os.RemoveAll("_autoclose")
 	defer os.RemoveAll("_autoclose")
-	os.Mkdir("_autoclose", 0755)
+	os.Mkdir("_autoclose", 0o755)
 	file := filepath.FromSlash("_autoclose/tmp")
 	data := []byte("hello, world\n")
 

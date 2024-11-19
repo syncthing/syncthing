@@ -24,7 +24,7 @@ func ParseSize(s string) (Size, error) {
 	for i := 0; i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.' || s[i] == ','); i++ {
 		num = s[:i+1]
 	}
-	var i = len(num)
+	i := len(num)
 	for i < len(s) && s[i] == ' ' {
 		i++
 	}

@@ -21,8 +21,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var device1, device2, device3, device4 protocol.DeviceID
-var dev1Conf, dev2Conf, dev3Conf, dev4Conf config.DeviceConfiguration
+var (
+	device1, device2, device3, device4     protocol.DeviceID
+	dev1Conf, dev2Conf, dev3Conf, dev4Conf config.DeviceConfiguration
+)
 
 func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ7K4PTTUXQSMUUCPQ5YWOEDFIIQJUG7772YQXXR5YD6AWQ")

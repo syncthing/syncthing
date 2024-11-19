@@ -104,7 +104,7 @@ func TestCanonicalize(t *testing.T) {
 }
 
 func TestFileModeString(t *testing.T) {
-	var fm FileMode = 0777
+	var fm FileMode = 0o777
 	exp := "-rwxrwxrwx"
 	if fm.String() != exp {
 		t.Fatalf("Got %v, expected %v", fm.String(), exp)

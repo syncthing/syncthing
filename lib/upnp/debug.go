@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("upnp", "UPnP discovery and port mapping")
-)
+var l = logger.DefaultLogger.NewFacility("upnp", "UPnP discovery and port mapping")

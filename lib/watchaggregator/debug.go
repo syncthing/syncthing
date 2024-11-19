@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("watchaggregator", "Filesystem event watcher")
-)
+var l = logger.DefaultLogger.NewFacility("watchaggregator", "Filesystem event watcher")
