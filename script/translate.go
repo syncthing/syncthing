@@ -21,9 +21,11 @@ import (
 	"golang.org/x/net/html"
 )
 
-var trans = make(map[string]interface{})
-var attrRe = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
-var attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
+var (
+	trans      = make(map[string]interface{})
+	attrRe     = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
+	attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
+)
 
 // Find both $translate.instant("…") and $translate.instant("…",…) in JS.
 // Consider single quote variants too.
@@ -204,7 +206,7 @@ func main() {
 	}
 	fd.Close()
 
-	var guiDir = os.Args[2]
+	guiDir := os.Args[2]
 
 	filepath.Walk(guiDir, walkerFor(guiDir))
 	collectThemes(guiDir)

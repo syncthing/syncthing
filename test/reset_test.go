@@ -28,7 +28,7 @@ func TestReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir("s1", 0755); err != nil {
+	if err := os.Mkdir("s1", 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,7 +53,7 @@ func TestReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir("s1", 0755); err != nil {
+	if err := os.Mkdir("s1", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if fd, err := os.Create("s1/.stfolder"); err != nil {
@@ -146,7 +146,7 @@ func createFiles(t *testing.T) int {
 	const n = 8
 	for i := 0; i < n; i++ {
 		file := fmt.Sprintf("f%d", i)
-		if err := os.WriteFile(filepath.Join("s1", file), []byte("data"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join("s1", file), []byte("data"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

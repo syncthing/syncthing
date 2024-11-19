@@ -60,7 +60,7 @@ func generateFilesWithTime(dir string, files, maxexp int, srcname string, t0 tim
 		}
 
 		p0 := filepath.Join(dir, string(n[0]), n[0:2])
-		err = os.MkdirAll(p0, 0755)
+		err = os.MkdirAll(p0, 0o755)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func generateOneFile(fd io.ReadSeeker, p1 string, s int64, t0 time.Time) error {
 		return err
 	}
 
-	os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
+	os.Chmod(p1, os.FileMode(rand.Intn(0o777)|0o400))
 
 	t := t0.Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 	err = os.Chtimes(p1, t, t)
@@ -149,15 +149,15 @@ func alterFiles(dir string) error {
 			return removeAll(path)
 
 		case r == 1 && info.Mode().IsRegular():
-			if info.Mode()&0200 != 0200 {
+			if info.Mode()&0o200 != 0o200 {
 				// Not owner writable. Fix.
-				if err = os.Chmod(path, 0644); err != nil {
+				if err = os.Chmod(path, 0o644); err != nil {
 					return err
 				}
 			}
 
 			// Overwrite a random kilobyte of every tenth file
-			fd, err := os.OpenFile(path, os.O_RDWR, 0644)
+			fd, err := os.OpenFile(path, os.O_RDWR, 0o644)
 			if err != nil {
 				return err
 			}
@@ -291,8 +291,8 @@ func removeAll(dirs ...string) error {
 				if err != nil {
 					return err
 				}
-				if info.Mode()&0700 != 0700 {
-					os.Chmod(path, 0777)
+				if info.Mode()&0o700 != 0o700 {
+					os.Chmod(path, 0o777)
 				}
 				return nil
 			})

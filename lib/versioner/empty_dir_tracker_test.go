@@ -27,7 +27,7 @@ import (
 //		└── remove21
 //		    └── remove22
 func TestEmptyDirs(t *testing.T) {
-	var paths = []struct {
+	paths := []struct {
 		path   string
 		isFile bool
 	}{
@@ -44,7 +44,7 @@ func TestEmptyDirs(t *testing.T) {
 		{"remove2/remove21/remove22", false},
 	}
 
-	var expected = []string{
+	expected := []string{
 		"remove2/remove21/remove22",
 		"remove2/remove21",
 		"remove2",

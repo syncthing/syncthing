@@ -210,7 +210,6 @@ USER-AGENT: syncthing/%s
 		proto = "udp6"
 	}
 	socket, err := net.ListenMulticastUDP(proto, intf, &net.UDPAddr{IP: ssdp.IP})
-
 	if err != nil {
 		if runtime.GOOS == "windows" && ip6 {
 			// Requires https://github.com/golang/go/issues/63529 to be fixed.
@@ -257,7 +256,7 @@ loop:
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue // continue reading
 			}
-			l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+			l.Infoln("UPnP read:", err) // legitimate error, not a timeout.
 			break
 		}
 
@@ -411,7 +410,6 @@ func localIPv4Fallback(ctx context.Context, url *url.URL) (net.IP, error) {
 	defer cancel()
 
 	conn, err := dialer.DialContext(timeoutCtx, "udp4", url.Host)
-
 	if err != nil {
 		return nil, err
 	}
