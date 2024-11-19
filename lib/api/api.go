@@ -1165,6 +1165,7 @@ type fileEntry struct {
 
 func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	var files []fileEntry
+	const profilingDuration = 4 * time.Second
 
 	// Redacted configuration as a JSON
 	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err != nil {
@@ -1231,10 +1232,10 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Metrics data as text
-	buf := bytes.NewBuffer(nil)
-	wr := bufferedResponseWriter{Writer: buf}
+	var metricsBuf bytes.Buffer
+	wr := bufferedResponseWriter{Writer: &metricsBuf}
 	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
-	files = append(files, fileEntry{name: "metrics.txt", data: buf.Bytes()})
+	files = append(files, fileEntry{name: "metrics.txt", data: metricsBuf.Bytes()})
 
 	// Connection data as JSON
 	connStats := s.model.ConnectionStats()
@@ -1244,20 +1245,42 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		files = append(files, fileEntry{name: "connection-stats.json.txt", data: connStatsJSON})
 	}
 
-	// Heap and CPU Proofs as a pprof extension
-	var heapBuffer, cpuBuffer bytes.Buffer
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
-	runtime.GC()
-	if err := pprof.WriteHeapProfile(&heapBuffer); err == nil {
-		files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
+	// Write a goroutine profile
+	if p := pprof.Lookup("goroutine"); p != nil {
+		var goroutineBuf bytes.Buffer
+		_ = p.WriteTo(&goroutineBuf, 0)
+		filename := fmt.Sprintf("syncthing-goroutines-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+		files = append(files, fileEntry{name: filename, data: goroutineBuf.Bytes()})
 	}
 
-	const duration = 4 * time.Second
-	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
-	if err := pprof.StartCPUProfile(&cpuBuffer); err == nil {
-		time.Sleep(duration)
+	// Take a heap profile
+	var heapBuf bytes.Buffer
+	runtime.GC()
+	if err := pprof.WriteHeapProfile(&heapBuf); err == nil {
+		filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+		files = append(files, fileEntry{name: filename, data: heapBuf.Bytes()})
+	}
+
+	// Enable block profiling
+	runtime.SetBlockProfileRate(1)
+	defer runtime.SetBlockProfileRate(0)
+
+	// Take a CPU profile, waiting for the profiling duration. This also
+	// gives time for the block profile.
+	var cpuBuf bytes.Buffer
+	if err := pprof.StartCPUProfile(&cpuBuf); err == nil {
+		time.Sleep(profilingDuration)
 		pprof.StopCPUProfile()
-		files = append(files, fileEntry{name: filename, data: cpuBuffer.Bytes()})
+		filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+		files = append(files, fileEntry{name: filename, data: cpuBuf.Bytes()})
+	}
+
+	// Write the block profile
+	if p := pprof.Lookup("block"); p != nil {
+		var blockBuf bytes.Buffer
+		_ = p.WriteTo(&blockBuf, 0)
+		filename := fmt.Sprintf("syncthing-block-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
+		files = append(files, fileEntry{name: filename, data: blockBuf.Bytes()})
 	}
 
 	// Add buffer files to buffer zip

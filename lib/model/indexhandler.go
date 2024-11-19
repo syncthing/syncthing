@@ -448,7 +448,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	seq := fset.Sequence(deviceID)
 
 	// Check that the sequence we get back is what we put in...
-	if lastSequence > 0 && seq != lastSequence {
+	if lastSequence > 0 && len(fs) > 0 && seq != lastSequence {
 		s.logSequenceAnomaly("unexpected sequence after update", map[string]any{
 			"prevSeq":     prevSequence,
 			"lastSeq":     lastSequence,
