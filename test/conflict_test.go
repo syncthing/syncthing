@@ -87,7 +87,7 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd, err = os.OpenFile("s1/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
+	fd, err = os.OpenFile("s1/testfile.txt", os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
+	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestConflictsDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
+	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,37 +204,37 @@ func TestConflictsInitialMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.Mkdir("s1", 0755)
+	err = os.Mkdir("s1", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Mkdir("s2", 0755)
+	err = os.Mkdir("s2", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// File 1 is a conflict
 
-	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// File 2 exists on s1 only
 
-	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// File 3 exists on s2 only
 
-	err = os.WriteFile("s2/file3", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file3", []byte("goodbye\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,26 +303,26 @@ func TestConflictsIndexReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.Mkdir("s1", 0755)
+	err = os.Mkdir("s1", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Mkdir("s2", 0755)
+	err = os.Mkdir("s2", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Three files on s1
 
-	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile("s2/file3", []byte("hello\n"), 0644)
+	err = os.WriteFile("s2/file3", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +370,7 @@ func TestConflictsIndexReset(t *testing.T) {
 	// locally after we rest the index, unless we have a fix for that.
 
 	for i := 0; i < 5; i++ {
-		err = os.WriteFile("s2/file2", []byte("hello1\n"), 0644)
+		err = os.WriteFile("s2/file2", []byte("hello1\n"), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -392,7 +392,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s1/file1 (remote) changes while receiver is down
 
-	err = os.WriteFile("s1/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("goodbye\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +405,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s2/file2 (local) changes while receiver is down
 
-	err = os.WriteFile("s2/file2", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file2", []byte("goodbye\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,33 +456,33 @@ func TestConflictsSameContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.Mkdir("s1", 0755)
+	err = os.Mkdir("s1", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Mkdir("s2", 0755)
+	err = os.Mkdir("s2", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Two files on s1
 
-	err = os.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file1", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s1/file2", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Two files on s2, content differs in file1 only, timestamps differ on both.
 
-	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	err = os.WriteFile("s2/file1", []byte("goodbye\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile("s2/file2", []byte("hello\n"), 0644)
+	err = os.WriteFile("s2/file2", []byte("hello\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

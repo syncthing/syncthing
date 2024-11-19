@@ -52,5 +52,5 @@ func compressAndWrite(bs []byte, fullPath string) error {
 	gw.Close()
 
 	// Create an output file with the compressed report
-	return os.WriteFile(fullPath, buf.Bytes(), 0644)
+	return os.WriteFile(fullPath, buf.Bytes(), 0o644)
 }

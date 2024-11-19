@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("backend", "The database backend")
-)
+var l = logger.DefaultLogger.NewFacility("backend", "The database backend")

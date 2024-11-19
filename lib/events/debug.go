@@ -10,6 +10,4 @@ import (
 	liblogger "github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	dl = liblogger.DefaultLogger.NewFacility("events", "Event generation and logging")
-)
+var dl = liblogger.DefaultLogger.NewFacility("events", "Event generation and logging")

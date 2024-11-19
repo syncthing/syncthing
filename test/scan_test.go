@@ -82,7 +82,7 @@ func TestScanSubdir(t *testing.T) {
 
 	// 2
 	log.Println("Creating a file in an unknown directory")
-	os.MkdirAll("s1/filetest", 0755)
+	os.MkdirAll("s1/filetest", 0o755)
 	if fd, err := os.Create("s1/filetest/file1.txt"); err != nil {
 		t.Fatal(err)
 	} else {
@@ -101,7 +101,7 @@ func TestScanSubdir(t *testing.T) {
 
 	// 3
 	log.Println("Creating a file in an unknown deep directory")
-	os.MkdirAll("s1/filetest/1/2/3/4/5/6/7", 0755)
+	os.MkdirAll("s1/filetest/1/2/3/4/5/6/7", 0o755)
 	if fd, err := os.Create("s1/filetest/1/2/3/4/5/6/7/file1.txt"); err != nil {
 		t.Fatal(err)
 	} else {
@@ -120,7 +120,7 @@ func TestScanSubdir(t *testing.T) {
 
 	// 4
 	log.Println("Creating a directory in an unknown directory")
-	err = os.MkdirAll("s1/dirtest/1/2/3/4/5/6/7", 0755)
+	err = os.MkdirAll("s1/dirtest/1/2/3/4/5/6/7", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}

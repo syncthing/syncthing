@@ -102,7 +102,7 @@ func testSymlinks(t *testing.T) {
 
 	// A directory that we will replace with a symlink later
 
-	err = os.Mkdir("s1/dirToReplace", 0755)
+	err = os.Mkdir("s1/dirToReplace", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func testSymlinks(t *testing.T) {
 
 	// A directory and a symlink to that directory
 
-	err = os.Mkdir("s1/dir", 0755)
+	err = os.Mkdir("s1/dir", 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func testSymlinks(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	err = os.Mkdir("s1/repDirLink", 0755)
+	err = os.Mkdir("s1/repDirLink", 0o755)
 	if err != nil {
 		log.Fatal(err)
 	}

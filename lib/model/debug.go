@@ -10,9 +10,7 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("model", "The root hub")
-)
+var l = logger.DefaultLogger.NewFacility("model", "The root hub")
 
 func shouldDebug() bool {
 	return l.ShouldDebug("model")

@@ -244,6 +244,7 @@ type fakeAddressLister struct{}
 func (*fakeAddressLister) ExternalAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000"}
 }
+
 func (*fakeAddressLister) AllAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000", "tcp://192.168.0.1:22000"}
 }

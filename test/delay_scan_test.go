@@ -31,7 +31,7 @@ func TestRescanWithDelay(t *testing.T) {
 	}
 
 	log.Println("Generating .stignore...")
-	err = os.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0644)
+	err = os.WriteFile("s1/.stignore", []byte("some ignore data\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

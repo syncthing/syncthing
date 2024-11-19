@@ -32,7 +32,7 @@ func readReparseTag(path string) (uint32, error) {
 	}
 	defer syscall.CloseHandle(h)
 
-	//https://docs.microsoft.com/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
+	// https://docs.microsoft.com/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
 	const fileAttributeTagInfo = 9
 	type FILE_ATTRIBUTE_TAG_INFO struct {
 		FileAttributes uint32
@@ -67,7 +67,7 @@ type dirJunctFileInfo struct {
 func (fi *dirJunctFileInfo) Mode() os.FileMode {
 	// Simulate a directory and not a symlink; also set the execute
 	// bits so the directory can be traversed Unix-side.
-	return fi.FileInfo.Mode()&^junctionPointModeMask | os.ModeDir | 0111
+	return fi.FileInfo.Mode()&^junctionPointModeMask | os.ModeDir | 0o111
 }
 
 func (fi *dirJunctFileInfo) IsDir() bool {
@@ -89,7 +89,7 @@ func init() {
 }
 
 func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
-	var fi, err = os.Lstat(name)
+	fi, err := os.Lstat(name)
 
 	// There are cases where files are tagged as symlink, but they end up being
 	// something else. Make sure we properly handle those types.
