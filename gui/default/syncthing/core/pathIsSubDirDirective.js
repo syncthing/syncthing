@@ -6,7 +6,12 @@ angular.module('syncthing.core')
                 ctrl.$validators.folderPathErrors = function (viewValue) {
                     // This function checks whether ydir is a subdirectory of xdir,
                     // e.g. it would return true if xdir = "/home/a", ydir = "/home/a/b".
+                    // Tildes in both xdir and ydir are expanded for comparison
+                    // so that e.g. xdir = "home/a/", ydir = "~/b" will return true.
                     function isSubDir(xdir, ydir) {
+                        var tildeExpansionRegex = new RegExp(`^~${scope.system.pathSeparator}|^~/`);
+                        xdir = xdir.replace(tildeExpansionRegex, `${scope.system.tilde}${scope.system.pathSeparator}`);
+                        ydir = ydir.replace(tildeExpansionRegex, `${scope.system.tilde}${scope.system.pathSeparator}`);
                         var xdirArr = xdir.split(scope.system.pathSeparator);
                         var ydirArr = ydir.split(scope.system.pathSeparator);
                         if (xdirArr.slice(-1).pop() === "") {

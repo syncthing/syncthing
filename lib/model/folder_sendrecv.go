@@ -398,7 +398,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				f.queue.Push(file.Name, file.Size, file.ModTime())
 			}
 
-		case build.IsWindows && file.IsSymlink():
+		case (build.IsWindows || build.IsAndroid) && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
 				break
@@ -505,13 +505,10 @@ nextFile:
 			continue nextFile
 		}
 
-		devices := snap.Availability(fileName)
-		for _, dev := range devices {
-			if f.model.ConnectedTo(dev) {
-				// Handle the file normally, by copying and pulling, etc.
-				f.handleFile(fi, snap, copyChan)
-				continue nextFile
-			}
+		devices := f.model.fileAvailability(f.FolderConfiguration, snap, fi)
+		if len(devices) > 0 {
+			f.handleFile(fi, snap, copyChan)
+			continue
 		}
 		f.newPullError(fileName, errNotAvailable)
 		f.queue.Done(fileName)
@@ -1547,7 +1544,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 	}
 
 	var lastError error
-	candidates := f.model.availabilityInSnapshot(f.FolderConfiguration, snap, state.file, state.block)
+	candidates := f.model.blockAvailability(f.FolderConfiguration, snap, state.file, state.block)
 loop:
 	for {
 		select {
