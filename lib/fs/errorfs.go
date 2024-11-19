@@ -30,6 +30,7 @@ func (fs *errorFilesystem) DirNames(_ string) ([]string, error) { return nil, fs
 func (fs *errorFilesystem) GetXattr(_ string, _ XattrFilter) ([]protocol.Xattr, error) {
 	return nil, fs.err
 }
+
 func (fs *errorFilesystem) SetXattr(_ string, _ []protocol.Xattr, _ XattrFilter) error {
 	return fs.err
 }
@@ -60,6 +61,7 @@ func (*errorFilesystem) SameFile(_, _ FileInfo) bool { return false }
 func (fs *errorFilesystem) Watch(_ string, _ Matcher, _ context.Context, _ bool) (<-chan Event, <-chan error, error) {
 	return nil, nil, fs.err
 }
+
 func (fs *errorFilesystem) PlatformData(_ string, _, _ bool, _ XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, fs.err
 }

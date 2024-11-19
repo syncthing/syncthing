@@ -71,7 +71,6 @@ func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]b
 
 		url := urlPrefix + l.version + filename[idx:]
 		resp, err := l.client.Get(url)
-
 		if err != nil {
 			fmt.Println("Loading source:", err)
 			return nil, 0

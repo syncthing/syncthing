@@ -11,14 +11,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	metricDeviceActiveConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "syncthing",
-		Subsystem: "connections",
-		Name:      "active",
-		Help:      "Number of currently active connections, per device. If value is 0, the device is disconnected.",
-	}, []string{"device"})
-)
+var metricDeviceActiveConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Namespace: "syncthing",
+	Subsystem: "connections",
+	Name:      "active",
+	Help:      "Number of currently active connections, per device. If value is 0, the device is disconnected.",
+}, []string{"device"})
 
 func registerDeviceMetrics(deviceID string) {
 	// Register metrics for this device, so that counters & gauges are present even

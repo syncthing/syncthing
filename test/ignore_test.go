@@ -35,7 +35,7 @@ func TestIgnores(t *testing.T) {
 	files := []string{"f1", "f2", "f3", "f4", "f11", "f12", "f13", "f14", "d1/f1.TXT"}
 
 	for _, dir := range dirs {
-		err := os.Mkdir(filepath.Join("s1", dir), 0755)
+		err := os.Mkdir(filepath.Join("s1", dir), 0o755)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func TestIgnores(t *testing.T) {
 
 	err = os.WriteFile("s1/.stignore",
 		[]byte("f1*\nf2\nd1*\nd2\ns1*\ns2\n(?i)*.txt"), // [fds][34] only non-ignored items
-		0644)
+		0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestIgnores(t *testing.T) {
 	// Change the pattern to include some of the files and dirs previously ignored
 
 	time.Sleep(1100 * time.Millisecond)
-	err = os.WriteFile("s1/.stignore", []byte("f2\nd2\ns2\n"), 0644)
+	err = os.WriteFile("s1/.stignore", []byte("f2\nd2\ns2\n"), 0o644)
 
 	// Rescan and verify that we see them
 

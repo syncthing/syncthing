@@ -159,7 +159,6 @@ func init() {
 
 func TestUpdate0to3(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
-
 	if err != nil {
 		t.Fatal(err)
 	}

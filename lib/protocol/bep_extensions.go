@@ -317,10 +317,10 @@ func PermsEqual(a, b uint32) bool {
 	if build.IsWindows {
 		// There is only writeable and read only, represented for user, group
 		// and other equally. We only compare against user.
-		return a&0600 == b&0600
+		return a&0o600 == b&0o600
 	}
 	// All bits count
-	return a&0777 == b&0777
+	return a&0o777 == b&0o777
 }
 
 // BlocksEqual returns true when the two files have identical block lists.

@@ -65,5 +65,4 @@ func walk(w *csv.Writer, prefix string, data interface{}) {
 			})
 		}
 	}
-
 }

@@ -23,8 +23,10 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 )
 
-const testFile = "../model/testdata/tmpfile"
-const size = 128 << 10
+const (
+	testFile = "../model/testdata/tmpfile"
+	size     = 128 << 10
+)
 
 func BenchmarkFind1MFile(b *testing.B) {
 	b.ReportAllocs()
@@ -96,7 +98,6 @@ func BenchmarkBlock(b *testing.B) {
 					bbb.SetBytes(testSize)
 					bbb.ReportAllocs()
 				})
-
 			})
 		}
 	}
@@ -144,7 +145,6 @@ func BenchmarkRoll(b *testing.B) {
 					bbb.SetBytes(testSize)
 					bbb.ReportAllocs()
 				})
-
 			})
 		}
 	}
