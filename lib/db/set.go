@@ -13,6 +13,7 @@
 package db
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
@@ -325,7 +326,7 @@ func (s *Snapshot) Availability(file string) []protocol.DeviceID {
 	return av
 }
 
-func (s *Snapshot) DebugGlobalVersions(file string) *dbproto.VersionList {
+func (s *Snapshot) DebugGlobalVersions(file string) *DebugVersionList {
 	opStr := fmt.Sprintf("%s DebugGlobalVersions(%v)", s.folder, file)
 	l.Debugf(opStr)
 	vl, err := s.t.getGlobalVersions(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
@@ -334,7 +335,7 @@ func (s *Snapshot) DebugGlobalVersions(file string) *dbproto.VersionList {
 	} else if err != nil {
 		s.fatalError(err, opStr)
 	}
-	return vl
+	return &DebugVersionList{vl}
 }
 
 func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
@@ -512,4 +513,41 @@ func fatalError(err error, opStr string, db *Lowlevel) {
 	db.checkErrorForRepair(err)
 	l.Warnf("Fatal error: %v: %v", opStr, err)
 	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
+}
+
+// DebugFileVersion is the database-internal representation of a file
+// version, with a nicer string representation, used only by API debug
+// methods.
+type DebugVersionList struct {
+	*dbproto.VersionList
+}
+
+func (vl DebugVersionList) String() string {
+	var b bytes.Buffer
+	var id protocol.DeviceID
+	b.WriteString("[")
+	for i, v := range vl.Versions {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "{Version:%v, Deleted:%v, Devices:[", protocol.VectorFromWire(v.Version), v.Deleted)
+		for j, dev := range v.Devices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		b.WriteString("], Invalid:[")
+		for j, dev := range v.InvalidDevices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		fmt.Fprint(&b, "]}")
+	}
+	b.WriteString("]")
+	return b.String()
 }
