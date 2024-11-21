@@ -778,7 +778,6 @@ func (c *rawConnection) writeMessage(msg proto.Message) error {
 	defer BufferPool.Put(buf)
 
 	// Message
-
 	if _, err := protoutil.MarshalTo(buf[overhead:], msg); err != nil {
 		return fmt.Errorf("marshalling message: %w", err)
 	}
