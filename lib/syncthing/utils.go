@@ -63,6 +63,8 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 
 	if skipPortProbing {
 		l.Infoln("Using default network port numbers instead of probing for free ports")
+		// Record address override initially
+		newCfg.GUI.RawAddress = newCfg.GUI.Address()
 	} else if err := newCfg.ProbeFreePorts(); err != nil {
 		return nil, err
 	}
