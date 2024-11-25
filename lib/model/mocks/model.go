@@ -246,6 +246,17 @@ type Model struct {
 		result1 map[string]stats.FolderStatistics
 		result2 error
 	}
+	GetFolderConflictsStub        func(string) []string
+	getFolderConflictsMutex       sync.RWMutex
+	getFolderConflictsArgsForCall []struct {
+		arg1 string
+	}
+	getFolderConflictsReturns struct {
+		result1 []string
+	}
+	getFolderConflictsReturnsOnCall map[int]struct {
+		result1 []string
+	}
 	GetFolderVersionsStub        func(string) (map[string][]versioner.FileVersion, error)
 	getFolderVersionsMutex       sync.RWMutex
 	getFolderVersionsArgsForCall []struct {
@@ -1706,6 +1717,67 @@ func (fake *Model) FolderStatisticsReturnsOnCall(i int, result1 map[string]stats
 		result1 map[string]stats.FolderStatistics
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *Model) GetFolderConflicts(arg1 string) []string {
+	fake.getFolderConflictsMutex.Lock()
+	ret, specificReturn := fake.getFolderConflictsReturnsOnCall[len(fake.getFolderConflictsArgsForCall)]
+	fake.getFolderConflictsArgsForCall = append(fake.getFolderConflictsArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetFolderConflictsStub
+	fakeReturns := fake.getFolderConflictsReturns
+	fake.recordInvocation("GetFolderConflicts", []interface{}{arg1})
+	fake.getFolderConflictsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) GetFolderConflictsCallCount() int {
+	fake.getFolderConflictsMutex.RLock()
+	defer fake.getFolderConflictsMutex.RUnlock()
+	return len(fake.getFolderConflictsArgsForCall)
+}
+
+func (fake *Model) GetFolderConflictsCalls(stub func(string) []string) {
+	fake.getFolderConflictsMutex.Lock()
+	defer fake.getFolderConflictsMutex.Unlock()
+	fake.GetFolderConflictsStub = stub
+}
+
+func (fake *Model) GetFolderConflictsArgsForCall(i int) string {
+	fake.getFolderConflictsMutex.RLock()
+	defer fake.getFolderConflictsMutex.RUnlock()
+	argsForCall := fake.getFolderConflictsArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) GetFolderConflictsReturns(result1 []string) {
+	fake.getFolderConflictsMutex.Lock()
+	defer fake.getFolderConflictsMutex.Unlock()
+	fake.GetFolderConflictsStub = nil
+	fake.getFolderConflictsReturns = struct {
+		result1 []string
+	}{result1}
+}
+
+func (fake *Model) GetFolderConflictsReturnsOnCall(i int, result1 []string) {
+	fake.getFolderConflictsMutex.Lock()
+	defer fake.getFolderConflictsMutex.Unlock()
+	fake.GetFolderConflictsStub = nil
+	if fake.getFolderConflictsReturnsOnCall == nil {
+		fake.getFolderConflictsReturnsOnCall = make(map[int]struct {
+			result1 []string
+		})
+	}
+	fake.getFolderConflictsReturnsOnCall[i] = struct {
+		result1 []string
+	}{result1}
 }
 
 func (fake *Model) GetFolderVersions(arg1 string) (map[string][]versioner.FileVersion, error) {
@@ -3330,6 +3402,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.folderProgressBytesCompletedMutex.RUnlock()
 	fake.folderStatisticsMutex.RLock()
 	defer fake.folderStatisticsMutex.RUnlock()
+	fake.getFolderConflictsMutex.RLock()
+	defer fake.getFolderConflictsMutex.RUnlock()
 	fake.getFolderVersionsMutex.RLock()
 	defer fake.getFolderVersionsMutex.RUnlock()
 	fake.getMtimeMappingMutex.RLock()
