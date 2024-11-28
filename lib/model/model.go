@@ -150,6 +150,7 @@ type model struct {
 	mut                            sync.RWMutex
 	folderCfgs                     map[string]config.FolderConfiguration                  // folder -> cfg
 	folderFiles                    map[string]*db.FileSet                                 // folder -> files
+	folderFsys                     map[string]fs.Filesystem                               // folder -> filesystem
 	deviceStatRefs                 map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores                  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners                  *serviceMap[string, service]                           // folder -> puller or scanner
@@ -173,7 +174,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
+type folderFactory func(*model, *db.FileSet, fs.Filesystem, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -229,6 +230,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
 		folderFiles:                    make(map[string]*db.FileSet),
+		folderFsys:                     make(map[string]fs.Filesystem),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
 		folderRunners:                  newServiceMap[string, service](evLogger),
@@ -327,21 +329,22 @@ func (m *model) fatal(err error) {
 }
 
 // Need to hold lock on m.mut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, fsys fs.Filesystem, cacheIgnoredFiles bool) {
+	ignores := ignore.New(fsys, ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			l.Warnln("Loading ignores:", err)
 		}
 	}
 
-	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
+	m.addAndStartFolderLockedWithIgnores(cfg, fset, fsys, ignores)
 }
 
 // Only needed for testing, use addAndStartFolderLocked instead.
-func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, ignores *ignore.Matcher) {
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, fsys fs.Filesystem, ignores *ignore.Matcher) {
 	m.folderCfgs[cfg.ID] = cfg
 	m.folderFiles[cfg.ID] = fset
+	m.folderFsys[cfg.ID] = fsys
 	m.folderIgnores[cfg.ID] = ignores
 
 	_, ok := m.folderRunners.Get(cfg.ID)
@@ -392,10 +395,9 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	// These are our metadata files, and they should always be hidden.
-	ffs := cfg.Filesystem(nil)
-	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(versioner.DefaultPath)
-	_ = ffs.Hide(".stignore")
+	_ = fsys.Hide(config.DefaultMarkerName)
+	_ = fsys.Hide(versioner.DefaultPath)
+	_ = fsys.Hide(".stignore")
 
 	var ver versioner.Versioner
 	if cfg.Versioning.Type != "" {
@@ -409,7 +411,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-	p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, fset, fsys, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
 	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
@@ -491,6 +493,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	m.folderRunners.Remove(cfg.ID)
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
+	delete(m.folderFsys, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
 	delete(m.folderEncryptionPasswordTokens, cfg.ID)
@@ -541,7 +544,8 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 				return fmt.Errorf("restarting %v: %w", to.Description(), err)
 			}
 		}
-		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
+		fsys := to.Filesystem(fset)
+		m.addAndStartFolderLocked(to, fset, fsys, cacheIgnoredFiles)
 	}
 
 	runner, _ := m.folderRunners.Get(to.ID)
@@ -565,17 +569,18 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 }
 
 func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	// Creating the fileset can take a long time (metadata calculation), but
+	// nevertheless should happen inside the lock.
 	fset, err := db.NewFileSet(cfg.ID, m.db)
 	if err != nil {
 		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
 	}
 
-	m.mut.Lock()
-	defer m.mut.Unlock()
-
-	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
+	fsys := cfg.Filesystem(fset)
+	m.addAndStartFolderLocked(cfg, fset, fsys, cacheIgnoredFiles)
 
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start
@@ -2002,6 +2007,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 
 	m.mut.RLock()
 	limiter := m.connRequestLimiters[deviceID]
+	folderFs := m.folderFsys[req.Folder]
 	m.mut.RUnlock()
 
 	// The requestResponse releases the bytes to the buffer pool and the
@@ -2014,11 +2020,6 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 			res.Close()
 		}
 	}()
-
-	// Grab the FS after limiting, as it causes I/O and we want to minimize
-	// the race time between the symlink check and the read.
-
-	folderFs := folderCfg.Filesystem(nil)
 
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
@@ -2178,13 +2179,12 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 
 func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
 	m.mut.RLock()
-	ffs, ok := m.folderFiles[folder]
-	fcfg := m.folderCfgs[folder]
+	fsys, ok := m.folderFsys[folder]
 	m.mut.RUnlock()
 	if !ok {
 		return fs.MtimeMapping{}, ErrFolderMissing
 	}
-	return fs.GetMtimeMapping(fcfg.Filesystem(ffs), file)
+	return fs.GetMtimeMapping(fsys, file)
 }
 
 // Connection returns if we are connected to the given device.

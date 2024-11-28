@@ -816,12 +816,12 @@ func TestCopyOwner(t *testing.T) {
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
 	f.fset = newFileSet(t, f.ID, m.db)
-	f.mtimefs = f.Filesystem(f.fset)
+	f.fsys = f.Filesystem(f.fset)
 
 	// Create a parent dir with a certain owner/group.
 
-	f.mtimefs.Mkdir("foo", 0o755)
-	f.mtimefs.Lchown("foo", strconv.Itoa(expOwner), strconv.Itoa(expGroup))
+	f.fsys.Mkdir("foo", 0o755)
+	f.fsys.Lchown("foo", strconv.Itoa(expOwner), strconv.Itoa(expGroup))
 
 	dir := protocol.FileInfo{
 		Name:        "foo/bar",
@@ -842,7 +842,7 @@ func TestCopyOwner(t *testing.T) {
 		t.Fatal("Unexpected receive on scanChan:", toScan)
 	}
 
-	info, err := f.mtimefs.Lstat("foo/bar")
+	info, err := f.fsys.Lstat("foo/bar")
 	if err != nil {
 		t.Fatal("Unexpected error (dir):", err)
 	}
@@ -878,7 +878,7 @@ func TestCopyOwner(t *testing.T) {
 	f.handleFile(file, snap, copierChan)
 	<-dbUpdateChan
 
-	info, err = f.mtimefs.Lstat("foo/bar/baz")
+	info, err = f.fsys.Lstat("foo/bar/baz")
 	if err != nil {
 		t.Fatal("Unexpected error (file):", err)
 	}
@@ -901,7 +901,7 @@ func TestCopyOwner(t *testing.T) {
 		t.Fatal("Unexpected receive on scanChan:", toScan)
 	}
 
-	info, err = f.mtimefs.Lstat("foo/bar/sym")
+	info, err = f.fsys.Lstat("foo/bar/sym")
 	if err != nil {
 		t.Fatal("Unexpected error (file):", err)
 	}
@@ -1214,7 +1214,7 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 	file := protocol.FileInfo{Name: "foo"}
 	confl := "Foo"
 	tempNameConfl := fs.TempName(confl)
-	if fd, err := f.mtimefs.Create(tempNameConfl); err != nil {
+	if fd, err := f.fsys.Create(tempNameConfl); err != nil {
 		t.Fatal(err)
 	} else {
 		if _, err := fd.Write([]byte("data")); err != nil {
@@ -1240,7 +1240,7 @@ func TestPullCaseOnlyRename(t *testing.T) {
 	// tempNameConfl := fs.TempName(confl)
 
 	name := "foo"
-	if fd, err := f.mtimefs.Create(name); err != nil {
+	if fd, err := f.fsys.Create(name); err != nil {
 		t.Fatal(err)
 	} else {
 		if _, err := fd.Write([]byte("data")); err != nil {
@@ -1282,7 +1282,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	conn := addFakeConn(m, device1, f.ID)
 
 	name := "foo"
-	if fd, err := f.mtimefs.Create(name); err != nil {
+	if fd, err := f.fsys.Create(name); err != nil {
 		t.Fatal(err)
 	} else {
 		if _, err := fd.Write([]byte("data")); err != nil {
@@ -1311,7 +1311,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	} else if !file.IsUnsupported() {
 		t.Error("symlink entry isn't marked as unsupported")
 	}
-	if _, err := f.mtimefs.Lstat(name); err == nil {
+	if _, err := f.fsys.Lstat(name); err == nil {
 		t.Error("old file still exists on disk")
 	} else if !fs.IsNotExist(err) {
 		t.Error(err)
@@ -1327,7 +1327,7 @@ func TestPullDeleteCaseConflict(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string)
 
-	if fd, err := f.mtimefs.Create(name); err != nil {
+	if fd, err := f.fsys.Create(name); err != nil {
 		t.Fatal(err)
 	} else {
 		if _, err := fd.Write([]byte("data")); err != nil {
@@ -1359,16 +1359,16 @@ func TestPullDeleteIgnoreChildDir(t *testing.T) {
 	parent := "parent"
 	del := "ignored"
 	child := "keep"
-	matcher := ignore.New(f.mtimefs)
+	matcher := ignore.New(f.fsys)
 	must(t, matcher.Parse(bytes.NewBufferString(fmt.Sprintf(`
 !%v
 (?d)%v
 `, child, del)), ""))
 	f.ignores = matcher
 
-	must(t, f.mtimefs.Mkdir(parent, 0o777))
-	must(t, f.mtimefs.Mkdir(filepath.Join(parent, del), 0o777))
-	must(t, f.mtimefs.Mkdir(filepath.Join(parent, del, child), 0o777))
+	must(t, f.fsys.Mkdir(parent, 0o777))
+	must(t, f.fsys.Mkdir(filepath.Join(parent, del), 0o777))
+	must(t, f.fsys.Mkdir(filepath.Join(parent, del, child), 0o777))
 
 	scanChan := make(chan string, 2)
 

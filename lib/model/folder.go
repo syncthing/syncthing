@@ -47,8 +47,8 @@ type folder struct {
 	model         *model
 	shortID       protocol.ShortID
 	fset          *db.FileSet
+	fsys          fs.Filesystem
 	ignores       *ignore.Matcher
-	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
 	ctx           context.Context // used internally, only accessible on serve lifetime
 	done          chan struct{}   // used externally, accessible regardless of serve
@@ -96,7 +96,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, fset *db.FileSet, fsys fs.Filesystem, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -106,8 +106,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		model:         model,
 		shortID:       model.shortID,
 		fset:          fset,
+		fsys:          fsys,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -595,8 +595,8 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 	// Check for a "virtual" parent directory of encrypted files. We don't track
 	// it, but check if anything still exists within and delete it otherwise.
 	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
-		if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
-			b.f.mtimefs.Remove(fi.Name)
+		if names, err := b.f.fsys.DirNames(fi.Name); err == nil && len(names) == 0 {
+			b.f.fsys.Remove(fi.Name)
 		}
 		return false
 	}
@@ -647,7 +647,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{snap},
-		Filesystem:            f.mtimefs,
+		Filesystem:            f.fsys,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
@@ -775,7 +775,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				// it's still here. Simply stat:ing it won't do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !osutil.IsDeleted(f.mtimefs, file.Name) {
+				if !osutil.IsDeleted(f.fsys, file.Name) {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
@@ -898,7 +898,7 @@ func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUs
 
 		alreadyUsedOrExisting[fi.Name] = struct{}{}
 
-		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
+		if !osutil.IsDeleted(f.fsys, fi.Name) {
 			return true
 		}
 
@@ -1021,7 +1021,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	for {
 		select {
 		case <-failTimer.C:
-			eventChan, errChan, err = f.mtimefs.Watch(".", f.ignores, ctx, f.IgnorePerms)
+			eventChan, errChan, err = f.fsys.Watch(".", f.ignores, ctx, f.IgnorePerms)
 			// We do this once per minute initially increased to
 			// max one hour in case of repeat failures.
 			f.scanOnWatchErr()
