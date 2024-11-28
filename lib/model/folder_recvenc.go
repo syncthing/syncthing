@@ -71,7 +71,7 @@ func (f *receiveEncryptedFolder) revert() error {
 			return true
 		}
 
-		if err := f.inWritableDir(f.fsys.Remove, fit.Name); err != nil && !fs.IsNotExist(err) {
+		if err := f.inWritableDir(f.mtimefs.Remove, fit.Name); err != nil && !fs.IsNotExist(err) {
 			f.newScanError(fit.Name, fmt.Errorf("deleting unexpected item: %w", err))
 		}
 

@@ -183,7 +183,7 @@ func TestSetPlatformData(t *testing.T) {
 			FolderConfiguration: config.FolderConfiguration{
 				SyncXattrs: true,
 			},
-			fsys: fs,
+			mtimefs: fs,
 		},
 	}
 
