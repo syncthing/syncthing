@@ -569,7 +569,8 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	defer m.mut.Unlock()
 
 	// Creating the fileset can take a long time (metadata calculation), but
-	// nevertheless should happen inside the lock.
+	// nevertheless should happen inside the lock (same as when restarting
+	// a folder).
 	fset, err := db.NewFileSet(cfg.ID, m.db)
 	if err != nil {
 		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
