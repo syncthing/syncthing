@@ -565,15 +565,15 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 }
 
 func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	// Creating the fileset can take a long time (metadata calculation), but
+	// nevertheless should happen inside the lock.
 	fset, err := db.NewFileSet(cfg.ID, m.db)
 	if err != nil {
 		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
 	}
-
-	m.mut.Lock()
-	defer m.mut.Unlock()
 
 	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
 
