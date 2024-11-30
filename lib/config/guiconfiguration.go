@@ -7,6 +7,8 @@
 package config
 
 import (
+	"encoding/hex"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -16,11 +18,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sliceutil"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
-func (c GUIConfiguration) IsAuthEnabled() bool {
-	// This function should match isAuthEnabled() in syncthingController.js
+func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
+}
+
+func (c GUIConfiguration) IsWebauthnAuthEnabled() bool {
+	return len(c.WebauthnState.Credentials) > 0
 }
 
 func (GUIConfiguration) IsOverridden() bool {
@@ -119,7 +126,13 @@ var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 // SetPassword takes a bcrypt hash or a plaintext password and stores it.
 // Plaintext passwords are hashed. Returns an error if the password is not
 // valid.
+// If the plaintext password is empty, the password is unset instead.
 func (c *GUIConfiguration) SetPassword(password string) error {
+	if password == "" {
+		c.Password = ""
+		return nil
+	}
+
 	if bcryptExpr.MatchString(password) {
 		// Already hashed
 		c.Password = password
@@ -155,12 +168,124 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 	}
 }
 
-func (c *GUIConfiguration) prepare() {
+func (c *GUIConfiguration) defaultWebauthnRpId() string {
+	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+	host, _, err := net.SplitHostPort(c.Address())
+	if err != nil {
+		defaultHost, _, err := net.SplitHostPort(defaultGuiCfg.Address())
+		if err != nil {
+			return defaultGuiCfg.WebauthnRpId
+		}
+		host = defaultHost
+	}
+	if net.ParseIP(host) != nil {
+		return defaultGuiCfg.WebauthnRpId
+	}
+	return host
+}
+
+func (c *GUIConfiguration) defaultWebauthnOrigins() ([]string, error) {
+	_, port, err := net.SplitHostPort(c.Address())
+	if err != nil {
+		defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+		_, defaultPort, err := net.SplitHostPort(defaultGuiCfg.Address())
+		if err != nil {
+			return nil, err
+		}
+		port = defaultPort
+	}
+	secure_origin := "https://" + c.WebauthnRpId
+	if port != "443" {
+		secure_origin += ":" + port
+	}
+	return []string{secure_origin}, nil
+}
+
+func (c *GUIConfiguration) prepare() error {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
+
+	if len(c.WebauthnUserId) == 0 {
+		// Spec recommends 64 random bytes; 32 is enough and fits hex-encoded in the max of 64 bytes
+		newUserId := make([]byte, 32)
+		_, err := rand.Read(newUserId)
+		if err != nil {
+			return err
+		}
+		// Hex-encode the random bytes so that the ID is printable ASCII, for config.xml etc.
+		c.WebauthnUserId = []byte(hex.EncodeToString(newUserId))
+	}
+
+	defaultGuiCfg := structutil.WithDefaults(GUIConfiguration{})
+	if c.WebauthnRpId == "" {
+		c.WebauthnRpId = defaultGuiCfg.WebauthnRpId
+	}
+	if len(c.WebauthnOrigins) == 0 {
+		origins, err := c.defaultWebauthnOrigins()
+		if err != nil {
+			return err
+		}
+		c.WebauthnOrigins = origins
+	}
+
+	return nil
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
+	c.WebauthnState = c.WebauthnState.Copy()
 	return c
+}
+
+func (s WebauthnState) EligibleWebAuthnCredentials(guiCfg GUIConfiguration) []WebauthnCredential {
+	return sliceutil.Filter(s.Credentials, func(cred *WebauthnCredential) bool {
+		return cred.RpId == guiCfg.WebauthnRpId
+	})
+}
+
+func (orig *WebauthnState) Copy() WebauthnState {
+	c := *orig
+	c.Credentials = make([]WebauthnCredential, len(orig.Credentials))
+	for i := range orig.Credentials {
+		c.Credentials[i] = orig.Credentials[i].Copy()
+	}
+	return c
+}
+
+func (orig *WebauthnCredential) Copy() WebauthnCredential {
+	c := *orig
+	if c.Transports != nil {
+		c.Transports = make([]string, len(c.Transports))
+		copy(c.Transports, orig.Transports)
+	}
+	return c
+}
+
+func (c *WebauthnCredential) NicknameOrID() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	}
+	return c.ID
+}
+
+func SanitizeWebauthnStateChanges(from *WebauthnState, to *WebauthnState, pendingRegistrations []WebauthnCredential) {
+	// Don't allow adding new WebAuthn credentials without passing a registration challenge,
+	// and only allow updating the Nickname and RequireUv fields
+	existingCredentials := make(map[string]WebauthnCredential)
+	for _, cred := range from.Credentials {
+		existingCredentials[cred.ID] = cred
+	}
+	for _, cred := range pendingRegistrations {
+		existingCredentials[cred.ID] = cred
+	}
+
+	var updatedCredentials []WebauthnCredential
+	for _, newCred := range to.Credentials {
+		if exCred, ok := existingCredentials[newCred.ID]; ok {
+			exCred.Nickname = newCred.Nickname
+			exCred.RequireUv = newCred.RequireUv
+			updatedCredentials = append(updatedCredentials, exCred)
+		}
+	}
+	to.Credentials = updatedCredentials
 }

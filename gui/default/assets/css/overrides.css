@@ -102,8 +102,16 @@ ul+h5 {
     /*padding-left: 20px !important;*/
 }
 
+.table td.button-cell {
+  padding: 0;
+}
+
 .table td.small-data {
     white-space: nowrap;
+}
+
+.table td.stretch {
+    width: 100%;
 }
 
 /* Removing text decoration on anchor link hover pull request: #4135 */
@@ -552,4 +560,26 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
+}
+
+.two-column-flexbox {
+  align-items: flex-start;
+  column-gap: 1em; /* row-gap emulated by self > * margin-bottom to fallback gracefully in browsers without Flexbox */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.two-column-flexbox > * {
+  flex-grow: 1;
+  flex-shrink: 0;
+  margin-bottom: 1em;
+  min-width: 40%; /* Limit to two items per row */
+}
+
+@media (max-width: 768px) {
+  .two-column-flexbox > * {
+    min-width: 90%; /* Limit to one item per row on narrow screens */
+  }
 }

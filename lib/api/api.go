@@ -69,6 +69,11 @@ const (
 	httpsCertLifetimeDays = 820
 )
 
+type startedTestMsg struct {
+	address         string
+	webauthnService *webauthnService
+}
+
 type service struct {
 	suture.Service
 
@@ -85,13 +90,14 @@ type service struct {
 	urService            *ur.Service
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	configChanged        chan struct{} // signals intentional listener close due to config change
-	started              chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce          chan struct{} // the service has started successfully at least once
+	configChanged        chan struct{}       // signals intentional listener close due to config change
+	started              chan startedTestMsg // signals startup complete by sending internal state, for testing only
+	startedOnce          chan struct{}       // the service has started successfully at least once
 	startupErr           error
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
 	miscDB               *db.NamespacedKV
+	shutdownTimeout      time.Duration
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -129,6 +135,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		startedOnce:          make(chan struct{}),
 		exitChan:             make(chan *svcutil.FatalErr, 1),
 		miscDB:               miscDB,
+		shutdownTimeout:      100 * time.Millisecond,
 	}
 }
 
@@ -213,7 +220,8 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *service) Serve(ctx context.Context) error {
-	listener, err := s.getListener(s.cfg.GUI())
+	guiCfg := s.cfg.GUI()
+	listener, err := s.getListener(guiCfg)
 	if err != nil {
 		select {
 		case <-s.startedOnce:
@@ -244,6 +252,16 @@ func (s *service) Serve(ctx context.Context) error {
 	defer s.cfg.Unsubscribe(s)
 
 	restMux := httprouter.New()
+
+	deviceCfg, ok := s.cfg.Device(s.id)
+	deviceName := s.id.Short().String()
+	if ok && deviceCfg.Name != "" {
+		deviceName = deviceCfg.Name
+	}
+	webauthnService, err := newWebauthnService(guiCfg, deviceName, s.evLogger, s.miscDB, "webauthn")
+	if err != nil {
+		return err
+	}
 
 	// The GET handlers
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/pending/devices", s.getPendingDevices) // -
@@ -280,6 +298,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
+	restMux.HandlerFunc(http.MethodGet, "/rest/webauthn/state", webauthnService.getVolatileState)
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
@@ -306,9 +325,10 @@ func (s *service) Serve(ctx context.Context) error {
 	// Config endpoints
 
 	configBuilder := &configMuxBuilder{
-		Router: restMux,
-		id:     s.id,
-		cfg:    s.cfg,
+		Router:          restMux,
+		id:              s.id,
+		cfg:             s.cfg,
+		webauthnService: &webauthnService,
 	}
 
 	configBuilder.registerConfig("/rest/config")
@@ -323,6 +343,7 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
+	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
 
 	// Deprecated config endpoints
@@ -357,8 +378,6 @@ func (s *service) Serve(ctx context.Context) error {
 	promHttpHandler := promhttp.Handler()
 	mux.Handle("/metrics", promHttpHandler)
 
-	guiCfg := s.cfg.GUI()
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
 	var handler http.Handler = newCsrfManager(s.id.Short().String(), "/rest", guiCfg, mux, s.miscDB)
@@ -366,13 +385,15 @@ func (s *service) Serve(ctx context.Context) error {
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
-	// Wrap everything in basic auth, if user/password is set.
-	if guiCfg.IsAuthEnabled() {
+	// Wrap everything in auth, if user/password is set or WebAuthn is enabled.
+	if isAuthEnabled(guiCfg) {
 		tokenCookieManager := newTokenCookieManager(s.id.Short().String(), guiCfg, s.evLogger, s.miscDB)
 		authMW := newBasicAuthAndSessionMiddleware(tokenCookieManager, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 		handler = authMW
 
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/password", http.HandlerFunc(authMW.passwordAuthHandler))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-start", webauthnService.startWebauthnAuthentication(guiCfg))
+		restMux.HandlerFunc(http.MethodPost, "/rest/noauth/auth/webauthn-finish", webauthnService.finishWebauthnAuthentication(tokenCookieManager, guiCfg))
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
@@ -409,7 +430,10 @@ func (s *service) Serve(ctx context.Context) error {
 		// only set when run by the tests
 		select {
 		case <-ctx.Done(): // Shouldn't return directly due to cleanup below
-		case s.started <- listener.Addr().String():
+		case s.started <- startedTestMsg{
+			address:         listener.Addr().String(),
+			webauthnService: &webauthnService,
+		}:
 		}
 	}
 
@@ -448,7 +472,7 @@ func (s *service) Serve(ctx context.Context) error {
 	}
 	// Give it a moment to shut down gracefully, e.g. if we are restarting
 	// due to a config change through the API, let that finish successfully.
-	timeout, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	timeout, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(timeout); err == timeout.Err() {
 		srv.Close()
@@ -484,7 +508,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if to.GUI == from.GUI {
+	if reflect.DeepEqual(to.GUI, from.GUI) {
 		// No GUI changes, we're done here.
 		return true
 	}
@@ -497,6 +521,11 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.configChanged <- struct{}{}
 
 	return true
+}
+
+func isAuthEnabled(guiCfg config.GUIConfiguration) bool {
+	// This function should match isAuthEnabled() in syncthingController.js
+	return guiCfg.IsPasswordAuthEnabled() || guiCfg.IsWebauthnAuthEnabled()
 }
 
 func (s *service) fatal(err *svcutil.FatalErr) {
