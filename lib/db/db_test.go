@@ -460,7 +460,7 @@ func TestUpdateTo14(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fiBs := mustMarshal(fileWOBlocks.ToDB())
+	fiBs := mustMarshal(fileWOBlocks.ToWire(true))
 	if err := trans.Put(key, fiBs); err != nil {
 		t.Fatal(err)
 	}

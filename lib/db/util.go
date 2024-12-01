@@ -47,7 +47,7 @@ func (b *FileInfoBatch) Append(f protocol.FileInfo) {
 		b.infos = make([]protocol.FileInfo, 0, MaxBatchSizeFiles)
 	}
 	b.infos = append(b.infos, f)
-	b.size += proto.Size(f.ToDB())
+	b.size += proto.Size(f.ToWire(true))
 }
 
 func (b *FileInfoBatch) Full() bool {

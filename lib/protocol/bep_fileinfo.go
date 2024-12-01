@@ -101,7 +101,7 @@ type FileInfo struct {
 	truncated bool // was created from a truncated file info without blocks
 }
 
-func (f *FileInfo) ToWire() *bep.FileInfo {
+func (f *FileInfo) ToWire(withInternalFields bool) *bep.FileInfo {
 	if f.truncated && !(f.IsDeleted() || f.IsInvalid() || f.IsIgnored()) {
 		panic("bug: must not serialize truncated file info")
 	}
@@ -109,7 +109,7 @@ func (f *FileInfo) ToWire() *bep.FileInfo {
 	for j, b := range f.Blocks {
 		blocks[j] = b.ToWire()
 	}
-	return &bep.FileInfo{
+	w := &bep.FileInfo{
 		Name:          f.Name,
 		Size:          f.Size,
 		ModifiedS:     f.ModifiedS,
@@ -129,14 +129,12 @@ func (f *FileInfo) ToWire() *bep.FileInfo {
 		Invalid:       f.RawInvalid,
 		NoPermissions: f.NoPermissions,
 	}
-}
-
-func (f *FileInfo) ToDB() *bep.FileInfo {
-	w := f.ToWire()
-	w.LocalFlags = f.LocalFlags
-	w.VersionHash = f.VersionHash
-	w.InodeChangeNs = f.InodeChangeNs
-	w.EncryptionTrailerSize = int32(f.EncryptionTrailerSize)
+	if withInternalFields {
+		w.LocalFlags = f.LocalFlags
+		w.VersionHash = f.VersionHash
+		w.InodeChangeNs = f.InodeChangeNs
+		w.EncryptionTrailerSize = int32(f.EncryptionTrailerSize)
+	}
 	return w
 }
 

@@ -17,7 +17,7 @@ type Index struct {
 func (i *Index) toWire() *bep.Index {
 	files := make([]*bep.FileInfo, len(i.Files))
 	for j, f := range i.Files {
-		files[j] = f.ToWire()
+		files[j] = f.ToWire(false)
 	}
 	return &bep.Index{
 		Folder:       i.Folder,
@@ -51,7 +51,7 @@ type IndexUpdate struct {
 func (i *IndexUpdate) toWire() *bep.IndexUpdate {
 	files := make([]*bep.FileInfo, len(i.Files))
 	for j, f := range i.Files {
-		files[j] = f.ToWire()
+		files[j] = f.ToWire(false)
 	}
 	return &bep.IndexUpdate{
 		Folder:       i.Folder,

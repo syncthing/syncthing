@@ -625,7 +625,7 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 
 	t.indirectionTracker.recordIndirectionHashesForFile(&fi)
 
-	fiBs := mustMarshal(fi.ToDB())
+	fiBs := mustMarshal(fi.ToWire(true))
 	return t.Put(fkey, fiBs)
 }
 

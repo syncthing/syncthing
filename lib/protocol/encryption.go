@@ -292,7 +292,7 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
 
-	bs, err := proto.Marshal(fi.ToWire())
+	bs, err := proto.Marshal(fi.ToWire(false))
 	if err != nil {
 		panic("impossible serialization mishap: " + err.Error())
 	}

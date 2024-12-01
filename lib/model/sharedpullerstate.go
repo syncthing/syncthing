@@ -389,7 +389,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 
 	trailerSize := encryptionTrailerSize(wireFile)
 	bs := make([]byte, trailerSize)
-	n, err := protoutil.MarshalTo(bs, wireFile.ToWire())
+	n, err := protoutil.MarshalTo(bs, wireFile.ToWire(false))
 	if err != nil {
 		return 0, err
 	}
@@ -404,7 +404,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 }
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
-	return int64(proto.Size(file.ToWire())) + 4 // XXX: Inefficient
+	return int64(proto.Size(file.ToWire(false))) + 4 // XXX: Inefficient
 }
 
 // Progress returns the momentarily progress for the puller
