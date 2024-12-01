@@ -55,6 +55,7 @@ func globalList(t testing.TB, s *db.FileSet) []protocol.FileInfo {
 	})
 	return fs
 }
+
 func globalListPrefixed(t testing.TB, s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
 	snap := snapshot(t, s)

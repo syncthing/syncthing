@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("stats", "Persistent device and folder statistics")
-)
+var l = logger.DefaultLogger.NewFacility("stats", "Persistent device and folder statistics")

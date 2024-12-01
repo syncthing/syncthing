@@ -119,7 +119,7 @@ func main() {
 	bs := readAll(htmlFile)
 	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
-	if err := os.WriteFile(htmlFile, bs, 0644); err != nil {
+	if err := os.WriteFile(htmlFile, bs, 0o644); err != nil {
 		log.Fatal(err)
 	}
 

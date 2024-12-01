@@ -203,7 +203,7 @@ func TestSyncCluster(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fd, err := os.OpenFile("s1/test-appendfile", os.O_APPEND|os.O_WRONLY, 0644)
+		fd, err := os.OpenFile("s1/test-appendfile", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -326,7 +326,7 @@ func TestSyncSparseFile(t *testing.T) {
 
 	log.Println("Generating files...")
 
-	if err := os.Mkdir("s1", 0755); err != nil {
+	if err := os.Mkdir("s1", 0o755); err != nil {
 		t.Fatal(err)
 	}
 

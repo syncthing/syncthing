@@ -13,8 +13,7 @@ import (
 )
 
 func TestExternalIPParsing(t *testing.T) {
-	soapResponse :=
-		[]byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+	soapResponse := []byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 		<s:Body>
 			<u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">
 			<NewExternalIPAddress>1.2.3.4</NewExternalIPAddress>
@@ -34,8 +33,7 @@ func TestExternalIPParsing(t *testing.T) {
 }
 
 func TestSoapFaultParsing(t *testing.T) {
-	soapResponse :=
-		[]byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+	soapResponse := []byte(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 		<s:Body>
 			<s:Fault>
 				<faultcode>s:Client</faultcode>

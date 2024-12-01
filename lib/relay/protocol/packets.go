@@ -29,9 +29,11 @@ type header struct {
 	messageLength int32
 }
 
-type Ping struct{}
-type Pong struct{}
-type RelayFull struct{}
+type (
+	Ping      struct{}
+	Pong      struct{}
+	RelayFull struct{}
+)
 
 type JoinRelayRequest struct {
 	Token string

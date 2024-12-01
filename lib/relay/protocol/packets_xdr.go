@@ -60,6 +60,7 @@ func (o *header) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *header) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.magic = u.UnmarshalUint32()
 	o.messageType = int32(u.UnmarshalUint32())
@@ -81,6 +82,7 @@ struct Ping {
 func (Ping) XDRSize() int {
 	return 0
 }
+
 func (Ping) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -115,6 +117,7 @@ struct Pong {
 func (Pong) XDRSize() int {
 	return 0
 }
+
 func (Pong) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -149,6 +152,7 @@ struct RelayFull {
 func (RelayFull) XDRSize() int {
 	return 0
 }
+
 func (RelayFull) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
@@ -215,6 +219,7 @@ func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Token = u.UnmarshalString()
 	return u.Error
@@ -269,6 +274,7 @@ func (o *JoinSessionRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *JoinSessionRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Key = u.UnmarshalBytesMax(32)
 	return u.Error
@@ -325,6 +331,7 @@ func (o *Response) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *Response) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Code = int32(u.UnmarshalUint32())
 	o.Message = u.UnmarshalString()
@@ -380,6 +387,7 @@ func (o *ConnectRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *ConnectRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.ID = u.UnmarshalBytesMax(32)
 	return u.Error
@@ -462,6 +470,7 @@ func (o *SessionInvitation) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
+
 func (o *SessionInvitation) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.From = u.UnmarshalBytesMax(32)
 	o.Key = u.UnmarshalBytesMax(32)

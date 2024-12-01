@@ -49,7 +49,6 @@ var (
 		"dynamic+https://relays.syncthing.net/endpoint",
 		netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
-	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -79,8 +78,10 @@ var (
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
+		"stun.hitv.com:3478",
 		"stun.ideasip.com:3478",
 		"stun.internetcalls.com:3478",
+		"stun.miwifi.com:3478",
 		"stun.schlund.de:3478",
 		"stun.sipgate.net:10000",
 		"stun.sipgate.net:3478",
@@ -116,11 +117,19 @@ func New(myID protocol.DeviceID) Configuration {
 }
 
 func (cfg *Configuration) ProbeFreePorts() error {
-	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
+	guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
+	if err != nil {
+		return fmt.Errorf("get default port (GUI): %w", err)
+	}
+	port, err := strconv.Atoi(guiPort)
+	if err != nil {
+		return fmt.Errorf("convert default port (GUI): %w", err)
+	}
+	port, err = getFreePort(guiHost, port)
 	if err != nil {
 		return fmt.Errorf("get free port (GUI): %w", err)
 	}
-	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {

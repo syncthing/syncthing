@@ -16,9 +16,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-var (
-	noFallback = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
-)
+var noFallback = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
 
 func init() {
 	proxy.RegisterDialerType("socks", socksDialerFunction)

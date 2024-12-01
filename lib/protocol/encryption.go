@@ -212,38 +212,44 @@ func (e encryptedConnection) Request(ctx context.Context, req *Request) ([]byte,
 	if !ok {
 		return e.conn.Request(ctx, req)
 	}
+	fileKey := e.keyGen.FileKey(req.Name, folderKey)
 
 	// Encrypt / adjust the request parameters.
 
-	origSize := req.Size
-	origName := req.Name
-	if req.Size < minPaddedSize {
+	encSize := req.Size
+	if encSize < minPaddedSize {
 		// Make a request for minPaddedSize data instead of the smaller
 		// block. We'll chop of the extra data later.
-		req.Size = minPaddedSize
+		encSize = minPaddedSize
 	}
+	encSize += blockOverhead
 	encName := encryptName(req.Name, folderKey)
 	encOffset := req.Offset + int64(req.BlockNo*blockOverhead)
-	encSize := req.Size + blockOverhead
+	encHash := encryptBlockHash(req.Hash, req.Offset, fileKey)
 
 	// Perform that request, getting back an encrypted block.
 
-	req.Name = encName
-	req.Offset = encOffset
-	req.Size = encSize
-	bs, err := e.conn.Request(ctx, req)
+	encReq := &Request{
+		ID:      req.ID,
+		Folder:  req.Folder,
+		Name:    encName,
+		Offset:  encOffset,
+		Size:    encSize,
+		Hash:    encHash,
+		BlockNo: req.BlockNo,
+	}
+	bs, err := e.conn.Request(ctx, encReq)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	fileKey := e.keyGen.FileKey(origName, folderKey)
 	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
 		return nil, err
 	}
-	return bs[:origSize], nil
+	return bs[:req.Size], nil
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, dp *DownloadProgress) {
@@ -327,15 +333,7 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 			b.Size = minPaddedSize
 		}
 		size := b.Size + blockOverhead
-
-		// The offset goes into the encrypted block hash as additional data,
-		// essentially mixing in with the nonce. This means a block hash
-		// remains stable for the same data at the same offset, but doesn't
-		// reveal the existence of identical data blocks at other offsets.
-		var additional [8]byte
-		binary.BigEndian.PutUint64(additional[:], uint64(b.Offset))
-		hash := encryptDeterministic(b.Hash, fileKey, additional[:])
-
+		hash := encryptBlockHash(b.Hash, b.Offset, fileKey)
 		blocks[i] = BlockInfo{
 			Hash:   hash,
 			Offset: offset,
@@ -372,6 +370,16 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	}
 
 	return enc
+}
+
+func encryptBlockHash(hash []byte, offset int64, fileKey *[keySize]byte) []byte {
+	// The offset goes into the encrypted block hash as additional data,
+	// essentially mixing in with the nonce. This means a block hash
+	// remains stable for the same data at the same offset, but doesn't
+	// reveal the existence of identical data blocks at other offsets.
+	var additional [8]byte
+	binary.BigEndian.PutUint64(additional[:], uint64(offset))
+	return encryptDeterministic(hash, fileKey, additional[:])
 }
 
 func decryptFileInfos(keyGen *KeyGenerator, files []FileInfo, folderKey *[keySize]byte) error {
