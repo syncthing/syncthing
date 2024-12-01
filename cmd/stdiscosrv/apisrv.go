@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/gen/discosrv"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stringutil"
 )
@@ -52,7 +53,7 @@ type apiSrv struct {
 }
 
 type replicator interface {
-	send(key *protocol.DeviceID, addrs []DatabaseAddress, seen int64)
+	send(key *protocol.DeviceID, addrs []*discosrv.DatabaseAddress, seen int64)
 }
 
 type requestID int64
@@ -312,7 +313,7 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 	slices.Sort(addresses)
 	addresses = slices.Compact(addresses)
 
-	dbAddrs := make([]DatabaseAddress, len(addresses))
+	dbAddrs := make([]*discosrv.DatabaseAddress, len(addresses))
 	for i := range addresses {
 		dbAddrs[i].Address = addresses[i]
 		dbAddrs[i].Expires = expire
@@ -511,7 +512,7 @@ func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func addressStrs(dbAddrs []DatabaseAddress) []string {
+func addressStrs(dbAddrs []*discosrv.DatabaseAddress) []string {
 	res := make([]string, len(dbAddrs))
 	for i, a := range dbAddrs {
 		res[i] = a.Address

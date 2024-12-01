@@ -23,6 +23,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/assets"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"

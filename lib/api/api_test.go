@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -46,7 +48,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture/v4"
 )
 
 var (

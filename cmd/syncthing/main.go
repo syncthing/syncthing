@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
 
@@ -38,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"

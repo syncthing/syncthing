@@ -925,22 +925,9 @@ func updateDependencies() {
 }
 
 func proto() {
-	pv := protobufVersion()
-	repo := "https://github.com/gogo/protobuf.git"
-	path := filepath.Join("repos", "protobuf")
-
-	runPrint(goCmd, "install", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
-	os.MkdirAll("repos", 0o755)
-
-	if _, err := os.Stat(path); err != nil {
-		runPrint("git", "clone", repo, path)
-	} else {
-		runPrintInDir(path, "git", "fetch")
-	}
-	runPrintInDir(path, "git", "checkout", pv)
-
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/cmd/stdiscosrv")
-	runPrint(goCmd, "generate", "proto/generate.go")
+	// buf needs to be installed
+	// https://buf.build/docs/installation/
+	runPrint("buf", "generate")
 }
 
 func testmocks() {
@@ -1481,14 +1468,6 @@ func (t target) BinaryName() string {
 		return t.binaryName + ".exe"
 	}
 	return t.binaryName
-}
-
-func protobufVersion() string {
-	bs, err := runError(goCmd, "list", "-f", "{{.Version}}", "-m", "github.com/gogo/protobuf")
-	if err != nil {
-		log.Fatal("Getting protobuf version:", err)
-	}
-	return string(bs)
 }
 
 func currentAndLatestVersions(n int) ([]string, error) {

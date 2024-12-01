@@ -27,10 +27,10 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 	tmpDir2 := t.TempDir()
 
 	cfg := config.FolderConfiguration{
-		FilesystemType: fs.FilesystemTypeBasic,
+		FilesystemType: config.FilesystemTypeBasic,
 		Path:           tmpDir1,
 		Versioning: config.VersioningConfiguration{
-			FSType: fs.FilesystemTypeBasic,
+			FSType: config.FilesystemTypeBasic,
 			FSPath: tmpDir2,
 		},
 	}
@@ -105,10 +105,10 @@ func TestTrashcanRestoreDeletedFile(t *testing.T) {
 	tmpDir2 := t.TempDir()
 
 	cfg := config.FolderConfiguration{
-		FilesystemType: fs.FilesystemTypeBasic,
+		FilesystemType: config.FilesystemTypeBasic,
 		Path:           tmpDir1,
 		Versioning: config.VersioningConfiguration{
-			FSType: fs.FilesystemTypeBasic,
+			FSType: config.FilesystemTypeBasic,
 			FSPath: tmpDir2,
 		},
 	}
@@ -200,7 +200,7 @@ func TestTrashcanCleanOut(t *testing.T) {
 	testDir := t.TempDir()
 
 	cfg := config.FolderConfiguration{
-		FilesystemType: fs.FilesystemTypeBasic,
+		FilesystemType: config.FilesystemTypeBasic,
 		Path:           testDir,
 		Versioning: config.VersioningConfiguration{
 			Params: map[string]string{

@@ -6,6 +6,17 @@
 
 package fs
 
+type CopyRangeMethod int32
+
+const (
+	CopyRangeMethodStandard         CopyRangeMethod = 0
+	CopyRangeMethodIoctl            CopyRangeMethod = 1
+	CopyRangeMethodCopyFileRange    CopyRangeMethod = 2
+	CopyRangeMethodSendFile         CopyRangeMethod = 3
+	CopyRangeMethodDuplicateExtents CopyRangeMethod = 4
+	CopyRangeMethodAllWithFallback  CopyRangeMethod = 5
+)
+
 func (o CopyRangeMethod) String() string {
 	switch o {
 	case CopyRangeMethodStandard:
@@ -23,32 +34,4 @@ func (o CopyRangeMethod) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-func (o CopyRangeMethod) MarshalText() ([]byte, error) {
-	return []byte(o.String()), nil
-}
-
-func (o *CopyRangeMethod) UnmarshalText(bs []byte) error {
-	switch string(bs) {
-	case "standard":
-		*o = CopyRangeMethodStandard
-	case "ioctl":
-		*o = CopyRangeMethodIoctl
-	case "copy_file_range":
-		*o = CopyRangeMethodCopyFileRange
-	case "sendfile":
-		*o = CopyRangeMethodSendFile
-	case "duplicate_extents":
-		*o = CopyRangeMethodDuplicateExtents
-	case "all":
-		*o = CopyRangeMethodAllWithFallback
-	default:
-		*o = CopyRangeMethodStandard
-	}
-	return nil
-}
-
-func (o *CopyRangeMethod) ParseDefault(str string) error {
-	return o.UnmarshalText([]byte(str))
 }

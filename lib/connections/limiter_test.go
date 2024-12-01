@@ -15,10 +15,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"golang.org/x/time/rate"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/time/rate"
 )
 
 var (

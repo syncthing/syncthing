@@ -94,9 +94,9 @@ type Model interface {
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
-	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error)
-	LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
+	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error)
+	LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error)
 	FolderProgressBytesCompleted(folder string) int64
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
@@ -944,7 +944,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 
 	need := snap.NeedSize(device)
 	need.Bytes -= downloaded
-	// This might might be more than it really is, because some blocks can be of a smaller size.
+	// This might be more than it really is, because some blocks can be of a smaller size.
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
@@ -973,7 +973,7 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 
 // NeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration.
-func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
+func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	m.mut.RLock()
 	rf, rfOk := m.folderFiles[folder]
 	runner, runnerOk := m.folderRunners.Get(folder)
@@ -989,7 +989,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 		return nil, nil, nil, err
 	}
 	defer snap.Release()
-	var progress, queued, rest []db.FileInfoTruncated
+	var progress, queued, rest []protocol.FileInfo
 	var seen map[string]struct{}
 
 	p := newPager(page, perpage)
@@ -997,8 +997,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	if runnerOk {
 		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
 
-		progress = make([]db.FileInfoTruncated, len(progressNames))
-		queued = make([]db.FileInfoTruncated, len(queuedNames))
+		progress = make([]protocol.FileInfo, len(progressNames))
+		queued = make([]protocol.FileInfo, len(queuedNames))
 		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
 		for i, name := range progressNames {
@@ -1022,8 +1022,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 		p.toSkip -= skipped
 	}
 
-	rest = make([]db.FileInfoTruncated, 0, perpage)
-	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+	rest = make([]protocol.FileInfo, 0, perpage)
+	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
@@ -1031,9 +1031,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 		if p.skip() {
 			return true
 		}
-		ft := f.(db.FileInfoTruncated)
-		if _, ok := seen[ft.Name]; !ok {
-			rest = append(rest, ft)
+		if _, ok := seen[f.Name]; !ok {
+			rest = append(rest, f)
 			p.get--
 		}
 		return p.get > 0
@@ -1044,7 +1043,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 
 // RemoteNeedFolderFiles returns paginated list of currently needed files for a
 // remote device to become synced with a folder.
-func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
+func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
 	rf, ok := m.folderFiles[folder]
 	m.mut.RUnlock()
@@ -1059,19 +1058,19 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 	}
 	defer snap.Release()
 
-	files := make([]db.FileInfoTruncated, 0, perpage)
+	files := make([]protocol.FileInfo, 0, perpage)
 	p := newPager(page, perpage)
-	snap.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
+	snap.WithNeedTruncated(device, func(f protocol.FileInfo) bool {
 		if p.skip() {
 			return true
 		}
-		files = append(files, f.(db.FileInfoTruncated))
+		files = append(files, f)
 		return !p.done()
 	})
 	return files, nil
 }
 
-func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
 	rf, ok := m.folderFiles[folder]
 	m.mut.RUnlock()
@@ -1091,17 +1090,16 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.
 	}
 
 	p := newPager(page, perpage)
-	files := make([]db.FileInfoTruncated, 0, perpage)
+	files := make([]protocol.FileInfo, 0, perpage)
 
-	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
 		if p.skip() {
 			return true
 		}
-		ft := f.(db.FileInfoTruncated)
-		files = append(files, ft)
+		files = append(files, f)
 		return !p.done()
 	})
 
@@ -1751,7 +1749,7 @@ func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, fo
 // AutoAcceptFolders set to true.
 func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *clusterConfigDeviceInfo, cfg config.FolderConfiguration, haveCfg bool, defaultFolderCfg config.FolderConfiguration) (config.FolderConfiguration, bool) {
 	if !haveCfg {
-		defaultPathFs := fs.NewFilesystem(defaultFolderCfg.FilesystemType, defaultFolderCfg.Path)
+		defaultPathFs := fs.NewFilesystem(defaultFolderCfg.FilesystemType.ToFS(), defaultFolderCfg.Path)
 		var pathAlternatives []string
 		if alt := fs.SanitizePath(folder.Label); alt != "" {
 			pathAlternatives = append(pathAlternatives, alt)
@@ -2634,7 +2632,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 				ID:          deviceCfg.DeviceID,
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
-				Compression: deviceCfg.Compression,
+				Compression: deviceCfg.Compression.ToProtocol(),
 				CertName:    deviceCfg.CertName,
 				Introducer:  deviceCfg.Introducer,
 			}
@@ -2773,9 +2771,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		return nil, err
 	}
 	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
-
+	snap.WithPrefixedGlobalTruncated(prefix, func(f protocol.FileInfo) bool {
 		// Don't include the prefix itself.
 		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
 			return true
@@ -3471,7 +3467,7 @@ func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	})
 }
 
-func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
+func newFolderConfiguration(w config.Wrapper, id, label string, fsType config.FilesystemType, path string) config.FolderConfiguration {
 	fcfg := w.DefaultFolder()
 	fcfg.ID = id
 	fcfg.Label = label

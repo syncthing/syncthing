@@ -13,6 +13,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/gen/discoproto"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -50,45 +51,51 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	lc := c.(*localClient)
 	src := &net.UDPAddr{IP: []byte{10, 20, 30, 40}, Port: 50}
 
-	new := lc.registerDevice(src, Announce{
-		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
+	new := lc.registerDevice(src, &discoproto.Announce{
+		Id:         padDeviceID(10),
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
-		InstanceID: 1234567890,
+		InstanceId: 1234567890,
 	})
 
 	if !new {
 		t.Fatal("first register should be new")
 	}
 
-	new = lc.registerDevice(src, Announce{
-		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
+	new = lc.registerDevice(src, &discoproto.Announce{
+		Id:         padDeviceID(10),
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
-		InstanceID: 1234567890,
+		InstanceId: 1234567890,
 	})
 
 	if new {
 		t.Fatal("second register should not be new")
 	}
 
-	new = lc.registerDevice(src, Announce{
-		ID:         protocol.DeviceID{42, 10, 20, 30, 40, 50, 60, 70, 80, 90},
+	new = lc.registerDevice(src, &discoproto.Announce{
+		Id:         padDeviceID(42),
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
-		InstanceID: 1234567890,
+		InstanceId: 1234567890,
 	})
 
 	if !new {
 		t.Fatal("new device ID should be new")
 	}
 
-	new = lc.registerDevice(src, Announce{
-		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
+	new = lc.registerDevice(src, &discoproto.Announce{
+		Id:         padDeviceID(10),
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
-		InstanceID: 91234567890,
+		InstanceId: 91234567890,
 	})
 
 	if !new {
 		t.Fatal("new instance ID should be new")
 	}
+}
+
+func padDeviceID(bs ...byte) []byte {
+	var padded [32]byte
+	copy(padded[:], bs)
+	return padded[:]
 }
 
 func TestFilterUndialable(t *testing.T) {

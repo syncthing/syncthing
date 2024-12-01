@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 
-	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 const (
@@ -62,7 +62,7 @@ type SessionInvitation struct {
 
 func (i SessionInvitation) String() string {
 	device := "<invalid>"
-	if address, err := syncthingprotocol.DeviceIDFromBytes(i.From); err == nil {
+	if address, err := protocol.DeviceIDFromBytes(i.From); err == nil {
 		device = address.String()
 	}
 	return fmt.Sprintf("%s@%s:%d", device, net.IP(i.Address), i.Port)

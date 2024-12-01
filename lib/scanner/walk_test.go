@@ -21,13 +21,14 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"golang.org/x/text/unicode/norm"
 )
 
 type testfile struct {

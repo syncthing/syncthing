@@ -13,8 +13,10 @@
 package db
 
 import (
+	"bytes"
 	"fmt"
 
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -33,7 +35,7 @@ type FileSet struct {
 // The Iterator is called with either a protocol.FileInfo or a
 // FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
-type Iterator func(f protocol.FileIntf) bool
+type Iterator func(f protocol.FileInfo) bool
 
 func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
 	select {
@@ -292,26 +294,24 @@ func (s *Snapshot) GetGlobal(file string) (protocol.FileInfo, bool) {
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f := fi.(protocol.FileInfo)
-	f.Name = osutil.NativeFilename(f.Name)
-	return f, true
+	fi.Name = osutil.NativeFilename(fi.Name)
+	return fi, true
 }
 
-func (s *Snapshot) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
+func (s *Snapshot) GetGlobalTruncated(file string) (protocol.FileInfo, bool) {
 	opStr := fmt.Sprintf("%s GetGlobalTruncated(%v)", s.folder, file)
 	l.Debugf(opStr)
 	_, fi, ok, err := s.t.getGlobal(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if backend.IsClosed(err) {
-		return FileInfoTruncated{}, false
+		return protocol.FileInfo{}, false
 	} else if err != nil {
 		s.fatalError(err, opStr)
 	}
 	if !ok {
-		return FileInfoTruncated{}, false
+		return protocol.FileInfo{}, false
 	}
-	f := fi.(FileInfoTruncated)
-	f.Name = osutil.NativeFilename(f.Name)
-	return f, true
+	fi.Name = osutil.NativeFilename(fi.Name)
+	return fi, true
 }
 
 func (s *Snapshot) Availability(file string) []protocol.DeviceID {
@@ -326,16 +326,16 @@ func (s *Snapshot) Availability(file string) []protocol.DeviceID {
 	return av
 }
 
-func (s *Snapshot) DebugGlobalVersions(file string) VersionList {
+func (s *Snapshot) DebugGlobalVersions(file string) *DebugVersionList {
 	opStr := fmt.Sprintf("%s DebugGlobalVersions(%v)", s.folder, file)
 	l.Debugf(opStr)
 	vl, err := s.t.getGlobalVersions(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 	if backend.IsClosed(err) || backend.IsNotFound(err) {
-		return VersionList{}
+		return nil
 	} else if err != nil {
 		s.fatalError(err, opStr)
 	}
-	return vl
+	return &DebugVersionList{vl}
 }
 
 func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
@@ -503,17 +503,9 @@ func normalizeFilenamesAndDropDuplicates(fs []protocol.FileInfo) []protocol.File
 }
 
 func nativeFileIterator(fn Iterator) Iterator {
-	return func(fi protocol.FileIntf) bool {
-		switch f := fi.(type) {
-		case protocol.FileInfo:
-			f.Name = osutil.NativeFilename(f.Name)
-			return fn(f)
-		case FileInfoTruncated:
-			f.Name = osutil.NativeFilename(f.Name)
-			return fn(f)
-		default:
-			panic("unknown interface type")
-		}
+	return func(fi protocol.FileInfo) bool {
+		fi.Name = osutil.NativeFilename(fi.Name)
+		return fn(fi)
 	}
 }
 
@@ -521,4 +513,41 @@ func fatalError(err error, opStr string, db *Lowlevel) {
 	db.checkErrorForRepair(err)
 	l.Warnf("Fatal error: %v: %v", opStr, err)
 	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
+}
+
+// DebugFileVersion is the database-internal representation of a file
+// version, with a nicer string representation, used only by API debug
+// methods.
+type DebugVersionList struct {
+	*dbproto.VersionList
+}
+
+func (vl DebugVersionList) String() string {
+	var b bytes.Buffer
+	var id protocol.DeviceID
+	b.WriteString("[")
+	for i, v := range vl.Versions {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "{Version:%v, Deleted:%v, Devices:[", protocol.VectorFromWire(v.Version), v.Deleted)
+		for j, dev := range v.Devices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		b.WriteString("], Invalid:[")
+		for j, dev := range v.InvalidDevices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		fmt.Fprint(&b, "]}")
+	}
+	b.WriteString("]")
+	return b.String()
 }

@@ -1,4 +1,8 @@
-// Copyright (C) 2016 The Protocol Authors.
+// Copyright (C) 2016 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package protocol
 
@@ -8,9 +12,8 @@ import (
 	"sync/atomic"
 )
 
-// Global pool to get buffers from. Requires Blocksizes to be initialised,
-// therefore it is initialized in the same init() as BlockSizes
-var BufferPool bufferPool
+// Global pool to get buffers from. Initialized in init().
+var BufferPool *bufferPool
 
 type bufferPool struct {
 	puts   atomic.Int64
@@ -20,8 +23,8 @@ type bufferPool struct {
 	hits   []atomic.Int64
 }
 
-func newBufferPool() bufferPool {
-	return bufferPool{
+func newBufferPool() *bufferPool {
+	return &bufferPool{
 		pools: make([]sync.Pool, len(BlockSizes)),
 		hits:  make([]atomic.Int64, len(BlockSizes)),
 	}
