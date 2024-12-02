@@ -34,7 +34,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.24.10
 	github.com/syncthing/notify v0.0.0-20210616190510-c6b7342338d2
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
-	github.com/thejerf/suture/v4 v4.0.5
+	github.com/thejerf/suture/v4 v4.0.6
 	github.com/urfave/cli v1.22.16
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
