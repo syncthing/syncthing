@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +33,23 @@ const (
 const (
 	DefaultFlags = log.Ltime | log.Ldate
 	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+	LevelError   = NumLevels // Not really a log level, as it disables all logging.
 )
+
+var levelPrefix = map[LogLevel]string{
+	LevelDebug:   "DEBUG: ",
+	LevelVerbose: "VERBOSE: ",
+	LevelInfo:    "INFO: ",
+	LevelWarn:    "WARN: ",
+}
+
+var levelMap = map[string]LogLevel{
+	"debug":   LevelDebug,
+	"verbose": LevelVerbose,
+	"info":    LevelInfo,
+	"warn":    LevelWarn,
+	"error":   LevelError, // quiet even warnings
+}
 
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
@@ -61,10 +76,10 @@ type Logger interface {
 type logger struct {
 	logger     *log.Logger
 	handlers   [NumLevels][]MessageHandler
-	facilities map[string]string   // facility name => description
-	debug      map[string]struct{} // only facility names with debugging enabled
-	traces     []string
+	facilities map[string]string // facility name => description
 	mut        sync.Mutex
+	levels     map[string]LogLevel // facility name and its logging level
+	callLevel  int                 // so common code can be shared
 }
 
 // DefaultLogger logs to standard output with a time prefix.
@@ -80,24 +95,64 @@ func New() Logger {
 }
 
 func newLogger(w io.Writer) Logger {
-	traces := strings.FieldsFunc(os.Getenv("STTRACE"), func(r rune) bool {
-		return strings.ContainsRune(",; ", r)
-	})
-
-	if len(traces) > 0 {
-		if slices.Contains(traces, "all") {
-			traces = []string{"all"}
-		} else {
-			slices.Sort(traces)
-		}
-	}
+	levels := parseSttrace()
 
 	return &logger{
 		logger:     log.New(w, "", DefaultFlags),
-		traces:     traces,
 		facilities: make(map[string]string),
-		debug:      make(map[string]struct{}),
+		levels:     levels,
+		callLevel:  3,
 	}
+}
+
+// parseSttrace parts an STTRACE environment variable in the from:
+// facility[:level][,facility2[:level2]] ...
+// For example:
+//
+//	all:warn,fs:info,model
+//
+// logs everything at the WARN level (so no INFO lines in the logs),
+// logs the fs facility at the INFO level (no DEBUG lines)
+// and logs the model facility at the DEBUG level.
+// Abbreviations are allowed, so
+//
+//	all:w,fs:i,model
+//
+// is the same as above.
+func parseSttrace() map[string]LogLevel {
+	sttrace := strings.ToLower(strings.ReplaceAll(os.Getenv("STTRACE"), " \t", ""))
+	traces := strings.FieldsFunc(sttrace, func(r rune) bool {
+		return strings.ContainsRune(",; ", r)
+	})
+
+	levels := make(map[string]LogLevel, len(traces))
+Next:
+	for i, trace := range traces {
+		parts := strings.Split(trace, ":")
+		if len(parts) > 1 {
+			trace = parts[0]
+			lvl := parts[1]
+			traces[i] = trace
+			level, ok := levelMap[lvl]
+			if ok {
+				levels[trace] = level
+
+				continue
+			}
+			for key, level := range levelMap {
+				if strings.HasPrefix(key, lvl) {
+					levels[trace] = level
+
+					continue Next
+				}
+			}
+			// a typo, but let's log at the debug level since the user wants to
+			// log.
+		}
+		levels[trace] = LevelDebug
+	}
+
+	return levels
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
@@ -126,130 +181,145 @@ func (l *logger) callHandlers(level LogLevel, s string) {
 	}
 }
 
-// Debugln logs a line with a DEBUG prefix.
-func (l *logger) Debugln(vals ...interface{}) {
-	l.debugln(3, vals...)
-}
-
-func (l *logger) debugln(level int, vals ...interface{}) {
+func (l *logger) log(level LogLevel, vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	l.logger.Output(level, "DEBUG: "+s)
-	l.callHandlers(LevelDebug, s)
+	l.logger.Output(l.callLevel, levelPrefix[level]+s)
+	l.callHandlers(level, s)
+}
+
+func (l *logger) logf(level LogLevel, format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	l.logger.Output(l.callLevel, levelPrefix[level]+s)
+	l.callHandlers(level, s)
+}
+
+// Debugln logs a line with a DEBUG prefix.
+func (l *logger) Debugln(vals ...interface{}) {
+	l.log(LevelDebug, vals...)
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
 func (l *logger) Debugf(format string, vals ...interface{}) {
-	l.debugf(3, format, vals...)
+	l.logf(LevelDebug, format, vals...)
 }
 
-func (l *logger) debugf(level int, format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(level, "DEBUG: "+s)
-	l.callHandlers(LevelDebug, s)
-}
-
-// Infoln logs a line with a VERBOSE prefix.
+// Verboseln logs a line with a VERBOSE prefix.
 func (l *logger) Verboseln(vals ...interface{}) {
-	s := fmt.Sprintln(vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "VERBOSE: "+s)
-	l.callHandlers(LevelVerbose, s)
+	l.log(LevelVerbose, vals...)
 }
 
-// Infof logs a formatted line with a VERBOSE prefix.
+// Verbosef logs a formatted line with a VERBOSE prefix.
 func (l *logger) Verbosef(format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "VERBOSE: "+s)
-	l.callHandlers(LevelVerbose, s)
+	l.logf(LevelVerbose, format, vals...)
 }
 
 // Infoln logs a line with an INFO prefix.
 func (l *logger) Infoln(vals ...interface{}) {
-	s := fmt.Sprintln(vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "INFO: "+s)
-	l.callHandlers(LevelInfo, s)
+	l.log(LevelInfo, vals...)
 }
 
 // Infof logs a formatted line with an INFO prefix.
 func (l *logger) Infof(format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "INFO: "+s)
-	l.callHandlers(LevelInfo, s)
+	l.logf(LevelInfo, format, vals...)
 }
 
 // Warnln logs a formatted line with a WARNING prefix.
 func (l *logger) Warnln(vals ...interface{}) {
-	s := fmt.Sprintln(vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "WARNING: "+s)
-	l.callHandlers(LevelWarn, s)
+	l.log(LevelWarn, vals...)
 }
 
 // Warnf logs a formatted line with a WARNING prefix.
 func (l *logger) Warnf(format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "WARNING: "+s)
-	l.callHandlers(LevelWarn, s)
+	l.logf(LevelWarn, format, vals...)
 }
 
-// ShouldDebug returns true if the given facility has debugging enabled.
+// ShouldDebug returns true if facility is logging at the DEBUG level.
+// For backwards compatibility, we don't look to see if the `all`
+// facility is logging.
 func (l *logger) ShouldDebug(facility string) bool {
 	l.mut.Lock()
-	_, res := l.debug[facility]
+	level, ok := l.levels[facility]
 	l.mut.Unlock()
-	return res
-}
-
-// SetDebug enabled or disables debugging for the given facility name.
-func (l *logger) SetDebug(facility string, enabled bool) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	if _, ok := l.debug[facility]; enabled && !ok {
-		l.SetFlags(DebugFlags)
-		l.debug[facility] = struct{}{}
-	} else if !enabled && ok {
-		delete(l.debug, facility)
-		if len(l.debug) == 0 {
-			l.SetFlags(DefaultFlags)
-		}
-	}
-}
-
-// isTraced returns whether the facility name is contained in STTRACE.
-func (l *logger) isTraced(facility string) bool {
-	if len(l.traces) > 0 {
-		if l.traces[0] == "all" {
-			return true
-		}
-
-		_, found := slices.BinarySearch(l.traces, facility)
-		return found
+	if ok {
+		return level <= LevelDebug
 	}
 
 	return false
 }
 
-// FacilityDebugging returns the set of facilities that have debugging
-// enabled.
-func (l *logger) FacilityDebugging() []string {
-	enabled := make([]string, 0, len(l.debug))
+// IsEnabledFor returns true if facility (or "all") is logging at the
+// logLevel log level.
+func (l *logger) IsEnabledFor(facility string, logLevel LogLevel) bool {
 	l.mut.Lock()
-	for facility := range l.debug {
-		enabled = append(enabled, facility)
+	defer l.mut.Unlock()
+	level, ok := l.levels[facility]
+	if ok {
+		return level <= logLevel
+	}
+	level, ok = l.levels["all"]
+	if ok {
+		return level <= logLevel
+	}
+
+	return false
+}
+
+// EffectiveLevel returns the level the facility is logging at. If logging
+// is not enabled for the specified facility, the logging level for the
+// "all" facility is returned, if it's enabled. Otherwise, LevelError
+// (NumLevels) is returned (which is effectively ERROR level logging).
+func (l *logger) EffectiveLevel(facility string) LogLevel {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	level, ok := l.levels[facility]
+	if ok {
+		return level
+	}
+	level, ok = l.levels["all"]
+	if ok {
+		return level
+	}
+
+	return LevelError
+}
+
+// SetDebug enabled or disables DEBUG logging for the given facility name.
+func (l *logger) SetDebug(facility string, enabled bool) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	if enabled {
+		l.levels[facility] = LevelDebug
+	} else {
+		delete(l.levels, facility)
+	}
+	l.setFlags()
+}
+
+// setFlags set the underlying logger's flags to DebugFlags if any facility
+// is logging at the DEBUG level.
+func (l *logger) setFlags() {
+	for _, level := range l.levels {
+		if level <= LevelDebug {
+			l.SetFlags(DebugFlags)
+
+			return
+		}
+	}
+	l.SetFlags(DefaultFlags)
+}
+
+// FacilityDebugging returns the set of facilities logging at the DEBUG level.
+func (l *logger) FacilityDebugging() []string {
+	enabled := make([]string, 0, len(l.levels))
+	l.mut.Lock()
+	for facility, level := range l.levels {
+		if level <= LevelDebug {
+			enabled = append(enabled, facility)
+		}
 	}
 	l.mut.Unlock()
 	return enabled
@@ -269,10 +339,10 @@ func (l *logger) Facilities() map[string]string {
 
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
-	l.SetDebug(facility, l.isTraced(facility))
-
 	l.mut.Lock()
 	l.facilities[facility] = description
+	l.callLevel = 4
+	l.setFlags()
 	l.mut.Unlock()
 
 	return &facilityLogger{
@@ -282,27 +352,92 @@ func (l *logger) NewFacility(facility, description string) Logger {
 }
 
 // A facilityLogger is a regular logger but bound to a facility name. The
-// Debugln and Debugf methods are no-ops unless debugging has been enabled for
-// this facility on the parent logger.
+// Debugln and Debugf methods are no-ops unless the facility is logging at the
+// DEBUG level on the parent logger. The Infoln and Infof methods are also
+// no-ops if the facility is logging at the INFO level on the parent logger.
+// Similarly if logging at the WARN level.
 type facilityLogger struct {
 	*logger
 	facility string
 }
 
+func (l *facilityLogger) shouldLog(facility string, logLevel LogLevel) bool {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	level, ok := l.levels[facility]
+	if ok {
+		return logLevel >= level
+	}
+	level, ok = l.levels["all"]
+	if ok {
+		return logLevel >= level
+	}
+
+	return logLevel >= LevelInfo
+}
+
 // Debugln logs a line with a DEBUG prefix.
 func (l *facilityLogger) Debugln(vals ...interface{}) {
-	if !l.ShouldDebug(l.facility) {
+	if !l.shouldLog(l.facility, LevelDebug) {
 		return
 	}
-	l.logger.debugln(3, vals...)
+	l.logger.Debugln(vals...)
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
 func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
-	if !l.ShouldDebug(l.facility) {
+	if !l.shouldLog(l.facility, LevelDebug) {
 		return
 	}
-	l.logger.debugf(3, format, vals...)
+	l.logger.Debugf(format, vals...)
+}
+
+// Verboseln logs a line with a VERBOSE prefix.
+func (l *facilityLogger) Verboseln(vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelVerbose) {
+		return
+	}
+	l.logger.Verboseln(vals...)
+}
+
+// Verbosef logs a formatted line with a VERBOSE prefix.
+func (l *facilityLogger) Verbosef(format string, vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelVerbose) {
+		return
+	}
+	l.logger.Verbosef(format, vals...)
+}
+
+// Infoln logs a line with an INFO prefix.
+func (l *facilityLogger) Infoln(vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelInfo) {
+		return
+	}
+	l.logger.Infoln(vals...)
+}
+
+// Infof logs a formatted line with an INFO prefix.
+func (l *facilityLogger) Infof(format string, vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelInfo) {
+		return
+	}
+	l.logger.Infof(format, vals...)
+}
+
+// Warnln logs a formatted line with a WARNING prefix.
+func (l *facilityLogger) Warnln(vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelWarn) {
+		return
+	}
+	l.logger.Warnln(vals...)
+}
+
+// Warnf logs a formatted line with a WARNING prefix.
+func (l *facilityLogger) Warnf(format string, vals ...interface{}) {
+	if !l.shouldLog(l.facility, LevelWarn) {
+		return
+	}
+	l.logger.Warnf(format, vals...)
 }
 
 // A Recorder keeps a size limited record of log events.
