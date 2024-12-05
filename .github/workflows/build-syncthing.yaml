@@ -178,10 +178,13 @@ jobs:
 
       - name: Create packages
         run: |
-          go run build.go -goarch amd64 zip
-          go run build.go -goarch arm zip
-          go run build.go -goarch arm64 zip
-          go run build.go -goarch 386 zip
+          $targets = 'syncthing', 'stdiscosrv', 'strelaysrv'
+          $archs = 'amd64', 'arm', 'arm64', '386'
+          foreach ($arch in $archs) {
+            foreach ($tgt in $targets) {
+              go run build.go -goarch $arch zip $tgt
+            }
+          }
         env:
           CGO_ENABLED: "0"
           CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
@@ -193,7 +196,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-windows
-          path: syncthing-windows-*.zip
+          path: "*.zip"
 
   #
   # Linux
@@ -229,7 +232,9 @@ jobs:
         run: |
           archs=$(go tool dist list | grep linux | sed 's#linux/##')
           for goarch in $archs ; do
-            go run build.go -goarch "$goarch" tar
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              go run build.go -goarch "$goarch" tar "$tgt"
+            done
           done
         env:
           CGO_ENABLED: "0"
@@ -239,7 +244,7 @@ jobs:
         with:
           name: packages-linux
           path: |
-            syncthing-linux-*.tar.gz
+            *.tar.gz
             compat.json
 
   #
@@ -301,7 +306,9 @@ jobs:
 
       - name: Create package (amd64)
         run: |
-          go run build.go -goarch amd64 zip
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -goarch amd64 zip "$tgt"
+          done
         env:
           CGO_ENABLED: "1"
 
@@ -315,7 +322,9 @@ jobs:
             go "\$@"
           EOT
           chmod 755 xgo.sh
-          go run build.go -gocmd ./xgo.sh -goarch arm64 zip
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
+          done
         env:
           CGO_ENABLED: "1"
 
@@ -339,7 +348,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-macos
-          path: syncthing-*.zip
+          path: "*.zip"
 
   notarize-macos:
     name: Notarize for macOS
@@ -359,7 +368,7 @@ jobs:
         run: |
           APPSTORECONNECT_API_KEY_PATH="$RUNNER_TEMP/apikey.p8"
           echo "$APPSTORECONNECT_API_KEY" | base64 -d -o "$APPSTORECONNECT_API_KEY_PATH"
-          for file in syncthing-macos-*.zip ; do
+          for file in *-macos-*.zip ; do
             xcrun notarytool submit \
               -k "$APPSTORECONNECT_API_KEY_PATH" \
               -d "$APPSTORECONNECT_API_KEY_ID" \
@@ -424,9 +433,11 @@ jobs:
             goos="${plat%/*}"
             goarch="${plat#*/}"
             echo "::group ::$plat"
-            if ! go run build.go -goos "$goos" -goarch "$goarch" tar 2>/dev/null; then
-              echo "::warning ::Failed to build for $plat"
-            fi
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" 2>/dev/null; then
+                echo "::warning ::Failed to build $tgt for $plat"
+              fi
+            done
             echo "::endgroup::"
           done
         env:
@@ -436,7 +447,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-other
-          path: syncthing-*.tar.gz
+          path: "*.tar.gz"
 
   #
   # Source
@@ -597,7 +608,9 @@ jobs:
       - name: Package for Debian
         run: |
           for arch in amd64 i386 armhf armel arm64 ; do
-            go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb "$tgt"
+            done
           done
         env:
           BUILD_USER: debian

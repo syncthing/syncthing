@@ -86,7 +86,6 @@ var targets = map[string]target{
 	"all": {
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff. buildPkgs gets filled out in init()
-		tags: []string{"purego"},
 	},
 	"syncthing": {
 		// The default target for "build", "install", "tar", "zip", "deb", etc.
@@ -158,7 +157,6 @@ var targets = map[string]target{
 			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0o644},
 			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0o644},
 		},
-		tags: []string{"purego"},
 	},
 	"strelaysrv": {
 		name:        "strelaysrv",
@@ -190,23 +188,9 @@ var targets = map[string]target{
 	},
 	"strelaypoolsrv": {
 		name:        "strelaypoolsrv",
-		debname:     "syncthing-relaypoolsrv",
-		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv"},
-		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
-		archiveFiles: []archiveFile{
-			{src: "{{binary}}", dst: "{{binary}}", perm: 0o755},
-			{src: "cmd/infra/strelaypoolsrv/README.md", dst: "README.txt", perm: 0o644},
-			{src: "cmd/infra/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0o644},
-			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0o644},
-		},
-		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0o755},
-			{src: "cmd/infra/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0o644},
-			{src: "cmd/infra/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0o644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0o644},
-		},
+		binaryName:  "strelaypoolsrv",
 	},
 	"stupgrades": {
 		name:        "stupgrades",
@@ -405,7 +389,6 @@ func parseFlags() {
 func test(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
 
-	tags = append(tags, "purego")
 	args := []string{"test", "-tags", strings.Join(tags, " ")}
 	if long {
 		timeout = longTimeout
@@ -439,7 +422,7 @@ func bench(tags []string, pkgs ...string) {
 func integration(bench bool) {
 	lazyRebuildAssets()
 	args := []string{"test", "-v", "-timeout", "60m", "-tags"}
-	tags := "purego,integration"
+	tags := "integration"
 	if bench {
 		tags += ",benchmark"
 	}
