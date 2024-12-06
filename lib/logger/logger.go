@@ -105,15 +105,17 @@ func newLogger(w io.Writer) Logger {
 	}
 }
 
-// parseSttrace parts an STTRACE environment variable in the from:
-// facility[:level][,facility2[:level2]] ...
+// parseSttrace parses an STTRACE environment variable in the form:
+//
+//      facility[:level][,facility2[:level2]] ...
+//
 // For example:
 //
 //	all:warn,fs:info,model
 //
 // logs everything at the WARN level (so no INFO lines in the logs),
-// logs the fs facility at the INFO level (no DEBUG lines)
-// and logs the model facility at the DEBUG level.
+// the fs facility at the INFO level (no DEBUG lines)
+// and the model facility at the DEBUG level.
 // Abbreviations are allowed, so
 //
 //	all:w,fs:i,model
