@@ -107,7 +107,7 @@ func newLogger(w io.Writer) Logger {
 
 // parseSttrace parses an STTRACE environment variable in the form:
 //
-//      facility[:level][,facility2[:level2]] ...
+//	facility[:level][,facility2[:level2]] ...
 //
 // For example:
 //
