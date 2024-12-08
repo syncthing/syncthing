@@ -251,6 +251,9 @@
               <select class="form-control" ng-if="currentFolder.type == 'sendonly'" disabled>
                 <option value="disabled" translate>Disabled</option>
               </select>
+              <p class="help-block" ng-if="currentFolder.type === 'sendonly'" translate translate-value-foldertype="{{'Send Only' | translate}}">
+                Cannot be enabled when the folder type is "{%foldertype%}".
+              </p>
             </div>
           </div>
 
@@ -282,6 +285,9 @@
               <p translate class="help-block">
                 Disables comparing and syncing file permissions. Useful on systems with nonexistent or custom permissions (e.g. FAT, exFAT, Synology, Android).
               </p>
+              <p class="help-block" ng-if="currentFolder._recvEnc" translate translate-value-foldertype="{{'Receive Encrypted' | translate}}">
+                Always turned on when the folder type is "{%foldertype%}".
+              </p>
             </div>
           </div>
 
@@ -297,11 +303,17 @@
               <p translate class="help-block">
                 Enables sending ownership information to other devices, and applying incoming ownership information. Typically requires running with elevated privileges.
               </p>
+              <p class="help-block" ng-if="has(['sendonly', 'receiveencrypted'], currentFolder.type)" translate translate-value-foldertype="{{currentFolder.type === 'sendonly' ? ('Send Only' | translate) : currentFolder.type === 'receiveencrypted' ? ('Receive Encrypted' | translate) : ''}}">
+                Cannot be enabled when the folder type is "{%foldertype%}".
+              </p>
               <label>
                 <input type="checkbox" ng-disabled="currentFolder.type == 'receiveonly' || currentFolder.type == 'receiveencrypted' || currentFolder.syncOwnership" ng-checked="currentFolder.sendOwnership || currentFolder.syncOwnership" ng-model="currentFolder.sendOwnership" /> <span translate>Send Ownership</span>
               </label>
               <p translate class="help-block">
                 Enables sending ownership information to other devices, but not applying incoming ownership information. This can have a significant performance impact. Always enabled when "Sync Ownership" is enabled.
+              </p>
+              <p class="help-block" ng-if="has(['receiveonly', 'receiveencrypted'], currentFolder.type)" translate translate-value-foldertype="{{currentFolder.type === 'receiveonly' ? ('Receive Only' | translate) : currentFolder.type === 'receiveencrypted' ? ('Receive Encrypted' | translate) : ''}}">
+                Cannot be enabled when the folder type is "{%foldertype%}".
               </p>
             </div>
             <div class="col-md-6 form-group">
@@ -315,11 +327,17 @@
               <p translate class="help-block">
                 Enables sending extended attributes to other devices, and applying incoming extended attributes. May require running with elevated privileges.
               </p>
+              <p class="help-block" ng-if="has(['sendonly', 'receiveencrypted'], currentFolder.type)" translate translate-value-foldertype="{{currentFolder.type === 'sendonly' ? ('Send Only' | translate) : currentFolder.type === 'receiveencrypted' ? ('Receive Encrypted' | translate) : ''}}">
+                Cannot be enabled when the folder type is "{%foldertype%}".
+              </p>
               <label>
                 <input type="checkbox" ng-disabled="currentFolder.type == 'receiveonly' || currentFolder.type == 'receiveencrypted' || currentFolder.syncXattrs" ng-checked="currentFolder.sendXattrs || currentFolder.syncXattrs" ng-model="currentFolder.sendXattrs" /> <span translate>Send Extended Attributes</span>
               </label>
               <p translate class="help-block">
                 Enables sending extended attributes to other devices, but not applying incoming extended attributes. This can have a significant performance impact. Always enabled when "Sync Extended Attributes" is enabled.
+              </p>
+              <p class="help-block" ng-if="has(['receiveonly', 'receiveencrypted'], currentFolder.type)" translate translate-value-foldertype="{{currentFolder.type === 'receiveonly' ? ('Receive Only' | translate) : currentFolder.type === 'receiveencrypted' ? ('Receive Encrypted' | translate) : ''}}">
+                Cannot be enabled when the folder type is "{%foldertype%}".
               </p>
             </div>
           </div>
