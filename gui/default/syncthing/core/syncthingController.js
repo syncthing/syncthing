@@ -3703,7 +3703,6 @@ angular.module('syncthing.core')
                 untrusted: '=',
             },
             link: function (scope, elem, attrs) {
-                var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
                 };
