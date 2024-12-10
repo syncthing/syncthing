@@ -1623,13 +1623,45 @@ angular.module('syncthing.core')
             timer: null,
             entries: [],
             paused: false,
+            filtered: [],
+            isFiltering: false,
+            isCaseSensitive: false,
+            lastFilterQuery: "",
+            
             content: function () {
+                var target_array = $scope.logging.isFiltering ? $scope.logging.filtered : $scope.logging.entries;
                 var content = "";
-                $.each($scope.logging.entries, function (idx, entry) {
+                $.each(target_array, function (idx, entry) {
                     content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
                 });
                 return content;
             },
+
+            filter: function(search_query, array) {
+                if (search_query.length < 3) {
+                    $scope.logging.isFiltering = false;
+                    $scope.logging.filtered.length = 0;
+                    $scope.logging.lastFilterQuery = "";
+                    return;
+                }
+
+                $.each(array, function (idx, entry) {
+                    let msg = entry.message;
+                    if (msg.includes(search_query)) {
+                        $scope.logging.filtered.push(entry);
+                    }
+                });
+            },
+            
+            filter_input: function(event) {
+                let query = event.target.value;
+                $scope.logging.filtered.length = 0; // clears prevents "double writing" in the console
+                $scope.logging.isFiltering = true;
+                $scope.logging.lastFilterQuery = query;
+
+                $scope.logging.filter(query, $scope.logging.entries);
+            },
+
             fetch: function () {
                 var textArea = $('#logViewerText');
                 if ($scope.logging.paused) {
@@ -1649,6 +1681,10 @@ angular.module('syncthing.core')
                     if (!$scope.logging.paused) {
                         if (data.messages) {
                             $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
+                            if ($scope.logging.isFiltering) {
+                                $scope.logging.filter($scope.logging.lastFilterQuery, data.messages);
+                            }
+
                             // Wait for the text area to be redrawn, adding new lines, and then scroll to bottom.
                             $timeout(function () {
                                 textArea.scrollTop(textArea[0].scrollHeight);
@@ -1656,7 +1692,7 @@ angular.module('syncthing.core')
                         }
                     }
                 });
-            }
+            },
         };
 
         $scope.about = {
