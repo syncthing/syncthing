@@ -122,9 +122,9 @@ func newLogger(w io.Writer) Logger {
 //
 // is the same as above.
 func parseSttrace() map[string]LogLevel {
-	sttrace := strings.ToLower(strings.ReplaceAll(os.Getenv("STTRACE"), " \t", ""))
+	sttrace := strings.ToLower(os.Getenv("STTRACE"))
 	traces := strings.FieldsFunc(sttrace, func(r rune) bool {
-		return strings.ContainsRune(",; ", r)
+		return strings.ContainsRune(",; \t", r)
 	})
 
 	levels := make(map[string]LogLevel, len(traces))
