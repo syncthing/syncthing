@@ -323,6 +323,8 @@ var levelTests = []levelTest{
 var delims = []string{",", ";", " "}
 
 func TestLogLevel(t *testing.T) {
+	// LOGGER_DISCARD needs to be unset for this test to pass
+	t.Setenv("LOGGER_DISCARD", "")
 	for i, test := range levelTests {
 		for _, delim := range delims {
 			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
@@ -336,6 +338,8 @@ func TestLogLevel(t *testing.T) {
 }
 
 func TestLogFlags(t *testing.T) {
+	// LOGGER_DISCARD needs to be unset for this test to pass
+	t.Setenv("LOGGER_DISCARD", "")
 	for i, test := range levelTests {
 		for _, delim := range delims {
 			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
