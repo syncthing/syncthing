@@ -36,7 +36,7 @@
     </span>
     <span ng-switch="selected[id] && folderType !== 'receiveencrypted'" class="input-group-addon">
       <span ng-switch-when='true'>
-        <span class="button fas fa-fw fa-eye" ng-click="togglePasswordVisibility()"></span>
+        <span class="button fas fa-fw {{plain ? 'fa-eye-slash' : 'fa-eye'}}" ng-click="togglePasswordVisibility()"></span>
       </span>
       <span ng-switch-default>
         <span class="button fas fa-fw fa-eye" disabled></span>

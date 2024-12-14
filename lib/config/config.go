@@ -139,21 +139,23 @@ func New(myID protocol.DeviceID) Configuration {
 }
 
 func (cfg *Configuration) ProbeFreePorts() error {
-	guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
-	if err != nil {
-		return fmt.Errorf("get default port (GUI): %w", err)
+	if cfg.GUI.Network() == "tcp" {
+		guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
+		if err != nil {
+			return fmt.Errorf("get default port (GUI): %w", err)
+		}
+		port, err := strconv.Atoi(guiPort)
+		if err != nil {
+			return fmt.Errorf("convert default port (GUI): %w", err)
+		}
+		port, err = getFreePort(guiHost, port)
+		if err != nil {
+			return fmt.Errorf("get free port (GUI): %w", err)
+		}
+		cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 	}
-	port, err := strconv.Atoi(guiPort)
-	if err != nil {
-		return fmt.Errorf("convert default port (GUI): %w", err)
-	}
-	port, err = getFreePort(guiHost, port)
-	if err != nil {
-		return fmt.Errorf("get free port (GUI): %w", err)
-	}
-	cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 
-	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	port, err := getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
 		return fmt.Errorf("get free port (BEP): %w", err)
 	}
