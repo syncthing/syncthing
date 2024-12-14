@@ -320,7 +320,7 @@ var levelTests = []levelTest{
 	{"all:debug,t13:info", got, got, func() { New().NewFacility("!t13", "").Warnf("%s", it) }},
 }
 
-var delims = []string{",", ";", " "}
+var delims = []string{",", ";", " ", "\t"}
 
 func TestLogLevel(t *testing.T) {
 	// LOGGER_DISCARD needs to be unset for this test to pass
