@@ -26,3 +26,9 @@
     darwin: "20"
     linux: "2.6.32"
     windows: "10.0"
+
+- runtime: go1.24
+  requirements:
+    darwin: "20"
+    linux: "3.2"
+    windows: "10.0"
