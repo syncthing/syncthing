@@ -542,30 +542,43 @@ jobs:
         env:
           STSIGTOOL_PRIVATE_KEY: ${{ secrets.STSIGTOOL_PRIVATE_KEY }}
 
-      - name: Create and sign .asc files
+      - name: Create shasum files
         run: |
-          sudo apt update
-          sudo apt -y install gnupg
-
-          export SIGNING_KEY="$RUNNER_TEMP/gpg-secret.asc"
-          echo "$GNUPG_SIGNING_KEY_BASE64" | base64 -d > "$SIGNING_KEY"
-          gpg --import < "$SIGNING_KEY"
-
           pushd packages
           files=(*.tar.gz *.zip)
-          sha1sum "${files[@]}" | gpg --clearsign > sha1sum.txt.asc
-          sha256sum "${files[@]}" | gpg --clearsign > sha256sum.txt.asc
-          gpg --sign --armour --detach syncthing-source-*.tar.gz
+          sha1sum "${files[@]}" > sha1sum.txt
+          sha256sum "${files[@]}" > sha256sum.txt
           popd
-          rm -f "$SIGNING_KEY" .gnupg
+
+          version=$(go run build.go version)
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: Sign shasum files
+        uses: docker://ghcr.io/kastelo/ezapt:latest
+        with:
+          args:
+            sign
+            packages/sha1sum.txt packages/sha256sum.txt
         env:
-          GNUPG_SIGNING_KEY_BASE64: ${{ secrets.GNUPG_SIGNING_KEY_BASE64 }}
+          EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
+
+      - name: Sign source
+        uses: docker://ghcr.io/kastelo/ezapt:latest
+        with:
+          args:
+            sign --detach --ascii
+            packages/syncthing-source-${{ env.VERSION }}.tar.gz
+        env:
+          EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages-signed
-          path: packages/*
+          path: |
+            packages/*.tar.gz
+            packages/*.zip
+            packages/*.asc
 
   #
   # Debian
@@ -793,19 +806,15 @@ jobs:
         with:
           args: sync objstore:syncthing-apt/dists dists
 
-      - name: Prepare signing key
-        run: |
-          echo "$APT_GPG_KEYRING_BASE64" | base64 -d > keyring.pgp
-        env:
-          APT_GPG_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
-
       - name: Update archive
         uses: docker://ghcr.io/kastelo/ezapt:latest
         with:
           args:
+            publish
             --add packages
             --dists dists
-            --keyring keyring.pgp
+        env:
+          EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
       - name: Push archive
         uses: docker://docker.io/rclone/rclone:latest
