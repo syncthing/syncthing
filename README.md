@@ -82,13 +82,11 @@ build process.
 
 ## Signed Releases
 
-As of v0.10.15 and onwards, release binaries are GPG signed with the key
-D26E6ED000654A3E, available from https://syncthing.net/security/ and
-most key servers.
-
-There is also a built-in automatic upgrade mechanism (disabled in some
-distribution channels) which uses a compiled in ECDSA signature. macOS
-binaries are also properly code signed.
+Release binaries are GPG signed with the key available from
+https://syncthing.net/security/. There is also a built-in automatic
+upgrade mechanism (disabled in some distribution channels) which uses a
+compiled in ECDSA signature. macOS and Windows binaries are also
+code-signed.
 
 ## Documentation
 
