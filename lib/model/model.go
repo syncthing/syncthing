@@ -1393,7 +1393,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		if !ok {
 			indexHandlers.Remove(folder.ID)
 			if deviceCfg.IgnoredFolder(folder.ID) {
-				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
+				l.Infof("Ignoring folder %s from device %s since it is in the list of ignored folders", folder.Description(), deviceID)
 				continue
 			}
 			delete(expiredPending, folder.ID)
