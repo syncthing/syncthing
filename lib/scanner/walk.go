@@ -392,9 +392,13 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 
 	case info.IsRegular():
 		return w.walkRegular(ctx, path, info, toHashChan)
-	}
 
-	return fmt.Errorf("bug: file info for %v is neither symlink, dir nor regular", path)
+	default:
+		// A special file, socket, fifo, etc. -- do nothing but return
+		// success so we continue the walk.
+		l.Debugf("Skipping non-regular file %s (%s)", path, info.Mode())
+		return nil
+	}
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
