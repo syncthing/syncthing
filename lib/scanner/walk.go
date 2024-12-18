@@ -341,10 +341,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "handle item", path, err, finishedChan)
-				return skip
-			}
+			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -353,10 +350,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "handle item", path, err, finishedChan)
-				return skip
-			}
+			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
 		}
 
 		// The previously ignored parent directories of the current, not
@@ -372,8 +366,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				return skip
 			}
 			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "handle item", path, err, finishedChan)
-				return skip
+				return err
 			}
 		}
 		ignoredParent = ""
