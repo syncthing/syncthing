@@ -2,6 +2,8 @@ module github.com/syncthing/syncthing
 
 go 1.22.0
 
+toolchain go1.23.4
+
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/alecthomas/kong v1.6.0
