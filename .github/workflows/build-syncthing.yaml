@@ -356,7 +356,6 @@ jobs:
     environment: release
     needs:
       - package-macos
-      - basics
     runs-on: macos-latest
     steps:
       - name: Download artifacts
@@ -498,7 +497,6 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-')  || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
-      - basics
       - package-windows
       - package-linux
       - package-macos
@@ -644,7 +642,6 @@ jobs:
     environment: release
     needs:
       - sign-for-upgrade
-      - notarize-macos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -760,7 +757,6 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
-      - basics
       - package-debian
     runs-on: ubuntu-latest
     steps:
