@@ -577,6 +577,7 @@ jobs:
             packages/*.tar.gz
             packages/*.zip
             packages/*.asc
+            packages/*.json
 
   #
   # Debian
