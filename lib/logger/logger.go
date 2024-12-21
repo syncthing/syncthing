@@ -356,8 +356,8 @@ func (l *logger) NewFacility(facility, description string) Logger {
 // A facilityLogger is a regular logger but bound to a facility name. The
 // Debugln and Debugf methods are no-ops unless the facility is logging at the
 // DEBUG level on the parent logger. The Infoln and Infof methods are also
-// no-ops if the facility is logging at the INFO level on the parent logger.
-// Similarly if logging at the WARN level.
+// no-ops unless the facility is logging at the INFO level on the parent logger.
+// Similarly with the WARN level. At the ERROR level no logging occurs.
 type facilityLogger struct {
 	*logger
 	facility string
