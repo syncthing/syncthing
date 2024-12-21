@@ -845,6 +845,9 @@ jobs:
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         pkg:
@@ -905,8 +908,17 @@ jobs:
         uses: docker/login-action@v3
         if: env.DOCKER_PUSH == 'true'
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        if: env.DOCKER_PUSH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -919,13 +931,13 @@ jobs:
             echo Release version, pushing to :latest and version tags
             major=${version%.*.*}
             minor=${version%.*}
-            tags=${{ matrix.image }}:$version,${{ matrix.image }}:$major,${{ matrix.image }}:$minor,${{ matrix.image }}:latest
+            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:$major,ghcr.io/${{ matrix.image }}:$major,docker.io/${{ matrix.image }}:$minor,ghcr.io/${{ matrix.image }}:$minor,docker.io/${{ matrix.image }}:latest,ghcr.io/${{ matrix.image }}:latest
           elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
-            echo Release candidate, pushing to :rc
-            tags=${{ matrix.image }}:rc
+            echo Release candidate, pushing to :rc and version tags
+            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:rc,ghcr.io/${{ matrix.image }}:rc
           else
             echo Development version, pushing to :edge
-            tags=${{ matrix.image }}:edge
+            tags=docker.io/${{ matrix.image }}:edge,ghcr.io/${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
           echo "VERSION=$version" >> $GITHUB_ENV
