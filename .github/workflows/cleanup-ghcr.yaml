@@ -1,0 +1,19 @@
+name: Clean up old container images
+on:
+  schedule:
+    # Run nightly build at 02:42 UTC
+    - cron: '42 02 * * *'
+
+jobs:
+  cleanup-ghcr:
+    name: Delete package versions older than 4 weeks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "syncthing discosrv relaysrv"
+          image-tags: "*-*-*" # at least two dashes in development versions
+          tag-selection: both  # select both tagged and untagged package versions
+          cut-off: 4w  # package versions should be older than 4 weeks, to be considered
