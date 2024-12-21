@@ -927,17 +927,21 @@ jobs:
         run: |
           version=$(go run build.go version)
           version=${version#v}
+          # Every build gets a version tag on ghcr
+          tags=ghcr.io/${{ matrix.image }}:$version
           if [[ $version == @([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]) ]] ; then
             echo Release version, pushing to :latest and version tags
             major=${version%.*.*}
             minor=${version%.*}
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:$major,ghcr.io/${{ matrix.image }}:$major,docker.io/${{ matrix.image }}:$minor,ghcr.io/${{ matrix.image }}:$minor,docker.io/${{ matrix.image }}:latest,ghcr.io/${{ matrix.image }}:latest
+            # Release builds also get major, major.minor, and latest tags, and get pushed to docker.io
+            tags=$tags,ghcr.io/${{ matrix.image }}:$major,ghcr.io/${{ matrix.image }}:$minor,ghcr.io/${{ matrix.image }}:latest
+            tags=$tags,docker.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:$major,docker.io/${{ matrix.image }}:$minor,docker.io/${{ matrix.image }}:latest
           elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
             echo Release candidate, pushing to :rc and version tags
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:rc,ghcr.io/${{ matrix.image }}:rc
+            tags=$tags,ghcr.io/${{ matrix.image }}:rc
           else
             echo Development version, pushing to :edge
-            tags=docker.io/${{ matrix.image }}:edge,ghcr.io/${{ matrix.image }}:edge
+            tags=$tags,ghcr.io/${{ matrix.image }}:edge
           fi
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
           echo "VERSION=$version" >> $GITHUB_ENV
@@ -950,6 +954,8 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/7
           push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          provenance: false
+          sbom: false
           labels: |
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.revision=${{ github.sha }}
