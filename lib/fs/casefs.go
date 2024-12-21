@@ -89,8 +89,12 @@ func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
 			r.startCleaner.Do(func() {
 				go r.cleaner()
 			})
+			l.Debugf("Created new case cache for key %v", k)
 		}
 		r.mut.Unlock()
+	}
+	if ok {
+		l.Debugf("Reusing case cache for key %v", k)
 	}
 
 	return &caseFilesystem{

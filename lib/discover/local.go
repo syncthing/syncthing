@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -198,9 +199,9 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 		}
 
 		var pkt discoproto.Announce
-		err := proto.Unmarshal(buf[:4], &pkt)
-		if err != nil && err != io.EOF {
-			l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
+		err := proto.Unmarshal(buf[4:], &pkt)
+		if err != nil && !errors.Is(err, io.EOF) {
+			l.Debugf("discover: Failed to unmarshal local announcement from %s (%s):\n%s", addr, err, hex.Dump(buf[4:]))
 			continue
 		}
 

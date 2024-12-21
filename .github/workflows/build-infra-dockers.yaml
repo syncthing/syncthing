@@ -21,7 +21,7 @@ jobs:
     name: Build and push Docker images
     if: github.repository == 'syncthing/syncthing'
     runs-on: ubuntu-latest
-    environment: docker
+    environment: release
     strategy:
       matrix:
         pkg:

@@ -120,7 +120,9 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 		ReadTimeout:    httpReadTimeout,
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
-		ErrorLog:       log.New(io.Discard, "", 0),
+	}
+	if !debug {
+		srv.ErrorLog = log.New(io.Discard, "", 0)
 	}
 
 	go func() {
@@ -196,7 +198,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
 		if debug {
-			log.Println(reqID, "bad device param")
+			log.Println(reqID, "bad device param:", err)
 		}
 		lookupRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
@@ -281,6 +283,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	addresses := fixupAddresses(remoteAddr, ann.Addresses)
 	if len(addresses) == 0 {
+		if debug {
+			log.Println(reqID, "no addresses")
+		}
 		announceRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -288,6 +293,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	}
 
 	if err := s.handleAnnounce(deviceID, addresses); err != nil {
+		if debug {
+			log.Println(reqID, "handle:", err)
+		}
 		announceRequestsTotal.WithLabelValues("internal_error").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -298,6 +306,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	w.Header().Set("Reannounce-After", reannounceAfterString())
 	w.WriteHeader(http.StatusNoContent)
+	if debug {
+		log.Println(reqID, "announced", deviceID, addresses)
+	}
 }
 
 func (s *apiSrv) Stop() {
@@ -315,8 +326,10 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 
 	dbAddrs := make([]*discosrv.DatabaseAddress, len(addresses))
 	for i := range addresses {
-		dbAddrs[i].Address = addresses[i]
-		dbAddrs[i].Expires = expire
+		dbAddrs[i] = &discosrv.DatabaseAddress{
+			Address: addresses[i],
+			Expires: expire,
+		}
 	}
 
 	seen := now.UnixNano()
@@ -327,7 +340,7 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 }
 
 func handlePing(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func certificateBytes(req *http.Request) ([]byte, error) {
