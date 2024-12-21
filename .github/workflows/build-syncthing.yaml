@@ -908,6 +908,7 @@ jobs:
         uses: docker/login-action@v3
         if: env.DOCKER_PUSH == 'true'
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -915,6 +916,7 @@ jobs:
         uses: docker/login-action@v3
         if: env.DOCKER_PUSH == 'true'
         with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
