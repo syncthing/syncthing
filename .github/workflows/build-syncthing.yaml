@@ -657,7 +657,6 @@ jobs:
           repository: syncthing/release-tools
           path: tools
           fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
