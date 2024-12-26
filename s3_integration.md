@@ -1,6 +1,6 @@
 # AWS Warehouse (S3) for Syncthing
 
- Issue "Object Store (S3) backend" (#8113) suggests to integrate S3 cloud storage into syncthing as a storage backup for syncthing folders.
+Issue "Object Store (S3) backend" (#8113) suggests to integrate S3 cloud storage into syncthing as a storage backup for syncthing folders.
 
 ## Requirements
 
@@ -26,6 +26,21 @@ This allows to filter out less important features that would increase implementa
 | 9 	| file access on server by FUSE-mount	| Middle  	| As a workaround for not storing files as objects, synchting could offer FUSE based mounting of the folder data such that via this FUSE interface the real file data is accessible. |
 
 ## Solutions
+
+Apart from the implementation of the feature directly into Syncthing, it is possible to achieve some of the requirements also just by combining existing external tools with Synching.
+Therefor we cosider both ways seperately.
+
+### Existing External Tools
+
+| Short Text																	| Limitations 	| Description	|
+|---																			|---				|---			|
+| s3fs: mount S3 bucket as FUSE filesystem and place Syncthing folder into it. 		| Slow listing of metadata. Issues with parallel access of nodes. Modification of files requires re-upload which makes modification of large files very slow.  				| s3fs is a FUSE based filesystem that maps a S3 bucket. Objects are files. It does caching of the data, but listing of directory content is slow as directory content seems not to be cached. |
+| s3backer: map S3 as block device and create std-filesystem in it.	| No parallel node acccess. Files are NOT objects. | s3backer stores the used blocks of a block device. The block device can then be used to create a std filesystem like ext4 or NTFS in it.
+
+### Integration into Syncthing
+
+An integration into Syncthing needs to provice more functionality or much better performance compared to any of the solutions mentioned in Exsiting External Tools.
+Otherwise there is no reason for the integration.
 
 TODO
 
