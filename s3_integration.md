@@ -19,7 +19,7 @@ This allows to filter out less important features that would increase implementa
 | 3 	| S3 fast distribution					| Must  	| Indirect requirement. Supporting S3 based object storage for folder data allows to increase the bandwith when accessing the data. |
 | 4 	| untrusted node feature				| Must  	| The S3 integration into Syncthing needs to support the existing encrypted receive / untrusted node feature. |
 | 5 	| multiple nodes w/o data duplication 	| High  	| The S3 integration into Syncthing needs to support parallel access to the S3 storage by multiple syncthing nodes / instances. |
-| 6 	| r/w performance 						| High  	| The S3 integration into Syncthing needs to have a proper performance when reading and writing. |
+| 6 	| r/w performance 						| Must  	| The S3 integration into Syncthing needs to have a proper performance when reading and writing. |
 | 7 	| complete data and metadata			| Must  	| The S3 integration into Syncthing needs to store data and metadata to the object store as the index-DB is stored in a container and might easily get deleted when migrating the nodes. |
 | 8 	| objects are files						| Middle  	| For beeing able to host websites based on a Syncthing folder, the S3 integration needs to store each file in a single object. |
 | 9 	| small objects are files				| Middle  	| A compromize for the performance impact of managing large files in S3, one could consider to only store small files as single object. |
