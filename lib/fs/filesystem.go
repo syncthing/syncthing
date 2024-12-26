@@ -9,6 +9,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -215,17 +216,6 @@ func IsPermission(err error) bool {
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-// Option modifies a filesystem at creation. An option might be specific
-// to a filesystem-type.
-//
-// String is used to detect options with the same effect, i.e. must be different
-// for options with different effects. Meaning if an option has parameters, a
-// representation of those must be part of the returned string.
-type Option interface {
-	String() string
-	apply(Filesystem) Filesystem
-}
-
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var caseOpt Option
 	var mtimeOpt Option
@@ -246,18 +236,23 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	}
 	opts = opts[:i]
 
+	// Construct file system using the registered factory function
 	var fs Filesystem
-	switch fsType {
-	case FilesystemTypeBasic:
-		fs = newBasicFilesystem(uri, opts...)
-	case FilesystemTypeFake:
-		fs = newFakeFilesystem(uri, opts...)
-	default:
-		l.Debugln("Unknown filesystem", fsType, uri)
+	var err error
+	filesystemFactoriesMutex.Lock()
+	fsFactory, factoryFound := filesystemFactories[fsType]
+	filesystemFactoriesMutex.Unlock()
+	if factoryFound {
+		fs, err = fsFactory(uri, opts...)
+	} else {
+		err = fmt.Errorf("File system type '%s' not recognized", fsType)
+	}
+
+	if err != nil {
 		fs = &errorFilesystem{
 			fsType: fsType,
 			uri:    uri,
-			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
+			err:    err,
 		}
 	}
 
