@@ -69,8 +69,8 @@ Therefor we cosider both ways seperately.
 
 ### Integration into Syncthing
 
-An integration into Syncthing needs to provice more functionality or much better performance compared to any of the solutions mentioned in Exsiting External Tools.
-Otherwise there is no reason for the integration.
+An integration into Syncthing should provide more functionality or much better performance compared to any of the solutions mentioned in Exsiting External Tools.
+Otherwise the need for the integration is probably too low. Remaining advantage would be the improved convenience only.
 
 TODO
 
