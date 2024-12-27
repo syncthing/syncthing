@@ -18,6 +18,11 @@ Sources:
 - ChatGPT (even though its not confirmed in the beginning)
   https://chatgpt.com/share/676ea99c-272c-8005-a2a9-260287dfb32d
 
+Contra-Statment:
+- olfway "PUT part/copy allows you to "upload" the individual parts by specifying octet ranges in an existing object. Or more than one object. " ... "minimum part size 5MB"
+  https://forum.syncthing.net/t/integrate-s3-cloud-storage/23528/6?u=creature
+  https://stackoverflow.com/questions/38069985/replacing-bytes-of-an-uploaded-file-in-amazon-s3/38089437#38089437
+
 ## Usecases
 
 ### Cloud Backup not Limited by Local Storage Capacity
