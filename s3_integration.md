@@ -65,6 +65,7 @@ Therefor we cosider both ways seperately.
 |---																			|---				|---			|
 | s3fs: mount S3 bucket as FUSE filesystem and place Syncthing folder into it. 		| Slow listing of metadata. Issues with parallel access of nodes. Modification of files requires re-upload which makes modification of large files very slow.  				| s3fs is a FUSE based filesystem that maps a S3 bucket. Objects are files. It does caching of the data, but listing of directory content is slow as directory content seems not to be cached. |
 | s3backer: map S3 as block device and create std-filesystem in it.	| No parallel node acccess. Files are NOT objects. | s3backer stores the used blocks of a block device. The block device can then be used to create a std filesystem like ext4 or NTFS in it.
+| rclone mount - like s3fs, different implementation. Peformance difference is unclear. | Slow listing of metadata. Issues with parallel access of nodes. Modification of files requires re-upload which makes modification of large files very slow. | rclone is a powerfull command line tool for uploading and downloading data from remote storage like S3 and many more. It also supports to mount the remotes for POSIX style listing, reading and writing. |
 
 ### Integration into Syncthing
 
