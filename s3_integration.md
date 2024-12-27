@@ -2,6 +2,30 @@
 
 Issue "Object Store (S3) backend" (#8113) suggests to integrate S3 cloud storage into syncthing as a storage backup for syncthing folders.
 
+## Limitations of S3
+
+### Slow Listing of Objects on S3 Side
+
+Sources:
+- imsodin, https://github.com/syncthing/syncthing/pull/9698#issuecomment-2340218467
+  "What I worry about for this is our extensive metadata access (e.g. scanning, but also during syncing and possibly other places). In my experience S3 is terrible for that. At best extremely slow, at worst slow and expensive. ..."
+- bt90, https://forum.syncthing.net/t/integrate-s3-cloud-storage/23528/4?u=creature
+  "we should try to avoid S3 “scanning” if we don’t have to. Let’s keep it simple and enforce that Syncthing is in control of its objects..."
+  
+### No Modification of Objects w/o Complete Re-Upload
+
+Sources:
+- ChatGPT (even though its not confirmed in the beginning)
+  https://chatgpt.com/share/676ea99c-272c-8005-a2a9-260287dfb32d
+
+## Usecases
+
+### Cloud Backup not Limited by Local Storage Capacity
+
+Sources:
+- agowa, https://github.com/syncthing/syncthing/issues/8113
+- bt90, https://forum.syncthing.net/t/integrate-s3-cloud-storage/23528/4?u=creature
+
 ## Requirements
 
 ### Priority of Requirements
