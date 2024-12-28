@@ -238,17 +238,25 @@ func (w *walker) walkWithoutHashing(ctx context.Context) chan ScanResult {
 	return finishedChan
 }
 
+const walkFailureEventDesc = "Unexpected error while walking the filesystem during scan"
+
 func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) {
 	hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 	if len(w.Subs) == 0 {
-		w.Filesystem.Walk(".", hashFiles)
+		if err := w.Filesystem.Walk(".", hashFiles); err != nil {
+			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
+			l.Warnf("Aborted scan due to an unexpected error: %v", err)
+		}
 	} else {
 		for _, sub := range w.Subs {
 			if err := osutil.TraversesSymlink(w.Filesystem, filepath.Dir(sub)); err != nil {
 				l.Debugf("%v: Skip walking %v as it is below a symlink", w, sub)
 				continue
 			}
-			w.Filesystem.Walk(sub, hashFiles)
+			if err := w.Filesystem.Walk(sub, hashFiles); err != nil {
+				w.EventLogger.Log(events.Failure, walkFailureEventDesc)
+				l.Warnf("Aborted scan of path '%v' due to an unexpected error: %v", sub, err)
+			}
 		}
 	}
 	close(toHashChan)
@@ -341,7 +349,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
+			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
+			}
+			return nil
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -350,7 +362,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan)
+			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
+			}
+			return nil
 		}
 
 		// The previously ignored parent directories of the current, not
@@ -366,7 +382,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				return skip
 			}
 			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan); err != nil {
-				return err
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
 			}
 		}
 		ignoredParent = ""
@@ -375,6 +392,9 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	}
 }
 
+// Returning an error does not indicate that the walk should be aborted - it
+// will simply report the error for that path to the user (same for walk...
+// functions called from here).
 func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	switch {
 	case info.IsSymlink():
@@ -394,8 +414,7 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 		return w.walkRegular(ctx, path, info, toHashChan)
 
 	default:
-		// A special file, socket, fifo, etc. -- do nothing but return
-		// success so we continue the walk.
+		// A special file, socket, fifo, etc. -- do nothing, just skip and continue scanning.
 		l.Debugf("Skipping non-regular file %s (%s)", path, info.Mode())
 		return nil
 	}
@@ -512,8 +531,6 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	return nil
 }
 
-// walkSymlink returns nil or an error, if the error is of the nature that
-// it should stop the entire walk.
 func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
@@ -523,8 +540,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
-		handleError(ctx, "reading link", relPath, err, finishedChan)
-		return nil
+		return err
 	}
 
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
@@ -637,6 +653,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 }
 
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
+	l.Debugf("handle error on '%v': %v: %v", path, context, err)
 	select {
 	case finishedChan <- ScanResult{
 		Err:  fmt.Errorf("%s: %w", context, err),
