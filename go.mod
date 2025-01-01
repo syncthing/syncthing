@@ -12,7 +12,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
-	github.com/go-ldap/ldap/v3 v3.4.8
+	github.com/go-ldap/ldap/v3 v3.4.10
 	github.com/gobwas/glob v0.2.3
 	github.com/greatroar/blobloom v0.8.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -39,8 +39,8 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.30.0
-	golang.org/x/net v0.32.0
+	golang.org/x/crypto v0.31.0
+	golang.org/x/net v0.33.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/text v0.21.0
 	golang.org/x/time v0.8.0
