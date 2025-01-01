@@ -16,7 +16,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/greatroar/blobloom v0.8.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/jackpal/gateway v1.0.15
+	github.com/jackpal/gateway v1.0.16
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -39,8 +39,8 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.30.0
-	golang.org/x/net v0.32.0
+	golang.org/x/crypto v0.31.0
+	golang.org/x/net v0.33.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/text v0.21.0
 	golang.org/x/time v0.8.0
