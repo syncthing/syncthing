@@ -239,8 +239,12 @@ func TestNormalization(t *testing.T) {
 			if fd, err := testFs.OpenFile(filepath.Join("normalization", s1, s2), os.O_CREATE|os.O_EXCL, 0o644); err != nil {
 				t.Fatal(err)
 			} else {
-				fd.Write([]byte("test"))
-				fd.Close()
+				if _, err := fd.Write([]byte("test")); err != nil {
+					t.Fatal(err)
+				}
+				if err := fd.Close(); err != nil {
+					t.Fatal(err)
+				}
 			}
 		}
 	}
