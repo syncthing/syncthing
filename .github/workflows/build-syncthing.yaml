@@ -63,9 +63,8 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          # required to pull tags, which is required to generate a valid version
           fetch-depth: 0
-          show-progress: false
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -101,6 +100,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -134,6 +135,8 @@ jobs:
       - govulncheck
     steps:
       - uses: actions/checkout@v4
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
   #
   # Windows
@@ -523,6 +526,7 @@ jobs:
           repository: syncthing/release-tools
           path: tools
           fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -661,6 +665,7 @@ jobs:
           repository: syncthing/release-tools
           path: tools
           fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -966,6 +971,8 @@ jobs:
     name: Run govulncheck
     steps:
       - uses: actions/checkout@v4
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
