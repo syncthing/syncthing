@@ -31,9 +31,11 @@ const (
 )
 
 const (
-	DefaultFlags = log.Ltime | log.Ldate
-	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
-	LevelError   = NumLevels // Not really a log level, as it disables all logging.
+	DefaultFlags  = log.Ltime | log.Ldate
+	DebugFlags    = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+	LevelDefault  = LevelInfo // The default logging level, if not specified.
+	LevelDisabled = NumLevels // disables all logging, as it quiet even warnings.
+	delimiters    = ",; \t"   // The characters allowed to delimit the facilities.
 )
 
 var levelPrefix = map[LogLevel]string{
@@ -48,7 +50,8 @@ var levelMap = map[string]LogLevel{
 	"verbose": LevelVerbose,
 	"info":    LevelInfo,
 	"warn":    LevelWarn,
-	"error":   LevelError, // quiet even warnings
+	// start with a unique letter so abbreviation is unique.
+	"off": LevelDisabled,
 }
 
 // A MessageHandler is called with the log level and message text.
@@ -124,7 +127,7 @@ func newLogger(w io.Writer) Logger {
 func parseSttrace() map[string]LogLevel {
 	sttrace := strings.ToLower(os.Getenv("STTRACE"))
 	traces := strings.FieldsFunc(sttrace, func(r rune) bool {
-		return strings.ContainsRune(",; \t", r)
+		return strings.ContainsRune(delimiters, r)
 	})
 
 	levels := make(map[string]LogLevel, len(traces))
@@ -148,8 +151,9 @@ Next:
 					continue Next
 				}
 			}
-			// a typo, but let's log at the debug level since the user wants to
-			// log.
+			// if we get here, the user mistyped the level, but let's log at the
+			// debug level anyway, since the user wants to log, we just don't
+			// know at what level.
 		}
 		levels[trace] = LevelDebug
 	}
@@ -229,7 +233,7 @@ func (l *logger) Infof(format string, vals ...interface{}) {
 	l.logf(LevelInfo, format, vals...)
 }
 
-// Warnln logs a formatted line with a WARNING prefix.
+// Warnln logs a line with a WARNING prefix.
 func (l *logger) Warnln(vals ...interface{}) {
 	l.log(LevelWarn, vals...)
 }
@@ -272,8 +276,8 @@ func (l *logger) IsEnabledFor(facility string, logLevel LogLevel) bool {
 
 // EffectiveLevel returns the level the facility is logging at. If logging
 // is not enabled for the specified facility, the logging level for the
-// "all" facility is returned, if it's enabled. Otherwise, LevelError
-// (NumLevels) is returned (which is effectively ERROR level logging).
+// "all" facility is returned, if it's enabled. Otherwise, LevelDefault
+// (which is an alias for LevelInfo) is returned.
 func (l *logger) EffectiveLevel(facility string) LogLevel {
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -286,7 +290,7 @@ func (l *logger) EffectiveLevel(facility string) LogLevel {
 		return level
 	}
 
-	return LevelError
+	return LevelDefault
 }
 
 // SetDebug enabled or disables DEBUG logging for the given facility name.
@@ -298,12 +302,12 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	} else {
 		delete(l.levels, facility)
 	}
-	l.setFlags()
+	l.setLoggerFlags()
 }
 
-// setFlags set the underlying logger's flags to DebugFlags if any facility
+// setLoggerFlags set the underlying logger's flags to DebugFlags if any facility
 // is logging at the DEBUG level.
-func (l *logger) setFlags() {
+func (l *logger) setLoggerFlags() {
 	for _, level := range l.levels {
 		if level <= LevelDebug {
 			l.SetFlags(DebugFlags)
@@ -344,7 +348,7 @@ func (l *logger) NewFacility(facility, description string) Logger {
 	l.mut.Lock()
 	l.facilities[facility] = description
 	l.callLevel = 4
-	l.setFlags()
+	l.setLoggerFlags()
 	l.mut.Unlock()
 
 	return &facilityLogger{
@@ -375,7 +379,7 @@ func (l *facilityLogger) shouldLog(facility string, logLevel LogLevel) bool {
 		return logLevel >= level
 	}
 
-	return logLevel >= LevelInfo
+	return logLevel >= LevelDefault
 }
 
 // Debugln logs a line with a DEBUG prefix.

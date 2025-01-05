@@ -194,10 +194,11 @@ type levelTest struct {
 }
 
 const (
-	it    = "It!"
-	dotGo = ".go"
-	got   = true
-	not   = false
+	it          = "It!"
+	dotGo       = ".go"
+	got         = true
+	not         = false
+	levelNotSet = LevelDisabled + 1 // Used for IsEnabledFor tests.
 )
 
 var levelTests = []levelTest{
@@ -265,14 +266,14 @@ var levelTests = []levelTest{
 	{"t7:warn", got, not, func() { New().NewFacility("t7", "").Warnln(it) }},
 	{"t7:warn", got, not, func() { New().NewFacility("t7", "").Warnf("%s", it) }},
 	// 57-64
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Debugln(it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Debugf("%s", it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Verboseln(it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Verbosef("%s", it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Infoln(it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Infof("%s", it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Warnln(it) }},
-	{"t8:error", not, not, func() { New().NewFacility("t8", "").Warnf("%s", it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Debugln(it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Debugf("%s", it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Verboseln(it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Verbosef("%s", it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Infoln(it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Infof("%s", it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Warnln(it) }},
+	{"t8:off", not, not, func() { New().NewFacility("t8", "").Warnf("%s", it) }},
 	// 65-72
 	{"all:warn,t9:info", not, not, func() { New().NewFacility("t9", "").Debugln(it) }},
 	{"all:warn,t9:info", not, not, func() { New().NewFacility("t9", "").Debugf("%s", it) }},
@@ -320,14 +321,12 @@ var levelTests = []levelTest{
 	{"all:debug,t13:info", got, got, func() { New().NewFacility("!t13", "").Warnf("%s", it) }},
 }
 
-var delims = []string{",", ";", " ", "\t"}
-
 func TestLogLevel(t *testing.T) {
 	// LOGGER_DISCARD needs to be unset for this test to pass
 	t.Setenv("LOGGER_DISCARD", "")
 	for i, test := range levelTests {
-		for _, delim := range delims {
-			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
+		for _, delim := range delimiters {
+			sttrace := strings.ReplaceAll(test.sttrace, ",", string(delim))
 			t.Setenv("STTRACE", sttrace)
 			got := captureStdout(test.fn)
 			if strings.Contains(got, it) != test.hasIt {
@@ -341,8 +340,8 @@ func TestLogFlags(t *testing.T) {
 	// LOGGER_DISCARD needs to be unset for this test to pass
 	t.Setenv("LOGGER_DISCARD", "")
 	for i, test := range levelTests {
-		for _, delim := range delims {
-			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
+		for _, delim := range delimiters {
+			sttrace := strings.ReplaceAll(test.sttrace, ",", string(delim))
 			t.Setenv("STTRACE", sttrace)
 			got := captureStdout(test.fn)
 			if strings.Contains(got, dotGo) != test.hasDotGo {
@@ -357,7 +356,7 @@ var levels = []LogLevel{
 	LevelVerbose,
 	LevelInfo,
 	LevelWarn,
-	LevelError,
+	LevelDisabled,
 }
 
 type isEnabledTest struct {
@@ -368,27 +367,28 @@ type isEnabledTest struct {
 }
 
 var isEnabledTests = []isEnabledTest{
-	{"t1", "", LevelError + 1, func() Logger { return New().NewFacility("t1", "") }},
+	{"t1", "", levelNotSet, func() Logger { return New().NewFacility("t1", "") }},
 	{"t2", "t2", LevelDebug, func() Logger { return New().NewFacility("t2", "") }},
 	{"t3", "all", LevelDebug, func() Logger { return New().NewFacility("t3", "") }},
 	{"t4", "t4:debug", LevelDebug, func() Logger { return New().NewFacility("t4", "") }},
 	{"t5", "t5:verbose", LevelVerbose, func() Logger { return New().NewFacility("t5", "") }},
 	{"t6", "t6:info", LevelInfo, func() Logger { return New().NewFacility("t6", "") }},
 	{"t7", "t7:warn", LevelWarn, func() Logger { return New().NewFacility("t7", "") }},
-	{"t8", "t8:error", LevelError, func() Logger { return New().NewFacility("t8", "") }},
+	{"t8", "t8:off", LevelDisabled, func() Logger { return New().NewFacility("t8", "") }},
 }
 
 func TestIsEnabledFor(t *testing.T) {
 	for i, test := range isEnabledTests {
-		for _, delim := range delims {
-			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
+		for _, delim := range delimiters {
+			sttrace := strings.ReplaceAll(test.sttrace, ",", string(delim))
 			t.Setenv("STTRACE", sttrace)
 			l := test.fn().(*facilityLogger)
 			for _, level := range levels {
 				got := l.IsEnabledFor(test.facility, level)
 				want := test.minEnabled <= level
 				if got != want {
-					t.Errorf("Test %d: STTRACE=%q IsEnabledFor(%q, %v): got %v, want %v", i+1, sttrace, test.facility, level, got, want)
+					t.Errorf("Test %d: STTRACE=%q IsEnabledFor(%q, %v): got %v, want %v",
+						i+1, sttrace, test.facility, level, got, want)
 				}
 			}
 		}
@@ -403,36 +403,37 @@ type effectiveLevelTest struct {
 }
 
 var effectiveLevelTests = []effectiveLevelTest{
-	{"t1", "", LevelError, func() Logger { return New().NewFacility("t1", "") }},
+	{"t1", "", LevelInfo, func() Logger { return New().NewFacility("t1", "") }},
 	{"t2", "t2", LevelDebug, func() Logger { return New().NewFacility("t2", "") }},
 	{"t3", "all", LevelDebug, func() Logger { return New().NewFacility("t3", "") }},
 	{"t4", "t4:debug", LevelDebug, func() Logger { return New().NewFacility("t4", "") }},
 	{"t5", "t5:verbose", LevelVerbose, func() Logger { return New().NewFacility("t5", "") }},
 	{"t6", "t6:info", LevelInfo, func() Logger { return New().NewFacility("t6", "") }},
 	{"t7", "t7:warn", LevelWarn, func() Logger { return New().NewFacility("t7", "") }},
-	{"t8", "t8:error", LevelError, func() Logger { return New().NewFacility("t8", "") }},
+	{"t8", "t8:off", LevelDisabled, func() Logger { return New().NewFacility("t8", "") }},
 	{"t9", "all:info,t9:debug", LevelDebug, func() Logger { return New().NewFacility("t9", "") }},
 	{"t10", "all:info,t10:verbose", LevelVerbose, func() Logger { return New().NewFacility("t10", "") }},
 	{"t11", "all:info,t11:info", LevelInfo, func() Logger { return New().NewFacility("t11", "") }},
 	{"t12", "all:info,t12:warn", LevelWarn, func() Logger { return New().NewFacility("t12", "") }},
-	{"t13", "all:info,t13:error", LevelError, func() Logger { return New().NewFacility("t13", "") }},
+	{"t13", "all:info,t13:off", LevelDisabled, func() Logger { return New().NewFacility("t13", "") }},
 	{"t14", "all:info,!t14:debug", LevelInfo, func() Logger { return New().NewFacility("t4", "") }},
 	{"t15", "all:info,!t15:verbose", LevelInfo, func() Logger { return New().NewFacility("t15", "") }},
 	{"t16", "all:info,!t16:info", LevelInfo, func() Logger { return New().NewFacility("t16", "") }},
 	{"t17", "all:info,!t17:warn", LevelInfo, func() Logger { return New().NewFacility("t17", "") }},
-	{"t18", "all:info,!t18:error", LevelInfo, func() Logger { return New().NewFacility("t18", "") }},
+	{"t18", "all:info,!t18:off", LevelInfo, func() Logger { return New().NewFacility("t18", "") }},
 }
 
 func TestEffectiveLevel(t *testing.T) {
 	for i, test := range effectiveLevelTests {
-		for _, delim := range delims {
-			sttrace := strings.ReplaceAll(test.sttrace, ",", delim)
+		for _, delim := range delimiters {
+			sttrace := strings.ReplaceAll(test.sttrace, ",", string(delim))
 			t.Setenv("STTRACE", sttrace)
 			l := test.fn().(*facilityLogger)
 			got := l.EffectiveLevel(test.facility)
 			want := test.effectiveLevel
 			if got != want {
-				t.Errorf("Test %d: STTRACE=%q EffectiveLevel(%q): got %v, want %v", i+1, sttrace, test.facility, got, want)
+				t.Errorf("Test %d: STTRACE=%q EffectiveLevel(%q): got %v, want %v",
+					i+1, sttrace, test.facility, got, want)
 			}
 		}
 	}
