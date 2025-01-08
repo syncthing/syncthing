@@ -1729,7 +1729,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			Name:    name,
 			ModTime: time.Unix(0x666, 0),
 			Size:    0xa,
-			Type:    protocol.FileInfoTypeFile,
+			Type:    protocol.FileInfoTypeFile.String(),
 		}
 	}
 	d := func(name string, entries ...*TreeEntry) *TreeEntry {
@@ -1737,7 +1737,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			Name:     name,
 			ModTime:  time.Unix(0x666, 0),
 			Size:     128,
-			Type:     protocol.FileInfoTypeDirectory,
+			Type:     protocol.FileInfoTypeDirectory.String(),
 			Children: entries,
 		}
 	}
