@@ -18,10 +18,10 @@ import (
 )
 
 type ObservedFolder struct {
-	Time             time.Time
-	Label            string
-	ReceiveEncrypted bool
-	RemoteEncrypted  bool
+	Time             time.Time `json:"time"`
+	Label            string    `json:"label"`
+	ReceiveEncrypted bool      `json:"receiveEncrypted"`
+	RemoteEncrypted  bool      `json:"remoteEncrypted"`
 }
 
 func (o *ObservedFolder) toWire() *dbproto.ObservedFolder {
@@ -41,9 +41,9 @@ func (o *ObservedFolder) fromWire(w *dbproto.ObservedFolder) {
 }
 
 type ObservedDevice struct {
-	Time    time.Time
-	Name    string
-	Address string
+	Time    time.Time `json:"time"`
+	Name    string    `json:"name"`
+	Address string    `json:"address"`
 }
 
 func (o *ObservedDevice) fromWire(w *dbproto.ObservedDevice) {
