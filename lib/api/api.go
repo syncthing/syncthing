@@ -402,6 +402,9 @@ func (s *service) Serve(ctx context.Context) error {
 		// care about we log ourselves from the handlers.
 		ErrorLog: log.New(io.Discard, "", 0),
 	}
+	if shouldDebugHTTP() {
+		srv.ErrorLog = log.Default()
+	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
