@@ -76,11 +76,12 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 	return nil
 }
 
-// Marshal returns the protobuf representation of the metadataTracker
-func (m *metadataTracker) Marshal() ([]byte, error) {
+// protoMarshal returns the protobuf representation of the metadataTracker.
+// Must be called with the read lock held.
+func (m *metadataTracker) protoMarshal() ([]byte, error) {
 	dbc := &dbproto.CountsSet{
 		Counts:  make([]*dbproto.Counts, len(m.counts.Counts)),
-		Created: m.Created().UnixNano(),
+		Created: m.counts.Created,
 	}
 	for i, c := range m.counts.Counts {
 		dbc.Counts[i] = c.toWire()
@@ -109,7 +110,7 @@ func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error 
 		return nil
 	}
 
-	bs, err := m.Marshal()
+	bs, err := m.protoMarshal()
 	if err != nil {
 		return err
 	}

@@ -36,11 +36,12 @@ type tokenManager struct {
 }
 
 func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration, maxItems int) *tokenManager {
-	tokens := &apiproto.TokenSet{
-		Tokens: make(map[string]int64),
-	}
+	var tokens apiproto.TokenSet
 	if bs, ok, _ := miscDB.Bytes(key); ok {
-		_ = proto.Unmarshal(bs, tokens) // best effort
+		_ = proto.Unmarshal(bs, &tokens) // best effort
+	}
+	if tokens.Tokens == nil {
+		tokens.Tokens = make(map[string]int64)
 	}
 	return &tokenManager{
 		key:      key,
@@ -49,7 +50,7 @@ func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration
 		maxItems: maxItems,
 		timeNow:  time.Now,
 		mut:      sync.NewMutex(),
-		tokens:   tokens,
+		tokens:   &tokens,
 	}
 }
 
