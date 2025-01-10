@@ -743,7 +743,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
 	}
 
-	if file.SymlinkTarget == "" {
+	if len(file.SymlinkTarget) == 0 {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
 		f.newPullError(file.Name, errIncompatibleSymlink)
@@ -758,7 +758,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	// We declare a function that acts on only the path name, so
 	// we can pass it to InWritableDir.
 	createLink := func(path string) error {
-		if err := f.mtimefs.CreateSymlink(file.SymlinkTarget, path); err != nil {
+		if err := f.mtimefs.CreateSymlink(string(file.SymlinkTarget), path); err != nil {
 			return err
 		}
 		return f.setPlatformData(&file, path)

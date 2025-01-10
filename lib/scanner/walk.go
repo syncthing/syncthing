@@ -740,7 +740,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		if err != nil {
 			return protocol.FileInfo{}, err
 		}
-		f.SymlinkTarget = target
+		f.SymlinkTarget = []byte(target)
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}

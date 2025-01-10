@@ -101,7 +101,7 @@ message FileInfo {
   Vector version = 9;
   int64 sequence = 10;
   repeated BlockInfo blocks = 16;
-  string symlink_target = 17;
+  bytes symlink_target = 17;
   bytes blocks_hash = 18;
   bytes encrypted = 19;
   FileInfoType type = 2;
