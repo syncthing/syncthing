@@ -66,7 +66,7 @@ type FileInfo struct {
 	Version       Vector
 	Sequence      int64
 	Blocks        []BlockInfo
-	SymlinkTarget string
+	SymlinkTarget []byte
 	BlocksHash    []byte
 	Encrypted     []byte
 	Platform      PlatformData
@@ -187,7 +187,7 @@ type FileInfoWithoutBlocks interface {
 	GetVersion() *bep.Vector
 	GetSequence() int64
 	// GetBlocks() []*bep.BlockInfo // not included
-	GetSymlinkTarget() string
+	GetSymlinkTarget() []byte
 	GetBlocksHash() []byte
 	GetEncrypted() []byte
 	GetType() FileInfoType
@@ -469,7 +469,7 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 	case FileInfoTypeFile:
 		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), comp.ModTimeWindow) && (comp.IgnoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
-		return f.SymlinkTarget == other.SymlinkTarget
+		return bytes.Equal(f.SymlinkTarget, other.SymlinkTarget)
 	case FileInfoTypeDirectory:
 		return true
 	}
