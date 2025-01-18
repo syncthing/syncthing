@@ -97,7 +97,7 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 		file.Name = name
 		file.Type = ftype
 		file.Version = version
-		file.SymlinkTarget = string(data)
+		file.SymlinkTarget = data
 		file.NoPermissions = true
 	}
 	f.files = append(f.files, file)

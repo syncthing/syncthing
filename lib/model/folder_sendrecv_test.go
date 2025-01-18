@@ -891,7 +891,7 @@ func TestCopyOwner(t *testing.T) {
 		Name:          "foo/bar/sym",
 		Type:          protocol.FileInfoTypeSymlink,
 		Permissions:   0o644,
-		SymlinkTarget: "over the rainbow",
+		SymlinkTarget: []byte("over the rainbow"),
 	}
 
 	f.handleSymlink(symlink, snap, dbUpdateChan, scanChan)
@@ -958,7 +958,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 
 	// Simulate remote creating a symlink with the same name
 	file.Type = protocol.FileInfoTypeSymlink
-	file.SymlinkTarget = "bar"
+	file.SymlinkTarget = []byte("bar")
 	rem := device1.Short()
 	file.Version = protocol.Vector{}.Update(rem)
 	file.ModifiedBy = rem

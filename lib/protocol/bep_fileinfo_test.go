@@ -185,15 +185,15 @@ func TestIsEquivalent(t *testing.T) {
 
 		// The symlink target is checked for symlinks
 		{
-			a:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "a"},
-			b:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "b"},
+			a:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: []byte("a")},
+			b:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: []byte("b")},
 			eq: false,
 		},
 
 		// ... but not for non-symlinks
 		{
-			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "a"},
-			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "b"},
+			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: []byte("a")},
+			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: []byte("b")},
 			eq: true,
 		},
 	}

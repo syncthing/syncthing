@@ -15,7 +15,7 @@ message FileInfoTruncated {
   bep.Vector version = 9;
   int64 sequence = 10;
   reserved 16; // blocks
-  string symlink_target = 17;
+  bytes symlink_target = 17;
   bytes blocks_hash = 18;
   bytes encrypted = 19;
   bep.FileInfoType type = 2;
