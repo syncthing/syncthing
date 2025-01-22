@@ -30,6 +30,11 @@ func (t FolderType) String() string {
 	}
 }
 
+func (t FolderType) SupportsIgnores() bool {
+	// return t != FolderTypeReceiveEncrypted
+	return true
+}
+
 func (t FolderType) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
 }

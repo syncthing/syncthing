@@ -329,9 +329,7 @@ func (m *model) fatal(err error) {
 // Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
-	//doLoadIgnores := cfg.Type != config.FolderTypeReceiveEncrypted
-	doLoadIgnores := true
-	if doLoadIgnores {
+	if cfg.Type.SupportsIgnores() {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			l.Warnln("Loading ignores:", err)
 		}
@@ -2211,7 +2209,7 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if cfg.Type == config.FolderTypeReceiveEncrypted {
+	if !cfg.Type.SupportsIgnores() {
 		return nil, nil, nil
 	}
 
