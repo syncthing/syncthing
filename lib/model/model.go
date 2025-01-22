@@ -1791,7 +1791,9 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				}
 				fcfg.Versioning.Reset()
 				// Other necessary settings are ensured by FolderConfiguration itself
-			} else {
+			}
+
+			if fcfg.Type.SupportsIgnores() {
 				ignores := m.cfg.DefaultIgnores()
 				if err := m.setIgnores(fcfg, ignores.Lines); err != nil {
 					l.Warnf("Failed to apply default ignores to auto-accepted folder %s at path %s: %v", folder.Description(), fcfg.Path, err)
