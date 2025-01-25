@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/cmd/syncthing/purge"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -132,6 +133,7 @@ var entrypoint struct {
 	Serve              serveOptions                 `cmd:"" help:"Run Syncthing"`
 	Generate           generate.CLI                 `cmd:"" help:"Generate key and config, then exit"`
 	Decrypt            decrypt.CLI                  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	Purge              purge.CLI                    `cmd:"" help:"Purge ignored local files of folder"`
 	Cli                cli.CLI                      `cmd:"" help:"Command line interface for Syncthing"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
