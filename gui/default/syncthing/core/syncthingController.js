@@ -43,6 +43,8 @@ angular.module('syncthing.core')
             password: '',
             errors: {},
         };
+        $scope.passwordVisible = false;
+        $scope.passwordVisibility = 'password';
         $scope.completion = {};
         $scope.config = {};
         $scope.configInSync = true;
@@ -125,6 +127,11 @@ angular.module('syncthing.core')
             }).finally(function () {
                 $scope.login.inProgress = false;
             });
+        };
+
+        $scope.togglePassword = function() {
+            $scope.passwordVisible = !$scope.passwordVisible;
+            $scope.passwordVisibility = $scope.passwordVisible ? 'text' : 'password';
         };
 
         $scope.logout = function() {
