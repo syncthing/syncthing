@@ -515,6 +515,17 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			continue
 		case strings.HasPrefix(line, "//"):
 			continue
+		case strings.HasPrefix(line, ShardExcludePrefixCommon):
+			matcher, err := ShardExcludeParse(line)
+			if err != nil {
+				return lines, nil, parseError(err)
+			}
+			patterns = append(patterns, Pattern{
+				pattern: line,
+				match:   matcher,
+				result:  matcher.ignoreR,
+			})
+			continue
 		}
 
 		line = filepath.ToSlash(line)
