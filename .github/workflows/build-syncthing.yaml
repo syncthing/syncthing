@@ -228,6 +228,7 @@ jobs:
           certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
           files-folder: ${{ github.workspace }}\packages
           files-folder-filter: exe
+          files-folder-recurse: true
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
