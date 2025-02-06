@@ -192,7 +192,7 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-windows
+          name: unsigned-packages-windows
           path: "*.zip"
 
   codesign-windows:
@@ -206,28 +206,27 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: packages-windows
+          name: unsigned-packages-windows
 
       - name: Extract packages
         run: |
           $files = Get-ChildItem "." -Filter *.zip
           foreach ($file in $files) {
-            7z x $file.BaseName
+            7z x $file.Name
           }
 
       - name: Repackage packages
         run: |
           $files = Get-ChildItem "." -Filter *.zip
           foreach ($file in $files) {
-            $dir = $file.BaseName.replace('.zip', '')
-            Remove-Item $file.BaseName
-            7z a -tzip $file.BaseName $dir
+            Remove-Item $file.Name
+            7z a -tzip $file.Name $file.BaseName
           }
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-windows-codesigned
+          name: packages-windows
           path: "*.zip"
 
   #
@@ -533,7 +532,7 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-')  || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
-      - package-windows
+      - codesign-windows
       - package-linux
       - package-macos
       - package-cross
