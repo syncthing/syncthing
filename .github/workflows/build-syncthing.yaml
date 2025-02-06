@@ -200,6 +200,8 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     runs-on: windows-latest
+    needs:
+      - package-windows
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
