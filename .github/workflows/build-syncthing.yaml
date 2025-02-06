@@ -188,15 +188,44 @@ jobs:
           }
         env:
           CGO_ENABLED: "0"
-          CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
-          CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
-          CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
-          CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages-windows
+          path: "*.zip"
+
+  codesign-windows:
+    name: Codesign for Windows
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
+    environment: release
+    runs-on: windows-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-windows
+
+      - name: Extract packages
+        run: |
+          $files = Get-ChildItem "." -Filter *.zip
+          foreach ($file in $files) {
+            7z x $file.BaseName
+          }
+
+      - name: Repackage packages
+        run: |
+          $files = Get-ChildItem "." -Filter *.zip
+          foreach ($file in $files) {
+            $dir = $file.BaseName.replace('.zip', '')
+            Remove-Item $file.BaseName
+            7z a -tzip $file.BaseName $dir
+          }
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-windows-codesigned
           path: "*.zip"
 
   #
