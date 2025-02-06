@@ -127,6 +127,7 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - package-windows
       - govulncheck
     steps:
       - uses: actions/checkout@v4
@@ -137,8 +138,6 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     runs-on: windows-latest
     steps:
       - name: Set git to use LF
