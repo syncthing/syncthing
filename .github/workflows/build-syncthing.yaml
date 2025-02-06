@@ -207,15 +207,33 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: unsigned-packages-windows
+          path: packages
 
       - name: Extract packages
+        working-directory: packages
         run: |
           $files = Get-ChildItem "." -Filter *.zip
           foreach ($file in $files) {
             7z x $file.Name
           }
 
+      - name: Sign files with Trusted Signing
+        uses: azure/trusted-signing-action@v0.5.1
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}/packages
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
       - name: Repackage packages
+        working-directory: packages
         run: |
           $files = Get-ChildItem "." -Filter *.zip
           foreach ($file in $files) {
@@ -227,7 +245,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-windows
-          path: "*.zip"
+          path: "packages/*.zip"
 
   #
   # Linux
