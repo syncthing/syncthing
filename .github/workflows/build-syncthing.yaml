@@ -127,6 +127,7 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - package-windows
       - govulncheck
     steps:
       - uses: actions/checkout@v4
@@ -137,8 +138,6 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     runs-on: windows-latest
     steps:
       - name: Set git to use LF
@@ -188,16 +187,65 @@ jobs:
           }
         env:
           CGO_ENABLED: "0"
-          CODESIGN_SIGNTOOL: ${{ secrets.CODESIGN_SIGNTOOL }}
-          CODESIGN_CERTIFICATE_BASE64: ${{ secrets.CODESIGN_CERTIFICATE_BASE64 }}
-          CODESIGN_CERTIFICATE_PASSWORD: ${{ secrets.CODESIGN_CERTIFICATE_PASSWORD }}
-          CODESIGN_TIMESTAMP_SERVER: ${{ secrets.CODESIGN_TIMESTAMP_SERVER }}
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-packages-windows
+          path: "*.zip"
+
+  codesign-windows:
+    name: Codesign for Windows
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
+    environment: release
+    runs-on: windows-latest
+    needs:
+      - package-windows
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: unsigned-packages-windows
+          path: packages
+
+      - name: Extract packages
+        working-directory: packages
+        run: |
+          $files = Get-ChildItem "." -Filter *.zip
+          foreach ($file in $files) {
+            7z x $file.Name
+          }
+
+      - name: Sign files with Trusted Signing
+        uses: azure/trusted-signing-action@v0.5.1
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\packages
+          files-folder-filter: exe
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Repackage packages
+        working-directory: packages
+        run: |
+          $files = Get-ChildItem "." -Filter *.zip
+          foreach ($file in $files) {
+            Remove-Item $file.Name
+            7z a -tzip $file.Name $file.BaseName
+          }
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages-windows
-          path: "*.zip"
+          path: "packages/*.zip"
 
   #
   # Linux
@@ -502,7 +550,7 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-')  || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
-      - package-windows
+      - codesign-windows
       - package-linux
       - package-macos
       - package-cross

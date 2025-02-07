@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -1345,10 +1344,7 @@ func zipFile(out string, files []archiveFile) {
 }
 
 func codesign(target target) {
-	switch goos {
-	case "windows":
-		windowsCodesign(target.BinaryName())
-	case "darwin":
+	if goos == "darwin" {
 		macosCodesign(target.BinaryName())
 	}
 }
@@ -1369,70 +1365,6 @@ func macosCodesign(file string) {
 			return
 		}
 		log.Println("Codesign: successfully signed", file)
-	}
-}
-
-func windowsCodesign(file string) {
-	st := "signtool.exe"
-
-	if path := os.Getenv("CODESIGN_SIGNTOOL"); path != "" {
-		st = path
-	}
-
-	for i, algo := range []string{"sha1", "sha256"} {
-		args := []string{"sign", "/fd", algo}
-		if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
-			args = append(args, "/f", f)
-		} else if b := os.Getenv("CODESIGN_CERTIFICATE_BASE64"); b != "" {
-			// Decode the PFX certificate from base64.
-			bs, err := base64.RawStdEncoding.DecodeString(b)
-			if err != nil {
-				log.Println("Codesign: signing failed: decoding base64:", err)
-				return
-			}
-
-			// Write it to a temporary file
-			f, err := os.CreateTemp("", "codesign-*.pfx")
-			if err != nil {
-				log.Println("Codesign: signing failed: creating temp file:", err)
-				return
-			}
-			_ = f.Chmod(0o600) // best effort remove other users' access
-			defer os.Remove(f.Name())
-			if _, err := f.Write(bs); err != nil {
-				log.Println("Codesign: signing failed: writing temp file:", err)
-				return
-			}
-			if err := f.Close(); err != nil {
-				log.Println("Codesign: signing failed: closing temp file:", err)
-				return
-			}
-
-			// Use that when signing
-			args = append(args, "/f", f.Name())
-		}
-		if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
-			args = append(args, "/p", p)
-		}
-		if tr := os.Getenv("CODESIGN_TIMESTAMP_SERVER"); tr != "" {
-			switch algo {
-			case "sha256":
-				args = append(args, "/tr", tr, "/td", algo)
-			default:
-				args = append(args, "/t", tr)
-			}
-		}
-		if i > 0 {
-			args = append(args, "/as")
-		}
-		args = append(args, file)
-
-		bs, err := runError(st, args...)
-		if err != nil {
-			log.Printf("Codesign: signing failed: %v: %s", err, string(bs))
-			return
-		}
-		log.Println("Codesign: successfully signed", file, "using", algo)
 	}
 }
 
