@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build !dragonfly && !freebsd && !netbsd && !openbsd
-// +build !dragonfly,!freebsd,!netbsd,!openbsd
+//go:build !dragonfly && !freebsd && !netbsd && !openbsd && !kqueue && !ios
+// +build !dragonfly,!freebsd,!netbsd,!openbsd,!kqueue,!ios
 
 package fs
 
