@@ -9,6 +9,7 @@ package config
 import (
 	"fmt"
 	"runtime"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -268,13 +269,7 @@ func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {
 }
 
 func (opts OptionsConfiguration) FeatureFlag(name string) bool {
-	for _, flag := range opts.FeatureFlags {
-		if flag == name {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(opts.FeatureFlags, name)
 }
 
 // LowestConnectionLimit is the lower of ConnectionLimitEnough or
