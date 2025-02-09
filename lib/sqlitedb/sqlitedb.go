@@ -29,7 +29,9 @@ var initStmts = []string{
 		device_idx INTEGER NOT NULL,
   		sequence INTEGER NOT NULL UNIQUE,
 		name TEXT NOT NULL,
-  		protobuf BLOB NOT NULL,
+		version TEXT NOT NULL,
+		valid BOOLEAN NOT NULL,
+  		fileinfo_protobuf BLOB NOT NULL,
 		PRIMARY KEY(folder_idx, device_idx, sequence),
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
@@ -102,7 +104,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, protobuf) VALUES ($1, $2, $3, $4, $5)`, folderIdx, deviceIdx, seq, f.Name, bs); err != nil {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, version, valid, fileinfo_protobuf) VALUES ($1, $2, $3, $4, $5, $6, $7)`, folderIdx, deviceIdx, seq, f.Name, f.Version.String(), !f.IsInvalid(), bs); err != nil {
 			return err
 		}
 		// if _, err := tx.Exec(`INSERT INTO globals (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, folderIdx, deviceIdx, seq, f.Name); err != nil {
@@ -128,7 +130,7 @@ func (db *DB) Drop(device protocol.DeviceID) error {
 }
 
 func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Query(`SELECT f.protobuf FROM files f
+	rows, err := db.sql.Query(`SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`, folder, device.String(), file)

@@ -7,6 +7,8 @@
 package protocol
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -18,6 +20,17 @@ import (
 // new allocated Vector with the modified contents.
 type Vector struct {
 	Counters []Counter
+}
+
+func (v *Vector) String() string {
+	var buf strings.Builder
+	for i, c := range v.Counters {
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		fmt.Fprintf(&buf, "%d:%d", c.ID, c.Value)
+	}
+	return buf.String()
 }
 
 func (v *Vector) ToWire() *bep.Vector {
