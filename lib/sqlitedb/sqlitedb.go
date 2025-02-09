@@ -13,7 +13,6 @@ import (
 )
 
 var initStmts = []string{
-	// `PRAGMA foreign_keys = ON;`,
 	`CREATE TABLE IF NOT EXISTS folders (
   		idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   		folder_id TEXT NOT NULL UNIQUE
@@ -27,13 +26,14 @@ var initStmts = []string{
 	`CREATE TABLE IF NOT EXISTS files (
 		folder_idx INTEGER NOT NULL,
 		device_idx INTEGER NOT NULL,
-  		sequence INTEGER NOT NULL PRIMARY KEY,
+  		sequence INTEGER NOT NULL,
 		name TEXT NOT NULL,
 		modified INTEGER NOT NULL, -- Unix nanos
 		version TEXT NOT NULL,
 		deleted INTEGER NOT NULL, -- boolean
 		invalid INTEGER NOT NULL, -- boolean
   		fileinfo_protobuf BLOB NOT NULL,
+		PRIMARY KEY(folder_idx, device_idx, sequence),
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
  	) STRICT;`,
@@ -44,9 +44,9 @@ var initStmts = []string{
 		device_idx INTEGER NOT NULL,
   		file_sequence INTEGER NOT NULL,
 		name TEXT NOT NULL,
-		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-		FOREIGN KEY(file_sequence) REFERENCES files(sequence) ON DELETE CASCADE
+		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
+		--FOREIGN KEY(file_sequence) REFERENCES files(sequence) ON DELETE CASCADE
  	) STRICT;`,
 }
 
@@ -95,17 +95,22 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		return err
 	}
 
-	seq, _ := db.querySingleInteger(`SELECT MAX(sequence) FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx)
+	var seq int64
+	if device == protocol.LocalDeviceID {
+		seq, _ = db.querySingleInteger(`SELECT MAX(sequence) FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx)
+	}
 
 	for _, f := range fs {
-		seq++
-		f.Sequence = seq
+		if device == protocol.LocalDeviceID {
+			seq++
+			f.Sequence = seq
+		}
 
 		bs, err := proto.Marshal(f.ToWire(true))
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, modified, version, deleted, invalid, fileinfo_protobuf) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, folderIdx, deviceIdx, seq, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, modified, version, deleted, invalid, fileinfo_protobuf) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, folderIdx, deviceIdx, f.Sequence, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
 			return err
 		}
 		// if _, err := tx.Exec(`INSERT INTO globals (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, folderIdx, deviceIdx, seq, f.Name); err != nil {
@@ -157,14 +162,16 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protoco
 }
 
 type globalEntry struct {
-	sequence int64
-	modified int64
-	version  protocol.Vector
-	deleted  bool
+	folderIdx int64
+	deviceIdx int64
+	sequence  int64
+	modified  int64
+	version   protocol.Vector
+	deleted   bool
 }
 
 func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Query(`SELECT f.sequence, f.modified, f.version, f.deleted FROM files f
+	rows, err := db.sql.Query(`SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE f.name = $1 AND f.invalid = FALSE AND o.folder_id = $2`, file, folder)
 	if err != nil {
@@ -175,7 +182,7 @@ func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, er
 	if rows.Next() {
 		var e globalEntry
 		var verStr string
-		if err := rows.Scan(&e.sequence, &e.modified, &verStr, &e.deleted); err != nil {
+		if err := rows.Scan(&e.folderIdx, &e.deviceIdx, &e.sequence, &e.modified, &verStr, &e.deleted); err != nil {
 			return protocol.FileInfo{}, false, err
 		}
 		ver, err := protocol.VectorFromString(verStr)
@@ -200,7 +207,7 @@ func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, er
 	}
 	rows.Close()
 
-	rows, err = db.sql.Query(`SELECT fileinfo_protobuf FROM files WHERE sequence = $1 `, es[newest].sequence)
+	rows, err = db.sql.Query(`SELECT fileinfo_protobuf FROM files WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`, es[newest].folderIdx, es[newest].deviceIdx, es[newest].sequence)
 	if err != nil {
 		return protocol.FileInfo{}, false, err
 	}

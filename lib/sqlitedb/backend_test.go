@@ -14,14 +14,14 @@ func TestOpen(t *testing.T) {
 	}
 
 	var v protocol.Vector
-	err = db.Update("test", protocol.DeviceID{42}, []protocol.FileInfo{
+	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "test", Size: 42, Version: v.Update(42)},
 		{Name: "test2", Size: 42, Version: v.Update(42)},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.Update("test", protocol.DeviceID{42}, []protocol.FileInfo{
+	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "test3", Size: 42, Version: v.Update(42)},
 		{Name: "test4", Size: 42, Version: v.Update(42)},
 		{Name: "test", Size: 42, Version: v.Update(42)},
@@ -30,7 +30,7 @@ func TestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fi, ok, err := db.Get("test", protocol.DeviceID{42}, "test2")
+	fi, ok, err := db.Get("test", protocol.LocalDeviceID, "test2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestOpen(t *testing.T) {
 	}
 	t.Log(fi)
 
-	// err = db.Drop(protocol.DeviceID{42})
+	// err = db.Drop(protocol.LocalDeviceID)
 	// if err != nil {
 	// 	t.Fatal(err)
 	// }
