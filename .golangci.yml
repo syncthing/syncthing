@@ -31,6 +31,10 @@ linters:
     - testpackage
     - varnamelen
     - wsl
+    - nlreturn
+    - prealloc
+    - wrapcheck
+    - err113
 
 issues:
   exclude-dirs:

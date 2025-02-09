@@ -141,7 +141,8 @@ func (db *DB) Drop(device protocol.DeviceID) error {
 
 func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
-	err := db.sql.Get(&pbm, `SELECT f.fileinfo_protobuf FROM files f
+	err := db.sql.Get(&pbm, `
+		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`, folder, device.String(), file)
@@ -152,7 +153,8 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protoco
 }
 
 func (db *DB) processNeed(folder string) error {
-	rows, err := db.sql.Queryx(`SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
+	rows, err := db.sql.Queryx(`
+		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE f.invalid = FALSE AND o.folder_id = $1
 		ORDER BY f.name`, folder)
@@ -166,12 +168,19 @@ func (db *DB) processNeed(folder string) error {
 			es = append(es, e)
 			continue
 		}
-		fmt.Printf("%+v\n", es)
+		db.processNeedSet(es)
 		es = es[:0]
 		es = append(es, e)
 	}
-	fmt.Printf("%+v\n", es)
+	if len(es) > 0 {
+		db.processNeedSet(es)
+	}
 
+	return nil
+}
+
+func (db *DB) processNeedSet(es []globalEntry) error {
+	fmt.Printf("%+v\n", es)
 	return nil
 }
 
@@ -202,8 +211,8 @@ type globalEntry struct {
 }
 
 func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Queryx(
-		`SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
+	rows, err := db.sql.Queryx(`
+		SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE f.name = $1 AND f.invalid = FALSE AND o.folder_id = $2`, file, folder)
 	if err != nil {
@@ -225,7 +234,10 @@ func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, er
 	}
 
 	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
-	if err := db.sql.Get(&pbm, `SELECT fileinfo_protobuf FROM files WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`, es[newest].FolderIdx, es[newest].DeviceIdx, es[newest].Sequence); err != nil {
+	if err := db.sql.Get(&pbm, `
+		SELECT fileinfo_protobuf FROM files
+		WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`,
+		es[newest].FolderIdx, es[newest].DeviceIdx, es[newest].Sequence); err != nil {
 		return protocol.FileInfo{}, false, wrap("getGlobal", err)
 	}
 
@@ -276,7 +288,7 @@ func (v dbVector) Value() (driver.Value, error) {
 func (v *dbVector) Scan(value any) error {
 	str, ok := value.(string)
 	if !ok {
-		errors.New("not a string")
+		return errors.New("not a string")
 	}
 	vec, err := protocol.VectorFromString(str)
 	if err != nil {
