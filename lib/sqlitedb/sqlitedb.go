@@ -3,9 +3,13 @@ package db2
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
+	"iter"
+	"slices"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -50,11 +54,9 @@ var initStmts = []string{
  	) STRICT`,
 }
 
-var errNotFound = errors.New("not found")
-
 func Open(path string) (*DB, error) {
 	var err error
-	sqlDB, err := sql.Open("sqlite3", path+"?_fk=true")
+	sqlDB, err := sqlx.Open("sqlite3", path+"?_fk=true")
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -74,7 +76,7 @@ func Open(path string) (*DB, error) {
 }
 
 type DB struct {
-	sql *sql.DB
+	sql *sqlx.DB
 }
 
 func (db *DB) Close() error {
@@ -99,7 +101,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 
 	var seq int64
 	if device == protocol.LocalDeviceID {
-		seq, _ = db.querySingleInteger(`SELECT MAX(sequence) FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx)
+		_ = db.sql.Get(&seq, `SELECT MAX(sequence) FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx)
 	}
 
 	for _, f := range fs {
@@ -118,9 +120,6 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			folderIdx, deviceIdx, f.Sequence, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
 			return wrap("update", err)
 		}
-		// if _, err := tx.Exec(`INSERT INTO globals (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, folderIdx, deviceIdx, seq, f.Name); err != nil {
-		// 	return err
-		// }
 	}
 
 	return wrap("update", tx.Commit())
@@ -141,63 +140,76 @@ func (db *DB) Drop(device protocol.DeviceID) error {
 }
 
 func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Query(`SELECT f.fileinfo_protobuf FROM files f
+	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
+	err := db.sql.Get(&pbm, `SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`, folder, device.String(), file)
 	if err != nil {
 		return protocol.FileInfo{}, false, wrap("get", err)
 	}
-	defer rows.Close()
-	if !rows.Next() {
-		return protocol.FileInfo{}, false, nil
-	}
-	var bs []byte
-	if err := rows.Scan(&bs); err != nil {
-		return protocol.FileInfo{}, false, wrap("get", err)
-	}
-	if err := rows.Err(); err != nil {
-		return protocol.FileInfo{}, false, wrap("get", err)
-	}
-	var bfi bep.FileInfo
-	if err := proto.Unmarshal(bs, &bfi); err != nil {
-		return protocol.FileInfo{}, false, wrap("get", err)
+	return protocol.FileInfoFromDB(&pbm.Message), true, nil
+}
+
+func (db *DB) processNeed(folder string) error {
+	rows, err := db.sql.Queryx(`SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
+		INNER JOIN folders o ON f.folder_idx = o.idx
+		WHERE f.invalid = FALSE AND o.folder_id = $1
+		ORDER BY f.name`, folder)
+	if err != nil {
+		return wrap("processNeed", err)
 	}
 
-	return protocol.FileInfoFromDB(&bfi), true, nil
+	var es []globalEntry
+	for e := range allStructs[globalEntry](rows) {
+		if len(es) == 0 || es[0].Name == e.Name {
+			es = append(es, e)
+			continue
+		}
+		fmt.Printf("%+v\n", es)
+		es = es[:0]
+		es = append(es, e)
+	}
+	fmt.Printf("%+v\n", es)
+
+	return nil
+}
+
+func allStructs[T any](rows *sqlx.Rows) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		defer rows.Close()
+		for rows.Next() {
+			v := new(T)
+			if err := rows.StructScan(v); err != nil {
+				return
+			}
+			if !yield(*v) {
+				return
+			}
+		}
+	}
 }
 
 type globalEntry struct {
-	folderIdx int64
-	deviceIdx int64
-	sequence  int64
-	modified  int64
-	version   protocol.Vector
-	deleted   bool
+	Name      string
+	FolderIdx int64 `db:"folder_idx"`
+	DeviceIdx int64 `db:"device_idx"`
+	Sequence  int64
+	Modified  int64
+	Version   dbVector
+	Deleted   bool
+	Invalid   bool
 }
 
 func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Query(`SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
+	rows, err := db.sql.Queryx(
+		`SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE f.name = $1 AND f.invalid = FALSE AND o.folder_id = $2`, file, folder)
 	if err != nil {
 		return protocol.FileInfo{}, false, wrap("getGlobal", err)
 	}
-	defer rows.Close()
-	var es []globalEntry
-	if rows.Next() {
-		var e globalEntry
-		var verStr string
-		if err := rows.Scan(&e.folderIdx, &e.deviceIdx, &e.sequence, &e.modified, &verStr, &e.deleted); err != nil {
-			return protocol.FileInfo{}, false, wrap("getGlobal", err)
-		}
-		ver, err := protocol.VectorFromString(verStr)
-		if err != nil {
-			return protocol.FileInfo{}, false, wrap("getGlobal", err)
-		}
-		e.version = ver
-		es = append(es, e)
-	}
+	es := slices.Collect(allStructs[globalEntry](rows))
 	if rows.Err() != nil {
 		return protocol.FileInfo{}, false, wrap("getGlobal", err)
 	}
@@ -207,41 +219,25 @@ func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, er
 	}
 	newest := 0
 	for i := 1; i < len(es); i++ { // XXX simplified
-		if es[i].version.GreaterEqual(es[newest].version) {
+		if es[i].Version.GreaterEqual(es[newest].Version.Vector) {
 			newest = i
 		}
 	}
-	rows.Close()
 
-	rows, err = db.sql.Query(`SELECT fileinfo_protobuf FROM files WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`, es[newest].folderIdx, es[newest].deviceIdx, es[newest].sequence)
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return protocol.FileInfo{}, false, wrap("getGlobal", errNotFound)
-	}
-	var bs []byte
-	if err := rows.Scan(&bs); err != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
-	}
-	if err := rows.Err(); err != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
-	}
-	var bfi bep.FileInfo
-	if err := proto.Unmarshal(bs, &bfi); err != nil {
+	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
+	if err := db.sql.Get(&pbm, `SELECT fileinfo_protobuf FROM files WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`, es[newest].FolderIdx, es[newest].DeviceIdx, es[newest].Sequence); err != nil {
 		return protocol.FileInfo{}, false, wrap("getGlobal", err)
 	}
 
-	return protocol.FileInfoFromDB(&bfi), true, nil
+	return protocol.FileInfoFromDB(&pbm.Message), true, nil
 }
 
 func (db *DB) folderIdx(folderID string) (int64, error) {
 	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES($1)`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
-	idx, err := db.querySingleInteger(`SELECT idx FROM folders WHERE folder_id = $1`, folderID)
-	if err != nil {
+	var idx int64
+	if err := db.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = $1`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
 
@@ -253,34 +249,9 @@ func (db *DB) deviceIdx(deviceID protocol.DeviceID) (int64, error) {
 	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES($1)`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)
 	}
-	idx, err := db.querySingleInteger(`SELECT idx FROM devices WHERE device_id = $1`, devStr)
-	if err != nil {
-		return 0, wrap("deviceIdx", err)
-	}
-
-	return idx, nil
-}
-
-func (db *DB) querySingleInteger(query string, args ...any) (int64, error) {
-	rows, err := db.sql.Query(query, args...)
-	if err != nil {
-		return 0, wrap("querySingleInteger", err)
-	}
-	defer rows.Close()
-
-	return scanSingleInteger(rows)
-}
-
-func scanSingleInteger(rows *sql.Rows) (int64, error) {
-	if !rows.Next() {
-		return 0, wrap("scanSingleInteger", errNotFound)
-	}
 	var idx int64
-	if err := rows.Scan(&idx); err != nil {
-		return 0, wrap("scanSingleInteger", err)
-	}
-	if err := rows.Err(); err != nil {
-		return 0, wrap("scanSingleInteger", err)
+	if err := db.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = $1`, devStr); err != nil {
+		return 0, wrap("deviceIdx", err)
 	}
 
 	return idx, nil
@@ -292,4 +263,47 @@ func wrap(prefix string, err error) error {
 	}
 
 	return fmt.Errorf("%s: %w", prefix, err)
+}
+
+type dbVector struct {
+	protocol.Vector
+}
+
+func (v dbVector) Value() (driver.Value, error) {
+	return v.String(), nil
+}
+
+func (v *dbVector) Scan(value any) error {
+	str, ok := value.(string)
+	if !ok {
+		errors.New("not a string")
+	}
+	vec, err := protocol.VectorFromString(str)
+	if err != nil {
+		return err
+	}
+	v.Vector = vec
+
+	return nil
+}
+
+type pbMessage[T any] interface {
+	*T
+	proto.Message
+}
+
+type pbAdapter[T any, PT pbMessage[T]] struct {
+	Message T
+}
+
+func (v pbAdapter[T, PT]) Value() (driver.Value, error) {
+	return proto.Marshal(PT(&v.Message))
+}
+
+func (v *pbAdapter[T, PT]) Scan(value any) error {
+	bs, ok := value.([]byte)
+	if !ok {
+		errors.New("not a byte slice")
+	}
+	return proto.Unmarshal(bs, PT(&v.Message))
 }

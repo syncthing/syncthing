@@ -21,10 +21,10 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test3", Size: 42, Version: v.Update(42)},
-		{Name: "test4", Size: 42, Version: v.Update(42)},
-		{Name: "test", Size: 42, Version: v.Update(42)},
+	err = db.Update("test", protocol.DeviceID{42}, []protocol.FileInfo{
+		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42)},
+		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42)},
+		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +47,8 @@ func TestOpen(t *testing.T) {
 		t.Fatal("not found")
 	}
 	t.Log(fi)
+
+	db.processNeed("test")
 
 	// err = db.Drop(protocol.LocalDeviceID)
 	// if err != nil {
