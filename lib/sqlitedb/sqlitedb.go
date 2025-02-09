@@ -315,7 +315,7 @@ func (v pbAdapter[T, PT]) Value() (driver.Value, error) {
 func (v *pbAdapter[T, PT]) Scan(value any) error {
 	bs, ok := value.([]byte)
 	if !ok {
-		errors.New("not a byte slice")
+		return errors.New("not a byte slice")
 	}
 	return proto.Unmarshal(bs, PT(&v.Message))
 }
