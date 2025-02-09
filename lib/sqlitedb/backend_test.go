@@ -28,6 +28,15 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fi, ok, err := db.Get("test", protocol.DeviceID{42}, "test2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("not found")
+	}
+	t.Log(fi)
 	// err = db.Drop(protocol.DeviceID{42})
 	// if err != nil {
 	// 	t.Fatal(err)
