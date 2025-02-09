@@ -17,25 +17,26 @@ var initStmts = []string{
 	`CREATE TABLE IF NOT EXISTS folders (
   		idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   		folder_id TEXT NOT NULL UNIQUE
- 	);`,
+ 	) STRICT;`,
 
 	`CREATE TABLE IF NOT EXISTS devices (
   		idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   		device_id TEXT NOT NULL UNIQUE
- 	);`,
+ 	) STRICT;`,
 
 	`CREATE TABLE IF NOT EXISTS files (
 		folder_idx INTEGER NOT NULL,
 		device_idx INTEGER NOT NULL,
-  		sequence INTEGER NOT NULL UNIQUE,
+  		sequence INTEGER NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
+		modified INTEGER NOT NULL, -- Unix nanos
 		version TEXT NOT NULL,
-		valid BOOLEAN NOT NULL,
+		deleted INTEGER NOT NULL, -- boolean
+		invalid INTEGER NOT NULL, -- boolean
   		fileinfo_protobuf BLOB NOT NULL,
-		PRIMARY KEY(folder_idx, device_idx, sequence),
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
- 	);`,
+ 	) STRICT;`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS files_name ON files (folder_idx, device_idx, name);`,
 
 	`CREATE TABLE IF NOT EXISTS needs (
@@ -46,7 +47,7 @@ var initStmts = []string{
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
 		FOREIGN KEY(file_sequence) REFERENCES files(sequence) ON DELETE CASCADE
- 	);`,
+ 	) STRICT;`,
 }
 
 func Open(path string) (*DB, error) {
@@ -104,7 +105,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, version, valid, fileinfo_protobuf) VALUES ($1, $2, $3, $4, $5, $6, $7)`, folderIdx, deviceIdx, seq, f.Name, f.Version.String(), !f.IsInvalid(), bs); err != nil {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, modified, version, deleted, invalid, fileinfo_protobuf) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, folderIdx, deviceIdx, seq, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
 			return err
 		}
 		// if _, err := tx.Exec(`INSERT INTO globals (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, folderIdx, deviceIdx, seq, f.Name); err != nil {
@@ -140,6 +141,72 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protoco
 	defer rows.Close()
 	if !rows.Next() {
 		return protocol.FileInfo{}, false, nil
+	}
+	var bs []byte
+	if err := rows.Scan(&bs); err != nil {
+		return protocol.FileInfo{}, false, err
+	}
+	if err := rows.Err(); err != nil {
+		return protocol.FileInfo{}, false, err
+	}
+	var bfi bep.FileInfo
+	if err := proto.Unmarshal(bs, &bfi); err != nil {
+		return protocol.FileInfo{}, false, err
+	}
+	return protocol.FileInfoFromDB(&bfi), true, nil
+}
+
+type globalEntry struct {
+	sequence int64
+	modified int64
+	version  protocol.Vector
+	deleted  bool
+}
+
+func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, error) {
+	rows, err := db.sql.Query(`SELECT f.sequence, f.modified, f.version, f.deleted FROM files f
+		INNER JOIN folders o ON f.folder_idx = o.idx
+		WHERE f.name = $1 AND f.invalid = FALSE AND o.folder_id = $2`, file, folder)
+	if err != nil {
+		return protocol.FileInfo{}, false, err
+	}
+	defer rows.Close()
+	var es []globalEntry
+	if rows.Next() {
+		var e globalEntry
+		var verStr string
+		if err := rows.Scan(&e.sequence, &e.modified, &verStr, &e.deleted); err != nil {
+			return protocol.FileInfo{}, false, err
+		}
+		ver, err := protocol.VectorFromString(verStr)
+		if err != nil {
+			return protocol.FileInfo{}, false, err
+		}
+		e.version = ver
+		es = append(es, e)
+	}
+	if rows.Err() != nil {
+		return protocol.FileInfo{}, false, err
+	}
+
+	if len(es) == 0 {
+		return protocol.FileInfo{}, false, nil
+	}
+	newest := 0
+	for i := 1; i < len(es); i++ { // XXX simplified
+		if es[i].version.GreaterEqual(es[newest].version) {
+			newest = i
+		}
+	}
+	rows.Close()
+
+	rows, err = db.sql.Query(`SELECT fileinfo_protobuf FROM files WHERE sequence = $1 `, es[newest].sequence)
+	if err != nil {
+		return protocol.FileInfo{}, false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return protocol.FileInfo{}, false, errors.New("unexpectedly found no file")
 	}
 	var bs []byte
 	if err := rows.Scan(&bs); err != nil {

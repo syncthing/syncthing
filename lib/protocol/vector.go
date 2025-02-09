@@ -8,6 +8,7 @@ package protocol
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,28 @@ func VectorFromWire(w *bep.Vector) Vector {
 		v.Counters[i] = counterFromWire(c)
 	}
 	return v
+}
+
+func VectorFromString(s string) (Vector, error) {
+	pairs := strings.Split(s, ",")
+	var v Vector
+	v.Counters = make([]Counter, len(pairs))
+	for i, pair := range pairs {
+		idStr, valStr, ok := strings.Cut(pair, ":")
+		if !ok {
+			return Vector{}, fmt.Errorf("bad pair %q", pair)
+		}
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil {
+			return Vector{}, fmt.Errorf("bad id in pair %q", pair)
+		}
+		val, err := strconv.ParseUint(valStr, 10, 64)
+		if err != nil {
+			return Vector{}, fmt.Errorf("bad val in pair %q", pair)
+		}
+		v.Counters[i] = Counter{ID: ShortID(id), Value: val}
+	}
+	return v, nil
 }
 
 // Counter represents a single counter in the version vector.

@@ -38,6 +38,16 @@ func TestOpen(t *testing.T) {
 		t.Fatal("not found")
 	}
 	t.Log(fi)
+
+	fi, ok, err = db.GetGlobal("test", "test2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("not found")
+	}
+	t.Log(fi)
+
 	// err = db.Drop(protocol.DeviceID{42})
 	// if err != nil {
 	// 	t.Fatal(err)
