@@ -350,8 +350,8 @@ type pbMessage[T any] interface {
 	proto.Message
 }
 
-func protoValuer[T any, PT pbMessage[T]](v PT) pbAdapter[T, PT] {
-	return pbAdapter[T, PT]{v}
+func protoValuer[T any, PT pbMessage[T]](v PT) *pbAdapter[T, PT] {
+	return &pbAdapter[T, PT]{v}
 }
 
 type pbAdapter[T any, PT pbMessage[T]] struct {
