@@ -1,6 +1,7 @@
-package db2
+package sqlitedb
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -43,15 +44,29 @@ var initStmts = []string{
  	) STRICT`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS files_name ON files (folder_idx, device_idx, name)`,
 
+	`CREATE TABLE IF NOT EXISTS globals (
+		folder_idx INTEGER NOT NULL,
+		device_idx INTEGER NOT NULL,
+  		file_sequence INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
+		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+		FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
+ 	) STRICT`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS globals_seq ON globals (folder_idx, device_idx, file_sequence)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS globals_name ON globals (folder_idx, name)`,
+
 	`CREATE TABLE IF NOT EXISTS needs (
 		folder_idx INTEGER NOT NULL,
 		device_idx INTEGER NOT NULL,
   		file_sequence INTEGER NOT NULL,
 		name TEXT NOT NULL,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
-		--FOREIGN KEY(file_sequence) REFERENCES files(sequence) ON DELETE CASCADE
+		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+		FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
  	) STRICT`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS needs_seq ON needs (folder_idx, device_idx, file_sequence)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS needs_name ON needs (folder_idx, device_idx, name)`,
 }
 
 func Open(path string) (*DB, error) {
@@ -69,14 +84,16 @@ func Open(path string) (*DB, error) {
 
 	db := &DB{sql: sqlDB}
 
-	// should always exist and have a low index number
-	_, _ = db.deviceIdx(protocol.LocalDeviceID)
+	// should always exist and have a low index number, and will never
+	// change
+	db.localDeviceIdx, _ = db.deviceIdx(protocol.LocalDeviceID)
 
 	return db, nil
 }
 
 type DB struct {
-	sql *sqlx.DB
+	sql            *sqlx.DB
+	localDeviceIdx int64
 }
 
 func (db *DB) Close() error {
@@ -84,7 +101,7 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
-	tx, err := db.sql.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: false})
+	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
 	if err != nil {
 		return wrap("update", err)
 	}
@@ -120,6 +137,9 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			folderIdx, deviceIdx, f.Sequence, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
 			return wrap("update", err)
 		}
+		if err := db.processNeed(tx, folder, f.Name); err != nil {
+			return wrap("update", err)
+		}
 	}
 
 	return wrap("update", tx.Commit())
@@ -139,7 +159,7 @@ func (db *DB) Drop(device protocol.DeviceID) error {
 	return wrap("drop", tx.Commit())
 }
 
-func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
+func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
 	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
 	err := db.sql.Get(&pbm, `
 		SELECT f.fileinfo_protobuf FROM files f
@@ -147,56 +167,53 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (protoco
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`, folder, device.String(), file)
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("get", err)
+		return nil, false, wrap("get", err)
 	}
-	return protocol.FileInfoFromDB(&pbm.Message), true, nil
+	fi := protocol.FileInfoFromDB(&pbm.Message)
+	return &fi, true, nil
 }
 
-func (db *DB) processNeed(folder string) error {
-	rows, err := db.sql.Queryx(`
+func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
+	vals := iterStructs[globalEntry](tx.Queryx(`
 		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE f.invalid = FALSE AND o.folder_id = $1
-		ORDER BY f.name`, folder)
+		WHERE f.name = $1 AND o.folder_id = $2`,
+		file, folder))
+	es, err := iterCollect(vals)
 	if err != nil {
-		return wrap("processNeed", err)
+		return err
 	}
-
-	var es []globalEntry
-	for e := range allStructs[globalEntry](rows) {
-		if len(es) == 0 || es[0].Name == e.Name {
-			es = append(es, e)
-			continue
-		}
-		db.processNeedSet(es)
-		es = es[:0]
-		es = append(es, e)
-	}
-	if len(es) > 0 {
-		db.processNeedSet(es)
-	}
-
-	return nil
+	return db.processNeedSet(tx, es)
 }
 
-func (db *DB) processNeedSet(es []globalEntry) error {
-	fmt.Printf("%+v\n", es)
-	return nil
-}
-
-func allStructs[T any](rows *sqlx.Rows) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		defer rows.Close()
-		for rows.Next() {
-			v := new(T)
-			if err := rows.StructScan(v); err != nil {
-				return
+func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
+	// Sort the entries; the global entry is at the head of the list
+	slices.SortFunc(es, globalEntry.Compare)
+	for i, e := range es {
+		switch {
+		case i == 0:
+			if _, err := tx.Exec(`
+			INSERT OR REPLACE INTO globals (folder_idx, device_idx, file_sequence, name)
+			VALUES ($1, $2, $3, $4)`,
+				e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
+				return wrap("processNeedSet", err)
 			}
-			if !yield(*v) {
-				return
+			fallthrough
+
+		case e.Version.Equal(es[0].Version.Vector):
+			// The global entry is never needed, nor others that are identical to it
+			if _, err := tx.Exec(`DELETE FROM needs WHERE folder_idx = $1 AND device_idx = $2 AND file_sequence = $3`, e.FolderIdx, e.DeviceIdx, e.Sequence); err != nil {
+				return wrap("processNeedSet", err)
+			}
+
+		default:
+			// Need it
+			if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
+				return wrap("processNeedSet", err)
 			}
 		}
 	}
+	return nil
 }
 
 type globalEntry struct {
@@ -210,38 +227,68 @@ type globalEntry struct {
 	Invalid   bool
 }
 
-func (db *DB) GetGlobal(folder string, file string) (protocol.FileInfo, bool, error) {
-	rows, err := db.sql.Queryx(`
-		SELECT f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
-		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE f.name = $1 AND f.invalid = FALSE AND o.folder_id = $2`, file, folder)
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
-	}
-	es := slices.Collect(allStructs[globalEntry](rows))
-	if rows.Err() != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
-	}
-
-	if len(es) == 0 {
-		return protocol.FileInfo{}, false, nil
-	}
-	newest := 0
-	for i := 1; i < len(es); i++ { // XXX simplified
-		if es[i].Version.GreaterEqual(es[newest].Version.Vector) {
-			newest = i
+func (e globalEntry) Compare(other globalEntry) int {
+	// From FileInfo.WinsConflict
+	vc := e.Version.Vector.Compare(other.Version.Vector)
+	switch vc {
+	case protocol.Equal:
+		return 0
+	case protocol.Greater: // we are newer
+		return -1
+	case protocol.Lesser: // we are older
+		return 1
+	case protocol.ConcurrentGreater, protocol.ConcurrentLesser: // there is a conflict
+		if e.Invalid != other.Invalid {
+			if e.Invalid { // we are invalid, we lose
+				return 1
+			}
+			return -1 // they are invalid, we win
 		}
+		if e.Deleted != other.Deleted {
+			if e.Deleted { // we are deleted, we lose
+				return 1
+			}
+			return -1 // they are deleted, we win
+		}
+		if d := cmp.Compare(e.Modified, other.Modified); d != 0 {
+			return -d // positive d means we were newer, so we win (negative return)
+		}
+		if vc == protocol.ConcurrentGreater {
+			return -1 // we have a better device ID, we win
+		}
+		return 1 // they win
+	default:
+		return 0
 	}
+}
 
+func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, error) {
 	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
 	if err := db.sql.Get(&pbm, `
-		SELECT fileinfo_protobuf FROM files
-		WHERE folder_idx = $1 AND device_idx = $2 AND sequence = $3`,
-		es[newest].FolderIdx, es[newest].DeviceIdx, es[newest].Sequence); err != nil {
-		return protocol.FileInfo{}, false, wrap("getGlobal", err)
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN globals g ON f.folder_idx = g.folder_idx AND f.device_idx = g.device_idx AND f.sequence = g.file_sequence
+		INNER JOIN folders o ON o.idx = g.folder_idx
+		WHERE o.folder_id = $1 AND g.name = $2`, folder, file); err != nil {
+		return nil, false, wrap("getGlobal", err)
 	}
 
-	return protocol.FileInfoFromDB(&pbm.Message), true, nil
+	fi := protocol.FileInfoFromDB(&pbm.Message)
+	return &fi, true, nil
+}
+
+func (db *DB) WithNeed(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+	vals := iterValues[[]byte](db.sql.Queryx(`
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN needs n ON f.folder_idx = n.folder_idx AND f.device_idx = n.device_idx AND f.sequence = n.file_sequence
+		INNER JOIN folders o ON o.idx = n.folder_idx
+		INNER JOIN devices d ON d.idx = n.device_idx
+		WHERE o.folder_id = $1 AND d.device_id = $2`,
+		folder, device.String()))
+	beps := iterProto[bep.FileInfo](vals)
+	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+		fi := protocol.FileInfoFromDB(b)
+		return &fi
+	})
 }
 
 func (db *DB) folderIdx(folderID string) (int64, error) {

@@ -1,4 +1,4 @@
-package db2
+package sqlitedb
 
 import (
 	"path/filepath"
@@ -48,12 +48,52 @@ func TestOpen(t *testing.T) {
 	}
 	t.Log(fi)
 
-	db.processNeed("test")
-
 	// err = db.Drop(protocol.LocalDeviceID)
 	// if err != nil {
 	// 	t.Fatal(err)
 	// }
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGlobalNeed(t *testing.T) {
+	db, err := Open(filepath.Join(".", "need.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var v protocol.Vector
+	v = v.Update(42)
+	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "test", Size: 42, Version: v},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = db.Update("test", protocol.DeviceID{43}, []protocol.FileInfo{
+		{Name: "test", Sequence: 3, Size: 43, Version: v.Update(43)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, ok, err := db.GetGlobal("test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("expected hit")
+	}
+	t.Log(f)
+
+	for f, err := range db.WithNeed("test", protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(f)
+	}
+
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
