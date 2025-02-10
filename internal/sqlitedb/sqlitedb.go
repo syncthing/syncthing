@@ -160,16 +160,17 @@ func (db *DB) Drop(device protocol.DeviceID) error {
 }
 
 func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
-	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
-	err := db.sql.Get(&pbm, `
+	var bfi bep.FileInfo
+	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`, folder, device.String(), file)
+		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`,
+		folder, device.String(), file)
 	if err != nil {
 		return nil, false, wrap("get", err)
 	}
-	fi := protocol.FileInfoFromDB(&pbm.Message)
+	fi := protocol.FileInfoFromDB(&bfi)
 	return &fi, true, nil
 }
 
@@ -193,8 +194,8 @@ func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 		switch {
 		case i == 0:
 			if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO globals (folder_idx, device_idx, file_sequence, name)
-			VALUES ($1, $2, $3, $4)`,
+				INSERT OR REPLACE INTO globals (folder_idx, device_idx, file_sequence, name)
+				VALUES ($1, $2, $3, $4)`,
 				e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
 				return wrap("processNeedSet", err)
 			}
@@ -263,8 +264,8 @@ func (e globalEntry) Compare(other globalEntry) int {
 }
 
 func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, error) {
-	var pbm pbAdapter[bep.FileInfo, *bep.FileInfo]
-	if err := db.sql.Get(&pbm, `
+	var bfi bep.FileInfo
+	if err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN globals g ON f.folder_idx = g.folder_idx AND f.device_idx = g.device_idx AND f.sequence = g.file_sequence
 		INNER JOIN folders o ON o.idx = g.folder_idx
@@ -272,19 +273,18 @@ func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, e
 		return nil, false, wrap("getGlobal", err)
 	}
 
-	fi := protocol.FileInfoFromDB(&pbm.Message)
+	fi := protocol.FileInfoFromDB(&bfi)
 	return &fi, true, nil
 }
 
 func (db *DB) WithNeed(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
-	vals := iterValues[[]byte](db.sql.Queryx(`
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN needs n ON f.folder_idx = n.folder_idx AND f.device_idx = n.device_idx AND f.sequence = n.file_sequence
 		INNER JOIN folders o ON o.idx = n.folder_idx
 		INNER JOIN devices d ON d.idx = n.device_idx
 		WHERE o.folder_id = $1 AND d.device_id = $2`,
 		folder, device.String()))
-	beps := iterProto[bep.FileInfo](vals)
 	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
@@ -320,7 +320,6 @@ func wrap(prefix string, err error) error {
 	if err == nil {
 		return nil
 	}
-
 	return fmt.Errorf("%s: %w", prefix, err)
 }
 
@@ -351,12 +350,16 @@ type pbMessage[T any] interface {
 	proto.Message
 }
 
+func protoValuer[T any, PT pbMessage[T]](v PT) pbAdapter[T, PT] {
+	return pbAdapter[T, PT]{v}
+}
+
 type pbAdapter[T any, PT pbMessage[T]] struct {
-	Message T
+	Message PT
 }
 
 func (v pbAdapter[T, PT]) Value() (driver.Value, error) {
-	return proto.Marshal(PT(&v.Message))
+	return proto.Marshal(v.Message)
 }
 
 func (v *pbAdapter[T, PT]) Scan(value any) error {
@@ -364,5 +367,5 @@ func (v *pbAdapter[T, PT]) Scan(value any) error {
 	if !ok {
 		return errors.New("not a byte slice")
 	}
-	return proto.Unmarshal(bs, PT(&v.Message))
+	return proto.Unmarshal(bs, v.Message)
 }
