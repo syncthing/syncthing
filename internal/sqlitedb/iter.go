@@ -9,12 +9,12 @@ import (
 
 func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
-		defer rows.Close()
 		var zero T
 		if err != nil {
 			yield(zero, err)
 			return
 		}
+		defer rows.Close()
 		for rows.Next() {
 			v := new(T)
 			if err := rows.StructScan(v); err != nil {
@@ -33,11 +33,11 @@ func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
 
 func iterProtos[T any, PT pbMessage[T]](rows *sqlx.Rows, err error) iter.Seq2[*T, error] {
 	return func(yield func(*T, error) bool) {
-		defer rows.Close()
 		if err != nil {
 			yield(nil, err)
 			return
 		}
+		defer rows.Close()
 		var bs []byte
 		for rows.Next() {
 			v := new(T)
@@ -59,10 +59,15 @@ func iterProtos[T any, PT pbMessage[T]](rows *sqlx.Rows, err error) iter.Seq2[*T
 	}
 }
 
-func iterMap[A, B, C any](i iter.Seq2[A, C], fn func(A) B) iter.Seq2[B, C] {
-	return func(yield func(B, C) bool) {
-		for a, c := range i {
-			if !yield(fn(a), c) {
+func iterMap[A, B any](i iter.Seq2[A, error], fn func(A) B) iter.Seq2[B, error] {
+	return func(yield func(B, error) bool) {
+		for a, err := range i {
+			if err != nil {
+				var zero B
+				yield(zero, err)
+				return
+			}
+			if !yield(fn(a), nil) {
 				return
 			}
 		}

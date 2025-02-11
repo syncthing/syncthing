@@ -3,12 +3,14 @@ package sqlitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"iter"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
 )
@@ -118,6 +120,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	}
 
 	for _, f := range fs {
+		f.Name = osutil.NormalizedFilename(f.Name)
 		if device == protocol.LocalDeviceID {
 			seq++
 			f.Sequence = seq
@@ -141,21 +144,30 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	return wrap("update", tx.Commit())
 }
 
-func (db *DB) Drop(device protocol.DeviceID) error {
+func (db *DB) Drop(folder string, device protocol.DeviceID) error {
+	folderIdx, err := db.folderIdx(folder)
+	if err != nil {
+		return wrap("drop", err)
+	}
+	deviceIdx, err := db.deviceIdx(device)
+	if err != nil {
+		return wrap("drop", err)
+	}
+
 	tx, err := db.sql.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: false})
 	if err != nil {
 		return wrap("drop", err)
 	}
 	defer tx.Rollback()
-
-	if _, err := db.sql.Exec(`DELETE FROM devices WHERE device_id = $1`, device.String()); err != nil {
+	if _, err := db.sql.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx); err != nil {
 		return wrap("drop", err)
 	}
-
 	return wrap("drop", tx.Commit())
 }
 
 func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
+	file = osutil.NormalizedFilename(file)
+
 	var bfi bep.FileInfo
 	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
@@ -163,6 +175,9 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protoc
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`,
 		folder, device.String(), file)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, wrap("get", err)
 	}
@@ -171,12 +186,18 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protoc
 }
 
 func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, error) {
+	file = osutil.NormalizedFilename(file)
+
 	var bfi bep.FileInfo
-	if err := db.sql.Get(protoValuer(&bfi), `
+	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN globals g ON f.folder_idx = g.folder_idx AND f.device_idx = g.device_idx AND f.sequence = g.file_sequence
 		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = $1 AND g.name = $2`, folder, file); err != nil {
+		WHERE o.folder_id = $1 AND g.name = $2`, folder, file)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
 		return nil, false, wrap("getGlobal", err)
 	}
 
@@ -184,7 +205,7 @@ func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, e
 	return &fi, true, nil
 }
 
-func (db *DB) WithNeed(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) Need(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN needs n ON f.folder_idx = n.folder_idx AND f.device_idx = n.device_idx AND f.sequence = n.file_sequence
@@ -192,6 +213,48 @@ func (db *DB) WithNeed(folder string, device protocol.DeviceID) iter.Seq2[*proto
 		INNER JOIN devices d ON d.idx = n.device_idx
 		WHERE o.folder_id = $1 AND d.device_id = $2`,
 		folder, device.String()))
+	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+		fi := protocol.FileInfoFromDB(b)
+		return &fi
+	})
+}
+
+func (db *DB) Have(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = $1 AND d.device_id = $2`,
+		folder, device.String()))
+	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+		fi := protocol.FileInfoFromDB(b)
+		return &fi
+	})
+}
+
+func (db *DB) HaveSequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.sequence > $3
+		ORDER BY f.sequence`,
+		folder, device.String(), startSeq))
+	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+		fi := protocol.FileInfoFromDB(b)
+		return &fi
+	})
+}
+
+func (db *DB) HavePrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
+	prefix = osutil.NormalizedFilename(prefix)
+	glob := prefix + "/*"
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = $1 AND d.device_id = $2 AND (f.name = $3 OR f.name GLOB $4)`,
+		folder, device.String(), prefix, glob))
 	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi

@@ -1,27 +1,34 @@
 package sqlitedb
 
 import (
+	"iter"
 	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestOpen(t *testing.T) {
-	db, err := Open(filepath.Join(".", "db.sqlite"))
+func TestGetAndHave(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "TestHave.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	const folderID = "test"
+
+	// Some local files
 	var v protocol.Vector
-	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test", Size: 42, Version: v.Update(42)},
-		{Name: "test2", Size: 42, Version: v.Update(42)},
+	v = v.Update(1)
+	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "test", Size: 1, Version: v},
+		{Name: "test2", Size: 1, Version: v},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.Update("test", protocol.DeviceID{42}, []protocol.FileInfo{
+
+	// Some remote files
+	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
 		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42)},
 		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42)},
 		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42)},
@@ -30,71 +37,79 @@ func TestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fi, ok, err := db.Get("test", protocol.LocalDeviceID, "test2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatal("not found")
-	}
-	t.Log(fi)
+	t.Run("Get", func(t *testing.T) {
+		fi, ok, err := db.Get(folderID, protocol.LocalDeviceID, "test2") // exists
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("not found")
+		}
+		if fi.Name != "test2" {
+			t.Fatal("should have got test2")
+		}
 
-	fi, ok, err = db.GetGlobal("test", "test2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatal("not found")
-	}
-	t.Log(fi)
+		_, ok, err = db.Get(folderID, protocol.LocalDeviceID, "test3") // does not exist
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			t.Fatal("should be not found")
+		}
+	})
 
-	// err = db.Drop(protocol.LocalDeviceID)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	t.Run("GetGlobal", func(t *testing.T) {
+		fi, ok, err := db.GetGlobal(folderID, "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("not found")
+		}
+		if fi.Size != 42 {
+			t.Fatal("should be the remote file")
+		}
+	})
+
+	t.Run("Have", func(t *testing.T) {
+		have := collectIter(t, db.Have(folderID, protocol.LocalDeviceID))
+		if len(have) != 2 {
+			t.Log(have)
+			t.Error("expected two files")
+		}
+		have = collectIter(t, db.Have(folderID, protocol.DeviceID{42}))
+		if len(have) != 3 {
+			t.Log(have)
+			t.Error("expected three files")
+		}
+	})
+
+	t.Run("Need", func(t *testing.T) {
+		need := collectIter(t, db.Need(folderID, protocol.LocalDeviceID))
+		if len(need) != 3 {
+			t.Log(need)
+			t.Error("expected three files")
+		}
+		need = collectIter(t, db.Need(folderID, protocol.DeviceID{42}))
+		if len(need) != 0 {
+			t.Log(need)
+			t.Error("expected no files")
+		}
+	})
+
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestGlobalNeed(t *testing.T) {
-	db, err := Open(filepath.Join(".", "need.sqlite"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var v protocol.Vector
-	v = v.Update(42)
-	err = db.Update("test", protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test", Size: 42, Version: v},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = db.Update("test", protocol.DeviceID{43}, []protocol.FileInfo{
-		{Name: "test", Sequence: 3, Size: 43, Version: v.Update(43)},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	f, ok, err := db.GetGlobal("test", "test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatal("expected hit")
-	}
-	t.Log(f)
-
-	for f, err := range db.WithNeed("test", protocol.LocalDeviceID) {
+func collectIter[T any](t *testing.T, it iter.Seq2[T, error]) []T {
+	t.Helper()
+	var vals []T
+	for v, err := range it {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Log(f)
+		vals = append(vals, v)
 	}
-
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
+	return vals
 }
