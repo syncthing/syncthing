@@ -8,8 +8,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestGetAndHave(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "TestHave.sqlite"))
+func TestBasics(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "basics.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,12 +72,12 @@ func TestGetAndHave(t *testing.T) {
 	})
 
 	t.Run("Have", func(t *testing.T) {
-		have := collectIter(t, db.Have(folderID, protocol.LocalDeviceID))
+		have := iterCollectTest(t, db.Have(folderID, protocol.LocalDeviceID))
 		if len(have) != 2 {
 			t.Log(have)
 			t.Error("expected two files")
 		}
-		have = collectIter(t, db.Have(folderID, protocol.DeviceID{42}))
+		have = iterCollectTest(t, db.Have(folderID, protocol.DeviceID{42}))
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
@@ -85,12 +85,18 @@ func TestGetAndHave(t *testing.T) {
 	})
 
 	t.Run("Need", func(t *testing.T) {
-		need := collectIter(t, db.Need(folderID, protocol.LocalDeviceID))
+		need, err := db.Need(folderID, protocol.LocalDeviceID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if len(need) != 3 {
 			t.Log(need)
 			t.Error("expected three files")
 		}
-		need = collectIter(t, db.Need(folderID, protocol.DeviceID{42}))
+		need, err = db.Need(folderID, protocol.DeviceID{42})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if len(need) != 0 {
 			t.Log(need)
 			t.Error("expected no files")
@@ -102,7 +108,7 @@ func TestGetAndHave(t *testing.T) {
 	}
 }
 
-func collectIter[T any](t *testing.T, it iter.Seq2[T, error]) []T {
+func iterCollectTest[T any](t *testing.T, it iter.Seq2[T, error]) []T {
 	t.Helper()
 	var vals []T
 	for v, err := range it {

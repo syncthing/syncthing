@@ -57,13 +57,13 @@ var initStmts = []string{
 	`CREATE TABLE IF NOT EXISTS needs (
 		folder_idx INTEGER NOT NULL,
 		device_idx INTEGER NOT NULL,
-  		file_sequence INTEGER NOT NULL,
+  		file_sequence INTEGER, -- deliberately nullable
 		name TEXT NOT NULL,
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
 		FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
  	) STRICT`,
-	`CREATE UNIQUE INDEX IF NOT EXISTS needs_seq ON needs (folder_idx, device_idx, file_sequence)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS needs_file_sequence ON needs (folder_idx, device_idx, file_sequence)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS needs_name ON needs (folder_idx, device_idx, name)`,
 }
 
@@ -205,18 +205,15 @@ func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, e
 	return &fi, true, nil
 }
 
-func (db *DB) Need(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT f.fileinfo_protobuf FROM files f
-		INNER JOIN needs n ON f.folder_idx = n.folder_idx AND f.device_idx = n.device_idx AND f.sequence = n.file_sequence
+func (db *DB) Need(folder string, device protocol.DeviceID) ([]string, error) {
+	var names []string
+	err := db.sql.Select(&names, `
+		SELECT n.name FROM needs n
 		INNER JOIN folders o ON o.idx = n.folder_idx
 		INNER JOIN devices d ON d.idx = n.device_idx
 		WHERE o.folder_id = $1 AND d.device_id = $2`,
-		folder, device.String()))
-	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := protocol.FileInfoFromDB(b)
-		return &fi
-	})
+		folder, device.String())
+	return names, wrap("need", err)
 }
 
 func (db *DB) Have(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {

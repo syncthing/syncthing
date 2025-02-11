@@ -35,6 +35,14 @@ func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
 func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 	// Sort the entries; the global entry is at the head of the list
 	slices.SortFunc(es, globalEntry.Compare)
+
+	// We will maintain one entry for each device (XXX: that shares the folder, ideally)
+	var deviceIdxs []int
+	if err := tx.Select(&deviceIdxs, `SELECT idx FROM devices`); err != nil {
+		return wrap("processNeed", err)
+	}
+	seenDeviceIdxs := make(map[int]struct{})
+
 	for i, e := range es {
 		switch {
 		case i == 0:
@@ -48,15 +56,28 @@ func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 
 		case e.Version.Equal(es[0].Version.Vector):
 			// The global entry is never needed, nor others that are identical to it
-			if _, err := tx.Exec(`DELETE FROM needs WHERE folder_idx = $1 AND device_idx = $2 AND file_sequence = $3`, e.FolderIdx, e.DeviceIdx, e.Sequence); err != nil {
+			if _, err := tx.Exec(`DELETE FROM needs WHERE folder_idx = $1 AND device_idx = $2`, e.FolderIdx, e.DeviceIdx); err != nil {
 				return wrap("processNeedSet", err)
 			}
+			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
 
 		default:
 			// Need it
 			if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
 				return wrap("processNeedSet", err)
 			}
+			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
+		}
+	}
+
+	global := es[0]
+	for _, idx := range deviceIdxs {
+		if _, seen := seenDeviceIdxs[idx]; seen {
+			continue
+		}
+		// Need it
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, null, $3)`, global.FolderIdx, idx, global.Name); err != nil {
+			return wrap("processNeedSet", err)
 		}
 	}
 	return nil
