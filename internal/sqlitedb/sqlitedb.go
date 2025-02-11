@@ -32,7 +32,7 @@ var initStmts = []string{
 		device_idx INTEGER NOT NULL,
   		sequence INTEGER NOT NULL,
 		name TEXT NOT NULL,
-		type INTEGER NOT NULL, -- bep.FileInfoType
+		type INTEGER NOT NULL, -- protocol.FileInfoType
 		modified INTEGER NOT NULL, -- Unix nanos
 		size INTEGER NOT NULL,
 		version TEXT NOT NULL,
@@ -51,6 +51,7 @@ var initStmts = []string{
 		device_idx INTEGER NOT NULL,
   		files INTEGER NOT NULL,
   		directories INTEGER NOT NULL,
+  		symlinks INTEGER NOT NULL,
 		total_size INTEGER NOT NULL,
 		PRIMARY KEY(folder_idx, device_idx),
 		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
@@ -59,16 +60,23 @@ var initStmts = []string{
 	`CREATE TRIGGER IF NOT EXISTS sizes_insert_file AFTER INSERT ON files
 	WHEN NEW.type = 0 -- FileInfoTypeFile
 	BEGIN
-		INSERT INTO sizes (folder_idx, device_idx, files, directories, total_size)
-			VALUES (NEW.folder_idx, NEW.device_idx, 1, 0, NEW.size)
+		INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
+			VALUES (NEW.folder_idx, NEW.device_idx, 1, 0, 0, NEW.size)
 			ON CONFLICT DO UPDATE SET files = files + 1, total_size = total_size + NEW.size;
 	END`,
 	`CREATE TRIGGER IF NOT EXISTS sizes_insert_dir AFTER INSERT ON files
 	WHEN NEW.type = 1 -- FileInfoTypeDirectory
 	BEGIN
-		INSERT INTO sizes (folder_idx, device_idx, files, directories, total_size)
-			VALUES (NEW.folder_idx, NEW.device_idx, 0, 1, NEW.size)
+		INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
+			VALUES (NEW.folder_idx, NEW.device_idx, 0, 1, 0, NEW.size)
 			ON CONFLICT DO UPDATE SET directories = directories + 1, total_size = total_size + NEW.size;
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_insert_symlink AFTER INSERT ON files
+	WHEN NEW.type = 4 -- FileInfoTypeSymlink
+	BEGIN
+		INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
+			VALUES (NEW.folder_idx, NEW.device_idx, 0, 0, 1, NEW.size)
+			ON CONFLICT DO UPDATE SET symlinks = symlinks + 1, total_size = total_size + NEW.size;
 	END`,
 	`CREATE TRIGGER IF NOT EXISTS sizes_delete_file AFTER DELETE ON files
 	WHEN OLD.type = 0 -- FileInfoTypeFile
@@ -80,6 +88,12 @@ var initStmts = []string{
 	WHEN OLD.type = 1 -- FileInfoTypeDirectory
 	BEGIN
 		UPDATE sizes SET directories = directories - 1, total_size = total_size - OLD.size
+			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_delete_symlink AFTER DELETE ON files
+	WHEN OLD.type = 4 -- FileInfoTypeSymlink
+	BEGIN
+		UPDATE sizes SET symlinks = symlinks - 1, total_size = total_size - OLD.size
 			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
 	END`,
 
