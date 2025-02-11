@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -22,7 +21,7 @@ func TestBasics(t *testing.T) {
 	v = v.Update(1)
 	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "test", Size: 1, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Type: bep.FileInfoType_FILE_INFO_TYPE_DIRECTORY, Size: 128, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -71,13 +71,13 @@ var initStmts = []string{
 			ON CONFLICT DO UPDATE SET directories = directories + 1, total_size = total_size + NEW.size;
 	END`,
 	`CREATE TRIGGER IF NOT EXISTS sizes_delete_file AFTER DELETE ON files
-	WHEN NEW.type = 0 -- FileInfoTypeFile
+	WHEN OLD.type = 0 -- FileInfoTypeFile
 	BEGIN
 		UPDATE sizes SET files = files - 1, total_size = total_size - OLD.size
 			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
 	END`,
 	`CREATE TRIGGER IF NOT EXISTS sizes_delete_dir AFTER DELETE ON files
-	WHEN NEW.type = 1 -- FileInfoTypeDirectory
+	WHEN OLD.type = 1 -- FileInfoTypeDirectory
 	BEGIN
 		UPDATE sizes SET directories = directories - 1, total_size = total_size - OLD.size
 			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
