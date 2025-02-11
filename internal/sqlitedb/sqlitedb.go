@@ -161,14 +161,13 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 	var bfi bep.FileInfo
 	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
-		INNER JOIN globals g ON f.folder_idx = g.folder_idx AND f.device_idx = g.device_idx AND f.sequence = g.file_sequence
-		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = $1 AND g.name = $2`, folder, file)
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = $1 AND f.device_idx = $2 AND f.name = $3`, folder, db.globalDeviceIdx, file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, wrap("getGlobal", err)
+		return nil, false, wrap("global", err)
 	}
 
 	fi := protocol.FileInfoFromDB(&bfi)

@@ -94,22 +94,6 @@ BEGIN
 END
 ;
 
---- Global
-CREATE TABLE IF NOT EXISTS globals (
-    folder_idx INTEGER NOT NULL,
-    device_idx INTEGER NOT NULL,
-    file_sequence INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
-) STRICT
-;
-CREATE UNIQUE INDEX IF NOT EXISTS globals_seq ON globals (folder_idx, device_idx, file_sequence)
-;
-CREATE UNIQUE INDEX IF NOT EXISTS globals_name ON globals (folder_idx, name)
-;
-
 --- Needs
 CREATE TABLE IF NOT EXISTS needs (
     folder_idx INTEGER NOT NULL,

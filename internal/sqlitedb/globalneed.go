@@ -3,6 +3,8 @@ package sqlitedb
 import (
 	"cmp"
 	"slices"
+	"sync/atomic"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -29,10 +31,7 @@ func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
 	if err != nil {
 		return err
 	}
-	return db.processNeedSet(tx, es)
-}
 
-func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 	// Sort the entries; the global entry is at the head of the list
 	slices.SortFunc(es, globalEntry.Compare)
 
@@ -47,24 +46,25 @@ func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 		switch {
 		case i == 0:
 			if _, err := tx.Exec(`
-				INSERT OR REPLACE INTO globals (folder_idx, device_idx, file_sequence, name)
-				VALUES ($1, $2, $3, $4)`,
-				e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
-				return wrap("processNeedSet", err)
+				INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf)
+				SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf FROM FILES
+				WHERE folder_idx = $3 AND device_idx = $4 AND sequence = $5`,
+				db.globalDeviceIdx, monotonicNano(), e.FolderIdx, e.DeviceIdx, e.Sequence); err != nil {
+				return wrap("processNeed", err)
 			}
 			fallthrough
 
 		case e.Version.Equal(es[0].Version.Vector):
 			// The global entry is never needed, nor others that are identical to it
 			if _, err := tx.Exec(`DELETE FROM needs WHERE folder_idx = $1 AND device_idx = $2`, e.FolderIdx, e.DeviceIdx); err != nil {
-				return wrap("processNeedSet", err)
+				return wrap("processNeed", err)
 			}
 			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
 
 		default:
 			// Need it
 			if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
-				return wrap("processNeedSet", err)
+				return wrap("processNeed", err)
 			}
 			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
 		}
@@ -77,7 +77,7 @@ func (db *DB) processNeedSet(tx *sqlx.Tx, es []globalEntry) error {
 		}
 		// Need it
 		if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, null, $3)`, global.FolderIdx, idx, global.Name); err != nil {
-			return wrap("processNeedSet", err)
+			return wrap("processNeed", err)
 		}
 	}
 	return nil
@@ -115,5 +115,20 @@ func (e globalEntry) Compare(other globalEntry) int {
 		return 1 // they win
 	default:
 		return 0
+	}
+}
+
+var lastNano atomic.Int64
+
+func monotonicNano() int64 {
+	t := time.Now().UnixNano()
+	for {
+		p := lastNano.Load()
+		if t <= p {
+			t = p + 1
+		}
+		if lastNano.CompareAndSwap(p, t) {
+			return t
+		}
 	}
 }
