@@ -3,6 +3,7 @@ package sqlitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"iter"
@@ -31,7 +32,9 @@ var initStmts = []string{
 		device_idx INTEGER NOT NULL,
   		sequence INTEGER NOT NULL,
 		name TEXT NOT NULL,
+		type INTEGER NOT NULL, -- bep.FileInfoType
 		modified INTEGER NOT NULL, -- Unix nanos
+		size INTEGER NOT NULL,
 		version TEXT NOT NULL,
 		deleted INTEGER NOT NULL, -- boolean
 		invalid INTEGER NOT NULL, -- boolean
@@ -41,6 +44,44 @@ var initStmts = []string{
 		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
  	) STRICT`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS files_name ON files (folder_idx, device_idx, name)`,
+
+	// Maintain size counts when files are added and removed
+	`CREATE TABLE IF NOT EXISTS sizes (
+		folder_idx INTEGER NOT NULL,
+		device_idx INTEGER NOT NULL,
+  		files INTEGER NOT NULL,
+  		directories INTEGER NOT NULL,
+		total_size INTEGER NOT NULL,
+		PRIMARY KEY(folder_idx, device_idx),
+		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
+ 	) STRICT`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_insert_file AFTER INSERT ON files
+	WHEN NEW.type = 0 -- FileInfoTypeFile
+	BEGIN
+		INSERT INTO sizes (folder_idx, device_idx, files, directories, total_size)
+			VALUES (NEW.folder_idx, NEW.device_idx, 1, 0, NEW.size)
+			ON CONFLICT DO UPDATE SET files = files + 1, total_size = total_size + NEW.size;
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_insert_dir AFTER INSERT ON files
+	WHEN NEW.type = 1 -- FileInfoTypeDirectory
+	BEGIN
+		INSERT INTO sizes (folder_idx, device_idx, files, directories, total_size)
+			VALUES (NEW.folder_idx, NEW.device_idx, 0, 1, NEW.size)
+			ON CONFLICT DO UPDATE SET directories = directories + 1, total_size = total_size + NEW.size;
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_delete_file AFTER DELETE ON files
+	WHEN NEW.type = 0 -- FileInfoTypeFile
+	BEGIN
+		UPDATE sizes SET files = files - 1, total_size = total_size - OLD.size
+			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS sizes_delete_dir AFTER DELETE ON files
+	WHEN NEW.type = 1 -- FileInfoTypeDirectory
+	BEGIN
+		UPDATE sizes SET directories = directories - 1, total_size = total_size - OLD.size
+			WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
+	END`,
 
 	`CREATE TABLE IF NOT EXISTS globals (
 		folder_idx INTEGER NOT NULL,
@@ -65,6 +106,19 @@ var initStmts = []string{
  	) STRICT`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS needs_file_sequence ON needs (folder_idx, device_idx, file_sequence)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS needs_name ON needs (folder_idx, device_idx, name)`,
+
+	`CREATE TABLE IF NOT EXISTS blocks (
+		hash 			TEXT NOT NULL,
+		folder_idx 		INTEGER NOT NULL,
+		device_idx 		INTEGER NOT NULL,
+  		file_sequence 	INTEGER NOT NULL,
+		offset  		INTEGER NOT NULL,
+		FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
+		FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+		FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
+ 	) STRICT`,
+	`CREATE INDEX IF NOT EXISTS blocks_hash ON blocks (hash)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS blocks_block ON blocks (folder_idx, device_idx, file_sequence, offset)`,
 }
 
 func Open(path string) (*DB, error) {
@@ -82,16 +136,18 @@ func Open(path string) (*DB, error) {
 
 	db := &DB{sql: sqlDB}
 
-	// should always exist and have a low index number, and will never
+	// should always exist and have a low index numbers, and will never
 	// change
 	db.localDeviceIdx, _ = db.deviceIdx(protocol.LocalDeviceID)
+	db.globalDeviceIdx, _ = db.deviceIdx(protocol.GlobalDeviceID)
 
 	return db, nil
 }
 
 type DB struct {
-	sql            *sqlx.DB
-	localDeviceIdx int64
+	sql             *sqlx.DB
+	localDeviceIdx  int64
+	globalDeviceIdx int64
 }
 
 func (db *DB) Close() error {
@@ -130,14 +186,28 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		if err != nil {
 			return wrap("update", err)
 		}
+
+		// Update the file
 		if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, modified, version, deleted, invalid, fileinfo_protobuf)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			folderIdx, deviceIdx, f.Sequence, f.Name, f.ModTime().UnixNano(), f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
+			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			folderIdx, deviceIdx, f.Sequence, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
 			return wrap("update", err)
 		}
+
+		// Update global and need
 		if err := db.processNeed(tx, folder, f.Name); err != nil {
 			return wrap("update", err)
+		}
+
+		// Update block lists
+		for _, b := range f.Blocks {
+			if _, err := tx.Exec(`
+			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, offset)
+			VALUES ($1, $2, $3, $4, $5)`,
+				hex.EncodeToString(b.Hash), folderIdx, deviceIdx, f.Sequence, b.Offset); err != nil {
+				return wrap("update", err)
+			}
 		}
 	}
 

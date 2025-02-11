@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestBasics(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "basics.sqlite"))
+	db, err := Open(filepath.Join(".", "basics.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,8 +21,8 @@ func TestBasics(t *testing.T) {
 	var v protocol.Vector
 	v = v.Update(1)
 	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test", Size: 1, Version: v},
-		{Name: "test2", Size: 1, Version: v},
+		{Name: "test", Size: 1, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Type: bep.FileInfoType_FILE_INFO_TYPE_DIRECTORY, Size: 128, Version: v, Blocks: genBlocks(2)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -29,9 +30,9 @@ func TestBasics(t *testing.T) {
 
 	// Some remote files
 	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
-		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42)},
-		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42)},
-		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42)},
+		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,4 +119,18 @@ func iterCollectTest[T any](t *testing.T, it iter.Seq2[T, error]) []T {
 		vals = append(vals, v)
 	}
 	return vals
+}
+
+func genBlocks(n int) []protocol.BlockInfo {
+	b := make([]protocol.BlockInfo, n)
+	for i := range b {
+		h := make([]byte, 32)
+		for j := range h {
+			h[j] = byte(i + j)
+		}
+		b[i].Hash = h
+		b[i].Size = 128 << 10
+		b[i].Offset = (128 << 10) * int64(i)
+	}
+	return b
 }
