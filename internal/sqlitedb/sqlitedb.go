@@ -165,7 +165,7 @@ func (db *DB) Drop(folder string, device protocol.DeviceID) error {
 	return wrap("drop", tx.Commit())
 }
 
-func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
+func (db *DB) Local(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var bfi bep.FileInfo
@@ -185,7 +185,7 @@ func (db *DB) Get(folder string, device protocol.DeviceID, file string) (*protoc
 	return &fi, true, nil
 }
 
-func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, error) {
+func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var bfi bep.FileInfo
@@ -205,7 +205,7 @@ func (db *DB) GetGlobal(folder string, file string) (*protocol.FileInfo, bool, e
 	return &fi, true, nil
 }
 
-func (db *DB) Need(folder string, device protocol.DeviceID) ([]string, error) {
+func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) ([]string, error) {
 	var names []string
 	err := db.sql.Select(&names, `
 		SELECT n.name FROM needs n
@@ -216,7 +216,7 @@ func (db *DB) Need(folder string, device protocol.DeviceID) ([]string, error) {
 	return names, wrap("need", err)
 }
 
-func (db *DB) Have(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -229,7 +229,7 @@ func (db *DB) Have(folder string, device protocol.DeviceID) iter.Seq2[*protocol.
 	})
 }
 
-func (db *DB) HaveSequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -243,7 +243,7 @@ func (db *DB) HaveSequence(folder string, device protocol.DeviceID, startSeq int
 	})
 }
 
-func (db *DB) HavePrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
 	prefix = osutil.NormalizedFilename(prefix)
 	glob := prefix + "/*"
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`

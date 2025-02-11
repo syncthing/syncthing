@@ -37,8 +37,8 @@ func TestBasics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("Get", func(t *testing.T) {
-		fi, ok, err := db.Get(folderID, protocol.LocalDeviceID, "test2") // exists
+	t.Run("Local", func(t *testing.T) {
+		fi, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2") // exists
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal("should have got test2")
 		}
 
-		_, ok, err = db.Get(folderID, protocol.LocalDeviceID, "test3") // does not exist
+		_, ok, err = db.Local(folderID, protocol.LocalDeviceID, "test3") // does not exist
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -58,8 +58,8 @@ func TestBasics(t *testing.T) {
 		}
 	})
 
-	t.Run("GetGlobal", func(t *testing.T) {
-		fi, ok, err := db.GetGlobal(folderID, "test")
+	t.Run("Global", func(t *testing.T) {
+		fi, ok, err := db.Global(folderID, "test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -71,21 +71,21 @@ func TestBasics(t *testing.T) {
 		}
 	})
 
-	t.Run("Have", func(t *testing.T) {
-		have := iterCollectTest(t, db.Have(folderID, protocol.LocalDeviceID))
+	t.Run("AllLocal", func(t *testing.T) {
+		have := iterCollectTest(t, db.AllLocal(folderID, protocol.LocalDeviceID))
 		if len(have) != 2 {
 			t.Log(have)
 			t.Error("expected two files")
 		}
-		have = iterCollectTest(t, db.Have(folderID, protocol.DeviceID{42}))
+		have = iterCollectTest(t, db.AllLocal(folderID, protocol.DeviceID{42}))
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
 		}
 	})
 
-	t.Run("Need", func(t *testing.T) {
-		need, err := db.Need(folderID, protocol.LocalDeviceID)
+	t.Run("AllNeededNames", func(t *testing.T) {
+		need, err := db.AllNeededNames(folderID, protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func TestBasics(t *testing.T) {
 			t.Log(need)
 			t.Error("expected three files")
 		}
-		need, err = db.Need(folderID, protocol.DeviceID{42})
+		need, err = db.AllNeededNames(folderID, protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
