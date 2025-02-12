@@ -37,7 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
-	"github.com/syncthing/syncthing/internal/sqlitedb"
+	"github.com/syncthing/syncthing/internal/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -587,7 +587,7 @@ func syncthingMain(options serveOptions) {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
-	sdb, err := sqlitedb.Open(dbFile + "-sqlite")
+	sdb, err := sqlite.Open(dbFile + "-sqlite")
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)

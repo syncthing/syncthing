@@ -15,7 +15,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlitedb"
+	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -1371,7 +1371,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	sdb    *sqlitedb.DB
+	sdb    *sqlite.DB
 	folder string
 }
 

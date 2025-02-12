@@ -28,7 +28,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
-	"github.com/syncthing/syncthing/internal/sqlitedb"
+	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -129,7 +129,7 @@ type model struct {
 	cfg            config.Wrapper
 	id             protocol.DeviceID
 	db             *db.Lowlevel
-	sdb            *sqlitedb.DB
+	sdb            *sqlite.DB
 	protectedFiles []string
 	evLogger       events.Logger
 
@@ -204,7 +204,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *sqlitedb.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *sqlite.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),

@@ -1,4 +1,4 @@
-package sqlitedb
+package sqlite
 
 import (
 	"iter"

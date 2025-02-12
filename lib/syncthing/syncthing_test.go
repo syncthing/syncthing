@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlitedb"
+	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
@@ -74,7 +74,7 @@ func TestStartupFail(t *testing.T) {
 	defer os.Remove(cfg.ConfigPath())
 
 	db := backend.OpenMemory()
-	sdb, err := sqlitedb.Open(filepath.Join(t.TempDir(), "db"))
+	sdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
 	if err != nil {
 		t.Fatal(err)
 	}
