@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS devices (
 --- Files
 CREATE TABLE IF NOT EXISTS files (
     folder_idx INTEGER NOT NULL,
-    device_idx INTEGER NOT NULL,
+    device_idx INTEGER NOT NULL, -- actual device ID, or LocalDeviceID, or GlobalDeviceID
     sequence INTEGER NOT NULL,
     name TEXT NOT NULL,
     type INTEGER NOT NULL, -- protocol.FileInfoType
@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS files (
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
 ) STRICT
 ;
-CREATE UNIQUE INDEX IF NOT EXISTS files_name ON files (folder_idx, device_idx, name)
+CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device_idx, name)
+;
+CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
 ;
 
 --- Maintain size counts when files are added and removed
@@ -79,22 +81,6 @@ END
 ;
 {{ end }}
 {{ end }}
-
---- Needs
-CREATE TABLE IF NOT EXISTS needs (
-    folder_idx INTEGER NOT NULL,
-    device_idx INTEGER NOT NULL,
-    file_sequence INTEGER, -- deliberately nullable
-    name TEXT NOT NULL,
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
-) STRICT
-;
-CREATE UNIQUE INDEX IF NOT EXISTS needs_file_sequence ON needs (folder_idx, device_idx, file_sequence)
-;
-CREATE UNIQUE INDEX IF NOT EXISTS needs_name ON needs (folder_idx, device_idx, name)
-;
 
 --- Blocks
 CREATE TABLE IF NOT EXISTS blocks (

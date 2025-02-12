@@ -26,6 +26,8 @@ var initStmtsTpl string
 // initStmtsTpl with the templating resolved
 var initStmts string
 
+const flagInSync = 1 << 30 // local file which is identical to global
+
 func init() {
 	tpl := template.Must(template.New("init").Parse(initStmtsTpl))
 	tplParams := map[string]any{
@@ -40,7 +42,9 @@ func init() {
 			protocol.FlagLocalIgnored,
 			protocol.FlagLocalMustRescan,
 			protocol.FlagLocalReceiveOnly,
+			flagInSync,
 		},
+		"FlagInSync": flagInSync,
 	}
 
 	buf := new(bytes.Buffer)
@@ -234,11 +238,11 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) ([]string, error) {
 	var names []string
 	err := db.sql.Select(&names, `
-		SELECT n.name FROM needs n
-		INNER JOIN folders o ON o.idx = n.folder_idx
-		INNER JOIN devices d ON d.idx = n.device_idx
-		WHERE o.folder_id = $1 AND d.device_id = $2`,
-		folder, device.String())
+		SELECT f.name FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? = 0`,
+		folder, device.String(), flagInSync)
 	return names, wrap("need", err)
 }
 

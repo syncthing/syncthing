@@ -23,7 +23,7 @@ type globalEntry struct {
 
 func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
 	vals := iterStructs[globalEntry](tx.Queryx(`
-		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted FROM files f
+		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted, f.invalid FROM files f
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE f.name = $1 AND o.folder_id = $2`,
 		file, folder))
@@ -35,51 +35,27 @@ func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
 	// Sort the entries; the global entry is at the head of the list
 	slices.SortFunc(es, globalEntry.Compare)
 
-	// We will maintain one entry for each device (XXX: that shares the folder, ideally)
-	var deviceIdxs []int
-	if err := tx.Select(&deviceIdxs, `SELECT idx FROM devices`); err != nil {
+	g := es[0]
+	if _, err := tx.Exec(`
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+		SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, local_flags | $3, fileinfo_protobuf FROM FILES
+		WHERE folder_idx = $4 AND device_idx = $5 AND sequence = $6`,
+		db.globalDeviceIdx, monotonicNano(), flagInSync, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
 		return wrap("processNeed", err)
 	}
-	seenDeviceIdxs := make(map[int]struct{})
-
-	for i, e := range es {
-		switch {
-		case i == 0:
-			if _, err := tx.Exec(`
-				INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-				SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf FROM FILES
-				WHERE folder_idx = $3 AND device_idx = $4 AND sequence = $5`,
-				db.globalDeviceIdx, monotonicNano(), e.FolderIdx, e.DeviceIdx, e.Sequence); err != nil {
-				return wrap("processNeed", err)
-			}
-			fallthrough
-
-		case e.Version.Equal(es[0].Version.Vector):
-			// The global entry is never needed, nor others that are identical to it
-			if _, err := tx.Exec(`DELETE FROM needs WHERE folder_idx = $1 AND device_idx = $2`, e.FolderIdx, e.DeviceIdx); err != nil {
-				return wrap("processNeed", err)
-			}
-			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
-
-		default:
-			// Need it
-			if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, $3, $4)`, e.FolderIdx, e.DeviceIdx, e.Sequence, e.Name); err != nil {
-				return wrap("processNeed", err)
-			}
-			seenDeviceIdxs[int(e.DeviceIdx)] = struct{}{}
-		}
+	if _, err := tx.Exec(`
+		UPDATE files SET local_flags = local_flags | ?
+		WHERE folder_idx = ? AND name = ? AND version = ?`,
+		flagInSync, g.FolderIdx, g.Name, g.Version); err != nil {
+		return wrap("processNeed", err)
+	}
+	if _, err := tx.Exec(`
+		UPDATE files SET local_flags = local_flags & ?
+		WHERE folder_idx = ? AND name = ? AND version != ?`,
+		^flagInSync, g.FolderIdx, g.Name, g.Version); err != nil {
+		return wrap("processNeed", err)
 	}
 
-	global := es[0]
-	for _, idx := range deviceIdxs {
-		if _, seen := seenDeviceIdxs[idx]; seen {
-			continue
-		}
-		// Need it
-		if _, err := tx.Exec(`INSERT OR IGNORE INTO needs (folder_idx, device_idx, file_sequence, name) VALUES ($1, $2, null, $3)`, global.FolderIdx, idx, global.Name); err != nil {
-			return wrap("processNeed", err)
-		}
-	}
 	return nil
 }
 
