@@ -15,38 +15,38 @@ func NewFolderDB(db *DB, folder string) *FolderDB {
 	return &FolderDB{db: db, folder: folder}
 }
 
-func (db *FolderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
-	return db.db.Update(db.folder, device, fs)
+func (f *FolderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
+	return f.db.Update(f.folder, device, fs)
 }
 
-func (db *FolderDB) RemoveLocal(names []string) error {
-	return db.db.Remove(db.folder, protocol.LocalDeviceID, names)
+func (f *FolderDB) Drop(device protocol.DeviceID) error {
+	return f.db.Drop(f.folder, device)
 }
 
-func (db *FolderDB) Drop(device protocol.DeviceID) error {
-	return db.db.Drop(db.folder, device)
+func (f *FolderDB) DropNames(names []string) error {
+	return f.db.DropNames(f.folder, protocol.LocalDeviceID, names)
 }
 
-func (db *FolderDB) Local(device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
-	return db.db.Local(db.folder, device, file)
+func (f *FolderDB) Local(device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
+	return f.db.Local(f.folder, device, file)
 }
 
-func (db *FolderDB) Global(file string) (*protocol.FileInfo, bool, error) {
-	return db.db.Global(db.folder, file)
+func (f *FolderDB) Global(file string) (*protocol.FileInfo, bool, error) {
+	return f.db.Global(f.folder, file)
 }
 
-func (db *FolderDB) AllNeededNames(device protocol.DeviceID) ([]string, error) {
-	return db.db.AllNeededNames(db.folder, device)
+func (f *FolderDB) AllNeededNames(device protocol.DeviceID) ([]string, error) {
+	return f.db.AllNeededNames(f.folder, device)
 }
 
-func (db *FolderDB) AllLocal(device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
-	return db.db.AllLocal(db.folder, device)
+func (f *FolderDB) AllLocal(device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+	return f.db.AllLocal(f.folder, device)
 }
 
-func (db *FolderDB) AllLocalSequenced(device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
-	return db.db.AllLocalSequenced(db.folder, device, startSeq)
+func (f *FolderDB) AllLocalSequenced(device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
+	return f.db.AllLocalSequenced(f.folder, device, startSeq)
 }
 
-func (db *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
-	return db.db.AllLocalPrefixed(db.folder, device, prefix)
+func (f *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
+	return f.db.AllLocalPrefixed(f.folder, device, prefix)
 }

@@ -143,7 +143,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	return wrap("update", tx.Commit())
 }
 
-func (db *DB) Remove(folder string, device protocol.DeviceID, names []string) error {
+func (db *DB) DropNames(folder string, device protocol.DeviceID, names []string) error {
 	folderIdx, err := db.folderIdx(folder)
 	if err != nil {
 		return wrap("remove", err)
