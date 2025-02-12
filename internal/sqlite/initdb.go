@@ -29,7 +29,6 @@ var tplParams = map[string]any{
 		protocol.FlagLocalReceiveOnly,
 		flagInSync,
 	},
-	"FlagInSync": flagInSync,
 }
 
 func initDB(db *sqlx.DB) error {

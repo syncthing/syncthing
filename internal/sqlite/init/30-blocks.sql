@@ -1,4 +1,3 @@
-
 --- Blocks
 CREATE TABLE IF NOT EXISTS blocks (
     hash 			TEXT NOT NULL,

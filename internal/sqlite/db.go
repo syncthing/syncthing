@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
