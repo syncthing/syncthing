@@ -22,6 +22,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/sqlitedb"
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -67,6 +68,7 @@ type App struct {
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
 	ll                *db.Lowlevel
+	sdb               *sqlitedb.DB
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
@@ -80,7 +82,7 @@ type App struct {
 	Internals *Internals
 }
 
-func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
+func New(cfg config.Wrapper, dbBackend backend.Backend, sdb *sqlitedb.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
 	ll, err := db.NewLowlevel(dbBackend, evLogger, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval))
 	if err != nil {
 		return nil, err
@@ -88,6 +90,7 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 	a := &App{
 		cfg:      cfg,
 		ll:       ll,
+		sdb:      sdb,
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -244,7 +247,7 @@ func (a *App) startup() error {
 	}
 
 	keyGen := protocol.NewKeyGenerator()
-	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
+	m := model.NewModel(a.cfg, a.myID, a.ll, a.sdb, protectedFiles, a.evLogger, keyGen)
 	a.Internals = newInternals(m)
 
 	a.mainService.Add(m)

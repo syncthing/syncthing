@@ -9,9 +9,11 @@ package model
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/sqlitedb"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -153,7 +155,11 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedF
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	sdb, err := sqlitedb.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(cfg, id, ldb, sdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{

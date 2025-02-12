@@ -8,9 +8,11 @@ package syncthing
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/sqlitedb"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
@@ -72,7 +74,11 @@ func TestStartupFail(t *testing.T) {
 	defer os.Remove(cfg.ConfigPath())
 
 	db := backend.OpenMemory()
-	app, err := New(cfg, db, events.NoopLogger, cert, Options{})
+	sdb, err := sqlitedb.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := New(cfg, db, sdb, events.NoopLogger, cert, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/internal/sqlitedb"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -586,6 +587,11 @@ func syncthingMain(options serveOptions) {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
+	sdb, err := sqlitedb.Open(dbFile + "-sqlite")
+	if err != nil {
+		l.Warnln("Error opening database:", err)
+		os.Exit(1)
+	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
@@ -634,7 +640,7 @@ func syncthingMain(options serveOptions) {
 		appOpts.DBIndirectGCInterval = dur
 	}
 
-	app, err := syncthing.New(cfgWrapper, ldb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfgWrapper, ldb, sdb, evLogger, cert, appOpts)
 	if err != nil {
 		l.Warnln("Failed to start Syncthing:", err)
 		os.Exit(svcutil.ExitError.AsInt())

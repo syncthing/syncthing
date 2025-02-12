@@ -15,6 +15,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/sqlitedb"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -646,7 +647,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{snap},
+		CurrentFiler:          cFiler{sdb: f.model.sdb, folder: f.folderID},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -1370,10 +1371,15 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	*db.Snapshot
+	sdb    *sqlitedb.DB
+	folder string
 }
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	return cf.Get(protocol.LocalDeviceID, file)
+	fi, ok, err := cf.sdb.Local(cf.folder, protocol.LocalDeviceID, file)
+	if err != nil || !ok {
+		return protocol.FileInfo{}, false
+	}
+	return *fi, true
 }
