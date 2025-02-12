@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS files (
     version TEXT NOT NULL,
     deleted INTEGER NOT NULL, -- boolean
     invalid INTEGER NOT NULL, -- boolean
+    local_flags  INTEGER NOT NULL,
     fileinfo_protobuf BLOB NOT NULL,
     PRIMARY KEY(folder_idx, device_idx, sequence),
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
@@ -39,60 +40,45 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_name ON files (folder_idx, device_idx, n
 CREATE TABLE IF NOT EXISTS sizes (
     folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL,
-    files INTEGER NOT NULL,
-    directories INTEGER NOT NULL,
-    symlinks INTEGER NOT NULL,
-    total_size INTEGER NOT NULL,
-    PRIMARY KEY(folder_idx, device_idx),
+    type INTEGER NOT NULL,
+    flag_bit INTEGER NOT NULL,
+    count INTEGER NOT NULL,
+    size INTEGER NOT NULL,
+    PRIMARY KEY(folder_idx, device_idx, type, flag_bit),
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
 ) STRICT
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_insert_file AFTER INSERT ON files
-WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = 0 -- FileInfoTypeFile
+
+{{ range $type := $.FileInfoTypes }}
+{{ range $flag := $.LocalFlagBits }}
+CREATE TRIGGER IF NOT EXISTS sizes_insert_type{{$type}}_flag{{$flag}} AFTER INSERT ON files
+WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = {{$type}}
+{{- if ne $flag 0 }}
+AND NEW.local_flags & {{$flag}} != 0
+{{- else }}
+AND NEW.local_flags = 0
+{{- end }}
 BEGIN
-    INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
-        VALUES (NEW.folder_idx, NEW.device_idx, 1, 0, 0, NEW.size)
-        ON CONFLICT DO UPDATE SET files = files + 1, total_size = total_size + NEW.size;
+    INSERT INTO sizes (folder_idx, device_idx, type, flag_bit, count, size)
+        VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, {{$flag}}, 1, NEW.size)
+        ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
 END
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_insert_dir AFTER INSERT ON files
-WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = 1 -- FileInfoTypeDirectory
+CREATE TRIGGER IF NOT EXISTS sizes_delete_type{{$type}}_flag{{$flag}} AFTER DELETE ON files
+WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = {{$type}}
+{{- if ne $flag 0 }}
+AND OLD.local_flags & {{$flag}} != 0
+{{- else }}
+AND OLD.local_flags = 0
+{{- end }}
 BEGIN
-    INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
-        VALUES (NEW.folder_idx, NEW.device_idx, 0, 1, 0, NEW.size)
-        ON CONFLICT DO UPDATE SET directories = directories + 1, total_size = total_size + NEW.size;
+    UPDATE sizes SET count = count - 1, size = size - OLD.size
+        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = {{$type}} AND flag_bit = {{$flag}};
 END
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_insert_symlink AFTER INSERT ON files
-WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = 4 -- FileInfoTypeSymlink
-BEGIN
-    INSERT INTO sizes (folder_idx, device_idx, files, directories, symlinks, total_size)
-        VALUES (NEW.folder_idx, NEW.device_idx, 0, 0, 1, NEW.size)
-        ON CONFLICT DO UPDATE SET symlinks = symlinks + 1, total_size = total_size + NEW.size;
-END
-;
-CREATE TRIGGER IF NOT EXISTS sizes_delete_file AFTER DELETE ON files
-WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = 0 -- FileInfoTypeFile
-BEGIN
-    UPDATE sizes SET files = files - 1, total_size = total_size - OLD.size
-        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
-END
-;
-CREATE TRIGGER IF NOT EXISTS sizes_delete_dir AFTER DELETE ON files
-WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = 1 -- FileInfoTypeDirectory
-BEGIN
-    UPDATE sizes SET directories = directories - 1, total_size = total_size - OLD.size
-        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
-END
-;
-CREATE TRIGGER IF NOT EXISTS sizes_delete_symlink AFTER DELETE ON files
-WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = 4 -- FileInfoTypeSymlink
-BEGIN
-    UPDATE sizes SET symlinks = symlinks - 1, total_size = total_size - OLD.size
-        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx;
-END
-;
+{{ end }}
+{{ end }}
 
 --- Needs
 CREATE TABLE IF NOT EXISTS needs (

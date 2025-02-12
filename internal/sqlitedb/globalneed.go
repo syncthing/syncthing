@@ -46,8 +46,8 @@ func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
 		switch {
 		case i == 0:
 			if _, err := tx.Exec(`
-				INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf)
-				SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf FROM FILES
+				INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+				SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf FROM FILES
 				WHERE folder_idx = $3 AND device_idx = $4 AND sequence = $5`,
 				db.globalDeviceIdx, monotonicNano(), e.FolderIdx, e.DeviceIdx, e.Sequence); err != nil {
 				return wrap("processNeed", err)

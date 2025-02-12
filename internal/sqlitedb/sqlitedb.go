@@ -1,6 +1,7 @@
 package sqlitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	_ "embed"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"iter"
 	"strings"
+	"text/template"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
@@ -19,7 +21,33 @@ import (
 )
 
 //go:embed init.sql
+var initStmtsTpl string
+
 var initStmts string
+
+func init() {
+	tpl := template.Must(template.New("init").Parse(initStmtsTpl))
+	tplParams := map[string]any{
+		"FileInfoTypes": []int{
+			int(protocol.FileInfoTypeFile),
+			int(protocol.FileInfoTypeDirectory),
+			int(protocol.FileInfoTypeSymlink),
+		},
+		"LocalFlagBits": []int{
+			0, // no flags set
+			protocol.FlagLocalUnsupported,
+			protocol.FlagLocalIgnored,
+			protocol.FlagLocalMustRescan,
+			protocol.FlagLocalReceiveOnly,
+		},
+	}
+
+	buf := new(bytes.Buffer)
+	if err := tpl.Execute(buf, tplParams); err != nil {
+		panic(err)
+	}
+	initStmts = buf.String()
+}
 
 func Open(path string) (*DB, error) {
 	var err error
@@ -89,9 +117,9 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 
 		// Update the file
 		if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, fileinfo_protobuf)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-			folderIdx, deviceIdx, f.Sequence, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), bs); err != nil {
+			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			folderIdx, deviceIdx, f.Sequence, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, bs); err != nil {
 			return wrap("update", err)
 		}
 
