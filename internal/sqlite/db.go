@@ -26,7 +26,7 @@ var initStmtsTpl string
 // initStmtsTpl with the templating resolved
 var initStmts string
 
-const flagInSync = 1 << 30 // local file which is identical to global
+const flagInSync = 1 << 15 // local file which is identical to global
 
 func init() {
 	tpl := template.Must(template.New("init").Parse(initStmtsTpl))
@@ -56,7 +56,7 @@ func init() {
 
 func Open(path string) (*DB, error) {
 	var err error
-	sqlDB, err := sqlx.Open("sqlite3", path+"?_fk=true")
+	sqlDB, err := sqlx.Open("sqlite3", path+"?_fk=true&_rt=true")
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
