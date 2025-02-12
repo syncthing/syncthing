@@ -1,4 +1,4 @@
---- Maintain size counts when files are added and removed
+-- Sizes
 CREATE TABLE IF NOT EXISTS sizes (
     folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL,
@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS sizes (
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
 ) STRICT
 ;
+
+--- Maintain size counts when files are added and removed using triggers
 
 {{ range $type := $.FileInfoTypes }}
 {{ range $flag := $.LocalFlagBits }}
