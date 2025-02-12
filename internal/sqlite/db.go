@@ -19,20 +19,22 @@ import (
 const flagInSync = 1 << 15 // local file which is identical to global
 
 func Open(path string) (*DB, error) {
-	var err error
+	// Open the database with options to enable foreign keys and recursive
+	// triggers (needed for the delete+insert triggers on row replace).
 	sqlDB, err := sqlx.Open("sqlite3", path+"?_fk=true&_rt=true")
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// Set up initial tables, indexes, triggers.
 	if err := initDB(sqlDB); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
 	db := &DB{sql: sqlDB}
 
-	// should always exist and have a low index numbers, and will never
-	// change
+	// Touch device IDs that should always exist and have a low index
+	// numbers, and will never change
 	db.localDeviceIdx, _ = db.deviceIdx(protocol.LocalDeviceID)
 	db.globalDeviceIdx, _ = db.deviceIdx(protocol.GlobalDeviceID)
 
