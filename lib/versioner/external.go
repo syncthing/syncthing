@@ -87,6 +87,12 @@ func (v external) Archive(filePath string) error {
 		words[i] = word
 	}
 
+	if expanded, err := ExpandTilde(words[0]); err == nil {
+		words[0] = expanded
+	}
+
+	l.Debugf("executing command \"%s\" with arguments: %v", words[0], words[1:])
+
 	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
@@ -124,4 +130,18 @@ func (external) Restore(_ string, _ time.Time) error {
 
 func (external) Clean(_ context.Context) error {
 	return nil
+}
+
+// Replace leading tilde with user home directory
+func ExpandTilde(path string) (string, error) {
+	if !strings.HasPrefix(path, fmt.Sprintf("~%c", os.PathSeparator)) {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return home + path[1:], nil
 }
