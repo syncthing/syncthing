@@ -187,7 +187,7 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = $1 AND f.device_idx = $2 AND f.name = $3`, folder, db.globalDeviceIdx, file)
+		WHERE o.folder_id = ? AND f.device_idx = ? AND f.name = ?`, folder, db.globalDeviceIdx, file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -254,11 +254,11 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 }
 
 func (db *DB) folderIdx(folderID string) (int64, error) {
-	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES($1)`, folderID); err != nil {
+	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
 	var idx int64
-	if err := db.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = $1`, folderID); err != nil {
+	if err := db.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = ?`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
 
@@ -267,11 +267,11 @@ func (db *DB) folderIdx(folderID string) (int64, error) {
 
 func (db *DB) deviceIdx(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
-	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES($1)`, devStr); err != nil {
+	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)
 	}
 	var idx int64
-	if err := db.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = $1`, devStr); err != nil {
+	if err := db.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = ?`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)
 	}
 
