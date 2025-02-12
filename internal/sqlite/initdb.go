@@ -16,12 +16,12 @@ import (
 var initScripts embed.FS
 
 var tplParams = map[string]any{
-	"FileInfoTypes": []int{
-		int(protocol.FileInfoTypeFile),
-		int(protocol.FileInfoTypeDirectory),
-		int(protocol.FileInfoTypeSymlink),
+	"FileInfoTypes": []int64{
+		int64(protocol.FileInfoTypeFile),
+		int64(protocol.FileInfoTypeDirectory),
+		int64(protocol.FileInfoTypeSymlink),
 	},
-	"LocalFlagBits": []int{
+	"LocalFlagBits": []int64{
 		0, // no flags set
 		protocol.FlagLocalUnsupported,
 		protocol.FlagLocalIgnored,

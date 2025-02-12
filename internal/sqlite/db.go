@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const flagNeed = 1 << 31 // synthetised local file that mark as needed
+const flagNeed int64 = 1 << 31 // synthetised local file that mark as needed
 
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
