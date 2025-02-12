@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	_ "embed"
@@ -9,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"strings"
-	"text/template"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
@@ -20,39 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-//go:embed init.sql
-var initStmtsTpl string
-
-// initStmtsTpl with the templating resolved
-var initStmts string
-
 const flagInSync = 1 << 15 // local file which is identical to global
-
-func init() {
-	tpl := template.Must(template.New("init").Parse(initStmtsTpl))
-	tplParams := map[string]any{
-		"FileInfoTypes": []int{
-			int(protocol.FileInfoTypeFile),
-			int(protocol.FileInfoTypeDirectory),
-			int(protocol.FileInfoTypeSymlink),
-		},
-		"LocalFlagBits": []int{
-			0, // no flags set
-			protocol.FlagLocalUnsupported,
-			protocol.FlagLocalIgnored,
-			protocol.FlagLocalMustRescan,
-			protocol.FlagLocalReceiveOnly,
-			flagInSync,
-		},
-		"FlagInSync": flagInSync,
-	}
-
-	buf := new(bytes.Buffer)
-	if err := tpl.Execute(buf, tplParams); err != nil {
-		panic(err)
-	}
-	initStmts = buf.String()
-}
 
 func Open(path string) (*DB, error) {
 	var err error
@@ -61,10 +26,8 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	for _, stmt := range strings.Split(initStmts, "\n;") {
-		if _, err := sqlDB.Exec(stmt); err != nil {
-			return nil, fmt.Errorf("init statements: %s: %w", stmt, err)
-		}
+	if err := initDB(sqlDB); err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
 	}
 
 	db := &DB{sql: sqlDB}

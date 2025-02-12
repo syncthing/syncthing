@@ -1,42 +1,3 @@
---- This init script is executed at startup to set up the database.
---- Statements must be separated by a semicolon by itself on a separate line.
-
-CREATE TABLE IF NOT EXISTS folders (
-    idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    folder_id TEXT NOT NULL UNIQUE
-) STRICT
-;
-
-CREATE TABLE IF NOT EXISTS devices (
-    idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL UNIQUE
-) STRICT
-;
-
---- Files
-CREATE TABLE IF NOT EXISTS files (
-    folder_idx INTEGER NOT NULL,
-    device_idx INTEGER NOT NULL, -- actual device ID, or LocalDeviceID, or GlobalDeviceID
-    sequence INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    type INTEGER NOT NULL, -- protocol.FileInfoType
-    modified INTEGER NOT NULL, -- Unix nanos
-    size INTEGER NOT NULL,
-    version TEXT NOT NULL,
-    deleted INTEGER NOT NULL, -- boolean
-    invalid INTEGER NOT NULL, -- boolean
-    local_flags  INTEGER NOT NULL,
-    fileinfo_protobuf BLOB NOT NULL,
-    PRIMARY KEY(folder_idx, device_idx, sequence),
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
-) STRICT
-;
-CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device_idx, name)
-;
-CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
-;
-
 --- Maintain size counts when files are added and removed
 CREATE TABLE IF NOT EXISTS sizes (
     folder_idx INTEGER NOT NULL,
@@ -105,20 +66,3 @@ END
 ;
 {{ end }}
 {{ end }}
-
---- Blocks
-CREATE TABLE IF NOT EXISTS blocks (
-    hash 			TEXT NOT NULL,
-    folder_idx 		INTEGER NOT NULL,
-    device_idx 		INTEGER NOT NULL,
-    file_sequence 	INTEGER NOT NULL,
-    offset  		INTEGER NOT NULL,
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
-) STRICT
-;
-CREATE INDEX IF NOT EXISTS blocks_hash ON blocks (hash)
-;
-CREATE UNIQUE INDEX IF NOT EXISTS blocks_block ON blocks (folder_idx, device_idx, file_sequence, offset)
-;
