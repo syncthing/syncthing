@@ -27,7 +27,7 @@ var tplParams = map[string]any{
 		protocol.FlagLocalIgnored,
 		protocol.FlagLocalMustRescan,
 		protocol.FlagLocalReceiveOnly,
-		flagInSync,
+		flagNeed,
 	},
 }
 

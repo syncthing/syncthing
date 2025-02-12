@@ -46,6 +46,10 @@ func (v *dbVector) Scan(value any) error {
 	if !ok {
 		return errors.New("not a string")
 	}
+	if str == "" {
+		v.Vector = protocol.Vector{}
+		return nil
+	}
 	vec, err := protocol.VectorFromString(str)
 	if err != nil {
 		return err

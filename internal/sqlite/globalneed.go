@@ -10,7 +10,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type globalEntry struct {
+type fileRow struct {
 	Name      string
 	FolderIdx int64 `db:"folder_idx"`
 	DeviceIdx int64 `db:"device_idx"`
@@ -21,45 +21,61 @@ type globalEntry struct {
 	Invalid   bool
 }
 
-func (db *DB) processNeed(tx *sqlx.Tx, folder, file string) error {
-	vals := iterStructs[globalEntry](tx.Queryx(`
-		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted, f.invalid FROM files f
-		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE f.name = $1 AND o.folder_id = $2`,
-		file, folder))
+func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
+	vals := iterStructs[fileRow](tx.Queryx(`
+		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid FROM files
+		WHERE folder_idx = ? AND name = ?`,
+		folderIdx, file))
 	es, err := iterCollect(vals)
 	if err != nil {
-		return err
+		return wrap("processNeed (select)", err)
 	}
 
 	// Sort the entries; the global entry is at the head of the list
-	slices.SortFunc(es, globalEntry.Compare)
+	slices.SortFunc(es, fileRow.Compare)
 
+	// Set the global entry as the one with the GlobalDeviceID
 	g := es[0]
 	if _, err := tx.Exec(`
 		INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, $1, $2, name, type, modified, size, version, deleted, invalid, local_flags | $3, fileinfo_protobuf FROM FILES
-		WHERE folder_idx = $4 AND device_idx = $5 AND sequence = $6`,
-		db.globalDeviceIdx, monotonicNano(), flagInSync, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
-		return wrap("processNeed", err)
+		SELECT folder_idx, ?, ?, name, type, modified, size, version, deleted, invalid, local_flags & ?, fileinfo_protobuf FROM FILES
+		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
+		db.globalDeviceIdx, monotonicNano(), ^flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
+		return wrap("processNeed (insert global)", err)
 	}
-	if _, err := tx.Exec(`
-		UPDATE files SET local_flags = local_flags | ?
-		WHERE folder_idx = ? AND name = ? AND version = ?`,
-		flagInSync, g.FolderIdx, g.Name, g.Version); err != nil {
-		return wrap("processNeed", err)
+
+	if hasLocalEntry := slices.ContainsFunc(es, func(e fileRow) bool { return e.DeviceIdx == db.localDeviceIdx }); !hasLocalEntry {
+		// Materialize a need file (need=true, invalid=true) for the
+		// local device so we can iterate them
+		if _, err := tx.Exec(`
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+		SELECT folder_idx, ?, ?, name, type, modified, size, "", deleted, invalid, ?, fileinfo_protobuf FROM FILES
+		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
+			db.localDeviceIdx, monotonicNano(), flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
+			return wrap("processNeed (insert local)", err)
+		}
 	}
+
+	// Clear the need flag on the other entries that have the same version vector
 	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags & ?
+		WHERE folder_idx = ? AND name = ? AND version = ?`,
+		^flagNeed, g.FolderIdx, g.Name, g.Version); err != nil {
+		return wrap("processNeed (clear need)", err)
+	}
+
+	// Set the need flag on all other entries (these are now on the need list)
+	if _, err := tx.Exec(`
+		UPDATE files SET local_flags = local_flags | ?
 		WHERE folder_idx = ? AND name = ? AND version != ?`,
-		^flagInSync, g.FolderIdx, g.Name, g.Version); err != nil {
-		return wrap("processNeed", err)
+		flagNeed, g.FolderIdx, g.Name, g.Version); err != nil {
+		return wrap("processNeed (set need)", err)
 	}
 
 	return nil
 }
 
-func (e globalEntry) Compare(other globalEntry) int {
+func (e fileRow) Compare(other fileRow) int {
 	// From FileInfo.WinsConflict
 	vc := e.Version.Vector.Compare(other.Version.Vector)
 	switch vc {

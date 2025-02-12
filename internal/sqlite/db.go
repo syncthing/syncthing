@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const flagInSync = 1 << 15 // local file which is identical to global
+const flagNeed = 1 << 31 // synthetised local file that mark as needed
 
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
@@ -69,7 +69,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 
 	var seq int64
 	if device == protocol.LocalDeviceID {
-		_ = db.sql.Get(&seq, `SELECT MAX(sequence) FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx)
+		_ = db.sql.Get(&seq, `SELECT MAX(sequence) FROM files WHERE folder_idx = ? AND device_idx = ?`, folderIdx, deviceIdx)
 	}
 
 	for _, f := range fs {
@@ -87,13 +87,13 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		// Update the file
 		if _, err := tx.Exec(`
 			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			folderIdx, deviceIdx, f.Sequence, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, bs); err != nil {
-			return wrap("update", err)
+			return wrap("update (insert file)", err)
 		}
 
 		// Update global and need
-		if err := db.processNeed(tx, folder, f.Name); err != nil {
+		if err := db.processNeed(tx, folderIdx, f.Name); err != nil {
 			return wrap("update", err)
 		}
 
@@ -103,7 +103,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, offset)
 			VALUES ($1, $2, $3, $4, $5)`,
 				hex.EncodeToString(b.Hash), folderIdx, deviceIdx, f.Sequence, b.Offset); err != nil {
-				return wrap("update", err)
+				return wrap("update (insert block)", err)
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func (db *DB) DropNames(folder string, device protocol.DeviceID, names []string)
 		if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2 AND name = $3`, folderIdx, deviceIdx, name); err != nil {
 			return wrap("remove", err)
 		}
-		if err := db.processNeed(tx, folder, name); err != nil {
+		if err := db.processNeed(tx, folderIdx, name); err != nil {
 			return wrap("remove", err)
 		}
 	}
@@ -168,7 +168,7 @@ func (db *DB) Local(folder string, device protocol.DeviceID, file string) (*prot
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.name = $3`,
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ? AND f.version != ""`,
 		folder, device.String(), file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
@@ -202,18 +202,12 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) ([]string, error) {
 	var names []string
 	err := db.sql.Select(&names, `
-		-- all global files
-		SELECT f.name FROM files f
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.device_idx = ?
-		-- except the ones already in sync for this device
-		EXCEPT
 		SELECT f.name FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0
 		`,
-		folder, db.globalDeviceIdx, folder, device.String(), flagInSync)
+		folder, device.String(), flagNeed)
 	return names, wrap("need", err)
 }
 
@@ -222,7 +216,7 @@ func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*proto
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = $1 AND d.device_id = $2`,
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.version != ""`,
 		folder, device.String()))
 	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
@@ -235,7 +229,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = $1 AND d.device_id = $2 AND f.sequence > $3
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence > ? AND f.version != ""
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
 	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
@@ -251,7 +245,7 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = $1 AND d.device_id = $2 AND (f.name = $3 OR f.name GLOB $4)`,
+		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name GLOB ?) AND f.version != ""`,
 		folder, device.String(), prefix, glob))
 	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
