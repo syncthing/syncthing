@@ -48,6 +48,7 @@ type folder struct {
 	model         *model
 	shortID       protocol.ShortID
 	fset          *db.FileSet
+	fdb           *sqlite.FolderDB
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
@@ -107,6 +108,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		model:         model,
 		shortID:       model.shortID,
 		fset:          fset,
+		fdb:           sqlite.NewFolderDB(model.sdb, cfg.ID),
 		ignores:       ignores,
 		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
@@ -647,7 +649,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{sdb: f.model.sdb, folder: f.folderID},
+		CurrentFiler:          cFiler{sdb: f.fdb},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -1371,13 +1373,12 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	sdb    *sqlite.DB
-	folder string
+	sdb *sqlite.FolderDB
 }
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := cf.sdb.Local(cf.folder, protocol.LocalDeviceID, file)
+	fi, ok, err := cf.sdb.Local(protocol.LocalDeviceID, file)
 	if err != nil || !ok {
 		return protocol.FileInfo{}, false
 	}

@@ -23,6 +23,7 @@ import (
 //go:embed init.sql
 var initStmtsTpl string
 
+// initStmtsTpl with the templating resolved
 var initStmts string
 
 func init() {
@@ -87,7 +88,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	if err != nil {
 		return wrap("update", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	folderIdx, err := db.folderIdx(folder)
 	if err != nil {
@@ -142,6 +143,34 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	return wrap("update", tx.Commit())
 }
 
+func (db *DB) Remove(folder string, device protocol.DeviceID, names []string) error {
+	folderIdx, err := db.folderIdx(folder)
+	if err != nil {
+		return wrap("remove", err)
+	}
+	deviceIdx, err := db.deviceIdx(device)
+	if err != nil {
+		return wrap("remove", err)
+	}
+
+	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
+	if err != nil {
+		return wrap("remove", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	for _, name := range names {
+		name = osutil.NormalizedFilename(name)
+		if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2 AND name = $3`, folderIdx, deviceIdx, name); err != nil {
+			return wrap("remove", err)
+		}
+		if err := db.processNeed(tx, folder, name); err != nil {
+			return wrap("remove", err)
+		}
+	}
+	return wrap("remove", tx.Commit())
+}
+
 func (db *DB) Drop(folder string, device protocol.DeviceID) error {
 	folderIdx, err := db.folderIdx(folder)
 	if err != nil {
@@ -156,8 +185,8 @@ func (db *DB) Drop(folder string, device protocol.DeviceID) error {
 	if err != nil {
 		return wrap("drop", err)
 	}
-	defer tx.Rollback()
-	if _, err := db.sql.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx); err != nil {
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx); err != nil {
 		return wrap("drop", err)
 	}
 	return wrap("drop", tx.Commit())

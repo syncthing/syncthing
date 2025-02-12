@@ -19,6 +19,10 @@ func (db *FolderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) err
 	return db.db.Update(db.folder, device, fs)
 }
 
+func (db *FolderDB) RemoveLocal(names []string) error {
+	return db.db.Remove(db.folder, protocol.LocalDeviceID, names)
+}
+
 func (db *FolderDB) Drop(device protocol.DeviceID) error {
 	return db.db.Drop(db.folder, device)
 }

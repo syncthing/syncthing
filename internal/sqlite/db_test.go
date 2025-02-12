@@ -29,9 +29,9 @@ func TestBasics(t *testing.T) {
 
 	// Some remote files
 	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
-		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42), Blocks: genBlocks(1)},
 		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
-		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42), Blocks: genBlocks(3)},
 	})
 	if err != nil {
 		t.Fatal(err)

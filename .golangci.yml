@@ -3,6 +3,7 @@ linters:
   disable:
     - cyclop
     - depguard
+    - err113
     - exhaustive
     - exhaustruct
     - funlen
@@ -12,6 +13,7 @@ linters:
     - gocognit
     - goconst
     - gocyclo
+    - godot
     - godox
     - gofmt
     - goimports
@@ -21,20 +23,20 @@ linters:
     - ireturn
     - lll
     - maintidx
+    - musttag
     - nestif
+    - nlreturn
     - nonamedreturns
     - paralleltest
+    - prealloc
     - protogetter
     - scopelint
     - tagalign
     - tagliatelle
     - testpackage
     - varnamelen
-    - wsl
-    - nlreturn
-    - prealloc
     - wrapcheck
-    - err113
+    - wsl
 
 issues:
   exclude-dirs:
