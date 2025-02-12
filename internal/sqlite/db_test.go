@@ -97,9 +97,9 @@ func TestBasics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(need) != 0 {
+		if len(need) != 1 {
 			t.Log(need)
-			t.Error("expected no files")
+			t.Error("expected one file")
 		}
 	})
 

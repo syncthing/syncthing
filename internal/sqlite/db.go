@@ -238,11 +238,18 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) ([]string, error) {
 	var names []string
 	err := db.sql.Select(&names, `
+		-- all global files
+		SELECT f.name FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND f.device_idx = ?
+		-- except the ones already in sync for this device
+		EXCEPT
 		SELECT f.name FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? = 0`,
-		folder, device.String(), flagInSync)
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0
+		`,
+		folder, db.globalDeviceIdx, folder, device.String(), flagInSync)
 	return names, wrap("need", err)
 }
 
