@@ -215,18 +215,6 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 	return &fi, true, nil
 }
 
-func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) ([]string, error) {
-	var names []string
-	err := db.sql.Select(&names, `
-		SELECT f.name FROM files f
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0
-		`,
-		folder, device.String(), flagNeed)
-	return names, wrap("need", err)
-}
-
 func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f

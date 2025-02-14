@@ -2,9 +2,8 @@ package sqlite
 
 import (
 	"cmp"
+	"iter"
 	"slices"
-	"sync/atomic"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -19,6 +18,18 @@ type fileRow struct {
 	Version   dbVector
 	Deleted   bool
 	Invalid   bool
+}
+
+func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) iter.Seq2[string, error] {
+	vals := iterStructs[fileRow](db.sql.Queryx(`
+		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted, f.invalid FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0
+		ORDER BY name ASC
+		`,
+		folder, device.String(), flagNeed))
+	return iterMap(vals, func(r fileRow) string { return r.Name })
 }
 
 func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
@@ -107,20 +118,5 @@ func (e fileRow) Compare(other fileRow) int {
 		return 1 // they win
 	default:
 		return 0
-	}
-}
-
-var lastNano atomic.Int64
-
-func monotonicNano() int64 {
-	t := time.Now().UnixNano()
-	for {
-		p := lastNano.Load()
-		if t <= p {
-			t = p + 1
-		}
-		if lastNano.CompareAndSwap(p, t) {
-			return t
-		}
 	}
 }
