@@ -67,29 +67,45 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		return wrap("update", err)
 	}
 
-	var seq int64
-	if device == protocol.LocalDeviceID {
-		_ = db.sql.Get(&seq, `SELECT MAX(sequence) FROM files WHERE folder_idx = ? AND device_idx = ?`, folderIdx, deviceIdx)
-	}
-
 	for _, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
-		if device == protocol.LocalDeviceID {
-			seq++
-			f.Sequence = seq
-		}
 
-		bs, err := proto.Marshal(f.ToWire(true))
-		if err != nil {
-			return wrap("update", err)
+		// Insert the file.
+		//
+		// If it is a remote file, set remote_sequence otherwise leave it at
+		// null and marshal the FileInfo for insertion. Returns the new
+		// local sequence.
+		bs := []byte{} // deliberately empty but not nil
+		var remoteSeq *int64
+		if device != protocol.LocalDeviceID {
+			remoteSeq = &f.Sequence
+			bs, err = proto.Marshal(f.ToWire(true))
+			if err != nil {
+				return wrap("update", err)
+			}
 		}
-
-		// Update the file
-		if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			folderIdx, deviceIdx, f.Sequence, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, bs); err != nil {
+		var localSeq int64
+		if err := tx.Get(&localSeq, `
+			INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			RETURNING sequence`,
+			folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, bs); err != nil {
 			return wrap("update (insert file)", err)
+		}
+
+		// If the update is for the local device we only got the sequence
+		// number after the insert above, so we now update the FileInfo and
+		// marshal it into the row with an update.
+		if device == protocol.LocalDeviceID {
+			f.Sequence = localSeq
+			bs, err = proto.Marshal(f.ToWire(true))
+			if err != nil {
+				return wrap("update", err)
+			}
+			if _, err := tx.Exec(`UPDATE files SET fileinfo_protobuf = ? WHERE sequence = ?`,
+				bs, localSeq); err != nil {
+				return wrap("update (update local file)", err)
+			}
 		}
 
 		// Update global and need
@@ -102,7 +118,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			if _, err := tx.Exec(`
 			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, offset)
 			VALUES ($1, $2, $3, $4, $5)`,
-				hex.EncodeToString(b.Hash), folderIdx, deviceIdx, f.Sequence, b.Offset); err != nil {
+				hex.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, b.Offset); err != nil {
 				return wrap("update (insert block)", err)
 			}
 		}

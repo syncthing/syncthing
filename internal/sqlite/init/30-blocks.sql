@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS blocks (
     offset  		INTEGER NOT NULL,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx, device_idx, file_sequence) REFERENCES files(folder_idx, device_idx, sequence) ON DELETE CASCADE
+    FOREIGN KEY(file_sequence) REFERENCES files(sequence) ON DELETE CASCADE
 ) STRICT
 ;
 CREATE INDEX IF NOT EXISTS blocks_hash ON blocks (hash)

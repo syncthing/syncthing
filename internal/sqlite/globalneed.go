@@ -37,10 +37,10 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 	// Set the global entry as the one with the GlobalDeviceID
 	g := es[0]
 	if _, err := tx.Exec(`
-		INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, ?, ?, name, type, modified, size, version, deleted, invalid, local_flags & ?, fileinfo_protobuf FROM FILES
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+		SELECT folder_idx, ?, name, type, modified, size, version, deleted, invalid, local_flags & ?, fileinfo_protobuf FROM FILES
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-		db.globalDeviceIdx, monotonicNano(), ^flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
+		db.globalDeviceIdx, ^flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
 		return wrap("processNeed (insert global)", err)
 	}
 
@@ -48,10 +48,10 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 		// Materialize a need file (need=true, invalid=true) for the
 		// local device so we can iterate them
 		if _, err := tx.Exec(`
-		INSERT OR REPLACE INTO files (folder_idx, device_idx, sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, ?, ?, name, type, modified, size, "", deleted, invalid, ?, fileinfo_protobuf FROM FILES
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+		SELECT folder_idx, ?, name, type, modified, size, "", deleted, invalid, ?, fileinfo_protobuf FROM FILES
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			db.localDeviceIdx, monotonicNano(), flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
+			db.localDeviceIdx, flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
 			return wrap("processNeed (insert local)", err)
 		}
 	}
