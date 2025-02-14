@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -29,9 +30,9 @@ func TestBasics(t *testing.T) {
 
 	// Some remote files
 	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
-		{Name: "test3", Sequence: 1, Size: 42, Version: v.Update(42), Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 2, Size: 42, Version: v.Update(42), Blocks: genBlocks(2)},
-		{Name: "test", Sequence: 3, Size: 42, Version: v.Update(42), Blocks: genBlocks(3)},
+		{Name: "test3", Sequence: 1, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
+		{Name: "test4", Sequence: 2, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test", Sequence: 3, Size: 300, ModifiedS: 200, Version: v.Update(42), Blocks: genBlocks(3)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +67,7 @@ func TestBasics(t *testing.T) {
 		if !ok {
 			t.Fatal("not found")
 		}
-		if fi.Size != 42 {
+		if fi.Size != 300 {
 			t.Fatal("should be the remote file")
 		}
 	})
@@ -85,16 +86,38 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
-		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID))
-		if len(need) != 3 {
+		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic))
+		if len(need) != 3 || need[0] != "test" {
 			t.Log(need)
-			t.Error("expected three files")
+			t.Error("expected three files, ordered alphabetically")
+		}
+
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst))
+		if len(need) != 3 || need[0] != "test" { // largest
+			t.Log(need)
+			t.Error("expected three files, ordered largest to smallest")
+		}
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst))
+		if len(need) != 3 || need[0] != "test3" { // smallest
+			t.Log(need)
+			t.Error("expected three files, ordered smallest to largest")
+		}
+
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst))
+		if len(need) != 3 || need[0] != "test3" { // newest
+			t.Log(need)
+			t.Error("expected three files, ordered newest to oldest")
+		}
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst))
+		if len(need) != 3 || need[0] != "test4" { // oldest
+			t.Log(need)
+			t.Error("expected three files, ordered oldest to newest")
 		}
 	})
 
 	t.Run("AllNeededNamesRemote", func(t *testing.T) {
 		t.Skip("materialized needs for remote devices not implemented")
-		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}))
+		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic))
 		if len(need) != 1 {
 			t.Log(need)
 			t.Error("expected one file")

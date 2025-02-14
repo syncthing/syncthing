@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -50,10 +51,10 @@ func (f *FolderDB) Global(file string) (*protocol.FileInfo, bool, error) {
 	return f.db.Global(f.folder, file)
 }
 
-func (f *FolderDB) AllNeededNames(device protocol.DeviceID) iter.Seq2[string, error] {
+func (f *FolderDB) AllNeededNames(device protocol.DeviceID, order config.PullOrder) iter.Seq2[string, error] {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
-	return f.db.AllNeededNames(f.folder, device)
+	return f.db.AllNeededNames(f.folder, device, order)
 }
 
 func (f *FolderDB) AllLocal(device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {

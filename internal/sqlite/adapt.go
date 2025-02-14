@@ -33,7 +33,7 @@ func (v *pbAdapter[T, PT]) Scan(value any) error {
 	return proto.Unmarshal(bs, v.Message)
 }
 
-type dbVector struct {
+type dbVector struct { //nolint:recvcheck
 	protocol.Vector
 }
 

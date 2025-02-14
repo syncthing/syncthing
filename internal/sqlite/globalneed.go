@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -15,21 +16,44 @@ type fileRow struct {
 	DeviceIdx int64 `db:"device_idx"`
 	Sequence  int64
 	Modified  int64
+	Size      int64
 	Version   dbVector
 	Deleted   bool
 	Invalid   bool
 }
 
-func (db *DB) AllNeededNames(folder string, device protocol.DeviceID) iter.Seq2[string, error] {
+func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder) iter.Seq2[string, error] {
+	var orderBy string
+	switch order {
+	case config.PullOrderRandom:
+		orderBy = "ORDER BY RANDOM()"
+	case config.PullOrderAlphabetic:
+		orderBy = "ORDER BY g.name ASC"
+	case config.PullOrderSmallestFirst:
+		orderBy = "ORDER BY g.size ASC"
+	case config.PullOrderLargestFirst:
+		orderBy = "ORDER BY g.size DESC"
+	case config.PullOrderOldestFirst:
+		orderBy = "ORDER BY g.modified ASC"
+	case config.PullOrderNewestFirst:
+		orderBy = "ORDER BY g.modified DESC"
+	}
+
+	// This somewhat tricky query selects the global files for each local
+	// file with the need bit, since the attributes we want to act on (like
+	// sorting on size) are those of the global file, while the needed file
+	// is the one we happen to already have or a blank synthetic one.
 	vals := iterStructs[fileRow](db.sql.Queryx(`
-		SELECT f.name, f.folder_idx, f.device_idx, f.sequence, f.modified, f.version, f.deleted, f.invalid FROM files f
+		SELECT g.name, g.modified, g.size FROM files g
+		INNER JOIN files f ON g.folder_idx = f.folder_idx AND g.name = f.name
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0
-		ORDER BY name ASC
-		`,
-		folder, device.String(), flagNeed))
-	return iterMap(vals, func(r fileRow) string { return r.Name })
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0 AND g.device_idx = ?
+		`+orderBy,
+		folder, device.String(), flagNeed, db.globalDeviceIdx))
+	return iterMap(vals, func(r fileRow) string {
+		return r.Name
+	})
 }
 
 func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
