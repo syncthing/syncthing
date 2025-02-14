@@ -150,8 +150,9 @@ type model struct {
 
 	// fields protected by mut
 	mut                            sync.RWMutex
-	folderCfgs                     map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles                    map[string]*db.FileSet                                 // folder -> files
+	folderCfgs                     map[string]config.FolderConfiguration // folder -> cfg
+	folderFiles                    map[string]*db.FileSet                // folder -> files
+	folderDBs                      map[string]*sqlite.FolderDB
 	deviceStatRefs                 map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores                  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners                  *serviceMap[string, service]                           // folder -> puller or scanner
@@ -232,6 +233,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *s
 		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
 		folderFiles:                    make(map[string]*db.FileSet),
+		folderDBs:                      make(map[string]*sqlite.FolderDB),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
 		folderRunners:                  newServiceMap[string, service](evLogger),
@@ -330,7 +332,7 @@ func (m *model) fatal(err error) {
 }
 
 // Need to hold lock on m.mut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, fdb *sqlite.FolderDB, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
@@ -338,13 +340,14 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db
 		}
 	}
 
-	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
+	m.addAndStartFolderLockedWithIgnores(cfg, fset, fdb, ignores)
 }
 
 // Only needed for testing, use addAndStartFolderLocked instead.
-func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, ignores *ignore.Matcher) {
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher) {
 	m.folderCfgs[cfg.ID] = cfg
 	m.folderFiles[cfg.ID] = fset
+	m.folderDBs[cfg.ID] = fdb
 	m.folderIgnores[cfg.ID] = ignores
 
 	_, ok := m.folderRunners.Get(cfg.ID)
@@ -530,6 +533,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 
 	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
 	fset := m.folderFiles[folder]
+	fdb := m.folderDBs[folder]
 	fsetNil := fset == nil
 
 	m.cleanupFolderLocked(from)
@@ -543,8 +547,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			if err != nil {
 				return fmt.Errorf("restarting %v: %w", to.Description(), err)
 			}
+			fdb = sqlite.NewFolderDB(m.sdb, folder)
 		}
-		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
+		m.addAndStartFolderLocked(to, fset, fdb, cacheIgnoredFiles)
 	}
 
 	runner, _ := m.folderRunners.Get(to.ID)
@@ -578,8 +583,9 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	if err != nil {
 		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
 	}
+	folderDB := sqlite.NewFolderDB(m.sdb, cfg.ID)
 
-	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
+	m.addAndStartFolderLocked(cfg, fset, folderDB, cacheIgnoredFiles)
 
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start

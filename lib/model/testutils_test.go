@@ -300,9 +300,10 @@ func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderCon
 	t.Helper()
 	m.removeFolder(fcfg)
 	fset := newFileSet(t, fcfg.ID, m.db)
+	fdb := sqlite.NewFolderDB(m.sdb, fcfg.ID)
 	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.mut.Lock()
-	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
+	m.addAndStartFolderLockedWithIgnores(fcfg, fset, fdb, ignores)
 	m.mut.Unlock()
 }
 
