@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -28,8 +29,8 @@ type receiveEncryptedFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+func newReceiveEncryptedFolder(model *model, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fset, fdb, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
 	f.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return f
 }
@@ -49,11 +50,6 @@ func (f *receiveEncryptedFolder) revert() error {
 		return nil
 	})
 
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Release()
 	var iterErr error
 	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
@@ -88,7 +84,7 @@ func (f *receiveEncryptedFolder) revert() error {
 		return true
 	})
 
-	f.revertHandleDirs(dirs, snap)
+	f.revertHandleDirs(dirs)
 
 	if iterErr != nil {
 		return iterErr
@@ -103,7 +99,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	return nil
 }
 
-func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
+func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string) {
 	if len(dirs) == 0 {
 		return
 	}
@@ -114,7 +110,7 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapsh
 
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	for _, dir := range dirs {
-		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
+		if err := f.deleteDirOnDisk(dir, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
 		scanChan <- dir

@@ -98,7 +98,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -108,7 +108,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		model:         model,
 		shortID:       model.shortID,
 		fset:          fset,
-		fdb:           sqlite.NewFolderDB(model.sdb, cfg.ID),
+		fdb:           fdb,
 		ignores:       ignores,
 		mtimefs:       cfg.Filesystem(fset),
 		modTimeWindow: cfg.ModTimeWindow(),
@@ -371,15 +371,13 @@ func (f *folder) pull() (success bool, err error) {
 
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return false, err
-	}
-	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileInfo) bool {
+	for _, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
+		if err != nil {
+			return false, err
+		}
 		abort = false
-		return false
-	})
-	snap.Release()
+		break
+	}
 	if abort {
 		// Clears pull failures on items that were needed before, but aren't anymore.
 		f.errorsMut.Lock()
@@ -573,21 +571,28 @@ func (b *scanBatch) Remove(item string) {
 	b.toRemove = append(b.toRemove, item)
 }
 
-func (b *scanBatch) flushToRemove() {
+func (b *scanBatch) flushToRemove() error {
 	if len(b.toRemove) > 0 {
-		b.f.fset.RemoveLocalItems(b.toRemove)
+		if err := b.f.fdb.Drop(protocol.LocalDeviceID, b.toRemove); err != nil {
+			return err
+		}
 		b.toRemove = b.toRemove[:0]
 	}
+	return nil
 }
 
 func (b *scanBatch) Flush() error {
-	b.flushToRemove()
+	if err := b.flushToRemove(); err != nil {
+		return err
+	}
 	return b.updateBatch.Flush()
 }
 
 func (b *scanBatch) FlushIfFull() error {
 	if len(b.toRemove) >= maxToRemove {
-		b.flushToRemove()
+		if err := b.flushToRemove(); err != nil {
+			return err
+		}
 	}
 	return b.updateBatch.FlushIfFull()
 }
@@ -649,7 +654,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{sdb: f.fdb},
+		CurrentFiler:          cFiler{fdb: f.fdb},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -1231,8 +1236,10 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) {
 	f.emitDiskChangeEvents(fs, events.RemoteChangeDetected)
 }
 
-func (f *folder) updateLocals(fs []protocol.FileInfo) {
-	f.fset.Update(protocol.LocalDeviceID, fs)
+func (f *folder) updateLocals(fs []protocol.FileInfo) error {
+	if err := f.fdb.Update(protocol.LocalDeviceID, fs); err != nil {
+		return err
+	}
 
 	filenames := make([]string, len(fs))
 	f.forcedRescanPathsMut.Lock()
@@ -1243,7 +1250,10 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
-	seq := f.fset.Sequence(protocol.LocalDeviceID)
+	seq, err := f.fdb.Sequence(protocol.LocalDeviceID)
+	if err != nil {
+		return err
+	}
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
@@ -1251,6 +1261,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		"sequence":  seq,
 		"version":   seq, // legacy for sequence
 	})
+	return nil
 }
 
 func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events.EventType) {
@@ -1298,30 +1309,26 @@ func (f *folder) handleForcedRescans() error {
 	}
 
 	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
-		f.fset.Update(protocol.LocalDeviceID, fs)
-		return nil
+		return f.fdb.Update(protocol.LocalDeviceID, fs)
 	})
-
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Release()
 
 	for _, path := range paths {
 		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
 
-		fi, ok := snap.Get(protocol.LocalDeviceID, path)
+		fi, ok, err := f.fdb.Local(protocol.LocalDeviceID, path)
+		if err != nil {
+			return err
+		}
 		if !ok {
 			continue
 		}
 		fi.SetMustRescan()
-		batch.Append(fi)
+		batch.Append(*fi)
 	}
 
-	if err = batch.Flush(); err != nil {
+	if err := batch.Flush(); err != nil {
 		return err
 	}
 
@@ -1373,12 +1380,12 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	sdb *sqlite.FolderDB
+	fdb *sqlite.FolderDB
 }
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := cf.sdb.Local(protocol.LocalDeviceID, file)
+	fi, ok, err := cf.fdb.Local(protocol.LocalDeviceID, file)
 	if err != nil || !ok {
 		return protocol.FileInfo{}, false
 	}

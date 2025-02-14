@@ -176,7 +176,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
+type folderFactory func(*model, *db.FileSet, *sqlite.FolderDB, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -415,7 +415,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-	p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, fset, fdb, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
 	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
@@ -2875,46 +2875,42 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
-	fs, ok := m.folderFiles[folder]
-	cfg := m.folderCfgs[folder]
-
+	cfg, ok := m.folderCfgs[folder]
 	if !ok {
 		return nil, ErrFolderMissing
 	}
 
-	snap, err := fs.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Release()
-
-	return m.blockAvailabilityRLocked(cfg, snap, file, block), nil
+	return m.blockAvailabilityRLocked(cfg, file, block), nil
 }
 
-func (m *model) blockAvailability(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+func (m *model) blockAvailability(cfg config.FolderConfiguration, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
-	return m.blockAvailabilityRLocked(cfg, snap, file, block)
+	return m.blockAvailabilityRLocked(cfg, file, block)
 }
 
-func (m *model) blockAvailabilityRLocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
+func (m *model) blockAvailabilityRLocked(cfg config.FolderConfiguration, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	var candidates []Availability
 
-	candidates = append(candidates, m.fileAvailabilityRLocked(cfg, snap, file)...)
+	candidates = append(candidates, m.fileAvailabilityRLocked(cfg, file)...)
 	candidates = append(candidates, m.blockAvailabilityFromTemporaryRLocked(cfg, file, block)...)
 
 	return candidates
 }
 
-func (m *model) fileAvailability(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo) []Availability {
+func (m *model) fileAvailability(cfg config.FolderConfiguration, file protocol.FileInfo) []Availability {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
-	return m.fileAvailabilityRLocked(cfg, snap, file)
+	return m.fileAvailabilityRLocked(cfg, file)
 }
 
-func (m *model) fileAvailabilityRLocked(cfg config.FolderConfiguration, snap *db.Snapshot, file protocol.FileInfo) []Availability {
+func (m *model) fileAvailabilityRLocked(cfg config.FolderConfiguration, file protocol.FileInfo) []Availability {
 	var availabilities []Availability
-	for _, device := range snap.Availability(file.Name) {
+	devs, err := m.sdb.Availability(cfg.ID, file.Name)
+	if err != nil {
+		return nil
+	}
+	for _, device := range devs {
 		if _, ok := m.remoteFolderStates[device]; !ok {
 			continue
 		}

@@ -27,10 +27,10 @@ func (f *FolderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 	return f.db.Update(f.folder, device, fs)
 }
 
-func (f *FolderDB) Drop(device protocol.DeviceID) error {
+func (f *FolderDB) Drop(device protocol.DeviceID, names []string) error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
-	return f.db.Drop(f.folder, device)
+	return f.db.Drop(f.folder, device, names)
 }
 
 func (f *FolderDB) DropNames(names []string) error {
@@ -39,22 +39,34 @@ func (f *FolderDB) DropNames(names []string) error {
 	return f.db.DropNames(f.folder, protocol.LocalDeviceID, names)
 }
 
-func (f *FolderDB) Local(device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
+func (f *FolderDB) Local(device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
 	return f.db.Local(f.folder, device, file)
 }
 
-func (f *FolderDB) Global(file string) (*protocol.FileInfo, bool, error) {
+func (f *FolderDB) Global(file string) (protocol.FileInfo, bool, error) {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
 	return f.db.Global(f.folder, file)
 }
 
-func (f *FolderDB) AllNeededNames(device protocol.DeviceID, order config.PullOrder) iter.Seq2[string, error] {
+func (f *FolderDB) Sequence(device protocol.DeviceID) (int64, error) {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
-	return f.db.AllNeededNames(f.folder, device, order)
+	return f.db.Sequence(f.folder, device)
+}
+
+func (f *FolderDB) AllNeededNames(device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.AllNeededNames(f.folder, device, order, limit)
+}
+
+func (f *FolderDB) Availability(file string) ([]protocol.DeviceID, error) {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.Availability(f.folder, file)
 }
 
 func (f *FolderDB) AllLocal(device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {

@@ -86,29 +86,35 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
-		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic))
+		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 		if len(need) != 3 || need[0] != "test" {
 			t.Log(need)
 			t.Error("expected three files, ordered alphabetically")
 		}
 
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst))
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1))
+		if len(need) != 1 || need[0] != "test" {
+			t.Log(need)
+			t.Error("expected one file, limited, ordered alphabetically")
+		}
+
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0))
 		if len(need) != 3 || need[0] != "test" { // largest
 			t.Log(need)
 			t.Error("expected three files, ordered largest to smallest")
 		}
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst))
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0))
 		if len(need) != 3 || need[0] != "test3" { // smallest
 			t.Log(need)
 			t.Error("expected three files, ordered smallest to largest")
 		}
 
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst))
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0))
 		if len(need) != 3 || need[0] != "test3" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst))
+		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0))
 		if len(need) != 3 || need[0] != "test4" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
@@ -117,12 +123,82 @@ func TestBasics(t *testing.T) {
 
 	t.Run("AllNeededNamesRemote", func(t *testing.T) {
 		t.Skip("materialized needs for remote devices not implemented")
-		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic))
+		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 		if len(need) != 1 {
 			t.Log(need)
 			t.Error("expected one file")
 		}
 	})
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAvailability(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "basics.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const folderID = "test"
+	fdb := NewFolderDB(db, folderID)
+
+	// Some local files
+	var v protocol.Vector
+	v = v.Update(1)
+	err = fdb.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "test1", Size: 100, ModifiedS: 100, Version: v, Blocks: genBlocks(1)},
+		{Name: "test2", Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(2)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Some remote files
+	err = fdb.Update(protocol.DeviceID{42}, []protocol.FileInfo{
+		{Name: "test2", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
+		{Name: "test3", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Further remote files
+	err = fdb.Update(protocol.DeviceID{45}, []protocol.FileInfo{
+		{Name: "test3", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
+		{Name: "test4", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := fdb.Availability("test1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 0 {
+		t.Log(a)
+		t.Error("expected no availability (only local)")
+	}
+
+	a, err = fdb.Availability("test2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 1 || a[0] != (protocol.DeviceID{42}) {
+		t.Log(a)
+		t.Error("expected one availability (only 42)")
+	}
+
+	a, err = fdb.Availability("test3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 2 || a[0] != (protocol.DeviceID{42}) || a[1] != (protocol.DeviceID{45}) {
+		t.Log(a)
+		t.Error("expected two availabilities (both remotes)")
+	}
 
 	if err := db.Close(); err != nil {
 		t.Fatal(err)

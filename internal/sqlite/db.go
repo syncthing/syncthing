@@ -155,7 +155,11 @@ func (db *DB) DropNames(folder string, device protocol.DeviceID, names []string)
 	return wrap("remove", tx.Commit())
 }
 
-func (db *DB) Drop(folder string, device protocol.DeviceID) error {
+func (db *DB) Drop(folder string, device protocol.DeviceID, names []string) error {
+	for i := range names {
+		names[i] = osutil.NormalizedFilename(names[i])
+	}
+
 	folderIdx, err := db.folderIdx(folder)
 	if err != nil {
 		return wrap("drop", err)
@@ -170,13 +174,13 @@ func (db *DB) Drop(folder string, device protocol.DeviceID) error {
 		return wrap("drop", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
-	if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2`, folderIdx, deviceIdx); err != nil {
+	if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = ? AND device_idx = ? AND name in ?`, folderIdx, deviceIdx, names); err != nil {
 		return wrap("drop", err)
 	}
 	return wrap("drop", tx.Commit())
 }
 
-func (db *DB) Local(folder string, device protocol.DeviceID, file string) (*protocol.FileInfo, bool, error) {
+func (db *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var bfi bep.FileInfo
@@ -187,16 +191,15 @@ func (db *DB) Local(folder string, device protocol.DeviceID, file string) (*prot
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ? AND f.version != ""`,
 		folder, device.String(), file)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, false, nil
+		return protocol.FileInfo{}, false, nil
 	}
 	if err != nil {
-		return nil, false, wrap("get", err)
+		return protocol.FileInfo{}, false, wrap("get", err)
 	}
-	fi := protocol.FileInfoFromDB(&bfi)
-	return &fi, true, nil
+	return protocol.FileInfoFromDB(&bfi), true, nil
 }
 
-func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, error) {
+func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var bfi bep.FileInfo
@@ -205,14 +208,31 @@ func (db *DB) Global(folder string, file string) (*protocol.FileInfo, bool, erro
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.device_idx = ? AND f.name = ?`, folder, db.globalDeviceIdx, file)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, false, nil
+		return protocol.FileInfo{}, false, nil
 	}
 	if err != nil {
-		return nil, false, wrap("global", err)
+		return protocol.FileInfo{}, false, wrap("global", err)
 	}
 
-	fi := protocol.FileInfoFromDB(&bfi)
-	return &fi, true, nil
+	return protocol.FileInfoFromDB(&bfi), true, nil
+}
+
+func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
+	var seq int64
+	field := "sequence"
+	if device != protocol.LocalDeviceID {
+		field = "remote_sequence"
+	}
+	err := db.sql.Get(seq, fmt.Sprintf(`
+		SELECT MAX(f.%s) FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = ? AND d.device = ?`, field),
+		folder, device.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return seq, nil
 }
 
 func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {

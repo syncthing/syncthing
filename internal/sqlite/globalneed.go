@@ -2,11 +2,15 @@ package sqlite
 
 import (
 	"cmp"
+	"database/sql"
+	"errors"
+	"fmt"
 	"iter"
 	"slices"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -22,7 +26,7 @@ type fileRow struct {
 	Invalid   bool
 }
 
-func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder) iter.Seq2[string, error] {
+func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
 	var orderBy string
 	switch order {
 	case config.PullOrderRandom:
@@ -39,6 +43,11 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 		orderBy = "ORDER BY g.modified DESC"
 	}
 
+	var limitStr string
+	if limit > 0 {
+		limitStr = fmt.Sprintf(" LIMIT %d", limit)
+	}
+
 	// This somewhat tricky query selects the global files for each local
 	// file with the need bit, since the attributes we want to act on (like
 	// sorting on size) are those of the global file, while the needed file
@@ -49,11 +58,42 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0 AND g.device_idx = ?
-		`+orderBy,
+		`+orderBy+limitStr,
 		folder, device.String(), flagNeed, db.globalDeviceIdx))
 	return iterMap(vals, func(r fileRow) string {
 		return r.Name
 	})
+}
+
+func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
+	file = osutil.NormalizedFilename(file)
+
+	var devStrs []string
+	err := db.sql.Select(&devStrs, `
+		SELECT d.device_id FROM files f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN files g ON f.folder_idx = g.folder_idx AND g.version = f.version AND g.name = f.name
+		WHERE o.folder_id = ? AND g.device_idx = ? AND g.name = ? AND f.device_idx != ? AND f.device_idx != ?
+		ORDER BY d.device_id`,
+		folder, db.globalDeviceIdx, file, db.localDeviceIdx, db.globalDeviceIdx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, wrap("availability", err)
+	}
+
+	devs := make([]protocol.DeviceID, 0, len(devStrs))
+	for _, s := range devStrs {
+		d, err := protocol.DeviceIDFromString(s)
+		if err != nil {
+			return nil, err
+		}
+		devs = append(devs, d)
+	}
+
+	return devs, nil
 }
 
 func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
