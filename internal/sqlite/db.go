@@ -11,12 +11,11 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
+	olddb "github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
 )
-
-const flagNeed int64 = 1 << 31 // synthetised local file that mark as needed
 
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
@@ -69,6 +68,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 
 	for _, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
+
+		if f.Deleted {
+			f.LocalFlags |= protocol.FlagLocalDeleted
+		}
 
 		// Insert the file.
 		//
@@ -275,6 +278,45 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
 	})
+}
+
+func (db *DB) DeviceCounts(folder string, device protocol.DeviceID) olddb.Counts {
+	type r struct {
+		Type    protocol.FileInfoType
+		Count   int
+		Size    int64
+		FlagBit int64 `db:"flag_bit"`
+	}
+	var res []r
+	err := db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		INNER JOIN devices d ON d.idx = s.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ?
+	`, folder, device.String())
+	if err != nil {
+		return olddb.Counts{}
+	}
+
+	c := olddb.Counts{
+		DeviceID: protocol.LocalDeviceID,
+	}
+	for _, r := range res {
+		switch {
+		case r.FlagBit|protocol.FlagLocalDeleted != 0:
+			c.Deleted += r.Count
+		case r.Type == protocol.FileInfoTypeFile:
+			c.Files += r.Count
+			c.Bytes += r.Size
+		case r.Type == protocol.FileInfoTypeDirectory:
+			c.Directories += r.Count
+			c.Bytes += r.Size
+		case r.Type == protocol.FileInfoTypeSymlink:
+			c.Symlinks += r.Count
+			c.Bytes += r.Size
+		}
+	}
+	return c
 }
 
 func (db *DB) folderIdx(folderID string) (int64, error) {

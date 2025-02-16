@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/syncthing/syncthing/lib/config"
+	olddb "github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -85,4 +86,12 @@ func (f *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) ite
 	f.mut.RLock()
 	defer f.mut.RUnlock()
 	return f.db.AllLocalPrefixed(f.folder, device, prefix)
+}
+
+func (f *FolderDB) LocalSize() olddb.Counts {
+	return f.db.DeviceCounts(f.folder, protocol.LocalDeviceID)
+}
+
+func (f *FolderDB) GlobalSize() olddb.Counts {
+	return f.db.DeviceCounts(f.folder, protocol.GlobalDeviceID)
 }

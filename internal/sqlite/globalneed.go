@@ -27,6 +27,12 @@ type fileRow struct {
 }
 
 func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
+	if device != protocol.LocalDeviceID {
+		return func(yield func(string, error) bool) {
+			yield("", errors.New("only implemented for local device"))
+		}
+	}
+
 	var orderBy string
 	switch order {
 	case config.PullOrderRandom:
@@ -48,18 +54,13 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 		limitStr = fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	// This somewhat tricky query selects the global files for each local
-	// file with the need bit, since the attributes we want to act on (like
-	// sorting on size) are those of the global file, while the needed file
-	// is the one we happen to already have or a blank synthetic one.
+	// Select all the files for the global device where the need bit is set.
 	vals := iterStructs[fileRow](db.sql.Queryx(`
 		SELECT g.name, g.modified, g.size FROM files g
-		INNER JOIN files f ON g.folder_idx = f.folder_idx AND g.name = f.name
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.local_flags & ? != 0 AND g.device_idx = ?
+		INNER JOIN folders o ON o.idx = g.folder_idx
+		WHERE o.folder_id = ? AND g.device_idx = ? AND g.local_flags & ? != 0
 		`+orderBy+limitStr,
-		folder, device.String(), flagNeed, db.globalDeviceIdx))
+		folder, db.globalDeviceIdx, protocol.FlagLocalNeeded))
 	return iterMap(vals, func(r fileRow) string {
 		return r.Name
 	})
@@ -105,37 +106,38 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 	if err != nil {
 		return wrap("processNeed (select)", err)
 	}
+	if len(es) == 0 {
+		// shouldn't happen
+		return nil
+	}
 
 	// Sort the entries; the global entry is at the head of the list
 	slices.SortFunc(es, fileRow.Compare)
 
-	// Set the global entry as the one with the GlobalDeviceID
-	g := es[0]
+	global := es[0]
+	hasLocal := slices.ContainsFunc(es, func(e fileRow) bool {
+		return e.DeviceIdx == db.localDeviceIdx && e.Version.Vector.Equal(global.Version.Vector)
+	})
+
+	// Set the global entry as the one with the GlobalDeviceID. Set the need
+	// flag if the local device needs this file.
+	flags := 0
+	if !hasLocal {
+		flags = protocol.FlagLocalNeeded
+	}
 	if _, err := tx.Exec(`
 		INSERT OR REPLACE INTO files (folder_idx, device_idx, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, ?, name, type, modified, size, version, deleted, invalid, local_flags & ?, fileinfo_protobuf FROM FILES
+		SELECT folder_idx, ?, name, type, modified, size, version, deleted, invalid, local_flags & ? | ?, fileinfo_protobuf FROM FILES
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-		db.globalDeviceIdx, ^flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
+		db.globalDeviceIdx, ^flags, flags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
 		return wrap("processNeed (insert global)", err)
 	}
 
-	if hasLocalEntry := slices.ContainsFunc(es, func(e fileRow) bool { return e.DeviceIdx == db.localDeviceIdx }); !hasLocalEntry {
-		// Materialize a need file (need=true, invalid=true) for the
-		// local device so we can iterate them
-		if _, err := tx.Exec(`
-		INSERT OR REPLACE INTO files (folder_idx, device_idx, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, ?, name, type, modified, size, "", deleted, invalid, ?, fileinfo_protobuf FROM FILES
-		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			db.localDeviceIdx, flagNeed, g.FolderIdx, g.DeviceIdx, g.Sequence); err != nil {
-			return wrap("processNeed (insert local)", err)
-		}
-	}
-
-	// Clear the need flag on the other entries that have the same version vector
+	// Clear the need flag on non-global entries that have the same version vector
 	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags & ?
-		WHERE folder_idx = ? AND name = ? AND version = ?`,
-		^flagNeed, g.FolderIdx, g.Name, g.Version); err != nil {
+		WHERE folder_idx = ? AND name = ? AND version = ? AND device_idx != ?`,
+		^protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version, db.globalDeviceIdx); err != nil {
 		return wrap("processNeed (clear need)", err)
 	}
 
@@ -143,9 +145,11 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags | ?
 		WHERE folder_idx = ? AND name = ? AND version != ?`,
-		flagNeed, g.FolderIdx, g.Name, g.Version); err != nil {
+		protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version); err != nil {
 		return wrap("processNeed (set need)", err)
 	}
+
+	// XXX: Files that are missing on remote devices are not represented at this point.
 
 	return nil
 }
