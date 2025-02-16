@@ -577,7 +577,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	}
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, _, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX error
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -588,7 +588,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// that don't result in a conflict.
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
-		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, hasCurFile, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX: error
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
@@ -714,7 +714,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 }
 
 // handleSymlink creates or updates the given symlink
-func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, jsdbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -737,7 +737,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, jsdbUpdateChan
 	}()
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, _, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX error
 		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -779,7 +779,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		return err
 	}
 	// Check that it is what we have in the database.
-	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+	curFile, hasCurFile, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX error
 	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 		return err
 	}
@@ -825,7 +825,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		})
 	}()
 
-	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+	cur, hasCur, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX error
 
 	if err = f.checkToBeDeleted(file, cur, hasCur, scanChan); err != nil {
 		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
@@ -844,7 +844,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 
 // deleteFile attempts to delete the given file
 func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+	cur, hasCur, _ := f.fdb.Local(protocol.LocalDeviceID, file.Name) // XXX error
 	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
 }
 
@@ -965,7 +965,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
-	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
+	curTarget, ok, _ := f.fdb.Local(protocol.LocalDeviceID, target.Name) // XXX error
 	switch stat, serr := f.mtimefs.Lstat(target.Name); {
 	case serr != nil:
 		var caseErr *fs.ErrCaseConflict
@@ -1132,6 +1132,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		have:              len(have),
 	}
 	copyChan <- cs
+	return nil
 }
 
 func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {

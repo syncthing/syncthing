@@ -52,18 +52,21 @@ func (f *receiveEncryptedFolder) revert() error {
 
 	var iterErr error
 	var dirs []string
-	snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
+	for fi, err := range f.fdb.AllLocal(protocol.LocalDeviceID) {
+		if err != nil {
+			return err
+		}
 		if iterErr = batch.FlushIfFull(); iterErr != nil {
-			return false
+			return err
 		}
 
 		if !fi.IsReceiveOnlyChanged() || fi.IsDeleted() {
-			return true
+			continue
 		}
 
 		if fi.IsDirectory() {
 			dirs = append(dirs, fi.Name)
-			return true
+			continue
 		}
 
 		if err := f.inWritableDir(f.mtimefs.Remove, fi.Name); err != nil && !fs.IsNotExist(err) {
@@ -79,10 +82,8 @@ func (f *receiveEncryptedFolder) revert() error {
 		// item should still not be sent in index updates. However being
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
-		batch.Append(fi)
-
-		return true
-	})
+		batch.Append(*fi)
+	}
 
 	f.revertHandleDirs(dirs)
 

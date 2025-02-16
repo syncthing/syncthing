@@ -1325,7 +1325,7 @@ func (f *folder) handleForcedRescans() error {
 			continue
 		}
 		fi.SetMustRescan()
-		batch.Append(*fi)
+		batch.Append(fi)
 	}
 
 	if err := batch.Flush(); err != nil {
@@ -1389,5 +1389,5 @@ func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	if err != nil || !ok {
 		return protocol.FileInfo{}, false
 	}
-	return *fi, true
+	return fi, true
 }

@@ -150,7 +150,7 @@ func TestHandleFile(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, fsetSnapshot(t, f.fset), copyChan)
+	f.handleFile(requiredFile, copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -196,7 +196,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, fsetSnapshot(t, f.fset), copyChan)
+	f.handleFile(requiredFile, copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -252,7 +252,7 @@ func TestCopierFinder(t *testing.T) {
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 	defer close(copyChan)
 
-	f.handleFile(requiredFile, fsetSnapshot(t, f.fset), copyChan)
+	f.handleFile(requiredFile, copyChan)
 
 	timeout := time.After(10 * time.Second)
 	pulls := make([]pullBlockState, 4)
@@ -384,7 +384,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, fsetSnapshot(t, fo.fset), copyChan)
+	fo.handleFile(desiredFile, copyChan)
 
 	var pulls []pullBlockState
 	timeout := time.After(10 * time.Second)
@@ -413,7 +413,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, fsetSnapshot(t, fo.fset), copyChan)
+	fo.handleFile(desiredFile, copyChan)
 
 	pulls = pulls[:0]
 	for len(pulls) < expectPulls {
@@ -494,10 +494,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState, 1)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	snap := fsetSnapshot(t, f.fset)
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
-	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 
 	defer func() {
 		close(copyChan)
@@ -507,7 +506,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copyChan)
+	f.handleFile(file, copyChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -594,16 +593,15 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	snap := fsetSnapshot(t, f.fset)
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
 	pullWg := sync.NewWaitGroup()
 	pullWg.Add(1)
 	go func() {
-		f.pullerRoutine(snap, pullChan, finisherBufferChan)
+		f.pullerRoutine(pullChan, finisherBufferChan)
 		pullWg.Done()
 	}()
-	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 	defer func() {
 		// Unblock copier and puller
 		go func() {
@@ -618,7 +616,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copyChan)
+	f.handleFile(file, copyChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -700,7 +698,7 @@ func TestIssue3164(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.deleteDir(file, fsetSnapshot(t, f.fset), dbUpdateChan, make(chan string))
+	f.deleteDir(file, dbUpdateChan, make(chan string))
 
 	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
@@ -835,7 +833,7 @@ func TestCopyOwner(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, fsetSnapshot(t, f.fset), dbUpdateChan, scanChan)
+	f.handleDir(dir, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan: // empty the channel for later
 	case toScan := <-scanChan:
@@ -865,17 +863,16 @@ func TestCopyOwner(t *testing.T) {
 	// but it's the way data is passed around. When the database update
 	// comes the finisher is done.
 
-	snap := fsetSnapshot(t, f.fset)
 	finisherChan := make(chan *sharedPullerState)
 	copierChan, copyWg := startCopier(f, nil, finisherChan)
-	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, nil)
+	go f.finisherRoutine(finisherChan, dbUpdateChan, nil)
 	defer func() {
 		close(copierChan)
 		copyWg.Wait()
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copierChan)
+	f.handleFile(file, copierChan)
 	<-dbUpdateChan
 
 	info, err = f.mtimefs.Lstat("foo/bar/baz")
@@ -894,7 +891,7 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: []byte("over the rainbow"),
 	}
 
-	f.handleSymlink(symlink, snap, dbUpdateChan, scanChan)
+	f.handleSymlink(symlink, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan:
 	case toScan := <-scanChan:
@@ -933,7 +930,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleDir(file, fsetSnapshot(t, f.fset), dbUpdateChan, scanChan)
+	f.handleDir(file, dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
@@ -966,7 +963,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleSymlink(file, fsetSnapshot(t, f.fset), dbUpdateChan, scanChan)
+	f.handleSymlink(file, dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
@@ -996,7 +993,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	fi.Version = fi.Version.Update(device1.Short())
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	f.deleteFile(fi, fsetSnapshot(t, f.fset), dbUpdateChan, scanChan)
+	f.deleteFile(fi, dbUpdateChan, scanChan)
 	select {
 	case f := <-scanChan:
 		t.Fatalf("Received %v on scanChan", f)
@@ -1026,7 +1023,7 @@ func TestPullCtxCancel(t *testing.T) {
 	var cancel context.CancelFunc
 	f.ctx, cancel = context.WithCancel(context.Background())
 
-	go f.pullerRoutine(fsetSnapshot(t, f.fset), pullChan, finisherChan)
+	go f.pullerRoutine(pullChan, finisherChan)
 	defer close(pullChan)
 
 	emptyState := func() pullBlockState {
@@ -1072,7 +1069,7 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.deleteDir(fi, fsetSnapshot(t, f.fset), dbUpdateChan, scanChan)
+	f.deleteDir(fi, dbUpdateChan, scanChan)
 
 	if _, err := ffs.Stat(dir); fs.IsNotExist(err) {
 		t.Error("directory has been deleted")
@@ -1122,7 +1119,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan)
+	err := f.performFinish(remote, cur, hasCur, temp, dbUpdateChan, scanChan)
 
 	select {
 	case <-dbUpdateChan: // boring case sensitive filesystem
@@ -1186,9 +1183,9 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	remote.Name = strings.ToUpper(cur.Name)
 
 	if dir {
-		f.handleDir(remote, snap, dbUpdateChan, scanChan)
+		f.handleDir(remote, dbUpdateChan, scanChan)
 	} else {
-		f.handleSymlink(remote, snap, dbUpdateChan, scanChan)
+		f.handleSymlink(remote, dbUpdateChan, scanChan)
 	}
 
 	select {
@@ -1223,7 +1220,7 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 		fd.Close()
 	}
 
-	f.handleFile(file, fsetSnapshot(t, f.fset), copyChan)
+	f.handleFile(file, copyChan)
 
 	cs := <-copyChan
 	if _, err := cs.tempFile(); err != nil {
@@ -1267,7 +1264,7 @@ func TestPullCaseOnlyRename(t *testing.T) {
 	scanChan := make(chan string, 2)
 	snap := fsetSnapshot(t, f.fset)
 	defer snap.Release()
-	if err := f.renameFile(cur, deleted, confl, snap, dbUpdateChan, scanChan); err != nil {
+	if err := f.renameFile(cur, deleted, confl, dbUpdateChan, scanChan); err != nil {
 		t.Error(err)
 	}
 }
@@ -1344,7 +1341,7 @@ func TestPullDeleteCaseConflict(t *testing.T) {
 
 	snap := fsetSnapshot(t, f.fset)
 	defer snap.Release()
-	f.deleteDir(fi, snap, dbUpdateChan, scanChan)
+	f.deleteDir(fi, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan:
 	default:
@@ -1372,7 +1369,7 @@ func TestPullDeleteIgnoreChildDir(t *testing.T) {
 
 	scanChan := make(chan string, 2)
 
-	err := f.deleteDirOnDisk(parent, fsetSnapshot(t, f.fset), scanChan)
+	err := f.deleteDirOnDisk(parent, scanChan)
 	if err == nil {
 		t.Error("no error")
 	}
