@@ -23,7 +23,7 @@ const (
 	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
 	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
 	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
-	FlagLocalGlobal      = 1 << 4
+	FlagLocalGlobal      = 1 << 4 // This is the global file version
 	FlagLocalNeeded      = 1 << 5 // We need this file
 	FlagLocalDeleted     = 1 << 6 // File is deleted
 
