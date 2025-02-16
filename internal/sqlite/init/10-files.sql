@@ -1,4 +1,23 @@
---- Files
+-- Files
+--
+-- The files table contains all files announced by any device. Files present
+-- on this device are filed under the LocalDeviceID, not the actual current
+-- device ID, for simplicity, consistency and portability. One announced
+-- version of each file is considered the "global" version - the latest one,
+-- that all other devices strive to replicate. This instance gets the Global
+-- local flag set on it. There mey be other identical copies of this file
+-- announced by multiple devices, but only one onstance gets the Global
+-- flag; this simplifies accounting. If the current device has the Global
+-- version, the LocalDeviceID instance of the file is he one that has the
+-- Global bit.
+--
+-- If the current device does not have that version of the file it gets the
+-- Need bit set. Only Global files announced by anoher device can have the
+-- Need bit. This allows for very efficient lookup of files needing
+-- lhandling on this device, which is a common query. Files announced by
+-- other devices that are not the Global version also get the Need bit. This
+-- enables quick calculation of the amount of data currently in sync or out
+-- of sync for any given device.
 CREATE TABLE IF NOT EXISTS files (
     folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL, -- actual device ID, or LocalDeviceID, or GlobalDeviceID

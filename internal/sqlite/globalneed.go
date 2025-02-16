@@ -15,15 +15,16 @@ import (
 )
 
 type fileRow struct {
-	Name      string
-	FolderIdx int64 `db:"folder_idx"`
-	DeviceIdx int64 `db:"device_idx"`
-	Sequence  int64
-	Modified  int64
-	Size      int64
-	Version   dbVector
-	Deleted   bool
-	Invalid   bool
+	Name       string
+	FolderIdx  int64 `db:"folder_idx"`
+	DeviceIdx  int64 `db:"device_idx"`
+	Sequence   int64
+	Modified   int64
+	Size       int64
+	Version    dbVector
+	Deleted    bool
+	Invalid    bool
+	LocalFlags int64 `db:"local_flags"`
 }
 
 func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
@@ -58,9 +59,9 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 	vals := iterStructs[fileRow](db.sql.Queryx(`
 		SELECT g.name, g.modified, g.size FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = ? AND g.device_idx = ? AND g.local_flags & ? != 0
+		WHERE o.folder_id = ? AND g.local_flags & ? == ?
 		`+orderBy+limitStr,
-		folder, db.globalDeviceIdx, protocol.FlagLocalNeeded))
+		folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
 	return iterMap(vals, func(r fileRow) string {
 		return r.Name
 	})
@@ -75,9 +76,9 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 		INNER JOIN devices d ON d.idx = f.device_idx
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN files g ON f.folder_idx = g.folder_idx AND g.version = f.version AND g.name = f.name
-		WHERE o.folder_id = ? AND g.device_idx = ? AND g.name = ? AND f.device_idx != ? AND f.device_idx != ?
+		WHERE o.folder_id = ? AND g.name = ? AND g.local_flags & ? != 0 AND f.device_idx != ?
 		ORDER BY d.device_id`,
-		folder, db.globalDeviceIdx, file, db.localDeviceIdx, db.globalDeviceIdx)
+		folder, file, protocol.FlagLocalGlobal, db.localDeviceIdx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -99,8 +100,8 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 
 func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 	vals := iterStructs[fileRow](tx.Queryx(`
-		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid FROM files
-		WHERE folder_idx = ? AND name = ?`,
+		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
+		WHERE folder_idx = ? AND name = ? AND NOT invalid`,
 		folderIdx, file))
 	es, err := iterCollect(vals)
 	if err != nil {
@@ -119,37 +120,36 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 		return e.DeviceIdx == db.localDeviceIdx && e.Version.Vector.Equal(global.Version.Vector)
 	})
 
-	// Set the global entry as the one with the GlobalDeviceID. Set the need
-	// flag if the local device needs this file.
-	flags := 0
+	// Set the global flag on the global entry. Set the need flag if the
+	// local device needs this file.
+	global.LocalFlags |= protocol.FlagLocalGlobal
 	if !hasLocal {
-		flags = protocol.FlagLocalNeeded
+		global.LocalFlags |= protocol.FlagLocalNeeded
 	}
 	if _, err := tx.Exec(`
-		INSERT OR REPLACE INTO files (folder_idx, device_idx, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
-		SELECT folder_idx, ?, name, type, modified, size, version, deleted, invalid, local_flags & ? | ?, fileinfo_protobuf FROM FILES
+		UPDATE files SET local_flags = local_flags | ?
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-		db.globalDeviceIdx, ^flags, flags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
+		global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
 		return wrap("processNeed (insert global)", err)
 	}
 
-	// Clear the need flag on non-global entries that have the same version vector
+	// Clear the need and global flags on non-global entries that have the
+	// same version vector
 	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags & ?
 		WHERE folder_idx = ? AND name = ? AND version = ? AND device_idx != ?`,
-		^protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version, db.globalDeviceIdx); err != nil {
+		^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), global.FolderIdx, global.Name, global.Version, global.DeviceIdx); err != nil {
 		return wrap("processNeed (clear need)", err)
 	}
 
-	// Set the need flag on all other entries (these are now on the need list)
+	// Set the need flag and clear the global flag on all other entries
+	// (these are now on the need list)
 	if _, err := tx.Exec(`
-		UPDATE files SET local_flags = local_flags | ?
+		UPDATE files SET local_flags = local_flags & ? | ?
 		WHERE folder_idx = ? AND name = ? AND version != ?`,
-		protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version); err != nil {
+		^protocol.FlagLocalGlobal, protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version); err != nil {
 		return wrap("processNeed (set need)", err)
 	}
-
-	// XXX: Files that are missing on remote devices are not represented at this point.
 
 	return nil
 }
@@ -159,7 +159,11 @@ func (e fileRow) Compare(other fileRow) int {
 	vc := e.Version.Vector.Compare(other.Version.Vector)
 	switch vc {
 	case protocol.Equal:
-		return 0
+		// Compare the device ID index, lower is better. This is only
+		// deterministic to the extent that LocalDeviceID will always be the
+		// lowest one, order between remote devices is random (and
+		// irrelevant).
+		return cmp.Compare(e.DeviceIdx, other.DeviceIdx)
 	case protocol.Greater: // we are newer
 		return -1
 	case protocol.Lesser: // we are older

@@ -35,15 +35,13 @@ func Open(path string) (*DB, error) {
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change
 	db.localDeviceIdx, _ = db.deviceIdx(protocol.LocalDeviceID)
-	db.globalDeviceIdx, _ = db.deviceIdx(protocol.GlobalDeviceID)
 
 	return db, nil
 }
 
 type DB struct {
-	sql             *sqlx.DB
-	localDeviceIdx  int64
-	globalDeviceIdx int64
+	sql            *sqlx.DB
+	localDeviceIdx int64
 }
 
 func (db *DB) Close() error {
@@ -209,7 +207,7 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 	err := db.sql.Get(protoValuer(&bfi), `
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.device_idx = ? AND f.name = ?`, folder, db.globalDeviceIdx, file)
+		WHERE o.folder_id = ? AND f.name = ? AND f.local_flags & ? != 0`, folder, file, protocol.FlagLocalGlobal)
 	if errors.Is(err, sql.ErrNoRows) {
 		return protocol.FileInfo{}, false, nil
 	}

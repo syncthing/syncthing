@@ -23,8 +23,9 @@ const (
 	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
 	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
 	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
-	FlagLocalNeeded      = 1 << 4 // We need this file
-	FlagLocalDeleted     = 1 << 5 // File is deleted
+	FlagLocalGlobal      = 1 << 4
+	FlagLocalNeeded      = 1 << 5 // We need this file
+	FlagLocalDeleted     = 1 << 6 // File is deleted
 
 	// Flags that should result in the Invalid bit on outgoing updates
 	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
