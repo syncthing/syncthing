@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net"
 	"os"
 	"path/filepath"
@@ -94,7 +95,13 @@ type Model interface {
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
-	DBSnapshot(folder string) (*db.Snapshot, error)
+	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
+	LocalSize(folder string, device protocol.DeviceID) db.Counts
+	GlobalSize(folder string) db.Counts
+	NeedSize(folder string, device protocol.DeviceID) db.Counts
+	ReceiveOnlySize(folder string) db.Counts
+	Sequence(folder string, device protocol.DeviceID) int64
+
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error)
 	LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error)
@@ -958,16 +965,66 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	return comp, nil
 }
 
-// DBSnapshot returns a snapshot of the database content relevant to the given folder.
-func (m *model) DBSnapshot(folder string) (*db.Snapshot, error) {
+func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
 	m.mut.RLock()
-	err := m.checkFolderRunningRLocked(folder)
-	rf := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
-	if err != nil {
-		return nil, err
+	if !ok {
+		return func(yield func(*protocol.FileInfo, error) bool) {
+			yield(nil, ErrFolderMissing)
+		}
 	}
-	return rf.Snapshot()
+	return fdb.AllLocal(device)
+}
+
+func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return db.Counts{}
+	}
+	return fdb.LocalSize(device)
+}
+
+func (m *model) GlobalSize(folder string) db.Counts {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return db.Counts{}
+	}
+	return fdb.GlobalSize()
+}
+
+func (m *model) NeedSize(folder string, device protocol.DeviceID) db.Counts {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return db.Counts{}
+	}
+	return fdb.NeedSize(device)
+}
+
+func (m *model) ReceiveOnlySize(folder string) db.Counts {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return db.Counts{}
+	}
+	return fdb.ReceiveOnlySize()
+}
+
+func (m *model) Sequence(folder string, device protocol.DeviceID) int64 {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return 0
+	}
+	return fdb.Sequence(device)
 }
 
 func (m *model) FolderProgressBytesCompleted(folder string) int64 {

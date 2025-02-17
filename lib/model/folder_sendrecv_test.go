@@ -1096,16 +1096,16 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 
 	var cur protocol.FileInfo
 	hasCur := false
-	snap := dbSnapshot(t, m, f.ID)
-	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFiles(f.ID, protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = i
+		cur = *i
 		hasCur = true
-		return true
-	})
+	}
 	if !hasCur {
 		t.Fatal("file is missing")
 	}
@@ -1161,16 +1161,16 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	must(t, f.scanSubdirs(nil))
 	var cur protocol.FileInfo
 	hasCur := false
-	snap := dbSnapshot(t, m, f.ID)
-	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFiles(f.ID, protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = i
+		cur = *i
 		hasCur = true
-		return true
-	})
+	}
 	if !hasCur {
 		t.Fatal("file is missing")
 	}

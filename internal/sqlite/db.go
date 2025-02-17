@@ -366,6 +366,19 @@ func (db *DB) GlobalSize(folder string) olddb.Counts {
 	return summarizeRows(res)
 }
 
+func (db *DB) ReceiveOnlySize(folder string) olddb.Counts {
+	var res []sizesRow
+	err := db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		WHERE o.folder_id = ? AND flag_bit = ?
+	`, folder, protocol.FlagLocalReceiveOnly)
+	if err != nil {
+		return olddb.Counts{}
+	}
+	return summarizeRows(res)
+}
+
 func summarizeRows(res []sizesRow) olddb.Counts {
 	c := olddb.Counts{
 		DeviceID: protocol.LocalDeviceID,

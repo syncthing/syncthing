@@ -246,43 +246,6 @@ func (*alwaysChanged) Changed() bool {
 	return true
 }
 
-func localSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.LocalSize()
-}
-
-func globalSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.GlobalSize()
-}
-
-func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.ReceiveOnlyChangedSize()
-}
-
-func needSizeLocal(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.NeedSize(protocol.LocalDeviceID)
-}
-
-func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
-	t.Helper()
-	snap, err := m.DBSnapshot(folder)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return snap
-}
-
 func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
 	t.Helper()
 	snap, err := fset.Snapshot()

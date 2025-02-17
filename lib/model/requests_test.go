@@ -1428,13 +1428,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 			}
 			globalUpdated = true
 		}
-		snap, err := m.DBSnapshot(fcfg.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		need := snap.NeedSize(protocol.LocalDeviceID)
-		snap.Release()
-		if need.Files == 0 {
+		if m.NeedSize(fcfg.ID, protocol.LocalDeviceID).Files == 0 {
 			break
 		}
 	}

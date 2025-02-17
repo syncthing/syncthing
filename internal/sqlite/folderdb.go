@@ -105,3 +105,9 @@ func (f *FolderDB) NeedSize(device protocol.DeviceID) olddb.Counts {
 	defer f.mut.RUnlock()
 	return f.db.NeedSize(f.folder, device)
 }
+
+func (f *FolderDB) ReceiveOnlySize() olddb.Counts {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.ReceiveOnlySize(f.folder)
+}

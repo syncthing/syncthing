@@ -2039,8 +2039,8 @@ func TestIssue3028(t *testing.T) {
 	// Scan, and get a count of how many files are there now
 
 	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
-	locorigfiles := localSize(t, m, "default").Files
-	globorigfiles := globalSize(t, m, "default").Files
+	locorigfiles := m.LocalSize("default", protocol.LocalDeviceID).Files
+	globorigfiles := m.GlobalSize("default").Files
 
 	// Delete
 
@@ -2051,8 +2051,8 @@ func TestIssue3028(t *testing.T) {
 	// deleted files increases by two
 
 	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
-	loc := localSize(t, m, "default")
-	glob := globalSize(t, m, "default")
+	loc := m.LocalSize("default", protocol.LocalDeviceID)
+	glob := m.GlobalSize("default")
 
 	if loc.Files != locorigfiles-2 {
 		t.Errorf("Incorrect local accounting; got %d current files, expected %d", loc.Files, locorigfiles-2)
@@ -3229,10 +3229,6 @@ func TestRenameSequenceOrder(t *testing.T) {
 	// Scan
 	m.ScanFolders()
 
-	// Verify sequence of a appearing is followed by c disappearing.
-	snap = dbSnapshot(t, m, "default")
-	defer snap.Release()
-
 	var firstExpectedSequence int64
 	var secondExpectedSequence int64
 	failed := false
@@ -3599,7 +3595,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	must(t, ffs.Remove(name))
 	m.ScanFolders()
 
-	if receiveOnlyChangedSize(t, m, fcfg.ID).Deleted != 1 {
+	if m.ReceiveOnlySize(fcfg.ID).Deleted != 1 {
 		t.Fatal("expected one receive only changed deleted item")
 	}
 
@@ -3607,10 +3603,10 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	setFolder(t, m.cfg, fcfg)
 	m.ScanFolders()
 
-	if receiveOnlyChangedSize(t, m, fcfg.ID).Deleted != 0 {
+	if m.ReceiveOnlySize(fcfg.ID).Deleted != 0 {
 		t.Fatal("expected no receive only changed deleted item")
 	}
-	if localSize(t, m, fcfg.ID).Deleted != 1 {
+	if m.LocalSize(fcfg.ID, protocol.LocalDeviceID).Deleted != 1 {
 		t.Fatal("expected one local deleted item")
 	}
 }
