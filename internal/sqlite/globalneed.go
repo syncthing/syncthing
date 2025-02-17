@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -62,7 +63,7 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 		WHERE o.folder_id = ? AND g.local_flags & ? == ?
 		`+orderBy+limitStr,
 		folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
-	return iterMap(vals, func(r fileRow) string {
+	return itererr.Map(vals, func(r fileRow) string {
 		return r.Name
 	})
 }
@@ -103,7 +104,7 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ? AND NOT invalid`,
 		folderIdx, file))
-	es, err := iterCollect(vals)
+	es, err := itererr.Collect(vals)
 	if err != nil {
 		return wrap("processNeed (select)", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/internal/itererr"
 	olddb "github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -243,7 +244,7 @@ func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*proto
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.version != ""`,
 		folder, device.String()))
-	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
 	})
@@ -257,7 +258,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence > ? AND f.version != ""
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
-	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
 	})
@@ -272,7 +273,7 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name GLOB ?) AND f.version != ""`,
 		folder, device.String(), prefix, glob))
-	return iterMap(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
 	})

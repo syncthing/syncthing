@@ -3203,12 +3203,12 @@ func TestRenameSequenceOrder(t *testing.T) {
 	m.ScanFolders()
 
 	count := 0
-	snap := dbSnapshot(t, m, "default")
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for _, err := range m.LocalFiles("default", protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
-		return true
-	})
-	snap.Release()
+	}
 
 	if count != numFiles {
 		t.Errorf("Unexpected count: %d != %d", count, numFiles)
@@ -3232,7 +3232,10 @@ func TestRenameSequenceOrder(t *testing.T) {
 	var firstExpectedSequence int64
 	var secondExpectedSequence int64
 	failed := false
-	snap.WithHaveSequence(0, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Log(i)
 		if i.FileName() == "17" {
 			firstExpectedSequence = i.SequenceNo() + 1
@@ -3246,8 +3249,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 		if i.FileName() == "16" {
 			failed = i.SequenceNo() != secondExpectedSequence || failed
 		}
-		return true
-	})
+	}
 	if failed {
 		t.Fail()
 	}
@@ -3265,12 +3267,12 @@ func TestRenameSameFile(t *testing.T) {
 	m.ScanFolders()
 
 	count := 0
-	snap := dbSnapshot(t, m, "default")
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for _, err := range m.LocalFiles("default", protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
-		return true
-	})
-	snap.Release()
+	}
 
 	if count != 1 {
 		t.Errorf("Unexpected count: %d != %d", count, 1)
@@ -3284,12 +3286,12 @@ func TestRenameSameFile(t *testing.T) {
 
 	m.ScanFolders()
 
-	snap = dbSnapshot(t, m, "default")
-	defer snap.Release()
-
 	prevSeq := int64(0)
 	seen := false
-	snap.WithHaveSequence(0, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if i.SequenceNo() <= prevSeq {
 			t.Fatalf("non-increasing sequences: %d <= %d", i.SequenceNo(), prevSeq)
 		}
@@ -3300,8 +3302,7 @@ func TestRenameSameFile(t *testing.T) {
 			seen = true
 		}
 		prevSeq = i.SequenceNo()
-		return true
-	})
+	}
 }
 
 func TestRenameEmptyFile(t *testing.T) {
@@ -3461,10 +3462,11 @@ func TestScanRenameCaseOnly(t *testing.T) {
 
 	m.ScanFolders()
 
-	snap := dbSnapshot(t, m, fcfg.ID)
-	defer snap.Release()
 	found := false
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFiles(fcfg.ID, protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if found {
 			t.Fatal("got more than one file")
 		}
@@ -3472,21 +3474,20 @@ func TestScanRenameCaseOnly(t *testing.T) {
 			t.Fatalf("got file %v, expected %v", i.FileName(), name)
 		}
 		found = true
-		return true
-	})
-	snap.Release()
+	}
 
 	upper := strings.ToUpper(name)
 	must(t, ffs.Rename(name, upper))
 	m.ScanFolders()
 
-	snap = dbSnapshot(t, m, fcfg.ID)
-	defer snap.Release()
 	found = false
-	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileInfo) bool {
+	for i, err := range m.LocalFiles(fcfg.ID, protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if i.FileName() == name {
 			if i.IsDeleted() {
-				return true
+				continue
 			}
 			t.Fatal("renamed file not deleted")
 		}
@@ -3497,8 +3498,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 			t.Fatal("got more than the expected files")
 		}
 		found = true
-		return true
-	})
+	}
 }
 
 func TestClusterConfigOnFolderAdd(t *testing.T) {

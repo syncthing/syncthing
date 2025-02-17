@@ -77,10 +77,6 @@ func (m *Internals) PendingFolders(deviceID protocol.DeviceID) (map[string]db.Pe
 	return m.model.PendingFolders(deviceID)
 }
 
-func (m *Internals) DBSnapshot(folderID string) (*db.Snapshot, error) {
-	return m.model.DBSnapshot(folderID)
-}
-
 func (m *Internals) ScanFolderSubdirs(folderID string, paths []string) error {
 	return m.model.ScanFolderSubdirs(folderID, paths)
 }

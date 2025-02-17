@@ -39,7 +39,7 @@ const Version = 3
 var StartTime = time.Now().Truncate(time.Second)
 
 type Model interface {
-	DBSnapshot(folder string) (*db.Snapshot, error)
+	GlobalSize(folder string) db.Counts
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 
@@ -81,12 +81,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		snap, err := s.model.DBSnapshot(folderID)
-		if err != nil {
-			continue
-		}
-		global := snap.GlobalSize()
-		snap.Release()
+		global := s.model.GlobalSize(folderID)
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {

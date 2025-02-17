@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+	"iter"
 	"net"
 	"sync"
 	"time"
@@ -144,19 +145,6 @@ type Model struct {
 		result2 []string
 		result3 error
 	}
-	DBSnapshotStub        func(string) (*db.Snapshot, error)
-	dBSnapshotMutex       sync.RWMutex
-	dBSnapshotArgsForCall []struct {
-		arg1 string
-	}
-	dBSnapshotReturns struct {
-		result1 *db.Snapshot
-		result2 error
-	}
-	dBSnapshotReturnsOnCall map[int]struct {
-		result1 *db.Snapshot
-		result2 error
-	}
 	DelayScanStub        func(string, time.Duration)
 	delayScanMutex       sync.RWMutex
 	delayScanArgsForCall []struct {
@@ -289,6 +277,17 @@ type Model struct {
 		result1 []*model.TreeEntry
 		result2 error
 	}
+	GlobalSizeStub        func(string) db.Counts
+	globalSizeMutex       sync.RWMutex
+	globalSizeArgsForCall []struct {
+		arg1 string
+	}
+	globalSizeReturns struct {
+		result1 db.Counts
+	}
+	globalSizeReturnsOnCall map[int]struct {
+		result1 db.Counts
+	}
 	IndexStub        func(protocol.Connection, *protocol.Index) error
 	indexMutex       sync.RWMutex
 	indexArgsForCall []struct {
@@ -343,6 +342,43 @@ type Model struct {
 		result1 []protocol.FileInfo
 		result2 error
 	}
+	LocalFilesStub        func(string, protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
+	localFilesMutex       sync.RWMutex
+	localFilesArgsForCall []struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}
+	localFilesReturns struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}
+	localFilesReturnsOnCall map[int]struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}
+	LocalFilesSequencedStub        func(string, protocol.DeviceID, int64) iter.Seq2[*protocol.FileInfo, error]
+	localFilesSequencedMutex       sync.RWMutex
+	localFilesSequencedArgsForCall []struct {
+		arg1 string
+		arg2 protocol.DeviceID
+		arg3 int64
+	}
+	localFilesSequencedReturns struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}
+	localFilesSequencedReturnsOnCall map[int]struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}
+	LocalSizeStub        func(string, protocol.DeviceID) db.Counts
+	localSizeMutex       sync.RWMutex
+	localSizeArgsForCall []struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}
+	localSizeReturns struct {
+		result1 db.Counts
+	}
+	localSizeReturnsOnCall map[int]struct {
+		result1 db.Counts
+	}
 	NeedFolderFilesStub        func(string, int, int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	needFolderFilesMutex       sync.RWMutex
 	needFolderFilesArgsForCall []struct {
@@ -361,6 +397,18 @@ type Model struct {
 		result2 []protocol.FileInfo
 		result3 []protocol.FileInfo
 		result4 error
+	}
+	NeedSizeStub        func(string, protocol.DeviceID) db.Counts
+	needSizeMutex       sync.RWMutex
+	needSizeArgsForCall []struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}
+	needSizeReturns struct {
+		result1 db.Counts
+	}
+	needSizeReturnsOnCall map[int]struct {
+		result1 db.Counts
 	}
 	OnHelloStub        func(protocol.DeviceID, net.Addr, protocol.Hello) error
 	onHelloMutex       sync.RWMutex
@@ -404,6 +452,17 @@ type Model struct {
 	pendingFoldersReturnsOnCall map[int]struct {
 		result1 map[string]db.PendingFolder
 		result2 error
+	}
+	ReceiveOnlySizeStub        func(string) db.Counts
+	receiveOnlySizeMutex       sync.RWMutex
+	receiveOnlySizeArgsForCall []struct {
+		arg1 string
+	}
+	receiveOnlySizeReturns struct {
+		result1 db.Counts
+	}
+	receiveOnlySizeReturnsOnCall map[int]struct {
+		result1 db.Counts
 	}
 	RemoteNeedFolderFilesStub        func(string, protocol.DeviceID, int, int) ([]protocol.FileInfo, error)
 	remoteNeedFolderFilesMutex       sync.RWMutex
@@ -519,6 +578,18 @@ type Model struct {
 	}
 	scanFoldersReturnsOnCall map[int]struct {
 		result1 map[string]error
+	}
+	SequenceStub        func(string, protocol.DeviceID) int64
+	sequenceMutex       sync.RWMutex
+	sequenceArgsForCall []struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}
+	sequenceReturns struct {
+		result1 int64
+	}
+	sequenceReturnsOnCall map[int]struct {
+		result1 int64
 	}
 	ServeStub        func(context.Context) error
 	serveMutex       sync.RWMutex
@@ -1189,70 +1260,6 @@ func (fake *Model) CurrentIgnoresReturnsOnCall(i int, result1 []string, result2 
 	}{result1, result2, result3}
 }
 
-func (fake *Model) DBSnapshot(arg1 string) (*db.Snapshot, error) {
-	fake.dBSnapshotMutex.Lock()
-	ret, specificReturn := fake.dBSnapshotReturnsOnCall[len(fake.dBSnapshotArgsForCall)]
-	fake.dBSnapshotArgsForCall = append(fake.dBSnapshotArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	stub := fake.DBSnapshotStub
-	fakeReturns := fake.dBSnapshotReturns
-	fake.recordInvocation("DBSnapshot", []interface{}{arg1})
-	fake.dBSnapshotMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *Model) DBSnapshotCallCount() int {
-	fake.dBSnapshotMutex.RLock()
-	defer fake.dBSnapshotMutex.RUnlock()
-	return len(fake.dBSnapshotArgsForCall)
-}
-
-func (fake *Model) DBSnapshotCalls(stub func(string) (*db.Snapshot, error)) {
-	fake.dBSnapshotMutex.Lock()
-	defer fake.dBSnapshotMutex.Unlock()
-	fake.DBSnapshotStub = stub
-}
-
-func (fake *Model) DBSnapshotArgsForCall(i int) string {
-	fake.dBSnapshotMutex.RLock()
-	defer fake.dBSnapshotMutex.RUnlock()
-	argsForCall := fake.dBSnapshotArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *Model) DBSnapshotReturns(result1 *db.Snapshot, result2 error) {
-	fake.dBSnapshotMutex.Lock()
-	defer fake.dBSnapshotMutex.Unlock()
-	fake.DBSnapshotStub = nil
-	fake.dBSnapshotReturns = struct {
-		result1 *db.Snapshot
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Model) DBSnapshotReturnsOnCall(i int, result1 *db.Snapshot, result2 error) {
-	fake.dBSnapshotMutex.Lock()
-	defer fake.dBSnapshotMutex.Unlock()
-	fake.DBSnapshotStub = nil
-	if fake.dBSnapshotReturnsOnCall == nil {
-		fake.dBSnapshotReturnsOnCall = make(map[int]struct {
-			result1 *db.Snapshot
-			result2 error
-		})
-	}
-	fake.dBSnapshotReturnsOnCall[i] = struct {
-		result1 *db.Snapshot
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *Model) DelayScan(arg1 string, arg2 time.Duration) {
 	fake.delayScanMutex.Lock()
 	fake.delayScanArgsForCall = append(fake.delayScanArgsForCall, struct {
@@ -1904,6 +1911,67 @@ func (fake *Model) GlobalDirectoryTreeReturnsOnCall(i int, result1 []*model.Tree
 	}{result1, result2}
 }
 
+func (fake *Model) GlobalSize(arg1 string) db.Counts {
+	fake.globalSizeMutex.Lock()
+	ret, specificReturn := fake.globalSizeReturnsOnCall[len(fake.globalSizeArgsForCall)]
+	fake.globalSizeArgsForCall = append(fake.globalSizeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GlobalSizeStub
+	fakeReturns := fake.globalSizeReturns
+	fake.recordInvocation("GlobalSize", []interface{}{arg1})
+	fake.globalSizeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) GlobalSizeCallCount() int {
+	fake.globalSizeMutex.RLock()
+	defer fake.globalSizeMutex.RUnlock()
+	return len(fake.globalSizeArgsForCall)
+}
+
+func (fake *Model) GlobalSizeCalls(stub func(string) db.Counts) {
+	fake.globalSizeMutex.Lock()
+	defer fake.globalSizeMutex.Unlock()
+	fake.GlobalSizeStub = stub
+}
+
+func (fake *Model) GlobalSizeArgsForCall(i int) string {
+	fake.globalSizeMutex.RLock()
+	defer fake.globalSizeMutex.RUnlock()
+	argsForCall := fake.globalSizeArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) GlobalSizeReturns(result1 db.Counts) {
+	fake.globalSizeMutex.Lock()
+	defer fake.globalSizeMutex.Unlock()
+	fake.GlobalSizeStub = nil
+	fake.globalSizeReturns = struct {
+		result1 db.Counts
+	}{result1}
+}
+
+func (fake *Model) GlobalSizeReturnsOnCall(i int, result1 db.Counts) {
+	fake.globalSizeMutex.Lock()
+	defer fake.globalSizeMutex.Unlock()
+	fake.GlobalSizeStub = nil
+	if fake.globalSizeReturnsOnCall == nil {
+		fake.globalSizeReturnsOnCall = make(map[int]struct {
+			result1 db.Counts
+		})
+	}
+	fake.globalSizeReturnsOnCall[i] = struct {
+		result1 db.Counts
+	}{result1}
+}
+
 func (fake *Model) Index(arg1 protocol.Connection, arg2 *protocol.Index) error {
 	fake.indexMutex.Lock()
 	ret, specificReturn := fake.indexReturnsOnCall[len(fake.indexArgsForCall)]
@@ -2161,6 +2229,193 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []protoco
 	}{result1, result2}
 }
 
+func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+	fake.localFilesMutex.Lock()
+	ret, specificReturn := fake.localFilesReturnsOnCall[len(fake.localFilesArgsForCall)]
+	fake.localFilesArgsForCall = append(fake.localFilesArgsForCall, struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}{arg1, arg2})
+	stub := fake.LocalFilesStub
+	fakeReturns := fake.localFilesReturns
+	fake.recordInvocation("LocalFiles", []interface{}{arg1, arg2})
+	fake.localFilesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) LocalFilesCallCount() int {
+	fake.localFilesMutex.RLock()
+	defer fake.localFilesMutex.RUnlock()
+	return len(fake.localFilesArgsForCall)
+}
+
+func (fake *Model) LocalFilesCalls(stub func(string, protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesMutex.Lock()
+	defer fake.localFilesMutex.Unlock()
+	fake.LocalFilesStub = stub
+}
+
+func (fake *Model) LocalFilesArgsForCall(i int) (string, protocol.DeviceID) {
+	fake.localFilesMutex.RLock()
+	defer fake.localFilesMutex.RUnlock()
+	argsForCall := fake.localFilesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) LocalFilesReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesMutex.Lock()
+	defer fake.localFilesMutex.Unlock()
+	fake.LocalFilesStub = nil
+	fake.localFilesReturns = struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}{result1}
+}
+
+func (fake *Model) LocalFilesReturnsOnCall(i int, result1 iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesMutex.Lock()
+	defer fake.localFilesMutex.Unlock()
+	fake.LocalFilesStub = nil
+	if fake.localFilesReturnsOnCall == nil {
+		fake.localFilesReturnsOnCall = make(map[int]struct {
+			result1 iter.Seq2[*protocol.FileInfo, error]
+		})
+	}
+	fake.localFilesReturnsOnCall[i] = struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}{result1}
+}
+
+func (fake *Model) LocalFilesSequenced(arg1 string, arg2 protocol.DeviceID, arg3 int64) iter.Seq2[*protocol.FileInfo, error] {
+	fake.localFilesSequencedMutex.Lock()
+	ret, specificReturn := fake.localFilesSequencedReturnsOnCall[len(fake.localFilesSequencedArgsForCall)]
+	fake.localFilesSequencedArgsForCall = append(fake.localFilesSequencedArgsForCall, struct {
+		arg1 string
+		arg2 protocol.DeviceID
+		arg3 int64
+	}{arg1, arg2, arg3})
+	stub := fake.LocalFilesSequencedStub
+	fakeReturns := fake.localFilesSequencedReturns
+	fake.recordInvocation("LocalFilesSequenced", []interface{}{arg1, arg2, arg3})
+	fake.localFilesSequencedMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) LocalFilesSequencedCallCount() int {
+	fake.localFilesSequencedMutex.RLock()
+	defer fake.localFilesSequencedMutex.RUnlock()
+	return len(fake.localFilesSequencedArgsForCall)
+}
+
+func (fake *Model) LocalFilesSequencedCalls(stub func(string, protocol.DeviceID, int64) iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesSequencedMutex.Lock()
+	defer fake.localFilesSequencedMutex.Unlock()
+	fake.LocalFilesSequencedStub = stub
+}
+
+func (fake *Model) LocalFilesSequencedArgsForCall(i int) (string, protocol.DeviceID, int64) {
+	fake.localFilesSequencedMutex.RLock()
+	defer fake.localFilesSequencedMutex.RUnlock()
+	argsForCall := fake.localFilesSequencedArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Model) LocalFilesSequencedReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesSequencedMutex.Lock()
+	defer fake.localFilesSequencedMutex.Unlock()
+	fake.LocalFilesSequencedStub = nil
+	fake.localFilesSequencedReturns = struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}{result1}
+}
+
+func (fake *Model) LocalFilesSequencedReturnsOnCall(i int, result1 iter.Seq2[*protocol.FileInfo, error]) {
+	fake.localFilesSequencedMutex.Lock()
+	defer fake.localFilesSequencedMutex.Unlock()
+	fake.LocalFilesSequencedStub = nil
+	if fake.localFilesSequencedReturnsOnCall == nil {
+		fake.localFilesSequencedReturnsOnCall = make(map[int]struct {
+			result1 iter.Seq2[*protocol.FileInfo, error]
+		})
+	}
+	fake.localFilesSequencedReturnsOnCall[i] = struct {
+		result1 iter.Seq2[*protocol.FileInfo, error]
+	}{result1}
+}
+
+func (fake *Model) LocalSize(arg1 string, arg2 protocol.DeviceID) db.Counts {
+	fake.localSizeMutex.Lock()
+	ret, specificReturn := fake.localSizeReturnsOnCall[len(fake.localSizeArgsForCall)]
+	fake.localSizeArgsForCall = append(fake.localSizeArgsForCall, struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}{arg1, arg2})
+	stub := fake.LocalSizeStub
+	fakeReturns := fake.localSizeReturns
+	fake.recordInvocation("LocalSize", []interface{}{arg1, arg2})
+	fake.localSizeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) LocalSizeCallCount() int {
+	fake.localSizeMutex.RLock()
+	defer fake.localSizeMutex.RUnlock()
+	return len(fake.localSizeArgsForCall)
+}
+
+func (fake *Model) LocalSizeCalls(stub func(string, protocol.DeviceID) db.Counts) {
+	fake.localSizeMutex.Lock()
+	defer fake.localSizeMutex.Unlock()
+	fake.LocalSizeStub = stub
+}
+
+func (fake *Model) LocalSizeArgsForCall(i int) (string, protocol.DeviceID) {
+	fake.localSizeMutex.RLock()
+	defer fake.localSizeMutex.RUnlock()
+	argsForCall := fake.localSizeArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) LocalSizeReturns(result1 db.Counts) {
+	fake.localSizeMutex.Lock()
+	defer fake.localSizeMutex.Unlock()
+	fake.LocalSizeStub = nil
+	fake.localSizeReturns = struct {
+		result1 db.Counts
+	}{result1}
+}
+
+func (fake *Model) LocalSizeReturnsOnCall(i int, result1 db.Counts) {
+	fake.localSizeMutex.Lock()
+	defer fake.localSizeMutex.Unlock()
+	fake.LocalSizeStub = nil
+	if fake.localSizeReturnsOnCall == nil {
+		fake.localSizeReturnsOnCall = make(map[int]struct {
+			result1 db.Counts
+		})
+	}
+	fake.localSizeReturnsOnCall[i] = struct {
+		result1 db.Counts
+	}{result1}
+}
+
 func (fake *Model) NeedFolderFiles(arg1 string, arg2 int, arg3 int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	fake.needFolderFilesMutex.Lock()
 	ret, specificReturn := fake.needFolderFilesReturnsOnCall[len(fake.needFolderFilesArgsForCall)]
@@ -2231,6 +2486,68 @@ func (fake *Model) NeedFolderFilesReturnsOnCall(i int, result1 []protocol.FileIn
 		result3 []protocol.FileInfo
 		result4 error
 	}{result1, result2, result3, result4}
+}
+
+func (fake *Model) NeedSize(arg1 string, arg2 protocol.DeviceID) db.Counts {
+	fake.needSizeMutex.Lock()
+	ret, specificReturn := fake.needSizeReturnsOnCall[len(fake.needSizeArgsForCall)]
+	fake.needSizeArgsForCall = append(fake.needSizeArgsForCall, struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}{arg1, arg2})
+	stub := fake.NeedSizeStub
+	fakeReturns := fake.needSizeReturns
+	fake.recordInvocation("NeedSize", []interface{}{arg1, arg2})
+	fake.needSizeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) NeedSizeCallCount() int {
+	fake.needSizeMutex.RLock()
+	defer fake.needSizeMutex.RUnlock()
+	return len(fake.needSizeArgsForCall)
+}
+
+func (fake *Model) NeedSizeCalls(stub func(string, protocol.DeviceID) db.Counts) {
+	fake.needSizeMutex.Lock()
+	defer fake.needSizeMutex.Unlock()
+	fake.NeedSizeStub = stub
+}
+
+func (fake *Model) NeedSizeArgsForCall(i int) (string, protocol.DeviceID) {
+	fake.needSizeMutex.RLock()
+	defer fake.needSizeMutex.RUnlock()
+	argsForCall := fake.needSizeArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) NeedSizeReturns(result1 db.Counts) {
+	fake.needSizeMutex.Lock()
+	defer fake.needSizeMutex.Unlock()
+	fake.NeedSizeStub = nil
+	fake.needSizeReturns = struct {
+		result1 db.Counts
+	}{result1}
+}
+
+func (fake *Model) NeedSizeReturnsOnCall(i int, result1 db.Counts) {
+	fake.needSizeMutex.Lock()
+	defer fake.needSizeMutex.Unlock()
+	fake.NeedSizeStub = nil
+	if fake.needSizeReturnsOnCall == nil {
+		fake.needSizeReturnsOnCall = make(map[int]struct {
+			result1 db.Counts
+		})
+	}
+	fake.needSizeReturnsOnCall[i] = struct {
+		result1 db.Counts
+	}{result1}
 }
 
 func (fake *Model) OnHello(arg1 protocol.DeviceID, arg2 net.Addr, arg3 protocol.Hello) error {
@@ -2446,6 +2763,67 @@ func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]db.Pend
 		result1 map[string]db.PendingFolder
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *Model) ReceiveOnlySize(arg1 string) db.Counts {
+	fake.receiveOnlySizeMutex.Lock()
+	ret, specificReturn := fake.receiveOnlySizeReturnsOnCall[len(fake.receiveOnlySizeArgsForCall)]
+	fake.receiveOnlySizeArgsForCall = append(fake.receiveOnlySizeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.ReceiveOnlySizeStub
+	fakeReturns := fake.receiveOnlySizeReturns
+	fake.recordInvocation("ReceiveOnlySize", []interface{}{arg1})
+	fake.receiveOnlySizeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) ReceiveOnlySizeCallCount() int {
+	fake.receiveOnlySizeMutex.RLock()
+	defer fake.receiveOnlySizeMutex.RUnlock()
+	return len(fake.receiveOnlySizeArgsForCall)
+}
+
+func (fake *Model) ReceiveOnlySizeCalls(stub func(string) db.Counts) {
+	fake.receiveOnlySizeMutex.Lock()
+	defer fake.receiveOnlySizeMutex.Unlock()
+	fake.ReceiveOnlySizeStub = stub
+}
+
+func (fake *Model) ReceiveOnlySizeArgsForCall(i int) string {
+	fake.receiveOnlySizeMutex.RLock()
+	defer fake.receiveOnlySizeMutex.RUnlock()
+	argsForCall := fake.receiveOnlySizeArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) ReceiveOnlySizeReturns(result1 db.Counts) {
+	fake.receiveOnlySizeMutex.Lock()
+	defer fake.receiveOnlySizeMutex.Unlock()
+	fake.ReceiveOnlySizeStub = nil
+	fake.receiveOnlySizeReturns = struct {
+		result1 db.Counts
+	}{result1}
+}
+
+func (fake *Model) ReceiveOnlySizeReturnsOnCall(i int, result1 db.Counts) {
+	fake.receiveOnlySizeMutex.Lock()
+	defer fake.receiveOnlySizeMutex.Unlock()
+	fake.ReceiveOnlySizeStub = nil
+	if fake.receiveOnlySizeReturnsOnCall == nil {
+		fake.receiveOnlySizeReturnsOnCall = make(map[int]struct {
+			result1 db.Counts
+		})
+	}
+	fake.receiveOnlySizeReturnsOnCall[i] = struct {
+		result1 db.Counts
+	}{result1}
 }
 
 func (fake *Model) RemoteNeedFolderFiles(arg1 string, arg2 protocol.DeviceID, arg3 int, arg4 int) ([]protocol.FileInfo, error) {
@@ -2997,6 +3375,68 @@ func (fake *Model) ScanFoldersReturnsOnCall(i int, result1 map[string]error) {
 	}{result1}
 }
 
+func (fake *Model) Sequence(arg1 string, arg2 protocol.DeviceID) int64 {
+	fake.sequenceMutex.Lock()
+	ret, specificReturn := fake.sequenceReturnsOnCall[len(fake.sequenceArgsForCall)]
+	fake.sequenceArgsForCall = append(fake.sequenceArgsForCall, struct {
+		arg1 string
+		arg2 protocol.DeviceID
+	}{arg1, arg2})
+	stub := fake.SequenceStub
+	fakeReturns := fake.sequenceReturns
+	fake.recordInvocation("Sequence", []interface{}{arg1, arg2})
+	fake.sequenceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Model) SequenceCallCount() int {
+	fake.sequenceMutex.RLock()
+	defer fake.sequenceMutex.RUnlock()
+	return len(fake.sequenceArgsForCall)
+}
+
+func (fake *Model) SequenceCalls(stub func(string, protocol.DeviceID) int64) {
+	fake.sequenceMutex.Lock()
+	defer fake.sequenceMutex.Unlock()
+	fake.SequenceStub = stub
+}
+
+func (fake *Model) SequenceArgsForCall(i int) (string, protocol.DeviceID) {
+	fake.sequenceMutex.RLock()
+	defer fake.sequenceMutex.RUnlock()
+	argsForCall := fake.sequenceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) SequenceReturns(result1 int64) {
+	fake.sequenceMutex.Lock()
+	defer fake.sequenceMutex.Unlock()
+	fake.SequenceStub = nil
+	fake.sequenceReturns = struct {
+		result1 int64
+	}{result1}
+}
+
+func (fake *Model) SequenceReturnsOnCall(i int, result1 int64) {
+	fake.sequenceMutex.Lock()
+	defer fake.sequenceMutex.Unlock()
+	fake.SequenceStub = nil
+	if fake.sequenceReturnsOnCall == nil {
+		fake.sequenceReturnsOnCall = make(map[int]struct {
+			result1 int64
+		})
+	}
+	fake.sequenceReturnsOnCall[i] = struct {
+		result1 int64
+	}{result1}
+}
+
 func (fake *Model) Serve(arg1 context.Context) error {
 	fake.serveMutex.Lock()
 	ret, specificReturn := fake.serveReturnsOnCall[len(fake.serveArgsForCall)]
@@ -3312,8 +3752,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.currentGlobalFileMutex.RUnlock()
 	fake.currentIgnoresMutex.RLock()
 	defer fake.currentIgnoresMutex.RUnlock()
-	fake.dBSnapshotMutex.RLock()
-	defer fake.dBSnapshotMutex.RUnlock()
 	fake.delayScanMutex.RLock()
 	defer fake.delayScanMutex.RUnlock()
 	fake.deviceStatisticsMutex.RLock()
@@ -3336,6 +3774,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.getMtimeMappingMutex.RUnlock()
 	fake.globalDirectoryTreeMutex.RLock()
 	defer fake.globalDirectoryTreeMutex.RUnlock()
+	fake.globalSizeMutex.RLock()
+	defer fake.globalSizeMutex.RUnlock()
 	fake.indexMutex.RLock()
 	defer fake.indexMutex.RUnlock()
 	fake.indexUpdateMutex.RLock()
@@ -3344,8 +3784,16 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.loadIgnoresMutex.RUnlock()
 	fake.localChangedFolderFilesMutex.RLock()
 	defer fake.localChangedFolderFilesMutex.RUnlock()
+	fake.localFilesMutex.RLock()
+	defer fake.localFilesMutex.RUnlock()
+	fake.localFilesSequencedMutex.RLock()
+	defer fake.localFilesSequencedMutex.RUnlock()
+	fake.localSizeMutex.RLock()
+	defer fake.localSizeMutex.RUnlock()
 	fake.needFolderFilesMutex.RLock()
 	defer fake.needFolderFilesMutex.RUnlock()
+	fake.needSizeMutex.RLock()
+	defer fake.needSizeMutex.RUnlock()
 	fake.onHelloMutex.RLock()
 	defer fake.onHelloMutex.RUnlock()
 	fake.overrideMutex.RLock()
@@ -3354,6 +3802,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.pendingDevicesMutex.RUnlock()
 	fake.pendingFoldersMutex.RLock()
 	defer fake.pendingFoldersMutex.RUnlock()
+	fake.receiveOnlySizeMutex.RLock()
+	defer fake.receiveOnlySizeMutex.RUnlock()
 	fake.remoteNeedFolderFilesMutex.RLock()
 	defer fake.remoteNeedFolderFilesMutex.RUnlock()
 	fake.requestMutex.RLock()
@@ -3372,6 +3822,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.scanFolderSubdirsMutex.RUnlock()
 	fake.scanFoldersMutex.RLock()
 	defer fake.scanFoldersMutex.RUnlock()
+	fake.sequenceMutex.RLock()
+	defer fake.sequenceMutex.RUnlock()
 	fake.serveMutex.RLock()
 	defer fake.serveMutex.RUnlock()
 	fake.setIgnoresMutex.RLock()

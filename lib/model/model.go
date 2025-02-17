@@ -29,6 +29,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -96,6 +97,7 @@ type Model interface {
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
+	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[*protocol.FileInfo, error]
 	LocalSize(folder string, device protocol.DeviceID) db.Counts
 	GlobalSize(folder string) db.Counts
 	NeedSize(folder string, device protocol.DeviceID) db.Counts
@@ -970,11 +972,19 @@ func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*p
 	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if !ok {
-		return func(yield func(*protocol.FileInfo, error) bool) {
-			yield(nil, ErrFolderMissing)
-		}
+		return itererr.Error[*protocol.FileInfo](ErrFolderMissing)
 	}
 	return fdb.AllLocal(device)
+}
+
+func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
+	m.mut.RLock()
+	fdb, ok := m.folderDBs[folder]
+	m.mut.RUnlock()
+	if !ok {
+		return itererr.Error[*protocol.FileInfo](ErrFolderMissing)
+	}
+	return fdb.AllLocalSequenced(device, startSeq)
 }
 
 func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
