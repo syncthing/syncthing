@@ -72,6 +72,18 @@ func (c Counts) Add(other Counts) Counts {
 	}
 }
 
+func (c Counts) Subtract(other Counts) Counts {
+	return Counts{
+		Files:       c.Files - other.Files,
+		Directories: c.Directories - other.Directories,
+		Symlinks:    c.Symlinks - other.Symlinks,
+		Deleted:     c.Deleted - other.Deleted,
+		Bytes:       c.Bytes - other.Bytes,
+		Sequence:    c.Sequence - other.Sequence,
+		DeviceID:    protocol.EmptyDeviceID,
+	}
+}
+
 func (c Counts) TotalItems() int {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }

@@ -278,30 +278,106 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 	})
 }
 
-func (db *DB) DeviceCounts(folder string, device protocol.DeviceID) olddb.Counts {
-	type r struct {
-		Type    protocol.FileInfoType
-		Count   int
-		Size    int64
-		FlagBit int64 `db:"flag_bit"`
-	}
-	var res []r
+type sizesRow struct {
+	Type    protocol.FileInfoType
+	Count   int
+	Size    int64
+	FlagBit int64 `db:"flag_bit"`
+}
+
+func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
+	var res []sizesRow
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?
-	`, folder, device.String())
+		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit != ?
+	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
+	if err != nil {
+		panic(err)
+		return olddb.Counts{}
+	}
+	all := summarizeRows(res)
+
+	err = db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		INNER JOIN devices d ON d.idx = s.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit = ?
+	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
+	if err != nil {
+		panic(err)
+		return olddb.Counts{}
+	}
+	doubleCounted := summarizeRows(res)
+
+	return all.Subtract(doubleCounted)
+}
+
+func (db *DB) NeedSize(folder string, device protocol.DeviceID) olddb.Counts {
+	if device == protocol.LocalDeviceID {
+		return db.needSizeLocal(folder)
+	}
+	return db.needSizeRemote(folder, device)
+}
+
+func (db *DB) needSizeLocal(folder string) olddb.Counts {
+	// The need size for the local device is the sum of entries with both
+	// the global and need bit set.
+	var res []sizesRow
+	err := db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		WHERE o.folder_id = ? AND flag_bit = ?
+	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
 		return olddb.Counts{}
 	}
+	return summarizeRows(res)
+}
 
+func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) olddb.Counts {
+	// The need size for a remote device is the global size minus the local
+	// size plus the need size.
+	var res []sizesRow
+	err := db.sql.Select(&res, `
+		SELECT type, count, size, flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		INNER JOIN devices d ON d.idx = s.device_idx
+		WHERE d.device_id = ? AND flag_bit = ?
+	`, folder, device.String(), protocol.FlagLocalNeeded)
+	if err != nil {
+		panic(err)
+	}
+	need := summarizeRows(res)
+	have := db.LocalSize(folder, device)
+	global := db.GlobalSize(folder)
+	fmt.Println("need", need)
+	fmt.Println("have", have)
+	fmt.Println("glob", global)
+	return global.Subtract(have).Add(need)
+}
+
+func (db *DB) GlobalSize(folder string) olddb.Counts {
+	var res []sizesRow
+	err := db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		WHERE o.folder_id = ? AND s.flag_bit = ?
+	`, folder, protocol.FlagLocalGlobal)
+	if err != nil {
+		return olddb.Counts{}
+	}
+	return summarizeRows(res)
+}
+
+func summarizeRows(res []sizesRow) olddb.Counts {
 	c := olddb.Counts{
 		DeviceID: protocol.LocalDeviceID,
 	}
 	for _, r := range res {
 		switch {
-		case r.FlagBit|protocol.FlagLocalDeleted != 0:
+		case r.FlagBit&protocol.FlagLocalDeleted != 0:
 			c.Deleted += r.Count
 		case r.Type == protocol.FileInfoTypeFile:
 			c.Files += r.Count

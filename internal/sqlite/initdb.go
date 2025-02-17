@@ -27,8 +27,10 @@ var tplParams = map[string]any{
 		protocol.FlagLocalIgnored,
 		protocol.FlagLocalMustRescan,
 		protocol.FlagLocalReceiveOnly,
+		protocol.FlagLocalGlobal,
 		protocol.FlagLocalNeeded,
 		protocol.FlagLocalDeleted,
+		protocol.FlagLocalGlobal | protocol.FlagLocalNeeded,
 	},
 }
 

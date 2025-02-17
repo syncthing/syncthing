@@ -130,6 +130,91 @@ func TestBasics(t *testing.T) {
 		}
 	})
 
+	t.Run("LocalSize", func(t *testing.T) {
+		// The local size is the sum of the files a device has
+		c := db.LocalSize(folderID, protocol.LocalDeviceID)
+		if c.Files != 1 {
+			t.Log(c)
+			t.Error("one file expected")
+		}
+		if c.Directories != 1 {
+			t.Log(c)
+			t.Error("one directory expected")
+		}
+		if c.Bytes != 1+128 {
+			t.Log(c)
+			t.Error("size 1+128 expected")
+		}
+	})
+
+	t.Run("RemoteSize", func(t *testing.T) {
+		// The local size is the sum of the files a device has
+		c := db.LocalSize(folderID, protocol.DeviceID{42})
+		if c.Files != 3 {
+			t.Log(c)
+			t.Error("three files expected")
+		}
+		if c.Directories != 0 {
+			t.Log(c)
+			t.Error("no directories expected")
+		}
+		if c.Bytes != 600 {
+			t.Log(c)
+			t.Error("size 600 expected")
+		}
+	})
+
+	t.Run("GlobalSize", func(t *testing.T) {
+		// The global size is the sum of all the latest-version files
+		c := db.GlobalSize(folderID)
+		if c.Files != 3 {
+			t.Log(c)
+			t.Error("one file expected")
+		}
+		if c.Directories != 1 {
+			t.Log(c)
+			t.Error("one directory expected")
+		}
+		if c.Bytes != 128+100+200+300 {
+			t.Log(c)
+			t.Error("size 128+100+200+300 expected")
+		}
+	})
+
+	t.Run("NeedSizeLocal", func(t *testing.T) {
+		// The need size is the sum of all the latest-version files the device does not have
+		c := db.NeedSize(folderID, protocol.LocalDeviceID)
+		if c.Files != 3 {
+			t.Log(c)
+			t.Error("one file expected")
+		}
+		if c.Directories != 0 {
+			t.Log(c)
+			t.Error("no directories expected")
+		}
+		if c.Bytes != 100+200+300 {
+			t.Log(c)
+			t.Error("size 100+200+300 expected")
+		}
+	})
+
+	t.Run("NeedSizeRemote", func(t *testing.T) {
+		// The need size is the sum of all the latest-version files the device does not have
+		c := db.NeedSize(folderID, protocol.DeviceID{42})
+		if c.Files != 0 {
+			t.Log(c)
+			t.Error("no files expected")
+		}
+		if c.Directories != 1 {
+			t.Log(c)
+			t.Error("one directory expected")
+		}
+		if c.Bytes != 128 {
+			t.Log(c)
+			t.Error("size 128 expected")
+		}
+	})
+
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}

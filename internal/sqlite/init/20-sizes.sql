@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS sizes (
 {{ range $type := $.FileInfoTypes }}
 {{ range $flag := $.LocalFlagBits }}
 CREATE TRIGGER IF NOT EXISTS sizes_insert_type{{$type}}_flag{{$flag}} AFTER INSERT ON files
-WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = {{$type}}
+WHEN NOT NEW.invalid AND NEW.type = {{$type}}
 {{- if ne $flag 0 }}
-AND NEW.local_flags & {{$flag}} != 0
+AND NEW.local_flags & {{$flag}} = {{$flag}}
 {{- else }}
 AND NEW.local_flags = 0
 {{- end }}
@@ -30,9 +30,9 @@ BEGIN
 END
 ;
 CREATE TRIGGER IF NOT EXISTS sizes_delete_type{{$type}}_flag{{$flag}} AFTER DELETE ON files
-WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = {{$type}}
+WHEN NOT OLD.invalid AND OLD.type = {{$type}}
 {{- if ne $flag 0 }}
-AND OLD.local_flags & {{$flag}} != 0
+AND OLD.local_flags & {{$flag}} = {{$flag}}
 {{- else }}
 AND OLD.local_flags = 0
 {{- end }}
@@ -42,9 +42,9 @@ BEGIN
 END
 ;
 CREATE TRIGGER IF NOT EXISTS sizes_update_type{{$type}}_flag{{$flag}}_add AFTER UPDATE ON files
-WHEN NOT NEW.invalid AND NOT NEW.deleted AND NEW.type = {{$type}} AND NEW.local_flags != OLD.local_flags
+WHEN NOT NEW.invalid AND NEW.type = {{$type}} AND NEW.local_flags != OLD.local_flags
 {{- if ne $flag 0 }}
-AND NEW.local_flags & {{$flag}} != 0
+AND NEW.local_flags & {{$flag}} = {{$flag}}
 {{- else }}
 AND NEW.local_flags = 0
 {{- end }}
@@ -55,9 +55,9 @@ BEGIN
 END
 ;
 CREATE TRIGGER IF NOT EXISTS sizes_update_type{{$type}}_flag{{$flag}}_del AFTER UPDATE ON files
-WHEN NOT OLD.invalid AND NOT OLD.deleted AND OLD.type = {{$type}} AND NEW.local_flags != OLD.local_flags
+WHEN NOT OLD.invalid AND OLD.type = {{$type}} AND NEW.local_flags != OLD.local_flags
 {{- if ne $flag 0 }}
-AND OLD.local_flags & {{$flag}} != 0
+AND OLD.local_flags & {{$flag}} = {{$flag}}
 {{- else }}
 AND OLD.local_flags = 0
 {{- end }}

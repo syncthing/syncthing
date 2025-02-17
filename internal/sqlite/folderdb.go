@@ -89,9 +89,9 @@ func (f *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) ite
 }
 
 func (f *FolderDB) LocalSize() olddb.Counts {
-	return f.db.DeviceCounts(f.folder, protocol.LocalDeviceID)
+	return f.db.LocalSize(f.folder, protocol.LocalDeviceID)
 }
 
 func (f *FolderDB) GlobalSize() olddb.Counts {
-	return f.db.DeviceCounts(f.folder, protocol.GlobalDeviceID)
+	return f.db.GlobalSize(f.folder)
 }
