@@ -1250,10 +1250,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
-	seq, err := f.fdb.Sequence(protocol.LocalDeviceID)
-	if err != nil {
-		return err
-	}
+	seq := f.fdb.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),

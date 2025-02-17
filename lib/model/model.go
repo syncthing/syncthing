@@ -934,31 +934,25 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 func (m *model) folderCompletion(device protocol.DeviceID, folder string) (FolderCompletion, error) {
 	m.mut.RLock()
 	err := m.checkFolderRunningRLocked(folder)
-	rf := m.folderFiles[folder]
+	fdb := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if err != nil {
 		return FolderCompletion{}, err
 	}
-
-	snap, err := rf.Snapshot()
-	if err != nil {
-		return FolderCompletion{}, err
-	}
-	defer snap.Release()
 
 	m.mut.RLock()
 	state := m.remoteFolderStates[device][folder]
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.mut.RUnlock()
 
-	need := snap.NeedSize(device)
+	need := fdb.NeedSize(device)
 	need.Bytes -= downloaded
 	// This might be more than it really is, because some blocks can be of a smaller size.
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device), state)
+	comp := newFolderCompletion(fdb.GlobalSize(), need, fdb.Sequence(device), state)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil

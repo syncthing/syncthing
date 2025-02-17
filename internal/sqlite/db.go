@@ -218,7 +218,7 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 	return protocol.FileInfoFromDB(&bfi), true, nil
 }
 
-func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
+func (db *DB) Sequence(folder string, device protocol.DeviceID) int64 {
 	var seq int64
 	field := "sequence"
 	if device != protocol.LocalDeviceID {
@@ -231,9 +231,9 @@ func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 		WHERE o.folder_id = ? AND d.device = ?`, field),
 		folder, device.String())
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
+		return 0
 	}
-	return seq, nil
+	return seq
 }
 
 func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
@@ -294,7 +294,6 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
 		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit != ?
 	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
 	if err != nil {
-		panic(err)
 		return olddb.Counts{}
 	}
 	all := summarizeRows(res)
@@ -306,7 +305,6 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
 		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit = ?
 	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
 	if err != nil {
-		panic(err)
 		return olddb.Counts{}
 	}
 	doubleCounted := summarizeRows(res)
@@ -352,9 +350,6 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) olddb.Coun
 	need := summarizeRows(res)
 	have := db.LocalSize(folder, device)
 	global := db.GlobalSize(folder)
-	fmt.Println("need", need)
-	fmt.Println("have", have)
-	fmt.Println("glob", global)
 	return global.Subtract(have).Add(need)
 }
 

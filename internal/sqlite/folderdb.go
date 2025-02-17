@@ -52,7 +52,7 @@ func (f *FolderDB) Global(file string) (protocol.FileInfo, bool, error) {
 	return f.db.Global(f.folder, file)
 }
 
-func (f *FolderDB) Sequence(device protocol.DeviceID) (int64, error) {
+func (f *FolderDB) Sequence(device protocol.DeviceID) int64 {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
 	return f.db.Sequence(f.folder, device)
@@ -88,10 +88,20 @@ func (f *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) ite
 	return f.db.AllLocalPrefixed(f.folder, device, prefix)
 }
 
-func (f *FolderDB) LocalSize() olddb.Counts {
-	return f.db.LocalSize(f.folder, protocol.LocalDeviceID)
+func (f *FolderDB) LocalSize(device protocol.DeviceID) olddb.Counts {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.LocalSize(f.folder, device)
 }
 
 func (f *FolderDB) GlobalSize() olddb.Counts {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
 	return f.db.GlobalSize(f.folder)
+}
+
+func (f *FolderDB) NeedSize(device protocol.DeviceID) olddb.Counts {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.NeedSize(f.folder, device)
 }
