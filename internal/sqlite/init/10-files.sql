@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS files (
     deleted INTEGER NOT NULL, -- boolean
     invalid INTEGER NOT NULL, -- boolean
     local_flags  INTEGER NOT NULL,
+    blocks_hash TEXT, -- null when there are no blocks
     fileinfo_protobuf BLOB NOT NULL,
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
@@ -43,4 +44,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device
 ;
 -- We want to be able to look up & iterate files based on just folder and name
 CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
+;
+-- We want to be able to look up & iterate files based on blocks hash
+CREATE INDEX IF NOT EXISTS files_blocks_hash_only ON files (blocks_hash)
 ;

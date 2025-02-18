@@ -3318,32 +3318,40 @@ func TestRenameEmptyFile(t *testing.T) {
 
 	m.ScanFolders()
 
-	snap := dbSnapshot(t, m, "default")
-	defer snap.Release()
-	empty, eok := snap.Get(protocol.LocalDeviceID, "empty")
+	empty, eok, err := m.model.CurrentFolderFile("default", "empty")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !eok {
 		t.Fatal("failed to find empty file")
 	}
-	file, fok := snap.Get(protocol.LocalDeviceID, "file")
+	file, fok, err := m.model.CurrentFolderFile("default", "file")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !fok {
 		t.Fatal("failed to find non-empty file")
 	}
 
 	count := 0
-	snap.WithBlocksHash(empty.BlocksHash, func(_ protocol.FileInfo) bool {
+	for _, err := range m.model.AllForBlocksHash(empty.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
-		return true
-	})
+	}
 
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func(_ protocol.FileInfo) bool {
+	for _, err := range m.model.AllForBlocksHash(file.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
-		return true
-	})
+	}
 
 	if count != 1 {
 		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
@@ -3355,27 +3363,28 @@ func TestRenameEmptyFile(t *testing.T) {
 	// Scan
 	m.ScanFolders()
 
-	snap = dbSnapshot(t, m, "default")
-	defer snap.Release()
-
 	count = 0
-	snap.WithBlocksHash(empty.BlocksHash, func(_ protocol.FileInfo) bool {
+	for _, err := range m.model.AllForBlocksHash(empty.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
-		return true
-	})
+	}
 
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func(i protocol.FileInfo) bool {
+	for i, err := range m.model.AllForBlocksHash(file.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		count++
 		if i.FileName() != "new-file" {
 			t.Fatalf("unexpected file name %s, expected new-file", i.FileName())
 		}
-		return true
-	})
+	}
 
 	if count != 1 {
 		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
@@ -3397,19 +3406,21 @@ func TestBlockListMap(t *testing.T) {
 
 	m.ScanFolders()
 
-	snap := dbSnapshot(t, m, "default")
-	defer snap.Release()
-	fi, ok := snap.Get(protocol.LocalDeviceID, "one")
+	fi, ok, err := m.model.CurrentFolderFile("default", "one")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !ok {
 		t.Error("failed to find existing file")
 	}
 	var paths []string
 
-	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileInfo) bool {
+	for _, err := range m.model.AllForBlocksHash(fi.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		paths = append(paths, fi.FileName())
-		return true
-	})
-	snap.Release()
+	}
 
 	expected := []string{"one", "two", "three", "four", "five"}
 	if !equalStringsInAnyOrder(paths, expected) {
@@ -3434,15 +3445,14 @@ func TestBlockListMap(t *testing.T) {
 	m.ScanFolders()
 
 	// Check we're left with 2 of the 5
-	snap = dbSnapshot(t, m, "default")
-	defer snap.Release()
 
 	paths = paths[:0]
-	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileInfo) bool {
+	for _, err := range m.model.AllForBlocksHash(fi.BlocksHash) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		paths = append(paths, fi.FileName())
-		return true
-	})
-	snap.Release()
+	}
 
 	expected = []string{"new-three", "five"}
 	if !equalStringsInAnyOrder(paths, expected) {

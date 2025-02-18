@@ -68,6 +68,15 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	for _, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
 
+		var blockshash *string
+		if len(f.Blocks) > 0 {
+			f.BlocksHash = protocol.BlocksHash(f.Blocks)
+			h := hex.EncodeToString(f.BlocksHash)
+			blockshash = &h
+		} else {
+			f.BlocksHash = nil
+		}
+
 		if f.Deleted {
 			f.LocalFlags |= protocol.FlagLocalDeleted
 		}
@@ -88,10 +97,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		}
 		var localSeq int64
 		if err := tx.Get(&localSeq, `
-			INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, fileinfo_protobuf)
+			INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocks_hash, fileinfo_protobuf)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING sequence`,
-			folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, bs); err != nil {
+			folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash, bs); err != nil {
 			return wrap("update (insert file)", err)
 		}
 
@@ -273,6 +282,17 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name GLOB ?) AND f.version != ""`,
 		folder, device.String(), prefix, glob))
+	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
+		fi := protocol.FileInfoFromDB(b)
+		return &fi
+	})
+}
+
+func (db *DB) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
+		SELECT fileinfo_protobuf FROM files
+		WHERE blockshash = ?`,
+		hex.EncodeToString(h)))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
