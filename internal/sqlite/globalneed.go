@@ -102,7 +102,7 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 	vals := iterStructs[fileRow](tx.Queryx(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
-		WHERE folder_idx = ? AND name = ? AND NOT invalid`,
+		WHERE folder_idx = ? AND name = ?`,
 		folderIdx, file))
 	es, err := itererr.Collect(vals)
 	if err != nil {
@@ -156,6 +156,12 @@ func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
 }
 
 func (e fileRow) Compare(other fileRow) int {
+	if e.Invalid != other.Invalid {
+		if e.Invalid {
+			return 1
+		}
+		return -1
+	}
 	// From FileInfo.WinsConflict
 	vc := e.Version.Vector.Compare(other.Version.Vector)
 	switch vc {

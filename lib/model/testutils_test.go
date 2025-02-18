@@ -155,7 +155,9 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedF
 	if err != nil {
 		t.Fatal(err)
 	}
-	sdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	dbFile := filepath.Join(os.TempDir(), rand.String(5)+".db")
+	t.Log("dbFile", dbFile)
+	sdb, err := sqlite.Open(dbFile)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1224,16 +1224,20 @@ func (f *folder) ScheduleForceRescan(path string) {
 	}
 }
 
-func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) {
-	f.updateLocals(fs)
-
+func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) error {
+	if err := f.updateLocals(fs); err != nil {
+		return err
+	}
 	f.emitDiskChangeEvents(fs, events.LocalChangeDetected)
+	return nil
 }
 
-func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) {
-	f.updateLocals(fs)
-
+func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) error {
+	if err := f.updateLocals(fs); err != nil {
+		return err
+	}
 	f.emitDiskChangeEvents(fs, events.RemoteChangeDetected)
+	return nil
 }
 
 func (f *folder) updateLocals(fs []protocol.FileInfo) error {

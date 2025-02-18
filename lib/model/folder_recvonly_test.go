@@ -46,7 +46,9 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Send and index update for the known stuff
 
 	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
-	f.updateLocalsFromScanning(knownFiles)
+	if err := f.updateLocalsFromScanning(knownFiles); err != nil {
+		t.Fatal(err)
+	}
 
 	size := m.GlobalSize("ro")
 	if size.Files != 1 || size.Directories != 1 {
@@ -61,7 +63,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	size = m.GlobalSize("ro")
 	if size.Files != 1 || size.Directories != 1 {
-		t.Fatalf("Global: expected 2 files and 2 directories: %+v", size)
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
 	size = m.LocalSize("ro", protocol.LocalDeviceID)
 	if size.Files != 2 || size.Directories != 2 {

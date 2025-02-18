@@ -98,7 +98,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		var localSeq int64
 		if err := tx.Get(&localSeq, `
 			INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocks_hash, fileinfo_protobuf)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING sequence`,
 			folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash, bs); err != nil {
 			return wrap("update (insert file)", err)
