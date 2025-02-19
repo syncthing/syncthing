@@ -238,6 +238,16 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 	return protocol.FileInfoFromDB(&bfi), true, nil
 }
 
+func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
+	prefix = osutil.NormalizedFilename(prefix)
+	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND f.name LIKE ? AND f.local_flags & ? != 0`,
+		folder, prefix, protocol.FlagLocalGlobal))
+	return itererr.Map(beps, protocol.FileInfoFromDB)
+}
+
 func (db *DB) Sequence(folder string, device protocol.DeviceID) int64 {
 	var seq int64
 	field := "sequence"

@@ -2670,13 +2670,13 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
 		}
 
-		fs := m.folderFiles[folderCfg.ID]
+		fdb := m.folderDBs[folderCfg.ID]
 
 		// Even if we aren't paused, if we haven't started the folder yet
 		// pretend we are. Otherwise the remote might get confused about
 		// the missing index info (and drop all the info). We will send
 		// another cluster config once the folder is started.
-		protocolFolder.Paused = folderCfg.Paused || fs == nil
+		protocolFolder.Paused = folderCfg.Paused || fdb == nil
 
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
@@ -2699,13 +2699,13 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 				}
 			}
 
-			if fs != nil {
+			if fdb != nil {
 				if deviceCfg.DeviceID == m.id {
-					protocolDevice.IndexID = fs.IndexID(protocol.LocalDeviceID)
-					protocolDevice.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
+					protocolDevice.IndexID, _ = fdb.IndexID(protocol.LocalDeviceID)
+					protocolDevice.MaxSequence = fdb.Sequence(protocol.LocalDeviceID)
 				} else {
-					protocolDevice.IndexID = fs.IndexID(deviceCfg.DeviceID)
-					protocolDevice.MaxSequence = fs.Sequence(deviceCfg.DeviceID)
+					protocolDevice.IndexID, _ = fdb.IndexID(deviceCfg.DeviceID)
+					protocolDevice.MaxSequence = fdb.Sequence(deviceCfg.DeviceID)
 				}
 			}
 
@@ -2803,7 +2803,7 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 
 func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error) {
 	m.mut.RLock()
-	files, ok := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if !ok {
 		return nil, ErrFolderMissing
@@ -2819,15 +2819,14 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		prefix = prefix + sep
 	}
 
-	snap, err := files.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(f protocol.FileInfo) bool {
+	for f, err := range fdb.AllGlobalPrefix(prefix) {
+		if err != nil {
+			return nil, err
+		}
+
 		// Don't include the prefix itself.
 		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
-			return true
+			continue
 		}
 
 		f.Name = strings.Replace(f.Name, prefix, "", 1)
@@ -2836,7 +2835,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		base := filepath.Base(f.Name)
 
 		if levels > -1 && strings.Count(f.Name, sep) > levels {
-			return true
+			continue
 		}
 
 		parent := root
@@ -2845,14 +2844,14 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 				child := findByName(parent.Children, path)
 				if child == nil {
 					err = fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name)
-					return false
+					break
 				}
 				parent = child
 			}
 		}
 
 		if dirsOnly && !f.IsDirectory() {
-			return true
+			continue
 		}
 
 		parent.Children = append(parent.Children, &TreeEntry{
@@ -2861,11 +2860,6 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			ModTime: f.ModTime(),
 			Size:    f.FileSize(),
 		})
-
-		return true
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	return root.Children, nil

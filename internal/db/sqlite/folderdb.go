@@ -52,6 +52,12 @@ func (f *FolderDB) Global(file string) (protocol.FileInfo, bool, error) {
 	return f.db.Global(f.folder, file)
 }
 
+func (f *FolderDB) AllGlobalPrefix(prefix string) iter.Seq2[protocol.FileInfo, error] {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.AllGlobalPrefix(f.folder, prefix)
+}
+
 func (f *FolderDB) Sequence(device protocol.DeviceID) int64 {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
@@ -114,4 +120,10 @@ func (f *FolderDB) ReceiveOnlySize() olddb.Counts {
 	f.mut.RLock()
 	defer f.mut.RUnlock()
 	return f.db.ReceiveOnlySize(f.folder)
+}
+
+func (f *FolderDB) IndexID(device protocol.DeviceID) (protocol.IndexID, error) {
+	f.mut.RLock()
+	defer f.mut.RUnlock()
+	return f.db.IndexID(f.folder, device)
 }
