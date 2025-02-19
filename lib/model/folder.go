@@ -15,7 +15,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlite"
+	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -101,14 +102,14 @@ func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg 
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
-		FolderStatisticsReference: stats.NewFolderStatisticsReference(sqlite.NewNamespacedKV(model.sdb, "folderstats/"+cfg.ID)),
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(kv.NewTyped(model.sdb, "folderstats/"+cfg.ID)),
 		ioLimiter:                 ioLimiter,
 
 		model:         model,
 		shortID:       model.shortID,
 		fdb:           fdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(fdb.KV("mtimes"))),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(kv.NewTyped(model.sdb, "mtimes/"+cfg.ID))),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 

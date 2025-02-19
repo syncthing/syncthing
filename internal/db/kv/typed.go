@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package sqlite
+package kv
 
 import (
 	"database/sql"
@@ -19,17 +19,17 @@ type KV interface {
 	Delete(key string) error
 }
 
-// NamespacedKV is a simple key-value store using a specific namespace within
-// a leveldb.
-type NamespacedKV struct {
+// Typed is a simple key-value store using a specific namespace within a
+// lower level KV.
+type Typed struct {
 	db     KV
 	prefix string
 }
 
-// NewNamespacedKV returns a new NamespacedKV that lives in the namespace
+// NewTyped returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
-func NewNamespacedKV(db KV, prefix string) *NamespacedKV {
-	return &NamespacedKV{
+func NewTyped(db KV, prefix string) *Typed {
+	return &Typed{
 		db:     db,
 		prefix: prefix,
 	}
@@ -37,7 +37,7 @@ func NewNamespacedKV(db KV, prefix string) *NamespacedKV {
 
 // PutInt64 stores a new int64. Any existing value (even if of another type)
 // is overwritten.
-func (n *NamespacedKV) PutInt64(key string, val int64) error {
+func (n *Typed) PutInt64(key string, val int64) error {
 	var valBs [8]byte
 	binary.BigEndian.PutUint64(valBs[:], uint64(val))
 	return n.db.Put(n.prefixedKey(key), valBs[:])
@@ -45,7 +45,7 @@ func (n *NamespacedKV) PutInt64(key string, val int64) error {
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) Int64(key string) (int64, bool, error) {
+func (n *Typed) Int64(key string) (int64, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return 0, false, filterNotFound(err)
@@ -56,14 +56,14 @@ func (n *NamespacedKV) Int64(key string) (int64, bool, error) {
 
 // PutTime stores a new time.Time. Any existing value (even if of another
 // type) is overwritten.
-func (n *NamespacedKV) PutTime(key string, val time.Time) error {
+func (n *Typed) PutTime(key string, val time.Time) error {
 	valBs, _ := val.MarshalBinary() // never returns an error
 	return n.db.Put(n.prefixedKey(key), valBs)
 }
 
 // Time returns the stored value interpreted as a time.Time and a boolean
 // that is false if no value was stored at the key.
-func (n *NamespacedKV) Time(key string) (time.Time, bool, error) {
+func (n *Typed) Time(key string) (time.Time, bool, error) {
 	var t time.Time
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
@@ -75,13 +75,13 @@ func (n *NamespacedKV) Time(key string) (time.Time, bool, error) {
 
 // PutString stores a new string. Any existing value (even if of another type)
 // is overwritten.
-func (n *NamespacedKV) PutString(key, val string) error {
+func (n *Typed) PutString(key, val string) error {
 	return n.db.Put(n.prefixedKey(key), []byte(val))
 }
 
 // String returns the stored value interpreted as a string and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) String(key string) (string, bool, error) {
+func (n *Typed) String(key string) (string, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return "", false, filterNotFound(err)
@@ -91,13 +91,13 @@ func (n *NamespacedKV) String(key string) (string, bool, error) {
 
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
 // is overwritten.
-func (n *NamespacedKV) PutBytes(key string, val []byte) error {
+func (n *Typed) PutBytes(key string, val []byte) error {
 	return n.db.Put(n.prefixedKey(key), val)
 }
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) Bytes(key string) ([]byte, bool, error) {
+func (n *Typed) Bytes(key string) ([]byte, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return nil, false, filterNotFound(err)
@@ -107,7 +107,7 @@ func (n *NamespacedKV) Bytes(key string) ([]byte, bool, error) {
 
 // PutBool stores a new boolean. Any existing value (even if of another type)
 // is overwritten.
-func (n *NamespacedKV) PutBool(key string, val bool) error {
+func (n *Typed) PutBool(key string, val bool) error {
 	if val {
 		return n.db.Put(n.prefixedKey(key), []byte{0x0})
 	}
@@ -116,7 +116,7 @@ func (n *NamespacedKV) PutBool(key string, val bool) error {
 
 // Bool returns the stored value as a boolean and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) Bool(key string) (bool, bool, error) {
+func (n *Typed) Bool(key string) (bool, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return false, false, filterNotFound(err)
@@ -126,11 +126,11 @@ func (n *NamespacedKV) Bool(key string) (bool, bool, error) {
 
 // Delete deletes the specified key. It is allowed to delete a nonexistent
 // key.
-func (n *NamespacedKV) Delete(key string) error {
+func (n *Typed) Delete(key string) error {
 	return n.db.Delete(n.prefixedKey(key))
 }
 
-func (n *NamespacedKV) prefixedKey(key string) string {
+func (n *Typed) prefixedKey(key string) string {
 	return n.prefix + "/" + key
 }
 

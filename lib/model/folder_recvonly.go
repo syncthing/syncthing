@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlite"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"

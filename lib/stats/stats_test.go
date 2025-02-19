@@ -14,7 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlite"
+	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 )
 
 func TestDeviceStat(t *testing.T) {
@@ -24,7 +25,7 @@ func TestDeviceStat(t *testing.T) {
 	}
 	defer db.Close()
 
-	sr := NewDeviceStatisticsReference(sqlite.NewNamespacedKV(db, "devstatref"))
+	sr := NewDeviceStatisticsReference(kv.NewTyped(db, "devstatref"))
 	if err := sr.WasSeen(); err != nil {
 		t.Fatal(err)
 	}

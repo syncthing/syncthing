@@ -4,23 +4,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package sqlite
+package kv_test
 
 import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb, err := Open(filepath.Join(t.TempDir(), "db"))
+	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ldb.Close()
 
-	n1 := NewNamespacedKV(ldb, "foo")
-	n2 := NewNamespacedKV(ldb, "bar")
+	n1 := kv.NewTyped(ldb, "foo")
+	n2 := kv.NewTyped(ldb, "bar")
 
 	// Key is missing to start with
 
@@ -64,13 +67,13 @@ func TestNamespacedInt(t *testing.T) {
 }
 
 func TestNamespacedTime(t *testing.T) {
-	ldb, err := Open(filepath.Join(t.TempDir(), "db"))
+	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ldb.Close()
 
-	n1 := NewNamespacedKV(ldb, "foo")
+	n1 := kv.NewTyped(ldb, "foo")
 
 	if v, ok, err := n1.Time("test"); err != nil {
 		t.Error("Unexpected error:", err)
@@ -91,13 +94,13 @@ func TestNamespacedTime(t *testing.T) {
 }
 
 func TestNamespacedString(t *testing.T) {
-	ldb, err := Open(filepath.Join(t.TempDir(), "db"))
+	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ldb.Close()
 
-	n1 := NewNamespacedKV(ldb, "foo")
+	n1 := kv.NewTyped(ldb, "foo")
 
 	if v, ok, err := n1.String("test"); err != nil {
 		t.Error("Unexpected error:", err)

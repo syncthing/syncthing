@@ -9,7 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/internal/sqlite"
+	"github.com/syncthing/syncthing/internal/db/kv"
 )
 
 const (
@@ -23,17 +23,17 @@ type DeviceStatistics struct {
 }
 
 type DeviceStatisticsReference struct {
-	ns *sqlite.NamespacedKV
+	kv *kv.Typed
 }
 
-func NewDeviceStatisticsReference(kv *sqlite.NamespacedKV) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(kv *kv.Typed) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns: kv,
+		kv: kv,
 	}
 }
 
 func (s *DeviceStatisticsReference) GetLastSeen() (time.Time, error) {
-	t, ok, err := s.ns.Time(lastSeenKey)
+	t, ok, err := s.kv.Time(lastSeenKey)
 	if err != nil {
 		return time.Time{}, err
 	} else if !ok {
@@ -45,7 +45,7 @@ func (s *DeviceStatisticsReference) GetLastSeen() (time.Time, error) {
 }
 
 func (s *DeviceStatisticsReference) GetLastConnectionDuration() (time.Duration, error) {
-	d, ok, err := s.ns.Int64(connDurationKey)
+	d, ok, err := s.kv.Int64(connDurationKey)
 	if err != nil {
 		return 0, err
 	} else if !ok {
@@ -55,11 +55,11 @@ func (s *DeviceStatisticsReference) GetLastConnectionDuration() (time.Duration, 
 }
 
 func (s *DeviceStatisticsReference) WasSeen() error {
-	return s.ns.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
+	return s.kv.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
 }
 
 func (s *DeviceStatisticsReference) LastConnectionDuration(d time.Duration) error {
-	return s.ns.PutInt64(connDurationKey, d.Nanoseconds())
+	return s.kv.PutInt64(connDurationKey, d.Nanoseconds())
 }
 
 func (s *DeviceStatisticsReference) GetStatistics() (DeviceStatistics, error) {
