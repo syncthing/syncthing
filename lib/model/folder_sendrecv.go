@@ -1363,18 +1363,21 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			if !found {
-				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					ffs := folderFilesystems[folder]
-					fd, err := ffs.Open(path)
+				for e, err := range f.model.sdb.Blocks(block.Hash) {
 					if err != nil {
-						return false
+						break
+					}
+					ffs := folderFilesystems[e.FolderID]
+					fd, err := ffs.Open(e.Name)
+					if err != nil {
+						continue
 					}
 					defer fd.Close()
 
-					srcOffset := int64(state.file.BlockSize()) * int64(index)
-					_, err = fd.ReadAt(buf, srcOffset)
+					_, err = fd.ReadAt(buf, e.Offset)
 					if err != nil {
-						return false
+						fd.Close()
+						continue
 					}
 
 					// Hash is not SHA256 as it's an encrypted hash token. In that
@@ -1383,7 +1386,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if f.Type != config.FolderTypeReceiveEncrypted {
 						if err := f.verifyBuffer(buf, block); err != nil {
 							l.Debugln("Finder failed to verify buffer", err)
-							return false
+							continue
 						}
 					}
 
@@ -1391,21 +1394,23 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						err = f.withLimiter(func() error {
 							dstFd.mut.Lock()
 							defer dstFd.mut.Unlock()
-							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
+							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
 						})
 					} else {
 						err = f.limitedWriteAt(dstFd, buf, block.Offset)
 					}
 					if err != nil {
 						state.fail(fmt.Errorf("dst write: %w", err))
+						break
 					}
-					if path == state.file.Name {
+					if e.Name == state.file.Name {
 						state.copiedFromOrigin(block.Size)
 					} else {
 						state.copiedFromElsewhere(block.Size)
 					}
-					return true
-				})
+					found = true
+					break
+				}
 			}
 
 			if state.failed() != nil {

@@ -10,18 +10,21 @@
 package stats
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/internal/sqlite"
 )
 
 func TestDeviceStat(t *testing.T) {
-	db := backend.OpenLevelDBMemory()
+	db, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
-	sr := NewDeviceStatisticsReference(db, protocol.LocalDeviceID)
+	sr := NewDeviceStatisticsReference(sqlite.NewNamespacedKV(db, "devstatref"))
 	if err := sr.WasSeen(); err != nil {
 		t.Fatal(err)
 	}

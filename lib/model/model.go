@@ -142,7 +142,6 @@ type model struct {
 	evLogger       events.Logger
 
 	// constant or concurrency safe fields
-	finder          *db.BlockFinder
 	progressEmitter *ProgressEmitter
 	shortID         protocol.ShortID
 	// globalRequestLimiter limits the amount of data in concurrent incoming
@@ -225,7 +224,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protecte
 		evLogger:       evLogger,
 
 		// constant or concurrency safe fields
-		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
 		shortID:              id.Short(),
 		globalRequestLimiter: semaphore.New(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
@@ -256,7 +254,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protecte
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 	}
 	for devID, cfg := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(sqlite.NewNamespacedKV(sdb, "devstats/"+devID.String()))
 		m.setConnRequestLimitersLocked(cfg)
 	}
 	m.Add(m.folderRunners)
@@ -337,7 +335,7 @@ func (m *model) fatal(err error) {
 }
 
 // Need to hold lock on m.mut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, fdb *sqlite.FolderDB, cacheIgnoredFiles bool) {
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fdb *sqlite.FolderDB, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
@@ -345,13 +343,12 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db
 		}
 	}
 
-	m.addAndStartFolderLockedWithIgnores(cfg, fset, fdb, ignores)
+	m.addAndStartFolderLockedWithIgnores(cfg, fdb, ignores)
 }
 
 // Only needed for testing, use addAndStartFolderLocked instead.
-func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher) {
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fdb *sqlite.FolderDB, ignores *ignore.Matcher) {
 	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = fset
 	m.folderDBs[cfg.ID] = fdb
 	m.folderIgnores[cfg.ID] = ignores
 
@@ -493,7 +490,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	m.mut.Unlock()
 
 	// Remove it from the database
-	db.DropFolder(m.db, cfg.ID)
+	m.sdb.DropFolder(cfg.ID)
 }
 
 // Need to hold lock on m.mut when calling this.
@@ -501,7 +498,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// clear up our config maps
 	m.folderRunners.Remove(cfg.ID)
 	delete(m.folderCfgs, cfg.ID)
-	delete(m.folderFiles, cfg.ID)
+	delete(m.folderDBs, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
 	delete(m.folderEncryptionPasswordTokens, cfg.ID)
@@ -537,9 +534,8 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	defer m.mut.Unlock()
 
 	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
-	fset := m.folderFiles[folder]
 	fdb := m.folderDBs[folder]
-	fsetNil := fset == nil
+	fsetNil := fdb == nil
 
 	m.cleanupFolderLocked(from)
 	if !to.Paused {
@@ -547,14 +543,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			// Create a new fset. Might take a while and we do it under
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
-			var err error
-			fset, err = db.NewFileSet(folder, m.db)
-			if err != nil {
-				return fmt.Errorf("restarting %v: %w", to.Description(), err)
-			}
 			fdb = sqlite.NewFolderDB(m.sdb, folder)
 		}
-		m.addAndStartFolderLocked(to, fset, fdb, cacheIgnoredFiles)
+		m.addAndStartFolderLocked(to, fdb, cacheIgnoredFiles)
 	}
 
 	runner, _ := m.folderRunners.Get(to.ID)

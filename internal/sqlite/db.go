@@ -163,6 +163,19 @@ func (db *DB) DropNames(folder string, device protocol.DeviceID, names []string)
 	return wrap("remove", tx.Commit())
 }
 
+func (db *DB) DropFolder(folder string) error {
+	_, err := db.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
+	return err
+}
+
+func (db *DB) DropDevice(device protocol.DeviceID) error {
+	if device == protocol.LocalDeviceID {
+		panic("bug: cannot drop local device")
+	}
+	_, err := db.sql.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String())
+	return err
+}
+
 func (db *DB) Drop(folder string, device protocol.DeviceID, names []string) error {
 	for i := range names {
 		names[i] = osutil.NormalizedFilename(names[i])

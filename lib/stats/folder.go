@@ -9,7 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/internal/sqlite"
 )
 
 type FolderStatistics struct {
@@ -18,8 +18,7 @@ type FolderStatistics struct {
 }
 
 type FolderStatisticsReference struct {
-	ns     *db.NamespacedKV
-	folder string
+	ns *sqlite.NamespacedKV
 }
 
 type LastFile struct {
@@ -28,10 +27,9 @@ type LastFile struct {
 	Deleted  bool      `json:"deleted"`
 }
 
-func NewFolderStatisticsReference(ldb *db.Lowlevel, folder string) *FolderStatisticsReference {
+func NewFolderStatisticsReference(kv *sqlite.NamespacedKV) *FolderStatisticsReference {
 	return &FolderStatisticsReference{
-		ns:     db.NewFolderStatisticsNamespace(ldb, folder),
-		folder: folder,
+		ns: kv,
 	}
 }
 
@@ -60,7 +58,6 @@ func (s *FolderStatisticsReference) GetLastFile() (LastFile, error) {
 }
 
 func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) error {
-	l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
 	if err := s.ns.PutTime("lastFileAt", time.Now().Truncate(time.Second)); err != nil {
 		return err
 	}

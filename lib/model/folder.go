@@ -101,7 +101,7 @@ func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg 
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
-		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(sqlite.NewNamespacedKV(model.sdb, "folderstats/"+cfg.ID)),
 		ioLimiter:                 ioLimiter,
 
 		model:         model,

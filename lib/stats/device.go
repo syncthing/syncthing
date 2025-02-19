@@ -9,9 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/internal/sqlite"
 )
 
 const (
@@ -25,14 +23,12 @@ type DeviceStatistics struct {
 }
 
 type DeviceStatisticsReference struct {
-	ns     *db.NamespacedKV
-	device protocol.DeviceID
+	ns *sqlite.NamespacedKV
 }
 
-func NewDeviceStatisticsReference(dba backend.Backend, device protocol.DeviceID) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(kv *sqlite.NamespacedKV) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns:     db.NewDeviceStatisticsNamespace(dba, device.String()),
-		device: device,
+		ns: kv,
 	}
 }
 
@@ -45,7 +41,6 @@ func (s *DeviceStatisticsReference) GetLastSeen() (time.Time, error) {
 		// time.Time{} from s.ns
 		return time.Unix(0, 0), nil
 	}
-	l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, t)
 	return t, nil
 }
 
@@ -56,17 +51,14 @@ func (s *DeviceStatisticsReference) GetLastConnectionDuration() (time.Duration, 
 	} else if !ok {
 		return 0, nil
 	}
-	l.Debugln("stats.DeviceStatisticsReference.GetLastConnectionDuration:", s.device, d)
 	return time.Duration(d), nil
 }
 
 func (s *DeviceStatisticsReference) WasSeen() error {
-	l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
 	return s.ns.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
 }
 
 func (s *DeviceStatisticsReference) LastConnectionDuration(d time.Duration) error {
-	l.Debugln("stats.DeviceStatisticsReference.LastConnectionDuration:", s.device, d)
 	return s.ns.PutInt64(connDurationKey, d.Nanoseconds())
 }
 
