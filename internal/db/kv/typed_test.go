@@ -22,8 +22,8 @@ func TestNamespacedInt(t *testing.T) {
 	}
 	defer ldb.Close()
 
-	n1 := kv.NewTyped(ldb, "foo")
-	n2 := kv.NewTyped(ldb, "bar")
+	n1 := kv.NewTyped(ldb.KV(), "foo")
+	n2 := kv.NewTyped(ldb.KV(), "bar")
 
 	// Key is missing to start with
 
@@ -73,7 +73,7 @@ func TestNamespacedTime(t *testing.T) {
 	}
 	defer ldb.Close()
 
-	n1 := kv.NewTyped(ldb, "foo")
+	n1 := kv.NewTyped(ldb.KV(), "foo")
 
 	if v, ok, err := n1.Time("test"); err != nil {
 		t.Error("Unexpected error:", err)
@@ -100,7 +100,7 @@ func TestNamespacedString(t *testing.T) {
 	}
 	defer ldb.Close()
 
-	n1 := kv.NewTyped(ldb, "foo")
+	n1 := kv.NewTyped(ldb.KV(), "foo")
 
 	if v, ok, err := n1.String("test"); err != nil {
 		t.Error("Unexpected error:", err)

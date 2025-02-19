@@ -376,8 +376,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	v, ok := fset.Sequence(protocol.LocalDeviceID), true
-	indexHasFiles := ok && v > 0
+	indexHasFiles := fdb.Sequence(protocol.LocalDeviceID) > 0
 	if !indexHasFiles {
 		// It's a blank folder, so this may the first time we're looking at
 		// it. Attempt to create and tag with our marker as appropriate. We
@@ -2220,34 +2219,24 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, off
 
 func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error) {
 	m.mut.RLock()
-	fs, ok := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if !ok {
 		return protocol.FileInfo{}, false, ErrFolderMissing
 	}
-	snap, err := fs.Snapshot()
-	if err != nil {
-		return protocol.FileInfo{}, false, err
-	}
-	f, ok := snap.Get(protocol.LocalDeviceID, file)
-	snap.Release()
-	return f, ok, nil
+
+	return fdb.Local(protocol.LocalDeviceID, file)
 }
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
 	m.mut.RLock()
-	ffs, ok := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if !ok {
 		return protocol.FileInfo{}, false, ErrFolderMissing
 	}
-	snap, err := ffs.Snapshot()
-	if err != nil {
-		return protocol.FileInfo{}, false, err
-	}
-	f, ok := snap.GetGlobal(file)
-	snap.Release()
-	return f, ok, nil
+
+	return fdb.Global(file)
 }
 
 // Connection returns if we are connected to the given device.

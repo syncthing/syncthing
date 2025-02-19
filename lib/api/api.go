@@ -982,16 +982,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
-		"mtime": map[string]interface{}{
-			"err":   mtimeErr,
-			"value": mtimeMapping,
-		},
 	})
 }
 
