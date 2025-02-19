@@ -28,7 +28,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -112,7 +112,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -202,7 +202,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -272,7 +272,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -337,7 +337,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -426,7 +426,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -486,7 +486,7 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 

@@ -34,7 +34,7 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 			FSPath: tmpDir2,
 		},
 	}
-	folderFs := cfg.Filesystem(nil)
+	folderFs := cfg.Filesystem()
 
 	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
 
@@ -113,7 +113,7 @@ func TestTrashcanRestoreDeletedFile(t *testing.T) {
 		},
 	}
 
-	folderFs := cfg.Filesystem(nil)
+	folderFs := cfg.Filesystem()
 
 	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
 
@@ -209,7 +209,7 @@ func TestTrashcanCleanOut(t *testing.T) {
 		},
 	}
 
-	fs := cfg.Filesystem(nil)
+	fs := cfg.Filesystem()
 
 	v := newTrashcan(cfg)
 

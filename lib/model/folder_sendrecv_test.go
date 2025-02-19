@@ -190,7 +190,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t, existingFile)
 	defer wcfgCancel()
 
-	if _, err := prepareTmpFile(f.Filesystem(nil)); err != nil {
+	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -240,7 +240,7 @@ func TestCopierFinder(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t, existingFile)
 	defer wcfgCancel()
 
-	if _, err := prepareTmpFile(f.Filesystem(nil)); err != nil {
+	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -300,7 +300,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(), tempFile, protocol.MinBlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -316,7 +316,7 @@ func TestWeakHash(t *testing.T) {
 	// Setup the model/pull environment
 	_, fo, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := fo.Filesystem(nil)
+	ffs := fo.Filesystem()
 
 	tempFile := fs.TempName("weakhash")
 	var shift int64 = 10
@@ -679,7 +679,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 func TestIssue3164(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
@@ -769,7 +769,7 @@ func TestDiffEmpty(t *testing.T) {
 func TestDeleteIgnorePerms(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	f.IgnorePerms = true
 
 	name := "deleteIgnorePerms"
@@ -912,7 +912,7 @@ func TestCopyOwner(t *testing.T) {
 func TestSRConflictReplaceFileByDir(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	name := "foo"
 
@@ -944,7 +944,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 func TestSRConflictReplaceFileByLink(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	name := "foo"
 
@@ -977,7 +977,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 func TestDeleteBehindSymlink(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	link := "link"
 	linkFile := filepath.Join(link, "file")
@@ -1058,7 +1058,7 @@ func TestPullCtxCancel(t *testing.T) {
 func TestPullDeleteUnscannedDir(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	dir := "foobar"
 	must(t, ffs.MkdirAll(dir, 0o777))
@@ -1087,7 +1087,7 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	name := "foo"
 	contents := []byte("contents")
@@ -1149,7 +1149,7 @@ func TestPullCaseOnlySymlink(t *testing.T) {
 func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	m, f, wcfgCancel := setupSendReceiveFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	name := "foo"
 	if dir {

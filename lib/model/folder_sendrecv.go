@@ -1287,7 +1287,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	// Hope that it's usually in the same folder, so start with that one.
 	folders := []string{f.folderID}
 	for folder, cfg := range f.model.cfg.Folders() {
-		folderFilesystems[folder] = cfg.Filesystem(nil)
+		folderFilesystems[folder] = cfg.Filesystem()
 		if folder != f.folderID {
 			folders = append(folders, folder)
 		}

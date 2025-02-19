@@ -111,3 +111,7 @@ func (f *FolderDB) ReceiveOnlySize() olddb.Counts {
 	defer f.mut.RUnlock()
 	return f.db.ReceiveOnlySize(f.folder)
 }
+
+func (f *FolderDB) KV(namespace string) *NamespacedKV {
+	return NewNamespacedKV(f.db, f.folder+"/"+namespace)
+}

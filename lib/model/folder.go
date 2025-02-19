@@ -47,7 +47,6 @@ type folder struct {
 
 	model         *model
 	shortID       protocol.ShortID
-	fset          *db.FileSet
 	fdb           *sqlite.FolderDB
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
@@ -98,7 +97,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -107,10 +106,9 @@ func newFolder(model *model, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ig
 
 		model:         model,
 		shortID:       model.shortID,
-		fset:          fset,
 		fdb:           fdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fset),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(fdb.KV("mtimes"))),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -485,15 +483,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
 	subDirs = unifySubs(subDirs, func(file string) bool {
 		_, ok := snap.Get(protocol.LocalDeviceID, file)
 		return ok
 	})
-	snap.Release()
 
 	f.setState(FolderScanning)
 	f.clearScanErrors(subDirs)
@@ -638,11 +631,6 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 
 func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (int, error) {
 	changes := 0
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return changes, err
-	}
-	defer snap.Release()
 
 	// If we return early e.g. due to a folder health error, the scan needs
 	// to be cancelled.
@@ -713,11 +701,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	var toIgnore []protocol.FileInfo
 	ignoredParent := ""
 	changes := 0
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return 0, err
-	}
-	defer snap.Release()
 
 	for _, sub := range subDirs {
 		var iterError error
@@ -1334,16 +1317,6 @@ func (f *folder) handleForcedRescans() error {
 	}
 
 	return f.scanSubdirs(paths)
-}
-
-// dbSnapshots gets a snapshot from the fileset, and wraps any error
-// in a svcutil.FatalErr.
-func (f *folder) dbSnapshot() (*db.Snapshot, error) {
-	snap, err := f.fset.Snapshot()
-	if err != nil {
-		return nil, svcutil.AsFatalErr(err, svcutil.ExitError)
-	}
-	return snap, nil
 }
 
 // The exists function is expected to return true for all known paths

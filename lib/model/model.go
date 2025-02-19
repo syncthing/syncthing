@@ -343,7 +343,7 @@ func (m *model) fatal(err error) {
 
 // Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, fdb *sqlite.FolderDB, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(nil), ignore.WithCache(cacheIgnoredFiles))
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			l.Warnln("Loading ignores:", err)
@@ -408,7 +408,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	// These are our metadata files, and they should always be hidden.
-	ffs := cfg.Filesystem(nil)
+	ffs := cfg.Filesystem()
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(versioner.DefaultPath)
 	_ = ffs.Hide(".stignore")
@@ -437,7 +437,7 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	}
 
 	// This is a bit of a hack.
-	ffs := cfg.Filesystem(nil)
+	ffs := cfg.Filesystem()
 	if ffs.Type() != fs.FilesystemTypeBasic {
 		return
 	}
@@ -484,7 +484,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		// otherwise not removable) Syncthing-specific marker files.
 		if err := cfg.RemoveMarker(); err != nil && !errors.Is(err, os.ErrNotExist) {
 			moved := config.DefaultMarkerName + time.Now().Format(".removed-20060102-150405")
-			fs := cfg.Filesystem(nil)
+			fs := cfg.Filesystem()
 			_ = fs.Rename(config.DefaultMarkerName, moved)
 		}
 	}
@@ -2092,7 +2092,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	// Grab the FS after limiting, as it causes I/O and we want to minimize
 	// the race time between the symlink check and the read.
 
-	folderFs := folderCfg.Filesystem(nil)
+	folderFs := folderCfg.Filesystem()
 
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(req.Name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
@@ -2289,7 +2289,7 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(cfg.Filesystem(nil))
+		ignores = ignore.New(cfg.Filesystem())
 	}
 
 	err := ignores.Load(".stignore")
@@ -2344,7 +2344,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 		return err
 	}
 
-	if err := ignore.WriteIgnores(cfg.Filesystem(nil), ".stignore", content); err != nil {
+	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
@@ -3513,7 +3513,7 @@ type storedEncryptionToken struct {
 }
 
 func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
-	fd, err := cfg.Filesystem(nil).Open(encryptionTokenPath(cfg))
+	fd, err := cfg.Filesystem().Open(encryptionTokenPath(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -3527,7 +3527,7 @@ func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
 
 func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	tokenName := encryptionTokenPath(cfg)
-	fd, err := cfg.Filesystem(nil).OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
+	fd, err := cfg.Filesystem().OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0o666)
 	if err != nil {
 		return err
 	}
