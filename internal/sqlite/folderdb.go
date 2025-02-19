@@ -88,6 +88,10 @@ func (f *FolderDB) AllLocalPrefixed(device protocol.DeviceID, prefix string) ite
 	return f.db.AllLocalPrefixed(f.folder, device, prefix)
 }
 
+func (f *FolderDB) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
+	return f.db.AllForBlocksHash(f.folder, h)
+}
+
 func (f *FolderDB) LocalSize(device protocol.DeviceID) olddb.Counts {
 	f.mut.RLock()
 	defer f.mut.RUnlock()

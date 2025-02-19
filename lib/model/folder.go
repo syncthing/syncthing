@@ -484,8 +484,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(file string) bool {
-		_, ok := snap.Get(protocol.LocalDeviceID, file)
-		return ok
+		_, ok, err := f.fdb.Local(protocol.LocalDeviceID, file)
+		return err == nil && ok
 	})
 
 	f.setState(FolderScanning)
@@ -592,25 +592,27 @@ func (b *scanBatch) FlushIfFull() error {
 
 // Update adds the fileinfo to the batch for updating, and does a few checks.
 // It returns false if the checks result in the file not going to be updated or removed.
-func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
+func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	// Check for a "virtual" parent directory of encrypted files. We don't track
 	// it, but check if anything still exists within and delete it otherwise.
 	if b.f.Type == config.FolderTypeReceiveEncrypted && fi.IsDirectory() && protocol.IsEncryptedParent(fs.PathComponents(fi.Name)) {
 		if names, err := b.f.mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
 			b.f.mtimefs.Remove(fi.Name)
 		}
-		return false
+		return false, nil
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
-	switch gf, ok := snap.GetGlobal(fi.Name); {
+	switch gf, ok, err := b.f.fdb.Global(fi.Name); {
+	case err != nil:
+		return false, err
 	case !ok:
 	case gf.IsReceiveOnlyChanged():
 		if fi.IsDeleted() {
 			// Our item is deleted and the global item is our own receive only
 			// file. No point in keeping track of that.
 			b.Remove(fi.Name)
-			return true
+			return true, nil
 		}
 	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
 		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
@@ -626,7 +628,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo, snap *db.Snapshot) bool {
 		fi = gf
 	}
 	b.updateBatch.Append(fi)
-	return true
+	return true, nil
 }
 
 func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (int, error) {
@@ -679,15 +681,19 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 			return changes, err
 		}
 
-		if batch.Update(res.File, snap) {
+		if ok, err := batch.Update(res.File); err != nil {
+			return 0, err
+		} else if ok {
 			changes++
 		}
 
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(snap, res.File, alreadyUsedOrExisting); ok {
-				if batch.Update(nf, snap) {
+			if nf, ok := f.findRename(res.File, alreadyUsedOrExisting); ok {
+				if ok, err := batch.Update(nf); err != nil {
+					return 0, err
+				} else if ok {
 					changes++
 				}
 			}
@@ -703,18 +709,19 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		var iterError error
+		for fi, err := range f.fdb.AllLocalPrefixed(protocol.LocalDeviceID, sub) {
+			if err != nil {
+				return 0, err
+			}
 
-		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi protocol.FileInfo) bool {
 			select {
 			case <-f.ctx.Done():
-				return false
+				break
 			default:
 			}
 
 			if err := batch.FlushIfFull(); err != nil {
-				iterError = err
-				return false
+				return 0, err
 			}
 
 			if ignoredParent != "" && !fs.IsParent(fi.Name, ignoredParent) {
@@ -722,12 +729,13 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					l.Debugln("marking file as ignored", file)
 					nf := file
 					nf.SetIgnored()
-					if batch.Update(nf, snap) {
+					if ok, err := batch.Update(nf); err != nil {
+						return 0, err
+					} else if ok {
 						changes++
 					}
 					if err := batch.FlushIfFull(); err != nil {
-						iterError = err
-						return false
+						return 0, err
 					}
 				}
 				toIgnore = toIgnore[:0]
@@ -736,24 +744,26 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 
 			switch ignored := f.ignores.Match(fi.Name).IsIgnored(); {
 			case fi.IsIgnored() && ignored:
-				return true
+				continue
 			case !fi.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
 				if fi.IsDirectory() {
 					// Delay ignoring as a child might be unignored.
-					toIgnore = append(toIgnore, fi)
+					toIgnore = append(toIgnore, *fi)
 					if ignoredParent == "" {
 						// If the parent wasn't ignored already, set
 						// this path as the "highest" ignored parent
 						ignoredParent = fi.Name
 					}
-					return true
+					continue
 				}
 
 				l.Debugln("marking file as ignored", fi)
-				nf := fi
+				nf := *fi
 				nf.SetIgnored()
-				if batch.Update(nf, snap) {
+				if ok, err := batch.Update(nf); err != nil {
+					return 0, err
+				} else if ok {
 					changes++
 				}
 
@@ -772,9 +782,9 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
-					return true
+					continue
 				}
-				nf := fi
+				nf := *fi
 				nf.SetDeleted(f.shortID)
 				nf.LocalFlags = f.localFlags
 				if fi.ShouldConflict() {
@@ -784,13 +794,17 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					nf.Version = protocol.Vector{}
 				}
 				l.Debugln("marking file as deleted", nf)
-				if batch.Update(nf, snap) {
+				if ok, err := batch.Update(nf); err != nil {
+					return 0, err
+				} else if ok {
 					changes++
 				}
 			case fi.IsDeleted() && fi.IsReceiveOnlyChanged():
 				switch f.Type {
 				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-					switch gf, ok := snap.GetGlobal(fi.Name); {
+					switch gf, ok, err := f.fdb.Global(fi.Name); {
+					case err != nil:
+						return 0, err
 					case !ok:
 					case gf.IsReceiveOnlyChanged():
 						l.Debugln("removing deleted, receive-only item that is globally receive-only from db", fi)
@@ -801,7 +815,9 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 						// pretend it is a normal deleted file (nobody cares about that).
 						l.Debugf("%v scanning: Marking globally deleted item as not locally changed: %v", f, fi.Name)
 						fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-						if batch.Update(fi, snap) {
+						if ok, err := batch.Update(*fi); err != nil {
+							return 0, err
+						} else if ok {
 							changes++
 						}
 					}
@@ -810,14 +826,14 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					// deleted and just the folder type/local flags changed.
 					fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 					l.Debugln("removing receive-only flag on deleted item", fi)
-					if batch.Update(fi, snap) {
+					if ok, err := batch.Update(*fi); err != nil {
+						return 0, err
+					} else if ok {
 						changes++
 					}
 				}
 			}
-
-			return true
-		})
+		}
 
 		select {
 		case <-f.ctx.Done():
@@ -825,30 +841,28 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 		default:
 		}
 
-		if iterError == nil && len(toIgnore) > 0 {
+		if len(toIgnore) > 0 {
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", file)
 				nf := file
 				nf.SetIgnored()
-				if batch.Update(nf, snap) {
+				if ok, err := batch.Update(nf); err != nil {
+					return 0, err
+				} else if ok {
 					changes++
 				}
-				if iterError = batch.FlushIfFull(); iterError != nil {
-					break
+				if err := batch.FlushIfFull(); err != nil {
+					return 0, err
 				}
 			}
 			toIgnore = toIgnore[:0]
-		}
-
-		if iterError != nil {
-			return changes, iterError
 		}
 	}
 
 	return changes, nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUsedOrExisting map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -856,49 +870,53 @@ func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUs
 	found := false
 	nf := protocol.FileInfo{}
 
-	snap.WithBlocksHash(file.BlocksHash, func(fi protocol.FileInfo) bool {
+	for fi, err := range f.fdb.AllForBlocksHash(file.BlocksHash) {
+		if err != nil {
+			return protocol.FileInfo{}, false
+		}
+
 		select {
 		case <-f.ctx.Done():
-			return false
+			break
 		default:
 		}
 
 		if fi.Name == file.Name {
 			alreadyUsedOrExisting[fi.Name] = struct{}{}
-			return true
+			continue
 		}
 
 		if _, ok := alreadyUsedOrExisting[fi.Name]; ok {
-			return true
+			continue
 		}
 
 		if fi.ShouldConflict() {
-			return true
+			continue
 		}
 
 		if f.ignores.Match(fi.Name).IsIgnored() {
-			return true
+			continue
 		}
 
 		// Only check the size.
 		// No point checking block equality, as that uses BlocksHash comparison if that is set (which it will be).
 		// No point checking BlocksHash comparison as WithBlocksHash already does that.
 		if file.Size != fi.Size {
-			return true
+			continue
 		}
 
 		alreadyUsedOrExisting[fi.Name] = struct{}{}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
-			return true
+			continue
 		}
 
-		nf = fi
+		nf = *fi
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true
-		return false
-	})
+		break
+	}
 
 	return nf, found
 }

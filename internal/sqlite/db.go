@@ -288,11 +288,12 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 	})
 }
 
-func (db *DB) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.FileInfo, error] {
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fileinfo_protobuf FROM files
-		WHERE blockshash = ?`,
-		hex.EncodeToString(h)))
+		SELECT f.fileinfo_protobuf FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND f.blockshash = ?`,
+		folder, hex.EncodeToString(h)))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
