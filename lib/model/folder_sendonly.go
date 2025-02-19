@@ -7,6 +7,8 @@
 package model
 
 import (
+	"errors"
+
 	"github.com/syncthing/syncthing/internal/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -25,9 +27,9 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *model, fset *db.FileSet, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+func newSendOnlyFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendOnlyFolder{
-		folder: newFolder(model, fset, fdb, ignores, cfg, evLogger, ioLimiter, nil),
+		folder: newFolder(model, fdb, ignores, cfg, evLogger, ioLimiter, nil),
 	}
 	f.folder.puller = f
 	return f
@@ -44,22 +46,34 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return false, err
-	}
-	defer snap.Release()
-	snap.WithNeed(protocol.LocalDeviceID, func(file protocol.FileInfo) bool {
-		batch.FlushIfFull()
+	for name, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+		if err != nil {
+			return false, err
+		}
+
+		if err := batch.FlushIfFull(); err != nil {
+			return false, err
+		}
+
+		file, ok, err := f.fdb.Global(name)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, errors.New("unexpectedly missing global file")
+		}
 
 		if f.ignores.Match(file.FileName()).IsIgnored() {
 			file.SetIgnored()
 			batch.Append(file)
 			l.Debugln(f, "Handling ignored file", file)
-			return true
+			continue
 		}
 
-		curFile, ok := snap.Get(protocol.LocalDeviceID, file.FileName())
+		curFile, ok, err := f.fdb.Local(protocol.LocalDeviceID, file.FileName())
+		if err != nil {
+			return false, err
+		}
 		if !ok {
 			if file.IsInvalid() {
 				// Global invalid file just exists for need accounting
@@ -68,7 +82,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 				l.Debugln("Should never get a deleted file as needed when we don't have it")
 				f.evLogger.Log(events.Failure, "got deleted file that doesn't exist locally as needed when pulling on send-only")
 			}
-			return true
+			continue
 		}
 
 		if !file.IsEquivalentOptional(curFile, protocol.FileInfoComparison{
@@ -77,14 +91,12 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			IgnoreOwnership: !f.SyncOwnership,
 			IgnoreXattrs:    !f.SyncXattrs,
 		}) {
-			return true
+			continue
 		}
 
 		batch.Append(file)
 		l.Debugln(f, "Merging versions of identical file", file)
-
-		return true
-	})
+	}
 
 	batch.Flush()
 
@@ -105,21 +117,35 @@ func (f *sendOnlyFolder) override() error {
 		f.updateLocalsFromScanning(files)
 		return nil
 	})
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Release()
-	snap.WithNeed(protocol.LocalDeviceID, func(need protocol.FileInfo) bool {
-		_ = batch.FlushIfFull()
 
-		have, ok := snap.Get(protocol.LocalDeviceID, need.Name)
+	for name, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+		if err != nil {
+			return err
+		}
+		if err := batch.FlushIfFull(); err != nil {
+			return err
+		}
+
+		have, haveOk, err := f.fdb.Local(protocol.LocalDeviceID, name)
+		if err != nil {
+			return err
+		}
+
 		// Don't override files that are in a bad state (ignored,
 		// unsupported, must rescan, ...).
-		if ok && have.IsInvalid() {
-			return true
+		if haveOk && have.IsInvalid() {
+			continue
 		}
-		if !ok || have.Name != need.Name {
+
+		need, ok, err := f.fdb.Global(name)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("unexpectedly missing global file")
+		}
+
+		if !haveOk || have.Name != name {
 			// We are missing the file
 			need.SetDeleted(f.shortID)
 		} else {
@@ -129,7 +155,6 @@ func (f *sendOnlyFolder) override() error {
 		}
 		need.Sequence = 0
 		batch.Append(need)
-		return true
-	})
+	}
 	return batch.Flush()
 }

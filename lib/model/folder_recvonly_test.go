@@ -323,7 +323,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Drop the remote
 
-	f.fset.Drop(device1)
+	f.fdb.Drop(device1)
 	must(t, m.ScanFolder("ro"))
 
 	size = m.ReceiveOnlySize("ro")

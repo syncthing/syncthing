@@ -112,7 +112,6 @@ type Model interface {
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
-	GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error)
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
 	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
@@ -186,7 +185,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *db.FileSet, *sqlite.FolderDB, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
+type folderFactory func(*model, *sqlite.FolderDB, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -989,7 +988,20 @@ func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, sta
 }
 
 func (m *model) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
-	return m.sdb.AllForBlocksHash(h)
+	folders := m.cfg.FolderList()
+	return func(yield func(*protocol.FileInfo, error) bool) {
+		for _, folder := range folders {
+			for fi, err := range m.sdb.AllForBlocksHash(folder.ID, h) {
+				if err != nil {
+					yield(nil, err)
+					return
+				}
+				if !yield(fi, nil) {
+					return
+				}
+			}
+		}
+	}
 }
 
 func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
@@ -2248,17 +2260,6 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	f, ok := snap.GetGlobal(file)
 	snap.Release()
 	return f, ok, nil
-}
-
-func (m *model) GetMtimeMapping(folder string, file string) (fs.MtimeMapping, error) {
-	m.mut.RLock()
-	ffs, ok := m.folderFiles[folder]
-	fcfg := m.folderCfgs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return fs.MtimeMapping{}, ErrFolderMissing
-	}
-	return fs.GetMtimeMapping(fcfg.Filesystem(ffs), file)
 }
 
 // Connection returns if we are connected to the given device.
