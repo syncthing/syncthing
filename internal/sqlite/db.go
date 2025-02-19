@@ -124,13 +124,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			return wrap("update", err)
 		}
 
-		// Update block lists
-		for _, b := range f.Blocks {
-			if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, offset)
-			VALUES ($1, $2, $3, $4, $5)`,
-				hex.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, b.Offset); err != nil {
-				return wrap("update (insert block)", err)
+		if device == protocol.LocalDeviceID {
+			// Update block lists
+			if err := db.insertBlocks(tx, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
+				return wrap("update", err)
 			}
 		}
 	}

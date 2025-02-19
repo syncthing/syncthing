@@ -137,7 +137,6 @@ type model struct {
 	// constructor parameters
 	cfg            config.Wrapper
 	id             protocol.DeviceID
-	db             *db.Lowlevel
 	sdb            *sqlite.DB
 	protectedFiles []string
 	evLogger       events.Logger
@@ -160,7 +159,6 @@ type model struct {
 	// fields protected by mut
 	mut                            sync.RWMutex
 	folderCfgs                     map[string]config.FolderConfiguration // folder -> cfg
-	folderFiles                    map[string]*db.FileSet                // folder -> files
 	folderDBs                      map[string]*sqlite.FolderDB
 	deviceStatRefs                 map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores                  map[string]*ignore.Matcher                             // folder -> matcher object
@@ -214,7 +212,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *sqlite.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
@@ -222,7 +220,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *s
 		// constructor parameters
 		cfg:            cfg,
 		id:             id,
-		db:             ldb,
 		sdb:            sdb,
 		protectedFiles: protectedFiles,
 		evLogger:       evLogger,
@@ -241,7 +238,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, sdb *s
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
-		folderFiles:                    make(map[string]*db.FileSet),
 		folderDBs:                      make(map[string]*sqlite.FolderDB),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
@@ -424,7 +420,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-	p := folderFactory(m, fset, fdb, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, fdb, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
 	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
