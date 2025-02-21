@@ -2992,8 +2992,7 @@ func (m *model) ResetFolder(folder string) error {
 		return errors.New("folder must be paused when resetting")
 	}
 	l.Infof("Cleaning metadata for reset folder %q", folder)
-	db.DropFolder(m.db, folder)
-	return nil
+	return m.sdb.DropFolder(folder)
 }
 
 func (m *model) String() string {
@@ -3107,7 +3106,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
+			sr := stats.NewDeviceStatisticsReference(kv.NewTyped(m.sdb.KV(), "devicestats/"+deviceID.String()))
 			m.mut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.mut.Unlock()
