@@ -21,6 +21,10 @@ type ObservedDB struct {
 	kv KV
 }
 
+func NewObservedDB(kv KV) *ObservedDB {
+	return &ObservedDB{kv: kv}
+}
+
 type ObservedFolder struct {
 	Time             time.Time `json:"time"`
 	Label            string    `json:"label"`

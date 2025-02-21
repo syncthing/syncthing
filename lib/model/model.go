@@ -122,8 +122,8 @@ type Model interface {
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 	ConnectedTo(remoteID protocol.DeviceID) bool
 
-	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
-	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+	PendingDevices() (map[protocol.DeviceID]kv.ObservedDevice, error)
+	PendingFolders(device protocol.DeviceID) (map[string]kv.PendingFolder, error)
 	DismissPendingDevice(device protocol.DeviceID) error
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
@@ -155,6 +155,7 @@ type model struct {
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
 	promotionTimer  *time.Timer
+	observed        *kv.ObservedDB
 
 	// fields protected by mut
 	mut                            sync.RWMutex
@@ -233,6 +234,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protecte
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
 		promotionTimer:       time.NewTimer(0),
+		observed:             kv.NewObservedDB(sdb.KV()),
 
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
@@ -1049,7 +1051,7 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 // progress, queued, and to be queued on next puller iteration.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	m.mut.RLock()
-	rf, rfOk := m.folderFiles[folder]
+	fdb, rfOk := m.folderDBs[folder]
 	runner, runnerOk := m.folderRunners.Get(folder)
 	cfg := m.folderCfgs[folder]
 	m.mut.RUnlock()
@@ -1058,11 +1060,6 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		return nil, nil, nil, ErrFolderMissing
 	}
 
-	snap, err := rf.Snapshot()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer snap.Release()
 	var progress, queued, rest []protocol.FileInfo
 	var seen map[string]struct{}
 
@@ -1076,14 +1073,14 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
 		for i, name := range progressNames {
-			if f, ok := snap.GetGlobalTruncated(name); ok {
+			if f, ok, err := fdb.Global(name); err == nil && ok {
 				progress[i] = f
 				seen[name] = struct{}{}
 			}
 		}
 
 		for i, name := range queuedNames {
-			if f, ok := snap.GetGlobalTruncated(name); ok {
+			if f, ok, err := fdb.Global(name); err == nil && ok {
 				queued[i] = f
 				seen[name] = struct{}{}
 			}
@@ -1097,20 +1094,29 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 	}
 
 	rest = make([]protocol.FileInfo, 0, perpage)
-	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
+	for name, err := range fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+		if err != nil {
+			break
+		}
+		f, ok, err := fdb.Global(name)
+		if err != nil || !ok {
+			continue
+		}
 		if cfg.IgnoreDelete && f.IsDeleted() {
-			return true
+			continue
 		}
 
 		if p.skip() {
-			return true
+			continue
 		}
 		if _, ok := seen[f.Name]; !ok {
 			rest = append(rest, f)
 			p.get--
 		}
-		return p.get > 0
-	})
+		if p.get == 0 {
+			break
+		}
+	}
 
 	return progress, queued, rest, nil
 }
@@ -1119,63 +1125,68 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 // remote device to become synced with a folder.
 func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
-	rf, ok := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 
 	if !ok {
 		return nil, ErrFolderMissing
 	}
 
-	snap, err := rf.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Release()
-
 	files := make([]protocol.FileInfo, 0, perpage)
 	p := newPager(page, perpage)
-	snap.WithNeedTruncated(device, func(f protocol.FileInfo) bool {
+	for name, err := range fdb.AllNeededNames(device, config.PullOrderAlphabetic, 0) {
+		if err != nil {
+			return nil, err
+		}
 		if p.skip() {
-			return true
+			continue
+		}
+		f, ok, err := fdb.Global(name)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
 		}
 		files = append(files, f)
-		return !p.done()
-	})
+		if p.done() {
+			break
+		}
+	}
 	return files, nil
 }
 
 func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
-	rf, ok := m.folderFiles[folder]
+	fdb, ok := m.folderDBs[folder]
 	m.mut.RUnlock()
 
 	if !ok {
 		return nil, ErrFolderMissing
 	}
 
-	snap, err := rf.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-	defer snap.Release()
-
-	if snap.ReceiveOnlyChangedSize().TotalItems() == 0 {
+	if fdb.ReceiveOnlySize().TotalItems() == 0 {
 		return nil, nil
 	}
 
 	p := newPager(page, perpage)
 	files := make([]protocol.FileInfo, 0, perpage)
 
-	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
+	for f, err := range fdb.AllLocal(protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
+		if err != nil {
+			return nil, err
+		}
 		if !f.IsReceiveOnlyChanged() {
-			return true
+			continue
 		}
 		if p.skip() {
-			return true
+			continue
 		}
-		files = append(files, f)
-		return !p.done()
-	})
+		files = append(files, *f)
+		if p.done() {
+			break
+		}
+	}
 
 	return files, nil
 }
@@ -1452,11 +1463,11 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	seenFolders := make(map[string]remoteFolderState, len(folders))
 	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
-	expiredPending, err := m.db.PendingFoldersForDevice(deviceID)
+	expiredPending, err := m.observed.PendingFoldersForDevice(deviceID)
 	if err != nil {
 		l.Infof("Could not get pending folders for cleanup: %v", err)
 	}
-	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
+	of := kv.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
 		seenFolders[folder.ID] = remoteFolderValid
 
@@ -3312,21 +3323,21 @@ func (m *model) checkFolderRunningRLocked(folder string) error {
 }
 
 // PendingDevices lists unknown devices that tried to connect.
-func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
-	return m.db.PendingDevices()
+func (m *model) PendingDevices() (map[protocol.DeviceID]kv.ObservedDevice, error) {
+	return m.observed.PendingDevices()
 }
 
 // PendingFolders lists folders that we don't yet share with the offering devices.  It
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
-func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
-	return m.db.PendingFoldersForDevice(device)
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]kv.PendingFolder, error) {
+	return m.observed.PendingFoldersForDevice(device)
 }
 
 // DismissPendingDevices removes the record of a specific pending device.
 func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	l.Debugf("Discarding pending device %v", device)
-	err := m.db.RemovePendingDevice(device)
+	err := m.observed.RemovePendingDevice(device)
 	if err != nil {
 		return err
 	}
