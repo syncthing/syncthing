@@ -117,35 +117,30 @@ func (db *DB) processNeedLocked(tx *sqlx.Tx, folderIdx int64, file string) error
 	slices.SortFunc(es, fileRow.Compare)
 
 	global := es[0]
-	globalVersion := global.Version
-	if !global.Invalid {
-		hasLocal := slices.ContainsFunc(es, func(e fileRow) bool {
-			return e.DeviceIdx == db.localDeviceIdx && e.Version.Vector.Equal(global.Version.Vector)
-		})
+	hasLocal := slices.ContainsFunc(es, func(e fileRow) bool {
+		return e.DeviceIdx == db.localDeviceIdx && e.Version.Vector.Equal(global.Version.Vector)
+	})
 
-		// Set the global flag on the global entry. Set the need flag if the
-		// local device needs this file.
-		global.LocalFlags |= protocol.FlagLocalGlobal
-		if !hasLocal {
-			global.LocalFlags |= protocol.FlagLocalNeeded
-		}
-		if _, err := tx.Exec(`
+	// Set the global flag on the global entry. Set the need flag if the
+	// local device needs this file.
+	global.LocalFlags |= protocol.FlagLocalGlobal
+	if !hasLocal {
+		global.LocalFlags |= protocol.FlagLocalNeeded
+	}
+	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags | ?
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
-			return wrap("processNeed (insert global)", err)
-		}
+		global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
+		return wrap("processNeed (insert global)", err)
+	}
 
-		// Clear the need and global flags on non-global entries that have the
-		// same version vector
-		if _, err := tx.Exec(`
+	// Clear the need and global flags on non-global entries that have the
+	// same version vector
+	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags & ?
 		WHERE folder_idx = ? AND name = ? AND version = ? AND device_idx != ?`,
-			^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), global.FolderIdx, global.Name, global.Version, global.DeviceIdx); err != nil {
-			return wrap("processNeed (clear need)", err)
-		}
-	} else {
-		globalVersion = dbVector{}
+		^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), global.FolderIdx, global.Name, global.Version, global.DeviceIdx); err != nil {
+		return wrap("processNeed (clear need)", err)
 	}
 
 	// Set the need flag and clear the global flag on all other entries
@@ -153,7 +148,7 @@ func (db *DB) processNeedLocked(tx *sqlx.Tx, folderIdx int64, file string) error
 	if _, err := tx.Exec(`
 		UPDATE files SET local_flags = local_flags & ? | ?
 		WHERE folder_idx = ? AND name = ? AND version != ?`,
-		^protocol.FlagLocalGlobal, protocol.FlagLocalNeeded, global.FolderIdx, global.Name, globalVersion); err != nil {
+		^protocol.FlagLocalGlobal, protocol.FlagLocalNeeded, global.FolderIdx, global.Name, global.Version); err != nil {
 		return wrap("processNeed (set need)", err)
 	}
 

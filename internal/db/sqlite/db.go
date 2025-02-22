@@ -433,12 +433,15 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
 }
 
 func (db *DB) GlobalSize(folder string) Counts {
+	// Exclude receive-only changed files from the global count (legacy
+	// expectation? it's a bit weird since those files can in fact be global
+	// and you can get them with GetGlobal etc.)
 	var res []sizesRow
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & ? != 0
-	`, folder, protocol.FlagLocalGlobal)
+		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? == 0
+	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly)
 	if err != nil {
 		return Counts{}
 	}
