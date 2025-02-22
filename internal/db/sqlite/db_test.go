@@ -215,6 +215,17 @@ func TestBasics(t *testing.T) {
 		}
 	})
 
+	t.Run("DevicesForFolder", func(t *testing.T) {
+		devs, err := db.DevicesForFolder("test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(devs) != 1 || devs[0] != (protocol.DeviceID{42}) {
+			t.Log(devs)
+			t.Error("expected one device")
+		}
+	})
+
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -227,12 +238,11 @@ func TestAvailability(t *testing.T) {
 	}
 
 	const folderID = "test"
-	fdb := NewFolderDB(db, folderID)
 
 	// Some local files
 	var v protocol.Vector
 	v = v.Update(1)
-	err = fdb.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "test1", Size: 100, ModifiedS: 100, Version: v, Blocks: genBlocks(1)},
 		{Name: "test2", Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(2)},
 	})
@@ -241,7 +251,7 @@ func TestAvailability(t *testing.T) {
 	}
 
 	// Some remote files
-	err = fdb.Update(protocol.DeviceID{42}, []protocol.FileInfo{
+	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
 		{Name: "test2", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
 		{Name: "test3", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
 	})
@@ -250,7 +260,7 @@ func TestAvailability(t *testing.T) {
 	}
 
 	// Further remote files
-	err = fdb.Update(protocol.DeviceID{45}, []protocol.FileInfo{
+	err = db.Update(folderID, protocol.DeviceID{45}, []protocol.FileInfo{
 		{Name: "test3", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
 		{Name: "test4", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
 	})
@@ -258,7 +268,7 @@ func TestAvailability(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a, err := fdb.Availability("test1")
+	a, err := db.Availability(folderID, "test1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +277,7 @@ func TestAvailability(t *testing.T) {
 		t.Error("expected no availability (only local)")
 	}
 
-	a, err = fdb.Availability("test2")
+	a, err = db.Availability(folderID, "test2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +286,7 @@ func TestAvailability(t *testing.T) {
 		t.Error("expected one availability (only 42)")
 	}
 
-	a, err = fdb.Availability("test3")
+	a, err = db.Availability(folderID, "test3")
 	if err != nil {
 		t.Fatal(err)
 	}

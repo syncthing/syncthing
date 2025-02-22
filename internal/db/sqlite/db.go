@@ -135,34 +135,6 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	return wrap("update", tx.Commit())
 }
 
-func (db *DB) DropNames(folder string, device protocol.DeviceID, names []string) error {
-	folderIdx, err := db.folderIdx(folder)
-	if err != nil {
-		return wrap("remove", err)
-	}
-	deviceIdx, err := db.deviceIdx(device)
-	if err != nil {
-		return wrap("remove", err)
-	}
-
-	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
-	if err != nil {
-		return wrap("remove", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	for _, name := range names {
-		name = osutil.NormalizedFilename(name)
-		if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = $1 AND device_idx = $2 AND name = $3`, folderIdx, deviceIdx, name); err != nil {
-			return wrap("remove", err)
-		}
-		if err := db.processNeed(tx, folderIdx, name); err != nil {
-			return wrap("remove", err)
-		}
-	}
-	return wrap("remove", tx.Commit())
-}
-
 func (db *DB) DropFolder(folder string) error {
 	_, err := db.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
 	return err
@@ -176,29 +148,28 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	return err
 }
 
-func (db *DB) Drop(folder string, device protocol.DeviceID, names []string) error {
+func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
+	_, err := db.sql.Exec(`
+		DELETE FROM files f
+		INNER JOIN folder o ON f.folder_idx = o.idx
+		INNER JOIN devices d ON f.device_idx = d.idx
+		WHERE o.folder_id = ? AND f.device_id = ?
+	`, folder, device.String())
+	return wrap("drop all files", err)
+}
+
+func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
 	for i := range names {
 		names[i] = osutil.NormalizedFilename(names[i])
 	}
 
-	folderIdx, err := db.folderIdx(folder)
-	if err != nil {
-		return wrap("drop", err)
-	}
-	deviceIdx, err := db.deviceIdx(device)
-	if err != nil {
-		return wrap("drop", err)
-	}
-
-	tx, err := db.sql.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: false})
-	if err != nil {
-		return wrap("drop", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-	if _, err := tx.Exec(`DELETE FROM files WHERE folder_idx = ? AND device_idx = ? AND name in ?`, folderIdx, deviceIdx, names); err != nil {
-		return wrap("drop", err)
-	}
-	return wrap("drop", tx.Commit())
+	_, err := db.sql.Exec(`
+		DELETE FROM files f
+		INNER JOIN folder o ON f.folder_idx = o.idx
+		INNER JOIN devices d ON f.device_idx = d.idx
+		WHERE o.folder_id = ? AND f.device_id = ? AND f.name IN ?
+	`, folder, device.String(), names)
+	return wrap("drop files named", err)
 }
 
 func (db *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
@@ -284,7 +255,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence > ? AND f.version != ""
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ? AND f.version != ""
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
@@ -352,6 +323,30 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
 	doubleCounted := summarizeRows(res)
 
 	return all.Subtract(doubleCounted)
+}
+
+func (db *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
+	var res []string
+	err := db.sql.Select(&res, `
+		SELECT d.device_id FROM sizes s
+		INNER JOIN folders o ON o.idx = s.folder_idx
+		INNER JOIN devices d ON d.idx = s.device_idx
+		WHERE o.folder_id = ? AND s.count > 0 AND s.device_idx != ?
+		GROUP BY d.device_id
+		ORDER BY d.device_id
+	`, folder, db.localDeviceIdx)
+	if err != nil {
+		return nil, wrap("devices for folder", err)
+	}
+
+	devs := make([]protocol.DeviceID, len(res))
+	for i, s := range res {
+		devs[i], err = protocol.DeviceIDFromString(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return devs, nil
 }
 
 func (db *DB) NeedSize(folder string, device protocol.DeviceID) olddb.Counts {

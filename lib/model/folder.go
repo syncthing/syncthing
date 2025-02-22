@@ -102,14 +102,14 @@ func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg 
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
-		FolderStatisticsReference: stats.NewFolderStatisticsReference(kv.NewTyped(model.sdb, "folderstats/"+cfg.ID)),
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(kv.NewTyped(model.sdb.KV(), "folderstats/"+cfg.ID)),
 		ioLimiter:                 ioLimiter,
 
 		model:         model,
 		shortID:       model.shortID,
 		fdb:           fdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(kv.NewTyped(model.sdb, "mtimes/"+cfg.ID))),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(kv.NewTyped(model.sdb.KV(), "mtimes/"+cfg.ID))),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 
@@ -567,7 +567,7 @@ func (b *scanBatch) Remove(item string) {
 
 func (b *scanBatch) flushToRemove() error {
 	if len(b.toRemove) > 0 {
-		if err := b.f.fdb.Drop(protocol.LocalDeviceID, b.toRemove); err != nil {
+		if err := b.f.fdb.DropFilesNamed(protocol.LocalDeviceID, b.toRemove); err != nil {
 			return err
 		}
 		b.toRemove = b.toRemove[:0]
