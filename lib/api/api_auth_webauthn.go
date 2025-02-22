@@ -396,26 +396,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		var signCountBefore uint32 = 0
-
-		volState := s.loadVolatileState()
-		dynCredState, ok := volState.Credentials[authenticatedCredId]
-		if !ok {
-			dynCredState = WebauthnCredentialVolatileState{}
-		}
-		signCountBefore = dynCredState.SignCount
-		dynCredState.SignCount = updatedCred.Authenticator.SignCount
-		dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
-		volState.Credentials[authenticatedCredId] = dynCredState
-		err = s.storeVolatileState(volState)
-		if err != nil {
-			l.Warnf("Failed to update authenticated WebAuthn credential: %v", err)
-		}
-
-		if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
-			l.Warnf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredId, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter)
-		}
-
+		s.updateCredentialVolatileState(authenticatedCredId, updatedCred)
 		tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -475,6 +456,27 @@ func (s *webauthnService) storeVolatileState(state *WebauthnVolatileState) error
 	}
 
 	return s.miscDB.PutBytes(s.miscDBKey, stateBytes)
+}
+
+func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCred *webauthnLib.Credential) {
+	var signCountBefore uint32 = 0
+	volState := s.loadVolatileState()
+	dynCredState, ok := volState.Credentials[credId]
+	if !ok {
+		dynCredState = WebauthnCredentialVolatileState{}
+	}
+	signCountBefore = dynCredState.SignCount
+	dynCredState.SignCount = updatedCred.Authenticator.SignCount
+	dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
+	volState.Credentials[credId] = dynCredState
+	err := s.storeVolatileState(volState)
+	if err != nil {
+		l.Warnf("Failed to update authenticated WebAuthn credential: %v", err)
+	}
+
+	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
+		l.Warnf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", credId, signCountBefore, updatedCred.Authenticator.SignCount)
+	}
 }
 
 func (s *webauthnService) getVolatileState(w http.ResponseWriter, _ *http.Request) {
