@@ -134,7 +134,7 @@ func migrateToConfigV35(cfg *Configuration) {
 	for i, fcfg := range cfg.Folders {
 		params := fcfg.Versioning.Params
 		if params["fsType"] != "" {
-			var fsType fs.FilesystemType
+			var fsType FilesystemType
 			_ = fsType.UnmarshalText([]byte(params["fsType"]))
 			cfg.Folders[i].Versioning.FSType = fsType
 		}
@@ -248,7 +248,7 @@ func migrateToConfigV23(cfg *Configuration) {
 
 func migrateToConfigV22(cfg *Configuration) {
 	for i := range cfg.Folders {
-		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
+		cfg.Folders[i].FilesystemType = FilesystemTypeBasic
 		// Migrate to templated external versioner commands
 		if cfg.Folders[i].Versioning.Type == "external" {
 			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
@@ -258,7 +258,7 @@ func migrateToConfigV22(cfg *Configuration) {
 
 func migrateToConfigV21(cfg *Configuration) {
 	for _, folder := range cfg.Folders {
-		if folder.FilesystemType != fs.FilesystemTypeBasic {
+		if folder.FilesystemType != FilesystemTypeBasic {
 			continue
 		}
 		switch folder.Versioning.Type {

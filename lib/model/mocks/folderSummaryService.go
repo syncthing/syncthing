@@ -9,10 +9,6 @@ import (
 )
 
 type FolderSummaryService struct {
-	OnEventRequestStub        func()
-	onEventRequestMutex       sync.RWMutex
-	onEventRequestArgsForCall []struct {
-	}
 	ServeStub        func(context.Context) error
 	serveMutex       sync.RWMutex
 	serveArgsForCall []struct {
@@ -39,30 +35,6 @@ type FolderSummaryService struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *FolderSummaryService) OnEventRequest() {
-	fake.onEventRequestMutex.Lock()
-	fake.onEventRequestArgsForCall = append(fake.onEventRequestArgsForCall, struct {
-	}{})
-	stub := fake.OnEventRequestStub
-	fake.recordInvocation("OnEventRequest", []interface{}{})
-	fake.onEventRequestMutex.Unlock()
-	if stub != nil {
-		fake.OnEventRequestStub()
-	}
-}
-
-func (fake *FolderSummaryService) OnEventRequestCallCount() int {
-	fake.onEventRequestMutex.RLock()
-	defer fake.onEventRequestMutex.RUnlock()
-	return len(fake.onEventRequestArgsForCall)
-}
-
-func (fake *FolderSummaryService) OnEventRequestCalls(stub func()) {
-	fake.onEventRequestMutex.Lock()
-	defer fake.onEventRequestMutex.Unlock()
-	fake.OnEventRequestStub = stub
 }
 
 func (fake *FolderSummaryService) Serve(arg1 context.Context) error {
@@ -193,8 +165,6 @@ func (fake *FolderSummaryService) SummaryReturnsOnCall(i int, result1 *model.Fol
 func (fake *FolderSummaryService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.onEventRequestMutex.RLock()
-	defer fake.onEventRequestMutex.RUnlock()
 	fake.serveMutex.RLock()
 	defer fake.serveMutex.RUnlock()
 	fake.summaryMutex.RLock()

@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("upgrade", "Binary upgrades")
-)
+var l = logger.DefaultLogger.NewFacility("upgrade", "Binary upgrades")

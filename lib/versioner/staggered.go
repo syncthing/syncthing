@@ -52,7 +52,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
 			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
 		},
-		copyRangeMethod: cfg.CopyRangeMethod,
+		copyRangeMethod: cfg.CopyRangeMethod.ToFS(),
 	}
 
 	l.Debugf("instantiated %#v", s)

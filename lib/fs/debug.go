@@ -10,9 +10,7 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("fs", "Filesystem access")
-)
+var l = logger.DefaultLogger.NewFacility("fs", "Filesystem access")
 
 func init() {
 	logger.DefaultLogger.NewFacility("walkfs", "Filesystem access while walking")

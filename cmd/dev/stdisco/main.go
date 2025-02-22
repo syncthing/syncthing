@@ -15,6 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/discoproto"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/discover"
@@ -75,20 +78,21 @@ func recv(bc beacon.Interface) {
 			continue
 		}
 
-		var ann discover.Announce
-		ann.Unmarshal(data[4:])
+		var ann discoproto.Announce
+		proto.Unmarshal(data[4:], &ann)
 
-		if ann.ID == myID {
+		id, _ := protocol.DeviceIDFromBytes(ann.Id)
+		if id == myID {
 			// This is one of our own fake packets, don't print it.
 			continue
 		}
 
 		// Print announcement details for the first packet from a given
 		// device ID and source address, or if -all was given.
-		key := ann.ID.String() + src.String()
+		key := id.String() + src.String()
 		if all || !seen[key] {
 			log.Printf("Announcement from %v\n", src)
-			log.Printf(" %v at %s\n", ann.ID, strings.Join(ann.Addresses, ", "))
+			log.Printf(" %v at %s\n", id, strings.Join(ann.Addresses, ", "))
 			seen[key] = true
 		}
 	}
@@ -96,11 +100,11 @@ func recv(bc beacon.Interface) {
 
 // sends fake discovery announcements once every second
 func send(bc beacon.Interface) {
-	ann := discover.Announce{
-		ID:        myID,
+	ann := &discoproto.Announce{
+		Id:        myID[:],
 		Addresses: []string{"tcp://fake.example.com:12345"},
 	}
-	bs, _ := ann.Marshal()
+	bs, _ := proto.Marshal(ann)
 
 	for {
 		bc.Send(bs)

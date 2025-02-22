@@ -42,12 +42,14 @@ approval_rules:
         paths:
           - ^[^/]+\.md
           - ^\.policy\.yml
-          - ^\.github/
           - ^LICENSE
     requires:
       count: 1
       teams:
         - syncthing/maintainers
+    options:
+      ignore_update_merges: true
+      allow_contributor: true
 
   # Regular pull requests require approval by an active contributor
   - name: is approved by a syncthing contributor
@@ -55,6 +57,9 @@ approval_rules:
       count: 1
       teams:
         - syncthing/contributors
+    options:
+      ignore_update_merges: true
+      allow_contributor: true
 
   # Changes to some files (translations, dependencies, compatibility) do not
   # require approval if they were proposed by a contributor and have a

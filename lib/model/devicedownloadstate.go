@@ -7,6 +7,8 @@
 package model
 
 import (
+	"slices"
+
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -40,12 +42,7 @@ func (p *deviceFolderDownloadState) Has(file string, version protocol.Vector, in
 		return false
 	}
 
-	for _, existingIndex := range local.blockIndexes {
-		if existingIndex == index {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(local.blockIndexes, index)
 }
 
 // Update updates internal state of what has been downloaded into the temporary

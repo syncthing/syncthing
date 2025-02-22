@@ -15,6 +15,14 @@ func RemoveAndZero[E any, S ~[]E](s S, i int) S {
 	return s[:len(s)-1]
 }
 
+func Map[E, R any, S ~[]E](s S, f func(E) R) []R {
+	r := make([]R, len(s))
+	for i, v := range s {
+		r[i] = f(v)
+	}
+	return r
+}
+
 // Return a new slice containing only the elements of `s`, in the same order, for which the predicate `pred` returns `true`.
 // The argument `s` is not modified.
 func Filter[E any, S ~[]E, P func(*E) bool](s S, pred P) S {

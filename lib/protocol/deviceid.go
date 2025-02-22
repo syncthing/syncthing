@@ -1,4 +1,8 @@
-// Copyright (C) 2014 The Protocol Authors.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package protocol
 
@@ -36,17 +40,22 @@ func repeatedDeviceID(v byte) (d DeviceID) {
 	return
 }
 
-// NewDeviceID generates a new device ID from the raw bytes of a certificate
+// NewDeviceID generates a new device ID from SHA256 hash of the given piece
+// of data (usually raw certificate bytes).
 func NewDeviceID(rawCert []byte) DeviceID {
 	return DeviceID(sha256.Sum256(rawCert))
 }
 
+// DeviceIDFromString parses a device ID from a string. The string is expected
+// to be in the canonical format, with check digits.
 func DeviceIDFromString(s string) (DeviceID, error) {
 	var n DeviceID
 	err := n.UnmarshalText([]byte(s))
 	return n, err
 }
 
+// DeviceIDFromBytes converts a 32 byte slice to a DeviceID. A slice of the
+// wrong length results in an error.
 func DeviceIDFromBytes(bs []byte) (DeviceID, error) {
 	var n DeviceID
 	if len(bs) != len(n) {

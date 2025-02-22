@@ -292,7 +292,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 	}
 	defer snap.Release()
 	previousWasDelete := false
-	snap.WithHaveSequence(s.localPrevSequence+1, func(fi protocol.FileIntf) bool {
+	snap.WithHaveSequence(s.localPrevSequence+1, func(fi protocol.FileInfo) bool {
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
@@ -329,7 +329,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 			return false
 		}
 
-		f = fi.(protocol.FileInfo)
+		f = fi
 
 		// If this is a folder receiving encrypted files only, we
 		// mustn't ever send locally changed file infos. Those aren't
@@ -448,7 +448,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	seq := fset.Sequence(deviceID)
 
 	// Check that the sequence we get back is what we put in...
-	if lastSequence > 0 && seq != lastSequence {
+	if lastSequence > 0 && len(fs) > 0 && seq != lastSequence {
 		s.logSequenceAnomaly("unexpected sequence after update", map[string]any{
 			"prevSeq":     prevSequence,
 			"lastSeq":     lastSequence,

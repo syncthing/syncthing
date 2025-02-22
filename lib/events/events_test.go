@@ -81,7 +81,6 @@ func TestEventAfterSubscribe(t *testing.T) {
 	l.Log(DeviceConnected, "foo")
 
 	ev, err := s.Poll(timeout)
-
 	if err != nil {
 		t.Fatal("Unexpected error:", err)
 	}

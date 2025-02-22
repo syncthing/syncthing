@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -21,6 +22,41 @@ import (
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/structutil"
 )
+
+type GUIConfiguration struct {
+	Enabled                   bool          `json:"enabled" xml:"enabled,attr" default:"true"`
+	RawAddress                string        `json:"address" xml:"address" default:"127.0.0.1:8384"`
+	RawUnixSocketPermissions  string        `json:"unixSocketPermissions" xml:"unixSocketPermissions,omitempty"`
+	User                      string        `json:"user" xml:"user,omitempty"`
+	Password                  string        `json:"password" xml:"password,omitempty"`
+	AuthMode                  AuthMode      `json:"authMode" xml:"authMode,omitempty"`
+	RawUseTLS                 bool          `json:"useTLS" xml:"tls,attr"`
+	APIKey                    string        `json:"apiKey" xml:"apikey,omitempty"`
+	InsecureAdminAccess       bool          `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
+	Theme                     string        `json:"theme" xml:"theme" default:"default"`
+	Debugging                 bool          `json:"debugging" xml:"debugging,attr"`
+	InsecureSkipHostCheck     bool          `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
+	InsecureAllowFrameLoading bool          `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
+	SendBasicAuthPrompt       bool          `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`
+	WebauthnUserId            []byte        `json:"webauthnUserId" xml:"webauthnUserId"`
+	WebauthnRpId              string        `json:"webauthnRpId" xml:"webauthnRpId" default:"localhost"`
+	WebauthnOrigins           []string      `json:"webauthnOrigins" xml:"webauthnOrigin"`
+	WebauthnState             WebauthnState `json:"webauthnState" xml:"webauthnState"`
+}
+
+type WebauthnState struct {
+	Credentials []WebauthnCredential `json:"credentials" xml:"webauthnCredential"`
+}
+
+type WebauthnCredential struct {
+	ID            string    `json:"id" xml:"id"`
+	RpId          string    `json:"rpId" xml:"rpId"`
+	Nickname      string    `json:"nickname" xml:"nickname"`
+	PublicKeyCose string    `json:"publicKeyCose" xml:"publicKeyCose"`
+	Transports    []string  `json:"transports" xml:"transports"`
+	RequireUv     bool      `json:"requireUv" xml:"requireUv"`
+	CreateTime    time.Time `json:"createTime" xml:"createTime"`
+}
 
 func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)

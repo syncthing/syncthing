@@ -28,6 +28,9 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/thejerf/suture/v4"
+	"golang.org/x/time/rate"
+
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -45,9 +48,6 @@ import (
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
-
-	"github.com/thejerf/suture/v4"
-	"golang.org/x/time/rate"
 )
 
 var (
@@ -445,7 +445,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
+		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression.ToProtocol(), s.cfg.FolderPasswords(remoteID), s.keyGen)
 		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold)
 		go func() {
 			<-protoConn.Closed()
@@ -1284,6 +1284,7 @@ func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) 
 		}
 		dev.attempts++
 		dev.nextDial = make(map[string]time.Time)
+		r[device] = dev
 		return
 	}
 	if dev.attempts >= dialCoolDownMaxAttempts && now.Before(dev.coolDownIntervalStart.Add(dialCoolDownDelay)) {

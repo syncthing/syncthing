@@ -7,10 +7,11 @@
 package model
 
 import (
+	"sort"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"sort"
 )
 
 type blockPullReorderer interface {

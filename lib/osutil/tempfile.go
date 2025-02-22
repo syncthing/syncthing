@@ -16,8 +16,10 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-var rand uint32
-var randmu sync.Mutex
+var (
+	rand   uint32
+	randmu sync.Mutex
+)
 
 func reseed() uint32 {
 	return uint32(time.Now().UnixNano() + int64(os.Getpid()))
@@ -48,7 +50,7 @@ func TempFile(filesystem fs.Filesystem, dir, prefix string) (f fs.File, err erro
 	nconflict := 0
 	for i := 0; i < 10000; i++ {
 		name := filepath.Join(dir, prefix+nextSuffix())
-		f, err = filesystem.OpenFile(name, fs.OptReadWrite|fs.OptCreate|fs.OptExclusive, 0600)
+		f, err = filesystem.OpenFile(name, fs.OptReadWrite|fs.OptCreate|fs.OptExclusive, 0o600)
 		if fs.IsExist(err) {
 			if nconflict++; nconflict > 10 {
 				randmu.Lock()

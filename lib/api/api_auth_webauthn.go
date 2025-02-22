@@ -9,6 +9,7 @@ package api
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -75,6 +76,17 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
 	timeNow                        func() time.Time // can be overridden for testing
+}
+
+// State that changes often but also is not security-critical,
+// and therefore can be wiped and overwritten without much consequence if needed.
+type WebauthnVolatileState struct {
+	Credentials map[string]WebauthnCredentialVolatileState `json:"credentials,omitempty"` // Keys are base64.RawURLEncoding.EncodeToString(credential ID)
+}
+
+type WebauthnCredentialVolatileState struct {
+	SignCount   uint32    `json:"signCount,omitempty"`
+	LastUseTime time.Time `json:"lastUseTime,omitempty"`
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
@@ -447,7 +459,7 @@ func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	}
 
 	var state WebauthnVolatileState
-	err = state.Unmarshal(stateBytes)
+	err = json.Unmarshal(stateBytes, &state)
 	if err != nil {
 		l.Warnln("Failed to unmarshal WebAuthn dynamic state:", err)
 		return emptyVolState()
@@ -457,7 +469,7 @@ func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 }
 
 func (s *webauthnService) storeVolatileState(state *WebauthnVolatileState) error {
-	stateBytes, err := state.Marshal()
+	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}

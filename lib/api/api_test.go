@@ -36,6 +36,8 @@ import (
 	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
 	"github.com/go-webauthn/webauthn/protocol/webauthncose"
 	"github.com/google/go-cmp/cmp"
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -59,7 +61,6 @@ import (
 	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture/v4"
 )
 
 var (

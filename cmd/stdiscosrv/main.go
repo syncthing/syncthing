@@ -11,22 +11,22 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
 	"time"
 
-	_ "net/http/pprof"
-
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/thejerf/suture/v4"
+
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"github.com/thejerf/suture/v4"
 )
 
 const (
