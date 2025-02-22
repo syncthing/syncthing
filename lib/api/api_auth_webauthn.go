@@ -218,8 +218,8 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 
 		var req finishWebauthnRegistrationRequest
 		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Debugln("Failed to parse response:", err)
-			http.Error(w, "Failed to parse response.", http.StatusBadRequest)
+			l.Infoln("Failed to parse WebAuthn response:", err)
+			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
 
@@ -239,7 +239,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
-			l.Debugln("Failed to parse WebAuthn registration response", err)
+			l.Infoln("Failed to parse WebAuthn registration response", err)
 			badRequest(w)
 			return
 		}
@@ -342,8 +342,8 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		var req finishWebauthnAuthenticationRequest
 
 		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Debugln("Failed to parse response:", err)
-			http.Error(w, "Failed to parse response.", http.StatusBadRequest)
+			l.Infoln("Failed to parse WebAuthn response:", err)
+			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
 
@@ -363,7 +363,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
-			l.Debugln("Failed to parse WebAuthn authentication response", err)
+			l.Infoln("Failed to parse WebAuthn authentication response", err)
 			badRequest(w)
 			return
 		}
