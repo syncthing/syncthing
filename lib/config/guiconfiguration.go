@@ -24,28 +24,24 @@ import (
 )
 
 type GUIConfiguration struct {
-	Enabled                   bool          `json:"enabled" xml:"enabled,attr" default:"true"`
-	RawAddress                string        `json:"address" xml:"address" default:"127.0.0.1:8384"`
-	RawUnixSocketPermissions  string        `json:"unixSocketPermissions" xml:"unixSocketPermissions,omitempty"`
-	User                      string        `json:"user" xml:"user,omitempty"`
-	Password                  string        `json:"password" xml:"password,omitempty"`
-	AuthMode                  AuthMode      `json:"authMode" xml:"authMode,omitempty"`
-	RawUseTLS                 bool          `json:"useTLS" xml:"tls,attr"`
-	APIKey                    string        `json:"apiKey" xml:"apikey,omitempty"`
-	InsecureAdminAccess       bool          `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
-	Theme                     string        `json:"theme" xml:"theme" default:"default"`
-	Debugging                 bool          `json:"debugging" xml:"debugging,attr"`
-	InsecureSkipHostCheck     bool          `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
-	InsecureAllowFrameLoading bool          `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
-	SendBasicAuthPrompt       bool          `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`
-	WebauthnUserId            []byte        `json:"webauthnUserId" xml:"webauthnUserId"`
-	WebauthnRpId              string        `json:"webauthnRpId" xml:"webauthnRpId" default:"localhost"`
-	WebauthnOrigins           []string      `json:"webauthnOrigins" xml:"webauthnOrigin"`
-	WebauthnState             WebauthnState `json:"webauthnState" xml:"webauthnState"`
-}
-
-type WebauthnState struct {
-	Credentials []WebauthnCredential `json:"credentials" xml:"webauthnCredential"`
+	Enabled                   bool                 `json:"enabled" xml:"enabled,attr" default:"true"`
+	RawAddress                string               `json:"address" xml:"address" default:"127.0.0.1:8384"`
+	RawUnixSocketPermissions  string               `json:"unixSocketPermissions" xml:"unixSocketPermissions,omitempty"`
+	User                      string               `json:"user" xml:"user,omitempty"`
+	Password                  string               `json:"password" xml:"password,omitempty"`
+	AuthMode                  AuthMode             `json:"authMode" xml:"authMode,omitempty"`
+	RawUseTLS                 bool                 `json:"useTLS" xml:"tls,attr"`
+	APIKey                    string               `json:"apiKey" xml:"apikey,omitempty"`
+	InsecureAdminAccess       bool                 `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
+	Theme                     string               `json:"theme" xml:"theme" default:"default"`
+	Debugging                 bool                 `json:"debugging" xml:"debugging,attr"`
+	InsecureSkipHostCheck     bool                 `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
+	InsecureAllowFrameLoading bool                 `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
+	SendBasicAuthPrompt       bool                 `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`
+	WebauthnUserId            []byte               `json:"webauthnUserId" xml:"webauthnUserId"`
+	WebauthnRpId              string               `json:"webauthnRpId" xml:"webauthnRpId" default:"localhost"`
+	WebauthnOrigins           []string             `json:"webauthnOrigins" xml:"webauthnOrigin"`
+	WebauthnCredentials       []WebauthnCredential `json:"webauthnCredentials" xml:"webauthnCredential"`
 }
 
 type WebauthnCredential struct {
@@ -63,7 +59,7 @@ func (c GUIConfiguration) IsPasswordAuthEnabled() bool {
 }
 
 func (c GUIConfiguration) IsWebauthnAuthEnabled() bool {
-	return len(c.WebauthnState.Credentials) > 0
+	return len(c.WebauthnCredentials) > 0
 }
 
 func (GUIConfiguration) IsOverridden() bool {
@@ -268,22 +264,17 @@ func (c *GUIConfiguration) prepare() error {
 	return nil
 }
 
-func (c GUIConfiguration) Copy() GUIConfiguration {
-	c.WebauthnState = c.WebauthnState.Copy()
-	return c
-}
-
-func (s WebauthnState) EligibleWebAuthnCredentials(guiCfg GUIConfiguration) []WebauthnCredential {
-	return sliceutil.Filter(s.Credentials, func(cred *WebauthnCredential) bool {
+func (c GUIConfiguration) EligibleWebAuthnCredentials(guiCfg GUIConfiguration) []WebauthnCredential {
+	return sliceutil.Filter(c.WebauthnCredentials, func(cred *WebauthnCredential) bool {
 		return cred.RpId == guiCfg.WebauthnRpId
 	})
 }
 
-func (orig *WebauthnState) Copy() WebauthnState {
+func (orig *GUIConfiguration) Copy() GUIConfiguration {
 	c := *orig
-	c.Credentials = make([]WebauthnCredential, len(orig.Credentials))
-	for i := range orig.Credentials {
-		c.Credentials[i] = orig.Credentials[i].Copy()
+	c.WebauthnCredentials = make([]WebauthnCredential, len(orig.WebauthnCredentials))
+	for i := range orig.WebauthnCredentials {
+		c.WebauthnCredentials[i] = orig.WebauthnCredentials[i].Copy()
 	}
 	return c
 }
@@ -304,11 +295,11 @@ func (c *WebauthnCredential) NicknameOrID() string {
 	return c.ID
 }
 
-func SanitizeWebauthnStateChanges(from *WebauthnState, to *WebauthnState, pendingRegistrations []WebauthnCredential) {
+func SanitizeWebauthnStateChanges(from *GUIConfiguration, to *GUIConfiguration, pendingRegistrations []WebauthnCredential) {
 	// Don't allow adding new WebAuthn credentials without passing a registration challenge,
 	// and only allow updating the Nickname and RequireUv fields
 	existingCredentials := make(map[string]WebauthnCredential)
-	for _, cred := range from.Credentials {
+	for _, cred := range from.WebauthnCredentials {
 		existingCredentials[cred.ID] = cred
 	}
 	for _, cred := range pendingRegistrations {
@@ -316,12 +307,12 @@ func SanitizeWebauthnStateChanges(from *WebauthnState, to *WebauthnState, pendin
 	}
 
 	var updatedCredentials []WebauthnCredential
-	for _, newCred := range to.Credentials {
+	for _, newCred := range to.WebauthnCredentials {
 		if exCred, ok := existingCredentials[newCred.ID]; ok {
 			exCred.Nickname = newCred.Nickname
 			exCred.RequireUv = newCred.RequireUv
 			updatedCredentials = append(updatedCredentials, exCred)
 		}
 	}
-	to.Credentials = updatedCredentials
+	to.WebauthnCredentials = updatedCredentials
 }

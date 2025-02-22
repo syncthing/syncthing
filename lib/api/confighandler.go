@@ -427,7 +427,7 @@ func (c *configMuxBuilder) postAdjustGui(from *config.GUIConfiguration, to *conf
 		}
 	}
 
-	config.SanitizeWebauthnStateChanges(&from.WebauthnState, &to.WebauthnState, c.webauthnService.credentialsPendingRegistration)
+	config.SanitizeWebauthnStateChanges(from, to, c.webauthnService.credentialsPendingRegistration)
 
 	return nil
 }

@@ -624,7 +624,7 @@ angular.module('syncthing.core')
         /** At least one WebAuthn credential is configured */
         function isWebauthnAuthConfigured() {
             var guiCfg = ($scope.config || {}).gui || {};
-            return ((guiCfg.webauthnState || {}).credentials || []).length > 0;
+            return (guiCfg.webauthnCredentials || []).length > 0;
         }
 
         function refreshNoAuthWarning() {
@@ -1825,7 +1825,7 @@ angular.module('syncthing.core')
             $http.post(urlbase + '/config/webauthn/register-start')
                 .then(function (resp) {
                     // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
-                    resp.data.options.publicKey.excludeCredentials = $scope.tmpGUI.webauthnState.credentials.map(function (cred) {
+                    resp.data.options.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
                         return { type: "public-key", id: cred.id };
                     });
                     return webauthnJSON.create(resp.data.options)
@@ -1837,7 +1837,7 @@ angular.module('syncthing.core')
                             return $http.post(urlbase + '/config/webauthn/register-finish', body);
                         })
                         .then(function (resp) {
-                            $scope.tmpGUI.webauthnState.credentials.push(resp.data);
+                            $scope.tmpGUI.webauthnCredentials.push(resp.data);
                         });
                 })
                 .catch(function (e) {
@@ -1859,7 +1859,7 @@ angular.module('syncthing.core')
         };
 
         $scope.deleteWebauthnCredential = function (cred) {
-            $scope.tmpGUI.webauthnState.credentials = $scope.tmpGUI.webauthnState.credentials.filter(function (cr) {
+            $scope.tmpGUI.webauthnCredentials = $scope.tmpGUI.webauthnCredentials.filter(function (cr) {
                 return cr.id !== cred.id;
             });
         };

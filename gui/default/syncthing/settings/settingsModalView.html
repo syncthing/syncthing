@@ -169,7 +169,7 @@
               <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
             </a>
             <div class="webauthn-credentials two-column-flexbox">
-              <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
+              <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnCredentials | filter:{rpId: tmpGUI.webauthnRpId}:true">
                 <div class="panel-heading" ng-if="!webauthn.editingCredentialIds[cred.id]">
                   {{ cred.nickname || (cred.id | limitTo: 20) }}
                 </div>
@@ -247,11 +247,11 @@
             </p>
 
             <!-- Ineligible WebAuthn credentials -->
-            <div ng-repeat="_ in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
+            <div ng-repeat="_ in tmpGUI.webauthnCredentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true | limitTo:1">
               <label translate>Ineligible WebAuthn Credentials (Passkeys)</label>
               <p translate>The credentials below were created with a different setting of "Webauthn Rp Id" in advanced settings. They cannot be used without restoring this setting to the value shown as "RP ID" below. Note that doing so would make any credentials above ineligible instead.</p>
               <div class="webauthn-credentials two-column-flexbox">
-                <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnState.credentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
+                <div class="webauthn-credential-card panel panel-default" ng-repeat="cred in tmpGUI.webauthnCredentials | filter:{rpId: '!'+tmpGUI.webauthnRpId}:true">
                   <div class="panel-heading">
                     <span class="text-warning">
                       <span class="fas fa-exclamation-triangle"></span>

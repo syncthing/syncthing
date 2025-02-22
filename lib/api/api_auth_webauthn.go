@@ -141,7 +141,7 @@ func (webauthnLibUser) WebAuthnIcon() string {
 }
 func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
-	eligibleCredentials := u.guiCfg.WebauthnState.EligibleWebAuthnCredentials(u.guiCfg)
+	eligibleCredentials := u.guiCfg.EligibleWebAuthnCredentials(u.guiCfg)
 	credentialVolState := u.service.loadVolatileState()
 
 	for _, cred := range eligibleCredentials {
@@ -260,7 +260,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			return
 		}
 
-		for _, existingCred := range slices.Concat(guiCfg.WebauthnState.Credentials, s.credentialsPendingRegistration) {
+		for _, existingCred := range slices.Concat(guiCfg.WebauthnCredentials, s.credentialsPendingRegistration) {
 			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
@@ -302,7 +302,7 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 	return func(w http.ResponseWriter, _ *http.Request) {
 		allRequireUv := true
 		someRequiresUv := false
-		for _, cred := range guiCfg.WebauthnState.Credentials {
+		for _, cred := range guiCfg.WebauthnCredentials {
 			if cred.RequireUv {
 				someRequiresUv = true
 			} else {
@@ -370,7 +370,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		}
 
 		authenticatedCredId := parsedResponse.ID
-		for _, cred := range guiCfg.WebauthnState.Credentials {
+		for _, cred := range guiCfg.WebauthnCredentials {
 			if cred.ID == authenticatedCredId {
 				if cred.RequireUv {
 					// engine.ValidateLogin requires UV only if sessionData.UserVerification is set to "required",

@@ -2015,10 +2015,10 @@ func TestWebauthnRegistration(t *testing.T) {
 	startServer := func(t *testing.T, credentials []config.WebauthnCredential) (string, string, string, *webauthnService, func(t *testing.T) startWebauthnRegistrationResponse, config.Wrapper) {
 		cfg := newMockedConfig()
 		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
-			User:          "user",
-			RawAddress:    "127.0.0.1:0",
-			APIKey:        testAPIKey,
-			WebauthnState: config.WebauthnState{Credentials: credentials},
+			User:                "user",
+			RawAddress:          "127.0.0.1:0",
+			APIKey:              testAPIKey,
+			WebauthnCredentials: credentials,
 		}))
 		baseURL, cancel, webauthnService, err := startHTTP(cfg)
 		if err != nil {
@@ -2132,7 +2132,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		eligibleCredentials := cfg.GUI().WebauthnState.EligibleWebAuthnCredentials(cfg.GUI())
+		eligibleCredentials := cfg.GUI().EligibleWebAuthnCredentials(cfg.GUI())
 		if err != nil {
 			t.Fatal(err, "Failed to retrieve registered WebAuthn credentials")
 		}
@@ -2340,12 +2340,12 @@ func TestWebauthnAuthentication(t *testing.T) {
 		t.Helper()
 		cfg := newMockedConfig()
 		cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
-			User:            "user",
-			RawAddress:      "localhost:0",
-			APIKey:          testAPIKey,
-			WebauthnRpId:    rpId,
-			WebauthnOrigins: origins,
-			WebauthnState:   config.WebauthnState{Credentials: credentials},
+			User:                "user",
+			RawAddress:          "localhost:0",
+			APIKey:              testAPIKey,
+			WebauthnRpId:        rpId,
+			WebauthnOrigins:     origins,
+			WebauthnCredentials: credentials,
 		}))
 		baseURL, cancel, webauthnService, err := startHTTP(cfg)
 		if err != nil {
@@ -3008,14 +3008,12 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 			User:       "user",
 			Password:   password,
 			RawAddress: "localhost:0",
-			WebauthnState: config.WebauthnState{
-				Credentials: []config.WebauthnCredential{
-					{
-						ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
-						RpId:          "localhost",
-						PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
-						RequireUv:     false,
-					},
+			WebauthnCredentials: []config.WebauthnCredential{
+				{
+					ID:            base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+					RpId:          "localhost",
+					PublicKeyCose: base64.RawURLEncoding.EncodeToString(publicKeyCose),
+					RequireUv:     false,
 				},
 			},
 		}))
@@ -3118,29 +3116,27 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	// This test needs a longer-than-default shutdown timeout when running on GitHub Actions
 	shutdownTimeout := testutil.IfExpr(os.Getenv("CI") == "true", 1000*time.Millisecond, 0)
 
-	initialWebauthnCfg := config.WebauthnState{
-		Credentials: []config.WebauthnCredential{
-			{
-				ID:            "AAAA",
-				RpId:          "localhost",
-				Nickname:      "Credential A",
-				PublicKeyCose: base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
-				Transports:    []string{"transportA"},
-				RequireUv:     false,
-				CreateTime:    time.Now(),
-			},
+	initialWebauthnCredentials := []config.WebauthnCredential{
+		{
+			ID:            "AAAA",
+			RpId:          "localhost",
+			Nickname:      "Credential A",
+			PublicKeyCose: base64.RawURLEncoding.EncodeToString([]byte{1, 2, 3, 4}),
+			Transports:    []string{"transportA"},
+			RequireUv:     false,
+			CreateTime:    time.Now(),
 		},
 	}
 
 	initConfig := func(t *testing.T) config.Wrapper {
 		const testAPIKey = "foobarbaz"
 		cfg := config.Configuration{
-			GUI: withTestDefaults(config.GUIConfiguration{
-				RawAddress:     "127.0.0.1:0",
-				APIKey:         testAPIKey,
-				WebauthnUserId: []byte{0, 0, 0},
-				WebauthnState:  initialWebauthnCfg.Copy(),
-			}),
+			GUI: withTestDefaults((&config.GUIConfiguration{
+				RawAddress:          "127.0.0.1:0",
+				APIKey:              testAPIKey,
+				WebauthnUserId:      []byte{0, 0, 0},
+				WebauthnCredentials: initialWebauthnCredentials,
+			}).Copy()),
 		}
 
 		tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Webauthn-*")
@@ -3209,8 +3205,8 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		get, mod := startHttpServer(t, w)
 		{
 			cfg := w.RawCopy()
-			cfg.GUI.WebauthnState.Credentials = append(
-				cfg.GUI.WebauthnState.Credentials,
+			cfg.GUI.WebauthnCredentials = append(
+				cfg.GUI.WebauthnCredentials,
 				config.WebauthnCredential{
 					ID:            "BBBB",
 					RpId:          "localhost",
@@ -3227,8 +3223,8 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) {
-				t.Errorf("Expected not to be able to add WebAuthn credentials through just config. Updated config: %v", cfg.GUI.WebauthnState)
+			if !cmp.Equal(cfg.GUI.WebauthnCredentials, initialWebauthnCredentials) {
+				t.Errorf("Expected not to be able to add WebAuthn credentials through just config. Updated credentials: %v", cfg.GUI.WebauthnCredentials)
 			}
 		}
 	})
@@ -3239,7 +3235,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		{
 			_, mod := startHttpServer(t, w)
 			cfg := w.RawCopy()
-			cfg.GUI.WebauthnState.Credentials[0].ID = "ZZZZ"
+			cfg.GUI.WebauthnCredentials[0].ID = "ZZZZ"
 			mod(http.MethodPut, cfgPath, cfg)
 		}
 		{
@@ -3250,20 +3246,20 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if 0 != len(cfg.GUI.WebauthnState.Credentials) {
-				t.Errorf("Expected attempt to edit WebAuthn credential ID to result in deleting the existing credential. Updated config: %v", cfg.GUI.WebauthnState)
+			if 0 != len(cfg.GUI.WebauthnCredentials) {
+				t.Errorf("Expected attempt to edit WebAuthn credential ID to result in deleting the existing credential. Updated credentials: %v", cfg.GUI.WebauthnCredentials)
 			}
 		}
 	})
 
-	testCannotEditCredential := func(propName string, modify func(*config.WebauthnState)) {
+	testCannotEditCredential := func(propName string, modify func([]config.WebauthnCredential)) {
 		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
 			t.Parallel()
 			w := initConfig(t)
 			get, mod := startHttpServer(t, w)
 			{
 				cfg := w.RawCopy()
-				modify(&cfg.GUI.WebauthnState)
+				modify(cfg.GUI.WebauthnCredentials)
 				mod(http.MethodPut, cfgPath, cfg)
 			}
 			{
@@ -3273,34 +3269,34 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) {
-					t.Errorf("Expected to not be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				if !cmp.Equal(cfg.GUI.WebauthnCredentials, initialWebauthnCredentials) {
+					t.Errorf("Expected to not be able to edit %s of WebAuthn credential. Updated credentials: %v", propName, cfg.GUI.WebauthnCredentials)
 				}
 			}
 		})
 	}
 
-	testCannotEditCredential("RpId", func(state *config.WebauthnState) {
-		state.Credentials[0].RpId = "no-longer-locahost"
+	testCannotEditCredential("RpId", func(credentials []config.WebauthnCredential) {
+		credentials[0].RpId = "no-longer-locahost"
 	})
-	testCannotEditCredential("PublicKeyCose", func(state *config.WebauthnState) {
-		state.Credentials[0].PublicKeyCose = "BBBB"
+	testCannotEditCredential("PublicKeyCose", func(credentials []config.WebauthnCredential) {
+		credentials[0].PublicKeyCose = "BBBB"
 	})
-	testCannotEditCredential("Transports", func(state *config.WebauthnState) {
-		state.Credentials[0].Transports = []string{"transportA", "transportC"}
+	testCannotEditCredential("Transports", func(credentials []config.WebauthnCredential) {
+		credentials[0].Transports = []string{"transportA", "transportC"}
 	})
-	testCannotEditCredential("CreateTime", func(state *config.WebauthnState) {
-		state.Credentials[0].CreateTime = time.Now().Add(10 * time.Second)
+	testCannotEditCredential("CreateTime", func(credentials []config.WebauthnCredential) {
+		credentials[0].CreateTime = time.Now().Add(10 * time.Second)
 	})
 
-	testCanEditCredential := func(propName string, modify func(*config.WebauthnState), verify func(config.WebauthnState) bool) {
+	testCanEditCredential := func(propName string, modify func([]config.WebauthnCredential), verify func([]config.WebauthnCredential) bool) {
 		t.Run(fmt.Sprintf("Can edit WebauthnCredential.%s", propName), func(t *testing.T) {
 			t.Parallel()
 			w := initConfig(t)
 			{
 				_, mod := startHttpServer(t, w)
 				cfg := w.RawCopy()
-				modify(&cfg.GUI.WebauthnState)
+				modify(cfg.GUI.WebauthnCredentials)
 				mod(http.MethodPut, cfgPath, cfg)
 			}
 			{
@@ -3311,21 +3307,21 @@ func TestWebauthnConfigChanges(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !(!cmp.Equal(cfg.GUI.WebauthnState, initialWebauthnCfg) && verify(cfg.GUI.WebauthnState)) {
-					t.Errorf("Expected to be able to edit %s of WebAuthn credential. Updated config: %v", propName, cfg.GUI.WebauthnState)
+				if !(!cmp.Equal(cfg.GUI.WebauthnCredentials, initialWebauthnCredentials) && verify(cfg.GUI.WebauthnCredentials)) {
+					t.Errorf("Expected to be able to edit %s of WebAuthn credential. Updated credentials: %v", propName, cfg.GUI.WebauthnCredentials)
 				}
 			}
 		})
 	}
 
-	testCanEditCredential("Nickname", func(state *config.WebauthnState) {
-		state.Credentials[0].Nickname = "Blåbärsmjölk"
-	}, func(state config.WebauthnState) bool {
-		return state.Credentials[0].Nickname == "Blåbärsmjölk"
+	testCanEditCredential("Nickname", func(credentials []config.WebauthnCredential) {
+		credentials[0].Nickname = "Blåbärsmjölk"
+	}, func(credentials []config.WebauthnCredential) bool {
+		return credentials[0].Nickname == "Blåbärsmjölk"
 	})
-	testCanEditCredential("RequireUv", func(state *config.WebauthnState) {
-		state.Credentials[0].RequireUv = true
-	}, func(state config.WebauthnState) bool {
-		return state.Credentials[0].RequireUv == true
+	testCanEditCredential("RequireUv", func(credentials []config.WebauthnCredential) {
+		credentials[0].RequireUv = true
+	}, func(credentials []config.WebauthnCredential) bool {
+		return credentials[0].RequireUv == true
 	})
 }
