@@ -56,10 +56,12 @@ func TestBlocks(t *testing.T) {
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two hits")
-	} else if vals[0].FolderID != "test" || vals[0].Name != "file1" || vals[0].Index != 2 || vals[0].Offset != 84 || vals[0].Size != 42 {
+	}
+	if vals[0].FolderID != "test" || vals[0].Name != "file1" || vals[0].Index != 2 || vals[0].Offset != 84 || vals[0].Size != 42 {
 		t.Log(vals[0])
 		t.Fatal("bad entry 1")
-	} else if vals[1].FolderID != "test" || vals[1].Name != "file2" || vals[1].Index != 1 || vals[1].Offset != 42 || vals[1].Size != 42 {
+	}
+	if vals[1].FolderID != "test" || vals[1].Name != "file2" || vals[1].Index != 1 || vals[1].Offset != 42 || vals[1].Size != 42 {
 		t.Log(vals[1])
 		t.Fatal("bad entry 2")
 	}

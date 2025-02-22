@@ -285,7 +285,6 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 		return nil
 	})
 
-	var err error
 	var f protocol.FileInfo
 	previousWasDelete := false
 	for fi, err := range s.sdb.AllLocalSequenced(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1) {
@@ -332,9 +331,6 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 		previousWasDelete = f.IsDeleted()
 
 		batch.Append(f)
-	}
-	if err != nil {
-		return err
 	}
 
 	if err := batch.Flush(); err != nil {

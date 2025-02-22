@@ -241,7 +241,7 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	if err := globalMigration(a.ll, a.cfg); err != nil {
+	if err := globalMigration(a.sdb.KV(), a.cfg); err != nil {
 		l.Warnln("Global migration:", err)
 		return err
 	}

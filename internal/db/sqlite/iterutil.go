@@ -58,10 +58,3 @@ func iterProtos[T any, PT pbMessage[T]](rows *sqlx.Rows, err error) iter.Seq2[*T
 		}
 	}
 }
-
-func errIter[T any](err error) iter.Seq2[T, error] {
-	return func(yield func(T, error) bool) {
-		var zero T
-		yield(zero, err)
-	}
-}
