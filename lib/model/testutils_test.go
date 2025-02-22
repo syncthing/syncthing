@@ -9,7 +9,6 @@ package model
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -149,13 +148,14 @@ type testModel struct {
 func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
-	dbFile := filepath.Join(os.TempDir(), rand.String(5)+".db")
-	t.Log("dbFile", dbFile)
-	sdb, err := sqlite.Open(dbFile)
+	mdb, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, sdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	m := NewModel(cfg, id, mdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{

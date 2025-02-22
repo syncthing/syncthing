@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -9,10 +8,17 @@ import (
 )
 
 func TestBlocks(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "db"))
+	t.Parallel()
+
+	db, err := OpenMemory()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal()
 	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	files := []protocol.FileInfo{
 		{

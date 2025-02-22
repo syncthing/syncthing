@@ -7,7 +7,6 @@
 package kv_test
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,105 +15,101 @@ import (
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	t.Parallel()
+
+	ldb, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ldb.Close()
+	t.Cleanup(func() {
+		ldb.Close()
+	})
 
 	n1 := kv.NewTyped(ldb.KV(), "foo")
 	n2 := kv.NewTyped(ldb.KV(), "bar")
 
-	// Key is missing to start with
+	t.Run("Int", func(t *testing.T) {
+		t.Parallel()
 
-	if v, ok, err := n1.Int64("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != 0 || ok {
-		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
-	}
+		// Key is missing to start with
 
-	if err := n1.PutInt64("test", 42); err != nil {
-		t.Fatal(err)
-	}
+		if v, ok, err := n1.Int64("testint"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != 0 || ok {
+			t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
+		}
 
-	// It should now exist in n1
+		if err := n1.PutInt64("testint", 42); err != nil {
+			t.Fatal(err)
+		}
 
-	if v, ok, err := n1.Int64("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != 42 || !ok {
-		t.Errorf("Incorrect return v %v != 42 || ok %v != true", v, ok)
-	}
+		// It should now exist in n1
 
-	// ... but not in n2, which is in a different namespace
+		if v, ok, err := n1.Int64("testint"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != 42 || !ok {
+			t.Errorf("Incorrect return v %v != 42 || ok %v != true", v, ok)
+		}
 
-	if v, ok, err := n2.Int64("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != 0 || ok {
-		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
-	}
+		// ... but not in n2, which is in a different namespace
 
-	if err := n1.Delete("test"); err != nil {
-		t.Fatal(err)
-	}
+		if v, ok, err := n2.Int64("testint"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != 0 || ok {
+			t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
+		}
 
-	// It should no longer exist
+		if err := n1.Delete("testint"); err != nil {
+			t.Fatal(err)
+		}
 
-	if v, ok, err := n1.Int64("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != 0 || ok {
-		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
-	}
-}
+		// It should no longer exist
 
-func TestNamespacedTime(t *testing.T) {
-	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ldb.Close()
+		if v, ok, err := n1.Int64("testint"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != 0 || ok {
+			t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
+		}
+	})
 
-	n1 := kv.NewTyped(ldb.KV(), "foo")
+	t.Run("Time", func(t *testing.T) {
+		t.Parallel()
 
-	if v, ok, err := n1.Time("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if !v.IsZero() || ok {
-		t.Errorf("Incorrect return v %v != %v || ok %v != false", v, time.Time{}, ok)
-	}
+		if v, ok, err := n1.Time("testtime"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if !v.IsZero() || ok {
+			t.Errorf("Incorrect return v %v != %v || ok %v != false", v, time.Time{}, ok)
+		}
 
-	now := time.Now()
-	if err := n1.PutTime("test", now); err != nil {
-		t.Fatal(err)
-	}
+		now := time.Now()
+		if err := n1.PutTime("testtime", now); err != nil {
+			t.Fatal(err)
+		}
 
-	if v, ok, err := n1.Time("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if !v.Equal(now) || !ok {
-		t.Errorf("Incorrect return v %v != %v || ok %v != true", v, now, ok)
-	}
-}
+		if v, ok, err := n1.Time("testtime"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if !v.Equal(now) || !ok {
+			t.Errorf("Incorrect return v %v != %v || ok %v != true", v, now, ok)
+		}
+	})
 
-func TestNamespacedString(t *testing.T) {
-	ldb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ldb.Close()
+	t.Run("String", func(t *testing.T) {
+		t.Parallel()
 
-	n1 := kv.NewTyped(ldb.KV(), "foo")
+		if v, ok, err := n1.String("teststring"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != "" || ok {
+			t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
+		}
 
-	if v, ok, err := n1.String("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != "" || ok {
-		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
-	}
+		if err := n1.PutString("teststring", "yo"); err != nil {
+			t.Fatal(err)
+		}
 
-	if err := n1.PutString("test", "yo"); err != nil {
-		t.Fatal(err)
-	}
-
-	if v, ok, err := n1.String("test"); err != nil {
-		t.Error("Unexpected error:", err)
-	} else if v != "yo" || !ok {
-		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
-	}
+		if v, ok, err := n1.String("teststring"); err != nil {
+			t.Error("Unexpected error:", err)
+		} else if v != "yo" || !ok {
+			t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
+		}
+	})
 }

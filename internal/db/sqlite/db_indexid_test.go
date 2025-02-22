@@ -1,19 +1,27 @@
 package sqlite
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestIndexIDs(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "db"))
+	t.Parallel()
+
+	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal()
 	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	t.Run("LocalDeviceID", func(t *testing.T) {
+		t.Parallel()
+
 		localID, err := db.IndexID("foo", protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
@@ -40,6 +48,8 @@ func TestIndexIDs(t *testing.T) {
 	})
 
 	t.Run("OtherDeviceID", func(t *testing.T) {
+		t.Parallel()
+
 		localID, err := db.IndexID("foo", protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)

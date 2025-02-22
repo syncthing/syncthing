@@ -10,7 +10,6 @@
 package stats
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -19,11 +18,13 @@ import (
 )
 
 func TestDeviceStat(t *testing.T) {
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	db, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	t.Cleanup(func() {
+		db.Close()
+	})
 
 	sr := NewDeviceStatisticsReference(kv.NewTyped(db.KV(), "devstatref"))
 	if err := sr.WasSeen(); err != nil {

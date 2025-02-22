@@ -84,10 +84,13 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
-	mdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	mdb, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
 	kdb := kv.NewMiscDB(mdb.KV())
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
@@ -933,10 +936,13 @@ func startHTTP(t *testing.T, cfg config.Wrapper) string {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	mdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	mdb, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
 	kdb := kv.NewMiscDB(mdb.KV())
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	svc.started = addrChan
@@ -1444,10 +1450,13 @@ func TestEventMasks(t *testing.T) {
 	cfg := newMockedConfig()
 	defSub := new(eventmocks.BufferedSubscription)
 	diskSub := new(eventmocks.BufferedSubscription)
-	mdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	mdb, err := sqlite.OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
 	kdb := kv.NewMiscDB(mdb.KV())
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 

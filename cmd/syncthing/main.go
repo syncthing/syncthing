@@ -582,11 +582,6 @@ func syncthingMain(options serveOptions) {
 	}
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
-	if err != nil {
-		l.Warnln("Error opening database:", err)
-		os.Exit(1)
-	}
 	sdb, err := sqlite.Open(dbFile + "-sqlite")
 	if err != nil {
 		l.Warnln("Error opening database:", err)
@@ -640,7 +635,7 @@ func syncthingMain(options serveOptions) {
 		appOpts.DBIndirectGCInterval = dur
 	}
 
-	app, err := syncthing.New(cfgWrapper, ldb, sdb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
 	if err != nil {
 		l.Warnln("Failed to start Syncthing:", err)
 		os.Exit(svcutil.ExitError.AsInt())

@@ -7,7 +7,6 @@
 package api
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -131,10 +130,13 @@ func (c *mockClock) wind(t time.Duration) {
 func TestTokenManager(t *testing.T) {
 	t.Parallel()
 
-	mdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	mdb, err := sqlite.OpenMemory()
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
 	kdb := kv.NewMiscDB(mdb.KV())
 	clock := &mockClock{now: time.Now()}
 

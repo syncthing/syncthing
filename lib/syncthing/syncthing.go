@@ -29,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/connections/registry"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -81,7 +80,7 @@ type App struct {
 	Internals *Internals
 }
 
-func New(cfg config.Wrapper, dbBackend backend.Backend, sdb *sqlite.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
+func New(cfg config.Wrapper, sdb *sqlite.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
 	a := &App{
 		cfg:      cfg,
 		sdb:      sdb,

@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,6 +25,22 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	return openCommon(sqlDB)
+}
+
+func OpenMemory() (*DB, error) {
+	key := rand.String(16)
+	// Open the database with options to enable foreign keys and recursive
+	// triggers (needed for the delete+insert triggers on row replace).
+	sqlDB, err := sqlx.Open("sqlite3", "file:"+key+"?mode=memory&cache=shared&_fk=true&_rt=true")
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	return openCommon(sqlDB)
+}
+
+func openCommon(sqlDB *sqlx.DB) (*DB, error) {
+	sqlDB.SetMaxOpenConns(1)
 
 	// Set up initial tables, indexes, triggers.
 	if err := initDB(sqlDB); err != nil {

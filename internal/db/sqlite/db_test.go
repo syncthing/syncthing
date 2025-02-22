@@ -10,10 +10,17 @@ import (
 )
 
 func TestBasics(t *testing.T) {
-	db, err := Open(filepath.Join(".", "basics.sqlite"))
+	t.Parallel()
+
+	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	const folderID = "test"
 
@@ -39,6 +46,7 @@ func TestBasics(t *testing.T) {
 	}
 
 	t.Run("Local", func(t *testing.T) {
+		t.Parallel()
 		fi, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2") // exists
 		if err != nil {
 			t.Fatal(err)
@@ -60,6 +68,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("Global", func(t *testing.T) {
+		t.Parallel()
 		fi, ok, err := db.Global(folderID, "test")
 		if err != nil {
 			t.Fatal(err)
@@ -73,6 +82,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("AllLocal", func(t *testing.T) {
+		t.Parallel()
 		have := iterCollectTest(t, db.AllLocal(folderID, protocol.LocalDeviceID))
 		if len(have) != 2 {
 			t.Log(have)
@@ -86,6 +96,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
+		t.Parallel()
 		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 		if len(need) != 3 || need[0] != "test" {
 			t.Log(need)
@@ -122,6 +133,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("AllNeededNamesRemote", func(t *testing.T) {
+		t.Parallel()
 		t.Skip("materialized needs for remote devices not implemented")
 		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 		if len(need) != 1 {
@@ -131,6 +143,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("LocalSize", func(t *testing.T) {
+		t.Parallel()
 		// The local size is the sum of the files a device has
 		c := db.LocalSize(folderID, protocol.LocalDeviceID)
 		if c.Files != 1 {
@@ -148,6 +161,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("RemoteSize", func(t *testing.T) {
+		t.Parallel()
 		// The local size is the sum of the files a device has
 		c := db.LocalSize(folderID, protocol.DeviceID{42})
 		if c.Files != 3 {
@@ -165,6 +179,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("GlobalSize", func(t *testing.T) {
+		t.Parallel()
 		// The global size is the sum of all the latest-version files
 		c := db.GlobalSize(folderID)
 		if c.Files != 3 {
@@ -182,6 +197,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("NeedSizeLocal", func(t *testing.T) {
+		t.Parallel()
 		// The need size is the sum of all the latest-version files the device does not have
 		c := db.NeedSize(folderID, protocol.LocalDeviceID)
 		if c.Files != 3 {
@@ -199,6 +215,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("NeedSizeRemote", func(t *testing.T) {
+		t.Parallel()
 		// The need size is the sum of all the latest-version files the device does not have
 		c := db.NeedSize(folderID, protocol.DeviceID{42})
 		if c.Files != 0 {
@@ -216,6 +233,7 @@ func TestBasics(t *testing.T) {
 	})
 
 	t.Run("DevicesForFolder", func(t *testing.T) {
+		t.Parallel()
 		devs, err := db.DevicesForFolder("test")
 		if err != nil {
 			t.Fatal(err)
@@ -225,10 +243,6 @@ func TestBasics(t *testing.T) {
 			t.Error("expected one device")
 		}
 	})
-
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestAvailability(t *testing.T) {
