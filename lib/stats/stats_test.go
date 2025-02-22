@@ -25,7 +25,7 @@ func TestDeviceStat(t *testing.T) {
 	}
 	defer db.Close()
 
-	sr := NewDeviceStatisticsReference(kv.NewTyped(db, "devstatref"))
+	sr := NewDeviceStatisticsReference(kv.NewTyped(db.KV(), "devstatref"))
 	if err := sr.WasSeen(); err != nil {
 		t.Fatal(err)
 	}
