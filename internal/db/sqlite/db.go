@@ -43,7 +43,9 @@ func OpenMemory() (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Open(filepath.Join(dir, "db"))
+	path := filepath.Join(dir, "db")
+	fmt.Println("Test DB in", path)
+	return Open(path)
 }
 
 func openCommon(sqlDB *sqlx.DB) (*DB, error) {
@@ -335,39 +337,28 @@ type sizesRow struct {
 	Type    protocol.FileInfoType
 	Count   int
 	Size    int64
-	FlagBit int64 `db:"flag_bit"`
+	FlagBit int64 `db:"local_flags"`
 }
 
 func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
-	tx, err := db.sql.BeginTxx(context.Background(), nil)
-	if err != nil {
-		return Counts{}
-	}
-	defer tx.Rollback()
-
 	var res []sizesRow
-	if err := tx.Select(&res, `
-		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+	extra := ""
+	if device == protocol.LocalDeviceID {
+		// The size counters for the local device are special, in that we
+		// synthetise entries with both the Global and Need flag for files
+		// that we don't currently have. We need to exlude those from the
+		// local size sum.
+		extra = fmt.Sprintf(" AND local_flags & %[1]d != %[1]d", protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
+	}
+	if err := db.sql.Select(&res, `
+		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit != ?
-	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded); err != nil {
+		WHERE o.folder_id = ? AND d.device_id = ?`+extra,
+		folder, device.String()); err != nil {
 		return Counts{}
 	}
-	all := summarizeRows(res)
-
-	err = tx.Select(&res, `
-		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit = ?
-	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
-	if err != nil {
-		return Counts{}
-	}
-	doubleCounted := summarizeRows(res)
-
-	return all.Subtract(doubleCounted)
+	return summarizeRows(res)
 }
 
 func (db *DB) Folders() ([]string, error) {
@@ -412,9 +403,9 @@ func (db *DB) needSizeLocal(folder string) Counts {
 	// the global and need bit set.
 	var res []sizesRow
 	err := db.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND flag_bit = ?
+		WHERE o.folder_id = ? AND local_flags = ?
 	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
 		return Counts{}
@@ -427,10 +418,10 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
 	// size plus the need size.
 	var res []sizesRow
 	err := db.sql.Select(&res, `
-		SELECT type, count, size, flag_bit FROM sizes s
+		SELECT type, count, size, local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE d.device_id = ? AND flag_bit = ?
+		WHERE d.device_id = ? AND local_flags & ? != 0
 	`, folder, device.String(), protocol.FlagLocalNeeded)
 	if err != nil {
 		panic(err)
@@ -444,9 +435,9 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
 func (db *DB) GlobalSize(folder string) Counts {
 	var res []sizesRow
 	err := db.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.flag_bit = ?
+		WHERE o.folder_id = ? AND s.local_flags & ? != 0
 	`, folder, protocol.FlagLocalGlobal)
 	if err != nil {
 		return Counts{}
@@ -457,9 +448,9 @@ func (db *DB) GlobalSize(folder string) Counts {
 func (db *DB) ReceiveOnlySize(folder string) Counts {
 	var res []sizesRow
 	err := db.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
+		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND flag_bit = ?
+		WHERE o.folder_id = ? AND local_flags & ? != 0
 	`, folder, protocol.FlagLocalReceiveOnly)
 	if err != nil {
 		return Counts{}
