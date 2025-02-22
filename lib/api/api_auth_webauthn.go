@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
@@ -259,15 +260,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			return
 		}
 
-		for _, existingCred := range guiCfg.WebauthnState.Credentials {
-			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
-			if err == nil && bytes.Equal(credential.ID, existId) {
-				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
-				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
-				return
-			}
-		}
-		for _, existingCred := range s.credentialsPendingRegistration {
+		for _, existingCred := range slices.Concat(guiCfg.WebauthnState.Credentials, s.credentialsPendingRegistration) {
 			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
 				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
