@@ -15,7 +15,6 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -243,15 +242,6 @@ func (*alwaysChanged) Changed() bool {
 	return true
 }
 
-func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
-	t.Helper()
-	snap, err := fset.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return snap
-}
-
 // Reach in and update the ignore matcher to one that always does
 // reloads when asked to, instead of checking file mtimes. This is
 // because we will be changing the files on disk often enough that the
@@ -304,15 +294,6 @@ func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.D
 	cfg.DeviceID = id
 	cfg.Name = name
 	return cfg
-}
-
-func newFileSet(t testing.TB, folder string, ldb *db.Lowlevel) *db.FileSet {
-	t.Helper()
-	fset, err := db.NewFileSet(folder, ldb)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return fset
 }
 
 func replace(t testing.TB, w config.Wrapper, to config.Configuration) {

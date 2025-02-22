@@ -34,7 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -99,10 +98,10 @@ type Model interface {
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
 	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[*protocol.FileInfo, error]
 	AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error]
-	LocalSize(folder string, device protocol.DeviceID) db.Counts
-	GlobalSize(folder string) db.Counts
-	NeedSize(folder string, device protocol.DeviceID) db.Counts
-	ReceiveOnlySize(folder string) db.Counts
+	LocalSize(folder string, device protocol.DeviceID) sqlite.Counts
+	GlobalSize(folder string) sqlite.Counts
+	NeedSize(folder string, device protocol.DeviceID) sqlite.Counts
+	ReceiveOnlySize(folder string) sqlite.Counts
 	Sequence(folder string, device protocol.DeviceID) int64
 
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
@@ -816,7 +815,7 @@ type FolderCompletion struct {
 	RemoteState   remoteFolderState
 }
 
-func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFolderState) FolderCompletion {
+func newFolderCompletion(global, need sqlite.Counts, sequence int64, state remoteFolderState) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
@@ -957,19 +956,19 @@ func (m *model) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] 
 	}
 }
 
-func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
+func (m *model) LocalSize(folder string, device protocol.DeviceID) sqlite.Counts {
 	return m.sdb.LocalSize(folder, device)
 }
 
-func (m *model) GlobalSize(folder string) db.Counts {
+func (m *model) GlobalSize(folder string) sqlite.Counts {
 	return m.sdb.GlobalSize(folder)
 }
 
-func (m *model) NeedSize(folder string, device protocol.DeviceID) db.Counts {
+func (m *model) NeedSize(folder string, device protocol.DeviceID) sqlite.Counts {
 	return m.sdb.NeedSize(folder, device)
 }
 
-func (m *model) ReceiveOnlySize(folder string) db.Counts {
+func (m *model) ReceiveOnlySize(folder string) sqlite.Counts {
 	return m.sdb.ReceiveOnlySize(folder)
 }
 

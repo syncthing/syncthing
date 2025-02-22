@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -3562,16 +3562,16 @@ func TestClusterConfigOnFolderUnpause(t *testing.T) {
 
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
-	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderValid)
-	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderPaused))
+	comp := newFolderCompletion(sqlite.Counts{}, sqlite.Counts{}, 0, remoteFolderValid)
+	comp.add(newFolderCompletion(sqlite.Counts{}, sqlite.Counts{}, 0, remoteFolderPaused))
 	if comp.CompletionPct != 100 {
 		t.Error(comp.CompletionPct)
 	}
 
 	// Completion is of the whole
-	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0, remoteFolderValid)             // 100% complete
-	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0, remoteFolderValid)) // 82.5% complete
-	if comp.CompletionPct != 90 {                                                                    // 100 * (1 - 50/500)
+	comp = newFolderCompletion(sqlite.Counts{Bytes: 100}, sqlite.Counts{}, 0, remoteFolderValid)             // 100% complete
+	comp.add(newFolderCompletion(sqlite.Counts{Bytes: 400}, sqlite.Counts{Bytes: 50}, 0, remoteFolderValid)) // 82.5% complete
+	if comp.CompletionPct != 90 {                                                                            // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }

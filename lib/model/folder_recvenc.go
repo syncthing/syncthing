@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -44,7 +43,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
 		return nil
 	})

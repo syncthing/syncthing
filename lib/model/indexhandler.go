@@ -14,7 +14,6 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -241,7 +240,7 @@ func (s *indexHandler) pause() {
 // returns the highest sent sequence number.
 func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	initial := s.localPrevSequence == 0
-	batch := db.NewFileInfoBatch(nil)
+	batch := NewFileInfoBatch(nil)
 	var batchError error
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
 		select {

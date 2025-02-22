@@ -17,8 +17,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -122,7 +122,7 @@ type FolderSummary struct {
 func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	res := new(FolderSummary)
 
-	var local, global, need, ro db.Counts
+	var local, global, need, ro sqlite.Counts
 	var ourSeq int64
 	var remoteSeq map[protocol.DeviceID]int64
 	errors, err := c.model.FolderErrors(folder)

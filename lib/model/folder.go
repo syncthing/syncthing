@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -541,7 +540,7 @@ const maxToRemove = 1000
 
 type scanBatch struct {
 	f           *folder
-	updateBatch *db.FileInfoBatch
+	updateBatch *FileInfoBatch
 	toRemove    []string
 }
 
@@ -550,7 +549,7 @@ func (f *folder) newScanBatch() *scanBatch {
 		f:        f,
 		toRemove: make([]string, 0, maxToRemove),
 	}
-	b.updateBatch = db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", b.f.Description(), err)
 			return err
@@ -1311,7 +1310,7 @@ func (f *folder) handleForcedRescans() error {
 		return nil
 	}
 
-	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		return f.db.Update(f.folderID, protocol.LocalDeviceID, fs)
 	})
 
