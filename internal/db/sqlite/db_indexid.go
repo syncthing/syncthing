@@ -12,11 +12,11 @@ import (
 func (db *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
 	// Explicitly get folder and device idx because this might be our first
 	// contact with the device or folder and they may need to be created.
-	folderIdx, err := db.folderIdx(folder)
+	folderIdx, err := db.folderIdxLocked(folder)
 	if err != nil {
 		return 0, fmt.Errorf("indexID (folderIdx): %w", err)
 	}
-	deviceIdx, err := db.deviceIdx(device)
+	deviceIdx, err := db.deviceIdxLocked(device)
 	if err != nil {
 		return 0, fmt.Errorf("indexID (deviceIdx): %w", err)
 	}
@@ -54,11 +54,11 @@ func (db *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID
 }
 
 func (db *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error {
-	folderIdx, err := db.folderIdx(folder)
+	folderIdx, err := db.folderIdxLocked(folder)
 	if err != nil {
 		return fmt.Errorf("indexID (folderIdx): %w", err)
 	}
-	deviceIdx, err := db.deviceIdx(device)
+	deviceIdx, err := db.deviceIdxLocked(device)
 	if err != nil {
 		return fmt.Errorf("indexID (deviceIdx): %w", err)
 	}

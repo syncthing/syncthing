@@ -99,7 +99,7 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) processNeed(tx *sqlx.Tx, folderIdx int64, file string) error {
+func (db *DB) processNeedLocked(tx *sqlx.Tx, folderIdx int64, file string) error {
 	vals := iterStructs[fileRow](tx.Queryx(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ?`,

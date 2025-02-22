@@ -3,6 +3,7 @@ package sqlite
 import (
 	"iter"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -243,6 +244,13 @@ func TestBasics(t *testing.T) {
 			t.Error("expected one device")
 		}
 	})
+
+	t.Run("DropAllFiles", func(t *testing.T) {
+		t.Parallel()
+		if err := db.DropAllFiles("foo", protocol.DeviceID{1, 2, 3, 4, 5, 6, 7, 8}); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestAvailability(t *testing.T) {
@@ -338,4 +346,108 @@ func genBlocks(n int) []protocol.BlockInfo {
 		b[i].Offset = (128 << 10) * int64(i)
 	}
 	return b
+}
+
+func TestConcurrentUpdate(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const folderID = "test"
+
+	// Some local files
+	var v protocol.Vector
+	v = v.Update(1)
+	files := []protocol.FileInfo{
+		{Name: "test", Size: 1, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
+		{Name: "test3", Sequence: 1, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
+		{Name: "test4", Sequence: 2, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+	}
+
+	const n = 32
+	res := make([]error, n)
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := range n {
+		go func() {
+			res[i] = db.Update(folderID, protocol.DeviceID{byte(i), byte(i), byte(i)}, files)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	for i, err := range res {
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+		}
+	}
+}
+
+func TestConcurrentUpdateSelect(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const folderID = "test"
+
+	// Some local files
+	var v protocol.Vector
+	v = v.Update(1)
+	files := []protocol.FileInfo{
+		{Name: "test1", Sequence: 1, Size: 1, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Sequence: 2, Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
+		{Name: "test3", Sequence: 3, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
+		{Name: "test4", Sequence: 4, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+	}
+
+	// Insert the files for a remote device
+	if err := db.Update(folderID, protocol.DeviceID{42}, files); err != nil {
+		t.Fatal()
+	}
+
+	// Iterate over handled files and insert them for the local device.
+	// This is similar to a pattern we have in other places and should
+	// work.
+	handled := 0
+	for name, err := range db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		glob, ok, err := db.Global(folderID, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("should exist")
+		}
+
+		glob.Version = glob.Version.Update(1)
+		if err := db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{glob}); err != nil {
+			t.Fatal(err)
+		}
+
+		handled++
+	}
+
+	if handled != len(files) {
+		t.Log(handled)
+		t.Error("should have handled all the files")
+	}
 }

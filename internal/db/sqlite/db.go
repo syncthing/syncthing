@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
@@ -14,14 +17,18 @@ import (
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	commonOptions = "_fk=true&_rt=true"
+	fileOptions   = "mode=rwc"
 )
 
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open("sqlite3", path+"?_fk=true&_rt=true")
+	sqlDB, err := sqlx.Open("sqlite3", path+"?"+fileOptions+"&"+commonOptions)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -29,19 +36,17 @@ func Open(path string) (*DB, error) {
 }
 
 func OpenMemory() (*DB, error) {
-	key := rand.String(16)
-	// Open the database with options to enable foreign keys and recursive
-	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open("sqlite3", "file:"+key+"?mode=memory&cache=shared&_fk=true&_rt=true")
+	// SQLite has a memory mode, but it works differently with concurrency
+	// compared to what we need with the WAL mode. So, no memory databases
+	// for now.
+	dir, err := os.MkdirTemp("", "syncthing-db")
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, err
 	}
-	return openCommon(sqlDB)
+	return Open(filepath.Join(dir, "db"))
 }
 
 func openCommon(sqlDB *sqlx.DB) (*DB, error) {
-	sqlDB.SetMaxOpenConns(1)
-
 	// Set up initial tables, indexes, triggers.
 	if err := initDB(sqlDB); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -51,7 +56,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change
-	db.localDeviceIdx, _ = db.deviceIdx(protocol.LocalDeviceID)
+	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
 
 	return db, nil
 }
@@ -59,24 +64,30 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 type DB struct {
 	sql            *sqlx.DB
 	localDeviceIdx int64
+	mut            sync.Mutex
 }
 
 func (db *DB) Close() error {
+	db.mut.Lock()
+	defer db.mut.Unlock()
 	return wrap("close", db.sql.Close())
 }
 
 func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
+	db.mut.Lock()
+	defer db.mut.Unlock()
+
 	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
 	if err != nil {
 		return wrap("update", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	folderIdx, err := db.folderIdx(folder)
+	folderIdx, err := db.folderIdxLocked(folder)
 	if err != nil {
 		return wrap("update", err)
 	}
-	deviceIdx, err := db.deviceIdx(device)
+	deviceIdx, err := db.deviceIdxLocked(device)
 	if err != nil {
 		return wrap("update", err)
 	}
@@ -136,13 +147,13 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		}
 
 		// Update global and need
-		if err := db.processNeed(tx, folderIdx, f.Name); err != nil {
+		if err := db.processNeedLocked(tx, folderIdx, f.Name); err != nil {
 			return wrap("update", err)
 		}
 
 		if device == protocol.LocalDeviceID {
 			// Update block lists
-			if err := db.insertBlocks(tx, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
+			if err := db.insertBlocksLocked(tx, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
 				return wrap("update", err)
 			}
 		}
@@ -152,6 +163,8 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 }
 
 func (db *DB) DropFolder(folder string) error {
+	db.mut.Lock()
+	defer db.mut.Unlock()
 	_, err := db.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
 	return err
 }
@@ -160,16 +173,22 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	if device == protocol.LocalDeviceID {
 		panic("bug: cannot drop local device")
 	}
+	db.mut.Lock()
+	defer db.mut.Unlock()
 	_, err := db.sql.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String())
 	return err
 }
 
 func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
+	db.mut.Lock()
+	defer db.mut.Unlock()
 	_, err := db.sql.Exec(`
-		DELETE FROM files f
-		INNER JOIN folder o ON f.folder_idx = o.idx
-		INNER JOIN devices d ON f.device_idx = d.idx
-		WHERE o.folder_id = ? AND f.device_id = ?
+		DELETE FROM files WHERE ROWID in (
+			SELECT f.ROWID FROM files f
+			INNER JOIN folders o ON f.folder_idx = o.idx
+			INNER JOIN devices d ON f.device_idx = d.idx
+			WHERE o.folder_id = ? AND device_id = ?
+		)
 	`, folder, device.String())
 	return wrap("drop all files", err)
 }
@@ -179,6 +198,8 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 		names[i] = osutil.NormalizedFilename(names[i])
 	}
 
+	db.mut.Lock()
+	defer db.mut.Unlock()
 	_, err := db.sql.Exec(`
 		DELETE FROM files f
 		INNER JOIN folder o ON f.folder_idx = o.idx
@@ -227,6 +248,7 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 
 func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
 	prefix = osutil.NormalizedFilename(prefix)
+
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -241,6 +263,7 @@ func (db *DB) Sequence(folder string, device protocol.DeviceID) int64 {
 	if device != protocol.LocalDeviceID {
 		field = "remote_sequence"
 	}
+
 	err := db.sql.Get(seq, fmt.Sprintf(`
 		SELECT MAX(f.%s) FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -283,6 +306,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
 	prefix = osutil.NormalizedFilename(prefix)
 	glob := prefix + "/*"
+
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -315,19 +339,24 @@ type sizesRow struct {
 }
 
 func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
+	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return Counts{}
+	}
+	defer tx.Rollback()
+
 	var res []sizesRow
-	err := db.sql.Select(&res, `
+	if err := tx.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit != ?
-	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
-	if err != nil {
+	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded); err != nil {
 		return Counts{}
 	}
 	all := summarizeRows(res)
 
-	err = db.sql.Select(&res, `
+	err = tx.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
@@ -460,7 +489,7 @@ func summarizeRows(res []sizesRow) Counts {
 	return c
 }
 
-func (db *DB) folderIdx(folderID string) (int64, error) {
+func (db *DB) folderIdxLocked(folderID string) (int64, error) {
 	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
@@ -472,7 +501,7 @@ func (db *DB) folderIdx(folderID string) (int64, error) {
 	return idx, nil
 }
 
-func (db *DB) deviceIdx(deviceID protocol.DeviceID) (int64, error) {
+func (db *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
 	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)

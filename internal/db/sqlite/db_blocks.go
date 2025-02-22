@@ -16,7 +16,7 @@ type BlockMapEntry struct {
 	Size     int
 }
 
-func (*DB) insertBlocks(tx *sqlx.Tx, folderIdx, deviceIdx, localSeq int64, blocks []protocol.BlockInfo) error {
+func (*DB) insertBlocksLocked(tx *sqlx.Tx, folderIdx, deviceIdx, localSeq int64, blocks []protocol.BlockInfo) error {
 	for i, b := range blocks {
 		if _, err := tx.Exec(`
 			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, idx, offset, size)
