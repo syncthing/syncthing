@@ -9,7 +9,6 @@ package model
 import (
 	"errors"
 
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -27,9 +26,9 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+func newSendOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendOnlyFolder{
-		folder: newFolder(model, fdb, ignores, cfg, evLogger, ioLimiter, nil),
+		folder: newFolder(model, ignores, cfg, evLogger, ioLimiter, nil),
 	}
 	f.folder.puller = f
 	return f
@@ -46,7 +45,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	for name, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return false, err
 		}
@@ -55,7 +54,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			return false, err
 		}
 
-		file, ok, err := f.fdb.Global(name)
+		file, ok, err := f.db.Global(f.folderID, name)
 		if err != nil {
 			return false, err
 		}
@@ -70,7 +69,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			continue
 		}
 
-		curFile, ok, err := f.fdb.Local(protocol.LocalDeviceID, file.FileName())
+		curFile, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, file.FileName())
 		if err != nil {
 			return false, err
 		}
@@ -118,7 +117,7 @@ func (f *sendOnlyFolder) override() error {
 		return nil
 	})
 
-	for name, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return err
 		}
@@ -126,7 +125,7 @@ func (f *sendOnlyFolder) override() error {
 			return err
 		}
 
-		have, haveOk, err := f.fdb.Local(protocol.LocalDeviceID, name)
+		have, haveOk, err := f.db.Local(f.folderID, protocol.LocalDeviceID, name)
 		if err != nil {
 			return err
 		}
@@ -137,7 +136,7 @@ func (f *sendOnlyFolder) override() error {
 			continue
 		}
 
-		need, ok, err := f.fdb.Global(name)
+		need, ok, err := f.db.Global(f.folderID, name)
 		if err != nil {
 			return err
 		}

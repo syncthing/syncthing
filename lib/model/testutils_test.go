@@ -16,7 +16,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -151,17 +150,13 @@ type testModel struct {
 func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
-	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
-	if err != nil {
-		t.Fatal(err)
-	}
 	dbFile := filepath.Join(os.TempDir(), rand.String(5)+".db")
 	t.Log("dbFile", dbFile)
 	sdb, err := sqlite.Open(dbFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, ldb, sdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	m := NewModel(cfg, id, sdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
 	return &testModel{
@@ -206,7 +201,7 @@ func cleanupModel(m *testModel) {
 		<-m.stopped
 	}
 	m.evCancel()
-	m.db.Close()
+	m.sdb.Close()
 	os.Remove(m.cfg.ConfigPath())
 }
 
@@ -264,11 +259,9 @@ func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
 func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
 	t.Helper()
 	m.removeFolder(fcfg)
-	fset := newFileSet(t, fcfg.ID, m.db)
-	fdb := sqlite.NewFolderDB(m.sdb, fcfg.ID)
 	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.mut.Lock()
-	m.addAndStartFolderLockedWithIgnores(fcfg, fset, fdb, ignores)
+	m.addAndStartFolderLockedWithIgnores(fcfg, ignores)
 	m.mut.Unlock()
 }
 
@@ -291,12 +284,8 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) *pro
 }
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
-	m.mut.RLock()
-	fset := m.folderFiles[folder]
-	m.mut.RUnlock()
-
-	fset.Update(protocol.LocalDeviceID, fs)
-	seq := fset.Sequence(protocol.LocalDeviceID)
+	m.sdb.Update(folder, protocol.LocalDeviceID, fs)
+	seq := m.sdb.Sequence(folder, protocol.LocalDeviceID)
 	filenames := make([]string, len(fs))
 	for i, file := range fs {
 		filenames[i] = file.Name

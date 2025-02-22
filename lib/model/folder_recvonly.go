@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -58,8 +57,8 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	sr := newSendReceiveFolder(model, fdb, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)
+func newReceiveOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+	sr := newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}
 }
@@ -89,7 +88,7 @@ func (f *receiveOnlyFolder) revert() error {
 		return nil
 	})
 
-	for fi, err := range f.fdb.AllLocal(protocol.LocalDeviceID) {
+	for fi, err := range f.db.AllLocal(f.folderID, protocol.LocalDeviceID) {
 		if err != nil {
 			return err
 		}
@@ -101,7 +100,7 @@ func (f *receiveOnlyFolder) revert() error {
 
 		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 
-		switch gf, ok, err := f.fdb.Global(fi.Name); {
+		switch gf, ok, err := f.db.Global(f.folderID, fi.Name); {
 		case err != nil:
 			return err
 		case !ok:

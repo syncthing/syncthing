@@ -323,7 +323,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Drop the remote
 
-	f.fdb.Drop(device1)
+	f.db.DropAllFiles("ro", device1)
 	must(t, m.ScanFolder("ro"))
 
 	size = m.ReceiveOnlySize("ro")
@@ -392,17 +392,17 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Do the same changes on the remote
 
 	files := make([]protocol.FileInfo, 0, 2)
-	snap := fsetSnapshot(t, f.fset)
-	snap.WithHave(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
+	for f, err := range f.db.AllLocal("ro", protocol.LocalDeviceID) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if f.Name != file && f.Name != knownFile {
-			return true
+			continue
 		}
 		f.LocalFlags = 0
 		f.Version = protocol.Vector{}.Update(device1.Short())
-		files = append(files, f)
-		return true
-	})
-	snap.Release()
+		files = append(files, *f)
+	}
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 
 	// Ensure the pull to resolve conflicts (content identical) happened

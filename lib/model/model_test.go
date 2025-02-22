@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -1628,8 +1628,7 @@ func TestROScanRecovery(t *testing.T) {
 	defer cancel()
 	m := newModel(t, cfg, myID, nil)
 
-	set := newFileSet(t, "default", m.db)
-	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+	m.sdb.Update("default", protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
@@ -1675,8 +1674,7 @@ func TestRWScanRecovery(t *testing.T) {
 	defer cancel()
 	m := newModel(t, cfg, myID, nil)
 
-	set := newFileSet(t, "default", m.db)
-	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+	m.sdb.Update("default", protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
@@ -2127,24 +2125,22 @@ func TestIssue4357(t *testing.T) {
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m := newModel(t, defaultCfgWrapper, myID, nil)
 
-	files := newFileSet(t, "default", m.db)
-	files.Drop(device1)
-	files.Update(device1, genFiles(1))
-	files.Drop(device2)
-	files.Update(device2, genFiles(1))
+	m.sdb.DropAllFiles("default", device1)
+	m.sdb.Update("default", device1, genFiles(1))
+	m.sdb.DropAllFiles("default", device2)
+	m.sdb.Update("default", device2, genFiles(1))
 
-	if len(files.ListDevices()) != 2 {
+	if devs, err := m.sdb.DevicesForFolder("default"); err != nil || len(devs) != 2 {
+		t.Log(devs, err)
 		t.Error("expected two devices")
 	}
 
 	m.newFolder(defaultFolderConfig, false)
 	defer cleanupModel(m)
 
-	// Remote sequence is cached, hence need to recreated.
-	files = newFileSet(t, "default", m.db)
-
-	if l := len(files.ListDevices()); l != 1 {
-		t.Errorf("Expected one device got %v", l)
+	if devs, err := m.sdb.DevicesForFolder("default"); err != nil || len(devs) != 1 {
+		t.Log(devs, err)
+		t.Error("expected one device")
 	}
 }
 
@@ -2376,8 +2372,7 @@ func TestCustomMarkerName(t *testing.T) {
 
 	m := newModel(t, cfg, myID, nil)
 
-	set := newFileSet(t, "default", m.db)
-	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+	m.sdb.Update("default", protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
 
@@ -3699,11 +3694,6 @@ func TestIssue6961(t *testing.T) {
 	waiter.Wait()
 	// Always recalc/repair when opening a fileset.
 	m := newModel(t, wcfg, myID, nil)
-	m.db.Close()
-	m.db, err = db.NewLowlevel(backend.OpenMemory(), m.evLogger, db.WithRecheckInterval(time.Millisecond))
-	if err != nil {
-		t.Fatal(err)
-	}
 	m.ServeBackground()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 	conn1 := addFakeConn(m, device1, fcfg.ID)
@@ -3760,9 +3750,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
-	m.mut.Lock()
-	m.folderFiles[fcfg.ID].Update(protocol.LocalDeviceID, files)
-	m.mut.Unlock()
+	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
@@ -3992,11 +3980,11 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	of := db.ObservedFolder{
+	of := kv.ObservedFolder{
 		Time:  time.Now().Truncate(time.Second),
 		Label: pfolder,
 	}
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, of, device2); err != nil {
+	if err := m.observed.AddOrUpdatePendingFolder(pfolder, of, device2); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err := m.PendingFolders(protocol.EmptyDeviceID)
@@ -4015,7 +4003,7 @@ func TestPendingFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device3})
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, of, device3); err != nil {
+	if err := m.observed.AddOrUpdatePendingFolder(pfolder, of, device3); err != nil {
 		t.Fatal(err)
 	}
 	deviceFolders, err = m.PendingFolders(device2)

@@ -1223,7 +1223,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Add connection (sends incoming cluster config) before starting the new model
 	m = &testModel{
-		model:    NewModel(m.cfg, m.id, m.db, m.sdb, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
+		model:    NewModel(m.cfg, m.id, m.sdb, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
 		evCancel: m.evCancel,
 		stopped:  make(chan struct{}),
 	}
@@ -1287,10 +1287,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 
 	files := genFiles(2)
 	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
-	m.mut.RLock()
-	fset := m.folderFiles[fcfg.ID]
-	m.mut.RUnlock()
-	fset.Update(protocol.LocalDeviceID, files)
+	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
 
 	indexChan := make(chan []protocol.FileInfo, 10)
 	done := make(chan struct{})

@@ -31,7 +31,6 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
-	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -159,8 +158,7 @@ type model struct {
 
 	// fields protected by mut
 	mut                            sync.RWMutex
-	folderCfgs                     map[string]config.FolderConfiguration // folder -> cfg
-	folderDBs                      map[string]*sqlite.FolderDB
+	folderCfgs                     map[string]config.FolderConfiguration                  // folder -> cfg
 	deviceStatRefs                 map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores                  map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners                  *serviceMap[string, service]                           // folder -> puller or scanner
@@ -184,7 +182,7 @@ type model struct {
 
 var _ config.Verifier = &model{}
 
-type folderFactory func(*model, *sqlite.FolderDB, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
+type folderFactory func(*model, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *semaphore.Semaphore) service
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
@@ -239,7 +237,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protecte
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
-		folderDBs:                      make(map[string]*sqlite.FolderDB),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
 		folderRunners:                  newServiceMap[string, service](evLogger),
@@ -338,7 +335,7 @@ func (m *model) fatal(err error) {
 }
 
 // Need to hold lock on m.mut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fdb *sqlite.FolderDB, cacheIgnoredFiles bool) {
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
 	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
@@ -346,13 +343,12 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fdb *sql
 		}
 	}
 
-	m.addAndStartFolderLockedWithIgnores(cfg, fdb, ignores)
+	m.addAndStartFolderLockedWithIgnores(cfg, ignores)
 }
 
 // Only needed for testing, use addAndStartFolderLocked instead.
-func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fdb *sqlite.FolderDB, ignores *ignore.Matcher) {
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
 	m.folderCfgs[cfg.ID] = cfg
-	m.folderDBs[cfg.ID] = fdb
 	m.folderIgnores[cfg.ID] = ignores
 
 	_, ok := m.folderRunners.Get(cfg.ID)
@@ -375,11 +371,11 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	for _, available := range devs {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fdb.DropAllFiles(available)
+			m.sdb.DropAllFiles(folder, available)
 		}
 	}
 
-	indexHasFiles := fdb.Sequence(protocol.LocalDeviceID) > 0
+	indexHasFiles := m.sdb.Sequence(folder, protocol.LocalDeviceID) > 0
 	if !indexHasFiles {
 		// It's a blank folder, so this may the first time we're looking at
 		// it. Attempt to create and tag with our marker as appropriate. We
@@ -420,7 +416,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-	p := folderFactory(m, fdb, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
 	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
@@ -501,7 +497,6 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// clear up our config maps
 	m.folderRunners.Remove(cfg.ID)
 	delete(m.folderCfgs, cfg.ID)
-	delete(m.folderDBs, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
 	delete(m.folderEncryptionPasswordTokens, cfg.ID)
@@ -536,19 +531,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
-	fdb := m.folderDBs[folder]
-	fsetNil := fdb == nil
-
 	m.cleanupFolderLocked(from)
 	if !to.Paused {
-		if fsetNil {
-			// Create a new fset. Might take a while and we do it under
-			// locking, but it's unsafe to create fset:s concurrently so
-			// that's the price we pay.
-			fdb = sqlite.NewFolderDB(m.sdb, folder)
-		}
-		m.addAndStartFolderLocked(to, fdb, cacheIgnoredFiles)
+		m.addAndStartFolderLocked(to, cacheIgnoredFiles)
 	}
 
 	runner, _ := m.folderRunners.Get(to.ID)
@@ -575,8 +560,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	folderDB := sqlite.NewFolderDB(m.sdb, cfg.ID)
-	m.addAndStartFolderLocked(cfg, folderDB, cacheIgnoredFiles)
+	m.addAndStartFolderLocked(cfg, cacheIgnoredFiles)
 
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start
@@ -925,7 +909,6 @@ func (m *model) Completion(device protocol.DeviceID, folder string) (FolderCompl
 func (m *model) folderCompletion(device protocol.DeviceID, folder string) (FolderCompletion, error) {
 	m.mut.RLock()
 	err := m.checkFolderRunningRLocked(folder)
-	fdb := m.folderDBs[folder]
 	m.mut.RUnlock()
 	if err != nil {
 		return FolderCompletion{}, err
@@ -936,37 +919,25 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.mut.RUnlock()
 
-	need := fdb.NeedSize(device)
+	need := m.sdb.NeedSize(folder, device)
 	need.Bytes -= downloaded
 	// This might be more than it really is, because some blocks can be of a smaller size.
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(fdb.GlobalSize(), need, fdb.Sequence(device), state)
+	comp := newFolderCompletion(m.sdb.GlobalSize(folder), need, m.sdb.Sequence(folder, device), state)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil
 }
 
 func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return itererr.Error[*protocol.FileInfo](ErrFolderMissing)
-	}
-	return fdb.AllLocal(device)
+	return m.sdb.AllLocal(folder, device)
 }
 
 func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return itererr.Error[*protocol.FileInfo](ErrFolderMissing)
-	}
-	return fdb.AllLocalSequenced(device, startSeq)
+	return m.sdb.AllLocalSequenced(folder, device, startSeq)
 }
 
 func (m *model) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
@@ -987,53 +958,23 @@ func (m *model) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] 
 }
 
 func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return db.Counts{}
-	}
-	return fdb.LocalSize(device)
+	return m.sdb.LocalSize(folder, device)
 }
 
 func (m *model) GlobalSize(folder string) db.Counts {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return db.Counts{}
-	}
-	return fdb.GlobalSize()
+	return m.sdb.GlobalSize(folder)
 }
 
 func (m *model) NeedSize(folder string, device protocol.DeviceID) db.Counts {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return db.Counts{}
-	}
-	return fdb.NeedSize(device)
+	return m.sdb.NeedSize(folder, device)
 }
 
 func (m *model) ReceiveOnlySize(folder string) db.Counts {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return db.Counts{}
-	}
-	return fdb.ReceiveOnlySize()
+	return m.sdb.ReceiveOnlySize(folder)
 }
 
 func (m *model) Sequence(folder string, device protocol.DeviceID) int64 {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return 0
-	}
-	return fdb.Sequence(device)
+	return m.sdb.Sequence(folder, device)
 }
 
 func (m *model) FolderProgressBytesCompleted(folder string) int64 {
@@ -1044,12 +985,11 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 // progress, queued, and to be queued on next puller iteration.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	m.mut.RLock()
-	fdb, rfOk := m.folderDBs[folder]
 	runner, runnerOk := m.folderRunners.Get(folder)
-	cfg := m.folderCfgs[folder]
+	cfg, cfgOK := m.folderCfgs[folder]
 	m.mut.RUnlock()
 
-	if !rfOk {
+	if !cfgOK {
 		return nil, nil, nil, ErrFolderMissing
 	}
 
@@ -1066,14 +1006,14 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
 		for i, name := range progressNames {
-			if f, ok, err := fdb.Global(name); err == nil && ok {
+			if f, ok, err := m.sdb.Global(folder, name); err == nil && ok {
 				progress[i] = f
 				seen[name] = struct{}{}
 			}
 		}
 
 		for i, name := range queuedNames {
-			if f, ok, err := fdb.Global(name); err == nil && ok {
+			if f, ok, err := m.sdb.Global(folder, name); err == nil && ok {
 				queued[i] = f
 				seen[name] = struct{}{}
 			}
@@ -1087,11 +1027,11 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 	}
 
 	rest = make([]protocol.FileInfo, 0, perpage)
-	for name, err := range fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range m.sdb.AllNeededNames(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			break
 		}
-		f, ok, err := fdb.Global(name)
+		f, ok, err := m.sdb.Global(folder, name)
 		if err != nil || !ok {
 			continue
 		}
@@ -1118,7 +1058,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 // remote device to become synced with a folder.
 func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
+	_, ok := m.folderCfgs[folder]
 	m.mut.RUnlock()
 
 	if !ok {
@@ -1127,14 +1067,14 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 
 	files := make([]protocol.FileInfo, 0, perpage)
 	p := newPager(page, perpage)
-	for name, err := range fdb.AllNeededNames(device, config.PullOrderAlphabetic, 0) {
+	for name, err := range m.sdb.AllNeededNames(folder, device, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return nil, err
 		}
 		if p.skip() {
 			continue
 		}
-		f, ok, err := fdb.Global(name)
+		f, ok, err := m.sdb.Global(folder, name)
 		if err != nil {
 			return nil, err
 		}
@@ -1151,21 +1091,21 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 
 func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error) {
 	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
+	_, ok := m.folderCfgs[folder]
 	m.mut.RUnlock()
 
 	if !ok {
 		return nil, ErrFolderMissing
 	}
 
-	if fdb.ReceiveOnlySize().TotalItems() == 0 {
+	if m.sdb.ReceiveOnlySize(folder).TotalItems() == 0 {
 		return nil, nil
 	}
 
 	p := newPager(page, perpage)
 	files := make([]protocol.FileInfo, 0, perpage)
 
-	for f, err := range fdb.AllLocal(protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
+	for f, err := range m.sdb.AllLocal(folder, protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
 		if err != nil {
 			return nil, err
 		}
@@ -2222,25 +2162,11 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, off
 }
 
 func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return protocol.FileInfo{}, false, ErrFolderMissing
-	}
-
-	return fdb.Local(protocol.LocalDeviceID, file)
+	return m.sdb.Local(folder, protocol.LocalDeviceID, file)
 }
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
-	m.mut.RUnlock()
-	if !ok {
-		return protocol.FileInfo{}, false, ErrFolderMissing
-	}
-
-	return fdb.Global(file)
+	return m.sdb.Global(folder, file)
 }
 
 // Connection returns if we are connected to the given device.
@@ -2674,13 +2600,11 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
 		}
 
-		fdb := m.folderDBs[folderCfg.ID]
-
 		// Even if we aren't paused, if we haven't started the folder yet
 		// pretend we are. Otherwise the remote might get confused about
 		// the missing index info (and drop all the info). We will send
 		// another cluster config once the folder is started.
-		protocolFolder.Paused = folderCfg.Paused || fdb == nil
+		protocolFolder.Paused = folderCfg.Paused
 
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
@@ -2703,14 +2627,12 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 				}
 			}
 
-			if fdb != nil {
-				if deviceCfg.DeviceID == m.id {
-					protocolDevice.IndexID, _ = fdb.IndexID(protocol.LocalDeviceID)
-					protocolDevice.MaxSequence = fdb.Sequence(protocol.LocalDeviceID)
-				} else {
-					protocolDevice.IndexID, _ = fdb.IndexID(deviceCfg.DeviceID)
-					protocolDevice.MaxSequence = fdb.Sequence(deviceCfg.DeviceID)
-				}
+			if deviceCfg.DeviceID == m.id {
+				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, protocol.LocalDeviceID)
+				protocolDevice.MaxSequence = m.sdb.Sequence(folderCfg.ID, protocol.LocalDeviceID)
+			} else {
+				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, deviceCfg.DeviceID)
+				protocolDevice.MaxSequence = m.sdb.Sequence(folderCfg.ID, deviceCfg.DeviceID)
 			}
 
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
@@ -2807,7 +2729,7 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 
 func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error) {
 	m.mut.RLock()
-	fdb, ok := m.folderDBs[folder]
+	_, ok := m.folderCfgs[folder]
 	m.mut.RUnlock()
 	if !ok {
 		return nil, ErrFolderMissing
@@ -2823,7 +2745,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		prefix = prefix + sep
 	}
 
-	for f, err := range fdb.AllGlobalPrefix(prefix) {
+	for f, err := range m.sdb.AllGlobalPrefix(folder, prefix) {
 		if err != nil {
 			return nil, err
 		}

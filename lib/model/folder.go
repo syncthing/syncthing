@@ -48,7 +48,7 @@ type folder struct {
 
 	model         *model
 	shortID       protocol.ShortID
-	fdb           *sqlite.FolderDB
+	db            *sqlite.DB
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
@@ -98,7 +98,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -107,7 +107,7 @@ func newFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg 
 
 		model:         model,
 		shortID:       model.shortID,
-		fdb:           fdb,
+		db:            model.sdb,
 		ignores:       ignores,
 		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(kv.NewTyped(model.sdb.KV(), "mtimes/"+cfg.ID))),
 		modTimeWindow: cfg.ModTimeWindow(),
@@ -370,7 +370,7 @@ func (f *folder) pull() (success bool, err error) {
 
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
-	for _, err := range f.fdb.AllNeededNames(protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
+	for _, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
 		if err != nil {
 			return false, err
 		}
@@ -485,7 +485,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(file string) bool {
-		_, ok, err := f.fdb.Local(protocol.LocalDeviceID, file)
+		_, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, file)
 		return err == nil && ok
 	})
 
@@ -567,7 +567,7 @@ func (b *scanBatch) Remove(item string) {
 
 func (b *scanBatch) flushToRemove() error {
 	if len(b.toRemove) > 0 {
-		if err := b.f.fdb.DropFilesNamed(protocol.LocalDeviceID, b.toRemove); err != nil {
+		if err := b.f.db.DropFilesNamed(b.f.folderID, protocol.LocalDeviceID, b.toRemove); err != nil {
 			return err
 		}
 		b.toRemove = b.toRemove[:0]
@@ -604,7 +604,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
-	switch gf, ok, err := b.f.fdb.Global(fi.Name); {
+	switch gf, ok, err := b.f.db.Global(b.f.folderID, fi.Name); {
 	case err != nil:
 		return false, err
 	case !ok:
@@ -645,7 +645,7 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{fdb: f.fdb},
+		CurrentFiler:          cFiler{db: f.db, folder: f.folderID},
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -710,7 +710,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		for fi, err := range f.fdb.AllLocalPrefixed(protocol.LocalDeviceID, sub) {
+		for fi, err := range f.db.AllLocalPrefixed(f.folderID, protocol.LocalDeviceID, sub) {
 			if err != nil {
 				return 0, err
 			}
@@ -803,7 +803,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			case fi.IsDeleted() && fi.IsReceiveOnlyChanged():
 				switch f.Type {
 				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-					switch gf, ok, err := f.fdb.Global(fi.Name); {
+					switch gf, ok, err := f.db.Global(f.folderID, fi.Name); {
 					case err != nil:
 						return 0, err
 					case !ok:
@@ -871,7 +871,7 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 	found := false
 	nf := protocol.FileInfo{}
 
-	for fi, err := range f.fdb.AllForBlocksHash(file.BlocksHash) {
+	for fi, err := range f.db.AllForBlocksHash(f.folderID, file.BlocksHash) {
 		if err != nil {
 			return protocol.FileInfo{}, false
 		}
@@ -1243,7 +1243,7 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) error {
 }
 
 func (f *folder) updateLocals(fs []protocol.FileInfo) error {
-	if err := f.fdb.Update(protocol.LocalDeviceID, fs); err != nil {
+	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs); err != nil {
 		return err
 	}
 
@@ -1256,7 +1256,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
-	seq := f.fdb.Sequence(protocol.LocalDeviceID)
+	seq := f.db.Sequence(f.folderID, protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
@@ -1312,7 +1312,7 @@ func (f *folder) handleForcedRescans() error {
 	}
 
 	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
-		return f.fdb.Update(protocol.LocalDeviceID, fs)
+		return f.db.Update(f.folderID, protocol.LocalDeviceID, fs)
 	})
 
 	for _, path := range paths {
@@ -1320,7 +1320,7 @@ func (f *folder) handleForcedRescans() error {
 			return err
 		}
 
-		fi, ok, err := f.fdb.Local(protocol.LocalDeviceID, path)
+		fi, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, path)
 		if err != nil {
 			return err
 		}
@@ -1373,12 +1373,13 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	fdb *sqlite.FolderDB
+	db     *sqlite.DB
+	folder string
 }
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := cf.fdb.Local(protocol.LocalDeviceID, file)
+	fi, ok, err := cf.db.Local(cf.folder, protocol.LocalDeviceID, file)
 	if err != nil || !ok {
 		return protocol.FileInfo{}, false
 	}

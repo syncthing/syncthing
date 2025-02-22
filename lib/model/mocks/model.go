@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -258,20 +258,6 @@ type Model struct {
 		result1 map[string][]versioner.FileVersion
 		result2 error
 	}
-	GetMtimeMappingStub        func(string, string) (fs.MtimeMapping, error)
-	getMtimeMappingMutex       sync.RWMutex
-	getMtimeMappingArgsForCall []struct {
-		arg1 string
-		arg2 string
-	}
-	getMtimeMappingReturns struct {
-		result1 fs.MtimeMapping
-		result2 error
-	}
-	getMtimeMappingReturnsOnCall map[int]struct {
-		result1 fs.MtimeMapping
-		result2 error
-	}
 	GlobalDirectoryTreeStub        func(string, string, int, bool) ([]*model.TreeEntry, error)
 	globalDirectoryTreeMutex       sync.RWMutex
 	globalDirectoryTreeArgsForCall []struct {
@@ -439,29 +425,29 @@ type Model struct {
 	overrideArgsForCall []struct {
 		arg1 string
 	}
-	PendingDevicesStub        func() (map[protocol.DeviceID]db.ObservedDevice, error)
+	PendingDevicesStub        func() (map[protocol.DeviceID]kv.ObservedDevice, error)
 	pendingDevicesMutex       sync.RWMutex
 	pendingDevicesArgsForCall []struct {
 	}
 	pendingDevicesReturns struct {
-		result1 map[protocol.DeviceID]db.ObservedDevice
+		result1 map[protocol.DeviceID]kv.ObservedDevice
 		result2 error
 	}
 	pendingDevicesReturnsOnCall map[int]struct {
-		result1 map[protocol.DeviceID]db.ObservedDevice
+		result1 map[protocol.DeviceID]kv.ObservedDevice
 		result2 error
 	}
-	PendingFoldersStub        func(protocol.DeviceID) (map[string]db.PendingFolder, error)
+	PendingFoldersStub        func(protocol.DeviceID) (map[string]kv.PendingFolder, error)
 	pendingFoldersMutex       sync.RWMutex
 	pendingFoldersArgsForCall []struct {
 		arg1 protocol.DeviceID
 	}
 	pendingFoldersReturns struct {
-		result1 map[string]db.PendingFolder
+		result1 map[string]kv.PendingFolder
 		result2 error
 	}
 	pendingFoldersReturnsOnCall map[int]struct {
-		result1 map[string]db.PendingFolder
+		result1 map[string]kv.PendingFolder
 		result2 error
 	}
 	ReceiveOnlySizeStub        func(string) db.Counts
@@ -1856,71 +1842,6 @@ func (fake *Model) GetFolderVersionsReturnsOnCall(i int, result1 map[string][]ve
 	}{result1, result2}
 }
 
-func (fake *Model) GetMtimeMapping(arg1 string, arg2 string) (fs.MtimeMapping, error) {
-	fake.getMtimeMappingMutex.Lock()
-	ret, specificReturn := fake.getMtimeMappingReturnsOnCall[len(fake.getMtimeMappingArgsForCall)]
-	fake.getMtimeMappingArgsForCall = append(fake.getMtimeMappingArgsForCall, struct {
-		arg1 string
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.GetMtimeMappingStub
-	fakeReturns := fake.getMtimeMappingReturns
-	fake.recordInvocation("GetMtimeMapping", []interface{}{arg1, arg2})
-	fake.getMtimeMappingMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *Model) GetMtimeMappingCallCount() int {
-	fake.getMtimeMappingMutex.RLock()
-	defer fake.getMtimeMappingMutex.RUnlock()
-	return len(fake.getMtimeMappingArgsForCall)
-}
-
-func (fake *Model) GetMtimeMappingCalls(stub func(string, string) (fs.MtimeMapping, error)) {
-	fake.getMtimeMappingMutex.Lock()
-	defer fake.getMtimeMappingMutex.Unlock()
-	fake.GetMtimeMappingStub = stub
-}
-
-func (fake *Model) GetMtimeMappingArgsForCall(i int) (string, string) {
-	fake.getMtimeMappingMutex.RLock()
-	defer fake.getMtimeMappingMutex.RUnlock()
-	argsForCall := fake.getMtimeMappingArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *Model) GetMtimeMappingReturns(result1 fs.MtimeMapping, result2 error) {
-	fake.getMtimeMappingMutex.Lock()
-	defer fake.getMtimeMappingMutex.Unlock()
-	fake.GetMtimeMappingStub = nil
-	fake.getMtimeMappingReturns = struct {
-		result1 fs.MtimeMapping
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Model) GetMtimeMappingReturnsOnCall(i int, result1 fs.MtimeMapping, result2 error) {
-	fake.getMtimeMappingMutex.Lock()
-	defer fake.getMtimeMappingMutex.Unlock()
-	fake.GetMtimeMappingStub = nil
-	if fake.getMtimeMappingReturnsOnCall == nil {
-		fake.getMtimeMappingReturnsOnCall = make(map[int]struct {
-			result1 fs.MtimeMapping
-			result2 error
-		})
-	}
-	fake.getMtimeMappingReturnsOnCall[i] = struct {
-		result1 fs.MtimeMapping
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 bool) ([]*model.TreeEntry, error) {
 	fake.globalDirectoryTreeMutex.Lock()
 	ret, specificReturn := fake.globalDirectoryTreeReturnsOnCall[len(fake.globalDirectoryTreeArgsForCall)]
@@ -2722,7 +2643,7 @@ func (fake *Model) OverrideArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+func (fake *Model) PendingDevices() (map[protocol.DeviceID]kv.ObservedDevice, error) {
 	fake.pendingDevicesMutex.Lock()
 	ret, specificReturn := fake.pendingDevicesReturnsOnCall[len(fake.pendingDevicesArgsForCall)]
 	fake.pendingDevicesArgsForCall = append(fake.pendingDevicesArgsForCall, struct {
@@ -2746,39 +2667,39 @@ func (fake *Model) PendingDevicesCallCount() int {
 	return len(fake.pendingDevicesArgsForCall)
 }
 
-func (fake *Model) PendingDevicesCalls(stub func() (map[protocol.DeviceID]db.ObservedDevice, error)) {
+func (fake *Model) PendingDevicesCalls(stub func() (map[protocol.DeviceID]kv.ObservedDevice, error)) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = stub
 }
 
-func (fake *Model) PendingDevicesReturns(result1 map[protocol.DeviceID]db.ObservedDevice, result2 error) {
+func (fake *Model) PendingDevicesReturns(result1 map[protocol.DeviceID]kv.ObservedDevice, result2 error) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = nil
 	fake.pendingDevicesReturns = struct {
-		result1 map[protocol.DeviceID]db.ObservedDevice
+		result1 map[protocol.DeviceID]kv.ObservedDevice
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingDevicesReturnsOnCall(i int, result1 map[protocol.DeviceID]db.ObservedDevice, result2 error) {
+func (fake *Model) PendingDevicesReturnsOnCall(i int, result1 map[protocol.DeviceID]kv.ObservedDevice, result2 error) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = nil
 	if fake.pendingDevicesReturnsOnCall == nil {
 		fake.pendingDevicesReturnsOnCall = make(map[int]struct {
-			result1 map[protocol.DeviceID]db.ObservedDevice
+			result1 map[protocol.DeviceID]kv.ObservedDevice
 			result2 error
 		})
 	}
 	fake.pendingDevicesReturnsOnCall[i] = struct {
-		result1 map[protocol.DeviceID]db.ObservedDevice
+		result1 map[protocol.DeviceID]kv.ObservedDevice
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingFolders(arg1 protocol.DeviceID) (map[string]db.PendingFolder, error) {
+func (fake *Model) PendingFolders(arg1 protocol.DeviceID) (map[string]kv.PendingFolder, error) {
 	fake.pendingFoldersMutex.Lock()
 	ret, specificReturn := fake.pendingFoldersReturnsOnCall[len(fake.pendingFoldersArgsForCall)]
 	fake.pendingFoldersArgsForCall = append(fake.pendingFoldersArgsForCall, struct {
@@ -2803,7 +2724,7 @@ func (fake *Model) PendingFoldersCallCount() int {
 	return len(fake.pendingFoldersArgsForCall)
 }
 
-func (fake *Model) PendingFoldersCalls(stub func(protocol.DeviceID) (map[string]db.PendingFolder, error)) {
+func (fake *Model) PendingFoldersCalls(stub func(protocol.DeviceID) (map[string]kv.PendingFolder, error)) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = stub
@@ -2816,28 +2737,28 @@ func (fake *Model) PendingFoldersArgsForCall(i int) protocol.DeviceID {
 	return argsForCall.arg1
 }
 
-func (fake *Model) PendingFoldersReturns(result1 map[string]db.PendingFolder, result2 error) {
+func (fake *Model) PendingFoldersReturns(result1 map[string]kv.PendingFolder, result2 error) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = nil
 	fake.pendingFoldersReturns = struct {
-		result1 map[string]db.PendingFolder
+		result1 map[string]kv.PendingFolder
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]db.PendingFolder, result2 error) {
+func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]kv.PendingFolder, result2 error) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = nil
 	if fake.pendingFoldersReturnsOnCall == nil {
 		fake.pendingFoldersReturnsOnCall = make(map[int]struct {
-			result1 map[string]db.PendingFolder
+			result1 map[string]kv.PendingFolder
 			result2 error
 		})
 	}
 	fake.pendingFoldersReturnsOnCall[i] = struct {
-		result1 map[string]db.PendingFolder
+		result1 map[string]kv.PendingFolder
 		result2 error
 	}{result1, result2}
 }
@@ -3849,8 +3770,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.folderStatisticsMutex.RUnlock()
 	fake.getFolderVersionsMutex.RLock()
 	defer fake.getFolderVersionsMutex.RUnlock()
-	fake.getMtimeMappingMutex.RLock()
-	defer fake.getMtimeMappingMutex.RUnlock()
 	fake.globalDirectoryTreeMutex.RLock()
 	defer fake.globalDirectoryTreeMutex.RUnlock()
 	fake.globalSizeMutex.RLock()

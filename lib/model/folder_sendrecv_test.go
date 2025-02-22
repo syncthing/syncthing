@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -436,10 +437,6 @@ func TestWeakHash(t *testing.T) {
 
 // Test that updating a file removes its old blocks from the blockmap
 func TestCopierCleanup(t *testing.T) {
-	iterFn := func(folder, file string, index int32) bool {
-		return true
-	}
-
 	// Create a file
 	file := setupFile("test", []int{0})
 	file.Size = 1
@@ -451,11 +448,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
+	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[0].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if !m.finder.Iterate(folders, blocks[1].Hash, iterFn) {
+	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[1].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Expected block not found")
 	}
 
@@ -464,11 +461,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
+	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[0].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if m.finder.Iterate(folders, blocks[1].Hash, iterFn) {
+	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[1].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Expected block not found")
 	}
 }
@@ -812,9 +809,6 @@ func TestCopyOwner(t *testing.T) {
 	defer wcfgCancel()
 	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, config.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
-
-	f.fset = newFileSet(t, f.ID, m.db)
-	f.mtimefs = f.Filesystem(f.fset)
 
 	// Create a parent dir with a certain owner/group.
 
@@ -1262,8 +1256,6 @@ func TestPullCaseOnlyRename(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 2)
 	scanChan := make(chan string, 2)
-	snap := fsetSnapshot(t, f.fset)
-	defer snap.Release()
 	if err := f.renameFile(cur, deleted, confl, dbUpdateChan, scanChan); err != nil {
 		t.Error(err)
 	}
@@ -1339,8 +1331,6 @@ func TestPullDeleteCaseConflict(t *testing.T) {
 		t.Error("Missing db update for file")
 	}
 
-	snap := fsetSnapshot(t, f.fset)
-	defer snap.Release()
 	f.deleteDir(fi, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan:

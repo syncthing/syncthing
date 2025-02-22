@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -29,8 +28,8 @@ type receiveEncryptedFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveEncryptedFolder(model *model, fdb *sqlite.FolderDB, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fdb, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+func newReceiveEncryptedFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+	f := &receiveEncryptedFolder{newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
 	f.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return f
 }
@@ -52,7 +51,7 @@ func (f *receiveEncryptedFolder) revert() error {
 
 	var iterErr error
 	var dirs []string
-	for fi, err := range f.fdb.AllLocal(protocol.LocalDeviceID) {
+	for fi, err := range f.db.AllLocal(f.folderID, protocol.LocalDeviceID) {
 		if err != nil {
 			return err
 		}
