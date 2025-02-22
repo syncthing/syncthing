@@ -436,7 +436,7 @@ func (s *webauthnService) deleteOldStates() {
 	}
 }
 
-func emptyVolState() *WebauthnVolatileState {
+func newVolState() *WebauthnVolatileState {
 	s := WebauthnVolatileState{}
 	s.init()
 	return &s
@@ -452,17 +452,17 @@ func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
-		return emptyVolState()
+		return newVolState()
 	}
 	if !ok {
-		return emptyVolState()
+		return newVolState()
 	}
 
 	var state WebauthnVolatileState
 	err = json.Unmarshal(stateBytes, &state)
 	if err != nil {
 		l.Warnf("Failed to unmarshal WebAuthn dynamic state: %v", err)
-		return emptyVolState()
+		return newVolState()
 	}
 	state.init()
 	return &state
