@@ -7,13 +7,13 @@
 package api
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/events"
 )
 
 var guiCfg config.GUIConfiguration
@@ -131,8 +131,11 @@ func (c *mockClock) wind(t time.Duration) {
 func TestTokenManager(t *testing.T) {
 	t.Parallel()
 
-	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
-	kdb := db.NewNamespacedKV(mdb, "test")
+	mdb, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal()
+	}
+	kdb := kv.NewTyped(mdb.KV(), "misc")
 	clock := &mockClock{now: time.Now()}
 
 	// Token manager keeps up to three tokens with a validity time of 24 hours.
