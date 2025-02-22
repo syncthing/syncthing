@@ -384,9 +384,8 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		}
 
 		authenticatedCredId := base64.RawURLEncoding.EncodeToString(updatedCred.ID)
-		persistentState := guiCfg.WebauthnState
 
-		for _, cred := range persistentState.Credentials {
+		for _, cred := range guiCfg.WebauthnState.Credentials {
 			if cred.ID == authenticatedCredId {
 				if cred.RequireUv && !updatedCred.Flags.UserVerified {
 					antiBruteForceSleep()
