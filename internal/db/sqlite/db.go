@@ -64,18 +64,18 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 type DB struct {
 	sql            *sqlx.DB
 	localDeviceIdx int64
-	mut            sync.Mutex
+	updateLock     sync.Mutex
 }
 
 func (db *DB) Close() error {
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	return wrap("close", db.sql.Close())
 }
 
 func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 
 	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
 	if err != nil {
@@ -163,8 +163,8 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 }
 
 func (db *DB) DropFolder(folder string) error {
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	_, err := db.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
 	return err
 }
@@ -173,15 +173,15 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	if device == protocol.LocalDeviceID {
 		panic("bug: cannot drop local device")
 	}
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	_, err := db.sql.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String())
 	return err
 }
 
 func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	_, err := db.sql.Exec(`
 		DELETE FROM files WHERE ROWID in (
 			SELECT f.ROWID FROM files f
@@ -198,8 +198,8 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 		names[i] = osutil.NormalizedFilename(names[i])
 	}
 
-	db.mut.Lock()
-	defer db.mut.Unlock()
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	_, err := db.sql.Exec(`
 		DELETE FROM files f
 		INNER JOIN folder o ON f.folder_idx = o.idx

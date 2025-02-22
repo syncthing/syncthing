@@ -21,15 +21,15 @@ func (kv *KV) Get(key string) ([]byte, error) {
 }
 
 func (kv *KV) Put(key string, val []byte) error {
-	kv.db.mut.Lock()
-	defer kv.db.mut.Unlock()
+	kv.db.updateLock.Lock()
+	defer kv.db.updateLock.Unlock()
 	_, err := kv.db.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
 	return err
 }
 
 func (kv *KV) Delete(key string) error {
-	kv.db.mut.Lock()
-	defer kv.db.mut.Unlock()
+	kv.db.updateLock.Lock()
+	defer kv.db.updateLock.Unlock()
 	_, err := kv.db.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
 	return err
 }
