@@ -146,13 +146,13 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	for _, cred := range eligibleCredentials {
 		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
 		if err != nil {
-			l.Warnf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID, err)
+			l.Warnf("Failed to base64url-decode ID of WebAuthn credential %q (%s): %v", cred.Nickname, cred.ID, err)
 			continue
 		}
 
 		pubkey, err := base64.RawURLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
-			l.Warnf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID, err)
+			l.Warnf("Failed to base64url-decode public key of WebAuthn credential %q (%s): %v", cred.Nickname, cred.ID, err)
 			continue
 		}
 
@@ -198,7 +198,7 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 	return func(w http.ResponseWriter, _ *http.Request) {
 		options, sessionData, err := s.engine.BeginRegistration(s.user(guiCfg))
 		if err != nil {
-			l.Warnln("Failed to initiate WebAuthn registration:", err)
+			l.Warnf("Failed to initiate WebAuthn registration: %v", err)
 			internalServerError(w)
 			return
 		}
@@ -218,7 +218,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 
 		var req finishWebauthnRegistrationRequest
 		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Infoln("Failed to parse WebAuthn response:", err)
+			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
@@ -232,21 +232,21 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		delete(s.registrationStates, req.RequestID) // Allow only one attempt per challenge
 
 		if s.expired(&state) {
-			l.Debugln("WebAuthn registration timed out: %v", state)
+			l.Debugf("WebAuthn registration timed out: %v", state)
 			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 			return
 		}
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
-			l.Infoln("Failed to parse WebAuthn registration response", err)
+			l.Infof("Failed to parse WebAuthn registration response: %v", err)
 			badRequest(w)
 			return
 		}
 
 		credential, err := s.engine.CreateCredential(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
-			l.Infoln("Failed to register WebAuthn credential:", err)
+			l.Infof("Failed to register WebAuthn credential: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -290,7 +290,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 		err = s.storeVolatileState(credentialVolState)
 		if err != nil {
-			l.Warnln("Failed to save WebAuthn dynamic state", err)
+			l.Warnf("Failed to save WebAuthn dynamic state: %v", err)
 		}
 
 		sendJSON(w, configCred)
@@ -321,7 +321,7 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 			if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
 				sendJSON(w, make(map[string]string))
 			} else {
-				l.Warnln("Failed to initialize WebAuthn login", err)
+				l.Warnf("Failed to initialize WebAuthn login: %v", err)
 			}
 			return
 		}
@@ -342,7 +342,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		var req finishWebauthnAuthenticationRequest
 
 		if err := unmarshalTo(r.Body, &req); err != nil {
-			l.Infoln("Failed to parse WebAuthn response:", err)
+			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
@@ -356,21 +356,21 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		delete(s.authenticationStates, req.RequestID) // Allow only one attempt per challenge
 
 		if s.expired(&state) {
-			l.Debugln("WebAuthn authentication timed out: %v", state)
+			l.Debugf("WebAuthn authentication timed out: %v", state)
 			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 			return
 		}
 
 		parsedResponse, err := req.Credential.Parse()
 		if err != nil {
-			l.Infoln("Failed to parse WebAuthn authentication response", err)
+			l.Infof("Failed to parse WebAuthn authentication response: %v", err)
 			badRequest(w)
 			return
 		}
 
 		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
-			l.Infoln("WebAuthn authentication failed", err)
+			l.Infof("WebAuthn authentication failed: %v", err)
 
 			if state.sessionData.UserVerification == webauthnProtocol.VerificationRequired {
 				antiBruteForceSleep()
@@ -409,7 +409,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		volState.Credentials[authenticatedCredId] = dynCredState
 		err = s.storeVolatileState(volState)
 		if err != nil {
-			l.Warnln("Failed to update authenticated WebAuthn credential", err)
+			l.Warnf("Failed to update authenticated WebAuthn credential: %v", err)
 		}
 
 		if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
@@ -424,13 +424,13 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 func (s *webauthnService) deleteOldStates() {
 	for requestId, state := range s.registrationStates {
 		if s.expired(&state) {
-			l.Debugln("WebAuthn registration expired: %v", state)
+			l.Debugf("WebAuthn registration expired: %v", state)
 			delete(s.registrationStates, requestId)
 		}
 	}
 	for requestId, state := range s.authenticationStates {
 		if s.expired(&state) {
-			l.Debugln("WebAuthn authentication expired: %v", state)
+			l.Debugf("WebAuthn authentication expired: %v", state)
 			delete(s.authenticationStates, requestId)
 		}
 	}
@@ -451,7 +451,7 @@ func (s *WebauthnVolatileState) init() {
 func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
-		l.Warnln("Failed to load WebAuthn dynamic state:", err)
+		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
 		return emptyVolState()
 	}
 	if !ok {
@@ -461,7 +461,7 @@ func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	var state WebauthnVolatileState
 	err = json.Unmarshal(stateBytes, &state)
 	if err != nil {
-		l.Warnln("Failed to unmarshal WebAuthn dynamic state:", err)
+		l.Warnf("Failed to unmarshal WebAuthn dynamic state: %v", err)
 		return emptyVolState()
 	}
 	state.init()
