@@ -146,13 +146,13 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	for _, cred := range eligibleCredentials {
 		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
 		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID), err)
+			l.Warnf("Failed to base64url-decode ID of WebAuthn credential %q: %s", cred.Nickname, cred.ID, err)
 			continue
 		}
 
 		pubkey, err := base64.RawURLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
-			l.Warnln(fmt.Sprintf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID), err)
+			l.Warnf("Failed to base64url-decode public key of WebAuthn credential %q (%s)", cred.Nickname, cred.ID, err)
 			continue
 		}
 
@@ -413,7 +413,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 		}
 
 		if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
-			l.Warnln(fmt.Sprintf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredId, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter))
+			l.Warnf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredId, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter)
 		}
 
 		tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
