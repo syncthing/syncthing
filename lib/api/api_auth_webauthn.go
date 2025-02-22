@@ -369,11 +369,24 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
+		authenticatedCredId := parsedResponse.ID
+		for _, cred := range guiCfg.WebauthnState.Credentials {
+			if cred.ID == authenticatedCredId {
+				if cred.RequireUv {
+					// engine.ValidateLogin requires UV only if sessionData.UserVerification is set to "required",
+					// and startWebauthnAuthentication sets it to "required" only if ALL credentials require UV.
+					// Check which credential was used and set sessionData.UserVerification to "required" if this credential requires UV.
+					state.sessionData.UserVerification = webauthnProtocol.VerificationRequired
+				}
+				break
+			}
+		}
+
 		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
 			l.Infof("WebAuthn authentication failed: %v", err)
 
-			if state.sessionData.UserVerification == webauthnProtocol.VerificationRequired {
+			if state.sessionData.UserVerification == webauthnProtocol.VerificationRequired && !parsedResponse.Response.AuthenticatorData.Flags.UserVerified() {
 				antiBruteForceSleep()
 				http.Error(w, "Conflict", http.StatusConflict)
 				return
@@ -381,19 +394,6 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 			forbidden(w)
 			return
-		}
-
-		authenticatedCredId := base64.RawURLEncoding.EncodeToString(updatedCred.ID)
-
-		for _, cred := range guiCfg.WebauthnState.Credentials {
-			if cred.ID == authenticatedCredId {
-				if cred.RequireUv && !updatedCred.Flags.UserVerified {
-					antiBruteForceSleep()
-					http.Error(w, "Conflict", http.StatusConflict)
-					return
-				}
-				break
-			}
 		}
 
 		var signCountBefore uint32 = 0
