@@ -110,6 +110,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			f.LocalFlags |= protocol.FlagLocalDeleted
 		}
 
+		if f.Type == protocol.FileInfoTypeDirectory {
+			f.Size = 128 // synthetic directory size
+		}
+
 		// Insert the file.
 		//
 		// If it is a remote file, set remote_sequence otherwise leave it at
