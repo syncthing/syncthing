@@ -2050,7 +2050,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		}
 
 		getCreateOptions := func(t *testing.T) startWebauthnRegistrationResponse {
-			startResp := httpPostCsrfAuth(baseURL+"/rest/config/webauthn/register-start", nil, testAPIKey, csrfTokenName, csrfTokenValue, t)
+			startResp := httpPostCsrfAuth(baseURL+"/rest/config/gui/webauthn/register-start", nil, testAPIKey, csrfTokenName, csrfTokenValue, t)
 			if startResp.StatusCode != http.StatusOK {
 				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
 			}
@@ -2078,7 +2078,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		transports := []string{"transportA", "transportB"}
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 42, transports, t)
 
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusOK {
 			t.Fatalf("Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
 		}
@@ -2151,12 +2151,12 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred1 := createWebauthnRegistrationResponse(startResp1.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 42, transports, t)
 		cred2 := createWebauthnRegistrationResponse(startResp2.Options, []byte{5, 6, 7, 8}, publicKeyCose, "https://localhost:8384", 37, transports, t)
 
-		finishResp1 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp1.finish(&cred1), csrfTokenName, csrfTokenValue, t)
+		finishResp1 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp1.finish(&cred1), csrfTokenName, csrfTokenValue, t)
 		if finishResp1.StatusCode != http.StatusOK {
 			t.Errorf("Failed to finish 1st concurrent WebAuthn registration: status %d", finishResp1.StatusCode)
 		}
 
-		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 		if finishResp2.StatusCode != http.StatusOK {
 			t.Errorf("Failed to finish 2nd concurrent WebAuthn registration: status %d", finishResp2.StatusCode)
 		}
@@ -2183,7 +2183,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		webauthnService.timeNow = func() time.Time {
 			return t0.Add(time.Minute*10 - time.Second*1)
 		}
-		finishResp1 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp1.finish(&cred1), csrfTokenName, csrfTokenValue, t)
+		finishResp1 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp1.finish(&cred1), csrfTokenName, csrfTokenValue, t)
 		if finishResp1.StatusCode != http.StatusOK {
 			t.Fatalf("WebAuthn registration failed: status %d", finishResp1.StatusCode)
 		}
@@ -2191,11 +2191,11 @@ func TestWebauthnRegistration(t *testing.T) {
 		webauthnService.timeNow = func() time.Time {
 			return t0.Add(time.Minute*10 + time.Second*1)
 		}
-		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 		if finishResp2.StatusCode != http.StatusRequestTimeout {
 			t.Errorf("Expected old WebAuthn registration to time out: status %d", finishResp2.StatusCode)
 		}
-		finishResp3 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
+		finishResp3 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 		if finishResp3.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected expired WebAuthn registration to have been deleted: status %d", finishResp3.StatusCode)
 		}
@@ -2209,7 +2209,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cryptoRand.Reader.Read(startResp.Options.Response.Challenge)
 
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential with wrong challenge; status: %d", finishResp.StatusCode)
 		}
@@ -2222,7 +2222,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
 
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential with wrong origin; status: %d", finishResp.StatusCode)
 		}
@@ -2247,7 +2247,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		}
 		cred.AttestationResponse.AttestationObject = modAttObj
 
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential without user presence flag set; status: %d", finishResp.StatusCode)
 		}
@@ -2261,7 +2261,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		corruptPublicKeyCose[7] ^= 0xff
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, corruptPublicKeyCose, "https://localhost:8384", 0, nil, t)
 
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential with malformed public key; status: %d", finishResp.StatusCode)
 		}
@@ -2280,7 +2280,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		)
 		startResp := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
-		finishResp := httpPostCsrfAuth(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), testAPIKey, csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrfAuth(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), testAPIKey, csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp.StatusCode)
 		}
@@ -2291,14 +2291,14 @@ func TestWebauthnRegistration(t *testing.T) {
 		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		startResp := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected WebAuthn credential registration to succeed; status: %d", finishResp.StatusCode)
 		}
 
 		startResp2 := getCreateOptions(t)
 		cred2 := createWebauthnRegistrationResponse(startResp2.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
-		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 
 		if finishResp2.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp2.StatusCode)
@@ -2310,13 +2310,13 @@ func TestWebauthnRegistration(t *testing.T) {
 		baseURL, csrfTokenName, csrfTokenValue, _, getCreateOptions, _ := startServer(t, nil)
 		startResp := getCreateOptions(t)
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost", 0, nil, t)
-		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
+		finishResp := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("Expected WebAuthn credential registration to fail; status: %d", finishResp.StatusCode)
 		}
 
 		cred2 := createWebauthnRegistrationResponse(startResp.Options, []byte{5, 6, 7, 8}, publicKeyCose, "https://localhost:8384", 0, nil, t)
-		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred2), csrfTokenName, csrfTokenValue, t)
+		finishResp2 := httpPostCsrf(baseURL+"/rest/config/gui/webauthn/register-finish", startResp.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 
 		if finishResp2.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
