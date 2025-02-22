@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
@@ -77,6 +78,7 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
 	timeNow                        func() time.Time // can be overridden for testing
+	volStateMut                    sync.RWMutex
 }
 
 // State that changes often but also is not security-critical,
@@ -284,12 +286,12 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		}
 		s.credentialsPendingRegistration = append(s.credentialsPendingRegistration, configCred)
 
-		credentialVolState := s.loadVolatileState()
-		credentialVolState.Credentials[configCred.ID] = WebauthnCredentialVolatileState{
-			SignCount:   credential.Authenticator.SignCount,
-			LastUseTime: now,
-		}
-		err = s.storeVolatileState(credentialVolState)
+		err = s.updateVolatileState(func(state *WebauthnVolatileState) {
+			state.Credentials[configCred.ID] = WebauthnCredentialVolatileState{
+				SignCount:   credential.Authenticator.SignCount,
+				LastUseTime: now,
+			}
+		})
 		if err != nil {
 			l.Warnf("Failed to save WebAuthn dynamic state: %v", err)
 		}
@@ -429,7 +431,15 @@ func (s *WebauthnVolatileState) init() {
 	}
 }
 
+// Load volatile WebAuthn state with a read lock during loading.
 func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
+	s.volStateMut.RLock()
+	defer s.volStateMut.RUnlock()
+	return s.unsafeLoadVolatileState()
+}
+
+// Load volatile WebAuthn state without acquiring a read lock.
+func (s *webauthnService) unsafeLoadVolatileState() *WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
@@ -449,7 +459,12 @@ func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	return &state
 }
 
-func (s *webauthnService) storeVolatileState(state *WebauthnVolatileState) error {
+func (s *webauthnService) updateVolatileState(update func(state *WebauthnVolatileState)) error {
+	s.volStateMut.Lock()
+	defer s.volStateMut.Unlock()
+
+	state := s.unsafeLoadVolatileState()
+	update(state)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -460,16 +475,16 @@ func (s *webauthnService) storeVolatileState(state *WebauthnVolatileState) error
 
 func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCred *webauthnLib.Credential) {
 	var signCountBefore uint32 = 0
-	volState := s.loadVolatileState()
-	dynCredState, ok := volState.Credentials[credId]
-	if !ok {
-		dynCredState = WebauthnCredentialVolatileState{}
-	}
-	signCountBefore = dynCredState.SignCount
-	dynCredState.SignCount = updatedCred.Authenticator.SignCount
-	dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
-	volState.Credentials[credId] = dynCredState
-	err := s.storeVolatileState(volState)
+	err := s.updateVolatileState(func(volState *WebauthnVolatileState) {
+		dynCredState, ok := volState.Credentials[credId]
+		if !ok {
+			dynCredState = WebauthnCredentialVolatileState{}
+		}
+		signCountBefore = dynCredState.SignCount
+		dynCredState.SignCount = updatedCred.Authenticator.SignCount
+		dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
+		volState.Credentials[credId] = dynCredState
+	})
 	if err != nil {
 		l.Warnf("Failed to update authenticated WebAuthn credential: %v", err)
 	}
