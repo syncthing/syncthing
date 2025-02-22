@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/internal/itererr"
-	olddb "github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
@@ -298,7 +297,7 @@ type sizesRow struct {
 	FlagBit int64 `db:"flag_bit"`
 }
 
-func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
+func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
 	var res []sizesRow
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
@@ -307,7 +306,7 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
 		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit != ?
 	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
 	if err != nil {
-		return olddb.Counts{}
+		return Counts{}
 	}
 	all := summarizeRows(res)
 
@@ -318,7 +317,7 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) olddb.Counts {
 		WHERE o.folder_id = ? AND d.device_id = ? AND flag_bit = ?
 	`, folder, device.String(), protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
 	if err != nil {
-		return olddb.Counts{}
+		return Counts{}
 	}
 	doubleCounted := summarizeRows(res)
 
@@ -349,14 +348,14 @@ func (db *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) NeedSize(folder string, device protocol.DeviceID) olddb.Counts {
+func (db *DB) NeedSize(folder string, device protocol.DeviceID) Counts {
 	if device == protocol.LocalDeviceID {
 		return db.needSizeLocal(folder)
 	}
 	return db.needSizeRemote(folder, device)
 }
 
-func (db *DB) needSizeLocal(folder string) olddb.Counts {
+func (db *DB) needSizeLocal(folder string) Counts {
 	// The need size for the local device is the sum of entries with both
 	// the global and need bit set.
 	var res []sizesRow
@@ -366,12 +365,12 @@ func (db *DB) needSizeLocal(folder string) olddb.Counts {
 		WHERE o.folder_id = ? AND flag_bit = ?
 	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
-		return olddb.Counts{}
+		return Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) olddb.Counts {
+func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
 	// The need size for a remote device is the global size minus the local
 	// size plus the need size.
 	var res []sizesRow
@@ -390,7 +389,7 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) olddb.Coun
 	return global.Subtract(have).Add(need)
 }
 
-func (db *DB) GlobalSize(folder string) olddb.Counts {
+func (db *DB) GlobalSize(folder string) Counts {
 	var res []sizesRow
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
@@ -398,12 +397,12 @@ func (db *DB) GlobalSize(folder string) olddb.Counts {
 		WHERE o.folder_id = ? AND s.flag_bit = ?
 	`, folder, protocol.FlagLocalGlobal)
 	if err != nil {
-		return olddb.Counts{}
+		return Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func (db *DB) ReceiveOnlySize(folder string) olddb.Counts {
+func (db *DB) ReceiveOnlySize(folder string) Counts {
 	var res []sizesRow
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.flag_bit FROM sizes s
@@ -411,13 +410,13 @@ func (db *DB) ReceiveOnlySize(folder string) olddb.Counts {
 		WHERE o.folder_id = ? AND flag_bit = ?
 	`, folder, protocol.FlagLocalReceiveOnly)
 	if err != nil {
-		return olddb.Counts{}
+		return Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func summarizeRows(res []sizesRow) olddb.Counts {
-	c := olddb.Counts{
+func summarizeRows(res []sizesRow) Counts {
+	c := Counts{
 		DeviceID: protocol.LocalDeviceID,
 	}
 	for _, r := range res {
