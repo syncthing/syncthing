@@ -173,25 +173,33 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
+// Registration step 1: server response from "start WebAuthn" endpoint
 type startWebauthnRegistrationResponse struct {
-	RequestID string                              `json:"requestId"`
-	Options   webauthnProtocol.CredentialCreation `json:"options"`
+	RequestID string `json:"requestId"`
+	// Inputs for WebAuthn call on client
+	Options webauthnProtocol.CredentialCreation `json:"options"`
 }
 
+// Registration step 2: client request to "finish WebAuthn" endpoint
 type finishWebauthnRegistrationRequest struct {
-	RequestID  string                                      `json:"requestId"`
+	RequestID string `json:"requestId"`
+	// WebAuthn response from client
 	Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
 }
 
+// Authentication step 1: server response from "start WebAuthn" endpoint
 type startWebauthnAuthenticationResponse struct {
-	RequestID string                               `json:"requestId"`
-	Options   webauthnProtocol.CredentialAssertion `json:"options"`
+	RequestID string `json:"requestId"`
+	// Inputs for WebAuthn call on client
+	Options webauthnProtocol.CredentialAssertion `json:"options"`
 }
 
+// Authentication step 2: client request to "finish WebAuthn" endpoint
 type finishWebauthnAuthenticationRequest struct {
-	StayLoggedIn bool                                         `json:"stayLoggedIn"`
-	RequestID    string                                       `json:"requestId"`
-	Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
+	StayLoggedIn bool   `json:"stayLoggedIn"`
+	RequestID    string `json:"requestId"`
+	// WebAuthn response from client
+	Credential webauthnProtocol.CredentialAssertionResponse `json:"credential"`
 }
 
 func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
