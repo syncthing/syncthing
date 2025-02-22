@@ -414,7 +414,6 @@
     "TCP WAN": "TCP WAN",
     "Take me back": "뒤로",
     "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "시작 옵션이 GUI 주소를 덮어쓰고 있습니다. 덮어쓰기가 지속되는 동안에는 설정을 변경할 수 없습니다.",
-    "The Syncthing Authors": "The Syncthing Authors",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing의 관리자 인터페이스가 비밀번호 없이 원격 접속할 수 있도록 설정되어 있습니다.",
     "The aggregated statistics are publicly available at the URL below.": "수집된 통계는 아래의 주소에서 공람할 수 있습니다.",
     "The cleanup interval cannot be blank.": "정리 간격은 비워 둘 수 없습니다.",
