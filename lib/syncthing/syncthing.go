@@ -206,7 +206,7 @@ func (a *App) startup() error {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := kv.NewTyped(a.sdb.KV(), "misc")
+	miscDB := kv.NewMiscDB(a.sdb.KV())
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
 		l.Warnln("Database:", err)

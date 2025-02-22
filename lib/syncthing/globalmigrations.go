@@ -17,7 +17,7 @@ const (
 )
 
 func globalMigration(db kv.KV, cfg config.Wrapper) error {
-	miscDB := kv.NewTyped(db, "misc")
+	miscDB := kv.NewMiscDB(db)
 	prevVersion, _, err := miscDB.Int64(globalMigrationDBKey)
 	if err != nil {
 		return err

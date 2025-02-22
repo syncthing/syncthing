@@ -28,7 +28,11 @@ type Typed struct {
 	prefix string
 }
 
-// NewTyped returns a new NamespacedKV that lives in the namespace
+func NewMiscDB(db KV) *Typed {
+	return NewTyped(db, "misc")
+}
+
+// NewTyped returns a new typed key-value store that lives in the namespace
 // specified by the prefix.
 func NewTyped(db KV, prefix string) *Typed {
 	return &Typed{

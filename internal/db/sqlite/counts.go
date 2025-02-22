@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -28,32 +27,6 @@ type Counts struct {
 	Sequence    int64             // zero for the global state
 	DeviceID    protocol.DeviceID // device ID for remote devices, or special values for local/global
 	LocalFlags  uint32            // the local flag for this count bucket
-}
-
-func (c Counts) toWire() *dbproto.Counts {
-	return &dbproto.Counts{
-		Files:       int32(c.Files),
-		Directories: int32(c.Directories),
-		Symlinks:    int32(c.Symlinks),
-		Deleted:     int32(c.Deleted),
-		Bytes:       c.Bytes,
-		Sequence:    c.Sequence,
-		DeviceId:    c.DeviceID[:],
-		LocalFlags:  c.LocalFlags,
-	}
-}
-
-func countsFromWire(w *dbproto.Counts) Counts {
-	return Counts{
-		Files:       int(w.Files),
-		Directories: int(w.Directories),
-		Symlinks:    int(w.Symlinks),
-		Deleted:     int(w.Deleted),
-		Bytes:       w.Bytes,
-		Sequence:    w.Sequence,
-		DeviceID:    protocol.DeviceID(w.DeviceId),
-		LocalFlags:  w.LocalFlags,
-	}
 }
 
 func (c Counts) Add(other Counts) Counts {

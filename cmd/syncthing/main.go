@@ -37,11 +37,11 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
@@ -600,7 +600,7 @@ func syncthingMain(options serveOptions) {
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
-		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
+		release, err := initialAutoUpgradeCheck(kv.NewMiscDB(sdb.KV()))
 		if err == nil {
 			err = upgrade.To(release)
 		}
@@ -827,7 +827,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+func initialAutoUpgradeCheck(misc *kv.Typed) (upgrade.Release, error) {
 	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}
