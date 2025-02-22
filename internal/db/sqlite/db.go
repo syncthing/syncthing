@@ -324,6 +324,12 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
 	return all.Subtract(doubleCounted)
 }
 
+func (db *DB) Folders() ([]string, error) {
+	var res []string
+	err := db.sql.Select(&res, `SELECT folder_id FROM folders ORDER BY folder_id`)
+	return res, wrap("folders", err)
+}
+
 func (db *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	var res []string
 	err := db.sql.Select(&res, `

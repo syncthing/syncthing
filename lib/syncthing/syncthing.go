@@ -29,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/connections/registry"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -68,7 +67,6 @@ type App struct {
 	myID              protocol.DeviceID
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
-	ll                *db.Lowlevel
 	sdb               *sqlite.DB
 	evLogger          events.Logger
 	cert              tls.Certificate
@@ -84,13 +82,8 @@ type App struct {
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, sdb *sqlite.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
-	ll, err := db.NewLowlevel(dbBackend, evLogger, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval))
-	if err != nil {
-		return nil, err
-	}
 	a := &App{
 		cfg:      cfg,
-		ll:       ll,
 		sdb:      sdb,
 		evLogger: evLogger,
 		opts:     opts,
@@ -127,8 +120,6 @@ func (a *App) Start() error {
 
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
-
-	a.mainService.Add(a.ll)
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
@@ -184,14 +175,12 @@ func (a *App) startup() error {
 	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
-	if err := db.UpdateSchema(a.ll); err != nil {
-		l.Warnln("Database schema:", err)
-		return err
-	}
-
 	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		db.DropDeltaIndexIDs(a.ll)
+		if err := a.sdb.DropIndexIDs(); err != nil {
+			l.Warnln("Drop index IDs:", err)
+			return err
+		}
 	}
 
 	protectedFiles := []string{
@@ -202,11 +191,16 @@ func (a *App) startup() error {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folders := a.cfg.Folders()
-	for _, folder := range a.ll.ListFolders() {
-		if _, ok := folders[folder]; !ok {
+	cfgFolders := a.cfg.Folders()
+	dbFolders, err := a.sdb.Folders()
+	if err != nil {
+		l.Warnln("Listing folders:", err)
+		return err
+	}
+	for _, folder := range dbFolders {
+		if _, ok := cfgFolders[folder]; !ok {
 			l.Infof("Cleaning metadata for dropped folder %q", folder)
-			db.DropFolder(a.ll, folder)
+			a.sdb.DropFolder(folder)
 		}
 	}
 
@@ -233,7 +227,10 @@ func (a *App) startup() error {
 		if a.cfg.Options().SendFullIndexOnUpgrade {
 			// Drop delta indexes in case we've changed random stuff we
 			// shouldn't have. We will resend our index on next connect.
-			db.DropDeltaIndexIDs(a.ll)
+			if err := a.sdb.DropIndexIDs(); err != nil {
+				l.Warnln("Drop index IDs:", err)
+				return err
+			}
 		}
 	}
 
@@ -337,7 +334,7 @@ func (a *App) wait(errChan <-chan error) {
 
 	done := make(chan struct{})
 	go func() {
-		a.ll.Close()
+		a.sdb.Close()
 		close(done)
 	}()
 	select {

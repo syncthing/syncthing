@@ -70,3 +70,8 @@ func (db *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.In
 	}
 	return nil
 }
+
+func (db *DB) DropIndexIDs() error {
+	_, err := db.sql.Exec(`DELETE FROM index_ids`)
+	return wrap("drop index IDs", err)
+}
