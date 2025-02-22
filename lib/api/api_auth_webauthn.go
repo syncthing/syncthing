@@ -22,7 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 )
 
-const ceremonyTimeout time.Duration = time.Minute * 10
+const ceremonyTimeout time.Duration = 10 * time.Minute
 
 func newWebauthnEngine(guiCfg config.GUIConfiguration, deviceName string) (*webauthnLib.WebAuthn, error) {
 	displayName := "Syncthing"
