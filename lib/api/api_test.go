@@ -2193,11 +2193,11 @@ func TestWebauthnRegistration(t *testing.T) {
 		}
 		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 		if finishResp2.StatusCode != http.StatusRequestTimeout {
-			t.Fatalf("Expected old WebAuthn registration to time out: status %d", finishResp2.StatusCode)
+			t.Errorf("Expected old WebAuthn registration to time out: status %d", finishResp2.StatusCode)
 		}
 		finishResp3 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 		if finishResp3.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected expired WebAuthn registration to have been deleted: status %d", finishResp3.StatusCode)
+			t.Errorf("Expected expired WebAuthn registration to have been deleted: status %d", finishResp3.StatusCode)
 		}
 	})
 
@@ -2211,7 +2211,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential with wrong challenge; status: %d", finishResp.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential with wrong challenge; status: %d", finishResp.StatusCode)
 		}
 	})
 
@@ -2224,7 +2224,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential with wrong origin; status: %d", finishResp.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential with wrong origin; status: %d", finishResp.StatusCode)
 		}
 	})
 
@@ -2249,7 +2249,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential without user presence flag set; status: %d", finishResp.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential without user presence flag set; status: %d", finishResp.StatusCode)
 		}
 	})
 
@@ -2263,7 +2263,7 @@ func TestWebauthnRegistration(t *testing.T) {
 
 		finishResp := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential with malformed public key; status: %d", finishResp.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential with malformed public key; status: %d", finishResp.StatusCode)
 		}
 	})
 
@@ -2282,7 +2282,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		cred := createWebauthnRegistrationResponse(startResp.Options, []byte{1, 2, 3, 4}, publicKeyCose, "https://localhost:8384", 0, nil, t)
 		finishResp := httpPostCsrfAuth(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred), testAPIKey, csrfTokenName, csrfTokenValue, t)
 		if finishResp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp.StatusCode)
 		}
 	})
 
@@ -2301,7 +2301,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp2.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 
 		if finishResp2.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp2.StatusCode)
+			t.Errorf("Expected failure to register WebAuthn credential with duplicate credential ID; status: %d", finishResp2.StatusCode)
 		}
 	})
 
@@ -2319,7 +2319,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		finishResp2 := httpPostCsrf(baseURL+"/rest/config/webauthn/register-finish", startResp.finish(&cred2), csrfTokenName, csrfTokenValue, t)
 
 		if finishResp2.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
+			t.Errorf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
 		}
 	})
 }
@@ -2493,7 +2493,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusNoContent {
-				t.Fatalf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 
@@ -2506,7 +2506,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusNoContent {
-				t.Fatalf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 	})
@@ -2531,7 +2531,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusConflict {
-				t.Fatalf("Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
+				t.Errorf("Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
 			}
 		})
 
@@ -2552,7 +2552,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusConflict {
-				t.Fatalf("Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
+				t.Errorf("Expected WebAuthn authentication to fail without UV: status %d", finishResp.StatusCode)
 			}
 		})
 
@@ -2565,7 +2565,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusNoContent {
-				t.Fatalf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 	})
@@ -2589,7 +2589,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusNoContent {
-				t.Fatalf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 
@@ -2603,7 +2603,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 
@@ -2616,7 +2616,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
+				t.Errorf("Expected to fail WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 		})
 	})
@@ -2642,7 +2642,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			cred := createWebauthnAssertionResponse(startResp.Options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2662,7 +2662,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2675,7 +2675,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2689,7 +2689,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2706,7 +2706,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			cred := createWebauthnAssertionResponse(startResp.Options, []byte{1, 2, 3, 4}, wrongPrivateKey, "https://localhost:8384", false, 18, t)
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2720,7 +2720,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 
@@ -2732,7 +2732,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			cred := createWebauthnAssertionResponse(startResp.Options, []byte{5, 6, 7, 8}, privateKey, "https://localhost:8384", false, 18, t)
 			finishResp := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred, false))
 			if finishResp.StatusCode != http.StatusForbidden {
-				t.Fatalf("Expected status 403, was: %v", finishResp.StatusCode)
+				t.Errorf("Expected status 403, was: %v", finishResp.StatusCode)
 			}
 		})
 	})
@@ -2759,7 +2759,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 		cred2 := createWebauthnAssertionResponse(startResp.Options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 18, t)
 		finishResp2 := httpPost("/rest/noauth/auth/webauthn-finish", startResp.finish(&cred2, false))
 		if finishResp2.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected status 400, was: %v", finishResp2.StatusCode)
+			t.Errorf("Expected status 400, was: %v", finishResp2.StatusCode)
 		}
 	})
 
@@ -2817,7 +2817,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 		}
 
 		if sessionCookie1.Value == sessionCookie2.Value {
-			t.Fatal("Expected concurrent WebAuthn authentications to result in separate sessions")
+			t.Error("Expected concurrent WebAuthn authentications to result in separate sessions")
 		}
 	})
 
@@ -2856,11 +2856,11 @@ func TestWebauthnAuthentication(t *testing.T) {
 		}
 		finishResp2 := httpPost("/rest/noauth/auth/webauthn-finish", startResp2.finish(&cred2, false))
 		if finishResp2.StatusCode != http.StatusRequestTimeout {
-			t.Fatalf("Expected old WebAuthn authentication to time out: status %d", finishResp2.StatusCode)
+			t.Errorf("Expected old WebAuthn authentication to time out: status %d", finishResp2.StatusCode)
 		}
 		finishResp3 := httpPost("/rest/noauth/auth/webauthn-finish", startResp2.finish(&cred2, false))
 		if finishResp3.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected expired WebAuthn authentication to have been deleted: status %d", finishResp3.StatusCode)
+			t.Errorf("Expected expired WebAuthn authentication to have been deleted: status %d", finishResp3.StatusCode)
 		}
 	})
 
