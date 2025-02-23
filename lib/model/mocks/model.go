@@ -576,7 +576,7 @@ type Model struct {
 	scanFoldersReturnsOnCall map[int]struct {
 		result1 map[string]error
 	}
-	SequenceStub        func(string, protocol.DeviceID) int64
+	SequenceStub        func(string, protocol.DeviceID) (int64, error)
 	sequenceMutex       sync.RWMutex
 	sequenceArgsForCall []struct {
 		arg1 string
@@ -584,9 +584,11 @@ type Model struct {
 	}
 	sequenceReturns struct {
 		result1 int64
+		result2 error
 	}
 	sequenceReturnsOnCall map[int]struct {
 		result1 int64
+		result2 error
 	}
 	ServeStub        func(context.Context) error
 	serveMutex       sync.RWMutex
@@ -3373,7 +3375,7 @@ func (fake *Model) ScanFoldersReturnsOnCall(i int, result1 map[string]error) {
 	}{result1}
 }
 
-func (fake *Model) Sequence(arg1 string, arg2 protocol.DeviceID) int64 {
+func (fake *Model) Sequence(arg1 string, arg2 protocol.DeviceID) (int64, error) {
 	fake.sequenceMutex.Lock()
 	ret, specificReturn := fake.sequenceReturnsOnCall[len(fake.sequenceArgsForCall)]
 	fake.sequenceArgsForCall = append(fake.sequenceArgsForCall, struct {
@@ -3388,9 +3390,9 @@ func (fake *Model) Sequence(arg1 string, arg2 protocol.DeviceID) int64 {
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Model) SequenceCallCount() int {
@@ -3399,7 +3401,7 @@ func (fake *Model) SequenceCallCount() int {
 	return len(fake.sequenceArgsForCall)
 }
 
-func (fake *Model) SequenceCalls(stub func(string, protocol.DeviceID) int64) {
+func (fake *Model) SequenceCalls(stub func(string, protocol.DeviceID) (int64, error)) {
 	fake.sequenceMutex.Lock()
 	defer fake.sequenceMutex.Unlock()
 	fake.SequenceStub = stub
@@ -3412,27 +3414,30 @@ func (fake *Model) SequenceArgsForCall(i int) (string, protocol.DeviceID) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) SequenceReturns(result1 int64) {
+func (fake *Model) SequenceReturns(result1 int64, result2 error) {
 	fake.sequenceMutex.Lock()
 	defer fake.sequenceMutex.Unlock()
 	fake.SequenceStub = nil
 	fake.sequenceReturns = struct {
 		result1 int64
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *Model) SequenceReturnsOnCall(i int, result1 int64) {
+func (fake *Model) SequenceReturnsOnCall(i int, result1 int64, result2 error) {
 	fake.sequenceMutex.Lock()
 	defer fake.sequenceMutex.Unlock()
 	fake.SequenceStub = nil
 	if fake.sequenceReturnsOnCall == nil {
 		fake.sequenceReturnsOnCall = make(map[int]struct {
 			result1 int64
+			result2 error
 		})
 	}
 	fake.sequenceReturnsOnCall[i] = struct {
 		result1 int64
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Model) Serve(arg1 context.Context) error {

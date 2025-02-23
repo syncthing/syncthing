@@ -275,7 +275,10 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) *pro
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	m.sdb.Update(folder, protocol.LocalDeviceID, fs)
-	seq := m.sdb.Sequence(folder, protocol.LocalDeviceID)
+	seq, err := m.sdb.Sequence(folder, protocol.LocalDeviceID)
+	if err != nil {
+		panic(err)
+	}
 	filenames := make([]string, len(fs))
 	for i, file := range fs {
 		filenames[i] = file.Name

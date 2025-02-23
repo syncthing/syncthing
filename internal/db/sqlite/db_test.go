@@ -271,6 +271,26 @@ func TestBasics(t *testing.T) {
 			t.Log(seq)
 			t.Error("expected remote sequence to match highest sent")
 		}
+
+		// Non-existent should be zero and no error
+		if seq, err := db.Sequence("trolol", protocol.LocalDeviceID); err != nil {
+			t.Fatal(err)
+		} else if seq != 0 {
+			t.Log(seq)
+			t.Error("expected zero sequence")
+		}
+		if seq, err := db.Sequence("trolol", protocol.DeviceID{42}); err != nil {
+			t.Fatal(err)
+		} else if seq != 0 {
+			t.Log(seq)
+			t.Error("expected zero sequence")
+		}
+		if seq, err := db.Sequence(folderID, protocol.DeviceID{99}); err != nil {
+			t.Fatal(err)
+		} else if seq != 0 {
+			t.Log(seq)
+			t.Error("expected zero sequence")
+		}
 	})
 
 	t.Run("AllGlobalPrefix", func(t *testing.T) {
@@ -285,6 +305,14 @@ func TestBasics(t *testing.T) {
 		} else if vals[0].Name != "test2" {
 			t.Error(vals)
 		}
+
+		// Empty prefix should be all the files
+		vals = iterCollectTest(t, db.AllGlobalPrefix(folderID, ""))
+
+		if len(vals) != 5 {
+			t.Log(vals)
+			t.Error("expected five items")
+		}
 	})
 
 	t.Run("AllLocalPrefix", func(t *testing.T) {
@@ -298,6 +326,14 @@ func TestBasics(t *testing.T) {
 			t.Error("expected three items")
 		} else if vals[0].Name != "test2" {
 			t.Error(vals)
+		}
+
+		// Empty prefix should be all the files
+		vals = iterCollectTest(t, db.AllLocalPrefixed(folderID, protocol.LocalDeviceID, ""))
+
+		if len(vals) != 4 {
+			t.Log(vals)
+			t.Error("expected four items")
 		}
 	})
 

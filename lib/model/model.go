@@ -102,7 +102,7 @@ type Model interface {
 	GlobalSize(folder string) sqlite.Counts
 	NeedSize(folder string, device protocol.DeviceID) sqlite.Counts
 	ReceiveOnlySize(folder string) sqlite.Counts
-	Sequence(folder string, device protocol.DeviceID) int64
+	Sequence(folder string, device protocol.DeviceID) (int64, error)
 
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error)
@@ -374,8 +374,11 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	indexHasFiles := m.sdb.Sequence(folder, protocol.LocalDeviceID) > 0
-	if !indexHasFiles {
+	seq, err := m.sdb.Sequence(folder, protocol.LocalDeviceID)
+	if err != nil {
+		panic(fmt.Errorf("error getting sequence number: %w", err))
+	}
+	if seq == 0 {
 		// It's a blank folder, so this may the first time we're looking at
 		// it. Attempt to create and tag with our marker as appropriate. We
 		// don't really do anything with errors at this point except warn -
@@ -925,7 +928,11 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(m.sdb.GlobalSize(folder), need, m.sdb.Sequence(folder, device), state)
+	seq, err := m.sdb.Sequence(folder, device)
+	if err != nil {
+		return FolderCompletion{}, err
+	}
+	comp := newFolderCompletion(m.sdb.GlobalSize(folder), need, seq, state)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil
@@ -972,7 +979,7 @@ func (m *model) ReceiveOnlySize(folder string) sqlite.Counts {
 	return m.sdb.ReceiveOnlySize(folder)
 }
 
-func (m *model) Sequence(folder string, device protocol.DeviceID) int64 {
+func (m *model) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	return m.sdb.Sequence(folder, device)
 }
 
@@ -2628,10 +2635,10 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 
 			if deviceCfg.DeviceID == m.id {
 				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, protocol.LocalDeviceID)
-				protocolDevice.MaxSequence = m.sdb.Sequence(folderCfg.ID, protocol.LocalDeviceID)
+				protocolDevice.MaxSequence, _ = m.sdb.Sequence(folderCfg.ID, protocol.LocalDeviceID)
 			} else {
 				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, deviceCfg.DeviceID)
-				protocolDevice.MaxSequence = m.sdb.Sequence(folderCfg.ID, deviceCfg.DeviceID)
+				protocolDevice.MaxSequence, _ = m.sdb.Sequence(folderCfg.ID, deviceCfg.DeviceID)
 			}
 
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)

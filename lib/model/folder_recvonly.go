@@ -103,7 +103,7 @@ func (f *receiveOnlyFolder) revert() error {
 		case err != nil:
 			return err
 		case !ok:
-			msg := "Unexpected global file that we have locally"
+			msg := "Unexpectedly missing global file that we have locally"
 			l.Debugf("%v revert: %v: %v", f, msg, fi.Name)
 			f.evLogger.Log(events.Failure, msg)
 			continue
@@ -115,9 +115,9 @@ func (f *receiveOnlyFolder) revert() error {
 				fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
 				break
 			}
+			l.Debugf("Revert: deleting %s: %v\n", fi.Name, err)
 			handled, err := delQueue.handle(*fi)
 			if err != nil {
-				l.Infof("Revert: deleting %s: %v\n", fi.Name, err)
 				continue
 			}
 			if !handled {

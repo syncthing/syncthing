@@ -54,7 +54,10 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	if err != nil {
 		return nil, err
 	}
-	mySequence := sdb.Sequence(folder.ID, protocol.LocalDeviceID)
+	mySequence, err := sdb.Sequence(folder.ID, protocol.LocalDeviceID)
+	if err != nil {
+		return nil, err
+	}
 	var startSequence int64
 
 	// This is the other side's description of what it knows
@@ -190,7 +193,11 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		if s.sdb.Sequence(s.folder, protocol.LocalDeviceID) <= s.localPrevSequence {
+		seq, err := s.sdb.Sequence(s.folder, protocol.LocalDeviceID)
+		if err != nil {
+			return err
+		}
+		if seq <= s.localPrevSequence {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -365,7 +372,11 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	l.Debugf("Received %d files for %s from %s, prevSeq=%d, lastSeq=%d", len(fs), s.folder, deviceID.Short(), prevSequence, lastSequence)
 
 	// Verify that the previous sequence number matches what we expected
-	if exp := s.sdb.Sequence(s.folder, deviceID); prevSequence > 0 && prevSequence != exp {
+	exp, err := s.sdb.Sequence(s.folder, deviceID)
+	if err != nil {
+		return err
+	}
+	if prevSequence > 0 && prevSequence != exp {
 		s.logSequenceAnomaly("index update with unexpected sequence", map[string]any{
 			"prevSeq":      prevSequence,
 			"lastSeq":      lastSequence,
@@ -424,7 +435,10 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	if err := s.sdb.Update(s.folder, deviceID, fs); err != nil {
 		return err
 	}
-	seq := s.sdb.Sequence(s.folder, deviceID)
+	seq, err := s.sdb.Sequence(s.folder, deviceID)
+	if err != nil {
+		return err
+	}
 
 	// Check that the sequence we get back is what we put in...
 	if lastSequence > 0 && len(fs) > 0 && seq != lastSequence {

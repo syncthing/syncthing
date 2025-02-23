@@ -130,8 +130,8 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		global = c.model.GlobalSize(folder)
 		local = c.model.LocalSize(folder, protocol.LocalDeviceID)
 		need = c.model.NeedSize(folder, protocol.LocalDeviceID)
-		// ro = snap.ReceiveOnlyChangedSize() XXX
-		ourSeq = c.model.Sequence(folder, protocol.LocalDeviceID)
+		// ro = c.model.ReceiveOnlyChangedSize() XXX
+		ourSeq, _ = c.model.Sequence(folder, protocol.LocalDeviceID)
 		// remoteSeq = snap.RemoteSequences() XXX
 	}
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
