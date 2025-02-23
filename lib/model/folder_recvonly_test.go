@@ -579,7 +579,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 			ModifiedS:   fi.ModTime().Unix(),
 			ModifiedNs:  int32(fi.ModTime().Nanosecond()),
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 42}}},
-			Sequence:    42,
+			Sequence:    43,
 			Blocks:      blocks,
 		},
 	}

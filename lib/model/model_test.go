@@ -1706,6 +1706,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	defer wCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
+	var seq int64
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
 		var blocks []protocol.BlockInfo
@@ -1714,12 +1715,14 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
 		}
+		seq++
 		return protocol.FileInfo{
 			Name:      filepath.Join(path...),
 			Type:      typ,
 			ModifiedS: 0x666,
 			Blocks:    blocks,
 			Size:      0xa,
+			Sequence:  seq,
 		}
 	}
 	f := func(name string) *TreeEntry {
@@ -1811,13 +1814,13 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	result, _ := m.GlobalDirectoryTree("default", "", -1, false)
 
 	if mm(result) != mm(expectedResult) {
-		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(expectedResult))
+		t.Fatalf("Does not match:\n%s\n============\n%s", mm(result), mm(expectedResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "another", -1, false)
 
 	if mm(result) != mm(findByName(expectedResult, "another").Children) {
-		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(findByName(expectedResult, "another").Children))
+		t.Fatalf("Does not match:\n%s\n============\n%s", mm(result), mm(findByName(expectedResult, "another").Children))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "", 0, false)
@@ -1829,7 +1832,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n============\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "", 1, false)
@@ -1850,7 +1853,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "", -1, true)
@@ -1880,7 +1883,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "", 1, true)
@@ -1899,7 +1902,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "another", 0, false)
@@ -1909,7 +1912,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "some/directory", 0, false)
@@ -1918,7 +1921,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "some/directory", 1, false)
@@ -1929,7 +1932,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "some/directory", 2, false)
@@ -1942,7 +1945,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	result, _ = m.GlobalDirectoryTree("default", "another", -1, true)
@@ -1955,7 +1958,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 
 	// No prefix matching!
@@ -1963,7 +1966,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	currentResult = []*TreeEntry{}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Fatalf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
 	}
 }
 

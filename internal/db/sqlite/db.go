@@ -94,7 +94,8 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		return wrap("update", err)
 	}
 
-	for _, f := range fs {
+	var prevRemoteSeq int64
+	for i, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
 
 		var blockshash *string
@@ -122,6 +123,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		bs := []byte{} // deliberately empty but not nil
 		var remoteSeq *int64
 		if device != protocol.LocalDeviceID {
+			if i > 0 && f.Sequence == prevRemoteSeq {
+				return fmt.Errorf("duplicate remote sequence number %d", prevRemoteSeq)
+			}
+			prevRemoteSeq = f.Sequence
 			remoteSeq = &f.Sequence
 			bs, err = proto.Marshal(f.ToWire(true))
 			if err != nil {
@@ -355,7 +360,7 @@ func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.F
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
-	pattern := prefix + "/%"
+	pattern := prefix + "%"
 
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
@@ -423,7 +428,7 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
-	pattern := prefix + "/%"
+	pattern := prefix + "%"
 
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
