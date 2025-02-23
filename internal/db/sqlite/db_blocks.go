@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"iter"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -18,11 +17,15 @@ type BlockMapEntry struct {
 	Size     int
 }
 
-func (*DB) insertBlocksLocked(tx *sqlx.Tx, folderIdx, deviceIdx, localSeq int64, blocks []protocol.BlockInfo) error {
+func (*DB) insertBlocksLocked(tx *txPreparedStmts, folderIdx, deviceIdx, localSeq int64, blocks []protocol.BlockInfo) error {
+	insStmt, err := tx.Preparex(`
+		INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, idx, offset, size)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return wrap("insert block", err)
+	}
 	for i, b := range blocks {
-		if _, err := tx.Exec(`
-			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, idx, offset, size)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		if _, err := insStmt.Exec(
 			base64.RawStdEncoding.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, i, b.Offset, b.Size); err != nil {
 			return wrap("insert block", err)
 		}

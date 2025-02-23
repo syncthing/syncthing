@@ -19,7 +19,7 @@
 -- any given device.
 CREATE TABLE IF NOT EXISTS files (
     folder_idx INTEGER NOT NULL,
-    device_idx INTEGER NOT NULL, -- actual device ID, or LocalDeviceID, or GlobalDeviceID
+    device_idx INTEGER NOT NULL, -- actual device ID or LocalDeviceID
     sequence INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, -- our local database sequence, for each and every entry
     remote_sequence INTEGER, -- remote device's sequence number, null for local or synthetic entries
     name TEXT NOT NULL,
@@ -31,9 +31,22 @@ CREATE TABLE IF NOT EXISTS files (
     invalid INTEGER NOT NULL, -- boolean
     local_flags  INTEGER NOT NULL,
     blocks_hash TEXT, -- null when there are no blocks
-    fileinfo_protobuf BLOB NOT NULL,
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
+) STRICT
+;
+-- FileInfos store the actual protobuf object. We do this separately to keep
+-- the files rows smaller and more efficient.
+CREATE TABLE IF NOT EXISTS fileinfos (
+    sequence INTEGER NOT NULL PRIMARY KEY, -- our local database sequence from the files table
+    protobuf BLOB NOT NULL,
+    FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE
+) STRICT
+;
+CREATE TABLE IF NOT EXISTS blocklists (
+    blocks_hash TEXT NOT NULL PRIMARY KEY,
+    refcount INTEGER NOT NULL,
+    protobuf BLOB NOT NULL
 ) STRICT
 ;
 -- There can be only one file per folder, device, and remote sequence number
@@ -45,6 +58,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device
 -- We want to be able to look up & iterate files based on just folder and name
 CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
 ;
--- We want to be able to look up & iterate files based on blocks hash
+-- -- -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocks_hash_only ON files (blocks_hash)
 ;

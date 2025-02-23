@@ -617,7 +617,7 @@ func syncthingMain(options serveOptions) {
 			}
 			snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
 				batch = append(batch, f)
-				if len(batch) == 250 {
+				if len(batch) == 1000 {
 					if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
 						l.Warnln("Failed to migrate FileInfos:", err)
 						os.Exit(1)
