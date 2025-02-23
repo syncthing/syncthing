@@ -79,7 +79,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
 
-	tx, err := db.sql.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadUncommitted, ReadOnly: false})
+	tx, err := db.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
 		return wrap("update", err)
 	}
@@ -153,7 +153,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		}
 
 		// Update global and need
-		if err := db.processNeedLocked(tx, folderIdx, f.Name); err != nil {
+		if err := db.recalcGlobalForFile(tx, folderIdx, f.Name); err != nil {
 			return wrap("update", err)
 		}
 
@@ -179,24 +179,82 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	if device == protocol.LocalDeviceID {
 		panic("bug: cannot drop local device")
 	}
+
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String())
-	return err
+
+	deviceIdx, err := db.deviceIdxLocked(device)
+	if err != nil {
+		return wrap("drop device", err)
+	}
+
+	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap("drop device", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Find all files where the device is involved
+	var folderIdxs []int64
+	if err := tx.Select(&folderIdxs, `
+		SELECT folder_idx
+		FROM sizes
+		WHERE device_idx = ? AND count > 0
+		GROUP BY folder_idx`, deviceIdx); err != nil {
+		return wrap("drop device", err)
+	}
+
+	// Drop the device, which cascades to delete all files etc for it
+	if _, err := tx.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String()); err != nil {
+		return wrap("drop device", err)
+	}
+
+	// Recalc the globals for all affected folders
+	for _, idx := range folderIdxs {
+		if err := db.recalcGlobalForFolder(tx, idx); err != nil {
+			return wrap("drop device", err)
+		}
+	}
+
+	return wrap("drop device", tx.Commit())
 }
 
 func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`
+
+	// This is a two part operation, first dropping all the files and then
+	// recalculating the global state for the entire folder.
+
+	folderIdx, err := db.folderIdxLocked(folder)
+	if err != nil {
+		return wrap("drop all files", err)
+	}
+
+	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap("drop all files", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Drop all the file entries
+
+	if _, err := tx.Exec(`
 		DELETE FROM files WHERE ROWID in (
 			SELECT f.ROWID FROM files f
-			INNER JOIN folders o ON f.folder_idx = o.idx
 			INNER JOIN devices d ON f.device_idx = d.idx
-			WHERE o.folder_id = ? AND device_id = ?
+			WHERE f.folder_idx = ? AND d.device_id = ?
 		)
-	`, folder, device.String())
-	return wrap("drop all files", err)
+	`, folderIdx, device.String()); err != nil {
+		return wrap("drop all files", err)
+	}
+
+	// Recalc global for the entire folder
+
+	if err := db.recalcGlobalForFolder(tx, folderIdx); err != nil {
+		return wrap("drop all files", err)
+	}
+	return wrap("drop all files", tx.Commit())
 }
 
 func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
@@ -207,19 +265,42 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
 
+	folderIdx, err := db.folderIdxLocked(folder)
+	if err != nil {
+		return wrap("drop all files", err)
+	}
+
+	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap("drop all files", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Drop the named files
+
 	query, args, err := sqlx.In(`
 		DELETE FROM files WHERE ROWID in (
 			SELECT f.ROWID FROM files f
-			INNER JOIN folders o ON f.folder_idx = o.idx
 			INNER JOIN devices d ON f.device_idx = d.idx
-			WHERE o.folder_id = ? AND device_id = ? AND f.name IN (?)
+			WHERE f.folder_idx = ? AND device_id = ? AND f.name IN (?)
 		)
-	`, folder, device.String(), names)
+	`, folderIdx, device.String(), names)
 	if err != nil {
 		return wrap("drop files named", err)
 	}
-	_, err = db.sql.Exec(query, args...)
-	return wrap("drop files named", err)
+	if _, err := tx.Exec(query, args...); err != nil {
+		return wrap("drop files named", err)
+	}
+
+	// Recalc globals for the named files
+
+	for _, name := range names {
+		if err := db.recalcGlobalForFile(tx, folderIdx, name); err != nil {
+			return wrap("drop files named", err)
+		}
+	}
+
+	return wrap("drop files named", tx.Commit())
 }
 
 func (db *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {

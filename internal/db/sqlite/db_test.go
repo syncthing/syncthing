@@ -309,9 +309,9 @@ func TestBasics(t *testing.T) {
 		// Empty prefix should be all the files
 		vals = iterCollectTest(t, db.AllGlobalPrefix(folderID, ""))
 
-		if len(vals) != 5 {
+		if len(vals) != 6 {
 			t.Log(vals)
-			t.Error("expected five items")
+			t.Error("expected six items")
 		}
 	})
 
@@ -578,6 +578,11 @@ func TestDropDevice(t *testing.T) {
 		t.Log(c)
 		t.Error("expected count to be two")
 	}
+
+	// Drop something that doesn't exist
+	if err := db.DropDevice(protocol.DeviceID{99}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestDropAllFiles(t *testing.T) {
@@ -634,6 +639,17 @@ func TestDropAllFiles(t *testing.T) {
 	if c := db.LocalSize("b", protocol.DeviceID{1}); c.Files != 2 {
 		t.Log(c)
 		t.Error("expected count to be two")
+	}
+
+	// Drop things that don't exist
+	if err := db.DropAllFiles("a", protocol.DeviceID{99}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.DropAllFiles("trolol", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.DropAllFiles("trolol", protocol.DeviceID{99}); err != nil {
+		t.Fatal(err)
 	}
 }
 

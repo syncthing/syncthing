@@ -7,6 +7,30 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func iterScalars[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
+		var zero T
+		if err != nil {
+			yield(zero, err)
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			v := new(T)
+			if err := rows.Scan(v); err != nil {
+				yield(zero, err)
+				return
+			}
+			if !yield(*v, nil) {
+				return
+			}
+		}
+		if err := rows.Err(); err != nil {
+			yield(zero, err)
+		}
+	}
+}
+
 func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var zero T

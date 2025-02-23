@@ -99,7 +99,28 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) processNeedLocked(tx *sqlx.Tx, folderIdx int64, file string) error {
+func (db *DB) recalcGlobalForFolder(tx *sqlx.Tx, folderIdx int64) error {
+	rows, err := tx.Queryx(`
+	SELECT name FROM files
+	WHERE folder_idx = ?
+	GROUP BY name`, folderIdx)
+	if err != nil {
+		return wrap("recalc global for folder", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return wrap("recalc global for folder", err)
+		}
+		if err := db.recalcGlobalForFile(tx, folderIdx, name); err != nil {
+			return wrap("recalc global for folder", err)
+		}
+	}
+	return nil
+}
+
+func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) error {
 	vals := iterStructs[fileRow](tx.Queryx(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ?`,
