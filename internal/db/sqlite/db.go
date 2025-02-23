@@ -21,12 +21,25 @@ type DB struct {
 	sql            *sqlx.DB
 	localDeviceIdx int64
 	updateLock     sync.Mutex
+	prepared       map[string]*sqlx.Stmt
 }
 
 func (db *DB) Close() error {
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
 	return wrap("close", db.sql.Close())
+}
+
+func (db *DB) stmt(query string) (*sqlx.Stmt, error) {
+	if stmt, ok := db.prepared[query]; ok {
+		return stmt, nil
+	}
+	stmt, err := db.sql.Preparex(query)
+	if err != nil {
+		return nil, err
+	}
+	db.prepared[query] = stmt
+	return stmt, nil
 }
 
 func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
@@ -38,6 +51,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		return wrap("update", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+	txp := &txPreparedStmts{Tx: tx}
 
 	folderIdx, err := db.folderIdxLocked(folder)
 	if err != nil {
@@ -47,6 +61,21 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	if err != nil {
 		return wrap("update", err)
 	}
+
+	insertFileStmt, err := txp.Preparex(`
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocks_hash, fileinfo_protobuf)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		RETURNING sequence`)
+	if err != nil {
+		return wrap("update", err)
+	}
+	defer insertFileStmt.Close()
+
+	updateFileInfoStmt, err := txp.Preparex(`UPDATE files SET fileinfo_protobuf = ? WHERE sequence = ?`)
+	if err != nil {
+		return wrap("update", err)
+	}
+	defer updateFileInfoStmt.Close()
 
 	var prevRemoteSeq int64
 	for i, f := range fs {
@@ -88,11 +117,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			}
 		}
 		var localSeq int64
-		if err := tx.Get(&localSeq, `
-			INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocks_hash, fileinfo_protobuf)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			RETURNING sequence`,
-			folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash, bs); err != nil {
+		if err := insertFileStmt.Get(&localSeq, folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash, bs); err != nil {
 			return wrap("update (insert file)", err)
 		}
 
@@ -105,14 +130,13 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			if err != nil {
 				return wrap("update", err)
 			}
-			if _, err := tx.Exec(`UPDATE files SET fileinfo_protobuf = ? WHERE sequence = ?`,
-				bs, localSeq); err != nil {
+			if _, err := updateFileInfoStmt.Exec(bs, localSeq); err != nil {
 				return wrap("update (update local file)", err)
 			}
 		}
 
 		// Update global and need
-		if err := db.recalcGlobalForFile(tx, folderIdx, f.Name); err != nil {
+		if err := db.recalcGlobalForFile(txp, folderIdx, f.Name); err != nil {
 			return wrap("update", err)
 		}
 
@@ -152,6 +176,7 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 		return wrap("drop device", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+	txp := &txPreparedStmts{Tx: tx}
 
 	// Find all folders where the device is involved
 	var folderIdxs []int64
@@ -170,7 +195,7 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 
 	// Recalc the globals for all affected folders
 	for _, idx := range folderIdxs {
-		if err := db.recalcGlobalForFolder(tx, idx); err != nil {
+		if err := db.recalcGlobalForFolder(txp, idx); err != nil {
 			return wrap("drop device", err)
 		}
 	}
@@ -195,6 +220,7 @@ func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 		return wrap("drop all files", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+	txp := &txPreparedStmts{Tx: tx}
 
 	// Drop all the file entries
 
@@ -210,7 +236,7 @@ func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 
 	// Recalc global for the entire folder
 
-	if err := db.recalcGlobalForFolder(tx, folderIdx); err != nil {
+	if err := db.recalcGlobalForFolder(txp, folderIdx); err != nil {
 		return wrap("drop all files", err)
 	}
 	return wrap("drop all files", tx.Commit())
@@ -234,6 +260,7 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 		return wrap("drop all files", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+	txp := &txPreparedStmts{Tx: tx}
 
 	// Drop the named files
 
@@ -254,7 +281,7 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 	// Recalc globals for the named files
 
 	for _, name := range names {
-		if err := db.recalcGlobalForFile(tx, folderIdx, name); err != nil {
+		if err := db.recalcGlobalForFile(txp, folderIdx, name); err != nil {
 			return wrap("drop files named", err)
 		}
 	}

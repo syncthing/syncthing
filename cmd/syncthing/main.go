@@ -635,6 +635,8 @@ func syncthingMain(options serveOptions) {
 		}
 
 		_ = miscDB.PutTime("migrated-from-leveldb", time.Now())
+		sdb.Close()
+		os.Exit(0)
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial

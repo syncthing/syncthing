@@ -38,7 +38,10 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	db := &DB{sql: sqlDB}
+	db := &DB{
+		sql:      sqlDB,
+		prepared: make(map[string]*sqlx.Stmt),
+	}
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change

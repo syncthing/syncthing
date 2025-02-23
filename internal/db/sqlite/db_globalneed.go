@@ -8,7 +8,6 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -99,11 +98,15 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) recalcGlobalForFolder(tx *sqlx.Tx, folderIdx int64) error {
-	rows, err := tx.Queryx(`
+func (db *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
+	namesStmt, err := txp.Preparex(`
 	SELECT name FROM files
 	WHERE folder_idx = ?
-	GROUP BY name`, folderIdx)
+	GROUP BY name`)
+	if err != nil {
+		return wrap("recalc global for folder", err)
+	}
+	rows, err := namesStmt.Queryx(folderIdx)
 	if err != nil {
 		return wrap("recalc global for folder", err)
 	}
@@ -113,18 +116,21 @@ func (db *DB) recalcGlobalForFolder(tx *sqlx.Tx, folderIdx int64) error {
 		if err := rows.Scan(&name); err != nil {
 			return wrap("recalc global for folder", err)
 		}
-		if err := db.recalcGlobalForFile(tx, folderIdx, name); err != nil {
+		if err := db.recalcGlobalForFile(txp, folderIdx, name); err != nil {
 			return wrap("recalc global for folder", err)
 		}
 	}
 	return wrap("recalc global for folder", rows.Err())
 }
 
-func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) error {
-	vals := iterStructs[fileRow](tx.Queryx(`
+func (db *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file string) error {
+	selStmt, err := txp.Preparex(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
-		WHERE folder_idx = ? AND name = ?`,
-		folderIdx, file))
+		WHERE folder_idx = ? AND name = ?`)
+	if err != nil {
+		return wrap("processNeed (select)", err)
+	}
+	vals := iterStructs[fileRow](selStmt.Queryx(folderIdx, file))
 	es, err := itererr.Collect(vals)
 	if err != nil {
 		return wrap("processNeed (select)", err)
@@ -159,10 +165,13 @@ func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) err
 	} else {
 		global.LocalFlags |= protocol.FlagLocalNeeded
 	}
-	if _, err := tx.Exec(`
+	upStmt, err := txp.Prepare(`
 		UPDATE files SET local_flags = ?
-		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-		global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
+		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
+	if err != nil {
+		return wrap("processNeed (insert global)", err)
+	}
+	if _, err := upStmt.Exec(global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
 		return wrap("processNeed (insert global)", err)
 	}
 
@@ -170,10 +179,13 @@ func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) err
 	// same version vector or are newer than the global
 	for _, f := range es[:globIdx] {
 		f.LocalFlags &= ^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal)
-		if _, err := tx.Exec(`
-		UPDATE files SET local_flags = ?
-		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
+		upStmt, err := txp.Prepare(`
+			UPDATE files SET local_flags = ?
+			WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
+		if err != nil {
+			return wrap("processNeed (clear need)", err)
+		}
+		if _, err := upStmt.Exec(f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
 			return wrap("processNeed (clear need)", err)
 		}
 	}
@@ -183,10 +195,13 @@ func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) err
 	for _, f := range es[globIdx+1:] {
 		f.LocalFlags &= ^protocol.FlagLocalGlobal
 		f.LocalFlags |= protocol.FlagLocalNeeded
-		if _, err := tx.Exec(`
-		UPDATE files SET local_flags = ?
-		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
+		upStmt, err := txp.Prepare(`
+			UPDATE files SET local_flags = ?
+			WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
+		if err != nil {
+			return wrap("processNeed (clear need)", err)
+		}
+		if _, err := upStmt.Exec(f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
 			return wrap("processNeed (set need)", err)
 		}
 	}
