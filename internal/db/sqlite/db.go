@@ -324,7 +324,7 @@ func (db *DB) Local(folder string, device protocol.DeviceID, file string) (proto
 	if err != nil {
 		return protocol.FileInfo{}, false, wrap("get", err)
 	}
-	return protocol.FileInfoFromDB(&bfi), true, nil
+	return nativeFilename(protocol.FileInfoFromDB(&bfi)), true, nil
 }
 
 func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error) {
@@ -342,7 +342,7 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 		return protocol.FileInfo{}, false, wrap("global", err)
 	}
 
-	return protocol.FileInfoFromDB(&bfi), true, nil
+	return nativeFilename(protocol.FileInfoFromDB(&bfi)), true, nil
 }
 
 func (db *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
@@ -351,7 +351,9 @@ func (db *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
 		folder, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, protocol.FileInfoFromDB)
+	return itererr.Map(beps, func(b *bep.FileInfo) protocol.FileInfo {
+		return nativeFilename(protocol.FileInfoFromDB(b))
+	})
 }
 
 func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
@@ -367,7 +369,9 @@ func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.F
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
 		folder, prefix, pattern, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, protocol.FileInfoFromDB)
+	return itererr.Map(beps, func(b *bep.FileInfo) protocol.FileInfo {
+		return nativeFilename(protocol.FileInfoFromDB(b))
+	})
 }
 
 func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
@@ -403,7 +407,7 @@ func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*proto
 		WHERE o.folder_id = ? AND d.device_id = ?`,
 		folder, device.String()))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := protocol.FileInfoFromDB(b)
+		fi := nativeFilename(protocol.FileInfoFromDB(b))
 		return &fi
 	})
 }
@@ -417,7 +421,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := protocol.FileInfoFromDB(b)
+		fi := nativeFilename(protocol.FileInfoFromDB(b))
 		return &fi
 	})
 }
@@ -437,7 +441,7 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
 		folder, device.String(), prefix, pattern))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := protocol.FileInfoFromDB(b)
+		fi := nativeFilename(protocol.FileInfoFromDB(b))
 		return &fi
 	})
 }
@@ -449,7 +453,7 @@ func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.File
 		WHERE o.folder_id = ? AND f.blocks_hash = ?`,
 		folder, base64.RawStdEncoding.EncodeToString(h)))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := protocol.FileInfoFromDB(b)
+		fi := nativeFilename(protocol.FileInfoFromDB(b))
 		return &fi
 	})
 }

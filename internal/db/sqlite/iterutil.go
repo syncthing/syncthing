@@ -5,6 +5,8 @@ import (
 	"iter"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -69,4 +71,9 @@ func iterDebug[K, V any](it iter.Seq2[K, V]) iter.Seq2[K, V] {
 			}
 		}
 	}
+}
+
+func nativeFilename(fi protocol.FileInfo) protocol.FileInfo {
+	fi.Name = osutil.NativeFilename(fi.Name)
+	return fi
 }

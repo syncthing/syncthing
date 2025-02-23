@@ -64,7 +64,7 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 		`+orderBy+limitStr,
 		folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
 	return itererr.Map(vals, func(r fileRow) string {
-		return r.Name
+		return osutil.NativeFilename(r.Name)
 	})
 }
 
