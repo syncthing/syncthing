@@ -7,6 +7,8 @@
 package protocol
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,7 +31,7 @@ func (v *Vector) String() string {
 		if i > 0 {
 			buf.WriteRune(',')
 		}
-		fmt.Fprintf(&buf, "%d:%d", c.ID, c.Value)
+		fmt.Fprintf(&buf, "%x:%d", c.ID, c.Value)
 	}
 	return buf.String()
 }
@@ -65,10 +67,13 @@ func VectorFromString(s string) (Vector, error) {
 		if !ok {
 			return Vector{}, fmt.Errorf("bad pair %q", pair)
 		}
-		id, err := strconv.ParseUint(idStr, 10, 64)
+		idslice, err := hex.DecodeString(idStr)
 		if err != nil {
 			return Vector{}, fmt.Errorf("bad id in pair %q", pair)
 		}
+		var idbs [8]byte
+		copy(idbs[8-len(idslice):], idslice)
+		id := binary.BigEndian.Uint64(idbs[:])
 		val, err := strconv.ParseUint(valStr, 10, 64)
 		if err != nil {
 			return Vector{}, fmt.Errorf("bad val in pair %q", pair)
