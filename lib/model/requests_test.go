@@ -1405,7 +1405,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	file.SetIgnored()
 	m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{prepareFileInfoForIndex(file)}})
 
-	// Wait for the ignored file to be received and possible pulled
+	// Wait for the ignored file to be received and possibly pulled
 	timeout := time.After(10 * time.Second)
 	globalUpdated := false
 	for {

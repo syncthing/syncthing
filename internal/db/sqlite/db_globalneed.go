@@ -152,9 +152,9 @@ func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) err
 	hasLocal := localIdx >= 0 && localIdx <= globIdx
 
 	// Set the global flag on the global entry. Set the need flag if the
-	// local device needs this file.
+	// local device needs this file, unless it's invalid.
 	global.LocalFlags |= protocol.FlagLocalGlobal
-	if hasLocal {
+	if hasLocal || global.Invalid {
 		global.LocalFlags &= ^protocol.FlagLocalNeeded
 	} else {
 		global.LocalFlags |= protocol.FlagLocalNeeded
