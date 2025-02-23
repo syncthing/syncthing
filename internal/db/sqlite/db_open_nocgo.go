@@ -2,7 +2,7 @@
 
 package sqlite
 
-import _ "modernc.org/sqlite" // register sqlite3 database driver
+import _ "modernc.org/sqlite" // register sqlite database driver
 
 const (
 	dbDriver      = "sqlite"
