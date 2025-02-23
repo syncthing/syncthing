@@ -336,7 +336,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		}
 		if !ok {
 			// can't happen
-			return 0, nil, nil, errors.New("XXX")
+			return 0, nil, nil, errors.New("unexpectedly need file without a global version")
 		}
 
 		if f.IgnoreDelete && file.IsDeleted() {
@@ -575,7 +575,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	}
 
 	if shouldDebug() {
-		curFile, _, _ := f.model.sdb.Local(f.folderID, protocol.LocalDeviceID, file.Name) // XXX error
+		curFile, _, _ := f.model.sdb.Local(f.folderID, protocol.LocalDeviceID, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 

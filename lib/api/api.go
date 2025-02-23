@@ -991,27 +991,19 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
-	// qs := r.URL.Query() XXX
-	// folder := qs.Get("folder")
-	// file := qs.Get("file")
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	file := qs.Get("file")
 
-	// mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
+	lf, _, _ := s.model.CurrentFolderFile(folder, file)
+	gf, _, _ := s.model.CurrentGlobalFile(folder, file)
+	av, _ := s.model.Availability(folder, protocol.FileInfo{Name: file}, protocol.BlockInfo{})
 
-	// lf, _ := snap.Get(protocol.LocalDeviceID, file)
-	// gf, _ := snap.GetGlobal(file)
-	// av, _ := s.model.Availability(file)
-	// vl := snap.DebugGlobalVersions(file)
-
-	// sendJSON(w, map[string]interface{}{
-	// 	"global":         jsonFileInfo(gf),
-	// 	"local":          jsonFileInfo(lf),
-	// 	"availability":   av,
-	// 	"globalVersions": vl.String(),
-	// 	"mtime": map[string]interface{}{
-	// 		"err":   mtimeErr,
-	// 		"value": mtimeMapping,
-	// 	},
-	// })
+	sendJSON(w, map[string]interface{}{
+		"global":       jsonFileInfo(gf),
+		"local":        jsonFileInfo(lf),
+		"availability": av,
+	})
 }
 
 func (s *service) postSystemRestart(w http.ResponseWriter, _ *http.Request) {

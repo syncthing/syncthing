@@ -131,9 +131,8 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	}, nil
 }
 
-// waitForFileset waits for the handler to resume and fetches the current fileset.
-// XXX rename
-func (s *indexHandler) waitForFileset(ctx context.Context) error {
+// waitWhilePaused waits for the handler to resume
+func (s *indexHandler) waitWhilePaused(ctx context.Context) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
@@ -169,7 +168,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
-	if err := s.waitForFileset(ctx); err != nil {
+	if err := s.waitWhilePaused(ctx); err != nil {
 		return err
 	}
 	err = s.sendIndexTo(ctx)
@@ -185,7 +184,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	defer ticker.Stop()
 
 	for err == nil {
-		if err := s.waitForFileset(ctx); err != nil {
+		if err := s.waitWhilePaused(ctx); err != nil {
 			return err
 		}
 

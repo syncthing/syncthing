@@ -3305,6 +3305,7 @@ func TestRenameSameFile(t *testing.T) {
 
 func TestRenameEmptyFile(t *testing.T) {
 	t.Skip("XXX why do we have a special exception for the empty block list?")
+
 	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
 	defer wcfgCancel()
 	m := setupModel(t, wcfg)
