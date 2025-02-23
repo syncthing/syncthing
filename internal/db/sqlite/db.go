@@ -3,7 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"iter"
@@ -101,7 +101,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		var blockshash *string
 		if len(f.Blocks) > 0 {
 			f.BlocksHash = protocol.BlocksHash(f.Blocks)
-			h := hex.EncodeToString(f.BlocksHash)
+			h := base64.RawStdEncoding.EncodeToString(f.BlocksHash)
 			blockshash = &h
 		} else {
 			f.BlocksHash = nil
@@ -447,7 +447,7 @@ func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.File
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.blocks_hash = ?`,
-		folder, hex.EncodeToString(h)))
+		folder, base64.RawStdEncoding.EncodeToString(h)))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi

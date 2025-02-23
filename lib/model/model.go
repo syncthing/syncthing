@@ -97,7 +97,6 @@ type Model interface {
 
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
 	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[*protocol.FileInfo, error]
-	AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error]
 	LocalSize(folder string, device protocol.DeviceID) sqlite.Counts
 	GlobalSize(folder string) sqlite.Counts
 	NeedSize(folder string, device protocol.DeviceID) sqlite.Counts
@@ -946,21 +945,8 @@ func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, sta
 	return m.sdb.AllLocalSequenced(folder, device, startSeq)
 }
 
-func (m *model) AllForBlocksHash(h []byte) iter.Seq2[*protocol.FileInfo, error] {
-	folders := m.cfg.FolderList()
-	return func(yield func(*protocol.FileInfo, error) bool) {
-		for _, folder := range folders {
-			for fi, err := range m.sdb.AllForBlocksHash(folder.ID, h) {
-				if err != nil {
-					yield(nil, err)
-					return
-				}
-				if !yield(fi, nil) {
-					return
-				}
-			}
-		}
-	}
+func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.FileInfo, error] {
+	return m.sdb.AllForBlocksHash(folder, h)
 }
 
 func (m *model) LocalSize(folder string, device protocol.DeviceID) sqlite.Counts {

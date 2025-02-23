@@ -798,7 +798,7 @@ func TestAllForBlocksHash(t *testing.T) {
 	vals := iterCollectTest(t, db.AllForBlocksHash(folderID, test1.BlocksHash))
 	if len(vals) != 1 {
 		t.Log(vals)
-		t.Error("expected one file to match")
+		t.Fatal("expected one file to match")
 	}
 
 	// Check test2 which also matches test3
@@ -811,7 +811,15 @@ func TestAllForBlocksHash(t *testing.T) {
 	vals = iterCollectTest(t, db.AllForBlocksHash(folderID, test2.BlocksHash))
 	if len(vals) != 2 {
 		t.Log(vals)
-		t.Error("expected two files to match")
+		t.Fatal("expected two files to match")
+	}
+	if vals[0].Name != "test2" {
+		t.Log(vals[0])
+		t.Error("expected test2")
+	}
+	if vals[1].Name != "test3" {
+		t.Log(vals[1])
+		t.Error("expected test3")
 	}
 }
 

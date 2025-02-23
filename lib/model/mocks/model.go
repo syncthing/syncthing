@@ -24,10 +24,11 @@ type Model struct {
 		arg1 protocol.Connection
 		arg2 protocol.Hello
 	}
-	AllForBlocksHashStub        func([]byte) iter.Seq2[*protocol.FileInfo, error]
+	AllForBlocksHashStub        func(string, []byte) iter.Seq2[*protocol.FileInfo, error]
 	allForBlocksHashMutex       sync.RWMutex
 	allForBlocksHashArgsForCall []struct {
-		arg1 []byte
+		arg1 string
+		arg2 []byte
 	}
 	allForBlocksHashReturns struct {
 		result1 iter.Seq2[*protocol.FileInfo, error]
@@ -683,23 +684,24 @@ func (fake *Model) AddConnectionArgsForCall(i int) (protocol.Connection, protoco
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) AllForBlocksHash(arg1 []byte) iter.Seq2[*protocol.FileInfo, error] {
-	var arg1Copy []byte
-	if arg1 != nil {
-		arg1Copy = make([]byte, len(arg1))
-		copy(arg1Copy, arg1)
+func (fake *Model) AllForBlocksHash(arg1 string, arg2 []byte) iter.Seq2[*protocol.FileInfo, error] {
+	var arg2Copy []byte
+	if arg2 != nil {
+		arg2Copy = make([]byte, len(arg2))
+		copy(arg2Copy, arg2)
 	}
 	fake.allForBlocksHashMutex.Lock()
 	ret, specificReturn := fake.allForBlocksHashReturnsOnCall[len(fake.allForBlocksHashArgsForCall)]
 	fake.allForBlocksHashArgsForCall = append(fake.allForBlocksHashArgsForCall, struct {
-		arg1 []byte
-	}{arg1Copy})
+		arg1 string
+		arg2 []byte
+	}{arg1, arg2Copy})
 	stub := fake.AllForBlocksHashStub
 	fakeReturns := fake.allForBlocksHashReturns
-	fake.recordInvocation("AllForBlocksHash", []interface{}{arg1Copy})
+	fake.recordInvocation("AllForBlocksHash", []interface{}{arg1, arg2Copy})
 	fake.allForBlocksHashMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -713,17 +715,17 @@ func (fake *Model) AllForBlocksHashCallCount() int {
 	return len(fake.allForBlocksHashArgsForCall)
 }
 
-func (fake *Model) AllForBlocksHashCalls(stub func([]byte) iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) AllForBlocksHashCalls(stub func(string, []byte) iter.Seq2[*protocol.FileInfo, error]) {
 	fake.allForBlocksHashMutex.Lock()
 	defer fake.allForBlocksHashMutex.Unlock()
 	fake.AllForBlocksHashStub = stub
 }
 
-func (fake *Model) AllForBlocksHashArgsForCall(i int) []byte {
+func (fake *Model) AllForBlocksHashArgsForCall(i int) (string, []byte) {
 	fake.allForBlocksHashMutex.RLock()
 	defer fake.allForBlocksHashMutex.RUnlock()
 	argsForCall := fake.allForBlocksHashArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Model) AllForBlocksHashReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
