@@ -7,6 +7,7 @@
 package kv
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -79,10 +80,13 @@ func (db *ObservedDB) RemovePendingDevice(device protocol.DeviceID) error {
 // after a warning log message, as a side-effect.
 func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	res := make(map[protocol.DeviceID]ObservedDevice)
-	for key, val := range db.kv.Prefix("device/") {
-		_, keyDev, ok := strings.Cut(key, "/")
+	for kv, err := range db.kv.Prefix("device/") {
+		if err != nil {
+			return nil, err
+		}
+		_, keyDev, ok := strings.Cut(kv.Key, "/")
 		if !ok {
-			if err := db.kv.Delete(key); err != nil {
+			if err := db.kv.Delete(kv.Key); err != nil {
 				return nil, err
 			}
 			continue
@@ -94,7 +98,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		if err != nil {
 			goto deleteKey
 		}
-		if err = proto.Unmarshal(val, &protoD); err != nil {
+		if err = proto.Unmarshal(kv.Value, &protoD); err != nil {
 			goto deleteKey
 		}
 		od.fromWire(&protoD)
@@ -104,7 +108,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		// Deleting invalid entries is the only possible "repair" measure and
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
-		if err := db.kv.Delete(key); err != nil {
+		if err := db.kv.Delete(kv.Key); err != nil {
 			return nil, err
 		}
 	}
@@ -124,12 +128,15 @@ func (db *ObservedDB) RemovePendingFolderForDevice(id string, device protocol.De
 
 // RemovePendingFolder removes all entries matching a specific folder ID.
 func (db *ObservedDB) RemovePendingFolder(id string) error {
-	for key := range db.kv.Prefix("folder/") {
-		parts := strings.Split(key, "/")
-		if len(parts) != 3 || parts[1] != id {
+	for kv, err := range db.kv.Prefix("folder/") {
+		if err != nil {
+			return err
+		}
+		parts := strings.Split(kv.Key, "/")
+		if len(parts) != 3 || parts[2] != id {
 			continue
 		}
-		if err := db.kv.Delete(key); err != nil {
+		if err := db.kv.Delete(kv.Key); err != nil {
 			return err
 		}
 	}
@@ -149,28 +156,35 @@ func (db *ObservedDB) PendingFolders() (map[string]PendingFolder, error) {
 // is EmptyDeviceID.  Invalid ones are dropped from the database after a info log
 // message, as a side-effect.
 func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[string]PendingFolder, error) {
-	prefix := "folders/"
+	prefix := "folder/"
 	if device != protocol.EmptyDeviceID {
 		prefix += device.String() + "/"
 	}
 	res := make(map[string]PendingFolder)
-	for key, value := range db.kv.Prefix(prefix) {
-		parts := strings.Split(key, "/")
+	for kv, err := range db.kv.Prefix(prefix) {
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("look", kv.Key)
+		parts := strings.Split(kv.Key, "/")
 		if len(parts) != 3 {
 			continue
 		}
-		keyDev := parts[2]
+		keyDev := parts[1]
 		deviceID, err := protocol.DeviceIDFromString(keyDev)
 		var protoF dbproto.ObservedFolder
 		var of ObservedFolder
 		var folderID string
+		fmt.Println("dev", keyDev, err)
 		if err != nil {
 			goto deleteKey
 		}
-		if folderID = parts[1]; len(folderID) < 1 {
+		if folderID = parts[2]; len(folderID) < 1 {
+			fmt.Println("folderID empty")
 			goto deleteKey
 		}
-		if err = proto.Unmarshal(value, &protoF); err != nil {
+		if err = proto.Unmarshal(kv.Value, &protoF); err != nil {
+			fmt.Println("unmarshal", err)
 			goto deleteKey
 		}
 		if _, ok := res[folderID]; !ok {
@@ -185,7 +199,7 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		// Deleting invalid entries is the only possible "repair" measure and
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
-		if err := db.kv.Delete(key); err != nil {
+		if err := db.kv.Delete(kv.Key); err != nil {
 			return nil, err
 		}
 	}

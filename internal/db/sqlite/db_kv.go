@@ -39,24 +39,7 @@ type KVEntry struct {
 	Value []byte
 }
 
-func (kv *KV) Prefix(prefix string) iter.Seq2[string, []byte] {
+func (kv *KV) Prefix(prefix string) iter.Seq2[KVEntry, error] {
 	prefix += "%"
-	rows, err := kv.db.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
-	if err != nil {
-		return func(func(string, []byte) bool) {}
-	}
-	return func(yield func(string, []byte) bool) {
-		defer rows.Close()
-		for rows.Next() {
-			var key string
-			var val []byte
-			if err := rows.Scan(&key, &val); err != nil {
-				// XXX yolo
-				return
-			}
-			if !yield(key, val) {
-				return
-			}
-		}
-	}
+	return iterStructs[KVEntry](kv.db.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix))
 }

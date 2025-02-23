@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"fmt"
 	"iter"
 
 	"github.com/jmoiron/sqlx"
@@ -55,6 +56,17 @@ func iterProtos[T any, PT pbMessage[T]](rows *sqlx.Rows, err error) iter.Seq2[*T
 		}
 		if err := rows.Err(); err != nil {
 			yield(nil, err)
+		}
+	}
+}
+
+func iterDebug[K, V any](it iter.Seq2[K, V]) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for k, v := range it {
+			fmt.Printf("iter: (%v, %v)\n", k, v)
+			if !yield(k, v) {
+				return
+			}
 		}
 	}
 }
