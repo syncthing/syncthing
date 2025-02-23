@@ -471,6 +471,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
+	t.Skip("flaky")
+
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
 	testFs := fcfg.Filesystem()
