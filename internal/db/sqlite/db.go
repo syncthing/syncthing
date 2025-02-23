@@ -261,32 +261,35 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 
 func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
 	prefix = osutil.NormalizedFilename(prefix)
+	pattern := prefix + "/%"
 
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.name LIKE ? AND f.local_flags & ? != 0`,
-		folder, prefix, protocol.FlagLocalGlobal))
+		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
+		folder, prefix, pattern, protocol.FlagLocalGlobal))
 	return itererr.Map(beps, protocol.FileInfoFromDB)
 }
 
-func (db *DB) Sequence(folder string, device protocol.DeviceID) int64 {
+func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	var seq int64
 	field := "sequence"
 	if device != protocol.LocalDeviceID {
 		field = "remote_sequence"
 	}
 
-	err := db.sql.Get(seq, fmt.Sprintf(`
+	err := db.sql.Get(&seq, fmt.Sprintf(`
 		SELECT MAX(f.%s) FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device = ?`, field),
+		WHERE o.folder_id = ? AND d.device_id = ?`, field),
 		folder, device.String())
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0
+		return 0, nil
+	} else if err != nil {
+		return 0, wrap("sequence", err)
 	}
-	return seq
+	return seq, nil
 }
 
 func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
@@ -318,14 +321,14 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 
 func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
 	prefix = osutil.NormalizedFilename(prefix)
-	glob := prefix + "/*"
+	pattern := prefix + "/%"
 
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name GLOB ?) AND f.version != ""`,
-		folder, device.String(), prefix, glob))
+		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.version != ""`,
+		folder, device.String(), prefix, pattern))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
 		return &fi
@@ -336,7 +339,7 @@ func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.File
 	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.blockshash = ?`,
+		WHERE o.folder_id = ? AND f.blocks_hash = ?`,
 		folder, hex.EncodeToString(h)))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
